@@ -83,7 +83,7 @@ thumb_full_download_threads = queue.Queue()
 reports_queue = queue.Queue()
 all_thumbs_loaded = True
 
-rtips_string = """YYou can disable tips in the add-on preferences.
+rtips_string = """You can disable tips in the add-on preferences.
 Ratings help us distribute funds to creators.
 Creators also gain credits for free assets from subscribers.
 Click or drag model or material in scene to link/append 
