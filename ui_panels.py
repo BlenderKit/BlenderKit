@@ -20,7 +20,7 @@
 from blenderkit import paths, comments_utils, ratings, ratings_utils, utils, download, categories, icons, search, \
     resolutions, ui, \
     tasks_queue, \
-    autothumb, upload
+    autothumb, upload, addon_updater_ops
 
 from bpy.types import (
     Panel
@@ -590,7 +590,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
 
             layout.operator("wm.url_open", text="See my uploads",
                             icon='URL').url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS
-
+        addon_updater_ops.update_notice_box_ui()
 
 class MarkNotificationRead(bpy.types.Operator):
     """Mark notification as read here and also on BlenderKit server"""
