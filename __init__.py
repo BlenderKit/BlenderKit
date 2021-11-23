@@ -29,7 +29,7 @@ bl_info = {
 }
 
 
-import sentry_sdk
+from blenderkit import sentry_sdk
 sentry_sdk.init(
     "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
 
