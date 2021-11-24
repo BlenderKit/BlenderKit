@@ -590,7 +590,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
 
             layout.operator("wm.url_open", text="See my uploads",
                             icon='URL').url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS
-        addon_updater_ops.update_notice_box_ui()
+        addon_updater_ops.update_notice_box_ui(self,context)
 
 class MarkNotificationRead(bpy.types.Operator):
     """Mark notification as read here and also on BlenderKit server"""

@@ -196,7 +196,7 @@ def unpack_asset(data):
                 if bpy.app.version >= (3, 0, 0):
                     b.asset_mark()
                 data_block = b
-    if data_block is not None:
+    if bpy.app.version >= (3, 0, 0) and data_block is not None:
         tags = data_block.asset_data.tags
         for t in tags:
             tags.remove(t)
