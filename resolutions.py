@@ -134,6 +134,7 @@ def upload_resolutions(files, asset_data):
         bg_blender.progress('upload failed.')
 
 
+
 def unpack_asset(data):
     utils.p('unpacking asset')
     asset_data = data['asset_data']
@@ -173,21 +174,27 @@ def unpack_asset(data):
     if asset_data['assetType'] == 'model':
         for ob in bpy.data.objects:
             if ob.parent is None and ob in bpy.context.visible_objects:
-                ob.asset_mark()
+                if bpy.app.version>=(3,0,0):
+                    ob.asset_mark()
         # for c in bpy.data.collections:
         #     if c.get('asset_data') is not None:
+        #         if bpy.app.version >= (3, 0, 0):
+
         #         c.asset_mark()
         #         data_block = c
     elif asset_data['assetType'] == 'material':
         for m in bpy.data.materials:
-            m.asset_mark()
+            if bpy.app.version >= (3, 0, 0):
+                m.asset_mark()
             data_block = m
     elif asset_data['assetType'] == 'scene':
-        bpy.context.scene.asset_mark()
+        if bpy.app.version >= (3, 0, 0):
+            bpy.context.scene.asset_mark()
     elif asset_data['assetType'] =='brush':
         for b in bpy.data.brushes:
             if b.get('asset_data') is not None:
-                b.asset_mark()
+                if bpy.app.version >= (3, 0, 0):
+                    b.asset_mark()
                 data_block = b
     if data_block is not None:
         tags = data_block.asset_data.tags
