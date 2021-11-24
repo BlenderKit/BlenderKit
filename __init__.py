@@ -28,17 +28,17 @@ bl_info = {
     "category": "3D View",
 }
 
+import sys
+sys.path.insert(0, './lib')
+import sentry_sdk
+sentry_sdk.init(
+    "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
 
-# from blenderkit import sentry_sdk
-# sentry_sdk.init(
-#     "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
-#
-#     # Set traces_sample_rate to 1.0 to capture 100%
-#     # of transactions for performance monitoring.
-#     # We recommend adjusting this value in production.
-#     traces_sample_rate=1.0
-# )
-
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production.
+    traces_sample_rate=1.0
+)
 
 if "bpy" in locals():
     from importlib import reload
