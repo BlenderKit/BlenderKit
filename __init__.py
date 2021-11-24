@@ -25,6 +25,7 @@ bl_info = {
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
     "warning": "",
     "doc_url": "{BLENDER_MANUAL_URL}/addons/3d_view/blenderkit.html",
+    "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
 
