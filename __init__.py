@@ -29,8 +29,10 @@ bl_info = {
 }
 
 import sys
-sys.path.insert(0, './lib')
-import sentry_sdk
+from os import path
+lib = path.join(path.dirname(__file__), 'lib')
+sys.path.insert(0, lib)
+from .lib import sentry_sdk
 sentry_sdk.init(
     "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
 
