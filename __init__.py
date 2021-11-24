@@ -20,7 +20,7 @@ bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy",
     "version": (3, 0, 0),
-    "blender": (2, 93, 0),
+    "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
     "warning": "",
@@ -28,12 +28,24 @@ bl_info = {
     "category": "3D View",
 }
 
+import sys
+sys.path.insert(0, './lib')
+import sentry_sdk
+sentry_sdk.init(
+    "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
+
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production.
+    traces_sample_rate=1.0
+)
+
 if "bpy" in locals():
     from importlib import reload
 
     # alphabetically sorted all add-on modules since reload only happens from __init__.
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
-
+    addon_updater_ops = reload(addon_updater_ops)
     append_link = reload(append_link)
     asset_bar_op = reload(asset_bar_op)
     asset_inspector = reload(asset_inspector)
@@ -74,6 +86,7 @@ if "bpy" in locals():
     # bl_ui_textbox = reload(bl_ui_textbox)
 
 else:
+    from blenderkit import addon_updater_ops
     from blenderkit import append_link
     from blenderkit import asset_bar_op
     from blenderkit import asset_inspector
@@ -1788,6 +1801,39 @@ class BlenderKitAddonPreferences(AddonPreferences):
     #     default=False
     # )
 
+    auto_check_update : bpy.props.BoolProperty(
+        name="Auto-check for Update",
+        description="If enabled, auto-check for updates using an interval",
+        default=True)
+
+    updater_interval_months : bpy.props.IntProperty(
+        name='Months',
+        description="Number of months between checking for updates",
+        default=0,
+        min=0)
+
+    updater_interval_days : bpy.props.IntProperty(
+        name='Days',
+        description="Number of days between checking for updates",
+        default=1,
+        min=0,
+        max=31)
+
+    updater_interval_hours : bpy.props.IntProperty(
+        name='Hours',
+        description="Number of hours between checking for updates",
+        default=0,
+        min=0,
+        max=23)
+
+    updater_interval_minutes : bpy.props.IntProperty(
+        name='Minutes',
+        description="Number of minutes between checking for updates",
+        default=0,
+        min=0,
+        max=59)
+
+
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "show_on_start")
@@ -1824,6 +1870,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
             layout.prop(self, "experimental_features")
             layout.prop(self, "categories_fix")
 
+        addon_updater_ops.update_settings_ui(self, context)
 
 # # @bpy.app.handlers.persistent
 # def blenderkit_timer():
@@ -1863,6 +1910,7 @@ classes = (
 
 
 def register():
+    addon_updater_ops.register(bl_info)
     for cls in classes:
         bpy.utils.register_class(cls)
 

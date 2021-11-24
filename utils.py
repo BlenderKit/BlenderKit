@@ -741,6 +741,21 @@ def name_update(props):
         # Here we actually rename assets datablocks, but don't do that with HDR's and possibly with others
         asset.name = fname
 
+def fmt_dimensions(p):
+    '''formats dimensions to correct string'''
+    dims = [p['dimensionX'],p['dimensionY'],p['dimensionZ']]
+    maxl = max(dims)
+    if maxl>1:
+        unit = 'm'
+        unitscale = 1
+    elif maxl>.01:
+        unit = 'cm'
+        unitscale = 100
+    else:
+        unit = 'mm'
+        unitscale = 1000
+    s = f'{fmt_length(dims[0]*unitscale)}×{fmt_length(dims[1]*unitscale)}×{fmt_length(dims[2]*unitscale)} {unit}'
+    return s
 
 def fmt_length(prop):
     prop = str(round(prop, 2))
@@ -844,7 +859,6 @@ def asset_from_newer_blender_version(asset_data):
     '''checks if asset is from a newer blender version, to avoid incompatibility'''
     bver = bpy.app.version
     aver = asset_data['sourceAppVersion'].split('.')
-    #print(aver,bver)
     bver_f = bver[0] + bver[1] * .01 + bver[2] * .0001
     if len(aver)>=3:
         aver_f = int(aver[0]) + int(aver[1]) * .01 + int(aver[2]) * .0001

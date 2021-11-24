@@ -1737,6 +1737,9 @@ class AssetDragOperator(bpy.types.Operator):
             self.handlers_remove()
             bpy.context.window.cursor_set("DEFAULT")
             ui_props.dragging = False
+            bpy.ops.view3d.blenderkit_asset_bar_widget('INVOKE_REGION_WIN',
+                                                       do_search=False)
+
             return {'CANCELLED'}
 
         sprops = bpy.context.window_manager.blenderkit_models
@@ -1907,10 +1910,10 @@ def register_ui():
     # fast rating shortcut
     wm = bpy.context.window_manager
     km = wm.keyconfigs.addon.keymaps['Window']
-    kmi = km.keymap_items.new(ratings.FastRateMenu.bl_idname, 'F', 'PRESS', ctrl=False, shift=False)
-    addon_keymapitems.append(kmi)
-    kmi = km.keymap_items.new(upload.FastMetadata.bl_idname, 'F', 'PRESS', ctrl=True, shift=False)
-    addon_keymapitems.append(kmi)
+    # kmi = km.keymap_items.new(ratings.FastRateMenu.bl_idname, 'R', 'PRESS', ctrl=False, shift=False)
+    # addon_keymapitems.append(kmi)
+    # kmi = km.keymap_items.new(upload.FastMetadata.bl_idname, 'F', 'PRESS', ctrl=True, shift=False)
+    # addon_keymapitems.append(kmi)
 
 
 def unregister_ui():

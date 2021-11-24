@@ -97,6 +97,9 @@ Login to upload your own models, materials or brushes.
 Use 'A' key over the asset bar to search assets by the same author.
 Use semicolon - ; to hide or show the AssetBar.
 Support the authors by subscribing to Full plan.
+Use the W key over the asset bar to open the Author's webpage.
+Use the R key for fast rating of assets.
+Use the X key to delete the asset from your hard drive.
 """
 rtips = rtips_string.splitlines()
 
@@ -117,7 +120,7 @@ def refresh_notifications_timer():
     fetch_server_data()
     all_notifications_count = comments_utils.count_all_notifications()
     comments_utils.get_notifications_thread(preferences.api_key, all_count = all_notifications_count)
-    return 300
+    return 7200
 
 
 def update_ad(ad):
@@ -197,9 +200,9 @@ def scene_load(context):
     categories.load_categories()
     if not bpy.app.timers.is_registered(refresh_token_timer) and not bpy.app.background:
         bpy.app.timers.register(refresh_token_timer, persistent=True, first_interval=36000)
-    if utils.experimental_enabled() and not bpy.app.timers.is_registered(
-            refresh_notifications_timer) and not bpy.app.background:
-        bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
+    # if utils.experimental_enabled() and not bpy.app.timers.is_registered(
+    #         refresh_notifications_timer) and not bpy.app.background:
+    #     bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
 
     update_assets_data()
 
@@ -218,10 +221,11 @@ def fetch_server_data():
             get_profile()
         if bpy.context.window_manager.get('bkit_categories') is None:
             categories.fetch_categories_thread(api_key, force=False)
-        all_notifications_count = comments_utils.count_all_notifications()
-        comments_utils.get_notifications_thread(api_key, all_count = all_notifications_count)
+        # all_notifications_count = comments_utils.count_all_notifications()
+        # comments_utils.get_notifications_thread(api_key, all_count = all_notifications_count)
 
 first_time = True
+first_search_parsing = True
 last_clipboard = ''
 
 
@@ -408,7 +412,7 @@ def search_timer():
 
             all_thumbs_loaded = all_loaded
 
-    global search_threads
+    global search_threads, first_search_parsing
     if len(search_threads) == 0:
         # utils.p('end search timer')
         props = utils.get_search_props()
@@ -425,6 +429,15 @@ def search_timer():
         # TODO this doesn't check all processes when one gets removed,
         # but most of the time only one is running anyway
         if not thread[0].is_alive():
+
+            #check for notifications only for users that actually use the add-on
+            if first_search_parsing:
+                first_search_parsing = False
+                all_notifications_count = comments_utils.count_all_notifications()
+                comments_utils.get_notifications_thread(preferences.api_key, all_count=all_notifications_count)
+                if utils.experimental_enabled() and not bpy.app.timers.is_registered(
+                        refresh_notifications_timer) and not bpy.app.background:
+                    bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
 
             search_threads.remove(thread)  #
             icons_dir = thread[1]
@@ -487,9 +500,11 @@ def search_timer():
                     # jump back
                     ui_props.scroll_offset = 0
                 props.search_error = False
-                props.report = 'Found %i results. ' % (wm['search results orig']['count'])
+                props.report = f"Found {wm['search results orig']['count']} results."
                 if len(wm['search results']) == 0:
                     tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
+                else:
+                    tasks_queue.add_task((reports.add_report, (f"Found {wm['search results orig']['count']} results.",)))
                 # undo push
                 # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
                 # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
