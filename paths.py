@@ -23,6 +23,7 @@ _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
 BLENDERKIT_LOCAL = "http://localhost:8001"
 BLENDERKIT_MAIN = "https://www.blenderkit.com"
 BLENDERKIT_DEVEL = "https://devel.blenderkit.com"
+BLENDERKIT_STAGING = "https://staging.blenderkit.com"
 BLENDERKIT_API = "/api/v1/"
 BLENDERKIT_REPORT_URL = "usage_report/"
 BLENDERKIT_USER_ASSETS = "/my-assets"
@@ -58,6 +59,8 @@ def get_bkit_url():
         url = BLENDERKIT_LOCAL
     elif d == 2:
         url = BLENDERKIT_DEVEL
+    elif d == 3:
+        url = BLENDERKIT_STAGING
     else:
         url = BLENDERKIT_MAIN
     return url
