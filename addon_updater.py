@@ -110,7 +110,7 @@ class SingletonUpdater:
         self._addon = __package__.lower()
         self._addon_package = __package__  # Must not change.
         self._updater_path = os.path.join(
-            os.path.dirname(__file__), self._addon + "_updater")
+            os.path.dirname(__file__),'../../addons_updates/', self._addon + "_updater")
         self._addon_root = os.path.dirname(__file__)
         self._json = dict()
         self._error = None
