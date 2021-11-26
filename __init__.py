@@ -1886,7 +1886,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
 #     bg_blender.bg_update()
 # registration
 classes = (
-    BlenderKitAddonPreferences,
     BlenderKitUIProps,
 
     BlenderKitModelSearchProps,
