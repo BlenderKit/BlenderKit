@@ -1371,7 +1371,7 @@ def register(bl_info):
     # updater.addon = # define at top of module, MUST be done first
 
     # Website for manual addon download, optional but recommended to set.
-    updater.website = "https://github.com/blenderkit/blenderkit/"
+    updater.website = "https://https://www.blenderkit.com/get-blenderkit/"
 
     # Addon subfolder path.
     # "sample/path/to/addon"
