@@ -52,7 +52,8 @@ if __name__ == "__main__":
             temp_blend_path = os.path.join(data['tempdir'], 'temp.blend')
 
             # if this isn't here, blender crashes.
-            bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+            if bpy.app.version >= (3, 0, 0):
+                bpy.context.preferences.filepaths.file_preview_type = 'NONE'
 
             bpy.ops.wm.save_as_mainfile(filepath=temp_blend_path)
 

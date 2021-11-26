@@ -204,7 +204,8 @@ def unpack_asset(data):
         tags.new('tags: ' + ','.join(asset_data['tags']))
     #
     # if this isn't here, blender crashes when saving file.
-    bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+    if bpy.app.version >= (3, 0, 0):
+        bpy.context.preferences.filepaths.file_preview_type = 'NONE'
 
     bpy.ops.wm.save_as_mainfile(filepath = bpy.data.filepath, compress=False)
     # now try to delete the .blend1 file
@@ -400,7 +401,8 @@ def generate_lower_resolutions(data):
                 # save
                 print(fpath)
                 # if this isn't here, blender crashes.
-                bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+                if bpy.app.version>=(3,0,0):
+                    bpy.context.preferences.filepaths.file_preview_type = 'NONE'
 
                 # save the file
                 bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=True)

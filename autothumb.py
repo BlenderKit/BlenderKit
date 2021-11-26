@@ -284,7 +284,8 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         bkit.thumbnail_generating_state = 'Saving .blend file'
 
         # if this isn't here, blender crashes.
-        bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+        if bpy.app.version >= (3, 0, 0):
+            bpy.context.preferences.filepaths.file_preview_type = 'NONE'
         # save a copy of actual scene but don't interfere with the users models
 
         bpy.ops.wm.save_as_mainfile(filepath=filepath, compress=False, copy=True)
@@ -475,7 +476,8 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         tempdir = tempfile.mkdtemp()
         filepath = os.path.join(tempdir, "material_thumbnailer_cycles.blend")
         # if this isn't here, blender crashes.
-        bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+        if bpy.app.version >= (3, 0, 0):
+            bpy.context.preferences.filepaths.file_preview_type = 'NONE'
 
         # save a copy of actual scene but don't interfere with the users models
         bpy.ops.wm.save_as_mainfile(filepath=filepath, compress=False, copy=True)

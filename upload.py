@@ -1101,7 +1101,8 @@ def start_upload(self, context, asset_type, reupload, upload_set):
     export_data['source_filepath'] = os.path.join(export_data['temp_dir'], "export_blenderkit" + ext)
     if asset_type != 'HDR':
         # if this isn't here, blender crashes.
-        bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+        if bpy.app.version >= (3, 0, 0):
+            bpy.context.preferences.filepaths.file_preview_type = 'NONE'
 
         bpy.ops.wm.save_as_mainfile(filepath=export_data['source_filepath'], compress=False, copy=True)
 
