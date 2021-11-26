@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy",
-    "version": (3, 0, 0),
+    "version": (3, 0, 3),
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
@@ -1886,7 +1886,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
 #     bg_blender.bg_update()
 # registration
 classes = (
-
     BlenderKitAddonPreferences,
     BlenderKitUIProps,
 
@@ -1913,7 +1912,10 @@ classes = (
 
 
 def register():
+
+    bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
+
     for cls in classes:
         bpy.utils.register_class(cls)
 

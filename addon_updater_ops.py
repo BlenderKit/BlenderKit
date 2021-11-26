@@ -1331,6 +1331,15 @@ classes = (
     AddonUpdaterEndBackground
 )
 
+def get_global_dir():
+    ''' get global data directory of BlenderKit'''
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    ddir = user_preferences.global_dir
+    if ddir.startswith('//'):
+        ddir = bpy.path.abspath(ddir)
+    if not os.path.exists(ddir):
+        os.makedirs(ddir)
+    return ddir
 
 def register(bl_info):
     """Registering the operators in this module"""
@@ -1354,7 +1363,7 @@ def register(bl_info):
 
     # Choose your own username, must match website (not needed for GitLab).
     updater.user = "blenderkit"
-
+    
     # Choose your own repository, must match git name for GitHUb and Bitbucket,
     # for GitLab use project ID (numbers only).
     updater.repo = "blenderkit"
@@ -1384,8 +1393,8 @@ def register(bl_info):
     # essentially a staging folder used by the updater on its own
     # Needs to be within the same folder as the addon itself
     # Need to supply a full, absolute path to folder
-    # updater.updater_path = # set path of updater folder, by default:
-    # 			/addons/{__package__}/{__package__}_updater
+    updater.updater_path = get_global_dir()# set path of updater folder, by default:
+    			# /addons/{__package__}/{__package__}_updater
 
     # Auto create a backup of the addon when installing other versions.
     updater.backup_current = True  # True by default
