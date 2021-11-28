@@ -31,17 +31,17 @@ bl_info = {
 
 import sys
 from os import path
-lib = path.join(path.dirname(__file__), 'lib')
-sys.path.insert(0, lib)
-from .lib import sentry_sdk
-sentry_sdk.init(
-    "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
-
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production.
-    traces_sample_rate=1.0
-)
+# lib = path.join(path.dirname(__file__), 'lib')
+# sys.path.insert(0, lib)
+# from .lib import sentry_sdk
+# sentry_sdk.init(
+#     "https://d0c1619436104436999ef934ecba6393@o182975.ingest.sentry.io/6075237",
+#
+#     # Set traces_sample_rate to 1.0 to capture 100%
+#     # of transactions for performance monitoring.
+#     # We recommend adjusting this value in production.
+#     traces_sample_rate=1.0
+# )
 
 if "bpy" in locals():
     from importlib import reload
