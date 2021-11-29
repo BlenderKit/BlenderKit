@@ -846,7 +846,12 @@ class SingletonUpdater:
                 print("Failed to create backup, still attempting update.")
                 self.print_trace()
                 return
-        shutil.move(tempdest, local)
+        try:
+            shutil.move(tempdest, local)
+        except:
+            print("Failed to move the backup")
+            self.print_trace()
+            return
 
         # Save the date for future reference.
         now = datetime.now()
