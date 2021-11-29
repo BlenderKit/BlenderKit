@@ -378,6 +378,7 @@ def search_timer():
     if first_time and not bpy.app.background:  # first time
 
         first_time = False
+        bpy.ops.blenderkit.updater_install_popup(clean_install=True)
         if preferences.show_on_start:
             # TODO here it should check if there are some results, and only open assetbar if this is the case, not search.
             # if bpy.context.window_manager.get('search results') is None:
