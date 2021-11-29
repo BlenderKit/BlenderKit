@@ -883,7 +883,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_validation_icon(self, asset_button, asset_data):
         if utils.profile_is_validator():
-            ar = bpy.context.window_manager.get('asset ratings')
+            ar = bpy.context.window_manager.get('asset ratings', {})
+            
             rating = ar.get(asset_data['id'])
             if rating is not None:
                 rating = rating.to_dict()

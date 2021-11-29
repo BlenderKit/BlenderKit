@@ -611,7 +611,7 @@ def draw_asset_bar(self, context):
                     ui_bgl.draw_image(ui_props.bar_x + ui_props.bar_width - 25,
                                       arrow_y, 25,
                                       ui_props.thumb_size, img1, 1)
-            ar = context.window_manager.get('asset ratings')
+            ar = context.window_manager.get('asset ratings',{})
             for b in range(0, h_draw):
                 w_draw = min(ui_props.wcount, len(search_results) - b * ui_props.wcount - ui_props.scroll_offset)
 
