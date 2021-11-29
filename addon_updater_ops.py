@@ -163,8 +163,10 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
         if updater.invalid_updater:
             return {'CANCELLED'}
         if updater.update_ready is None:
-            _ = updater.check_for_update(now=True)
-
+            # _ = check_for_update_background()
+            return{'FINISHED'}
+        if not updater.update_ready:
+            return {'FINISHED'}
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -713,25 +715,28 @@ def background_update_callback(update_ready):
     if not update_ready:
         return
 
-    # See if we need add to the update handler to trigger the popup.
-    handlers = []
-    if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
-        handlers = bpy.app.handlers.scene_update_post
-    else:  # 2.8+
-        handlers = bpy.app.handlers.depsgraph_update_post
-    in_handles = updater_run_install_popup_handler in handlers
+    atr = AddonUpdaterInstallPopup.bl_idname.split(".")
+    getattr(getattr(bpy.ops, atr[0]), atr[1])('INVOKE_DEFAULT')
 
-    if in_handles or ran_auto_check_install_popup:
-        return
-
-    if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
-        bpy.app.handlers.scene_update_post.append(
-            updater_run_install_popup_handler)
-    else:  # 2.8+
-        bpy.app.handlers.depsgraph_update_post.append(
-            updater_run_install_popup_handler)
-    ran_auto_check_install_popup = True
-    updater.print_verbose("Attempted popup prompt")
+    # # See if we need add to the update handler to trigger the popup.
+    # handlers = []
+    # if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
+    #     handlers = bpy.app.handlers.scene_update_post
+    # else:  # 2.8+
+    #     handlers = bpy.app.handlers.depsgraph_update_post
+    # in_handles = updater_run_install_popup_handler in handlers
+    #
+    # if in_handles or ran_auto_check_install_popup:
+    #     return
+    #
+    # if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
+    #     bpy.app.handlers.scene_update_post.append(
+    #         updater_run_install_popup_handler)
+    # else:  # 2.8+
+    #     bpy.app.handlers.depsgraph_update_post.append(
+    #         updater_run_install_popup_handler)
+    # ran_auto_check_install_popup = True
+    # updater.print_verbose("Attempted popup prompt")
 
 
 def post_update_callback(module_name, res=None):
@@ -1518,7 +1523,7 @@ def register(bl_info):
     # Recommended false to encourage blender restarts on update completion
     # Setting this option to True is NOT as stable as false (could cause
     # blender crashes).
-    updater.auto_reload_post_update = True
+    updater.auto_reload_post_update = False
 
     # The register line items for all operators/panels.
     # If using bpy.utils.register_module(__name__) to register elsewhere

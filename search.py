@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 from blenderkit import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
-    resolutions, image_utils, ratings_utils, comments_utils, reports
+    resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops
 
 import blenderkit
 from bpy.app.handlers import persistent
@@ -378,7 +378,8 @@ def search_timer():
     if first_time and not bpy.app.background:  # first time
 
         first_time = False
-        bpy.ops.blenderkit.updater_install_popup('INVOKE_DEFAULT', clean_install=False)
+        # bpy.ops.blenderkit.updater_install_popup(clean_install=False)
+        addon_updater_ops.check_for_update_background()
         if preferences.show_on_start:
             # TODO here it should check if there are some results, and only open assetbar if this is the case, not search.
             # if bpy.context.window_manager.get('search results') is None:
