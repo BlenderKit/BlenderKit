@@ -160,6 +160,11 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
         return True
 
     def invoke(self, context, event):
+        if updater.invalid_updater:
+            return {'CANCELLED'}
+        if updater.update_ready is None:
+            _ = updater.check_for_update(now=True)
+
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -217,14 +222,14 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
                     print("Updater returned successful")
                 else:
                     print("Updater returned {}, error occurred".format(res))
-        elif updater.update_ready is None:
-            _ = updater.check_for_update(now=True)
-
-            # Re-launch this dialog.
-            atr = AddonUpdaterInstallPopup.bl_idname.split(".")
-            getattr(getattr(bpy.ops, atr[0]), atr[1])('INVOKE_DEFAULT')
-        else:
-            updater.print_verbose("Doing nothing, not ready for update")
+        # elif updater.update_ready is None:
+        #     _ = updater.check_for_update(now=True)
+        #
+        #     # Re-launch this dialog.
+        #     atr = AddonUpdaterInstallPopup.bl_idname.split(".")
+        #     getattr(getattr(bpy.ops, atr[0]), atr[1])('INVOKE_DEFAULT')
+        # else:
+        #     updater.print_verbose("Doing nothing, not ready for update")
         return {'FINISHED'}
 
 
