@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import paths, ratings, utils, search, upload, ui_bgl, download, bg_blender, colors, tasks_queue, \
+from . import paths, ratings, utils, search, upload, ui_bgl, download, bg_blender, colors, tasks_queue, \
     ui_panels, icons, ratings_utils, reports
 
 import bpy

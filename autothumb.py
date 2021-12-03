@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from blenderkit import paths, utils, bg_blender, ui_panels, icons, tasks_queue, download
+from . import paths, utils, bg_blender, ui_panels, icons, tasks_queue, download
 
 import tempfile, os, subprocess, json, sys
 

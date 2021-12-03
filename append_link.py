@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import utils, ui
+from . import utils, ui
 
 import bpy
 import uuid

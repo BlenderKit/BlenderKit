@@ -18,7 +18,7 @@
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-from blenderkit import utils, paths, tasks_queue, rerequests
+from . import utils, paths, tasks_queue, rerequests
 
 import threading
 import requests

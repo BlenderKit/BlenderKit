@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import paths, append_link, bg_blender, utils, download, search, rerequests, upload_bg, image_utils
+from . import paths, append_link, bg_blender, utils, download, search, rerequests, upload_bg, image_utils
 
 import sys, json, os, time
 import subprocess

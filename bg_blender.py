@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import utils
+from . import utils
 
 import bpy
 import sys, threading, os

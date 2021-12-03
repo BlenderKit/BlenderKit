@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from blenderkit import paths, utils, rerequests, tasks_queue, ratings_utils, icons
+from . import paths, utils, rerequests, tasks_queue, ratings_utils, icons
 
 import bpy
 import requests, threading

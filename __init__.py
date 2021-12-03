@@ -89,45 +89,45 @@ if "bpy" in locals():
     # bl_ui_textbox = reload(bl_ui_textbox)
 
 else:
-    from blenderkit import addon_updater_ops
-    from blenderkit import append_link
-    from blenderkit import asset_bar_op
-    from blenderkit import asset_inspector
-    from blenderkit import autothumb
-    from blenderkit import bg_blender
-    from blenderkit import bkit_oauth
-    from blenderkit import categories
-    from blenderkit import colors
-    from blenderkit import download
-    from blenderkit import icons
-    from blenderkit import image_utils
-    from blenderkit import oauth
-    from blenderkit import overrides
-    from blenderkit import paths
-    from blenderkit import ratings
-    from blenderkit import ratings_utils
-    from blenderkit import comments_utils
-    from blenderkit import resolutions
-    from blenderkit import search
-    from blenderkit import tasks_queue
-    from blenderkit import ui
-    from blenderkit import ui_bgl
-    from blenderkit import ui_panels
-    from blenderkit import upload
-    from blenderkit import upload_bg
-    from blenderkit import utils
-    from blenderkit import reports
+    from . import addon_updater_ops
+    from . import append_link
+    from . import asset_bar_op
+    from . import asset_inspector
+    from . import autothumb
+    from . import bg_blender
+    from . import bkit_oauth
+    from . import categories
+    from . import colors
+    from . import download
+    from . import icons
+    from . import image_utils
+    from . import oauth
+    from . import overrides
+    from . import paths
+    from . import ratings
+    from . import ratings_utils
+    from . import comments_utils
+    from . import resolutions
+    from . import search
+    from . import tasks_queue
+    from . import ui
+    from . import ui_bgl
+    from . import ui_panels
+    from . import upload
+    from . import upload_bg
+    from . import utils
+    from . import reports
 
-    from blenderkit.bl_ui_widgets import bl_ui_widget
-    from blenderkit.bl_ui_widgets import bl_ui_label
-    from blenderkit.bl_ui_widgets import bl_ui_button
-    from blenderkit.bl_ui_widgets import bl_ui_image
-    # from blenderkit.bl_ui_widgets import bl_ui_checkbox
-    # from blenderkit.bl_ui_widgets import bl_ui_slider
-    # from blenderkit.bl_ui_widgets import bl_ui_up_down
-    from blenderkit.bl_ui_widgets import bl_ui_draw_op
-    from blenderkit.bl_ui_widgets import bl_ui_drag_panel
-    # from blenderkit.bl_ui_widgets import bl_ui_textbox
+    from .bl_ui_widgets import bl_ui_widget
+    from .bl_ui_widgets import bl_ui_label
+    from .bl_ui_widgets import bl_ui_button
+    from .bl_ui_widgets import bl_ui_image
+    # from .bl_ui_widgets import bl_ui_checkbox
+    # from .bl_ui_widgets import bl_ui_slider
+    # from .bl_ui_widgets import bl_ui_up_down
+    from .bl_ui_widgets import bl_ui_draw_op
+    from .bl_ui_widgets import bl_ui_drag_panel
+    # from .bl_ui_widgets import bl_ui_textbox
 
 import os
 import math

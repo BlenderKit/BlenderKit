@@ -2,21 +2,21 @@ import bpy
 
 from bpy.types import Operator
 
-from blenderkit.bl_ui_widgets.bl_ui_label import *
-from blenderkit.bl_ui_widgets.bl_ui_button import *
-from blenderkit.bl_ui_widgets.bl_ui_image import *
-# from blenderkit.bl_ui_widgets.bl_ui_checkbox import *
-# from blenderkit.bl_ui_widgets.bl_ui_slider import *
-# from blenderkit.bl_ui_widgets.bl_ui_up_down import *
-from blenderkit.bl_ui_widgets.bl_ui_drag_panel import *
-from blenderkit.bl_ui_widgets.bl_ui_draw_op import *
-# from blenderkit.bl_ui_widgets.bl_ui_textbox import *
+from .bl_ui_widgets.bl_ui_label import *
+from .bl_ui_widgets.bl_ui_button import *
+from .bl_ui_widgets.bl_ui_image import *
+# from .bl_ui_widgets.bl_ui_checkbox import *
+# from .bl_ui_widgets.bl_ui_slider import *
+# from .bl_ui_widgets.bl_ui_up_down import *
+from .bl_ui_widgets.bl_ui_drag_panel import *
+from .bl_ui_widgets.bl_ui_draw_op import *
+# from .bl_ui_widgets.bl_ui_textbox import *
 import random
 import math
 import time
 
 import blenderkit
-from blenderkit import ui, paths, utils, search, comments_utils
+from . import ui, paths, utils, search, comments_utils
 
 from bpy.props import (
     IntProperty,

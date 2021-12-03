@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import paths, rerequests, image_utils
+from . import paths, rerequests, image_utils
 
 import bpy
 from mathutils import Vector

@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import utils
+from . import utils
 
 import bpy
 from bpy.app.handlers import persistent

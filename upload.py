@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import asset_inspector, paths, utils, bg_blender, autothumb, version_checker, search, ui_panels, ui, \
+from . import asset_inspector, paths, utils, bg_blender, autothumb, version_checker, search, ui_panels, ui, \
     overrides, colors, rerequests, categories, upload_bg, tasks_queue, image_utils, asset_bar_op, reports
 
 import tempfile, os, subprocess, json, re

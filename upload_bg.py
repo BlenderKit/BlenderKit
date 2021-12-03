@@ -18,7 +18,7 @@
 
 
 
-from blenderkit import paths, append_link, bg_blender, utils, rerequests, tasks_queue, ui, reports
+from . import paths, append_link, bg_blender, utils, rerequests, tasks_queue, ui, reports
 
 import sys, json, os, time
 import requests

@@ -18,7 +18,7 @@
 
 import time
 import bpy
-from blenderkit import colors, asset_bar_op, ui_bgl, utils
+from . import colors, asset_bar_op, ui_bgl, utils
 
 reports = []
 

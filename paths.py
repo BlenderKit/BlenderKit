@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy, os, sys, tempfile, shutil
-from blenderkit import tasks_queue, ui, utils, reports
+from . import tasks_queue, ui, utils, reports
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
 BLENDERKIT_LOCAL = "http://localhost:8001"
@@ -342,7 +342,7 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others = F
 
 def delete_asset_debug(asset_data):
     '''TODO fix this for resolutions - should get ALL files from ALL resolutions.'''
-    from blenderkit import download
+    from . import download
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     api_key = user_preferences.api_key
 

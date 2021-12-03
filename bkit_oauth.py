@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import tasks_queue, utils, paths, search, categories, oauth, ui, ui_panels, colors, reports
+from . import tasks_queue, utils, paths, search, categories, oauth, ui, ui_panels, colors, reports
 
 import bpy
 
@@ -114,7 +114,7 @@ class RegisterLoginOnline(bpy.types.Operator):
     message: bpy.props.StringProperty(
         name="Message",
         description="",
-        default="You were logged out from BlenderKit.\n Clicking OK takes you to web login. ")
+        default="You were logged out from .\n Clicking OK takes you to web login. ")
 
     @classmethod
     def poll(cls, context):

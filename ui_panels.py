@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from blenderkit import paths, comments_utils, ratings, ratings_utils, utils, download, categories, icons, search, \
+from . import paths, comments_utils, ratings, ratings_utils, utils, download, categories, icons, search, \
     resolutions, ui, \
     tasks_queue, \
     autothumb, upload, addon_updater_ops
@@ -2437,7 +2437,7 @@ class LoginPopupDialog(bpy.types.Operator):
     message: bpy.props.StringProperty(
         name="Message",
         description="",
-        default="Your were logged out from BlenderKit. Please login again. ")
+        default="Your were logged out from . Please login again. ")
 
     # @classmethod
     # def poll(cls, context):

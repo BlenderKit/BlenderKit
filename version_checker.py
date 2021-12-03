@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from blenderkit import paths
+from . import paths
 
 import requests, os, json, threading
 
