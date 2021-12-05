@@ -42,6 +42,7 @@ from datetime import datetime, timedelta
 import bpy
 import addon_utils
 
+
 # -----------------------------------------------------------------------------
 # The main class
 # -----------------------------------------------------------------------------
@@ -54,6 +55,7 @@ class SingletonUpdater:
     needed throughout the addon. It implements all the interfaces for running
     updates.
     """
+
     def __init__(self):
 
         self._engine = GithubEngine()
@@ -110,7 +112,7 @@ class SingletonUpdater:
         self._addon = __package__.lower()
         self._addon_package = __package__  # Must not change.
         self._updater_path = os.path.join(
-            os.path.dirname(__file__),'../../addons_updates/', self._addon + "_updater")
+            os.path.dirname(__file__), '../../addons_updates/', self._addon + "_updater")
         self._addon_root = os.path.dirname(__file__)
         self._json = dict()
         self._error = None
@@ -645,9 +647,9 @@ class SingletonUpdater:
                 branch, self._tags[0]))
 
         elif ((len(self._tags) - len(self._include_branch_list) == 0
-                and self._include_branches)
-                or (len(self._tags) == 0 and not self._include_branches)
-                and self._prefiltered_tag_count > 0):
+               and self._include_branches)
+              or (len(self._tags) == 0 and not self._include_branches)
+              and self._prefiltered_tag_count > 0):
             self._tag_latest = None
             self._error = "No releases available"
             self._error_msg = "No versions found within compatible version range"
@@ -807,7 +809,7 @@ class SingletonUpdater:
         self.print_verbose("Backing up current addon folder")
         local = os.path.join(self._updater_path, "backup")
         tempdest = os.path.join(
-            self._addon_root, os.pardir, self._addon + "_updater_backup_temp")
+            self._addon_root, os.pardir, os.pardir, 'addons_updates', self._addon + "_updater_backup_temp")
 
         self.print_verbose("Backup destination path: " + str(local))
 
@@ -864,7 +866,7 @@ class SingletonUpdater:
         self.print_verbose("Restoring backup, backing up current addon folder")
         backuploc = os.path.join(self._updater_path, "backup")
         tempdest = os.path.join(
-            self._addon_root, os.pardir, self._addon + "_updater_backup_temp")
+            self._addon_root, os.pardir, os.pardir, 'addons_updates', self._addon + "_updater_backup_temp")
         tempdest = os.path.abspath(tempdest)
 
         # Move instead contents back in place, instead of copy.
@@ -1193,10 +1195,10 @@ class SingletonUpdater:
     def check_for_update_async(self, callback=None):
         """Called for running check in a background thread"""
         is_ready = (
-            self._json is not None
-            and "update_ready" in self._json
-            and self._json["version_text"] != dict()
-            and self._json["update_ready"])
+                self._json is not None
+                and "update_ready" in self._json
+                and self._json["version_text"] != dict()
+                and self._json["update_ready"])
 
         if is_ready:
             self._update_ready = True
@@ -1214,7 +1216,7 @@ class SingletonUpdater:
             # already running the bg thread
         elif self._update_ready is None:
             print("{} updater: Running background check for update".format(
-                  self.addon))
+                self.addon))
             self.start_async_check_update(False, callback)
 
     def check_for_update_now(self, callback=None):
@@ -1330,7 +1332,6 @@ class SingletonUpdater:
         else:
             # Situation where branches not included.
             if new_version > self._current_version:
-
                 self._update_ready = True
                 self._update_version = new_version
                 self._update_link = link
