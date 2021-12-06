@@ -1509,11 +1509,17 @@ class SingletonUpdater:
             os.makedirs(self._updater_path)
 
         jpath = self.get_json_path()
+        has_file = False
         if os.path.isfile(jpath):
-            with open(jpath) as data_file:
-                self._json = json.load(data_file)
-                self.print_verbose("Read in JSON settings from file")
-        else:
+            try:
+                with open(jpath) as data_file:
+                    self._json = json.load(data_file)
+                    self.print_verbose("Read in JSON settings from file")
+                has_file = True
+            except Exception as e:
+                print(e)
+
+        if not has_file:
             self._json = {
                 "last_check": "",
                 "backup_date": "",
