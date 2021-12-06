@@ -431,6 +431,8 @@ def search_timer():
         # TODO this doesn't check all processes when one gets removed,
         # but most of the time only one is running anyway
         if not thread[0].is_alive():
+            sys_prefs = bpy.context.preferences.system
+            sys_prefs.gl_texture_limit = 'CLAMP_OFF'
 
             #check for notifications only for users that actually use the add-on
             if first_search_parsing:
