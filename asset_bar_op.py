@@ -53,6 +53,8 @@ BL_UI_Widget.get_area_height = get_area_height
 
 def modal_inside(self, context, event):
     ui_props = bpy.context.window_manager.blenderkitUI
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+
     if ui_props.turn_off:
         ui_props.turn_off = False
         self.finish()
@@ -66,6 +68,12 @@ def modal_inside(self, context, event):
         self.finish()
         return {'FINISHED'}
 
+    sr = bpy.context.window_manager.get('search results')
+
+    # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
+    # doesn't run that often.
+    if len(sr) - ui_props.scroll_offset < (ui_props.wcount * user_preferences.max_assetbar_rows) + 15:
+        self.search_more()
     self.update_timer += 1
 
     if self.update_timer > self.update_timer_limit:
@@ -74,7 +82,6 @@ def modal_inside(self, context, event):
         self.update_images()
 
         # progress bar
-        sr = bpy.context.window_manager.get('search results')
         ui_scale = bpy.context.preferences.view.ui_scale
         for asset_button in self.asset_buttons:
             if sr is not None and len(sr) > asset_button.asset_index:
@@ -884,7 +891,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_validation_icon(self, asset_button, asset_data):
         if utils.profile_is_validator():
             ar = bpy.context.window_manager.get('asset ratings', {})
-            
+
             rating = ar.get(asset_data['id'])
             if rating is not None:
                 rating = rating.to_dict()
@@ -1016,7 +1023,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             sr = bpy.context.window_manager['search results']
             asset_data = sr[self.active_index]
             if not utils.user_is_owner(asset_data=asset_data):
-                bpy.ops.wm.blenderkit_menu_rating_upload(asset_name = asset_data['name'], asset_id =asset_data['id'], asset_type = asset_data['assetType'])
+                bpy.ops.wm.blenderkit_menu_rating_upload(asset_name=asset_data['name'], asset_id=asset_data['id'],
+                                                         asset_type=asset_data['assetType'])
             return True
         return False
 
