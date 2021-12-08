@@ -21,16 +21,20 @@ from . import paths
 
 import requests, os, json, threading
 
-
-def get_addon_version():
+def get_blender_version():
     # should return addon version, but since Blender 3.0 this is synced with Blender version
     ver = bpy.app.version
     return '%i.%i.%i' % (ver[0], ver[1], ver[2])
 
-
-    # import blenderkit
-    # ver = blenderkit.bl_info['version']
+def get_addon_version():
+    # should return addon version, but since Blender 3.0 this is synced with Blender version
+    # ver = bpy.app.version
     # return '%i.%i.%i' % (ver[0], ver[1], ver[2])
+
+
+    import blenderkit
+    ver = blenderkit.bl_info['version']
+    return '%i.%i.%i' % (ver[0], ver[1], ver[2])
 
 
 def check_version(url, api_key, module):

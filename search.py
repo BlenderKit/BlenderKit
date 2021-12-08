@@ -397,7 +397,7 @@ def search_timer():
     #     search()
     #     preferences.first_run = False
 
-    # check_clipboard()
+    check_clipboard()
 
     # finish loading thumbs from queues
     global all_thumbs_loaded
@@ -929,6 +929,7 @@ def query_to_url(query={}, params={}):
 
     requeststring += '&page_size=' + str(params['page_size'])
     requeststring += '&addon_version=%s' % params['addon_version']
+    requeststring += '&blender_version=%s' % params['blender_version']
     if params.get('scene_uuid') is not None:
         requeststring += '&scene_uuid=%s' % params['scene_uuid']
     # print('params', params)
@@ -1454,6 +1455,7 @@ def search(category='', get_next=False, author_id=''):
     params = {
         'scene_uuid': bpy.context.scene.get('uuid', None),
         'addon_version': version_checker.get_addon_version(),
+        'blender_version': version_checker.get_blender_version(),
         'api_key': user_preferences.api_key,
         'get_next': get_next,
         'free_first': props.free_only,
