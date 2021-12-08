@@ -52,80 +52,86 @@ BL_UI_Widget.get_area_height = get_area_height
 
 
 def modal_inside(self, context, event):
-    ui_props = bpy.context.window_manager.blenderkitUI
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    try:
+        ui_props = bpy.context.window_manager.blenderkitUI
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-    if ui_props.turn_off:
-        ui_props.turn_off = False
+        if ui_props.turn_off:
+            ui_props.turn_off = False
+            self.finish()
+
+        if self._finished:
+            return {'FINISHED'}
+
+        if context.area:
+            context.area.tag_redraw()
+        else:
+            self.finish()
+            return {'FINISHED'}
+
+
+        sr = bpy.context.window_manager.get('search results')
+        if sr is not None:
+            # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
+            # doesn't run that often.
+            if len(sr) - ui_props.scroll_offset < (ui_props.wcount * user_preferences.max_assetbar_rows) + 15:
+                self.search_more()
+        self.update_timer += 1
+
+        if self.update_timer > self.update_timer_limit:
+            self.update_timer = 0
+            # print('timer', time.time())
+            self.update_images()
+
+            # progress bar
+            ui_scale = bpy.context.preferences.view.ui_scale
+            for asset_button in self.asset_buttons:
+                if sr is not None and len(sr) > asset_button.asset_index:
+                    asset_data = sr[asset_button.asset_index]
+
+                    if asset_data['downloaded'] > 0:
+                        asset_button.progress_bar.width = int(self.button_size * ui_scale * asset_data['downloaded'] / 100)
+                        asset_button.progress_bar.visible = True
+                    else:
+                        asset_button.progress_bar.visible = False
+
+        if self.handle_widget_events(event):
+            return {'RUNNING_MODAL'}
+
+        if event.type in {"ESC"}:
+            self.finish()
+
+        self.mouse_x = event.mouse_region_x
+        self.mouse_y = event.mouse_region_y
+        if event.type == 'WHEELUPMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
+            self.scroll_offset -= 2
+            self.scroll_update()
+            return {'RUNNING_MODAL'}
+
+        elif event.type == 'WHEELDOWNMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
+            self.scroll_offset += 2
+            self.scroll_update()
+            return {'RUNNING_MODAL'}
+
+        if self.check_ui_resized(context) or self.check_new_search_results(context):
+            # print(self.check_ui_resized(context), print(self.check_new_search_results(context)))
+            self.update_ui_size(context)
+            self.update_layout(context, event)
+
+        # this was here to check if sculpt stroke is running, but obviously that didn't help,
+        #  since the RELEASE event is cought by operator and thus there is no way to detect a stroke has ended...
+        if bpy.context.mode in ('SCULPT', 'PAINT_TEXTURE'):
+            if event.type == 'MOUSEMOVE':  # ASSUME THAT SCULPT OPERATOR ACTUALLY STEALS THESE EVENTS,
+                # SO WHEN THERE ARE SOME WE CAN APPEND BRUSH...
+                bpy.context.window_manager['appendable'] = True
+            if event.type == 'LEFTMOUSE':
+                if event.value == 'PRESS':
+                    bpy.context.window_manager['appendable'] = False
+        return {"PASS_THROUGH"}
+    except Exception as e:
+        print(e)
         self.finish()
-
-    if self._finished:
         return {'FINISHED'}
-
-    if context.area:
-        context.area.tag_redraw()
-    else:
-        self.finish()
-        return {'FINISHED'}
-
-    sr = bpy.context.window_manager.get('search results')
-
-    # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
-    # doesn't run that often.
-    if len(sr) - ui_props.scroll_offset < (ui_props.wcount * user_preferences.max_assetbar_rows) + 15:
-        self.search_more()
-    self.update_timer += 1
-
-    if self.update_timer > self.update_timer_limit:
-        self.update_timer = 0
-        # print('timer', time.time())
-        self.update_images()
-
-        # progress bar
-        ui_scale = bpy.context.preferences.view.ui_scale
-        for asset_button in self.asset_buttons:
-            if sr is not None and len(sr) > asset_button.asset_index:
-                asset_data = sr[asset_button.asset_index]
-
-                if asset_data['downloaded'] > 0:
-                    asset_button.progress_bar.width = int(self.button_size * ui_scale * asset_data['downloaded'] / 100)
-                    asset_button.progress_bar.visible = True
-                else:
-                    asset_button.progress_bar.visible = False
-
-    if self.handle_widget_events(event):
-        return {'RUNNING_MODAL'}
-
-    if event.type in {"ESC"}:
-        self.finish()
-
-    self.mouse_x = event.mouse_region_x
-    self.mouse_y = event.mouse_region_y
-    if event.type == 'WHEELUPMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
-        self.scroll_offset -= 2
-        self.scroll_update()
-        return {'RUNNING_MODAL'}
-
-    elif event.type == 'WHEELDOWNMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
-        self.scroll_offset += 2
-        self.scroll_update()
-        return {'RUNNING_MODAL'}
-
-    if self.check_ui_resized(context) or self.check_new_search_results(context):
-        # print(self.check_ui_resized(context), print(self.check_new_search_results(context)))
-        self.update_ui_size(context)
-        self.update_layout(context, event)
-
-    # this was here to check if sculpt stroke is running, but obviously that didn't help,
-    #  since the RELEASE event is cought by operator and thus there is no way to detect a stroke has ended...
-    if bpy.context.mode in ('SCULPT', 'PAINT_TEXTURE'):
-        if event.type == 'MOUSEMOVE':  # ASSUME THAT SCULPT OPERATOR ACTUALLY STEALS THESE EVENTS,
-            # SO WHEN THERE ARE SOME WE CAN APPEND BRUSH...
-            bpy.context.window_manager['appendable'] = True
-        if event.type == 'LEFTMOUSE':
-            if event.value == 'PRESS':
-                bpy.context.window_manager['appendable'] = False
-    return {"PASS_THROUGH"}
 
 
 def asset_bar_modal(self, context, event):

@@ -1,6 +1,6 @@
 import sys
 import json
-from . import resolutions
+from blenderkit import resolutions
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
 

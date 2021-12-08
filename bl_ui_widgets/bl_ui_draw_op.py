@@ -89,5 +89,3 @@ class BL_UI_OT_draw_operator(Operator):
                     widget.draw()
         except:
             pass;
-        #     context.window_manager.event_timer_remove(self.draw_event)
-        #     bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle, "WINDOW")

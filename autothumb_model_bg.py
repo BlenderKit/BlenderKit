@@ -18,7 +18,7 @@
 
 
 
-from . import utils, append_link, bg_blender, download, upload_bg, upload
+from blenderkit import utils, append_link, bg_blender, download, upload_bg, upload
 
 import sys, json, math, os
 import bpy
