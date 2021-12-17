@@ -613,17 +613,17 @@ def iterate_for_resolutions(filepath, process_count=12, api_key='', do_checks = 
             if not do_checks or check_needs_resolutions(asset_data):
                 print('downloading and generating resolution for  %s' % asset_data['name'])
                 # this is just a quick hack for not using original dirs in blendrkit...
-                generate_resolution_thread(asset_data, api_key)
-                # thread = threading.Thread(target=generate_resolution_thread, args=(asset_data, api_key))
-                # thread.start()
+                # generate_resolution_thread(asset_data, api_key)
+                thread = threading.Thread(target=generate_resolution_thread, args=(asset_data, api_key))
+                thread.start()
                 #
-                # threads.append(thread)
+                threads.append(thread)
                 # print('processes ', len(threads))
-                # while len(threads) > process_count - 1:
-                #     for t in threads:
-                #         if not t.is_alive():
-                #             threads.remove(t)
-                #         break;
+                while len(threads) > process_count - 1:
+                    for t in threads:
+                        if not t.is_alive():
+                            threads.remove(t)
+                        break;
                 # else:
                 #     print(f'Failed to generate resolution:{asset_data["name"]}')
             else:
