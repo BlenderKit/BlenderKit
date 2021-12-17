@@ -400,7 +400,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         ui_scale = bpy.context.preferences.view.ui_scale
 
-        self.margin = ui_props.bl_rna.properties['margin'].default * ui_scale
+        self.margin = int(ui_props.bl_rna.properties['margin'].default * ui_scale)
         self.margin = int(9 * ui_scale)
         self.button_margin = int(0 * ui_scale)
         self.asset_name_text_size = int(20 * ui_scale)
@@ -413,11 +413,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             self.tooltip_width = self.tooltip_size
 
-        self.thumb_size = user_preferences.thumb_size * ui_scale
+        self.thumb_size = int(user_preferences.thumb_size * ui_scale)
         self.button_size = 2 * self.button_margin + self.thumb_size
-        self.other_button_size = 30 * ui_scale
-        self.icon_size = 24 * ui_scale
-        self.validation_icon_margin = 3 * ui_scale
+        self.other_button_size = int(30 * ui_scale)
+        self.icon_size = int(24 * ui_scale)
+        self.validation_icon_margin = int(3 * ui_scale)
         reg_multiplier = 1
         if not bpy.context.preferences.system.use_region_overlap:
             reg_multiplier = 0
@@ -432,9 +432,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 ui_width = r.width * reg_multiplier
             if r.type == 'TOOLS':
                 tools_width = r.width * reg_multiplier
-        self.bar_x = tools_width + self.margin + ui_props.bar_x_offset * ui_scale
-        self.bar_end = ui_width + 180 * ui_scale + self.other_button_size
-        self.bar_width = region.width - self.bar_x - self.bar_end
+        self.bar_x = int(tools_width + self.margin + ui_props.bar_x_offset * ui_scale)
+        self.bar_end = int(ui_width + 180 * ui_scale + self.other_button_size)
+        self.bar_width = int(region.width - self.bar_x - self.bar_end)
 
         self.wcount = math.floor((self.bar_width) / (self.button_size))
 
@@ -452,7 +452,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
         # self.bar_y = region.height - ui_props.bar_y_offset * ui_scale
-        self.bar_y = ui_props.bar_y_offset * ui_scale
+        self.bar_y = int(ui_props.bar_y_offset * ui_scale)
         if ui_props.down_up == 'UPLOAD':
             self.reports_y = region.height - self.bar_y - 600
             ui_props.reports_y = region.height - self.bar_y - 600
