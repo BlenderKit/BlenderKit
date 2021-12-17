@@ -1958,6 +1958,13 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
                                tooltip='Asset is from a newer Blender version and might work incorrectly in your scene',
                                )
             box.alert = False
+        else:
+            self.draw_property(box,
+                               'Blender version',
+                               self.asset_data['sourceAppVersion'],
+                               # icon='ERROR',
+                               tooltip='The version this asset was created in.',
+                               )
         box.separator()
 
     def draw_author_area(self, context, layout, width=330):
