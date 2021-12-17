@@ -2026,4 +2026,8 @@ def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
+    addon_updater_ops.unregister()
+
+    bpy.utils.unregister_class(BlenderKitAddonPreferences)
+
     bpy.app.handlers.load_post.remove(scene_load)
