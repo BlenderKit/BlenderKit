@@ -314,6 +314,8 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others = F
     dirs = get_download_dirs(asset_data['assetType'])
     res_file, resolution = get_res_file(asset_data, resolution, find_closest_with_url = can_return_others)
     name_slug = slugify(asset_data['name'])
+    if len(name_slug)>16:
+        name_slug = name_slug[:16]
     asset_folder_name = f"{name_slug}_{asset_data['id']}"
 
     # utils.pprint('get download filenames ', dict(res_file))
