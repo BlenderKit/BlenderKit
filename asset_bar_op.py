@@ -918,6 +918,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if asset_data.get('canDownload', True) == 0:
                 img_fp = paths.get_addon_thumbnail_path('locked.png')
                 asset_button.validation_icon.set_image(img_fp)
+                asset_button.validation_icon.visible = True
+
             else:
                 asset_button.validation_icon.visible = False
 
