@@ -164,8 +164,10 @@ if __name__ == "__main__":
         elif upload_data['assetType'] == 'brush':
             brushname = export_data['brush']
             main_source = append_link.append_brush(file_name=export_data['source_filepath'], brushname=brushname)
-
-        bpy.ops.file.pack_all()
+        try:
+            bpy.ops.file.pack_all()
+        except Exception as e:
+            print(e)
 
         main_source.blenderkit.uploading = False
         #write ID here.
