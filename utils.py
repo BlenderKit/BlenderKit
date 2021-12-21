@@ -174,6 +174,29 @@ def exclude_collection(name, state=True):
             found = True
         cc.extend(c.children)
 
+def move_collection(child, parent):
+    '''
+    Move a collection to a new parrent
+    Parameters
+    ----------
+    child - collection
+    parent - parent
+
+    Returns
+    -------
+    None
+    '''
+    vl = bpy.context.scene.collection
+    cc = [vl]
+    found = False
+    while len(cc) > 0 and not found:
+        c = cc.pop()
+        if c.name != parent.name and c.children.find(child.name)>-1:
+            c.children.unlink(child)
+        if c.name == parent.name and c.children.find(child.name)==-1:
+            c.children.link(child)
+        cc.extend(c.children)
+
 def get_search_props():
     scene = bpy.context.scene
     wm = bpy.context.window_manager
@@ -899,7 +922,7 @@ def get_largest_area(area_type='VIEW_3D'):
 
     if maxw is None or maxa is None:
         return None,None,None
-    
+
     global active_area_pointer, active_window_pointer, active_region_pointer
     active_window_pointer = maxw.as_pointer()
     active_area_pointer = maxa.as_pointer()

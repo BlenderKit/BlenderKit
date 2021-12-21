@@ -333,13 +333,29 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
 
         #move objects that should be hidden to a sub collection
         if len(to_hidden_collection)>0 and collection is not None:
-            hidden_collection_name = collection_name+'_hidden'
-            h_col = bpy.data.collections.new(name = hidden_collection_name)
-            collection.children.link(h_col)
+            hidden_collections=[]
             for ob in to_hidden_collection:
-                ob.users_collection[0].objects.unlink(ob)
-                h_col.objects.link(ob)
-            utils.exclude_collection(hidden_collection_name)
+                hide_collection = ob.users_collection[0]
+                # objects from scene collection (like rigify widgets go to a new collection
+                if hide_collection == bpy.context.scene.collection:
+                    hidden_collection_name = collection_name + '_hidden'
+                    h_col = bpy.data.collections.get(hidden_collection_name)
+                    if h_col is None:
+                        h_col = bpy.data.collections.new(name = hidden_collection_name)
+                        collection.children.link(h_col)
+                        utils.exclude_collection(hidden_collection_name)
+
+                    ob.users_collection[0].objects.unlink(ob)
+                    h_col.objects.link(ob)
+                    continue
+                if hide_collection in hidden_collections:
+                    continue
+                # All other collections are moved to be children of the model collection
+                print(hide_collection,collection)
+                utils.move_collection(hide_collection,collection)
+                utils.exclude_collection(hide_collection.name)
+                hidden_collections.append(hide_collection)
+            #
 
         bpy.ops.object.select_all(action='DESELECT')
         utils.selection_set(sel)
