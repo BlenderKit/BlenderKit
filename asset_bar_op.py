@@ -117,6 +117,7 @@ def modal_inside(self, context, event):
             # print(self.check_ui_resized(context), print(self.check_new_search_results(context)))
             self.update_ui_size(context)
             self.update_layout(context, event)
+            self.scroll_update()
 
         # this was here to check if sculpt stroke is running, but obviously that didn't help,
         #  since the RELEASE event is cought by operator and thus there is no way to detect a stroke has ended...
