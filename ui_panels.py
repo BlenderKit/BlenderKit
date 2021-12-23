@@ -334,10 +334,7 @@ def draw_assetbar_show_hide(layout, props):
         ttip = 'Click to Show Asset Bar'
 
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if 1:#preferences.experimental_features:
-        op = layout.operator('view3d.blenderkit_asset_bar_widget', text='', icon=icon)
-    else:
-        op = layout.operator('view3d.blenderkit_asset_bar', text='', icon=icon)
+    op = layout.operator('view3d.blenderkit_asset_bar_widget', text='', icon=icon)
     op.keep_running = False
     op.do_search = False
     op.tooltip = ttip
@@ -1289,14 +1286,14 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
 
         elif ui_props.down_up == 'UPLOAD':
-            if not ui_props.assetbar_on:
-                text = 'Show asset preview - ;'
-            else:
-                text = 'Hide asset preview - ;'
-            op = layout.operator('view3d.blenderkit_asset_bar', text=text, icon='EXPORT')
-            op.keep_running = False
-            op.do_search = False
-            op.tooltip = 'Show/Hide asset preview'
+            # if not ui_props.assetbar_on:
+            #     text = 'Show asset preview - ;'
+            # else:
+            #     text = 'Hide asset preview - ;'
+            # op = layout.operator('view3d.blenderkit_asset_bar_widget', text=text, icon='EXPORT')
+            # op.keep_running = False
+            # op.do_search = False
+            # op.tooltip = 'Show/Hide asset preview'
 
             e = s.render.engine
             if e not in ('CYCLES', 'BLENDER_EEVEE'):
@@ -2503,10 +2500,7 @@ def draw_panel_categories(self, context):
             ctext = '%s (%i)' % (c['name'], c['assetCount'])
 
             preferences = bpy.context.preferences.addons['blenderkit'].preferences
-            if 1:#preferences.experimental_features:
-                op = row.operator('view3d.blenderkit_asset_bar_widget', text=ctext)
-            else:
-                op = row.operator('view3d.blenderkit_asset_bar', text=ctext)
+            op = row.operator('view3d.blenderkit_asset_bar_widget', text=ctext)
             op.do_search = True
             op.keep_running = True
             op.tooltip = f"Browse {c['name']} category"
