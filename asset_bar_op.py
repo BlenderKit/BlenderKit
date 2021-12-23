@@ -104,12 +104,18 @@ def modal_inside(self, context, event):
         self.mouse_x = event.mouse_region_x
         self.mouse_y = event.mouse_region_y
         if event.type == 'WHEELUPMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
-            self.scroll_offset -= 2
+            if self.hcount>1:
+                self.scroll_offset -= self.wcount
+            else:
+                self.scroll_offset -= 2
             self.scroll_update()
             return {'RUNNING_MODAL'}
 
         elif event.type == 'WHEELDOWNMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
-            self.scroll_offset += 2
+            if self.hcount>1:
+                self.scroll_offset += self.wcount
+            else:
+                self.scroll_offset += 2
             self.scroll_update()
             return {'RUNNING_MODAL'}
 
