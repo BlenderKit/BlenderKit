@@ -1745,12 +1745,10 @@ class AssetDragOperator(bpy.types.Operator):
         sprops = bpy.context.window_manager.blenderkit_models
         if event.type == 'WHEELUPMOUSE':
             sprops.offset_rotation_amount += sprops.offset_rotation_step
-            return {'RUNNING_MODAL'}
         elif event.type == 'WHEELDOWNMOUSE':
             sprops.offset_rotation_amount -= sprops.offset_rotation_step
-            return {'RUNNING_MODAL'}
 
-        if event.type == 'MOUSEMOVE':
+        if event.type == 'MOUSEMOVE' or event.type == 'WHEELUPMOUSE' or event.type == 'WHEELDOWNMOUSE':
 
             #### TODO - this snapping code below is 3x in this file.... refactor it.
             self.has_hit, self.snapped_location, self.snapped_normal, self.snapped_rotation, self.face_index, object, self.matrix = mouse_raycast(
