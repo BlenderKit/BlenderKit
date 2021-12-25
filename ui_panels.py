@@ -700,7 +700,13 @@ class LikeComment(bpy.types.Operator):
 def draw_notification(self, notification, width=600):
     layout = self.layout
     box = layout.box()
-    firstline = f"{notification['actor']['string']} {notification['verb']} {notification['target']['string']}"
+    actor = notification.get('actor',{}).get('string','')
+    verb = notification.get('verb','')
+    target = notification.get('target',{})
+    target_string = target.get('string','')
+    notification_string = notification.get('string','')
+    firstline = f"{actor} {verb} {target_string}"
+    # firstline = f"{notification_string}"
     box1 = box.box()
     # row = box1.row()
 
