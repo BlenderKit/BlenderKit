@@ -715,7 +715,8 @@ class FastMetadata(bpy.types.Operator):
                                   args=(self.asset_id, mdict, user_preferences.api_key))
         thread.start()
         tasks_queue.add_task((reports.add_report, (f'Uploading metadata for {self.name}. '
-                                              f'Refresh search results to see that changes applied correctly.', 8,)))
+                                                   f'Refresh search results to see that changes applied correctly.',
+                                                   8,)))
 
         return {'FINISHED'}
 
@@ -1214,21 +1215,21 @@ class UploadOperator(Operator):
         layout = self.layout
 
         if self.reupload:
+            utils.label_multiline(layout, text="To update only metadata of the model, keep checkboxes unchecked",
+                                  width=500)
             # layout.prop(self, 'metadata')
             layout.prop(self, 'main_file')
             layout.prop(self, 'thumbnail')
 
         if props.asset_base_id != '' and not self.reupload:
-            utils.label_multiline(layout, text="Really upload as new?\n"
-                                               "Do this only when you create\n"
-                                               "a new asset from an old one.\n"
+            utils.label_multiline(layout, text="Really upload as new?"
+                                               "Do this only when you create a new asset from an old one.\n"
                                                "For updates of thumbnail or model use reupload.\n",
                                   width=400, icon='ERROR')
 
-
         if props.is_private == 'PUBLIC':
             if self.asset_type == 'MODEL':
-                utils.label_multiline(layout, text='You marked the asset as public.\n'
+                utils.label_multiline(layout, text='\nYou marked the asset as public. '
                                                    'This means it will be validated by our team.\n\n'
                                                    'Please test your upload after it finishes:\n'
                                                    '-   Open a new file\n'
@@ -1244,23 +1245,23 @@ class UploadOperator(Operator):
                                                        "BlenderKit library accepts 360 degree images\n"
                                                        "however the default filter setting for search\n"
                                                        "is to show only true HDR images\n"
-                                          , icon='ERROR', width=400)
+                                          , icon='ERROR', width=500)
 
-                utils.label_multiline(layout, text='You marked the asset as public.\n'
+                utils.label_multiline(layout, text='You marked the asset as public. '
                                                    'This means it will be validated by our team.\n\n'
                                                    'Please test your upload after it finishes:\n'
                                                    '-   Open a new file\n'
                                                    '-   Find the asset and download it\n'
                                                    '-   Check if it works as expected\n'
-                                      , width=400)
+                                      , width=500)
             else:
-                utils.label_multiline(layout, text='You marked the asset as public.\n'
+                utils.label_multiline(layout, text='You marked the asset as public.'
                                                    'This means it will be validated by our team.\n\n'
                                                    'Please test your upload after it finishes:\n'
                                                    '-   Open a new file\n'
                                                    '-   Find the asset and download it\n'
                                                    '-   Check if it works as expected\n'
-                                      , width=400)
+                                      , width=500)
 
     def invoke(self, context, event):
 
@@ -1275,7 +1276,7 @@ class UploadOperator(Operator):
             export_data, upload_data = get_upload_data(asset_type='HDR')
 
         # if props.is_private == 'PUBLIC':
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=500)
         # else:
         #     return self.execute(context)
 
