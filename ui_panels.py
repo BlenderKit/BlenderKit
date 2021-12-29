@@ -2292,7 +2292,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         authors = bpy.context.window_manager['bkit authors']
         a = authors.get(asset_data['author']['id'])
 
-        if a is not None and a.get('gravatarImg') is not None:
+        if a is not None and a.get('gravatarImg') is not None and a.get('gravatarHash') is not None:
             self.gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash'])
 
         bl_label = asset_data['name']
