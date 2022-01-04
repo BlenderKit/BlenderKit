@@ -534,6 +534,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = "BlenderKit Profile"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -807,6 +808,7 @@ class VIEW3D_PT_blenderkit_login(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = "BlenderKit Login"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):

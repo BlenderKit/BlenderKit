@@ -45,6 +45,7 @@ def center_obs_for_thumbnail(obs):
         parent = parent.parent
     # reset parent rotation, so we see how it really snaps.
     parent.rotation_euler = (0, 0, 0)
+    parent.location = (0,0,0)
     bpy.context.view_layer.update()
     minx, miny, minz, maxx, maxy, maxz = utils.get_bounds_worldspace(obs)
 
@@ -54,10 +55,12 @@ def center_obs_for_thumbnail(obs):
         ob.select_set(False)
 
     bpy.context.view_layer.objects.active = parent
-    parent.location += mathutils.Vector((-cx, -cy, -minz))
+    # parent.location += mathutils.Vector((-cx, -cy, -minz))
+    parent.location = (-cx,-cy,0)
 
     camZ = s.camera.parent.parent
-    camZ.location.z = (maxz - minz) / 2
+    # camZ.location.z = (maxz - minz) / 2
+    camZ.location.z = (maxz) / 2
     dx = (maxx - minx)
     dy = (maxy - miny)
     dz = (maxz - minz)

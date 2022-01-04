@@ -1104,10 +1104,12 @@ class TransferBlenderkitData(bpy.types.Operator):
         source_ob = bpy.context.active_object
         for target_ob in bpy.context.selected_objects:
             if target_ob != source_ob:
-                target_ob.property_unset('blenderkit')
-                for k in source_ob.keys():
-                    target_ob[k] = source_ob[k]
-        source_ob.property_unset('blenderkit')
+                # target_ob.property_unset('blenderkit')
+                for k in source_ob.blenderkit.keys():
+                    if k in ('name',):
+                        continue
+                    target_ob.blenderkit[k] = source_ob.blenderkit[k]
+        # source_ob.property_unset('blenderkit')
         return {'FINISHED'}
 
 
