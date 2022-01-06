@@ -26,12 +26,14 @@ import uuid
 
 def append_brush(file_name, brushname=None, link=False, fake_user=True):
     '''append a brush'''
-    with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
-        for m in data_from.brushes:
-            if m == brushname or brushname is None:
-                data_to.brushes = [m]
-                brushname = m
-    brush = bpy.data.brushes[brushname]
+    with blender_resource_lock:
+        with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
+            for m in data_from.brushes:
+                if m == brushname or brushname is None:
+                    data_to.brushes = [m]
+                    brushname = m
+    with blender_resource_lock:
+        brush = bpy.data.brushes[brushname]
     if fake_user:
         brush.use_fake_user = True
     return brush
@@ -43,37 +45,41 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
     # in previous step there's check if the imported material
     # is already in the scene, so we know same name != same material
 
-    mats_before = bpy.data.materials[:]
+    with blender_resource_lock:
+        mats_before = bpy.data.materials[:]
     try:
-        with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
-            found = False
-            for m in data_from.materials:
-                if m == matname or matname is None:
-                    data_to.materials = [m]
-                    # print(m, type(m))
-                    matname = m
-                    found = True
-                    break;
+        with blender_resource_lock:
+            with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
+                found = False
+                for m in data_from.materials:
+                    if m == matname or matname is None:
+                        data_to.materials = [m]
+                        # print(m, type(m))
+                        matname = m
+                        found = True
+                        break;
 
-            #not found yet? probably some name inconsistency then.
-            if not found and len(data_from.materials)>0:
-                data_to.materials = [data_from.materials[0]]
-                matname = data_from.materials[0]
-                print(f"the material wasn't found under the exact name, appended another one: {matname}")
-            # print('in the appended file the name is ', matname)
+                #not found yet? probably some name inconsistency then.
+                if not found and len(data_from.materials)>0:
+                    data_to.materials = [data_from.materials[0]]
+                    matname = data_from.materials[0]
+                    print(f"the material wasn't found under the exact name, appended another one: {matname}")
+                # print('in the appended file the name is ', matname)
 
     except Exception as e:
         print(e)
         print('failed to open the asset file')
     # we have to find the new material , due to possible name changes
     mat = None
-    for m in bpy.data.materials:
-        if m not in mats_before:
-            mat = m
-            break;
+    with blender_resource_lock:
+        for m in bpy.data.materials:
+            if m not in mats_before:
+                mat = m
+                break;
     #still not found?
     if mat is None:
-        mat = bpy.data.materials.get(matname)
+        with blender_resource_lock:
+            mat = bpy.data.materials.get(matname)
 
     if fake_user:
         mat.use_fake_user = True
@@ -82,19 +88,22 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
 
 def append_scene(file_name, scenename=None, link=False, fake_user=False):
     '''append a scene type asset'''
-    with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
-        for s in data_from.scenes:
-            if s == scenename or scenename is None:
-                data_to.scenes = [s]
-                scenename = s
-    scene = bpy.data.scenes[scenename]
+    with blender_resource_lock:
+        with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
+            for s in data_from.scenes:
+                if s == scenename or scenename is None:
+                    data_to.scenes = [s]
+                    scenename = s
+    with blender_resource_lock:
+        scene = bpy.data.scenes[scenename]
     if fake_user:
         scene.use_fake_user = True
     # scene has to have a new uuid, so user reports aren't screwed.
     scene['uuid'] = str(uuid.uuid4())
 
     #reset ui_props of the scene to defaults:
-    ui_props = bpy.context.window_manager.blenderkitUI
+    with blender_resource_lock:
+        ui_props = bpy.context.window_manager.blenderkitUI
     ui_props.down_up = 'SEARCH'
 
     return scene
@@ -121,7 +130,8 @@ def hdr_swap(name, hdr):
     :param hdr: Image type
     :return: None
     '''
-    w = bpy.context.scene.world
+    with blender_resource_lock:
+        w = bpy.context.scene.world
     if w:
         w.use_nodes = True
         w.name = name
@@ -141,9 +151,11 @@ def new_hdr_world(name, hdr):
     :param hdr: Image type
     :return: None
     '''
-    w = bpy.data.worlds.new(name=name)
+    with blender_resource_lock:
+        w = bpy.data.worlds.new(name=name)
     w.use_nodes = True
-    bpy.context.scene.world = w
+    with blender_resource_lock:
+        bpy.context.scene.world = w
 
     nt = w.node_tree
     env_node = nt.nodes.new(type='ShaderNodeTexEnvironment')
@@ -163,14 +175,17 @@ def new_hdr_world(name, hdr):
 def load_HDR(file_name, name):
     '''Load a HDR into file and link it to scene world. '''
     already_linked = False
-    for i in bpy.data.images:
+    with blender_resource_lock:
+        images = bpy.data.images
+    for i in images:
         if i.filepath == file_name:
             hdr = i
             already_linked = True
             break;
 
     if not already_linked:
-        hdr = bpy.data.images.load(file_name)
+        with blender_resource_lock:
+            hdr = bpy.data.images.load(file_name)
 
     hdr_swap(name, hdr)
     return hdr
@@ -180,18 +195,20 @@ def link_collection(file_name, obnames=[], location=(0, 0, 0), link=False, paren
     '''link an instanced group - model type asset'''
     sel = utils.selection_get()
 
-    with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
-        scols = []
-        for col in data_from.collections:
-            if col == kwargs['name']:
-                data_to.collections = [col]
+    with blender_resource_lock:
+        with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
+            scols = []
+            for col in data_from.collections:
+                if col == kwargs['name']:
+                    data_to.collections = [col]
 
     rotation = (0, 0, 0)
     if kwargs.get('rotation') is not None:
         rotation = kwargs['rotation']
 
-    bpy.ops.object.empty_add(type='PLAIN_AXES', location=location, rotation=rotation)
-    main_object = bpy.context.view_layer.objects.active
+    with blender_resource_lock:
+        bpy.ops.object.empty_add(type='PLAIN_AXES', location=location, rotation=rotation)
+        main_object = bpy.context.view_layer.objects.active
     main_object.instance_type = 'COLLECTION'
 
     if parent is not None:
@@ -210,7 +227,8 @@ def link_collection(file_name, obnames=[], location=(0, 0, 0), link=False, paren
 
     #sometimes, the lib might already  be without the actual link.
     if not main_object.instance_collection and kwargs['name']:
-        col = bpy.data.collections.get(kwargs['name'])
+        with blender_resource_lock:
+            col = bpy.data.collections.get(kwargs['name'])
         if col:
             main_object.instance_collection = col
 
@@ -231,18 +249,22 @@ def append_particle_system(file_name, obnames=[], location=(0, 0, 0), link=False
     '''link an instanced group - model type asset'''
 
     pss = []
-    with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
-        for ps in data_from.particles:
-            pss.append(ps)
-        data_to.particles = pss
+    with blender_resource_lock:
+        with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
+            for ps in data_from.particles:
+                pss.append(ps)
+            data_to.particles = pss
 
-    s = bpy.context.scene
+    with blender_resource_lock:
+        s = bpy.context.scene
     sel = utils.selection_get()
 
-    target_object = bpy.context.scene.objects.get(kwargs['target_object'])
+    with blender_resource_lock:
+        target_object = bpy.context.scene.objects.get(kwargs['target_object'])
     if target_object is not None and target_object.type == 'MESH':
         target_object.select_set(True)
-        bpy.context.view_layer.objects.active = target_object
+        with blender_resource_lock:
+            bpy.context.view_layer.objects.active = target_object
 
         for ps in pss:
             # now let's tune this ps to the particular objects area:
@@ -282,7 +304,8 @@ def append_particle_system(file_name, obnames=[], location=(0, 0, 0), link=False
             #set the count
             ps.count = count
             #add the modifier
-            bpy.ops.object.particle_system_add()
+            with blender_resource_lock:
+                bpy.ops.object.particle_system_add()
             # 3rd level - hide particle system from viewport - is done on the modifier..
             if total_count > total_max_threshold:
                 target_object.modifiers[-1].show_viewport = False
@@ -299,19 +322,25 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
     #simplified version of append
     if kwargs.get('name'):
         # by now used for appending into scene
-        scene = bpy.context.scene
+        with blender_resource_lock:
+            scene = bpy.context.scene
         sel = utils.selection_get()
-        bpy.ops.object.select_all(action='DESELECT')
+        with blender_resource_lock:
+            bpy.ops.object.select_all(action='DESELECT')
 
         path = file_name + "\\Collection\\"
         collection_name = kwargs.get('name')
-        fc = utils.get_fake_context(bpy.context, area_type='VIEW_3D')
+        with blender_resource_lock:
+            context = bpy.context
+        fc = utils.get_fake_context(context, area_type='VIEW_3D')
         bpy.ops.wm.append(fc, filename=collection_name, directory=path)
 
         return_obs = []
         to_hidden_collection = []
         collection = None
-        for ob in bpy.context.scene.objects:
+        with blender_resource_lock:
+            scene_objects = list(bpy.context.scene.objects)
+        for ob in scene_objects:
             if ob.select_get():
                 return_obs.append(ob)
                 if not ob.parent:
@@ -329,7 +358,8 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
             main_object.rotation_euler = kwargs['rotation']
 
         if kwargs.get('parent') is not None:
-            main_object.parent = bpy.data.objects[kwargs['parent']]
+            with blender_resource_lock:
+                main_object.parent = bpy.data.objects[kwargs['parent']]
             main_object.matrix_world.translation = location
 
 
@@ -339,11 +369,15 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
             for ob in to_hidden_collection:
                 hide_collection = ob.users_collection[0]
                 # objects from scene collection (like rigify widgets go to a new collection
-                if hide_collection == bpy.context.scene.collection:
+                with blender_resource_lock:
+                    scene_collection = bpy.context.scene.collection
+                if hide_collection == scene_collection:
                     hidden_collection_name = collection_name + '_hidden'
-                    h_col = bpy.data.collections.get(hidden_collection_name)
+                    with blender_resource_lock:
+                        h_col = bpy.data.collections.get(hidden_collection_name)
                     if h_col is None:
-                        h_col = bpy.data.collections.new(name = hidden_collection_name)
+                        with blender_resource_lock:
+                            h_col = bpy.data.collections.new(name = hidden_collection_name)
                         collection.children.link(h_col)
                         utils.exclude_collection(hidden_collection_name)
 
@@ -359,27 +393,31 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 hidden_collections.append(hide_collection)
             #
 
-        bpy.ops.object.select_all(action='DESELECT')
+        with blender_resource_lock:
+            bpy.ops.object.select_all(action='DESELECT')
         utils.selection_set(sel)
         #let collection also store info that it was created by BlenderKit, for purging reasons
 
         return main_object, return_obs
 
     #this is used for uploads:
-    with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
-        sobs = []
-        # for col in data_from.collections:
-        #     if col == kwargs.get('name'):
-        for ob in data_from.objects:
-            if ob in obnames or obnames == []:
-                sobs.append(ob)
-        data_to.objects = sobs
-        # data_to.objects = data_from.objects#[name for name in data_from.objects if name.startswith("house")]
+    with blender_resource_lock:
+        with bpy.data.libraries.load(file_name, link=link, relative=True) as (data_from, data_to):
+            sobs = []
+            # for col in data_from.collections:
+            #     if col == kwargs.get('name'):
+            for ob in data_from.objects:
+                if ob in obnames or obnames == []:
+                    sobs.append(ob)
+            data_to.objects = sobs
+            # data_to.objects = data_from.objects#[name for name in data_from.objects if name.startswith("house")]
 
     # link them to scene
-    scene = bpy.context.scene
+    with blender_resource_lock:
+        scene = bpy.context.scene
     sel = utils.selection_get()
-    bpy.ops.object.select_all(action='DESELECT')
+    with blender_resource_lock:
+        bpy.ops.object.select_all(action='DESELECT')
 
     return_obs = []  # this might not be needed, but better be sure to rewrite the list.
     main_object = None
@@ -402,7 +440,8 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
 
     # Only after all objects are in scene! Otherwise gets broken relationships
     if link == True:
-        bpy.ops.object.make_local(type='SELECT_OBJECT')
+        with blender_resource_lock:
+            bpy.ops.object.make_local(type='SELECT_OBJECT')
         for ob in hidden_objects:
             ob.hide_viewport = True
 
@@ -410,10 +449,12 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         main_object.rotation_euler = kwargs['rotation']
 
     if kwargs.get('parent') is not None:
-        main_object.parent = bpy.data.objects[kwargs['parent']]
+        with blender_resource_lock:
+            main_object.parent = bpy.data.objects[kwargs['parent']]
         main_object.matrix_world.translation = location
 
-    bpy.ops.object.select_all(action='DESELECT')
+    with blender_resource_lock:
+        bpy.ops.object.select_all(action='DESELECT')
 
     utils.selection_set(sel)
 
