@@ -17,7 +17,8 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import utils, ui
+from . import utils, ui, download
+from .lock import blender_resource_lock
 
 import bpy
 import uuid
@@ -198,13 +199,14 @@ def link_collection(file_name, obnames=[], location=(0, 0, 0), link=False, paren
 
     main_object.matrix_world.translation = location
 
-    for col in bpy.data.collections:
-        if col.library is not None:
-            fp = bpy.path.abspath(col.library.filepath)
-            fp1 = bpy.path.abspath(file_name)
-            if fp == fp1:
-                main_object.instance_collection = col
-                break;
+    with blender_resource_lock:
+        for col in bpy.data.collections:
+            if col.library is not None:
+                fp = bpy.path.abspath(col.library.filepath)
+                fp1 = bpy.path.abspath(file_name)
+                if fp == fp1:
+                    main_object.instance_collection = col
+                    break;
 
     #sometimes, the lib might already  be without the actual link.
     if not main_object.instance_collection and kwargs['name']:

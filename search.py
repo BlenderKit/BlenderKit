@@ -18,6 +18,7 @@
 
 from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
     resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops
+from .lock import blender_resource_lock
 
 import blenderkit
 from bpy.app.handlers import persistent
@@ -374,8 +375,10 @@ def search_timer():
     # utils.p('timer search')
     # utils.p('start search timer')
     global first_time
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if first_time and not bpy.app.background:  # first time
+    with blender_resource_lock:
+        preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        background = bpy.app.background
+    if first_time and not background:  # first time
 
         first_time = False
         # bpy.ops.blenderkit.updater_install_popup(clean_install=False)
@@ -402,9 +405,11 @@ def search_timer():
     # finish loading thumbs from queues
     global all_thumbs_loaded
     if not all_thumbs_loaded:
-        ui_props = bpy.context.window_manager.blenderkitUI
+        with blender_resource_lock:
+            ui_props = bpy.context.window_manager.blenderkitUI
         search_name = f'bkit {ui_props.asset_type.lower()} search'
-        wm = bpy.context.window_manager
+        with blender_resource_lock:
+            wm = bpy.context.window_manager
         if wm.get(search_name) is not None:
             all_loaded = True
             for ri, r in enumerate(wm[search_name]):
@@ -422,16 +427,18 @@ def search_timer():
         return 1.0
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
     # causing a lot of throuble.
-    if bpy.context.window_manager.blenderkitUI.dragging:
-        # utils.p('end search timer')
+    with blender_resource_lock:
+        if bpy.context.window_manager.blenderkitUI.dragging:
+            # utils.p('end search timer')
 
-        return 0.5
+            return 0.5
 
     for thread in search_threads:
         # TODO this doesn't check all processes when one gets removed,
         # but most of the time only one is running anyway
         if not thread[0].is_alive():
-            sys_prefs = bpy.context.preferences.system
+            with blender_resource_lock:
+                sys_prefs = bpy.context.preferences.system
             sys_prefs.gl_texture_limit = 'CLAMP_OFF'
 
             #check for notifications only for users that actually use the add-on
@@ -439,15 +446,18 @@ def search_timer():
                 first_search_parsing = False
                 all_notifications_count = comments_utils.count_all_notifications()
                 comments_utils.get_notifications_thread(preferences.api_key, all_count=all_notifications_count)
-                if utils.experimental_enabled() and not bpy.app.timers.is_registered(
-                        refresh_notifications_timer) and not bpy.app.background:
-                    bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
+                with blender_resource_lock:
+                    if utils.experimental_enabled() and not bpy.app.timers.is_registered(
+                            refresh_notifications_timer) and not bpy.app.background:
+                        bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
 
             search_threads.remove(thread)  #
             icons_dir = thread[1]
-            scene = bpy.context.scene
+            with blender_resource_lock:
+                scene = bpy.context.scene
             # these 2 lines should update the previews enum and set the first result as active.
-            wm = bpy.context.window_manager
+            with blender_resource_lock:
+                wm = bpy.context.window_manager
             asset_type = thread[2]
 
             props = utils.get_search_props()
@@ -473,7 +483,8 @@ def search_timer():
 
             ok, error = check_errors(rdata)
             if ok:
-                ui_props = bpy.context.window_manager.blenderkitUI
+                with blender_resource_lock:
+                    ui_props = bpy.context.window_manager.blenderkitUI
                 orig_len = len(result_field)
 
                 for ri, r in enumerate(rdata['results']):
@@ -483,7 +494,8 @@ def search_timer():
                         all_thumbs_loaded = all_thumbs_loaded and load_preview(asset_data, ri + orig_len)
 
                 # Get ratings from BlenderKit server
-                user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+                with blender_resource_lock:
+                    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
                 api_key = user_preferences.api_key
                 headers = utils.get_headers(api_key)
                 if utils.profile_is_validator():
@@ -513,7 +525,8 @@ def search_timer():
                 # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
                 # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
                 if not ui_props.assetbar_on and not thread[0].params.get('get_next'):
-                    bpy.ops.object.run_assetbar_fix_context()
+                    with blender_resource_lock:
+                        bpy.ops.object.run_assetbar_fix_context()
 
             else:
                 bk_logger.error(error)

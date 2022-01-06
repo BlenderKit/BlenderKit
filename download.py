@@ -18,6 +18,7 @@
 
 
 from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports
+from .lock import blender_resource_lock
 
 import threading
 import time
@@ -278,14 +279,16 @@ def udpate_asset_data_in_dicts(asset_data):
     ----------
     asset_data - data coming back from thread, thus containing also download urls
     '''
-    scene = bpy.context.scene
+    with blender_resource_lock:
+        scene = bpy.context.scene
     scene['assets used'] = scene.get('assets used', {})
     scene['assets used'][asset_data['assetBaseId']] = asset_data.copy()
 
     scene['assets rated'] = scene.get('assets rated', {})
     id = asset_data['assetBaseId']
     scene['assets rated'][id] = scene['assets rated'].get(id, False)
-    sr = bpy.context.window_manager['search results']
+    with blender_resource_lock:
+        sr = bpy.context.window_manager['search results']
     if not sr:
         return;
     for i, r in enumerate(sr):
@@ -307,9 +310,10 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     #####
     # how to do particle  drop:
     # link the group we are interested in( there are more groups in File!!!! , have to get the correct one!)
-    s = bpy.context.scene
-    wm = bpy.context.window_manager
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    with blender_resource_lock:
+        s = bpy.context.scene
+        wm = bpy.context.window_manager
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
     if user_preferences.api_key == '':
         user_preferences.asset_counter += 1
@@ -323,7 +327,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             props = scene.blenderkit
             asset_main = scene
             if sprops.switch_after_append:
-                bpy.context.window_manager.windows[0].scene = scene
+                with blender_resource_lock:
+                    bpy.context.window_manager.windows[0].scene = scene
 
     if asset_data['assetType'] == 'hdr':
         hdr = append_link.load_HDR(file_name=file_names[0], name=asset_data['name'])
@@ -367,7 +372,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                         if new_obs:
                             # update here assets rated/used because there might be new download urls?
                             udpate_asset_data_in_dicts(asset_data)
-                            bpy.ops.wm.undo_push_context(message='add %s to scene' % asset_data['name'])
+                            with blender_resource_lock:
+                                bpy.ops.wm.undo_push_context(message='add %s to scene' % asset_data['name'])
 
                             return
 
@@ -457,10 +463,11 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             shutil.copy(thumbpath, asset_thumb_path)
             brush.icon_filepath = asset_thumb_path
 
-        if bpy.context.view_layer.objects.active.mode == 'SCULPT':
-            bpy.context.tool_settings.sculpt.brush = brush
-        elif bpy.context.view_layer.objects.active.mode == 'TEXTURE_PAINT':  # could be just else, but for future possible more types...
-            bpy.context.tool_settings.image_paint.brush = brush
+        with blender_resource_lock:
+            if bpy.context.view_layer.objects.active.mode == 'SCULPT':
+                bpy.context.tool_settings.sculpt.brush = brush
+            elif bpy.context.view_layer.objects.active.mode == 'TEXTURE_PAINT':  # could be just else, but for future possible more types...
+                bpy.context.tool_settings.image_paint.brush = brush
         # TODO set brush by by asset data(user can be downloading while switching modes.)
 
         # bpy.context.tool_settings.image_paint.brush = brush
@@ -471,15 +478,17 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         inscene = False
         sprops = wm.blenderkit_mat
 
-        for m in bpy.data.materials:
-            if m.blenderkit.id == asset_data['id']:
-                inscene = True
-                material = m
-                break;
+        with blender_resource_lock:
+            for m in bpy.data.materials:
+                if m.blenderkit.id == asset_data['id']:
+                    inscene = True
+                    material = m
+                    break;
         if not inscene:
             link = sprops.append_method == 'LINK'
             material = append_link.append_material(file_names[-1], link=link, fake_user=False)
-        target_object = bpy.data.objects[kwargs['target_object']]
+        with blender_resource_lock:
+            target_object = bpy.data.objects[kwargs['target_object']]
 
         if len(target_object.material_slots) == 0:
             target_object.data.materials.append(material)
@@ -802,7 +811,8 @@ class Downloader(threading.Thread):
             bk_logger.debug("Downloading %s" % file_name)
             headers = utils.get_headers(api_key)
             res_file_info, self.resolution = paths.get_res_file(asset_data, self.resolution)
-            response = requests.get(res_file_info['url'], stream=True)
+            with blender_resource_lock:
+                response = requests.get(res_file_info['url'], stream=True)
             total_length = response.headers.get('Content-Length')
             if total_length is None:  # no content length header
                 print('no content length')
@@ -1097,7 +1107,8 @@ def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend
     res_file_info, resolution = paths.get_res_file(asset_data, resolution)
 
     try:
-        r = rerequests.get(res_file_info['downloadUrl'], params=data, headers=headers)
+        with blender_resource_lock:
+            r = rerequests.get(res_file_info['downloadUrl'], params=data, headers=headers)
     except Exception as e:
         print(e)
         if tcom is not None:
