@@ -535,7 +535,8 @@ def load_preview(asset, index):
     directory = paths.get_temp_dir('%s_search' % props.asset_type.lower())
 
     tpath = os.path.join(directory, asset['thumbnail_small'])
-    if not asset['thumbnail_small'] or asset['thumbnail_small'] == '' or not os.path.exists(tpath):
+    tpath_exists = os.path.exists(tpath)
+    if not asset['thumbnail_small'] or asset['thumbnail_small'] == '' or not tpath_exists:
         # tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
         asset['thumb_small_loaded'] = False
 
@@ -545,7 +546,7 @@ def load_preview(asset, index):
     img = bpy.data.images.get(iname)
 
     if img is None or len(img.pixels) == 0:
-        if not os.path.exists(tpath):
+        if not tpath_exists:
             return False
         # wrap into try statement since sometimes
         try:
@@ -558,7 +559,7 @@ def load_preview(asset, index):
             pass
         return False
     elif img.filepath != tpath:
-        if not os.path.exists(tpath):
+        if not tpath_exists:
             # unload loaded previews from previous results
             bpy.data.images.remove(img)
             return False
@@ -1025,6 +1026,7 @@ class Searcher(threading.Thread):
         thumb_full_urls = []
         thumb_full_filepaths = []
         # END OF PARSING
+        #get thumbnails that need downloading
         for d in rdata.get('results', []):
             thumb_small_urls.append(d["thumbnailSmallUrl"])
             imgname = paths.extract_filename_from_url(d['thumbnailSmallUrl'])
@@ -1041,25 +1043,6 @@ class Searcher(threading.Thread):
             imgname = paths.extract_filename_from_url(larege_thumb_url)
             imgpath = os.path.join(self.tempdir, imgname)
             thumb_full_filepaths.append(imgpath)
-
-            # for f in d['files']:
-            #     # TODO move validation of published assets to server, too manmy checks here.
-            #     if f['fileType'] == 'thumbnail' and f['fileThumbnail'] != None and f['fileThumbnailLarge'] != None:
-            #         if f['fileThumbnail'] == None:
-            #             f['fileThumbnail'] = 'NONE'
-            #         if f['fileThumbnailLarge'] == None:
-            #             f['fileThumbnailLarge'] = 'NONE'
-            #
-            #         thumb_small_urls.append(f['fileThumbnail'])
-            #         thumb_full_urls.append(f['fileThumbnailLarge'])
-            #
-            #         imgname = paths.extract_filename_from_url(f['fileThumbnail'])
-            #         imgpath = os.path.join(self.tempdir, imgname)
-            #         thumb_small_filepaths.append(imgpath)
-            #
-            #         imgname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
-            #         imgpath = os.path.join(self.tempdir, imgname)
-            #         thumb_full_filepaths.append(imgpath)
 
         sml_thbs = zip(thumb_small_filepaths, thumb_small_urls)
         full_thbs = zip(thumb_full_filepaths, thumb_full_urls)
@@ -1080,18 +1063,12 @@ class Searcher(threading.Thread):
                 thumb_sml_download_threads.put((url, imgpath))
 
         if self.stopped():
-            utils.p('stopping search : ' + str(query))
-            # utils.p('end search thread')
-            return
-
-        if self.stopped():
             # utils.p('end search thread')
 
             utils.p('stopping search : ' + str(query))
             return
 
         # start downloading full thumbs in the end
-        tsession = requests.Session()
 
         for imgpath, url in full_thbs:
             if not os.path.exists(imgpath):
@@ -1291,7 +1268,7 @@ def add_search_process(query, params):
         urlquery = query_to_url(query, params)
 
     if thumb_workers_sml == []:
-        for a in range(0, 8):
+        for a in range(0, 7):
             thread = threading.Thread(target=thumb_download_worker,
                                       args=(thumb_sml_download_threads, thumb_full_download_threads),
                                       daemon=True)

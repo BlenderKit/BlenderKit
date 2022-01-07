@@ -2,6 +2,7 @@ from . bl_ui_widget import *
 
 import blf
 import bpy
+from .. import ui_bgl
 
 class BL_UI_Button(BL_UI_Widget):
 
@@ -139,7 +140,13 @@ class BL_UI_Button(BL_UI_Widget):
 
     def draw_image(self):
         if self.__image is not None:
+            y_screen_flip = self.get_area_height() - self.y_screen
+            off_x, off_y = self.__image_position
+            sx, sy = self.__image_size
+            ui_bgl.draw_image(self.x_screen + off_x, y_screen_flip - off_y - sy, sx, sy, self.__image, 1.0, crop=(0, 0, 1, 1), batch=None)
+            return
             try:
+
                 y_screen_flip = self.get_area_height() - self.y_screen
 
                 off_x, off_y =  self.__image_position

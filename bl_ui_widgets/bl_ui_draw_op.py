@@ -83,9 +83,14 @@ class BL_UI_OT_draw_operator(Operator):
 
 	# Draw handler to paint onto the screen
     def draw_callback_px(self, op, context):
-        try:
-            if context.area.as_pointer() == self.active_area_pointer:
-                for widget in self.widgets:
-                    widget.draw()
-        except:
-            pass;
+        draw_callback_px_separated(self, op, context)
+
+
+def draw_callback_px_separated(self, op, context):
+    #separated only for puprpose of profiling
+    try:
+        if context.area.as_pointer() == self.active_area_pointer:
+            for widget in self.widgets:
+                widget.draw()
+    except:
+        pass;
