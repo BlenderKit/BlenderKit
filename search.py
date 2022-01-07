@@ -187,6 +187,9 @@ def purge_search_results():
         if s.get(sr_prop):
             del (s[sr_prop])
 
+@persistent
+def undo_post_reload_previews(context):
+    load_previews()
 
 @persistent
 def scene_load(context):
@@ -1647,6 +1650,7 @@ classes = [
 
 def register_search():
     bpy.app.handlers.load_post.append(scene_load)
+    bpy.app.handlers.undo_post.append(undo_post_reload_previews)
 
     for c in classes:
         bpy.utils.register_class(c)
