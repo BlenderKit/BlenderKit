@@ -47,7 +47,7 @@ from os import path
 if "bpy" in locals():
     from importlib import reload
 
-    test_op = reload(test_op)
+    async_tasks = reload(async_tasks)
     async_loop = reload(async_loop)
 
     # alphabetically sorted all add-on modules since reload only happens from __init__.
@@ -124,7 +124,7 @@ else:
     from . import utils
     from . import reports
 
-    from . import test_op
+    from . import async_tasks
     from . import async_loop
 
     from .bl_ui_widgets import bl_ui_widget
@@ -1921,8 +1921,8 @@ classes = (
 
 def register():
     bpy.utils.register_class(async_loop.AsyncLoopModalOperator)
-    bpy.utils.register_class(test_op.Test_OT_NoBlock)
-    
+    bpy.utils.register_class(async_tasks.Test_OT_NoBlock)
+
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
 
@@ -2007,7 +2007,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(async_loop.AsyncLoopModalOperator)
-    bpy.utils.unregister_class(test_op.Test_OT_NoBlock)
+    bpy.utils.unregister_class(async_tasks.Test_OT_NoBlock)
 
     if bpy.app.timers.is_registered(check_timers_timer):
         bpy.app.timers.unregister(check_timers_timer)
