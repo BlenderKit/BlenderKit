@@ -79,14 +79,36 @@ class Test_OT_NoBlock(bpy.types.Operator):
         
         print("Gonna download 5x Blender 3.0.1-RC")
 
-        async_task = asyncio.ensure_future(self.act())
-        async_task = asyncio.ensure_future(self.act())
-        async_task = asyncio.ensure_future(self.act())
-        async_task = asyncio.ensure_future(self.act())
-        async_task = asyncio.ensure_future(self.act())
+        #async_task = asyncio.ensure_future(self.act())
+        async_task = asyncio.ensure_future(asyncDownloadFile("https://builder.blender.org/download/daily/blender-3.0.1-candidate+v30.669577a9736a-linux.x86_64-release.tar.xz", "Blender.tar.xz"))
         
         ## It's also possible to handle the task when it's done like so:
         #async_task.add_done_callback(done_callback)
         async_loop.ensure_async_loop()
-        print("NON-BLOCKING")
+        print("NON-BLOCKING download started")
+
         return {'FINISHED'}
+
+async def asyncDownloadFile(url, filename: str):
+    chunk_size = 100
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    conn = aiohttp.TCPConnector(ssl=ssl_context)
+
+    async with aiohttp.ClientSession(connector=conn) as session:
+        async with session.get(url) as response:
+            print("starting download")
+            length = int(response.headers.get('Content-Length'))
+            downloaded = 0
+            progress = 0
+            print("file length:", length)
+
+            with open(filename, 'wb') as file:
+                async for chunk in response.content.iter_chunked(chunk_size):
+                    file.write(chunk)
+                    downloaded = downloaded + chunk_size
+                    currentProgress = int(downloaded/length*100)
+                    if currentProgress != progress:
+                        progress = currentProgress
+                        print("progress:", progress , "%")
+
+    print("DOWNLOAD FINISHED")
