@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import tasks_queue, utils, paths, search, categories, oauth, ui, ui_panels, colors, reports
+from . import tasks_queue, utils, paths, search, categories, oauth, ui, ui_panels, colors, reports, global_vars
 
 import bpy
 
@@ -154,8 +154,8 @@ class Logout(bpy.types.Operator):
         preferences.login_attempt = False
         preferences.api_key_refresh = ''
         preferences.api_key = ''
-        if bpy.context.window_manager.get('bkit profile'):
-            del (bpy.context.window_manager['bkit profile'])
+        if global_vars.DATA.get('bkit profile'):
+            del (global_vars.DATA['bkit profile'])
         return {'FINISHED'}
 
 

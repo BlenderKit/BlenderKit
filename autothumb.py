@@ -15,7 +15,7 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-
+# import blenderkit
 from . import paths, utils, bg_blender, ui_panels, icons, tasks_queue, download
 
 import tempfile, os, subprocess, json, sys
@@ -396,8 +396,8 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         # either get the data from search results
-        sr = bpy.context.window_manager['search results']
-        asset_data = sr[self.asset_index].to_dict()
+        sr = global_vars.DATA['search results']
+        asset_data = sr[self.asset_index]
 
         tempdir = tempfile.mkdtemp()
 
@@ -609,8 +609,8 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         # either get the data from search results
-        sr = bpy.context.window_manager['search results']
-        asset_data = sr[self.asset_index].to_dict()
+        sr = global_vars.DATA['search results']
+        asset_data = sr[self.asset_index]
         an_slug = paths.slugify(asset_data['name'])
 
         tempdir = tempfile.mkdtemp()
@@ -648,7 +648,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         # scene = bpy.context.scene
         # ui_props = bpy.context.window_manager.blenderkitUI
         # if ui_props.active_index > -1:
-        #     sr = bpy.context.window_manager['search results']
+        #     sr = global_vars.DATA['search results']
         #     self.asset_data = dict(sr[ui_props.active_index])
         # else:
         #

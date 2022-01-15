@@ -18,7 +18,7 @@
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-from . import utils, paths, tasks_queue, rerequests
+from . import utils, paths, tasks_queue, rerequests, global_vars
 
 from bpy.props import (
     IntProperty,
@@ -70,13 +70,13 @@ def send_rating_to_thread_work_hours(url, ratings, headers):
 
 def store_rating_local_empty(asset_id):
     context = bpy.context
-    ar = context.window_manager['asset ratings']
+    ar = global_vars.DATA['asset ratings']
     ar[asset_id] = ar.get(asset_id, {})
 
 
 def store_rating_local(asset_id, type='quality', value=0):
     context = bpy.context
-    ar   = context.window_manager['asset ratings']
+    ar   = global_vars.DATA['asset ratings']
     ar[asset_id] = ar.get(asset_id, {})
     ar[asset_id][type] = value
 
@@ -116,11 +116,9 @@ def get_rating(asset_id, headers):
 
 def get_rating_local(asset_id):
     context = bpy.context
-    context.window_manager['asset ratings'] = context.window_manager.get('asset ratings', {})
-    rating = context.window_manager['asset ratings'].get(asset_id)
-    if rating:
-        return rating.to_dict()
-    return None
+    global_vars.DATA['asset ratings'] = global_vars.DATA.get('asset ratings', {})
+    rating = global_vars.DATA['asset ratings'].get(asset_id)
+    return rating
 
 
 def update_ratings_quality(self, context):

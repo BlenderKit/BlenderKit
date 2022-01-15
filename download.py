@@ -16,8 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
-from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports
+from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports,global_vars
 
 import threading
 import time
@@ -285,7 +284,7 @@ def udpate_asset_data_in_dicts(asset_data):
     scene['assets rated'] = scene.get('assets rated', {})
     id = asset_data['assetBaseId']
     scene['assets rated'][id] = scene['assets rated'].get(id, False)
-    sr = bpy.context.window_manager['search results']
+    sr = global_vars.DATA['search results']
     if not sr:
         return;
     for i, r in enumerate(sr):
@@ -590,7 +589,7 @@ def download_timer():
         downloaders = []
 
         if t.is_alive():  # set downloader size
-            sr = bpy.context.window_manager.get('search results')
+            sr = global_vars.DATA.get('search results')
             if sr is not None:
                 for r in sr:
                     if asset_data['id'] == r['id']:
@@ -661,8 +660,8 @@ def download_timer():
                         tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
                         download(asset_data, **tcom.passargs)
 
-                    if bpy.context.window_manager['search results'] is not None and done:
-                        for sres in bpy.context.window_manager['search results']:
+                    if global_vars.DATA['search results'] is not None and done:
+                        for sres in global_vars.DATA['search results']:
                             if asset_data['id'] == sres['id']:
                                 sres['downloaded'] = 100
 
@@ -1313,9 +1312,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
         if self.asset_index > -1:
             # either get the data from search results
-            sr = bpy.context.window_manager['search results']
+            sr = global_vars.DATA['search results']
             asset_data = sr[
-                self.asset_index].to_dict()  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
+                self.asset_index]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
             asset_base_id = asset_data['assetBaseId']
         else:
             # or from the scene.

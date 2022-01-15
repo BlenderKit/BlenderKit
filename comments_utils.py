@@ -18,7 +18,7 @@
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-from . import utils, paths, tasks_queue, rerequests
+from . import utils, paths, tasks_queue, rerequests, global_vars
 
 import threading
 import requests
@@ -93,15 +93,15 @@ def send_comment_to_thread(url, comment, api_key):
 
 def store_comments_local(asset_id, comments):
     context = bpy.context
-    ac = context.window_manager.get('asset comments', {})
+    ac = global_vars.DATA.get('asset comments', {})
     ac[asset_id] = comments
-    context.window_manager['asset comments'] = ac
+    global_vars.DATA['asset comments'] = ac
 
 
 def get_comments_local(asset_id):
     context = bpy.context
-    context.window_manager['asset comments'] = context.window_manager.get('asset comments', {})
-    comments = context.window_manager['asset comments'].get(asset_id)
+    global_vars.DATA['asset comments'] = global_vars.DATA.get('asset comments', {})
+    comments = global_vars.DATA['asset comments'].get(asset_id)
     if comments:
         return comments
     return None
@@ -150,7 +150,7 @@ def store_notifications_count_local(all_count):
 
 def store_notifications_local(notifications):
     '''Store notifications in Blender'''
-    bpy.context.window_manager['bkit notifications'] = notifications
+    global_vars.DATA['bkit notifications'] = notifications
 
 def count_all_notifications():
     '''Return count of all notifications on server'''
@@ -160,13 +160,13 @@ def count_all_notifications():
 
 def check_notifications_read():
     '''checks if all notifications were already read, and removes them if so'''
-    notifications = bpy.context.window_manager.get('bkit notifications')
+    notifications = global_vars.DATA.get('bkit notifications')
     if notifications is None or notifications.get('count') == 0:
         return True
     for n in notifications['results']:
         if n['unread'] == 1:
             return False
-    bpy.context.window_manager['bkit notifications'] = None
+    global_vars.DATA['bkit notifications'] = None
     return True
 
 def get_notifications_thread(api_key, all_count = 1000):

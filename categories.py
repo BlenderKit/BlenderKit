@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, utils, tasks_queue, rerequests, ui, colors, reports
+from . import paths, utils, tasks_queue, rerequests, ui, colors, reports, global_vars
 
 import requests
 import json
@@ -150,11 +150,10 @@ def update_subcategory_enums(self, context):
 
 
 def get_category_enums(self, context):
-    wm = bpy.context.window_manager
     props = bpy.context.window_manager.blenderkitUI
     asset_type = props.asset_type.lower()
     # asset_type = self.asset_type#get_upload_asset_type(self)
-    asset_categories = get_category(wm['bkit_categories'], cat_path=(asset_type,))
+    asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type,))
     items = []
     for c in asset_categories['children']:
         items.append((c['slug'], c['name'], c['description']))
@@ -164,12 +163,11 @@ def get_category_enums(self, context):
 
 
 def get_subcategory_enums(self, context):
-    wm = bpy.context.window_manager
     props = bpy.context.window_manager.blenderkitUI
     asset_type = props.asset_type.lower()
     items = []
     if self.category != '':
-        asset_categories = get_category(wm['bkit_categories'], cat_path=(asset_type, self.category,))
+        asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type, self.category,))
         for c in asset_categories['children']:
             items.append((c['slug'], c['name'], c['description']))
     if len(items) == 0:
@@ -179,12 +177,11 @@ def get_subcategory_enums(self, context):
 
 
 def get_subcategory1_enums(self, context):
-    wm = bpy.context.window_manager
     props = bpy.context.window_manager.blenderkitUI
     asset_type = props.asset_type.lower()
     items = []
     if self.category != '' and self.subcategory != '':
-        asset_categories = get_category(wm['bkit_categories'], cat_path=(asset_type, self.category, self.subcategory,))
+        asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type, self.category, self.subcategory,))
         if asset_categories:
             for c in asset_categories['children']:
                 items.append((c['slug'], c['name'], c['description']))
@@ -211,19 +208,19 @@ def load_categories():
     tempdir = paths.get_temp_dir()
     categories_filepath = os.path.join(tempdir, 'categories.json')
 
-    wm = bpy.context.window_manager
     try:
         with open(categories_filepath, 'r', encoding='utf-8') as catfile:
-            wm['bkit_categories'] = json.load(catfile)
+            global_vars.DATA['bkit_categories'] = json.load(catfile)
 
-        wm['active_category'] = {
+        global_vars.DATA['active_category'] = {
             'MODEL': ['model'],
             'SCENE': ['scene'],
             'HDR': ['hdr'],
             'MATERIAL': ['material'],
             'BRUSH': ['brush'],
         }
-    except:
+    except Exception as e:
+        print(e)
         print('categories failed to read')
 
 

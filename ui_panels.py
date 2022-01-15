@@ -20,7 +20,7 @@
 from . import paths, comments_utils, ratings, ratings_utils, utils, download, categories, icons, search, \
     resolutions, ui, \
     tasks_queue, \
-    autothumb, upload, addon_updater_ops
+    autothumb, upload, addon_updater_ops, global_vars
 
 from bpy.types import (
     Panel
@@ -551,7 +551,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
             return
 
         if user_preferences.api_key != '':
-            me = bpy.context.window_manager.get('bkit profile')
+            me = global_vars.DATA.get('bkit profile')
             if me is not None:
                 me = me['user']
                 # user name
@@ -606,7 +606,7 @@ class MarkNotificationRead(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        notifications = bpy.context.window_manager['bkit notifications']
+        notifications = global_vars.DATA['bkit notifications']
         for n in notifications['results']:
             if n['id'] == self.notification_id:
                 n['unread'] = 0
@@ -631,7 +631,7 @@ class MarkAllNotificationsRead(bpy.types.Operator):
     def execute(self, context):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         api_key = user_preferences.api_key
-        notifications = bpy.context.window_manager['bkit notifications']
+        notifications = global_vars.DATA['bkit notifications']
         for n in notifications.get('results'):
             if n['unread'] == 1:
                 n['unread'] = 0
@@ -748,7 +748,7 @@ def draw_notification(self, notification, width=600):
 
 def draw_notifications(self, context, width=600):
     layout = self.layout
-    notifications = bpy.context.window_manager.get('bkit notifications')
+    notifications = global_vars.DATA.get('bkit notifications')
     if notifications is not None and notifications.get('count')>0:
         row = layout.row()
         # row.alert = True
@@ -793,7 +793,7 @@ class VIEW3D_PT_blenderkit_notifications(Panel):
 
     @classmethod
     def poll(cls, context):
-        notifications = bpy.context.window_manager.get('bkit notifications')
+        notifications = global_vars.DATA.get('bkit notifications')
         if notifications is not None and len(notifications['results']) > 0:
             return True
         return False
@@ -1437,8 +1437,8 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
         op.asset_id = asset_data['id']
         op.asset_type = asset_data['assetType']
 
-    if from_panel and wm.get('bkit authors') is not None and author_id is not None:
-        a = bpy.context.window_manager['bkit authors'].get(author_id)
+    if from_panel and global_vars.DATA.get('bkit authors') is not None and author_id is not None:
+        a = global_vars.DATA['bkit authors'].get(author_id)
         if a is not None:
             # utils.p('author:', a)
             op = layout.operator('wm.url_open', text="Open Author's Website")
@@ -1535,7 +1535,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                 op.invoke_resolution = True
                 o = utils.get_active_model()
                 if o and o.get('asset_data'):
-                    if o['asset_data']['assetBaseId'] == bpy.context.window_manager['search results'][
+                    if o['asset_data']['assetBaseId'] == global_vars.DATA['search results'][
                         ui_props.active_index]:
                         op.model_location = o.location
                         op.model_rotation = o.rotation_euler
@@ -1547,8 +1547,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             # print('operator res ', resolution)
             # op.resolution = resolution
 
-    wm = bpy.context.window_manager
-    profile = wm.get('bkit profile')
+    profile = global_vars.DATA.get('bkit profile')
     if profile is not None:
         # validation
 
@@ -1623,9 +1622,9 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
 #     def draw(self, context):
 #         ui_props = context.window_manager.blenderkitUI
 #
-#         # sr = bpy.context.window_manager['search results']
+#         # sr = global_vars.DATA['search results']
 #
-#         # sr = bpy.context.window_manager['search results']
+#         # sr = global_vars.DATA['search results']
 #         # asset_data = sr[ui_props.active_index]
 #
 #         for k in resolutions.resolution_props_to_server.keys():
@@ -1639,7 +1638,7 @@ class OBJECT_MT_blenderkit_asset_menu(bpy.types.Menu):
     def draw(self, context):
         ui_props = context.window_manager.blenderkitUI
 
-        sr = bpy.context.window_manager['search results']
+        sr = global_vars.DATA['search results']
         asset_data = sr[ui_props.active_index]
         draw_asset_context_menu(self.layout, context, asset_data, from_panel=False)
 
@@ -1978,7 +1977,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
     def draw_author(self, context, layout, width=330):
         image_split = 0.25
         text_width = width
-        authors = bpy.context.window_manager['bkit authors']
+        authors = global_vars.DATA['bkit authors']
         a = authors.get(self.asset_data['author']['id'])
         if a is not None:  # or a is '' or (a.get('gravatarHash') is not None and a.get('gravatarImg') is None):
 
@@ -2139,7 +2138,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
 
     def draw_titlebar(self, context, layout):
         top_drag_bar = layout.box()
-        bcats = bpy.context.window_manager['bkit_categories']
+        bcats = global_vars.DATA['bkit_categories']
 
         cat_path = categories.get_category_path(bcats,
                                                 self.asset_data['category'])[1:]
@@ -2254,7 +2253,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         tip_box.label(text=self.tip)
         # comments
         if utils.profile_is_validator():
-            comments = bpy.context.window_manager.get('asset comments', {})
+            comments = global_vars.DATA.get('asset comments', {})
             self.comments = comments.get(self.asset_data['assetBaseId'], [])
             if self.comments is not None:
                 for comment in self.comments:
@@ -2279,7 +2278,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         wm = context.window_manager
         ui_props = context.window_manager.blenderkitUI
         ui_props.draw_tooltip = False
-        sr = bpy.context.window_manager['search results']
+        sr = global_vars.DATA['search results']
         asset_data = sr[ui_props.active_index]
         self.asset_data = asset_data
 
@@ -2291,7 +2290,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         # self.tex = utils.get_hidden_texture(self.img)
         # self.tex.update_tag()
 
-        authors = bpy.context.window_manager['bkit authors']
+        authors = global_vars.DATA['bkit authors']
         a = authors.get(asset_data['author']['id'])
 
         if a is not None and a.get('gravatarImg') is not None and a.get('gravatarHash') is not None:
@@ -2311,7 +2310,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             comments = comments_utils.get_comments_local(asset_data['assetBaseId'])
             # if comments is None:
             comments_utils.get_comments_thread(asset_data['assetBaseId'], api_key)
-            comments = bpy.context.window_manager.get('asset comments', {})
+            comments = global_vars.DATA.get('asset comments', {})
             self.comments = comments.get(asset_data['assetBaseId'], [])
 
         return wm.invoke_popup(self, width=self.width)
@@ -2349,13 +2348,13 @@ class SetCategoryOperator(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        acat = bpy.context.window_manager['active_category'][self.asset_type]
+        acat = global_vars.DATA['active_category'][self.asset_type]
         if self.category == '':
             acat.remove(acat[-1])
         else:
             acat.append(self.category)
         # we have to write back to wm. Thought this should happen with original list.
-        bpy.context.window_manager['active_category'][self.asset_type] = acat
+        global_vars.DATA['active_category'][self.asset_type] = acat
         return {'FINISHED'}
 
 
@@ -2481,18 +2480,17 @@ def draw_panel_categories(self, context):
     layout = self.layout
     # row = layout.row()
     # row.prop(ui_props, 'asset_type', expand=True, icon_only=True)
-    wm = bpy.context.window_manager
-    if wm.get('bkit_categories') == None:
+    if global_vars.DATA.get('bkit_categories') == None:
         return
     col = layout.column(align=True)
-    if wm.get('active_category') is not None:
-        acat = wm['active_category'][ui_props.asset_type]
+    if global_vars.DATA.get('active_category') is not None:
+        acat = global_vars.DATA['active_category'][ui_props.asset_type]
         if len(acat) > 1:
             # we are in subcategory, so draw the parent button
             op = col.operator('view3d.blenderkit_set_category', text='...', icon='FILE_PARENT')
             op.asset_type = ui_props.asset_type
             op.category = ''
-    cats = categories.get_category(wm['bkit_categories'], cat_path=acat)
+    cats = categories.get_category(global_vars.DATA['bkit_categories'], cat_path=acat)
     # draw freebies only in models parent category
     # if ui_props.asset_type == 'MODEL' and len(acat) == 1:
     #     op = col.operator('view3d.blenderkit_asset_bar_widget', text='freebies')
@@ -2609,7 +2607,7 @@ def header_search_draw(self, context):
     elif ui_props.asset_type == 'HDR':
         layout.popover(panel="VIEW3D_PT_blenderkit_advanced_HDR_search", text="", icon_value=icon_id)
 
-    notifications = bpy.context.window_manager.get('bkit notifications')
+    notifications = global_vars.DATA.get('bkit notifications')
     if notifications is not None and notifications['count'] > 0:
         layout.operator('wm.show_notifications', text="", icon_value=pcoll['bell'].icon_id)
         # layout.popover(panel="VIEW3D_PT_blenderkit_notifications", text="", icon_value=pcoll['bell'].icon_id)

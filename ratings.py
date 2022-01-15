@@ -15,8 +15,7 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-
-from . import paths, utils, rerequests, tasks_queue, ratings_utils, icons
+from . import paths, utils, rerequests, tasks_queue, ratings_utils, icons, global_vars
 
 import bpy
 import requests, threading
@@ -166,7 +165,7 @@ def draw_ratings_menu(self, context, layout):
     pcoll = icons.icon_collections["main"]
 
     profile_name = ''
-    profile = bpy.context.window_manager.get('bkit profile')
+    profile = global_vars.DATA.get('bkit profile')
     if profile and len(profile['user']['firstName']) > 0:
         profile_name = ' ' + profile['user']['firstName']
 
@@ -245,7 +244,7 @@ class FastRateMenu(Operator, ratings_utils.RatingsProperties):
         ui_props = bpy.context.window_manager.blenderkitUI
         #get asset id
         if ui_props.active_index > -1:
-            sr = bpy.context.window_manager['search results']
+            sr = global_vars.DATA['search results']
             asset_data = dict(sr[ui_props.active_index])
             self.asset_id = asset_data['id']
             self.asset_type = asset_data['assetType']
@@ -268,7 +267,7 @@ def rating_menu_draw(self, context):
     layout = self.layout
 
     ui_props = context.window_manager.blenderkitUI
-    sr = bpy.context.window_manager['search results']
+    sr = global_vars.DATA['search results']
 
     asset_search_index = ui_props.active_index
     if asset_search_index > -1:

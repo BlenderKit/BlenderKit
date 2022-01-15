@@ -15,8 +15,7 @@ import random
 import math
 import time
 
-import blenderkit
-from . import ui, paths, utils, search, comments_utils
+from . import ui, paths, utils, search, comments_utils, global_vars
 
 from bpy.props import (
     IntProperty,
@@ -74,7 +73,8 @@ def modal_inside(self, context, event):
             return {'FINISHED'}
 
 
-        sr = bpy.context.window_manager.get('search results')
+        # sr = bpy.context.window_manager.get('search results')
+        sr = global_vars.DATA.get('search results')
         if sr is not None:
             # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
             # doesn't run that often.
@@ -206,8 +206,8 @@ def get_tooltip_data(asset_data):
     if tooltip_data is None:
         author_text = ''
 
-        if bpy.context.window_manager.get('bkit authors') is not None:
-            a = bpy.context.window_manager['bkit authors'].get(asset_data['author']['id'])
+        if global_vars.DATA.get('bkit authors') is not None:
+            a = global_vars.DATA['bkit authors'].get(asset_data['author']['id'])
             if a is not None and a != '':
                 if a.get('gravatarImg') is not None:
                     gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash']).name
@@ -357,7 +357,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.visible = False
 
     def check_new_search_results(self, context):
-        sr = bpy.context.window_manager.get('search results')
+        sr = global_vars.DATA.get('search results')
         if not hasattr(self, 'search_results_count'):
             if not sr:
                 self.search_results_count = 0
@@ -452,7 +452,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.max_hcount = math.floor(context.window.width / self.button_size)
         self.max_wcount = user_preferences.max_assetbar_rows
 
-        search_results = bpy.context.window_manager.get('search results')
+        search_results = global_vars.DATA.get('search results')
         # we need to init all possible thumb previews in advance/
         # self.hcount = user_preferences.max_assetbar_rows
         if search_results is not None and self.wcount > 0:
@@ -515,7 +515,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         new_button = BL_UI_Button(asset_x, asset_y, self.button_size, self.button_size)
 
         # asset_data = sr[asset_idx]
-        # iname = blenderkit.utils.previmg_name(asset_idx)
+        # iname = utils.previmg_name(asset_idx)
         # img = bpy.data.images.get(iname)
 
         new_button.bg_color = button_bg_color
@@ -580,7 +580,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.panel = BL_UI_Drag_Panel(0, 0, self.bar_width, self.bar_height)
         self.panel.bg_color = (0.0, 0.0, 0.0, 0.5)
 
-        # sr = bpy.context.window_manager.get('search results', [])
+        # sr = global_vars.DATA.get('search results', [])
         # if sr is not None:
         # we init max possible buttons.
         button_idx = 0
@@ -650,7 +650,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def position_and_hide_buttons(self):
         # position and layout buttons
-        sr = bpy.context.window_manager.get('search results', [])
+        sr = global_vars.DATA.get('search results', [])
         if sr is None:
             sr = []
 
@@ -733,7 +733,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.context = context
 
-        if self.do_search or context.window_manager.get('search results') is None:
+        if self.do_search or global_vars.DATA.get('search results') is None:
             # TODO: move the search behaviour to separate operator, since asset bar can be already woken up from a timer.
 
             # we erase search keywords for cateogry search now, since these combinations usually return nothing now.
@@ -822,9 +822,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if self.active_index != search_index:
             self.active_index = search_index
 
-            scene = bpy.context.scene
-            wm = bpy.context.window_manager
-            sr = wm['search results']
+            # scene = bpy.context.scene
+            # wm = bpy.context.window_manager
+            sr = global_vars.DATA['search results']
             asset_data = sr[search_index]  # + self.scroll_offset]
 
             self.draw_tooltip = True
@@ -894,7 +894,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_asset_menu')
 
     def search_more(self):
-        sro = bpy.context.window_manager.get('search results orig')
+        sro = global_vars.DATA.get('search results orig')
         if sro is None:
             return
         if sro.get('next') is None:
@@ -903,15 +903,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if search_props.is_searching:
             return
 
-        blenderkit.search.search(get_next=True)
+        search.search(get_next=True)
 
     def update_validation_icon(self, asset_button, asset_data):
         if utils.profile_is_validator():
-            ar = bpy.context.window_manager.get('asset ratings', {})
+            ar = global_vars.DATA.get('asset ratings', {})
 
             rating = ar.get(asset_data['id'])
-            if rating is not None:
-                rating = rating.to_dict()
+            # if rating is not None:
+            #     rating = rating.to_dict()
 
             v_icon = ui.verification_icons[asset_data.get('verificationStatus', 'validated')]
             if v_icon is not None:
@@ -935,7 +935,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.validation_icon.visible = False
 
     def update_images(self):
-        sr = bpy.context.window_manager.get('search results')
+        sr = global_vars.DATA.get('search results')
         if not sr:
             return
         for asset_button in self.asset_buttons:
@@ -948,7 +948,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_data = sr[asset_button.asset_index]
                     if asset_data is None:
                         continue
-                    iname = blenderkit.utils.previmg_name(asset_button.asset_index)
+                    iname = utils.previmg_name(asset_button.asset_index)
                     # show indices for debug purposes
                     # asset_button.text = str(asset_button.asset_index)
                     img = bpy.data.images.get(iname)
@@ -978,8 +978,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.red_alert.visible = False
 
     def scroll_update(self):
-        sr = bpy.context.window_manager.get('search results')
-        sro = bpy.context.window_manager.get('search results orig')
+        sr = global_vars.DATA.get('search results')
+        sro = global_vars.DATA.get('search results orig')
 
         orig_offset = self.scroll_offset
         # empty results
@@ -1010,7 +1010,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_scroll_up.visible = True
 
     def search_by_author(self, asset_index):
-        sr = bpy.context.window_manager['search results']
+        sr = global_vars.DATA['search results']
         asset_data = sr[asset_index]
         a = asset_data['author']['id']
         if a is not None:
@@ -1027,16 +1027,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return True
         if event.type == 'X' and self.active_index > -1:
             # delete downloaded files for this asset
-            sr = bpy.context.window_manager['search results']
+            sr = global_vars.DATA['search results']
             asset_data = sr[self.active_index]
             print('delete asset from local drive:' + asset_data['name'])
             paths.delete_asset_debug(asset_data)
             asset_data['downloaded'] = 0
             return True
         if event.type == 'W' and self.active_index > -1:
-            sr = bpy.context.window_manager['search results']
+            sr = global_vars.DATA['search results']
             asset_data = sr[self.active_index]
-            a = bpy.context.window_manager['bkit authors'].get(asset_data['author']['id'])
+            a = global_vars.DATA['bkit authors'].get(asset_data['author']['id'])
             if a is not None:
                 utils.p('author:', a)
                 if a.get('aboutMeUrl') is not None:
@@ -1044,7 +1044,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return True
         # FastRateMenu
         if event.type == 'R' and self.active_index > -1:
-            sr = bpy.context.window_manager['search results']
+            sr = global_vars.DATA['search results']
             asset_data = sr[self.active_index]
             if not utils.user_is_owner(asset_data=asset_data):
                 bpy.ops.wm.blenderkit_menu_rating_upload(asset_name=asset_data['name'], asset_id=asset_data['id'],

@@ -16,9 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 from . import paths, ratings, utils, search, upload, ui_bgl, download, bg_blender, colors, tasks_queue, \
-    ui_panels, icons, ratings_utils, reports
+    ui_panels, icons, ratings_utils, reports, global_vars
 
 import bpy
 
@@ -72,9 +71,6 @@ verification_icons = {
 }
 
 
-# class UI_region():
-#      def _init__(self, parent = None, x = 10,y = 10 , width = 10, height = 10, img = None, col = None):
-
 def get_approximate_text_width(st):
     size = 10
     for s in st:
@@ -97,33 +93,6 @@ def get_approximate_text_width(st):
         else:
             size += 7
     return size  # Convert to picas
-
-
-
-def get_asset_under_mouse(mousex, mousey):
-    s = bpy.context.scene
-    wm = bpy.context.window_manager
-    ui_props = bpy.context.window_manager.blenderkitUI
-    r = bpy.context.region
-
-    search_results = wm.get('search results')
-    if search_results is not None:
-
-        h_draw = min(ui_props.hcount, math.ceil(len(search_results) / ui_props.wcount))
-        for b in range(0, h_draw):
-            w_draw = min(ui_props.wcount, len(search_results) - b * ui_props.wcount - ui_props.scroll_offset)
-            for a in range(0, w_draw):
-                x = ui_props.bar_x + a * (ui_props.margin + ui_props.thumb_size) + ui_props.margin + ui_props.drawoffset
-                y = ui_props.bar_y - ui_props.margin - (ui_props.thumb_size + ui_props.margin) * (b + 1)
-                w = ui_props.thumb_size
-                h = ui_props.thumb_size
-
-                if x < mousex < x + w and y < mousey < y + h:
-                    return a + ui_props.wcount * b + ui_props.scroll_offset
-
-                #   return search_results[a]
-
-    return -3
 
 
 def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1, 0, 1)):
@@ -169,22 +138,6 @@ def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1
         for r in rects:
             ui_bgl.draw_rect_3d(r, color)
 
-
-def get_rating_scalevalues(asset_type):
-    xs = []
-    if asset_type == 'model':
-        scalevalues = (0.5, 1, 2, 5, 10, 25, 50, 100, 250)
-        for v in scalevalues:
-            a = math.log2(v)
-            x = (a + 1) * (1. / 9.)
-            xs.append(x)
-    else:
-        scalevalues = (0.2, 1, 2, 3, 4, 5)
-        for v in scalevalues:
-            a = v
-            x = v / 5.
-            xs.append(x)
-    return scalevalues, xs
 
 
 def draw_ratings_bgl():
@@ -339,8 +292,8 @@ def draw_tooltip_with_author(asset_data, x, y):
     if tooltip_data is None:
         author_text = ''
 
-        if bpy.context.window_manager.get('bkit authors') is not None:
-            a = bpy.context.window_manager['bkit authors'].get(asset_data['author']['id'])
+        if global_vars.DATA.get('bkit authors') is not None:
+            a = global_vars.DATA['bkit authors'].get(asset_data['author']['id'])
             if a is not None and a != '':
                 if a.get('gravatarImg') is not None:
                     gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash']).name
@@ -567,8 +520,8 @@ def draw_asset_bar(self, context):
     #                       img,
     #                       1)
     if ui_props.hcount > 0 and ui_props.wcount > 0:
-        search_results = bpy.context.window_manager.get('search results')
-        search_results_orig = bpy.context.window_manager.get('search results orig')
+        search_results = global_vars.DATA.get('search results')
+        search_results_orig = global_vars.DATA.get('search results orig')
         if search_results == None:
             return
         h_draw = min(ui_props.hcount, math.ceil(len(search_results) / ui_props.wcount))
@@ -611,7 +564,7 @@ def draw_asset_bar(self, context):
                     ui_bgl.draw_image(ui_props.bar_x + ui_props.bar_width - 25,
                                       arrow_y, 25,
                                       ui_props.thumb_size, img1, 1)
-            ar = context.window_manager.get('asset ratings',{})
+            ar = global_vars.DATA.get('asset ratings',{})
             for b in range(0, h_draw):
                 w_draw = min(ui_props.wcount, len(search_results) - b * ui_props.wcount - ui_props.scroll_offset)
 
@@ -913,7 +866,7 @@ def mouse_in_area(mx, my, x, y, w, h):
 
 def mouse_in_asset_bar(mx, my):
     ui_props = bpy.context.window_manager.blenderkitUI
-    # search_results = bpy.context.window_manager.get('search results')
+    # search_results = global_vars.DATA.get('search results')
     # if search_results == None:
     #     return False
     #
@@ -959,7 +912,7 @@ def update_ui_size(area, region):
     ui.wcount = math.floor(
         (ui.bar_width - 2 * ui.drawoffset) / (ui.thumb_size + ui.margin))
 
-    search_results = bpy.context.window_manager.get('search results')
+    search_results = global_vars.DATA.get('search results')
     if search_results != None and ui.wcount > 0:
         ui.hcount = min(user_preferences.max_assetbar_rows, math.ceil(len(search_results) / ui.wcount))
     else:
@@ -1414,7 +1367,7 @@ class AssetDragOperator(bpy.types.Operator):
             object = None
             self.matrix = None
 
-            sr = bpy.context.window_manager['search results']
+            sr = global_vars.DATA['search results']
             self.asset_data = sr[self.asset_search_index]
 
             if not self.asset_data.get('canDownload'):

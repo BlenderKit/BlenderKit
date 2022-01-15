@@ -89,6 +89,8 @@ if "bpy" in locals():
     # bl_ui_textbox = reload(bl_ui_textbox)
 
 else:
+    from . import global_vars
+    
     from . import addon_updater_ops
     from . import append_link
     from . import asset_bar_op
@@ -259,44 +261,43 @@ mesh_poly_types = (
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
     s = context.scene
-    wm = bpy.context.window_manager
     props = bpy.context.window_manager.blenderkitUI
-    if wm.get('search results') == None and props.down_up == 'SEARCH':
+    if global_vars.DATA.get('search results') == None and props.down_up == 'SEARCH':
         search.search()
 
 
 def switch_search_results(self, context):
     s = bpy.context.scene
-    wm = bpy.context.window_manager
     props = bpy.context.window_manager.blenderkitUI
+
     if props.asset_type == 'MODEL':
-        wm['search results'] = wm.get('bkit model search')
-        wm['search results orig'] = wm.get('bkit model search orig')
+        global_vars.DATA['search results'] = global_vars.DATA.get('bkit model search')
+        global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit model search orig')
     elif props.asset_type == 'SCENE':
-        wm['search results'] = wm.get('bkit scene search')
-        wm['search results orig'] = wm.get('bkit scene search orig')
+        global_vars.DATA['search results'] = global_vars.DATA.get('bkit scene search')
+        global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit scene search orig')
     elif props.asset_type == 'HDR':
-        wm['search results'] = wm.get('bkit hdr search')
-        wm['search results orig'] = wm.get('bkit hdr search orig')
+        global_vars.DATA['search results'] = global_vars.DATA.get('bkit hdr search')
+        global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit hdr search orig')
     elif props.asset_type == 'MATERIAL':
-        wm['search results'] = wm.get('bkit material search')
-        wm['search results orig'] = wm.get('bkit material search orig')
+        global_vars.DATA['search results'] = global_vars.DATA.get('bkit material search')
+        global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit material search orig')
     elif props.asset_type == 'TEXTURE':
-        wm['search results'] = wm.get('bkit texture search')
-        wm['search results orig'] = wm.get('bkit texture search orig')
+        global_vars.DATA['search results'] = global_vars.DATA.get('bkit texture search')
+        global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit texture search orig')
     elif props.asset_type == 'BRUSH':
-        wm['search results'] = wm.get('bkit brush search')
-        wm['search results orig'] = wm.get('bkit brush search orig')
+        global_vars.DATA['search results'] = global_vars.DATA.get('bkit brush search')
+        global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit brush search orig')
         if not (context.sculpt_object or context.image_paint_object):
             reports.add_report(
                 'Switch to paint or sculpt mode to search in BlenderKit brushes.')
-    # if wm['search results'] == None:
-    #     wm['search results'] = []
-    # if wm['search results orig'] == None:
-    #     wm['search results orig'] = {'count': 0, 'results': []}
+    # if global_vars.DATA['search results'] == None:
+    #     global_vars.DATA['search results'] = []
+    # if global_vars.DATA['search results orig'] == None:
+    #     global_vars.DATA['search results orig'] = {'count': 0, 'results': []}
 
     search.load_previews()
-    if wm['search results'] == None and props.down_up == 'SEARCH':
+    if global_vars.DATA['search results'] == None and props.down_up == 'SEARCH':
         search.search()
 
 
@@ -1732,7 +1733,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
              ''),
             ('UNIFIED', 'Unified 3D View Panel',
              ""),
-            ('LOCAL', 'Relative to Data',
+            ('LOCAL', 'Relative to project',
              '')
 
         ),

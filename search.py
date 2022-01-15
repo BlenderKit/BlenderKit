@@ -17,9 +17,8 @@
 # ##### END GPL LICENSE BLOCK #####
 
 from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
-    resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops
+    resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops,global_vars
 
-import blenderkit
 from bpy.app.handlers import persistent
 
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
@@ -170,22 +169,22 @@ def update_assets_data():  # updates assets data on scene load.
                 # bpy.context.scene['assets used'][ad] = ad
 
 
-def purge_search_results():
-    ''' clean up search results on save/load.'''
-
-    s = bpy.context.scene
-
-    sr_props = [
-        'search results',
-        'search results orig',
-    ]
-    asset_types = ['model', 'material', 'scene', 'hdr', 'brush']
-    for at in asset_types:
-        sr_props.append('bkit {at} search')
-        sr_props.append('bkit {at} search orig')
-    for sr_prop in sr_props:
-        if s.get(sr_prop):
-            del (s[sr_prop])
+# def purge_search_results():
+#     ''' clean up search results on save/load.'''
+#
+#     s = bpy.context.scene
+#
+#     sr_props = [
+#         'search results',
+#         'search results orig',
+#     ]
+#     asset_types = ['model', 'material', 'scene', 'hdr', 'brush']
+#     for at in asset_types:
+#         sr_props.append('bkit {at} search')
+#         sr_props.append('bkit {at} search orig')
+#     for sr_prop in sr_props:
+#         if s.get(sr_prop):
+#             del (s[sr_prop])
 
 @persistent
 def undo_post_reload_previews(context):
@@ -198,7 +197,7 @@ def scene_load(context):
     Should (probably)also update asset data from server (after user consent)
     '''
     wm = bpy.context.window_manager
-    purge_search_results()
+    # purge_search_results()
     fetch_server_data()
     categories.load_categories()
     if not bpy.app.timers.is_registered(refresh_token_timer) and not bpy.app.background:
@@ -220,9 +219,9 @@ def fetch_server_data():
                 len(user_preferences.api_key) < 38 and len(user_preferences.api_key) > 0 and \
                 user_preferences.api_key_timeout < time.time() + 3600:
             bkit_oauth.refresh_token_thread()
-        if api_key != '' and bpy.context.window_manager.get('bkit profile') == None:
+        if api_key != '' and global_vars.DATA.get('bkit profile') == None:
             get_profile()
-        if bpy.context.window_manager.get('bkit_categories') is None:
+        if global_vars.DATA.get('bkit_categories') is None:
             categories.fetch_categories_thread(api_key, force=False)
         # all_notifications_count = comments_utils.count_all_notifications()
         # comments_utils.get_notifications_thread(api_key, all_count = all_notifications_count)
@@ -408,9 +407,9 @@ def search_timer():
         ui_props = bpy.context.window_manager.blenderkitUI
         search_name = f'bkit {ui_props.asset_type.lower()} search'
         wm = bpy.context.window_manager
-        if wm.get(search_name) is not None:
+        if global_vars.DATA.get(search_name) is not None:
             all_loaded = True
-            for ri, r in enumerate(wm[search_name]):
+            for ri, r in enumerate(global_vars.DATA[search_name]):
                 if not r.get('thumb_small_loaded'):
                     preview_loaded = load_preview(r, ri)
                     all_loaded = all_loaded and preview_loaded
@@ -450,19 +449,19 @@ def search_timer():
             icons_dir = thread[1]
             scene = bpy.context.scene
             # these 2 lines should update the previews enum and set the first result as active.
-            wm = bpy.context.window_manager
+            # wm = bpy.context.window_manager
             asset_type = thread[2]
 
             props = utils.get_search_props()
             search_name = f'bkit {asset_type} search'
 
             if not thread[0].params.get('get_next'):
-                # wm[search_name] = []
+                # global_vars.DATA[search_name] = []
                 result_field = []
             else:
                 result_field = []
-                for r in wm[search_name]:
-                    result_field.append(r.to_dict())
+                for r in global_vars.DATA[search_name]:
+                    result_field.append(r)
 
             global reports_queue
 
@@ -496,22 +495,22 @@ def search_timer():
                                                              daemon=True)
                             rating_thread.start()
 
-                wm[search_name] = result_field
-                wm['search results'] = result_field
+                global_vars.DATA[search_name] = result_field
+                global_vars.DATA['search results'] = result_field
 
                 # rdata=['results']=[]
-                wm[search_name + ' orig'] = rdata
-                wm['search results orig'] = rdata
+                global_vars.DATA[search_name + ' orig'] = rdata
+                global_vars.DATA['search results orig'] = rdata
 
                 if len(result_field) < ui_props.scroll_offset or not (thread[0].params.get('get_next')):
                     # jump back
                     ui_props.scroll_offset = 0
                 props.search_error = False
-                props.report = f"Found {wm['search results orig']['count']} results."
-                if len(wm['search results']) == 0:
+                props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
+                if len(global_vars.DATA['search results']) == 0:
                     tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
                 else:
-                    tasks_queue.add_task((reports.add_report, (f"Found {wm['search results orig']['count']} results.",)))
+                    tasks_queue.add_task((reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
                 # undo push
                 # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
                 # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
@@ -588,9 +587,9 @@ def load_previews():
     scene = bpy.context.scene
     # FIRST START SEARCH
     props = bpy.context.window_manager.blenderkitUI
-    directory = paths.get_temp_dir('%s_search' % props.asset_type.lower())
-    s = bpy.context.scene
-    results = bpy.context.window_manager.get('search results')
+    # directory = paths.get_temp_dir('%s_search' % props.asset_type.lower())
+    # s = bpy.context.scene
+    results = global_vars.DATA.get('search results')
     #
     if results is not None:
         i = 0
@@ -755,7 +754,7 @@ def write_gravatar(a_id, gravatar_path):
     This should happen on timer in queue.
     '''
     # print('write author', a_id, type(a_id))
-    authors = bpy.context.window_manager['bkit authors']
+    authors = global_vars.DATA['bkit authors']
     if authors.get(a_id) is not None:
         adata = authors.get(a_id)
         adata['gravatarImg'] = gravatar_path
@@ -823,9 +822,9 @@ def get_author(r):
 
     a_id = str(r['author']['id'])
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    authors = bpy.context.window_manager.get('bkit authors', {})
+    authors = global_vars.DATA.get('bkit authors', {})
     if authors == {}:
-        bpy.context.window_manager['bkit authors'] = authors
+        global_vars.DATA['bkit authors'] = authors
     a = authors.get(a_id)
     if a is None:  # or a is '' or (a.get('gravatarHash') is not None and a.get('gravatarImg') is None):
         a = r['author']
@@ -857,7 +856,7 @@ def write_profile(adata):
     else:
         user['exmenu'] = False
 
-    bpy.context.window_manager['bkit profile'] = adata
+    global_vars.DATA['bkit profile'] = adata
 
 
 def request_profile(api_key):
@@ -884,7 +883,7 @@ def fetch_profile(api_key):
 
 def get_profile():
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    a = bpy.context.window_manager.get('bkit profile')
+    a = global_vars.DATA.get('bkit profile')
     thread = threading.Thread(target=fetch_profile, args=(preferences.api_key,), daemon=True)
     thread.start()
 
@@ -1423,7 +1422,7 @@ def search(category='', get_next=False, author_id=''):
 
     elif props.own_only:
         # if user searches for [another] author, 'only my assets' is invalid. that's why in elif.
-        profile = bpy.context.window_manager.get('bkit profile')
+        profile = global_vars.DATA.get('bkit profile')
         if profile is not None:
             query['author_id'] = str(profile['user']['id'])
 
@@ -1442,7 +1441,7 @@ def search(category='', get_next=False, author_id=''):
         'page_size': page_size,
     }
 
-    orig_results = bpy.context.window_manager.get(f'bkit {ui_props.asset_type.lower()} search orig')
+    orig_results = global_vars.DATA.get(f'bkit {ui_props.asset_type.lower()} search orig')
     if orig_results is not None and get_next:
         params['next'] = orig_results['next']
     add_search_process(query, params)

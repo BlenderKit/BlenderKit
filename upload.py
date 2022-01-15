@@ -18,7 +18,8 @@
 
 
 from . import asset_inspector, paths, utils, bg_blender, autothumb, version_checker, search, ui_panels, ui, \
-    overrides, colors, rerequests, categories, upload_bg, tasks_queue, image_utils, asset_bar_op, reports
+    overrides, colors, rerequests, categories, upload_bg, tasks_queue, image_utils, asset_bar_op, reports, global_vars
+
 
 import tempfile, os, subprocess, json, re
 
@@ -548,10 +549,10 @@ def patch_individual_metadata(asset_id, metadata_dict, api_key):
 #         layout = self.layout
 #         ui_props = context.window_manager.blenderkitUI
 #
-#         # sr = bpy.context.window_manager['search results']
-#         sr = bpy.context.window_manager['search results']
+#         # sr =global_vars.DATA['search results']
+#         sr =global_vars.DATA['search results']
 #         asset_data = sr[ui_props.active_index]
-#         categories = bpy.context.window_manager['bkit_categories']
+#         categories =global_vars.DATA['bkit_categories']
 #         wm = bpy.context.win
 #         for c in categories:
 #             if c['name'].lower() == asset_data['assetType']:
@@ -574,13 +575,13 @@ def update_free_full(self, context):
 def can_edit_asset(active_index=-1, asset_data=None):
     if active_index < 0 and not asset_data:
         return False
-    profile = bpy.context.window_manager.get('bkit profile')
+    profile =global_vars.DATA.get('bkit profile')
     if profile is None:
         return False
     if utils.profile_is_validator():
         return True
     if not asset_data:
-        sr = bpy.context.window_manager['search results']
+        sr =global_vars.DATA['search results']
         asset_data = dict(sr[active_index])
     if int(asset_data['author']['id']) == int(profile['user']['id']):
         return True
@@ -724,7 +725,7 @@ class FastMetadata(bpy.types.Operator):
         scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         if ui_props.active_index > -1:
-            sr = bpy.context.window_manager['search results']
+            sr =global_vars.DATA['search results']
             asset_data = dict(sr[ui_props.active_index])
         else:
 
@@ -735,7 +736,7 @@ class FastMetadata(bpy.types.Operator):
             return {'CANCELLED'}
         self.asset_id = asset_data['id']
         self.asset_type = asset_data['assetType']
-        cat_path = categories.get_category_path(bpy.context.window_manager['bkit_categories'],
+        cat_path = categories.get_category_path(global_vars.DATA['bkit_categories'],
                                                 asset_data['category'])
         try:
             if len(cat_path) > 1:
@@ -1300,11 +1301,11 @@ class AssetDebugPrint(Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-        if not bpy.context.window_manager['search results']:
+        if not globals.DATA['search results']:
             print('no search results found')
             return {'CANCELLED'};
         # update status in search results for validator's clarity
-        sr = bpy.context.window_manager['search results']
+        sr =global_vars.DATA['search results']
 
         result = None
         for r in sr:
@@ -1351,10 +1352,10 @@ class AssetVerificationStatusChange(Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-        if not bpy.context.window_manager['search results']:
+        if not globals.DATA['search results']:
             return {'CANCELLED'};
         # update status in search results for validator's clarity
-        sr = bpy.context.window_manager['search results']
+        sr =global_vars.DATA['search results']
 
         for r in sr:
             if r['id'] == self.asset_id:

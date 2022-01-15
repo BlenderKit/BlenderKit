@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, rerequests, image_utils
+from . import paths, rerequests, image_utils, global_vars
 
 import bpy
 from mathutils import Vector
@@ -855,14 +855,14 @@ def update_tags(self, context):
 
 
 def user_logged_in():
-    a = bpy.context.window_manager.get('bkit profile')
+    a = global_vars.DATA.get('bkit profile')
     if a is not None:
         return True
     return False
 
 
 def profile_is_validator():
-    a = bpy.context.window_manager.get('bkit profile')
+    a = global_vars.DATA.get('bkit profile')
     if a is not None and a['user'].get('exmenu'):
         return True
     return False
@@ -870,7 +870,7 @@ def profile_is_validator():
 
 def user_is_owner(asset_data=None):
     '''Checks if the current logged in user is owner of the asset'''
-    profile = bpy.context.window_manager.get('bkit profile')
+    profile = global_vars.DATA.get('bkit profile')
     if profile is None:
         return False
     if int(asset_data['author']['id']) == int(profile['user']['id']):
