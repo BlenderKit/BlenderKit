@@ -1301,7 +1301,7 @@ class AssetDebugPrint(Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-        if not globals.DATA['search results']:
+        if not global_vars.DATA['search results']:
             print('no search results found')
             return {'CANCELLED'};
         # update status in search results for validator's clarity
@@ -1352,7 +1352,7 @@ class AssetVerificationStatusChange(Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-        if not globals.DATA['search results']:
+        if not global_vars.DATA['search results']:
             return {'CANCELLED'};
         # update status in search results for validator's clarity
         sr =global_vars.DATA['search results']
