@@ -122,12 +122,12 @@ def modal_inside(self, context, event):
                 self.scroll_offset += 2
             self.scroll_update()
             return {'RUNNING_MODAL'}
-
         if self.check_ui_resized(context) or self.check_new_search_results(context):
             # print(self.check_ui_resized(context), print(self.check_new_search_results(context)))
             self.update_ui_size(context)
             self.update_layout(context, event)
-            self.scroll_update()
+            self.scroll_update() # one extra update for scroll for correct redraw, can test if still necessary
+
 
         # this was here to check if sculpt stroke is running, but obviously that didn't help,
         #  since the RELEASE event is cought by operator and thus there is no way to detect a stroke has ended...
@@ -358,13 +358,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def check_new_search_results(self, context):
         sr = global_vars.DATA.get('search results')
+
         if not hasattr(self, 'search_results_count'):
             if not sr:
                 self.search_results_count = 0
                 return True
 
             self.search_results_count = len(sr)
-
         if sr is not None and len(sr) != self.search_results_count:
             self.search_results_count = len(sr)
             return True
@@ -481,8 +481,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_layout(self, context, event):
         # restarting asset_bar completely since the widgets are too hard to get working with updates.
 
-        self.position_and_hide_buttons()
         self.scroll_update()
+        self.position_and_hide_buttons()
 
         self.button_close.set_location(self.bar_width - self.other_button_size, -self.other_button_size)
         if hasattr(self, 'button_notifications'):
@@ -980,7 +980,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_update(self):
         sr = global_vars.DATA.get('search results')
         sro = global_vars.DATA.get('search results orig')
-
+        # print('scroll update')
         orig_offset = self.scroll_offset
         # empty results
         if sr is None:
@@ -990,7 +990,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.scroll_offset = min(self.scroll_offset, len(sr) - (self.wcount * self.hcount))
         self.scroll_offset = max(self.scroll_offset, 0)
-
+        # print(orig_offset, self.scroll_offset)
         #only update if scroll offset actually changed, otherwise this is unnecessary
         if orig_offset == self.scroll_offset:
             self.update_images()

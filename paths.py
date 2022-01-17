@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy, os, sys, tempfile, shutil
-from . import tasks_queue, ui, utils, reports
+from . import tasks_queue, ui, utils, reports, global_vars
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
 BLENDERKIT_LOCAL = "http://localhost:8001"
@@ -150,10 +150,9 @@ def get_download_dirs(asset_type):
     subdmapping = {'brush': 'brushes', 'texture': 'textures', 'model': 'models', 'scene': 'scenes',
                    'material': 'materials', 'hdr':'hdrs'}
 
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     dirs = []
-    if user_preferences.directory_behaviour == 'BOTH' or 'GLOBAL':
-        ddir = user_preferences.global_dir
+    if global_vars.PREFS['directory_behaviour'] == 'BOTH' or 'GLOBAL':
+        ddir = global_vars.PREFS['global_dir']
         if ddir.startswith('//'):
             ddir = bpy.path.abspath(ddir)
         if not os.path.exists(ddir):
@@ -165,8 +164,8 @@ def get_download_dirs(asset_type):
             os.makedirs(subdir)
         dirs.append(subdir)
     if (
-            user_preferences.directory_behaviour == 'BOTH' or user_preferences.directory_behaviour == 'LOCAL') and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
-        ddir = user_preferences.project_subdir
+            global_vars.PREFS['directory_behaviour'] == 'BOTH' or global_vars.PREFS['directory_behaviour'] == 'LOCAL') and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
+        ddir = global_vars.PREFS['project_subdir']
         if ddir.startswith('//'):
             ddir = bpy.path.abspath(ddir)
             if not os.path.exists(ddir):

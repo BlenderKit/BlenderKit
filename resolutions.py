@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, append_link, bg_blender, utils, download, search, rerequests, upload_bg, image_utils
+from . import paths, append_link, bg_blender, utils, download, search, rerequests, upload_bg, image_utils, global_vars
 
 import sys, json, os, time
 import subprocess
@@ -647,11 +647,11 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
     '''
     data = {
         'fpath': fpath,
-        'debug_value': bpy.app.debug_value,
+        'debug_value': global_vars.PREFS['debug_value'],
         'asset_data': asset_data,
         'command': command,
     }
-    binary_path = bpy.app.binary_path
+    binary_path = global_vars.PREFS['binary_path']
     tempdir = tempfile.mkdtemp()
     datafile = os.path.join(tempdir + 'resdata.json')
     script_path = os.path.dirname(os.path.realpath(__file__))

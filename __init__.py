@@ -31,6 +31,7 @@ bl_info = {
 
 import sys
 from os import path
+
 # lib = path.join(path.dirname(__file__), 'lib')
 # sys.path.insert(0, lib)
 # from .lib import sentry_sdk
@@ -90,7 +91,7 @@ if "bpy" in locals():
 
 else:
     from . import global_vars
-    
+
     from . import addon_updater_ops
     from . import append_link
     from . import asset_bar_op
@@ -253,11 +254,6 @@ mesh_poly_types = (
 )
 
 
-
-
-
-
-
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
     s = context.scene
@@ -338,13 +334,13 @@ def run_drag_drop_update(self, context):
         # ctx = utils.get_fake_context(bpy.context)
 
         bpy.ops.view3d.close_popup_button('INVOKE_DEFAULT')
-        bpy.ops.view3d.asset_drag_drop('INVOKE_DEFAULT', asset_search_index=ui_props.active_index + ui_props.scroll_offset)
+        bpy.ops.view3d.asset_drag_drop('INVOKE_DEFAULT',
+                                       asset_search_index=ui_props.active_index + ui_props.scroll_offset)
 
         self.drag_init_button = False
 
 
 class BlenderKitUIProps(PropertyGroup):
-
     down_up: EnumProperty(
         name="Download vs Upload",
         items=(
@@ -364,7 +360,7 @@ class BlenderKitUIProps(PropertyGroup):
         update=switch_search_results
     )
 
-    asset_type_fold:  BoolProperty(name="Expand asset types", default=False)
+    asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
     draw_tooltip: BoolProperty(name="Draw Tooltip", default=False)
     addon_update: BoolProperty(name="Should Update Addon", default=False)
@@ -413,7 +409,7 @@ class BlenderKitUIProps(PropertyGroup):
     drag_init_button: BoolProperty(name="Drag Initialisation from button",
                                    default=False,
                                    description="Click or drag into scene for download",
-                                   update = run_drag_drop_update)
+                                   update=run_drag_drop_update)
     drag_length: IntProperty(name="Drag length", default=0)
     draw_drag_image: BoolProperty(name="Draw Drag Image", default=False)
     draw_snapped_bounds: BoolProperty(name="Draw Snapped Bounds", default=False)
@@ -490,7 +486,7 @@ class BlenderKitCommonSearchProps(object):
     own_only: BoolProperty(name="My Assets Only", description="Search only for your assets",
                            default=False, update=search.search_update)
     use_filters: BoolProperty(name="Filters are on", description="some filters are used",
-                                  default=False)
+                              default=False)
 
     search_error: BoolProperty(name="Search Error", description="last search had an error", default=False)
     report: StringProperty(
@@ -600,9 +596,8 @@ class BlenderKitCommonSearchProps(object):
     unrated_only: BoolProperty(name="Unrated only", description="Show only unrated models",
                                default=False, update=search.search_update)
     quality_limit: IntProperty(name="Quality limit",
-                               description = 'Only show assets with a higher quality',
+                               description='Only show assets with a higher quality',
                                default=0, min=0, max=10, update=search.search_update)
-
 
 
 def name_update(self, context):
@@ -620,6 +615,7 @@ def update_free(self, context):
                                      " based on our fair share system. " \
                                      "Part of subscription is sent to artists based on usage by paying users.\n")
 
+
 # common_upload_props = [
 #     {
 #         'identifier':'id',
@@ -636,8 +632,6 @@ def update_free(self, context):
 #         'default':''
 # }
 # ]
-
-
 
 
 class BlenderKitCommonUploadProps(object):
@@ -906,8 +900,6 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         update=update_free
     )
 
-
-
     uv: BoolProperty(name="Needs UV", description="needs an UV set", default=False)
     # printable_3d : BoolProperty( name = "3d printable", description = "can be 3d printed", default = False)
     animated: BoolProperty(name="Animated", description="is animated", default=False)
@@ -1007,8 +999,8 @@ class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     texture_resolution_max: IntProperty(name="Texture Resolution Max", description="texture resolution maximum",
                                         default=0)
     evs_cap: IntProperty(name="EV cap", description="EVs dynamic range",
-                                        default=0)
-    true_hdr: BoolProperty(name="Real HDR", description="Image has High dynamic range.",default=False)
+                         default=0)
+    true_hdr: BoolProperty(name="Real HDR", description="Image has High dynamic range.", default=False)
 
 
 class BlenderKitBrushUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -1671,19 +1663,23 @@ class BlenderKitAddonPreferences(AddonPreferences):
     show_on_start: BoolProperty(
         name="Show assetbar when starting blender",
         description="Show assetbar when starting blender",
-        default=False
+        default=False,
+        update=utils.save_prefs
     )
 
     tips_on_start: BoolProperty(
         name="Show tips when starting blender",
         description="Show tips when starting blender",
-        default=True
+        default=True,
+        update=utils.save_prefs
     )
 
     search_in_header: BoolProperty(
         name="Show BlenderKit search in 3D view header",
         description="Show BlenderKit search in 3D view header",
-        default=True
+        default=True,
+        update=utils.save_prefs
+
     )
 
     global_dir: StringProperty(
@@ -1719,11 +1715,15 @@ class BlenderKitAddonPreferences(AddonPreferences):
         ),
         description="Which directories will be used for storing downloaded data",
         default="BOTH",
+        update=utils.save_prefs
+
     )
     thumbnail_use_gpu: BoolProperty(
         name="Use GPU for Thumbnails Rendering (For assets upload)",
         description="By default this is off so you can continue your work without any lag",
-        default=False
+        default=False,
+        update=utils.save_prefs
+
     )
 
     panel_behaviour: EnumProperty(
@@ -1745,11 +1745,14 @@ class BlenderKitAddonPreferences(AddonPreferences):
                                    description="max rows of assetbar in the 3D view",
                                    default=1,
                                    min=1,
-                                   max=20)
+                                   max=20,
+                                   update=utils.save_prefs
+                                   )
 
-    thumb_size: IntProperty(name="Assetbar thumbnail Size", default=96, min=-1, max=256)
+    thumb_size: IntProperty(name="Assetbar thumbnail Size", default=96, min=-1, max=256, update=utils.save_prefs
+                            )
 
-    #counts usages so it can encourage user after some time to do things.
+    # counts usages so it can encourage user after some time to do things.
     asset_counter: IntProperty(name="Usage Counter",
                                description="Counts usages so it asks for registration only after reaching a limit",
                                default=0,
@@ -1805,38 +1808,37 @@ class BlenderKitAddonPreferences(AddonPreferences):
     #     default=False
     # )
 
-    auto_check_update : bpy.props.BoolProperty(
+    auto_check_update: bpy.props.BoolProperty(
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
         default=True)
 
-    updater_interval_months : bpy.props.IntProperty(
+    updater_interval_months: bpy.props.IntProperty(
         name='Months',
         description="Number of months between checking for updates",
         default=0,
         min=0)
 
-    updater_interval_days : bpy.props.IntProperty(
+    updater_interval_days: bpy.props.IntProperty(
         name='Days',
         description="Number of days between checking for updates",
         default=1,
         min=0,
         max=31)
 
-    updater_interval_hours : bpy.props.IntProperty(
+    updater_interval_hours: bpy.props.IntProperty(
         name='Hours',
         description="Number of hours between checking for updates",
         default=0,
         min=0,
         max=23)
 
-    updater_interval_minutes : bpy.props.IntProperty(
+    updater_interval_minutes: bpy.props.IntProperty(
         name='Minutes',
         description="Number of minutes between checking for updates",
         default=0,
         min=0,
         max=59)
-
 
     def draw(self, context):
         layout = self.layout
@@ -1876,6 +1878,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
         addon_updater_ops.update_settings_ui(self, context)
 
+
 # # @bpy.app.handlers.persistent
 # def blenderkit_timer():
 #
@@ -1910,11 +1913,12 @@ classes = (
 )
 
 
-
 def register():
-
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
+
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    global_vars.PREFS = utils.load_prefs()
 
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -1972,7 +1976,6 @@ def register():
     icons.register_icons()
     ui_panels.register_ui_panels()
     bg_blender.register()
-    utils.load_prefs()
     overrides.register_overrides()
     bkit_oauth.register()
     tasks_queue.register()
@@ -1989,8 +1992,8 @@ def register():
             if a.type == 'PREFERENCES':
                 tasks_queue.add_task((bpy.ops.wm.blenderkit_welcome, ('INVOKE_DEFAULT',)), fake_context=True,
                                      fake_context_area='PREFERENCES')
-                #save preferences after manually enabling the addon
-                tasks_queue.add_task((bpy.ops.wm.save_userpref, ()), fake_context=False,)
+                # save preferences after manually enabling the addon
+                tasks_queue.add_task((bpy.ops.wm.save_userpref, ()), fake_context=False, )
 
 
 def unregister():

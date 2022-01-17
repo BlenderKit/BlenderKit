@@ -191,6 +191,13 @@ def undo_post_reload_previews(context):
     load_previews()
 
 @persistent
+def undo_pre_end_assetbar(context):
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    ui_props.turn_off = True
+    ui_props.assetbar_on = False
+
+@persistent
 def scene_load(context):
     '''
     Loads categories , checks timers registration, and updates scene asset data.
@@ -1650,6 +1657,7 @@ classes = [
 def register_search():
     bpy.app.handlers.load_post.append(scene_load)
     bpy.app.handlers.undo_post.append(undo_post_reload_previews)
+    bpy.app.handlers.undo_pre.append(undo_pre_end_assetbar)
 
     for c in classes:
         bpy.utils.register_class(c)

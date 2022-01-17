@@ -331,18 +331,36 @@ def load_prefs():
         try:
             with open(fpath, 'r', encoding='utf-8') as s:
                 prefs = json.load(s)
-                user_preferences.api_key = prefs.get('API_key', '')
+                user_preferences.api_key = prefs.get('api_key', '')
+                user_preferences.api_key_refresh = prefs.get('api_key_refresh', '')
                 user_preferences.global_dir = prefs.get('global_dir', paths.default_global_dict())
-                user_preferences.api_key_refresh = prefs.get('API_key_refresh', '')
+                user_preferences.project_subdir = prefs.get('project_subdir', "//assets")
+                user_preferences.directory_behaviour = prefs.get('directory_behaviour')
+            return prefs
         except Exception as e:
             print('failed to read addon preferences.')
             print(e)
             os.remove(fpath)
 
 
+def get_prefs_dir():
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+
+    prefs = {
+        'debug_value': bpy.app.debug_value,
+        'binary_path': bpy.app.binary_path,
+        'api_key': user_preferences.api_key,
+        'api_key_refresh': user_preferences.api_key_refresh,
+        'global_dir': user_preferences.global_dir,
+        'project_subdir': user_preferences.project_subdir,
+        'directory_behaviour': user_preferences.directory_behaviour
+    }
+    return prefs
+
 def save_prefs(self, context):
     # first check context, so we don't do this on registration or blender startup
     if not bpy.app.background:  # (hasattr kills blender)
+        print('saving prefs')
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         # we test the api key for length, so not a random accidentally typed sequence gets saved.
         lk = len(user_preferences.api_key)
@@ -352,13 +370,13 @@ def save_prefs(self, context):
             props = get_search_props()
             props.report = 'Login failed. Please paste a correct API Key.'
 
-        prefs = {
-            'API_key': user_preferences.api_key,
-            'API_key_refresh': user_preferences.api_key_refresh,
-            'global_dir': user_preferences.global_dir,
-        }
+
+        prefs = get_prefs_dir()
+        global_vars.PREFS = prefs
+
         try:
             fpath = paths.BLENDERKIT_SETTINGS_FILENAME
+
             if not os.path.exists(paths._presets):
                 os.makedirs(paths._presets)
             with open(fpath, 'w', encoding='utf-8') as s:
