@@ -18,9 +18,6 @@ import aiohttp, ssl, certifi
 # that's where magic happens; copied from Blender Cloud plugin
 from . import async_loop
 
-if __name__ != "__main__":
-    print("module", __name__, "imported")
-
 async def asyncDownloadFile(url, filename: str):
     chunk_size = 100
     ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -91,3 +88,8 @@ class Test_OT_NoBlock(bpy.types.Operator):
         print("NON-BLOCKING download started")
 
         return {'FINISHED'}
+
+if __name__ != "__main__":
+    print("module", __name__, "imported")
+
+    
