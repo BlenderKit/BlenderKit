@@ -19,6 +19,8 @@
 
 from . import utils, ui
 
+from .lock import blender_resource_lock
+
 import bpy
 import uuid
 
@@ -304,7 +306,8 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         path = file_name + "\\Collection\\"
         collection_name = kwargs.get('name')
         fc = utils.get_fake_context(bpy.context, area_type='VIEW_3D')
-        bpy.ops.wm.append(fc, filename=collection_name, directory=path)
+        with blender_resource_lock:
+            bpy.ops.wm.append(fc, filename=collection_name, directory=path)
 
         return_obs = []
         to_hidden_collection = []
