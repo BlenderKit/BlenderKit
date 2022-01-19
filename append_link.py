@@ -19,8 +19,6 @@
 
 from . import utils, ui
 
-from .lock import blender_resource_lock
-
 import bpy
 import uuid
 
