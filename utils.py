@@ -920,12 +920,16 @@ def guard_from_crash():
     return True
 
 
-def get_largest_area(area_type='VIEW_3D'):
+def get_largest_area(context = None, area_type='VIEW_3D'):
     maxsurf = 0
     maxa = None
     maxw = None
     region = None
-    for w in bpy.data.window_managers[0].windows:
+    if context is None:
+        windows = bpy.data.window_managers[0].windows
+    else:
+        windows = context.window_manager.windows
+    for w in windows:
         for a in w.screen.areas:
             if a.type == area_type:
                 asurf = a.width * a.height
@@ -934,9 +938,10 @@ def get_largest_area(area_type='VIEW_3D'):
                     maxw = w
                     maxsurf = asurf
 
-                    for r in a.regions:
-                        if r.type == 'WINDOW':
-                            region = r
+                    region = a.regions[-1]
+                    # for r in a.regions:
+                    #     if r.type == 'WINDOW':
+                    #         region = r
 
     if maxw is None or maxa is None:
         return None,None,None
@@ -948,25 +953,39 @@ def get_largest_area(area_type='VIEW_3D'):
     return maxw, maxa, region
 
 
-def get_fake_context(context, area_type='VIEW_3D'):
+def check_context(context, area_type='VIEW_3D'):
+    return hasattr(context, 'window') and\
+           hasattr(context, 'screen') and\
+           hasattr(context, 'area') and \
+           hasattr(context, 'region')
+
+def get_fake_context(context=None, area_type='VIEW_3D'):
     C_dict = {}  # context.copy() #context.copy was a source of problems - incompatibility with addons that also define context
     C_dict.update(region='WINDOW')
 
-    # try:
-    #     context = context.copy()
-    #     # print('bk context copied successfully')
-    # except Exception as e:
-    #     print(e)
-    #     print('BlenderKit: context.copy() failed. Can be a colliding addon.')
-    context = {}
+    # if hasattr(context,'window') and hasattr(context,'screen') and hasattr(context,'area') and hasattr(context,'region'):
+    #     w = context.window
+    #     s = context.screen
+    #     a = context.area
+    #     r = context.region
+    #     if not None in (w, s, a, r) and a.type == area_type and r.type == 'WINDOW':
+    #         override = {'window': w, 'screen': s, 'area': a, 'region': r}
+    #
+    #         C_dict.update(override)
+    #         print('returning almost original context')
+    #         return C_dict
 
-    if context.get('area') is None or context.get('area').type != area_type:
-        w, a, r = get_largest_area(area_type=area_type)
-        if w:
-            # sometimes there is no area of the requested type. Let's face it, some people use Blender without 3d view.
-            override = {'window': w, 'screen': w.screen, 'area': a, 'region': r}
-            C_dict.update(override)
-        # print(w,a,r)
+    # new context
+    w, a, r = get_largest_area(context = context, area_type=area_type)
+    if w:
+        # sometimes there is no area of the requested type. Let's face it, some people use Blender without 3d view.
+        override = {'window': w,
+                    'screen': w.screen,
+                    'area': a,
+                    "space_data": a.spaces.active,
+                    'region': r}
+
+        C_dict.update(override)
     return C_dict
 
 

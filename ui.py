@@ -830,55 +830,6 @@ def is_rating_possible():
     return False, False, None, None
 
 
-def interact_rating(r, mx, my, event):
-    ui = bpy.context.window_manager.blenderkitUI
-    rating_possible, rated, asset, asset_data = is_rating_possible()
-    if rating_possible:
-        bkit_ratings = asset.bkit_ratings
-
-        t = time.time() - ui.last_rating_time
-        if bpy.context.mode in ('SCULPT', 'PAINT_TEXTURE'):
-            accept_value = 'PRESS'
-        else:
-            accept_value = 'RELEASE'
-
-        if ui.rating_button_on and event.type == 'LEFTMOUSE' and event.value == accept_value:
-            if mouse_in_area(mx, my,
-                             ui.rating_x,
-                             ui.rating_y - ui.rating_button_width,
-                             ui.rating_button_width * 2,
-                             ui.rating_button_width):
-                # ui.rating_menu_on = True
-                ctx = utils.get_fake_context(bpy.context, area_type='VIEW_3D')
-                bpy.ops.wm.blenderkit_menu_rating_upload(ctx, 'INVOKE_DEFAULT', asset_name=asset_data['name'],
-                                                         asset_id=asset_data['id'],
-                                                         asset_type=asset_data['assetType'])
-                return True
-    return False
-
-
-def mouse_in_area(mx, my, x, y, w, h):
-    if x < mx < x + w and y < my < y + h:
-        return True
-    else:
-        return False
-
-
-def mouse_in_asset_bar(mx, my):
-    ui_props = bpy.context.window_manager.blenderkitUI
-    # search_results = global_vars.DATA.get('search results')
-    # if search_results == None:
-    #     return False
-    #
-    # w_draw1 = min(ui_props.wcount + 1, len(search_results) - b * ui_props.wcount - ui_props.scroll_offset)
-    # end = ui_props.bar_x + (w_draw1) * (
-    #         ui_props.margin + ui_props.thumb_size) + ui_props.margin + ui_props.drawoffset + 25
-
-    if ui_props.bar_y - ui_props.bar_height < my < ui_props.bar_y \
-            and mx > ui_props.bar_x and mx < ui_props.bar_x + ui_props.bar_width:
-        return True
-    else:
-        return False
 
 
 def mouse_in_region(r, mx, my):
@@ -1334,8 +1285,8 @@ class AssetDragOperator(bpy.types.Operator):
             self.mouse_release()  # does the main job with assets
             self.handlers_remove()
             bpy.context.window.cursor_set("DEFAULT")
-
-            bpy.ops.object.run_assetbar_fix_context(keep_running=True, do_search=False)
+            
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
             ui_props.dragging = False
             return {'FINISHED'}
 
@@ -1394,9 +1345,91 @@ class AssetDragOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
 
+class View3DExecutor(bpy.types.Operator):
+    '''should run anything with correct context, avoiding the need for get fake context tricks in timers'''
+    bl_idname = "view3d.run_func_in_operator"
+    bl_label = "BlnenderKit executor"
+    bl_description = "BlenderKit operator to execute various functions in correct context"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    keep_running: StringProperty(name="Run function", description='', default='', options={'SKIP_SAVE'})
+
+    def execute(self,context):
+        C_dict = bpy.context.copy()# let's try to get the right context
+        bpy.ops.view3d.blenderkit_asset_bar_widget(C_dict, 'INVOKE_REGION_WIN', keep_running=self.keep_running,
+                                                   do_search=self.do_search)
+        return {'FINISHED'}
+
+
+
+
+class ModalTimerOperator(bpy.types.Operator):
+    """Operator which runs its self from a timer"""
+    bl_idname = "wm.modal_timer_operator"
+    bl_label = "Modal Timer Operator"
+
+    _timer = None
+
+    def modal(self, context, event):
+        if event.type in {'RIGHTMOUSE', 'ESC'}:
+            self.cancel(context)
+            return {'CANCELLED'}
+
+        if event.type == 'TIMER':
+            # change theme color, silly!
+            color = context.preferences.themes[0].view_3d.space.gradients.high_gradient
+            color.s = 1.0
+            color.h += 0.01
+
+        return {'PASS_THROUGH'}
+
+    def execute(self, context):
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(0.1, window=context.window)
+        wm.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
+    def cancel(self, context):
+        wm = context.window_manager
+        wm.event_timer_remove(self._timer)
+
+class AssetBarModalStarter(bpy.types.Operator):
+    '''Needed for starting asset bar with correct context'''
+
+    bl_idname = "view3d.run_assetbar_start_modal"
+    bl_label = "BlnenderKit assetbar modal starter"
+    bl_description = "Assetbar modal starter"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    keep_running: BoolProperty(name="Keep Running", description='', default=True, options={'SKIP_SAVE'})
+    do_search: BoolProperty(name="Run Search", description='', default=False, options={'SKIP_SAVE'})
+    _timer = None
+
+    def modal(self, context, event):
+        if event.type == 'TIMER':
+            # change theme color, silly!
+            C_dict = bpy.context.copy()  # let's try to get the right context
+            bpy.ops.view3d.blenderkit_asset_bar_widget(C_dict, 'INVOKE_REGION_WIN', keep_running=self.keep_running,
+                                                       do_search=self.do_search)
+            self.cancel(context)
+            return {'FINISHED'}
+
+        return {'PASS_THROUGH'}
+
+    def execute(self, context):
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(0.02, window=context.window)
+        wm.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
+    def cancel(self, context):
+        wm = context.window_manager
+        wm.event_timer_remove(self._timer)
+
+
 class RunAssetBarWithContext(bpy.types.Operator):
-    """Regenerate cobweb"""
-    bl_idname = "object.run_assetbar_fix_context"
+    """This operator can run from a timer and assign a context to modal starter"""
+    bl_idname = "view3d.run_assetbar_fix_context"
     bl_label = "BlnenderKit assetbar with fixed context"
     bl_description = "Run assetbar with fixed context"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -1408,17 +1441,23 @@ class RunAssetBarWithContext(bpy.types.Operator):
     #     return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        C_dict = utils.get_fake_context(context)
+        #possibly only since blender 3.0?
+        # if check_context(context):
+        #     bpy.ops.view3d.blenderkit_asset_bar_widget('INVOKE_REGION_WIN', keep_running=self.keep_running,
+        #                                            do_search=self.do_search)
+
+        C_dict = utils.get_fake_context()
         if C_dict.get('window'):  # no 3d view, no asset bar.
-            preferences = bpy.context.preferences.addons['blenderkit'].preferences
-            bpy.ops.view3d.blenderkit_asset_bar_widget(C_dict, 'INVOKE_REGION_WIN', keep_running=self.keep_running,
-                                                       do_search=self.do_search)
+            bpy.ops.view3d.run_assetbar_start_modal(C_dict, keep_running=self.keep_running,
+                                                   do_search=self.do_search)
 
         return {'FINISHED'}
 
 
 classes = (
     AssetDragOperator,
+    View3DExecutor,
+    AssetBarModalStarter,
     RunAssetBarWithContext,
     TransferBlenderkitData,
     UndoWithContext,
@@ -1456,7 +1495,7 @@ def register_ui():
         return
     km = wm.keyconfigs.addon.keymaps.new(name="Window", space_type='EMPTY')
     # asset bar shortcut
-    kmi = km.keymap_items.new("object.run_assetbar_fix_context", 'SEMI_COLON', 'PRESS', ctrl=False, shift=False)
+    kmi = km.keymap_items.new("view3d.run_assetbar_fix_context", 'SEMI_COLON', 'PRESS', ctrl=False, shift=False)
     kmi.properties.keep_running = False
     kmi.properties.do_search = False
     addon_keymapitems.append(kmi)

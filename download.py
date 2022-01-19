@@ -946,6 +946,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         if os.path.isfile(file_names[-1]):
             kwargs['name'] = asset_data['name']
             try:
+                
                 append_asset(asset_data, **kwargs)
                 done = True
             except Exception as e:

@@ -68,7 +68,7 @@ def modal_inside(self, context, event):
             self.finish()
             w,a,r = utils.get_largest_area(area_type='VIEW_3D')
             if a is not None:
-                bpy.ops.object.run_assetbar_fix_context(keep_running=True, do_search=False)
+                bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
 
             return {'FINISHED'}
 

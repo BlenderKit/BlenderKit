@@ -522,7 +522,7 @@ def search_timer():
                 # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
                 # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
                 if not ui_props.assetbar_on and not thread[0].params.get('get_next'):
-                    bpy.ops.object.run_assetbar_fix_context()
+                    bpy.ops.view3d.run_assetbar_fix_context()
 
             else:
                 bk_logger.error(error)
