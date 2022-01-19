@@ -1,0 +1,58 @@
+name: Bug Report
+description: Report bug, crash, problem...
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! You help us to improve BlenderKit.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: Please try to describe here what the bug/crash/problem is about.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and/or Screenshots
+      description: If possible please provide a log and/or screenshot of the problem.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment 
+      description: |
+        Please provide information about Blender and BlenderKit versions, operating system etc.
+        
+        Through command line: you can get the version info by running following command in command line (on Windows use `blender.exe` instead of `blender`):
+        `blender -b --python-expr "import bpy;import blenderkit;print('\n\n>>> VERSION INFO, please copy to bug report:\n\nBlenderKit version:',blenderkit.bl_info['version'],'\nBlender version:',bpy.app.version_string, bpy.app.build_date, bpy.app.build_platform,'\n\n<<<')"`
+
+        Through GUI:
+        BlenderKit version: in Blender click on: `EDIT -> Preferences -> Addons`, search for BlenderKit and expand it, which will show you the version of addon.
+        Blender version: in Blender click on: `Blender Icon (left from FILE) -> About Blender` which will show you the version of Blender.
+      value: |
+        - BlenderKit version: 
+        - Blender version: 
+        - Operating system:
+        - additional specifics?
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional information
+      description: More information about the issue. Were you behind VPN?
+    validations:
+      required: false
