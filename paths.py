@@ -151,7 +151,7 @@ def get_download_dirs(asset_type):
                    'material': 'materials', 'hdr':'hdrs'}
 
     dirs = []
-    if global_vars.PREFS['directory_behaviour'] == 'BOTH' or 'GLOBAL':
+    if global_vars.PREFS['directory_behaviour'] in ('BOTH', 'GLOBAL'):
         ddir = global_vars.PREFS['global_dir']
         if ddir.startswith('//'):
             ddir = bpy.path.abspath(ddir)

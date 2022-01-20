@@ -1993,7 +1993,7 @@ def register():
                 tasks_queue.add_task((bpy.ops.wm.blenderkit_welcome, ('INVOKE_DEFAULT',)), fake_context=True,
                                      fake_context_area='PREFERENCES')
                 # save preferences after manually enabling the addon
-                tasks_queue.add_task((bpy.ops.wm.save_userpref, ()), fake_context=False, )
+                tasks_queue.add_task((bpy.ops.wm.save_prefs, ()), fake_context=False, )
 
 
 def unregister():
