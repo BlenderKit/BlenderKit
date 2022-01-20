@@ -398,10 +398,12 @@ def uploadable_asset_poll():
 
 
 def get_hidden_texture(name, force_reload=False):
+    if name[0]!='.':
+        name = f'.{name}'
     t = bpy.data.textures.get(name)
     if t is None:
         t = bpy.data.textures.new(name, 'IMAGE')
-    if not t.image or t.image.name != name:
+    if t.image is None or t.image.name != name:
         img = bpy.data.images.get(name)
         if img:
             t.image = img

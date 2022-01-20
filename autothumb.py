@@ -54,14 +54,17 @@ thumbnail_snap = (
 
 
 def get_texture_ui(tpath, iname):
+    img = bpy.data.images.get(iname)
     tex = bpy.data.textures.get(iname)
-
     if tpath.startswith('//'):
         tpath = bpy.path.abspath(tpath)
 
     if not tex or not tex.image or not tex.image.filepath == tpath:
-        tasks_queue.add_task((utils.get_hidden_image, (tpath, iname)), only_last=True)
+        if img is None:
+            tasks_queue.add_task((utils.get_hidden_image, (tpath, iname)), only_last=True)
+
         tasks_queue.add_task((utils.get_hidden_texture, (iname,)), only_last=True)
+
         return None
     return tex
 
