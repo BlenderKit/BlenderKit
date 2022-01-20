@@ -704,6 +704,8 @@ def draw_notification(self, notification, width=600):
     actor = notification.get('actor',{}).get('string','')
     verb = notification.get('verb','')
     target = notification.get('target',{})
+    if target is None:
+        target = {}
     target_string = target.get('string','')
     notification_string = notification.get('string','')
     firstline = f"{actor} {verb} {target_string}"
