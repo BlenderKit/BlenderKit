@@ -341,6 +341,8 @@ def load_prefs():
             print('failed to read addon preferences.')
             print(e)
             os.remove(fpath)
+    else:
+        return get_prefs_dir()
 
 
 def get_prefs_dir():
