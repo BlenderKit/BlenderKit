@@ -1020,7 +1020,7 @@ class TransferBlenderkitData(bpy.types.Operator):
 class UndoWithContext(bpy.types.Operator):
     """Regenerate cobweb"""
     bl_idname = "wm.undo_push_context"
-    bl_label = "BlnenderKit undo push"
+    bl_label = "BlenderKit undo push"
     bl_description = "BlenderKit undo push with fixed context"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1348,7 +1348,7 @@ class AssetDragOperator(bpy.types.Operator):
 class View3DExecutor(bpy.types.Operator):
     '''should run anything with correct context, avoiding the need for get fake context tricks in timers'''
     bl_idname = "view3d.run_func_in_operator"
-    bl_label = "BlnenderKit executor"
+    bl_label = "BlenderKit executor"
     bl_description = "BlenderKit operator to execute various functions in correct context"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1397,7 +1397,7 @@ class AssetBarModalStarter(bpy.types.Operator):
     '''Needed for starting asset bar with correct context'''
 
     bl_idname = "view3d.run_assetbar_start_modal"
-    bl_label = "BlnenderKit assetbar modal starter"
+    bl_label = "BlenderKit assetbar modal starter"
     bl_description = "Assetbar modal starter"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1430,7 +1430,7 @@ class AssetBarModalStarter(bpy.types.Operator):
 class RunAssetBarWithContext(bpy.types.Operator):
     """This operator can run from a timer and assign a context to modal starter"""
     bl_idname = "view3d.run_assetbar_fix_context"
-    bl_label = "BlnenderKit assetbar with fixed context"
+    bl_label = "BlenderKit assetbar with fixed context"
     bl_description = "Run assetbar with fixed context"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
