@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy, os, sys, tempfile, shutil
-from . import tasks_queue, ui, utils, reports, global_vars
+from . import tasks_queue, ui, utils, reports, global_vars, colors
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
 BLENDERKIT_LOCAL = "http://localhost:8001"
@@ -86,8 +86,10 @@ def get_oauth_landing_url():
 def get_author_gallery_url(author_id):
     return f'{get_bkit_url()}/asset-gallery?query=author_id:{author_id}'
 
+
 def get_asset_gallery_url(asset_id):
     return f'{get_bkit_url()}/asset-gallery-detail/{asset_id}/'
+
 
 def default_global_dict():
     from os.path import expanduser
@@ -99,13 +101,15 @@ def get_categories_filepath():
     tempdir = get_temp_dir()
     return os.path.join(tempdir, 'categories.json')
 
-dirs_exist_dict = {}#cache these results since this is used very often
+
+dirs_exist_dict = {}  # cache these results since this is used very often
+
+
 # this causes the function to fail if user deletes the directory while blender is running,
 # but comes back when blender is restarted.
 def get_temp_dir(subdir=None):
-
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    #first try cached results
+    # first try cached results
     if subdir is not None:
         d = dirs_exist_dict.get(subdir)
         if d is not None:
@@ -144,11 +148,10 @@ def get_temp_dir(subdir=None):
     return tempdir
 
 
-
 def get_download_dirs(asset_type):
     ''' get directories where assets will be downloaded'''
     subdmapping = {'brush': 'brushes', 'texture': 'textures', 'model': 'models', 'scene': 'scenes',
-                   'material': 'materials', 'hdr':'hdrs'}
+                   'material': 'materials', 'hdr': 'hdrs'}
 
     dirs = []
     if global_vars.PREFS['directory_behaviour'] in ('BOTH', 'GLOBAL'):
@@ -164,7 +167,8 @@ def get_download_dirs(asset_type):
             os.makedirs(subdir)
         dirs.append(subdir)
     if (
-            global_vars.PREFS['directory_behaviour'] == 'BOTH' or global_vars.PREFS['directory_behaviour'] == 'LOCAL') and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
+            global_vars.PREFS['directory_behaviour'] == 'BOTH' or global_vars.PREFS[
+        'directory_behaviour'] == 'LOCAL') and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
         ddir = global_vars.PREFS['project_subdir']
         if ddir.startswith('//'):
             ddir = bpy.path.abspath(ddir)
@@ -199,7 +203,7 @@ def slugify(slug):
     slug = re.sub(r'[-]+', '-', slug)
     slug = re.sub(r'/', '_', slug)
     slug = re.sub(r'\\\'\"', '_', slug)
-    if len(slug)>50:
+    if len(slug) > 50:
         slug = slug[:50]
     return slug
 
@@ -246,7 +250,7 @@ def round_to_closest_resolution(res):
     return p2res
 
 
-def get_res_file(asset_data, resolution, find_closest_with_url = False):
+def get_res_file(asset_data, resolution, find_closest_with_url=False):
     '''
     Returns closest resolution that current asset can offer.
     If there are no resolutions, return orig file.
@@ -270,11 +274,11 @@ def get_res_file(asset_data, resolution, find_closest_with_url = False):
         if f['fileType'] == 'blend':
             orig = f
             if resolution == 'blend':
-                #orig file found, return.
-                return orig , 'blend'
+                # orig file found, return.
+                return orig, 'blend'
 
         if f['fileType'] == resolution:
-            #exact match found, return.
+            # exact match found, return.
             return f, resolution
         # find closest resolution if the exact match won't be found.
         rval = resolutions.get(f['fileType'])
@@ -288,9 +292,10 @@ def get_res_file(asset_data, resolution, find_closest_with_url = False):
                 # print('\n\n\n\n\n\n\n\n')
     if not res and not closest:
         # utils.pprint(f'will download blend instead of resolution {resolution}')
-        return orig , 'blend'
+        return orig, 'blend'
     # utils.pprint(f'found closest resolution {closest["fileType"]} instead of the requested {resolution}')
     return closest, closest['fileType']
+
 
 def server_2_local_filename(asset_data, filename):
     '''
@@ -304,16 +309,19 @@ def server_2_local_filename(asset_data, filename):
     n = slugify(asset_data['name']) + '_' + fn
     return n
 
-def get_texture_directory(asset_data, resolution = 'blend'):
+
+def get_texture_directory(asset_data, resolution='blend'):
     tex_dir_path = f"//textures{resolution_suffix[resolution]}{os.sep}"
     return tex_dir_path
 
-def get_download_filepaths(asset_data, resolution='blend', can_return_others = False):
+
+def get_download_filepaths(asset_data, resolution='blend', can_return_others=False):
     '''Get all possible paths of the asset and resolution. Usually global and local directory.'''
+    windows_path_limit = 250
     dirs = get_download_dirs(asset_data['assetType'])
-    res_file, resolution = get_res_file(asset_data, resolution, find_closest_with_url = can_return_others)
+    res_file, resolution = get_res_file(asset_data, resolution, find_closest_with_url=can_return_others)
     name_slug = slugify(asset_data['name'])
-    if len(name_slug)>16:
+    if len(name_slug) > 16:
         name_slug = name_slug[:16]
     asset_folder_name = f"{name_slug}_{asset_data['id']}"
 
@@ -324,13 +332,23 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others = F
         return file_names
     # fn = asset_data['file_name'].replace('blend_', '')
     if res_file.get('url') is not None:
-        #Tweak the names a bit:
+        # Tweak the names a bit:
         # remove resolution and blend words in names
         #
         fn = extract_filename_from_url(res_file['url'])
-        n = server_2_local_filename(asset_data,fn)
+        n = server_2_local_filename(asset_data, fn)
         for d in dirs:
-            asset_folder_path = os.path.join(d,asset_folder_name)
+            asset_folder_path = os.path.join(d, asset_folder_name)
+            print(asset_folder_path)
+            if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
+                tasks_queue.add_task((reports.add_report, (
+                'The path to assets is too long, '
+                'only Global folder can be used. '
+                'Move your .blend file to another '
+                'folder with shorter path to '
+                'store assets in a subfolder of your project.',
+                60, colors.RED)))
+                continue
             if not os.path.exists(asset_folder_path):
                 os.makedirs(asset_folder_path)
 
@@ -338,6 +356,17 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others = F
             file_names.append(file_name)
 
     utils.p('file paths', file_names)
+    for f in file_names:
+        if len(f) > windows_path_limit:
+            tasks_queue.add_task(
+                (reports.add_report, (
+                'The path to assets is too long, '
+                'only Global folder can be used. '
+                'Move your .blend file to another '
+                'folder with shorter path to '
+                'store assets in a subfolder of your project.',
+                60, colors.RED)))
+            file_names.remove(f)
     return file_names
 
 
@@ -398,7 +427,9 @@ def get_addon_file(subpath=''):
     # fpath = os.path.join(p, subpath)
     return os.path.join(script_path, subpath)
 
+
 script_path = os.path.dirname(os.path.realpath(__file__))
+
 
 def get_addon_thumbnail_path(name):
     global script_path
