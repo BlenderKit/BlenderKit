@@ -214,6 +214,7 @@ def unpack_asset(data):
         os.remove(bpy.data.filepath + '1')
     except Exception as e:
         print(e)
+    bpy.ops.wm.quit_blender()
 
 
 def patch_asset_empty(asset_id, api_key):
