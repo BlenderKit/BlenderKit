@@ -47,8 +47,7 @@ from os import path
 if "bpy" in locals():
     from importlib import reload
 
-    async_tasks = reload(async_tasks)
-    async_loop = reload(async_loop)
+    daemon_lib = reload(daemon_lib)
 
     # alphabetically sorted all add-on modules since reload only happens from __init__.
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
@@ -124,8 +123,7 @@ else:
     from . import utils
     from . import reports
 
-    from . import async_tasks
-    from . import async_loop
+    from . import daemon_lib
 
     from .bl_ui_widgets import bl_ui_widget
     from .bl_ui_widgets import bl_ui_label
@@ -1920,8 +1918,7 @@ classes = (
 
 
 def register():
-    bpy.utils.register_class(async_loop.AsyncLoopModalOperator)
-    bpy.utils.register_class(async_tasks.Test_OT_NoBlock)
+    bpy.utils.register_class(daemon_lib.AssetDownloadOperator)
 
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
@@ -2006,8 +2003,7 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_class(async_loop.AsyncLoopModalOperator)
-    bpy.utils.unregister_class(async_tasks.Test_OT_NoBlock)
+    bpy.utils.unregister_class(daemon_lib.AssetDownloadOperator)
 
     if bpy.app.timers.is_registered(check_timers_timer):
         bpy.app.timers.unregister(check_timers_timer)
