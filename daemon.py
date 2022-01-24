@@ -5,11 +5,17 @@ from aiohttp import web
 PORT = 8080
 
 async def IsAlive(request):
+  '''
+  Reports process ID of server in Index, can be used as is-alive endpoint.
+  '''
   pid = str(getpid())
   return web.Response(text=pid)
 
 
 class DownloadAsset(web.View):
+  '''
+  Handles downloads of assets.
+  '''
   async def post(self):
     data = await self.request.json()
     print('download started for:', data)
@@ -24,6 +30,9 @@ class DownloadAsset(web.View):
 
 
 class Report(web.View):
+  '''
+  Reports progress of all tasks.
+  '''
   async def get(self):
     return web.json_response(tasks)
 

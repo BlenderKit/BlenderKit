@@ -1,55 +1,61 @@
 import random
-import asyncio
-import aiohttp
+import subprocess
+import requests
+import bpy
 
 PORT = 8080
 
 def getAddress() -> str:
   return 'http://localhost:' + str(PORT)
 
-async def DownloadAsset():
+def DownloadAsset():
   address = getAddress()
-  async with aiohttp.ClientSession() as session:
-    await ensureDaemonServerAlive(session)
+  with requests.Session() as session:
+    ensureDaemonServerAlive(session)
     
     data = {
       'assetID' : random.randint(0,10000),
     }
 
-    await session.post(address+"/download-asset", json=data)
+    session.post(address+"/download-asset", json=data)
     print("POST MADE")
       
-  
-async def ensureDaemonServerAlive(session):
+
+def ensureDaemonServerAlive(session):
   address = getAddress()
   try:
-    async with session.get(address) as resp:
-      if resp.status != 200:
-        await startDaemonServer()
-      text = await resp.text()
-      print("Server alive, PID:", text)
-  except aiohttp.ClientConnectorError as e:
+    with session.get(address) as resp:
+      if resp.status_code != 200:
+        startDaemonServer()
+      print("Server alive, PID:", resp.text)
+  except requests.ConnectionError as e:
     print("Connection error:", e)
-    await startDaemonServer()
+    startDaemonServer()
 
-async def startDaemonServer():
+def startDaemonServer():
   cmd = 'python daemon.py' #TODO: use full paths
-  await asyncio.create_subprocess_shell(
+  subprocess.Popen(
     cmd,
-    stdout= asyncio.subprocess.PIPE,
-    stderr= asyncio.subprocess.PIPE,
-    stdin = asyncio.subprocess.PIPE)
+    stdout= subprocess.PIPE,
+    stderr= subprocess.PIPE,
+    stdin = subprocess.PIPE)
   print('DAEMON SERVER STARTED')
 
 
-if __name__ == "__main__":
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  asyncio.run(DownloadAsset())
-  
+class AssetDownloadOperator(bpy.types.Operator):
+    '''
+    Testing button to trigger an asset download. TO BE REMOVED before merge!
+    '''
+    bl_idname = "view3d.download_asset"
+    bl_label = "Starts asset download"
+    bl_description = "Starts asset download"
 
+    def execute(self, context):
+      DownloadAsset()
+      return {'FINISHED'}
+
+
+if __name__ == "__main__":
+  pass
+else:
+  pass  
