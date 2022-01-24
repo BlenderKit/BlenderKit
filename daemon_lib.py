@@ -1,3 +1,5 @@
+from os import path, environ
+import sys
 import random
 import subprocess
 import requests
@@ -12,12 +14,12 @@ def DownloadAsset():
   address = getAddress()
   with requests.Session() as session:
     ensureDaemonServerAlive(session)
-    
+    url = address + "/download-asset"
     data = {
       'assetID' : random.randint(0,10000),
     }
 
-    session.post(address+"/download-asset", json=data)
+    session.post(url, json=data)
     print("POST MADE")
       
 
@@ -28,18 +30,30 @@ def ensureDaemonServerAlive(session):
       if resp.status_code != 200:
         startDaemonServer()
       print("Server alive, PID:", resp.text)
-  except requests.ConnectionError as e:
-    print("Connection error:", e)
+  except Exception as err:
+    print("EXCEPTION OCCURED", err, type(err))
     startDaemonServer()
 
 def startDaemonServer():
-  cmd = 'python daemon.py' #TODO: use full paths
-  subprocess.Popen(
-    cmd,
-    stdout= subprocess.PIPE,
-    stderr= subprocess.PIPE,
-    stdin = subprocess.PIPE)
-  print('DAEMON SERVER STARTED')
+  daemonPath = path.join(path.dirname(__file__), 'daemon.py')
+  pythonPath = sys.executable
+  pythonHome = path.abspath(path.dirname(sys.executable) + "/..")
+  env  = environ.copy()
+  env['PYTHONPATH'] = pythonPath
+  env['PYTHONHOME'] = pythonHome
+
+  print("DAEMON PATH:", daemonPath)
+  print("PYTHON PATH:", pythonPath)
+  print("PYTHON HOME:", pythonHome)
+
+  process = subprocess.Popen(
+    executable = pythonPath,
+    args       = daemonPath,
+    env        = env,
+    stdout     = subprocess.PIPE,
+    stderr     = subprocess.PIPE,
+    stdin      = subprocess.PIPE)
+  print('DAEMON SERVER STARTED', process.returncode)
 
 
 class AssetDownloadOperator(bpy.types.Operator):
@@ -51,7 +65,8 @@ class AssetDownloadOperator(bpy.types.Operator):
     bl_description = "Starts asset download"
 
     def execute(self, context):
-      DownloadAsset()
+      #DownloadAsset()
+      startDaemonServer()
       return {'FINISHED'}
 
 
