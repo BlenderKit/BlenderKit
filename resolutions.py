@@ -215,6 +215,7 @@ def unpack_asset(data):
     except Exception as e:
         print(e)
     bpy.ops.wm.quit_blender()
+    sys.exit()
 
 
 def patch_asset_empty(asset_id, api_key):
@@ -665,6 +666,7 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
         proc = subprocess.run([
             binary_path,
             "--background",
+            "--factory-startup",
             "-noaudio",
             fpath,
             "--python", os.path.join(script_path, "resolutions_bg.py"),
@@ -676,6 +678,7 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
         proc = subprocess.Popen([
             binary_path,
             "--background",
+            "--factory-startup",
             "-noaudio",
             fpath,
             "--python", os.path.join(script_path, "resolutions_bg.py"),
