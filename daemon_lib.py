@@ -3,7 +3,6 @@ import sys
 import random
 import subprocess
 import requests
-import bpy
 
 PORT = 8080
 
@@ -18,45 +17,64 @@ def DownloadAsset():
     data = {
       'assetID' : random.randint(0,10000),
     }
+    resp = session.post(url, json=data)
+    print(f'Asked for asset download, {data}, {resp.status_code}')
 
-    session.post(url, json=data)
-    print("POST MADE")
-      
 
-def ensureDaemonServerAlive(session):
+def ensureDaemonServerAlive(session: requests.Session):
+  isAlive, _ = daemonServerIsAlive(session)
+  if isAlive == True:
+    return
+
+  print("Starting daemon server")
+  startDaemonServer()
+  while True: #TODO: add a timeout break here
+    isAlive, _ = daemonServerIsAlive(session)
+    if isAlive == True:
+      print("Daemon server started")
+      return
+
+
+def daemonServerIsAlive(session: requests.Session) -> tuple[bool, str]:
   address = getAddress()
   try:
     with session.get(address) as resp:
       if resp.status_code != 200:
-        startDaemonServer()
-      print("Server alive, PID:", resp.text)
-  except Exception as err:
-    print("EXCEPTION OCCURED", err, type(err))
-    startDaemonServer()
+        return False, f'Server response not 200: {resp.status_code}' 
+      return True, f'Server alive, PID: {resp.text}'
 
-def startDaemonServer():
+  except requests.exceptions.ConnectionError as err:
+    return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
+
+
+def startDaemonServer(logPath = None):
   daemonPath = path.join(path.dirname(__file__), 'daemon.py')
   pythonPath = sys.executable
   pythonHome = path.abspath(path.dirname(sys.executable) + "/..")
   env  = environ.copy()
   env['PYTHONPATH'] = pythonPath
   env['PYTHONHOME'] = pythonHome
-
-  print("DAEMON PATH:", daemonPath)
-  print("PYTHON PATH:", pythonPath)
-  print("PYTHON HOME:", pythonHome)
-
-  process = subprocess.Popen(
-    executable = pythonPath,
-    args       = daemonPath,
-    env        = env,
-    stdout     = subprocess.PIPE,
-    stderr     = subprocess.PIPE,
-    stdin      = subprocess.PIPE)
-  print('DAEMON SERVER STARTED', process.returncode)
+  if logPath == None:
+    logPath = path.abspath(path.expanduser('~') + "/blenderkit_data/daemon.log")
+  
+  with open(logPath, "wb") as log:
+    process = subprocess.Popen(
+      args       = [pythonPath, "-u", daemonPath],
+      env        = env,
+      stdout     = log,
+      stderr     = log
+      )
 
 
-class AssetDownloadOperator(bpy.types.Operator):
+if __name__ == "__main__":
+  DownloadAsset()
+  DownloadAsset()
+  DownloadAsset()
+  
+else:
+  import bpy
+
+  class AssetDownloadOperator(bpy.types.Operator):
     '''
     Testing button to trigger an asset download. TO BE REMOVED before merge!
     '''
@@ -65,12 +83,5 @@ class AssetDownloadOperator(bpy.types.Operator):
     bl_description = "Starts asset download"
 
     def execute(self, context):
-      #DownloadAsset()
-      startDaemonServer()
+      DownloadAsset()
       return {'FINISHED'}
-
-
-if __name__ == "__main__":
-  pass
-else:
-  pass  

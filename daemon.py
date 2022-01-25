@@ -18,7 +18,7 @@ class DownloadAsset(web.View):
   '''
   async def post(self):
     data = await self.request.json()
-    print('download started for:', data)
+    print('Starting asset download:', data)
     asyncio.ensure_future(self.doDownload(data))
     return web.Response(text="ok")
 
@@ -26,7 +26,7 @@ class DownloadAsset(web.View):
     tasks[data["assetID"]] = 0
     await asyncio.sleep(5)
     tasks[data["assetID"]] = 1
-    print("ASSET DOWNLOADED")
+    print(f'Finished asset download: {data}')
 
 
 class Report(web.View):
