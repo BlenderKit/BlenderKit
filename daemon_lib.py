@@ -9,16 +9,25 @@ PORT = 8080
 def getAddress() -> str:
   return 'http://localhost:' + str(PORT)
 
-def DownloadAsset():
+
+def getReports(data):
+  address = getAddress()
+  with requests.Session() as session:
+    ensureDaemonServerAlive(session)
+    url = address + "/report"
+    # data = {
+    #   'assetID' : random.randint(0,10000),
+    # }
+    resp = session.post(url, json=data)
+    print(f"Asked for asset download, {data['asset_data']['name']}, {resp.status_code}")
+
+def DownloadAsset(data):
   address = getAddress()
   with requests.Session() as session:
     ensureDaemonServerAlive(session)
     url = address + "/download-asset"
-    data = {
-      'assetID' : random.randint(0,10000),
-    }
     resp = session.post(url, json=data)
-    print(f'Asked for asset download, {data}, {resp.status_code}')
+    print(f"Asked for asset download, {data['asset_data']['name']}, {resp.status_code}")
 
 
 def ensureDaemonServerAlive(session: requests.Session):
@@ -40,7 +49,7 @@ def daemonServerIsAlive(session: requests.Session) -> tuple[bool, str]:
   try:
     with session.get(address) as resp:
       if resp.status_code != 200:
-        return False, f'Server response not 200: {resp.status_code}' 
+        return False, f'Server response not 200: {resp.status_code}'
       return True, f'Server alive, PID: {resp.text}'
 
   except requests.exceptions.ConnectionError as err:
@@ -56,7 +65,6 @@ def startDaemonServer(logPath = None):
   env['PYTHONHOME'] = pythonHome
   if logPath == None:
     logPath = path.abspath(path.expanduser('~') + "/blenderkit_data/daemon.log")
-  
   with open(logPath, "wb") as log:
     process = subprocess.Popen(
       args       = [pythonPath, "-u", daemonPath],
@@ -83,5 +91,5 @@ else:
     bl_description = "Starts asset download"
 
     def execute(self, context):
-      DownloadAsset()
+      DownloadAsset({})
       return {'FINISHED'}

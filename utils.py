@@ -29,6 +29,7 @@ import logging
 import traceback
 import inspect
 import datetime
+import uuid
 
 bk_logger = logging.getLogger('blenderkit')
 
@@ -345,6 +346,11 @@ def load_prefs():
         return get_prefs_dir()
 
 
+def get_scene_id():
+    '''gets scene id and possibly also generates a new one'''
+    bpy.context.scene['uuid'] = bpy.context.scene.get('uuid', str(uuid.uuid4()))
+    return bpy.context.scene['uuid']
+
 def get_prefs_dir():
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
@@ -355,7 +361,8 @@ def get_prefs_dir():
         'api_key_refresh': user_preferences.api_key_refresh,
         'global_dir': user_preferences.global_dir,
         'project_subdir': user_preferences.project_subdir,
-        'directory_behaviour': user_preferences.directory_behaviour
+        'directory_behaviour': user_preferences.directory_behaviour,
+        'is_saved': user_preferences.directory_behaviour,
     }
     return prefs
 
