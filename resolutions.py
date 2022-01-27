@@ -568,7 +568,7 @@ def download_asset(asset_data, resolution='blend', unpack=False, api_key=''):
     path to the resulting asset file or None if asset isn't accessible
     '''
 
-    has_url = download.get_download_url(asset_data, download.get_scene_id(), api_key, tcom=None,
+    has_url = download.get_download_url(asset_data, utils.get_scene_id(), api_key, tcom=None,
                                         resolution='blend')
     if has_url:
         fpath = download.download_asset_file(asset_data, api_key = api_key)

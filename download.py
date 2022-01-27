@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports,global_vars
+from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports, global_vars, daemon_lib
 
 import threading
 import time
@@ -162,10 +162,6 @@ def scene_load(context):
     # print('missing check', time.time() - t)
 
 
-def get_scene_id():
-    '''gets scene id and possibly also generates a new one'''
-    bpy.context.scene['uuid'] = bpy.context.scene.get('uuid', str(uuid.uuid4()))
-    return bpy.context.scene['uuid']
 
 
 def report_usages():
@@ -173,7 +169,7 @@ def report_usages():
     mt = time.time()
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     api_key = user_preferences.api_key
-    sid = get_scene_id()
+    sid = utils.get_scene_id()
     headers = utils.get_headers(api_key)
     url = paths.get_api_url() + paths.BLENDERKIT_REPORT_URL
 
@@ -580,6 +576,7 @@ def download_timer():
 
         return 2
     s = bpy.context.scene
+    
     for threaddata in download_threads:
         t = threaddata[0]
         asset_data = threaddata[1]
@@ -863,7 +860,7 @@ def download(asset_data, **kwargs):
     '''start the download thread'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     api_key = user_preferences.api_key
-    scene_id = get_scene_id()
+    scene_id = utils.get_scene_id()
 
     tcom = ThreadCom()
     tcom.passargs = kwargs
@@ -883,12 +880,21 @@ def download(asset_data, **kwargs):
         asset_data = copy.deepcopy(asset_data)
     else:
         asset_data = asset_data.to_dict()
-    readthread = Downloader(asset_data, tcom, scene_id, api_key, resolution=kwargs['resolution'])
-    readthread.start()
+    data = {
+        'asset_data':asset_data,
+        'resolution':kwargs['resolution'],
+        'PREFS':utils.get_prefs_dir()
+    }
+    data['PREFS']['scene_id']=utils.get_scene_id()
+    data['download_dirs']=paths.get_download_dirs(asset_data['assetType'])
 
-    global download_threads
-    download_threads.append(
-        [readthread, asset_data, tcom])
+    daemon_lib.DownloadAsset(data)
+    # readthread = Downloader(asset_data, tcom, scene_id, api_key, resolution=kwargs['resolution'])
+    # readthread.start()
+
+    # global download_threads
+    # download_threads.append(
+    #     [readthread, asset_data, tcom])
 
 
 def check_downloading(asset_data, **kwargs):
