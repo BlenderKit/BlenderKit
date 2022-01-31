@@ -385,14 +385,13 @@ def draw_callback_3d_progress(self, context):
 
     if not utils.guard_from_crash():
         return
-    for threaddata in download.download_threads:
-        asset_data = threaddata[1]
-        tcom = threaddata[2]
-        if tcom.passargs.get('downloaders'):
-            for d in tcom.passargs['downloaders']:
+    for key,task in download.download_tasks.items():
+        asset_data = task['asset_data']
+        if task.get('downloaders'):
+            for d in task['downloaders']:
                 if asset_data['assetType'] == 'model':
                     draw_bbox(d['location'], d['rotation'], asset_data['bbox_min'], asset_data['bbox_max'],
-                              progress=tcom.progress)
+                              progress=task['progress'])
 
 
 def draw_callback_2d_progress(self, context):
@@ -408,16 +407,15 @@ def draw_callback_2d_progress(self, context):
     x = ui.reports_x
     y = ui.reports_y
     index = 0
-    for threaddata in download.download_threads:
-        asset_data = threaddata[1]
-        tcom = threaddata[2]
+    for key,task in download.download_tasks.items():
+        asset_data = task['asset_data']
 
         directory = paths.get_temp_dir('%s_search' % asset_data['assetType'])
         tpath = os.path.join(directory, asset_data['thumbnail_small'])
         img = utils.get_hidden_image(tpath, asset_data['id'])
 
-        if tcom.passargs.get('downloaders'):
-            for d in tcom.passargs['downloaders']:
+        if task.get('downloaders'):
+            for d in task['downloaders']:
 
                 loc = view3d_utils.location_3d_to_region_2d(bpy.context.region, bpy.context.space_data.region_3d,
                                                             d['location'])
@@ -425,9 +423,9 @@ def draw_callback_2d_progress(self, context):
                 if loc is not None:
                     if asset_data['assetType'] == 'model':
                         # models now draw with star trek mode, no need to draw percent for the image.
-                        draw_downloader(loc[0], loc[1], percent=tcom.progress, img=img, text=tcom.report)
+                        draw_downloader(loc[0], loc[1], percent=task['progress'], img=img, text=task['text'])
                     else:
-                        draw_downloader(loc[0], loc[1], percent=tcom.progress, img=img, text=tcom.report)
+                        draw_downloader(loc[0], loc[1], percent=task['progress'], img=img, text=task['text'])
                 # utils.p('end drawing downlaoders  downloader')
         else:
             draw_progress(x, y - index * 30, text='downloading %s' % asset_data['name'],
@@ -1064,6 +1062,10 @@ def draw_callback_dragging(self, context):
 def draw_callback_3d_dragging(self, context):
     ''' Draw snapped bbox while dragging. '''
     if not utils.guard_from_crash():
+        return
+    try:
+        self.has_hit
+    except:
         return
     ui_props = context.window_manager.blenderkitUI
     # print(ui_props.asset_type, self.has_hit, self.snapped_location)

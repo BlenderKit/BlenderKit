@@ -53,6 +53,7 @@ if "bpy" in locals():
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
     addon_updater_ops = reload(addon_updater_ops)
     append_link = reload(append_link)
+    timer = reload(timer)
     asset_bar_op = reload(asset_bar_op)
     asset_inspector = reload(asset_inspector)
     autothumb = reload(autothumb)
@@ -95,6 +96,7 @@ else:
     from . import global_vars
 
     from . import addon_updater_ops
+    from . import timer
     from . import append_link
     from . import asset_bar_op
     from . import asset_inspector
@@ -191,6 +193,8 @@ def check_timers_timer():
             bpy.app.timers.register(tasks_queue.queue_worker)
         if not bpy.app.timers.is_registered(bg_blender.bg_update):
             bpy.app.timers.register(bg_blender.bg_update)
+        if not bpy.app.timers.is_registered(timer.timer):
+            bpy.app.timers.register(timer.timer)
         return 5.0
 
 
@@ -1924,7 +1928,7 @@ def register():
     addon_updater_ops.register(bl_info)
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    global_vars.PREFS = utils.load_prefs()
+    global_vars.PREFS = utils.get_prefs_dir()
 
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -1972,6 +1976,7 @@ def register():
     bpy.types.Brush.bkit_ratings = PointerProperty(  # for uploads, not now...
         type=BlenderKitRatingProps)
 
+    timer.register_timer()
     search.register_search()
     asset_inspector.register_asset_inspector()
     download.register_download()
@@ -2011,6 +2016,7 @@ def unregister():
     ui.unregister_ui()
 
     icons.unregister_icons()
+    timer.unregister_timer()
     search.unregister_search()
     asset_inspector.unregister_asset_inspector()
     download.unregister_download()

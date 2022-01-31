@@ -56,7 +56,7 @@ def add_task(task, wait = 0, only_last = False, fake_context = False, fake_conte
     taskob = task_object(task[0],task[1], wait = wait, only_last = only_last, fake_context = fake_context, fake_context_area = fake_context_area)
     q.put(taskob)
 
-
+# @bpy.app.handlers.persistent
 def queue_worker():
     # utils.p('start queue worker timer')
 

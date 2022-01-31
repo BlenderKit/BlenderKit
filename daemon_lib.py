@@ -7,19 +7,26 @@ import requests
 PORT = 8080
 
 def getAddress() -> str:
-  return 'http://localhost:' + str(PORT)
+  return 'http://127.0.0.1:' + str(PORT)
 
 
 def getReports(data):
+  '''
+  Get all task reports at once
+  '''
+  # import time
+  # mt = time.time()
   address = getAddress()
   with requests.Session() as session:
     ensureDaemonServerAlive(session)
     url = address + "/report"
-    # data = {
-    #   'assetID' : random.randint(0,10000),
-    # }
-    resp = session.post(url, json=data)
-    print(f"Asked for asset download, {data['asset_data']['name']}, {resp.status_code}")
+    # print(mt-time.time())
+
+    resp = session.get(url, json=data)
+    # print(resp)
+    # print(mt-time.time())
+    return resp.json()
+
 
 def DownloadAsset(data):
   address = getAddress()
@@ -28,7 +35,7 @@ def DownloadAsset(data):
     url = address + "/download-asset"
     resp = session.post(url, json=data)
     print(f"Asked for asset download, {data['asset_data']['name']}, {resp.status_code}")
-
+    return resp.json()
 
 def ensureDaemonServerAlive(session: requests.Session):
   isAlive, _ = daemonServerIsAlive(session)

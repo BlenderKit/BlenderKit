@@ -148,6 +148,42 @@ def get_temp_dir(subdir=None):
     return tempdir
 
 
+def get_download_dirs(asset_type):
+    ''' get directories where assets will be downloaded'''
+    subdmapping = {'brush': 'brushes', 'texture': 'textures', 'model': 'models', 'scene': 'scenes',
+                   'material': 'materials', 'hdr': 'hdrs'}
+
+    dirs = []
+    if global_vars.PREFS['directory_behaviour'] in ('BOTH', 'GLOBAL'):
+        ddir = global_vars.PREFS['global_dir']
+        if ddir.startswith('//'):
+            ddir = bpy.path.abspath(ddir)
+        if not os.path.exists(ddir):
+            os.makedirs(ddir)
+
+        subd = subdmapping[asset_type]
+        subdir = os.path.join(ddir, subd)
+        if not os.path.exists(subdir):
+            os.makedirs(subdir)
+        dirs.append(subdir)
+    if (
+            global_vars.PREFS['directory_behaviour'] == 'BOTH' or global_vars.PREFS[
+        'directory_behaviour'] == 'LOCAL') and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
+        ddir = global_vars.PREFS['project_subdir']
+        if ddir.startswith('//'):
+            ddir = bpy.path.abspath(ddir)
+            if not os.path.exists(ddir):
+                os.makedirs(ddir)
+
+        subd = subdmapping[asset_type]
+
+        subdir = os.path.join(ddir, subd)
+        if not os.path.exists(subdir):
+            os.makedirs(subdir)
+        dirs.append(subdir)
+
+    return dirs
+
 def slugify(slug):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters,
