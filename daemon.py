@@ -158,12 +158,11 @@ def report_download_finished(data):
   Return download finished results.
   '''
   global tasks
-  tasks[data['task_id']] = {
+  tasks[data['task_id']] = data
+  tasks[data['task_id']].update({
     "app_id": data['PREFS']['app_id'],
     'type': 'download-finished',
-    'asset_data': data['asset_data'],
-    'resolution': data['resolution'],
-  }
+  })
 
 
 async def get_download_url(data):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):

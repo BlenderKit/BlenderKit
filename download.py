@@ -581,7 +581,7 @@ def download_timer():
 
         return 2
     s = bpy.context.scene
-    
+
     for threaddata in download_threads:
         t = threaddata[0]
         asset_data = threaddata[1]
@@ -696,6 +696,7 @@ def download_post(data):
 
     remove_keys = []
     done = False
+    print(data)
     for key,task in download_tasks.items():
         if data['asset_data']['id'] == task['asset_data']['id']:
             progress_bars = []
@@ -761,7 +762,8 @@ def download_post(data):
                 if data.get('replace_resolution'):
                     # try to relink
                     # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-
+                    print('try to replace resolution')
+                    print(data)
                     ain, resolution = asset_in_scene(data['asset_data'])
 
                     if ain == 'LINKED':
@@ -769,7 +771,7 @@ def download_post(data):
 
 
                     elif ain == 'APPENDED':
-                        replace_resolution_appended(file_paths, data['asset_data'], tcom.passargs['resolution'])
+                        replace_resolution_appended(file_paths, data['asset_data'], data['resolution'])
 
                     done = True
 
@@ -984,7 +986,7 @@ class ThreadCom:  # object passed to threads to read background process stdout i
 def download(asset_data, **kwargs):
     '''start the download thread'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-   
+
     if kwargs.get('retry_counter', 0) > 3:
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
@@ -1012,6 +1014,7 @@ def download(asset_data, **kwargs):
     data['download_dirs']=paths.get_download_dirs(asset_data['assetType'])
     if 'downloaders' in kwargs:
         data['downloaders'] = kwargs['downloaders']
+    # print(data)
     response = daemon_lib.DownloadAsset(data)
 
     download_tasks[response['task_id']] = data
@@ -1401,20 +1404,21 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     model_location: FloatVectorProperty(name='Asset Location', default=(0, 0, 0))
     model_rotation: FloatVectorProperty(name='Asset Rotation', default=(0, 0, 0))
 
-    replace: BoolProperty(name='Replace', description='replace selection with the asset', default=False)
+    replace: BoolProperty(name='Replace', description='replace selection with the asset', default=False,options={'SKIP_SAVE'})
 
     replace_resolution: BoolProperty(name='Replace resolution', description='replace resolution of the active asset',
-                                     default=False)
+                                     default=False,options={'SKIP_SAVE'})
 
     invoke_resolution: BoolProperty(name='Replace resolution popup',
-                                    description='pop up to ask which resolution to download', default=False)
+                                    description='pop up to ask which resolution to download', default=False,options={'SKIP_SAVE'})
     invoke_scene_settings: BoolProperty(name='Scene import settings popup',
-                                        description='pop up scene import settings', default=False)
+                                        description='pop up scene import settings', default=False,options={'SKIP_SAVE'})
 
     resolution: EnumProperty(
         items=available_resolutions_callback,
         default=512,
         description='Replace resolution'
+    , options = {'SKIP_SAVE'}
     )
 
     # needs to be passed to the operator to not show all resolution possibilities
