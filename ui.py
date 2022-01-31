@@ -429,7 +429,7 @@ def draw_callback_2d_progress(self, context):
                 # utils.p('end drawing downlaoders  downloader')
         else:
             draw_progress(x, y - index * 30, text='downloading %s' % asset_data['name'],
-                          percent=tcom.progress)
+                          percent=task['progress'])
             index += 1
 
     for process in bg_blender.bg_processes:

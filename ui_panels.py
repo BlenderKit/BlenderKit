@@ -2541,22 +2541,21 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
 
     @classmethod
     def poll(cls, context):
-        return len(download.download_threads) > 0
+        return len(download.download_tasks) > 0
 
     def draw(self, context):
         layout = self.layout
-        for i, threaddata in enumerate(download.download_threads):
-            tcom = threaddata[2]
-            asset_data = threaddata[1]
+        for key, data in download.download_tasks.items():
             row = layout.row()
-            row.label(text=asset_data['name'])
-            row.label(text=str(int(tcom.progress)) + ' %')
+            print(data)
+            row.label(text=data['asset_data']['name'])
+            row.label(text=str(int(data['progress'])) + ' %')
             op = row.operator('scene.blenderkit_download_kill', text='', icon='CANCEL')
-            op.thread_index = i
-            if tcom.passargs.get('retry_counter', 0) > 0:
+            op.task_index = key
+            if data.get('retry_counter', 0) > 0:
                 row = layout.row()
                 row.label(text='failed. retrying ... ', icon='ERROR')
-                row.label(text=str(tcom.passargs["retry_counter"]))
+                row.label(text=str(data["retry_counter"]))
 
                 layout.separator()
 

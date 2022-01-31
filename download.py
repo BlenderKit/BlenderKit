@@ -1336,14 +1336,14 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     bl_label = "BlenderKit Kill Asset Download"
     bl_options = {'REGISTER', 'INTERNAL'}
 
-    thread_index: IntProperty(name="Thread index", description='index of the thread to kill', default=-1)
+    task_index: StringProperty(name="Task ID", description='ID of the task to kill', default='')
 
     def execute(self, context):
         # TODO convert to daemon lib
-        global download_threads
-        td = download_threads[self.thread_index]
-        download_threads.remove(td)
-        td[0].stop()
+        global download_tasks
+        td = download_tasks[self.task_index]
+        download_tasks.pop(self.task_index)
+        daemon_lib.kill_download(self.task_index)
         return {'FINISHED'}
 
 

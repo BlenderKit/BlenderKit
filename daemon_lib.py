@@ -37,6 +37,15 @@ def DownloadAsset(data):
     print(f"Asked for asset download, {data['asset_data']['name']}, {resp.status_code}")
     return resp.json()
 
+def kill_download(task_id):
+  address = getAddress()
+  with requests.Session() as session:
+    ensureDaemonServerAlive(session)
+    url = address + "/download-kill"
+    resp = session.get(url, json={'task_id':task_id})
+    print(f"Asked for end of download, {task_id}, {resp.status_code}")
+    return resp.json()
+
 def ensureDaemonServerAlive(session: requests.Session):
   isAlive, _ = daemonServerIsAlive(session)
   if isAlive == True:
