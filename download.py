@@ -41,6 +41,7 @@ from bpy.props import (
 from bpy.app.handlers import persistent
 
 download_threads = []
+download_tasks = {}
 
 
 def check_missing():
@@ -117,8 +118,8 @@ def scene_load(context):
     '''restart broken downloads on scene load'''
     t = time.time()
     s = bpy.context.scene
-    global download_threads
-    download_threads = []
+    # global download_threads
+    # download_threads = []
 
     # commenting this out - old restore broken download on scene start. Might come back if downloads get recorded in scene
     # reset_asset_ids = {}
@@ -297,6 +298,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
 
 
     '''
+    # asset_data = data['asset_data']
+    # kwargs = data
     file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
     props = None
     #####
@@ -345,6 +348,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         #     kwargs['resolution'] = resolution
         # override based on history
         if ain is not False:
+
             if ain == 'LINKED':
                 al = 'LINK'
             else:
@@ -370,6 +374,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         link = al == 'LINK'
         # then append link
         if downloaders:
+            print('downloaders')
             for downloader in downloaders:
                 # this cares for adding particle systems directly to target mesh, but I had to block it now,
                 # because of the sluggishnes of it. Possibly re-enable when it's possible to do this faster?
@@ -667,6 +672,126 @@ def download_timer():
 
     return .5
 
+def download_write_progress(task_id, data):
+    '''writes progress from daemon_lib reports to addon tasks list '''
+    global download_tasks
+    print('write report')
+    for key,task in download_tasks.items():
+        print(key,task_id)
+        if key == task_id:
+            print(data)
+            if 'progress' in data:
+                task['progress'] = data['progress']
+            if 'text' in data:
+                task['text'] = data['text']
+
+def download_post(data):
+    # TODO might get moved to handle all blenderkit stuff, not to slow down.
+    '''
+    check for running and finished downloads.
+    Running downloads get checked for progress which is passed to UI.
+    Finished downloads are processed and linked/appended to scene.
+     '''
+    global download_tasks
+
+    remove_keys = []
+    done = False
+    for key,task in download_tasks.items():
+        if data['asset_data']['id'] == task['asset_data']['id']:
+            progress_bars = []
+            downloaders = []
+            # TODO move to separate update function from download-progress
+            #
+            # sr = global_vars.DATA.get('search results')
+            # if sr is not None:
+            #     for r in sr:
+            #         if data['asset_data']['id'] == r['id']:
+            #             r['downloaded'] = 1.0
+
+            # TODO move to separate function ?
+            # if tcom.error:
+            #     sprops = utils.get_search_props()
+            #     sprops.report = tcom.report
+            #     download_threads.remove(threaddata)
+            #     # utils.p('end download timer')
+                # return
+
+            file_paths = paths.get_download_filepaths(data['asset_data'], data['resolution'])
+
+            if len(file_paths) == 0:
+                bk_logger.debug('library names not found in asset data after download')
+                remove_keys.append(key)
+                done = True
+
+            wm = bpy.context.window_manager
+
+            at = data['asset_data']['assetType']
+            if not (((bpy.context.mode == 'OBJECT' and \
+                 (at == 'model' or at == 'material'))) \
+                    or ((at == 'brush') \
+                        and wm.get('appendable') == True) or at == 'scene' or at == 'hdr'):
+                return done
+            if ((bpy.context.mode == 'OBJECT' and \
+                 (at == 'model' or at == 'material'))) \
+                    or ((at == 'brush') \
+                        and wm.get('appendable') == True) or at == 'scene' or at == 'hdr':
+                # don't do this stuff in editmode and other modes, just wait...
+                # we don't remove the task before it's actually possible to remove it.
+                remove_keys.append(key)
+
+                # duplicate file if the global and subdir are used in prefs
+                if len(file_paths) == 2:  # todo this should try to check if both files exist and are ok.
+                    utils.copy_asset(file_paths[0], file_paths[1])
+                    # shutil.copyfile(file_paths[0], file_paths[1])
+
+                bk_logger.debug('appending asset')
+                # progress bars:
+
+                # we need to check if mouse isn't down, which means an operator can be running.
+                # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
+                #
+                # TODO use redownload in data, this is used for downloading/ copying missing libraries.
+                if data.get('redownload'):
+                    # handle lost libraries here:
+                    for l in bpy.data.libraries:
+                        if l.get('asset_data') is not None and l['asset_data']['id'] == asset_data['id']:
+                            l.filepath = file_paths[-1]
+                            l.reload()
+
+                if data.get('replace_resolution'):
+                    # try to relink
+                    # HDRs are always swapped, so their swapping is handled without the replace_resolution option
+
+                    ain, resolution = asset_in_scene(data['asset_data'])
+
+                    if ain == 'LINKED':
+                        replace_resolution_linked(file_paths, data['asset_data'])
+
+
+                    elif ain == 'APPENDED':
+                        replace_resolution_appended(file_paths, data['asset_data'], tcom.passargs['resolution'])
+
+                    done = True
+
+                else:
+                    print(data)
+                    task.update(data)
+                    done = try_finished_append( **task)
+                    # if not done:
+                        # TODO add back re-download capability for deamon - used for lost libraries
+                        # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
+                        # download(asset_data, **tcom.passargs)
+
+                    if global_vars.DATA['search results'] is not None and done:
+                        for sres in global_vars.DATA['search results']:
+                            if data['asset_data']['id'] == sres['id']:
+                                sres['downloaded'] = 100
+
+                bk_logger.debug('finished download thread')
+    # utils.p('end download timer')
+    for key in remove_keys:
+        download_tasks.pop(key)
+    return True
 
 def delete_unfinished_file(file_name):
     '''
@@ -859,12 +984,7 @@ class ThreadCom:  # object passed to threads to read background process stdout i
 def download(asset_data, **kwargs):
     '''start the download thread'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    api_key = user_preferences.api_key
-    scene_id = utils.get_scene_id()
-
-    tcom = ThreadCom()
-    tcom.passargs = kwargs
-
+   
     if kwargs.get('retry_counter', 0) > 3:
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
@@ -882,13 +1002,20 @@ def download(asset_data, **kwargs):
         asset_data = asset_data.to_dict()
     data = {
         'asset_data':asset_data,
-        'resolution':kwargs['resolution'],
-        'PREFS':utils.get_prefs_dir()
+        'PREFS':utils.get_prefs_dir(),
+        'progress':0,
+        'text':f'downloading {asset_data["name"]}',
     }
+    for arg, value in kwargs.items():
+        data[arg] = value
     data['PREFS']['scene_id']=utils.get_scene_id()
     data['download_dirs']=paths.get_download_dirs(asset_data['assetType'])
+    if 'downloaders' in kwargs:
+        data['downloaders'] = kwargs['downloaders']
+    response = daemon_lib.DownloadAsset(data)
 
-    daemon_lib.DownloadAsset(data)
+    download_tasks[response['task_id']] = data
+
     # readthread = Downloader(asset_data, tcom, scene_id, api_key, resolution=kwargs['resolution'])
     # readthread.start()
 
@@ -899,18 +1026,18 @@ def download(asset_data, **kwargs):
 
 def check_downloading(asset_data, **kwargs):
     ''' check if an asset is already downloading, if yes, just make a progress bar with downloader object.'''
-    global download_threads
+    global download_tasks
 
     downloading = False
 
-    for p in download_threads:
-        p_asset_data = p[1]
+    for key,task in download_tasks.items():
+        p_asset_data = task['asset_data']
         if p_asset_data['id'] == asset_data['id']:
             at = asset_data['assetType']
             if at in ('model', 'material'):
                 downloader = {'location': kwargs['model_location'],
                               'rotation': kwargs['model_rotation']}
-                p[2].passargs['downloaders'].append(downloader)
+                task['downloaders'].append(downloader)
             downloading = True
 
     return downloading
@@ -951,10 +1078,12 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
     if len(file_names) > 0:
         if os.path.isfile(file_names[-1]):
             kwargs['name'] = asset_data['name']
+            # print(**kwargs)
+            append_asset(asset_data, **kwargs)
+            done = True
             try:
-                
-                append_asset(asset_data, **kwargs)
-                done = True
+                pass
+
             except Exception as e:
                 # TODO: this should distinguis if the appending failed (wrong file)
                 # or something else happened(shouldn't delete the files)
@@ -1210,6 +1339,7 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     thread_index: IntProperty(name="Thread index", description='index of the thread to kill', default=-1)
 
     def execute(self, context):
+        # TODO convert to daemon lib
         global download_threads
         td = download_threads[self.thread_index]
         download_threads.remove(td)

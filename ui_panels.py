@@ -1777,7 +1777,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         if len(self.asset_data['description']) > 0:
             box = layout.box()
             box.scale_y = 0.4
-            box.label(text='Description')
+            box.label(text='Description vole')
             box.separator()
             link_more = utils.label_multiline(box, self.asset_data['description'], width=width, max_lines=10)
             if link_more:
