@@ -312,7 +312,7 @@ def get_download_filepaths(data):  # asset_data, resolution='blend', can_return_
   return file_names
 
 
-def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
+async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
   '''
   Send varioust task to a new blender instance that runs and closes after finishing the task.
   This function waits until the process finishes.
@@ -418,6 +418,25 @@ async def check_existing(data):
     fexists = True
   return fexists
 
+def delete_unfinished_file(file_name):
+    '''
+    Deletes download if it wasn't finished. If the folder it's containing is empty, it also removes the directory
+    Parameters
+    ----------
+    file_name
+
+    Returns
+    -------
+    None
+    '''
+    try:
+      os.remove(file_name)
+    except Exception as e:
+      print(e)
+    asset_dir = os.path.dirname(file_name)
+    if len(os.listdir(asset_dir)) == 0:
+      os.rmdir(asset_dir)
+    return
 
 class DownloadAsset(web.View):
   '''
@@ -522,14 +541,14 @@ class DownloadAsset(web.View):
                                        progress=progress)
               f.write(chunk)
 
-              # if self.stopped():
+              if tasks[data['task_id']].get('kill'):
               #   bk_logger.debug('stopping download: ' + asset_data['name'])
-              #   download_canceled = True
-              #   break
+                download_canceled = True
+                break
 
-    # if download_canceled:
-    #   delete_unfinished_file(file_name)
-    #   return
+    if download_canceled:
+      delete_unfinished_file(file_name)
+      return
     # unpack the file immediately after download
 
     report_download_progress(data,
@@ -538,11 +557,20 @@ class DownloadAsset(web.View):
     # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
     # remove the following line?
     data['asset_data']['resolution'] = data['resolution']
-    send_to_bg(data, file_name, command='unpack')
+    await send_to_bg(data, file_name, command='unpack')
 
     # print(f'Finished asset download: {data}')
     report_download_finished(data)
 
+class KillDownload(web.View):
+  '''
+  Ends download with the task_id.
+  '''
+
+  async def get(self):
+    global tasks
+    data = await self.request.json()
+    tasks[data['task_id']]['kill']=True
 
 class Report(web.View):
   '''
@@ -571,6 +599,7 @@ if __name__ == "__main__":
     web.get('/killyourself', KillYourself),
     web.view('/report', Report),
     web.view('/download-asset', DownloadAsset),
+    web.view('/download-kill', KillDownload),
   ])
 
   tasks = dict()
