@@ -1,10 +1,9 @@
 import asyncio
 from os import getpid
-from aiohttp import web
+from aiohttp import web, client
 import sys
 import os
 import aiohttp
-import requests
 import tempfile
 import json
 import subprocess
@@ -120,17 +119,17 @@ def get_headers(api_key):
   return headers
 
 
-def add_error_report(data, text='', timeout=5):
+def add_error_report(data, text=''):
   '''
   Adds error report to task results.
   '''
   # tasks[data['task_id']] = {
-  tasks['tyvole'] = {
+  tasks[data['task_id']] = {
     "app_id": data['PREFS']['app_id'],
     'type': 'error-report',
     # "followup": "blenderLib.placeAssetIntoScene()".
     'text': text,
-    'timeout': timeout,
+    'timeout': 20,
   }
   print(text, tasks)
 
@@ -169,8 +168,6 @@ async def get_download_url(data):  # asset_data, scene_id, api_key, tcom=None, r
   '''
   retrieves the download url. The server checks if user can download the item and returns url with a key.
   '''
-  # utils.pprint('getting download url')
-
   headers = get_headers(data['PREFS']['api_key'])
 
   req_data = {
@@ -180,40 +177,21 @@ async def get_download_url(data):  # asset_data, scene_id, api_key, tcom=None, r
 
   res_file_info, resolution = get_res_file(data)
 
-  # try:
   async with aiohttp.ClientSession() as session:
     async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
-      # print(resp.status)
-      # print(resp.status)
       rtext = await resp.text()
       r = resp
 
-      # r = rerequests.get(res_file_info['downloadUrl'], params=data, headers=headers)
-      # except Exception as e:
-      #     print('connection fail')
-      #     print(e)
-      # if tcom is not None:
-      #     tcom.error = True
       if r == None:
-        # if tcom is not None:
-        #     tcom.report = 'Connection Error'
-        #     tcom.error = True
+        add_error_report(data, text='Connection Error')
         return False  # 'Connection Error'
 
       if r.status < 400:
         rdata = await r.json()
         url = rdata['filePath']
-
         res_file_info['url'] = url
         res_file_info['file_name'] = extract_filename_from_url(url)
-
-        # print(res_file_info, url)
-        print(url)
         return True
-
-      # let's print it into UI
-
-      # tasks_queue.add_task((reports.add_report, (str(r), 10, colors.RED)))
 
       if r.status == 403:
         report_text = 'You need Full plan to get this item.'
@@ -225,7 +203,7 @@ async def get_download_url(data):  # asset_data, scene_id, api_key, tcom=None, r
       elif r.status >= 500:
         report_text = 'Server error'
 
-  add_error_report(data, text=report_text, timeout=10)
+  add_error_report(data, text=report_text)
   return False
 
 
@@ -387,7 +365,7 @@ def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
     return proc
 
 
-def copy_asset(fp1, fp2):
+async def copy_asset(fp1, fp2):
   '''synchronizes the asset between folders, including it's texture subdirectories'''
   if 1:
     # bk_logger.debug('copy asset')
@@ -413,7 +391,7 @@ def copy_asset(fp1, fp2):
   #     print(e)
 
 
-def check_existing(data):
+async def check_existing(data):
   '''
   Check if the object exists on the hard drive.
   '''
@@ -431,10 +409,10 @@ def check_existing(data):
     # If download is running, assign just the running thread. if download isn't running but the file is wrong size,
     #  delete file and restart download (or continue downoad? if possible.)
     if os.path.isfile(file_names[0]):  # and not os.path.isfile(file_names[1])
-      copy_asset(file_names[0], file_names[1])
+      await copy_asset(file_names[0], file_names[1])
     elif not os.path.isfile(file_names[0]) and os.path.isfile(
             file_names[1]):  # only in case of changed settings or deleted/moved global dict.
-      copy_asset(file_names[1], file_names[0])
+      await copy_asset(file_names[1], file_names[0])
 
   if len(file_names) > 0 and os.path.isfile(file_names[0]):
     fexists = True
@@ -478,7 +456,8 @@ class DownloadAsset(web.View):
     # different than for the non free content. delete is here when called after failed append tries.
 
     # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
-    if check_existing(data):  # and not tcom.passargs.get('delete'):
+    existing = await check_existing(data)
+    if existing:  # and not tcom.passargs.get('delete'):
 
       # this sends the thread for processing, where another check should occur, since the file might be corrupted.
       # tcom.downloaded = 100
@@ -501,45 +480,52 @@ class DownloadAsset(web.View):
       # bk_logger.debug("Downloading %s" % file_name)
       res_file_info, data['resolution'] = get_res_file(data)
 
-      response = requests.get(res_file_info['url'], stream=True)
-      total_length = response.headers.get('Content-Length')
-      if total_length is None:  # no content length header
-        print('no content length')
-        print(response.content)
-        # tcom.report = response.content
-        download_canceled = True
-      else:
-        # bk_logger.debug(total_length)
-        # if int(total_length) < 1000:  # means probably no file returned.
-        #   tasks_queue.add_task((reports.add_report, (response.content, 20, colors.RED)))
-        #
-        #   tcom.report = response.content
+      # response = requests.get(res_file_info['url'], stream=True)
 
-        file_size = int(total_length)
-        fsmb = file_size // (1024 * 1024)
-        fskb = file_size % 1024
-        if fsmb == 0:
-          t = '%iKB' % fskb
-        else:
-          t = ' %iMB' % fsmb
+      async with aiohttp.ClientSession() as session:
+        async with session.get(res_file_info['url']) as resp:
 
-        # tcom.report = f'Downloading {t} {self.resolution}'
+          total_length = resp.headers.get('Content-Length')
+          if total_length is None:  # no content length header
+            print('no content length')
+            print(resp.content)
+            # tcom.report = response.content
+            download_canceled = True
+          else:
+            # bk_logger.debug(total_length)
+            # if int(total_length) < 1000:  # means probably no file returned.
+            #   tasks_queue.add_task((reports.add_report, (response.content, 20, colors.RED)))
+            #
+            #   tcom.report = response.content
 
-        dl = 0
-        totdata = []
+            file_size = int(total_length)
+            fsmb = file_size // (1024 * 1024)
+            fskb = file_size % 1024
+            if fsmb == 0:
+              t = '%iKB' % fskb
+            else:
+              t = ' %iMB' % fsmb
 
-        for rdata in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
-          dl += len(rdata)
-          downloaded = dl
-          progress = int(100 * downloaded / file_size)
-          report_download_progress(data,
-                                   progress=progress)
-          await asyncio.sleep(.01)
-          f.write(rdata)
-          # if self.stopped():
-          #   bk_logger.debug('stopping download: ' + asset_data['name'])
-          #   download_canceled = True
-          #   break
+            # tcom.report = f'Downloading {t} {self.resolution}'
+            report_download_progress(data,text = f"Downloading {t} {data['resolution']}",
+                                     progress=0)
+            dl = 0
+            totdata = []
+
+            async for chunk in resp.content.iter_chunked(4096 * 32):
+
+            # for rdata in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
+              dl += len(chunk)
+              downloaded = dl
+              progress = int(100 * downloaded / file_size)
+              report_download_progress(data,
+                                       progress=progress)
+              f.write(chunk)
+
+              # if self.stopped():
+              #   bk_logger.debug('stopping download: ' + asset_data['name'])
+              #   download_canceled = True
+              #   break
 
     # if download_canceled:
     #   delete_unfinished_file(file_name)
