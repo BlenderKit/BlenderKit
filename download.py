@@ -675,11 +675,8 @@ def download_timer():
 def download_write_progress(task_id, data):
     '''writes progress from daemon_lib reports to addon tasks list '''
     global download_tasks
-    print('write report')
     for key,task in download_tasks.items():
-        print(key,task_id)
         if key == task_id:
-            print(data)
             if 'progress' in data:
                 task['progress'] = data['progress']
             if 'text' in data:

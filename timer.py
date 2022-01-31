@@ -1,7 +1,7 @@
 import bpy
 from. import daemon_lib, tasks_queue, reports, download
 import os
-
+import time
 # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 pending_tasks = dict()
 
@@ -10,6 +10,7 @@ def timer():
     '''
     Recieves all responses from daemon and runs according followup commands
     '''
+    mt = time.time()
     global pending_tasks
 
     data = {
@@ -29,6 +30,8 @@ def timer():
             appended = download.download_post(value)
             if not appended:
                 pending_tasks[key] = value
+    # print('timer',time.time()-mt)
+
     if len(download.download_tasks)>0:
         return .2
     return .5
