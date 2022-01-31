@@ -29,7 +29,9 @@ def timer():
             appended = download.download_post(value)
             if not appended:
                 pending_tasks[key] = value
-    return .3
+    if len(download.download_tasks)>0:
+        return .2
+    return .5
 
 
 def register_timer():
