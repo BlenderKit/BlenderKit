@@ -59,7 +59,6 @@ def ensureDaemonServerAlive(session: requests.Session):
       print("Daemon server started")
       return
 
-
 def daemonServerIsAlive(session: requests.Session) -> tuple[bool, str]:
   address = getAddress()
   try:
@@ -91,21 +90,6 @@ def startDaemonServer(logPath = None):
 
 
 if __name__ == "__main__":
-  DownloadAsset()
-  DownloadAsset()
-  DownloadAsset()
-  
+  pass
 else:
   import bpy
-
-  class AssetDownloadOperator(bpy.types.Operator):
-    '''
-    Testing button to trigger an asset download. TO BE REMOVED before merge!
-    '''
-    bl_idname = "view3d.download_asset"
-    bl_label = "Starts asset download"
-    bl_description = "Starts asset download"
-
-    def execute(self, context):
-      DownloadAsset({})
-      return {'FINISHED'}
