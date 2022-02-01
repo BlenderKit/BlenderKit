@@ -9,6 +9,8 @@ import json
 import subprocess
 import uuid
 import shutil
+import certifi
+import ssl
 
 PORT = 8080
 
@@ -164,7 +166,7 @@ def report_download_finished(data):
   })
 
 
-async def get_download_url(data):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
+async def get_download_url(data, session):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
   '''
   retrieves the download url. The server checks if user can download the item and returns url with a key.
   '''
@@ -177,30 +179,28 @@ async def get_download_url(data):  # asset_data, scene_id, api_key, tcom=None, r
 
   res_file_info, resolution = get_res_file(data)
 
-  async with aiohttp.ClientSession() as session:
-    async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
+  async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
       rtext = await resp.text()
-      r = resp
 
-      if r == None:
+      if resp == None:
         add_error_report(data, text='Connection Error')
         return False  # 'Connection Error'
 
-      if r.status < 400:
-        rdata = await r.json()
+      if resp.status < 400:
+        rdata = await resp.json()
         url = rdata['filePath']
         res_file_info['url'] = url
         res_file_info['file_name'] = extract_filename_from_url(url)
         return True
 
-      if r.status == 403:
+      if resp.status == 403:
         report_text = 'You need Full plan to get this item.'
 
-      if r.status == 404:
+      if resp.status == 404:
         report_text = 'Url not found - 404.'
         # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
 
-      elif r.status >= 500:
+      elif resp.status >= 500:
         report_text = 'Server error'
 
   add_error_report(data, text=report_text)
@@ -452,115 +452,117 @@ class DownloadAsset(web.View):
     return web.json_response({'task_id': task_id})
 
   async def do_download(self, data):
-
-    '''try to download file from blenderkit'''
-    # utils.p('start downloader thread')
-    asset_data = data['asset_data']
-    scene_id = data['PREFS']['scene_id']
-    api_key = data['PREFS']['api_key']
+    '''
+    try to download file from blenderkit
+    '''
     print('download start')
-    report_download_progress(data,
-                             progress=0, text='Looking for asset')
+    report_download_progress(data, progress=0, text='Looking for asset')
     await asyncio.sleep(.01)
     # tcom.report = 'Looking for asset'
-    # TODO get real link here...
-    has_url = await get_download_url(data)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
-    # if not has_url:
-    #   tasks_queue.add_task(
-    #     (reports.add_report, ('Failed to obtain download URL for %s.' % asset_data['name'], 5, colors.RED)))
-    #   return;
-    # if tcom.error:
-    #   return
-    # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
-    # different than for the non free content. delete is here when called after failed append tries.
 
-    # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
-    existing = await check_existing(data)
-    if existing:  # and not tcom.passargs.get('delete'):
+    sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+    sslcontext.load_verify_locations(certifi.where())
+    async with aiohttp.TCPConnector(ssl=sslcontext) as conn:
+      async with aiohttp.ClientSession(connector=conn) as session:
+        # TODO get real link here...
+        has_url = await get_download_url(data, session)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
+        # if not has_url:
+        #   tasks_queue.add_task(
+        #     (reports.add_report, ('Failed to obtain download URL for %s.' % asset_data['name'], 5, colors.RED)))
+        #   return;
+        # if tcom.error:
+        #   return
+        # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
+        # different than for the non free content. delete is here when called after failed append tries.
 
-      # this sends the thread for processing, where another check should occur, since the file might be corrupted.
-      # tcom.downloaded = 100
-      # bk_logger.debug('not downloading, trying to append ')
-      report_download_progress(data,
-                               progress=100, text='Asset found on hard drive')
-      report_download_finished(data)
-      print('found on hard drive, finishing ')
-      return
+        # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
+        existing = await check_existing(data)
+        if existing:  # and not tcom.passargs.get('delete'):
 
-    file_name = get_download_filepaths(data)[0]  # prefer global dir if possible.
-    # for k in asset_data:
-    #    print(asset_data[k])
-    # if self.stopped():
-    #   bk_logger.debug('stopping download: ' + asset_data['name'])
-    #   return
+          # this sends the thread for processing, where another check should occur, since the file might be corrupted.
+          # tcom.downloaded = 100
+          # bk_logger.debug('not downloading, trying to append ')
+          report_download_progress(data,
+                                  progress=100, text='Asset found on hard drive')
+          report_download_finished(data)
+          print('found on hard drive, finishing ')
+          return
 
-    download_canceled = False
-    with open(file_name, "wb") as f:
-      # bk_logger.debug("Downloading %s" % file_name)
-      res_file_info, data['resolution'] = get_res_file(data)
+        file_name = get_download_filepaths(data)[0]  # prefer global dir if possible.
+        # for k in asset_data:
+        #    print(asset_data[k])
+        # if self.stopped():
+        #   bk_logger.debug('stopping download: ' + asset_data['name'])
+        #   return
 
-      # response = requests.get(res_file_info['url'], stream=True)
+        download_canceled = False
+        with open(file_name, "wb") as f:
+          # bk_logger.debug("Downloading %s" % file_name)
+          res_file_info, data['resolution'] = get_res_file(data)
 
-      async with aiohttp.ClientSession() as session:
-        async with session.get(res_file_info['url']) as resp:
+          # response = requests.get(res_file_info['url'], stream=True)
 
-          total_length = resp.headers.get('Content-Length')
-          if total_length is None:  # no content length header
-            print('no content length')
-            print(resp.content)
-            # tcom.report = response.content
-            download_canceled = True
-          else:
-            # bk_logger.debug(total_length)
-            # if int(total_length) < 1000:  # means probably no file returned.
-            #   tasks_queue.add_task((reports.add_report, (response.content, 20, colors.RED)))
-            #
-            #   tcom.report = response.content
+          #async with aiohttp.ClientSession() as session:
+ 
+          async with session.get(res_file_info['url']) as resp:
 
-            file_size = int(total_length)
-            fsmb = file_size // (1024 * 1024)
-            fskb = file_size % 1024
-            if fsmb == 0:
-              t = '%iKB' % fskb
-            else:
-              t = ' %iMB' % fsmb
-
-            # tcom.report = f'Downloading {t} {self.resolution}'
-            report_download_progress(data,text = f"Downloading {t} {data['resolution']}",
-                                     progress=0)
-            dl = 0
-            totdata = []
-
-            async for chunk in resp.content.iter_chunked(4096 * 32):
-
-            # for rdata in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
-              dl += len(chunk)
-              downloaded = dl
-              progress = int(100 * downloaded / file_size)
-              report_download_progress(data,
-                                       progress=progress)
-              f.write(chunk)
-
-              if tasks[data['task_id']].get('kill'):
-              #   bk_logger.debug('stopping download: ' + asset_data['name'])
+              total_length = resp.headers.get('Content-Length')
+              if total_length is None:  # no content length header
+                print('no content length')
+                print(resp.content)
+                # tcom.report = response.content
                 download_canceled = True
-                break
+              else:
+                # bk_logger.debug(total_length)
+                # if int(total_length) < 1000:  # means probably no file returned.
+                #   tasks_queue.add_task((reports.add_report, (response.content, 20, colors.RED)))
+                #
+                #   tcom.report = response.content
 
-    if download_canceled:
-      delete_unfinished_file(file_name)
-      return
-    # unpack the file immediately after download
+                file_size = int(total_length)
+                fsmb = file_size // (1024 * 1024)
+                fskb = file_size % 1024
+                if fsmb == 0:
+                  t = '%iKB' % fskb
+                else:
+                  t = ' %iMB' % fsmb
 
-    report_download_progress(data,
-                             progress=100, text='Unpacking files')
-    await asyncio.sleep(.01)
-    # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
-    # remove the following line?
-    data['asset_data']['resolution'] = data['resolution']
-    await send_to_bg(data, file_name, command='unpack')
+                # tcom.report = f'Downloading {t} {self.resolution}'
+                report_download_progress(data,text = f"Downloading {t} {data['resolution']}",
+                                        progress=0)
+                dl = 0
+                totdata = []
 
-    # print(f'Finished asset download: {data}')
-    report_download_finished(data)
+                async for chunk in resp.content.iter_chunked(4096 * 32):
+
+                # for rdata in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
+                  dl += len(chunk)
+                  downloaded = dl
+                  progress = int(100 * downloaded / file_size)
+                  report_download_progress(data,
+                                          progress=progress)
+                  f.write(chunk)
+
+                  if tasks[data['task_id']].get('kill'):
+                  #   bk_logger.debug('stopping download: ' + asset_data['name'])
+                    download_canceled = True
+                    break
+
+        if download_canceled:
+          delete_unfinished_file(file_name)
+          return
+        # unpack the file immediately after download
+
+        report_download_progress(data,
+                                progress=100, text='Unpacking files')
+        await asyncio.sleep(.01)
+        # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
+        # remove the following line?
+        data['asset_data']['resolution'] = data['resolution']
+        await send_to_bg(data, file_name, command='unpack')
+
+        # print(f'Finished asset download: {data}')
+        report_download_finished(data)
 
 class KillDownload(web.View):
   '''
