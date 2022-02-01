@@ -1922,8 +1922,6 @@ classes = (
 
 
 def register():
-    bpy.utils.register_class(daemon_lib.AssetDownloadOperator)
-
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
 
@@ -2008,8 +2006,6 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_class(daemon_lib.AssetDownloadOperator)
-
     if bpy.app.timers.is_registered(check_timers_timer):
         bpy.app.timers.unregister(check_timers_timer)
     ui_panels.unregister_ui_panels()

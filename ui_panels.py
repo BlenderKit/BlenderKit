@@ -1269,8 +1269,6 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         #     layout.alert = False
         #     layout.separator()
 
-        layout.row().operator('view3d.download_asset', text="DOWNLOAD ASSET")
-
         if ui_props.down_up == 'SEARCH':
             if utils.profile_is_validator():
                 search_props = utils.get_search_props()
