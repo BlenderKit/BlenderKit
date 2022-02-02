@@ -1,48 +1,23 @@
+"""Holds functionality for asset manipulation and download."""
+
 import asyncio
-import sys
 import os
-import aiohttp
-import tempfile
 import json
-import subprocess
-import uuid
 import shutil
-import certifi
 import ssl
-import re
+import sys
+import tempfile
+import subprocess
 
-from aiohttp import web
+import aiohttp
+import certifi
 
-PORT = 8080
-
-resolutions = {
-  'resolution_0_5K': 512,
-  'resolution_1K': 1024,
-  'resolution_2K': 2048,
-  'resolution_4K': 4096,
-  'resolution_8K': 8192,
-}
-
-ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000
-BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
-HIGH_PRIORITY_CLASS = 0x00000080
-IDLE_PRIORITY_CLASS = 0x00000040
-NORMAL_PRIORITY_CLASS = 0x00000020
-REALTIME_PRIORITY_CLASS = 0x00000100
-
-def get_process_flags():
-  '''
-  Gets proper priority flags so background processess can run with lower priority
-  '''
-  flags = BELOW_NORMAL_PRIORITY_CLASS
-  if sys.platform != 'win32':  # TODO test this on windows
-    flags = 0
-  return flags
+import globals, utils
 
 
 def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, find_closest_with_url=False):
-  '''
-  Returns closest resolution that current asset can offer.
+  """Returns closest resolution that current asset can offer.
+  
   If there are no resolutions, return orig file.
   If orig file is requested, return it.
   params
@@ -53,7 +28,15 @@ def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, 
   Returns:
       resolution file
       resolution, so that other processess can pass correctly which resolution is downloaded.
-  '''
+  """
+  
+  resolutions = {
+    'resolution_0_5K': 512,
+    'resolution_1K': 1024,
+    'resolution_2K': 2048,
+    'resolution_4K': 4096,
+    'resolution_8K': 8192,
+  }
   orig = None
   res = None
   closest = None
@@ -87,15 +70,16 @@ def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, 
   return closest, closest['fileType']
 
 async def do_asset_download(data):
-  '''
-  Does download of an asset from BlenderKit:
+  """Download an asset from BlenderKit.
+
   1. creates a Connector and Session for download, handles SSL configuration
   2. gets download URL for an asset
   3. checks whether asset exists locally
   4. gets file_path for the file
   5. downloads the file
   6. unpacks the file
-  '''
+  """
+
   report_download_progress(data, progress=0, text='Looking for asset')
   await asyncio.sleep(.01)
   # tcom.report = 'Looking for asset'
@@ -145,6 +129,7 @@ async def do_asset_download(data):
       # print(f'Finished asset download: {data}')
       report_download_finished(data)
 
+
 async def download_file(session, file_path, data):
   print("DOWNLOADING FILE_PATH:", file_path)
 
@@ -181,80 +166,62 @@ async def download_file(session, file_path, data):
         report_download_progress(data, progress=progress)
         file.write(chunk)
 
-        if tasks[data['task_id']].get('kill'):
+        if globals.tasks[data['task_id']].get('kill'):
           delete_unfinished_file(file_path)
           return
 
-def get_headers(api_key) -> dict[str, str]:
-  '''
-  Get headers with authorization.
-  '''
-  headers = {
-    "accept": "application/json",
-  }
-  if api_key != '':
-    headers["Authorization"] = f"Bearer {api_key}"
-  return headers
-
 
 def add_error_report(data, text=''):
-  '''
-  Adds error report to task results.
-  '''
+  """Adds error report to task results."""
+
   # tasks[data['task_id']] = {
-  tasks[data['task_id']] = {
+  globals.tasks[data['task_id']] = {
     "app_id": data['PREFS']['app_id'],
     'type': 'error-report',
     # "followup": "blenderLib.placeAssetIntoScene()".
     'text': text,
     'timeout': 20,
   }
-  print(text, tasks)
+  print(text, globals.tasks)
 
 
 def report_download_progress(data, text=None, progress=None):
-  '''
-  Add download progress report to task results.
-  '''
-  global tasks
-  tasks[data['task_id']] = {
+  """Add download progress report to task results."""
+
+  globals.tasks[data['task_id']] = {
     "app_id": data['PREFS']['app_id'],
     'type': 'download-progress',
   }
 
   if progress is not None:
-    tasks[data['task_id']]['progress'] = progress
+    globals.tasks[data['task_id']]['progress'] = progress
   if text is not None:
-    tasks[data['task_id']]['text'] = text
+    globals.tasks[data['task_id']]['text'] = text
 
   # print(progress, text, tasks)
 
 
 def report_download_finished(data):
-  '''
-  Return download finished results.
-  '''
-  global tasks
-  tasks[data['task_id']] = data
-  tasks[data['task_id']].update({
+  """Return download finished results."""
+
+  globals.tasks[data['task_id']] = data
+  globals.tasks[data['task_id']].update({
     "app_id": data['PREFS']['app_id'],
     'type': 'download-finished',
   })
 
-  print("FINISHED", tasks[data['task_id']])
+  print("FINISHED", globals.tasks[data['task_id']])
 
 
 async def get_download_url(data, session):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
-  '''
-  Retrieves the download url. The server checks if user can download the item and returns url with a key.
-  '''
-  headers = get_headers(data['PREFS']['api_key'])
+  """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
+
+  headers = utils.get_headers(data['PREFS']['api_key'])
   req_data = {'scene_uuid': data['PREFS']['scene_id']}
   res_file_info, resolution = get_res_file(data)
 
   async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
-      rtext = await resp.text()
-
+      await resp.text()
       if resp == None:
         add_error_report(data, text='Connection Error')
         return False  # 'Connection Error'
@@ -280,33 +247,9 @@ async def get_download_url(data, session):  # asset_data, scene_id, api_key, tco
   return False
 
 
-def slugify(slug):
-  """
-  Normalizes string, converts to lowercase, removes non-alpha characters,
-  and converts spaces to hyphens.
-  """
-  slug = slug.lower()
-
-  characters = '<>:"/\\|?\*., ()#'
-  for ch in characters:
-    slug = slug.replace(ch, '_')
-  # import re
-  # slug = unicodedata.normalize('NFKD', slug)
-  # slug = slug.encode('ascii', 'ignore').lower()
-  slug = re.sub(r'[^a-z0-9]+.- ', '-', slug).strip('-')
-  slug = re.sub(r'[-]+', '-', slug)
-  slug = re.sub(r'/', '_', slug)
-  slug = re.sub(r'\\\'\"', '_', slug)
-  if len(slug) > 50:
-    slug = slug[:50]
-  return slug
-
-
-def extract_filename_from_url(url):
-  '''
-   Extract filename from url.
-  '''
-  # print(url)
+def extract_filename_from_url(url: str) -> str:
+  """Extract filename from URL."""
+  
   if url is not None:
     imgname = url.split('/')[-1]
     imgname = imgname.split('?')[0]
@@ -315,27 +258,26 @@ def extract_filename_from_url(url):
 
 
 def server_2_local_filename(asset_data, filename):
-  '''
-  Convert file name on server to file name local.
-  This should get replaced
-  '''
+  """Convert file name on server to file name local. This should get replaced."""
+
   # print(filename)
   fn = filename.replace('blend_', '')
   fn = fn.replace('resolution_', '')
   # print('after replace ', fn)
-  n = slugify(asset_data['name']) + '_' + fn
+  n = utils.slugify(asset_data['name']) + '_' + fn
   return n
 
 
 def get_download_filepaths(data):  # asset_data, resolution='blend', can_return_others=False):
-  '''Get all possible paths of the asset and resolution. Usually global and local directory.'''
+  """Get all possible paths of the asset and resolution. Usually global and local directory."""
+  
   can_return_others = False  # TODO find out what this was and check if it's still needed
   windows_path_limit = 250
   asset_data = data['asset_data']
   resolution = data['resolution']
   dirs = data['download_dirs']
   res_file, resolution = get_res_file(data, find_closest_with_url=can_return_others)
-  name_slug = slugify(asset_data['name'])
+  name_slug = utils.slugify(asset_data['name'])
   if len(name_slug) > 16:
     name_slug = name_slug[:16]
   asset_folder_name = f"{name_slug}_{asset_data['id']}"
@@ -385,8 +327,8 @@ def get_download_filepaths(data):  # asset_data, resolution='blend', can_return_
 
 
 async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
-  '''
-  Send varioust task to a new blender instance that runs and closes after finishing the task.
+  """Send various tasks to a new blender instance that runs and closes after finishing the task.
+
   This function waits until the process finishes.
   The function tries to set the same bpy.app.debug_value in the instance of Blender that is run.
   
@@ -399,7 +341,8 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
   Returns
   -------
   None
-  '''
+  """
+
   process_data = {
     'fpath': fpath,
     'debug_value': data['PREFS']['debug_value'],
@@ -423,7 +366,7 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
       fpath,
       "--python", os.path.join(script_path, "resolutions_bg.py"),
       "--", datafile
-    ], bufsize=1, stdout=sys.stdout, stdin=subprocess.PIPE, creationflags=get_process_flags())
+    ], bufsize=1, stdout=sys.stdout, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
 
   else:
     # TODO this should be fixed to allow multithreading.
@@ -434,14 +377,13 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
       fpath,
       "--python", os.path.join(script_path, "resolutions_bg.py"),
       "--", datafile
-    ], bufsize=1, stdout=subprocess.PIPE, stdin=subprocess.PIPE, creationflags=get_process_flags())
+    ], bufsize=1, stdout=subprocess.PIPE, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
     return proc
 
 
 async def copy_asset(fp1, fp2):
-  '''
-  Synchronizes the asset between folders, including it's texture subdirectories
-  '''
+  """Synchronize the asset between folders, including it's texture subdirectories."""
+
   if 1:
     # bk_logger.debug('copy asset')
     # bk_logger.debug(fp1 + ' ' + fp2)
@@ -467,9 +409,8 @@ async def copy_asset(fp1, fp2):
 
 
 async def check_existing(data) -> bool:
-  '''
-  Check if the object exists on the hard drive.
-  '''
+  """Check if the object exists on the hard drive."""
+
   if data['asset_data'].get('files') == None:
     return False # this is because of some very old files where asset data had no files structure.
 
@@ -491,88 +432,15 @@ async def check_existing(data) -> bool:
 
   return False
 
-def delete_unfinished_file(file_name) -> None:
-    '''
-    Deletes download if it wasn't finished. If the folder it's containing is empty, it also removes the directory
-    '''
-    try:
-      os.remove(file_name)
-    except Exception as e:
-      print(e)
-    asset_dir = os.path.dirname(file_name)
-    if len(os.listdir(asset_dir)) == 0:
-      os.rmdir(asset_dir)
-    return
+def delete_unfinished_file(file_path: str) -> None:
+  """Delete downloaded file if it wasn't finished. If the folder it's containing is empty, it also removes the directory."""
 
-### SERVER HANDLERS ###
-
-async def IsAlive(request):
-  '''
-  Reports process ID of server in Index, can be used as is-alive endpoint.
-  '''
-  pid = str(os.getpid())
-  return web.Response(text=pid)
-
-
-class KillYourself(web.View):
-  '''
-  Shedules kill of the server.
-  '''
-  async def get(self):
-    asyncio.ensure_future(self.kill_in_future())
-    return web.Response(text='Going to kill him soon.')
-
-  async def kill_in_future():
-    await asyncio.sleep(1)
-    sys.exit()
-
-
-class DownloadAsset(web.View):
-  '''
-  Handles downloads of assets.
-  '''
-  async def post(self):
-    data = await self.request.json()
-    print('Starting asset download:', data['asset_data']['name'])
-    task_id = str(uuid.uuid4())
-    data['task_id'] = task_id
-    asyncio.ensure_future(do_asset_download(data))
-    return web.json_response({'task_id': task_id})
-
-
-class KillDownload(web.View):
-  '''
-  Ends download with the task_id.
-  '''
-  async def get(self):
-    global tasks
-    data = await self.request.json()
-    tasks[data['task_id']]['kill'] = True
-
-
-class Report(web.View):
-  '''
-  Reports progress of all tasks for a given app_id.
-  Clears list of tasks
-  '''
-  async def get(self):
-    global tasks
-    data = await self.request.json()
-    reports = {key: value for (key, value) in tasks.items() if value['app_id'] == data['app_id']}
-    tasks = {key: value for (key, value) in tasks.items() if value['app_id'] != data['app_id']}
-    return web.json_response(reports)
-
-
-if __name__ == "__main__":
-  server = web.Application()
-  server.add_routes([
-    web.get('/', IsAlive),
-    web.view('/killyourself', KillYourself),
-    web.view('/report', Report),
-    web.view('/download-asset', DownloadAsset),
-    web.view('/download-kill', KillDownload),
-  ])
-
-  tasks = dict()
-
-  web.run_app(server, host='127.0.0.1', port=PORT)
+  try:
+    os.remove(file_path)
+  except Exception as e:
+    print(e)
+  asset_dir = os.path.dirname(file_path)
+  if len(os.listdir(asset_dir)) == 0:
+    os.rmdir(asset_dir)
+  
+  return

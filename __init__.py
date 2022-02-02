@@ -47,8 +47,6 @@ from os import path
 if "bpy" in locals():
     from importlib import reload
 
-    daemon_lib = reload(daemon_lib)
-
     # alphabetically sorted all add-on modules since reload only happens from __init__.
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
     addon_updater_ops = reload(addon_updater_ops)
@@ -61,6 +59,7 @@ if "bpy" in locals():
     bkit_oauth = reload(bkit_oauth)
     categories = reload(categories)
     colors = reload(colors)
+    daemon_lib = reload(daemon_lib)
     download = reload(download)
     icons = reload(icons)
     image_utils = reload(image_utils)
@@ -105,6 +104,7 @@ else:
     from . import bkit_oauth
     from . import categories
     from . import colors
+    from . import daemon_lib
     from . import download
     from . import icons
     from . import image_utils
@@ -124,8 +124,6 @@ else:
     from . import upload_bg
     from . import utils
     from . import reports
-
-    from . import daemon_lib
 
     from .bl_ui_widgets import bl_ui_widget
     from .bl_ui_widgets import bl_ui_label

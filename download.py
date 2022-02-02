@@ -1012,7 +1012,7 @@ def download(asset_data, **kwargs):
     if 'downloaders' in kwargs:
         data['downloaders'] = kwargs['downloaders']
     # print(data)
-    response = daemon_lib.DownloadAsset(data)
+    response = daemon_lib.download_asset(data)
 
     download_tasks[response['task_id']] = data
 
