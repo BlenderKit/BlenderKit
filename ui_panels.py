@@ -697,6 +697,39 @@ class LikeComment(bpy.types.Operator):
                                                    api_key=api_key)
         return {'FINISHED'}
 
+class PostComment(bpy.types.Operator):
+    """Mark notification as read here and also on BlenderKit server"""
+    bl_idname = "wm.blenderkit_post_comment"
+    bl_label = "BlenderKit post a new comment"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    asset_id: StringProperty(
+        name="Asset Base Id",
+        description="Unique id of the asset (hidden)",
+        default="",
+        options={'SKIP_SAVE'})
+
+    comment_id: bpy.props.IntProperty(
+        name="Reply to Id",
+        description="reply to comment id",
+        default=0)
+
+    # flag: bpy.props.StringProperty(
+    #     name="flag",
+    #     description="Like/dislike comment",
+    #     default="like")
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        ui_props = bpy.context.window_manager.blenderkitUI
+        api_key = user_preferences.api_key
+        comments_utils.send_comment_to_thread(self.asset_id, self.comment_id, ui_props.new_comment, api_key)
+        ui_props.new_comment =''
+        return {'FINISHED'}
 
 def draw_notification(self, notification, width=600):
     layout = self.layout
@@ -2169,6 +2202,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             push_op_left(name_row, strength=3)
             op = name_row.operator('view3d.close_popup_button', text='', icon='CANCEL')
 
+    def draw_comment_response(self, context, layout, comment_id):
+        row =layout.row()
+        ui_props = bpy.context.window_manager.blenderkitUI
+        row.prop(ui_props,'new_comment')
+        op = row.operator('wm.blenderkit_post_comment', text='', icon='TRIA_RIGHT')
+        op.asset_id= self.asset_data['assetBaseId']
+        op.comment_id = comment_id
+
     def draw_comment(self, context, layout, comment, width=330):
         row = layout.row()
         # print(comment)
@@ -2255,6 +2296,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         tip_box.label(text=self.tip)
         # comments
         if utils.profile_is_validator():
+            self.draw_comment_response(context,layout,1)
             comments = global_vars.DATA.get('asset comments', {})
             self.comments = comments.get(self.asset_data['assetBaseId'], [])
             if self.comments is not None:
@@ -2654,6 +2696,7 @@ classes = (
     BlenderKitWelcomeOperator,
     MarkNotificationRead,
     LikeComment,
+    PostComment,
     ShowNotifications,
     NotificationOpenTarget,
     MarkAllNotificationsRead,

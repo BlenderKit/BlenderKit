@@ -470,10 +470,10 @@ class BlenderKitUIProps(PropertyGroup):
                                       type=bpy.types.Image,
                                       description='Pick an image to upload')
 
-    # StringProperty(
-    # name="Upload HDR",
-    # description="Active HDR image to upload",
-    # default="")
+    new_comment: StringProperty(
+                    name="New comment",
+                    description="Write your comment",
+                    default="Hi how's it going")
 
 
 def search_procedural_update(self, context):
