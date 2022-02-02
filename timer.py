@@ -16,7 +16,7 @@ def timer():
     data = {
         'app_id':os.getpid(),
     }
-    results = daemon_lib.getReports(data)
+    results = daemon_lib.get_reports(data)
 
     results.update(pending_tasks)
     pending_tasks = dict()
