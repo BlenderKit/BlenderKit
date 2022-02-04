@@ -474,7 +474,10 @@ class BlenderKitUIProps(PropertyGroup):
                     name="New comment",
                     description="Write your comment",
                     default="Hi how's it going")
-
+    reply_id: IntProperty(
+        name="Reply Id",
+        description='Active comment id to reply to',
+        default=0)
 
 def search_procedural_update(self, context):
     if self.search_procedural in ('PROCEDURAL', 'BOTH'):

@@ -28,6 +28,16 @@ def get_reports(data):
     # print(mt-time.time())
     return resp.json()
 
+def search(data):
+  """Download specified asset."""
+
+  address = get_address()
+  with requests.Session() as session:
+    ensure_daemon_alive(session)
+    url = address + "/search"
+    resp = session.post(url, json=data)
+    print(f"Asked for search, {data['urlquery']}, {resp.status_code}")
+    return resp.json()
 
 def download_asset(data):
   """Download specified asset."""

@@ -2206,6 +2206,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         row =layout.row()
         ui_props = bpy.context.window_manager.blenderkitUI
         split = row.split(factor=.8, align=True)
+        split.active=True
         split.prop(ui_props,'new_comment',text='')
         split= split.split()
         op = split.operator('wm.blenderkit_post_comment', text='post comment', icon='TRIA_RIGHT')
@@ -2266,9 +2267,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         split = row.split(factor=.8)
         split.label(text='')
         split = split.split()
-        op = split.operator('wm.blenderkit_url', text='Reply', icon='GREASEPENCIL')
-        op.tooltip = 'Open the browser on the asset page to comment'
-        op.url = paths.get_bkit_url() + f"/asset-gallery-detail/{self.asset_data['id']}/"
+        op = split.operator('view3d.blenderkit_set_comment_reply_id', text='Reply', icon='GREASEPENCIL')
+        op.comment_id = comment['id']
+
+
         # box.label(text=str(comment['flags']))
 
     def draw(self, context):
@@ -2298,12 +2300,19 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         tip_box.label(text=self.tip)
         # comments
         if utils.profile_is_validator():
-            self.draw_comment_response(context,layout,2)
+            ui_props = bpy.context.window_manager.blenderkitUI
+            print('redrawing comments e.t.c.')
+            if ui_props.reply_id==0:
+                self.draw_comment_response(context,layout,0)
             comments = global_vars.DATA.get('asset comments', {})
             self.comments = comments.get(self.asset_data['assetBaseId'], [])
             if self.comments is not None:
                 for comment in self.comments:
                     self.draw_comment(context, layout, comment, width=self.width)
+                    print(ui_props.reply_id)
+                    if ui_props.reply_id == comment['id']:
+                        self.draw_comment_response(context,layout,comment['id'])
+
 
     def prefill_ratings(self):
         # pre-fill ratings
@@ -2324,6 +2333,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         wm = context.window_manager
         ui_props = context.window_manager.blenderkitUI
         ui_props.draw_tooltip = False
+        ui_props.reply_id = 0
+
         sr = global_vars.DATA['search results']
         asset_data = sr[ui_props.active_index]
         self.asset_data = asset_data
@@ -2371,6 +2382,27 @@ class OBJECT_MT_blenderkit_login_menu(bpy.types.Menu):
 
         # utils.label_multiline(layout, text=message)
         draw_login_buttons(layout)
+
+class SetCommentReplyId(bpy.types.Operator):
+    """Visit subcategory"""
+    bl_idname = "view3d.blenderkit_set_comment_reply_id"
+    bl_label = "BlenderKit Set Active Category"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    comment_id: bpy.props.IntProperty(
+        name="Category",
+        description="set this category active",
+        default=0)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props.reply_id = self.comment_id
+        # print(f'changed reply id to {self.comment_id}')
+        return {'FINISHED'}
 
 
 class SetCategoryOperator(bpy.types.Operator):
@@ -2675,6 +2707,7 @@ preview_collections = {}
 
 classes = (
     SetCategoryOperator,
+    SetCommentReplyId,
     VIEW3D_PT_blenderkit_profile,
     VIEW3D_PT_blenderkit_login,
     VIEW3D_PT_blenderkit_notifications,
