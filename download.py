@@ -759,8 +759,8 @@ def download_post(data):
                 if data.get('replace_resolution'):
                     # try to relink
                     # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-                    print('try to replace resolution')
-                    print(data)
+                    # print('try to replace resolution')
+                    # print(data)
                     ain, resolution = asset_in_scene(data['asset_data'])
 
                     if ain == 'LINKED':
@@ -773,7 +773,7 @@ def download_post(data):
                     done = True
 
                 else:
-                    print(data)
+                    # print(data)
                     task.update(data)
                     done = try_finished_append( **task)
                     # if not done:
@@ -867,121 +867,8 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
     return file_name
 
 
-class Downloader(threading.Thread):
-    def __init__(self, asset_data, tcom, scene_id, api_key, resolution='blend'):
-        super(Downloader, self).__init__()
-        self.asset_data = asset_data
-        self.tcom = tcom
-        self.scene_id = scene_id
-        self.api_key = api_key
-        self.resolution = resolution
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
-
-    # def main_download_thread(asset_data, tcom, scene_id, api_key):
-    def run(self):
-        '''try to download file from blenderkit'''
-        # utils.p('start downloader thread')
-        asset_data = self.asset_data
-        tcom = self.tcom
-        scene_id = self.scene_id
-        api_key = self.api_key
-        tcom.report = 'Looking for asset'
-        # TODO get real link here...
-        has_url = get_download_url(asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
-
-        if not has_url:
-            tasks_queue.add_task(
-                (reports.add_report, ('Failed to obtain download URL for %s.' % asset_data['name'], 5, colors.RED)))
-            return;
-        if tcom.error:
-            return
-        # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
-        # different than for the non free content. delete is here when called after failed append tries.
-
-        if check_existing(asset_data, resolution=self.resolution) and not tcom.passargs.get('delete'):
-            # this sends the thread for processing, where another check should occur, since the file might be corrupted.
-            tcom.downloaded = 100
-            bk_logger.debug('not downloading, trying to append again')
-            return
-
-        file_name = paths.get_download_filepaths(asset_data, self.resolution)[0]  # prefer global dir if possible.
-        # for k in asset_data:
-        #    print(asset_data[k])
-        if self.stopped():
-            bk_logger.debug('stopping download: ' + asset_data['name'])
-            return
-
-        download_canceled = False
-        with open(file_name, "wb") as f:
-            bk_logger.debug("Downloading %s" % file_name)
-            headers = utils.get_headers(api_key)
-            res_file_info, self.resolution = paths.get_res_file(asset_data, self.resolution)
-            response = requests.get(res_file_info['url'], stream=True)
-            total_length = response.headers.get('Content-Length')
-            if total_length is None:  # no content length header
-                print('no content length')
-                print(response.content)
-                tcom.report = response.content
-                download_canceled = True
-            else:
-                # bk_logger.debug(total_length)
-                if int(total_length) < 1000:  # means probably no file returned.
-                    tasks_queue.add_task((reports.add_report, (response.content, 20, colors.RED)))
-
-                    tcom.report = response.content
-
-                tcom.file_size = int(total_length)
-                fsmb = tcom.file_size // (1024 * 1024)
-                fskb = tcom.file_size % 1024
-                if fsmb == 0:
-                    t = '%iKB' % fskb
-                else:
-                    t = ' %iMB' % fsmb
-
-                tcom.report = f'Downloading {t} {self.resolution}'
-
-                dl = 0
-                totdata = []
-                for data in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
-                    dl += len(data)
-                    tcom.downloaded = dl
-                    tcom.progress = int(100 * tcom.downloaded / tcom.file_size)
-                    f.write(data)
-                    if self.stopped():
-                        bk_logger.debug('stopping download: ' + asset_data['name'])
-                        download_canceled = True
-                        break
-
-        if download_canceled:
-            delete_unfinished_file(file_name)
-            return
-        # unpack the file immediately after download
-
-        tcom.report = f'Unpacking files'
-        self.asset_data['resolution'] = self.resolution
-        resolutions.send_to_bg(self.asset_data, file_name, command='unpack')
-        # utils.p('end downloader thread')
-
-
-class ThreadCom:  # object passed to threads to read background process stdout info
-    def __init__(self):
-        self.file_size = 1000000000000000  # property that gets written to.
-        self.downloaded = 0
-        self.lasttext = ''
-        self.error = False
-        self.report = ''
-        self.progress = 0.0
-        self.passargs = {}
-
-
 def download(asset_data, **kwargs):
-    '''start the download thread'''
+    '''Init download data and request task from daemon'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
     if kwargs.get('retry_counter', 0) > 3:
@@ -1016,12 +903,6 @@ def download(asset_data, **kwargs):
 
     download_tasks[response['task_id']] = data
 
-    # readthread = Downloader(asset_data, tcom, scene_id, api_key, resolution=kwargs['resolution'])
-    # readthread.start()
-
-    # global download_threads
-    # download_threads.append(
-    #     [readthread, asset_data, tcom])
 
 
 def check_downloading(asset_data, **kwargs):
