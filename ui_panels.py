@@ -2205,8 +2205,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
     def draw_comment_response(self, context, layout, comment_id):
         row =layout.row()
         ui_props = bpy.context.window_manager.blenderkitUI
-        row.prop(ui_props,'new_comment')
-        op = row.operator('wm.blenderkit_post_comment', text='', icon='TRIA_RIGHT')
+        split = row.split(factor=.8, align=True)
+        split.prop(ui_props,'new_comment',text='')
+        split= split.split()
+        op = split.operator('wm.blenderkit_post_comment', text='post comment', icon='TRIA_RIGHT')
         op.asset_id= self.asset_data['assetBaseId']
         op.comment_id = comment_id
 
@@ -2296,7 +2298,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         tip_box.label(text=self.tip)
         # comments
         if utils.profile_is_validator():
-            self.draw_comment_response(context,layout,1)
+            self.draw_comment_response(context,layout,2)
             comments = global_vars.DATA.get('asset comments', {})
             self.comments = comments.get(self.asset_data['assetBaseId'], [])
             if self.comments is not None:
@@ -2587,7 +2589,6 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
         layout = self.layout
         for key, data in download.download_tasks.items():
             row = layout.row()
-            print(data)
             row.label(text=data['asset_data']['name'])
             row.label(text=str(int(data['progress'])) + ' %')
             op = row.operator('scene.blenderkit_download_kill', text='', icon='CANCEL')

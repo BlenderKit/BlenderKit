@@ -50,7 +50,7 @@ def kill_download(task_id):
     url = address + "/kill_download"
     resp = session.get(url, json={'task_id':task_id})
     print(f"Asked for end of download, {task_id}, {resp.status_code}")
-    return resp.json()
+    return resp
 
 
 def ensure_daemon_alive(session: requests.Session):
