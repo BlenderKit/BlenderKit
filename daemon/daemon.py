@@ -7,7 +7,7 @@ import uuid
 
 from aiohttp import web
 
-import assets, globals
+import assets, search, globals
 
 
 PORT = 10753
@@ -22,6 +22,16 @@ async def download_asset(request):
   print('Starting asset download:', data['asset_data']['name'])
   asyncio.ensure_future(assets.do_asset_download(data))
   
+  return web.json_response({'task_id': task_id})
+
+async def search_assets(request):
+  """Handle request for download of asset."""
+
+  data = await request.json()
+  task_id = str(uuid.uuid4())
+  data['task_id'] = task_id
+  print('Starting search:', data['urlquery'])
+  asyncio.ensure_future(search.do_search(data))
   return web.json_response({'task_id': task_id})
 
 
@@ -68,6 +78,7 @@ if __name__ == "__main__":
     web.get('/report', report),
     web.get('/kill_download', kill_download),
     web.post('/download_asset', download_asset),
+    web.post('/search', search_assets),
     web.view('/shutdown', Shutdown),
   ])
 

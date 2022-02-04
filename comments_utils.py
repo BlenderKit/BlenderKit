@@ -40,8 +40,8 @@ def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
     "name": "",
     "email": "",
     "url": "",
-    "followup": False,
-    "reply_to": str(comment_id),
+    "followup": comment_id > 0,
+    "reply_to": comment_id,
     "honeypot": "",
     "content_type": "assets.uuidasset",
     "object_pk": asset_id,
@@ -54,7 +54,6 @@ def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
   print(r.status_code)
 
   get_comments(asset_id, api_key)
-
 
 
 def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=None):
@@ -85,7 +84,7 @@ def send_comment_flag_to_thread(asset_id='', comment_id='', flag='like', api_key
 def send_comment_to_thread(asset_id, comment_id, comment, api_key):
   '''Sens rating into thread rating, main purpose is for tasks_queue.
   One function per property to avoid lost data due to stashing.'''
-  thread = threading.Thread(target=upload_comment_thread, args=(asset_id, comment_id,comment, api_key))
+  thread = threading.Thread(target=upload_comment_thread, args=(asset_id, comment_id, comment, api_key))
   thread.start()
 
 
