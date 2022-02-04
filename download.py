@@ -693,7 +693,7 @@ def download_post(data):
 
     remove_keys = []
     done = False
-    print(data)
+    # print(data)
     for key,task in download_tasks.items():
         if data['asset_data']['id'] == task['asset_data']['id']:
             progress_bars = []
