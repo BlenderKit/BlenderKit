@@ -1808,7 +1808,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         if len(self.asset_data['description']) > 0:
             box = layout.box()
             box.scale_y = 0.4
-            box.label(text='Description vole')
+            box.label(text='Description')
             box.separator()
             link_more = utils.label_multiline(box, self.asset_data['description'], width=width, max_lines=10)
             if link_more:
@@ -2301,7 +2301,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         # comments
         if utils.profile_is_validator():
             ui_props = bpy.context.window_manager.blenderkitUI
-            print('redrawing comments e.t.c.')
             if ui_props.reply_id==0:
                 self.draw_comment_response(context,layout,0)
             comments = global_vars.DATA.get('asset comments', {})
@@ -2309,7 +2308,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             if self.comments is not None:
                 for comment in self.comments:
                     self.draw_comment(context, layout, comment, width=self.width)
-                    print(ui_props.reply_id)
                     if ui_props.reply_id == comment['id']:
                         self.draw_comment_response(context,layout,comment['id'])
 

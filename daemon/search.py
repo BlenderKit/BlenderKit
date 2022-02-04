@@ -13,8 +13,6 @@ import aiohttp
 import certifi
 import globals, utils, assets
 
-global reports_queue, thumb_sml_download_threads, thumb_full_download_threads
-
 
 def report_image_finished(data, filepath, done=True):
   '''reports a thumbnail is downloaded and available. Not used by now.'''
