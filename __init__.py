@@ -473,7 +473,7 @@ class BlenderKitUIProps(PropertyGroup):
     new_comment: StringProperty(
                     name="New comment",
                     description="Write your comment",
-                    default="Hi how's it going")
+                    default="")
     reply_id: IntProperty(
         name="Reply Id",
         description='Active comment id to reply to',

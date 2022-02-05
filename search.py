@@ -74,7 +74,6 @@ def check_errors(rdata):
   return True, ''
 
 
-search_threads = []
 search_tasks = {}
 
 all_thumbs_loaded = True
@@ -423,7 +422,6 @@ def search_post(key, task):
   # these 2 lines should update the previews enum and set the first result as active.
   # wm = bpy.context.window_manager
   asset_type = task['asset_type']
-  # search_threads.append([thread, tempdir, query['asset_type'], {}])
   props = utils.get_search_props()
   search_name = f'bkit {asset_type} search'
 
@@ -1132,10 +1130,6 @@ def add_search_process(query, params):
     # we can also kill them in daemon, but not so urgent now
     # TODO stop tasks in daemon?
     search_tasks = dict()
-    # old_thread = search_threads.pop(0)
-    # old_thread[0].stop()
-    # TODO CARE HERE FOR ALSO KILLING THE Thumbnail THREADS.?
-    #  AT LEAST NOW SEARCH DONE FIRST WON'T REWRITE AN NEWER ONE
   tempdir = paths.get_temp_dir('%s_search' % query['asset_type'])
   headers = utils.get_headers(params['api_key'])
 
@@ -1301,7 +1295,7 @@ def search(category='', get_next=False, author_id=''):
   # utils.p('searching')
   props.is_searching = True
 
-  page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows+10)
+  page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows+5)
   print('page_size', page_size)
   params = {
     'scene_uuid': bpy.context.scene.get('uuid', None),
