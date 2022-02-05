@@ -516,7 +516,7 @@ def search_timer():
       ui.update_ui_size(ui.active_area_pointer, ui.active_region_pointer)
       reports.add_report(text='BlenderKit Tip: ' + random.choice(rtips), timeout=12, color=colors.GREEN)
     # utils.p('end search timer')
-
+  loaded_this_round = 0
   global all_thumbs_loaded
   if not all_thumbs_loaded:
     ui_props = bpy.context.window_manager.blenderkitUI
@@ -528,10 +528,13 @@ def search_timer():
         if not r.get('thumb_small_loaded'):
           preview_loaded = load_preview(r, ri)
           all_loaded = all_loaded and preview_loaded
-
+          if preview_loaded:
+            loaded_this_round += 1
+            if loaded_this_round >=3:
+              return .1
       all_thumbs_loaded = all_loaded
   if not all_thumbs_loaded:
-    return .2
+    return .1
   return .5
 
 
