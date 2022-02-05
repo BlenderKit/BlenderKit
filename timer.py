@@ -2,6 +2,8 @@ import bpy
 from . import daemon_lib, tasks_queue, reports, download, search
 import os
 import time
+import threading
+import requests
 
 # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 pending_tasks = dict()
@@ -47,11 +49,16 @@ def timer():
     return .2
   return .5
 
+def start_server_thread():
+  with requests.Session() as session:
+    daemon_lib.ensure_daemon_alive(session)
 
 def register_timer():
   if not bpy.app.background:
-    bpy.app.timers.register(timer, persistent=True, first_interval=1)
+    bpy.app.timers.register(timer, persistent=True, first_interval=3)
 
+  thread = threading.Thread(target=start_server_thread, args=(), daemon=True)
+  thread.start()
 
 def unregister_timer():
   if bpy.app.timers.is_registered(timer):
