@@ -35,7 +35,7 @@ def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
   print(r.status_code)
   print(r.text)
   comment_data = r.json()
-  url = url = f'{paths.get_bkit_url()}/comments/api/comment/'
+  url = f'{paths.get_api_url()}/comments/comment/'
   data = {
     "name": "",
     "email": "",
