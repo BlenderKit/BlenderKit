@@ -108,7 +108,8 @@ def start_server_thread():
 
 
 def register_timer():
-  setup_asyncio_executor()
+  if ENABLE_ASYNC_LOOP:
+    setup_asyncio_executor()
   if not bpy.app.background:
     bpy.app.timers.register(timer, persistent=True, first_interval=3)
 
