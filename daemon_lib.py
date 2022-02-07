@@ -2,6 +2,9 @@ from os import path, environ
 import sys
 import subprocess
 import requests
+import aiohttp
+import asyncio
+import time
 
 PORT = 10753
 
@@ -10,6 +13,22 @@ def get_address() -> str:
   """Get address of the daemon."""
 
   return 'http://127.0.0.1:' + str(PORT)
+
+async def get_reports_async(data, queue):
+  '''Get report for all task at once with asyncio and aiohttp'''
+  global reports_queue
+  address = get_address()
+  url = address + "/report"
+  t = time.time()
+  async with aiohttp.ClientSession() as session:
+    # ensure_daemon_alive(session)
+    async with session.get(url, json=data) as resp:
+      # text = await resp.text()
+      json_data = await resp.json()
+      if len(json_data)>0:
+        # print('from daemon', json_data)
+        queue.put(json_data)
+        print(t-time.time())
 
 
 def get_reports(data):
