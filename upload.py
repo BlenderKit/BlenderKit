@@ -534,7 +534,7 @@ def patch_individual_metadata(asset_id, metadata_dict, api_key):
     url = paths.get_api_url() + 'assets/' + str(asset_id) + '/'
     headers = utils.get_headers(api_key)
     try:
-        r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
+        r = rerequests.patch(url, json=upload_data, headers=headers)  # files = files,
     except requests.exceptions.RequestException as e:
         print(e)
         return {'CANCELLED'}
@@ -773,7 +773,7 @@ def verification_status_change_thread(asset_id, state, api_key):
     url = paths.get_api_url() + 'assets/' + str(asset_id) + '/'
     headers = utils.get_headers(api_key)
     try:
-        r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
+        r = rerequests.patch(url, json=upload_data, headers=headers)  # files = files,
     except requests.exceptions.RequestException as e:
         print(e)
         return {'CANCELLED'}
@@ -900,8 +900,7 @@ class Uploader(threading.Thread):
         self.send_message('Posting metadata')
         if self.export_data['assetBaseId'] == '':
             try:
-                r = rerequests.post(url, json=json_metadata, headers=headers, verify=True,
-                                    immediate=True)  # files = files,
+                r = rerequests.post(url, json=json_metadata, headers=headers, immediate=True)  # files = files,
 
                 # tasks_queue.add_task((reports.add_report, ('uploaded metadata',)))
                 utils.p(r.text)
@@ -917,8 +916,7 @@ class Uploader(threading.Thread):
             try:
                 if 'MAINFILE' in self.upload_set:
                     json_metadata["verificationStatus"] = "uploading"
-                r = rerequests.patch(url, json=json_metadata, headers=headers, verify=True,
-                                     immediate=True)  # files = files,
+                r = rerequests.patch(url, json=json_metadata, headers=headers, immediate=True)  # files = files,
                 self.send_message('uploaded metadata')
 
                 # tasks_queue.add_task((reports.add_report, ('uploaded metadata',)))
@@ -1033,7 +1031,7 @@ class Uploader(threading.Thread):
 
                     url += self.upload_data["id"] + '/'
 
-                    r = rerequests.patch(url, json=confirm_data, headers=headers, verify=True)  # files = files,
+                    r = rerequests.patch(url, json=confirm_data, headers=headers)  # files = files,
 
                 self.end_upload('Upload finished successfully')
             else:

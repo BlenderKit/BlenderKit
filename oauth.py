@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, quote as urlquote, urlparse
 
 import requests
+import certifi
 
 
 class PortsBlockedException(Exception):
@@ -49,10 +50,8 @@ class SimpleOAuthAuthenticator(object):
         if refresh_token:
             data['refresh_token'] = refresh_token
 
-        response = requests.post(
-            '%s/o/token/' % self.server_url,
-            data=data
-        )
+        certs = certifi.where()
+        response = requests.post( f'{self.server_url}/o/token/', data=data, verify=certs)
         if response.status_code != 200:
             print("error retrieving refresh tokens %s" % response.status_code)
             print(response.content)

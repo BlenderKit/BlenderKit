@@ -48,7 +48,7 @@ def upload_rating_thread(url, ratings, headers):
             }
 
             try:
-                r = rerequests.put(rating_url, data=data, verify=True, headers=headers)
+                r = rerequests.put(rating_url, data=data, headers=headers)
 
             except requests.exceptions.RequestException as e:
                 print('ratings upload failed: %s' % str(e))
@@ -95,7 +95,7 @@ def get_rating(asset_id, headers):
     '''
     url = paths.get_api_url() + 'assets/' + asset_id + '/rating/'
     params = {}
-    r = rerequests.get(url, params=params, verify=True, headers=headers)
+    r = rerequests.get(url, params=params, headers=headers)
     if r is None:
         return
     if r.status_code == 200:

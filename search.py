@@ -38,16 +38,15 @@ from bpy.types import (
     UIList
 )
 
+import certifi
 import requests, os, random
 import time
 import threading
 import platform
 import bpy
-import copy
 import json
 import math
 import unicodedata
-import urllib
 import queue
 import logging
 
@@ -719,7 +718,8 @@ def generate_author_textblock(adata):
 def download_image(session, url, filepath):
     r = None
     try:
-        r = session.get(url, stream=False)
+        certs = certifi.where()
+        r = session.get(url, verify=certs, stream=False)
     except Exception as e:
         bk_logger.error('Thumbnail download failed')
         bk_logger.error(str(e))

@@ -49,7 +49,7 @@ def upload_comment_thread(url, comment='', api_key=None):
     }
 
     # try:
-    r = rerequests.put(url, data=data, verify=True, headers=headers)
+    r = rerequests.put(url, data=data, headers=headers)
     # print(r)
     # print(dir(r))
     # print(r.text)
@@ -71,7 +71,7 @@ def upload_comment_flag_thread( asset_id = '', comment_id='', flag='like', api_k
     url = paths.get_api_url() + 'comments/feedback/'
 
     # try:
-    r = rerequests.post(url, data=data, verify=True, headers=headers)
+    r = rerequests.post(url, data=data, headers=headers)
     # print(r.text)
 
     #here it's important we read back, so likes are updated accordingly:
@@ -126,7 +126,7 @@ def get_comments(asset_id, api_key):
 
     url = paths.get_api_url() + 'comments/assets-uuidasset/' + asset_id + '/'
     params = {}
-    r = rerequests.get(url, params=params, verify=True, headers=headers)
+    r = rerequests.get(url, params=params, headers=headers)
     if r is None:
         return
     # print(r.status_code)
@@ -190,7 +190,7 @@ def get_notifications(api_key, all_count = 1000):
     params = {}
 
     url = paths.get_api_url() + 'notifications/all_count/'
-    r = rerequests.get(url, params=params, verify=True, headers=headers)
+    r = rerequests.get(url, params=params, headers=headers)
     if r.status_code ==200:
         rj = r.json()
         # print(rj)
@@ -200,7 +200,7 @@ def get_notifications(api_key, all_count = 1000):
 
             return
     url = paths.get_api_url() + 'notifications/unread/'
-    r = rerequests.get(url, params=params, verify=True, headers=headers)
+    r = rerequests.get(url, params=params, headers=headers)
     if r is None:
         return
     if r.status_code == 200:
@@ -220,7 +220,7 @@ def mark_notification_read(api_key, notification_id):
 
     url = paths.get_api_url() + f'notifications/mark-as-read/{notification_id}/'
     params = {}
-    r = rerequests.get(url, params=params, verify=True, headers=headers)
+    r = rerequests.get(url, params=params, headers=headers)
     if r is None:
         return
     # print(r.text)

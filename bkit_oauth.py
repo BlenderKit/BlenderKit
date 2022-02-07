@@ -25,7 +25,7 @@ import threading
 import requests
 import time
 import logging
-
+import certifi
 
 bk_logger = logging.getLogger('blenderkit')
 
@@ -176,7 +176,8 @@ class CancelLoginOnline(bpy.types.Operator):
         preferences.login_attempt = False
         try:
             if active_authenticator is not None:
-                requests.get(active_authenticator.redirect_uri)
+                certs = certifi.where()
+                requests.get(active_authenticator.redirect_uri, verify=certs)
                 active_authenticator = None
         except Exception as e:
             print('stopped login attempt')

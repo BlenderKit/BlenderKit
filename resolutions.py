@@ -231,7 +231,7 @@ def patch_asset_empty(asset_id, api_key):
     url = paths.get_api_url() + 'assets/' + str(asset_id) + '/'
     headers = utils.get_headers(api_key)
     try:
-        r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
+        r = rerequests.patch(url, json=upload_data, headers=headers)  # files = files,
     except requests.exceptions.RequestException as e:
         print(e)
         return {'CANCELLED'}

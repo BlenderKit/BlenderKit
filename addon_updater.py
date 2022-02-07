@@ -25,6 +25,7 @@ https://github.com/CGCookie/blender-addon-updater
 __version__ = "1.1.0"
 
 import errno
+import certifi
 import traceback
 import platform
 import ssl
@@ -671,7 +672,8 @@ class SingletonUpdater:
         """All API calls to base url."""
         request = urllib.request.Request(url)
         try:
-            context = ssl._create_unverified_context()
+            context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+            context.load_verify_locations(certifi.where())
         except:
             # Some blender packaged python versions don't have this, largely
             # useful for local network setups otherwise minimal impact.
@@ -777,7 +779,8 @@ class SingletonUpdater:
         self.print_verbose("Starting download update zip")
         try:
             request = urllib.request.Request(url)
-            context = ssl._create_unverified_context()
+            context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+            context.load_verify_locations(certifi.where())
 
             # Setup private token if appropriate.
             if self._engine.token is not None:

@@ -19,7 +19,11 @@
 import bpy
 from . import paths
 
-import requests, os, json, threading
+import certifi
+import json
+import os
+import requests
+import threading
 
 def get_blender_version():
     # should return addon version, but since Blender 3.0 this is synced with Blender version
@@ -44,7 +48,8 @@ def check_version(url, api_key, module):
 
     print('checking online version of module %s' % str(module.bl_info['name']))
     try:
-        r = requests.get(url, headers=headers)
+        certs = certifi.where()
+        r = requests.get(url, verify=certs, headers=headers)
         data = r.json()
         ver_online = {
             'addonVersion2.8': data['addonVersion']

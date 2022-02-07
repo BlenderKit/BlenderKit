@@ -22,6 +22,7 @@ from . import ui, utils, paths, tasks_queue, bkit_oauth, reports
 import requests
 import bpy
 import logging
+import certifi
 
 bk_logger = logging.getLogger('rerequests')
 
@@ -34,6 +35,7 @@ class FakeResponse():
         return {}
 
 def rerequest(method, url, recursion=0, **kwargs):
+    certs = certifi.where()
     # first get any additional args from kwargs
     immediate = False
     if kwargs.get('immediate'):
@@ -41,7 +43,7 @@ def rerequest(method, url, recursion=0, **kwargs):
         kwargs.pop('immediate')
     # first normal attempt
     try:
-        response = requests.request(method, url, **kwargs)
+        response = requests.request(method, url, verify=certs, **kwargs)
     except Exception as e:
         print(e)
         tasks_queue.add_task((reports.add_report, (
@@ -80,7 +82,7 @@ def rerequest(method, url, recursion=0, **kwargs):
                             tasks_queue.add_task((bkit_oauth.write_tokens, (auth_token, refresh_token, oauth_response)))
 
                         kwargs['headers'] = utils.get_headers(auth_token)
-                        response = requests.request(method, url, **kwargs)
+                        response = requests.request(method, url, verify=certs, **kwargs)
                         bk_logger.debug('reresult', response.status_code)
                         if response.status_code >= 400:
                             bk_logger.debug('reresult', response.text)

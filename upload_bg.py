@@ -22,7 +22,7 @@ from blenderkit import paths, append_link, bg_blender, utils, rerequests, tasks_
 
 import sys, json, os, time
 import requests
-import logging
+import certifi
 
 import bpy
 
@@ -74,7 +74,7 @@ def upload_file(upload_data, f):
         'originalFilename': os.path.basename(f['file_path'])
     }
     upload_create_url = paths.get_api_url() + 'uploads/'
-    upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
+    upload = rerequests.post(upload_create_url, json=upload_info, headers=headers)
     upload = upload.json()
     #
     chunk_size = 1024 * 1024 * 2
@@ -85,14 +85,17 @@ def upload_file(upload_data, f):
     for a in range(0, 5):
         if not uploaded:
             try:
+                certs = certifi.where()
                 upload_response = requests.put(upload['s3UploadUrl'],
-                                               data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
-                                               stream=True, verify=True)
+                                               data=upload_in_chunks(f['file_path'],
+                                               chunk_size, f['type']),
+                                               stream=True,
+                                               verify=certs)
 
                 if 250 > upload_response.status_code > 199:
                     uploaded = True
                     upload_done_url = paths.get_api_url() + 'uploads_s3/' + upload['id'] + '/upload-file/'
-                    upload_response = rerequests.post(upload_done_url, headers=headers, verify=True)
+                    upload_response = rerequests.post(upload_done_url, headers=headers)
                     # print(upload_response)
                     # print(upload_response.text)
                     tasks_queue.add_task((reports.add_report, (f"Finished file upload: {os.path.basename(f['file_path'])}",)))

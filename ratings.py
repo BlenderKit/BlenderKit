@@ -50,7 +50,7 @@ def pretty_print_POST(req):
 
 
 def upload_review_thread(url, reviews, headers):
-    r = rerequests.put(url, data=reviews, verify=True, headers=headers)
+    r = rerequests.put(url, data=reviews, headers=headers)
 
     # except requests.exceptions.RequestException as e:
     #     print('reviews upload failed: %s' % str(e))
