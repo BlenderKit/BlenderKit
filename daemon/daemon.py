@@ -4,7 +4,10 @@ import asyncio
 import os
 import sys
 import uuid
+import ssl
+import certifi
 
+import aiohttp
 from aiohttp import web
 
 import assets, search, globals
@@ -20,7 +23,7 @@ async def download_asset(request):
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id
   print('Starting asset download:', data['asset_data']['name'])
-  asyncio.ensure_future(assets.do_asset_download(data))
+  asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], data))
   
   return web.json_response({'task_id': task_id})
 
@@ -31,7 +34,7 @@ async def search_assets(request):
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id
   print('Starting search:', data['urlquery'])
-  asyncio.ensure_future(search.do_search(data))
+  asyncio.ensure_future(search.do_search(request.app['PERSISTENT_SESSION'], data))
   return web.json_response({'task_id': task_id})
 
 
@@ -71,14 +74,28 @@ class Shutdown(web.View):
     sys.exit()
 
 
+async def persistent_session(app):
+  sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+  sslcontext.load_verify_locations(certifi.where())
+  conn = aiohttp.TCPConnector(ssl=sslcontext)
+  app['PERSISTENT_SESSION'] = session = aiohttp.ClientSession(connector=conn)
+  yield
+  await asyncio.gather(
+    session.close(),
+    conn.close()
+  )
+
+
 if __name__ == "__main__":
   server = web.Application()
+  server.cleanup_ctx.append(persistent_session)
+
   server.add_routes([
     web.get('/', index),
     web.get('/report', report),
     web.get('/kill_download', kill_download),
     web.post('/download_asset', download_asset),
-    web.post('/search', search_assets),
+    web.post('/search_asset', search_assets),
     web.view('/shutdown', Shutdown),
   ])
 

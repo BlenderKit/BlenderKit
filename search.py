@@ -1150,7 +1150,7 @@ def add_search_process(query, params):
     'asset_type': query['asset_type'],
   }
   data.update(params)
-  response = daemon_lib.search(data)
+  response = daemon_lib.search_asset(data)
   search_tasks[response['task_id']] = data
 
   mt('search thread started')

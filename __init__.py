@@ -29,7 +29,6 @@ bl_info = {
     "category": "3D View",
 }
 
-import sys
 from os import path
 
 # lib = path.join(path.dirname(__file__), 'lib')
@@ -136,14 +135,9 @@ else:
     from .bl_ui_widgets import bl_ui_drag_panel
     # from .bl_ui_widgets import bl_ui_textbox
 
-import os
 import math
-import time
-import logging
 import bpy
-import pathlib
 
-log = logging.getLogger(__name__)
 
 from bpy.app.handlers import persistent
 import bpy.utils.previews

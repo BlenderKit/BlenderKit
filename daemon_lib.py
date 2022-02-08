@@ -15,7 +15,7 @@ def get_address() -> str:
   return 'http://127.0.0.1:' + str(PORT)
 
 async def get_reports_async(data, queue):
-  '''Get report for all task at once with asyncio and aiohttp'''
+  """Get report for all task at once with asyncio and aiohttp."""
   global reports_queue
   address = get_address()
   url = address + "/report"
@@ -29,7 +29,6 @@ async def get_reports_async(data, queue):
         # print('from daemon', json_data)
         queue.put(json_data)
         print(t-time.time())
-
 
 def get_reports(data):
   """Get report for all tasks at once."""
@@ -47,13 +46,13 @@ def get_reports(data):
     # print(mt-time.time())
     return resp.json()
 
-def search(data):
-  """Download specified asset."""
+def search_asset(data):
+  """Search for specified asset."""
 
   address = get_address()
   with requests.Session() as session:
     ensure_daemon_alive(session)
-    url = address + "/search"
+    url = address + "/search_asset"
     resp = session.post(url, json=data)
     print(f"Asked for search, {data['urlquery']}, {resp.status_code}")
     return resp.json()

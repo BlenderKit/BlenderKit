@@ -4,13 +4,9 @@ import asyncio
 import os
 import json
 import shutil
-import ssl
 import sys
 import tempfile
-import subprocess
-
 import aiohttp
-import certifi
 
 import globals, utils
 
@@ -70,7 +66,7 @@ def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, 
   return closest, closest['fileType']
 
 
-async def do_asset_download(data):
+async def do_asset_download(session: aiohttp.ClientSession, data):
   """Download an asset from BlenderKit.
 
   1. creates a Connector and Session for download, handles SSL configuration
@@ -83,40 +79,36 @@ async def do_asset_download(data):
 
   report_download_progress(data, progress=0, text='Looking for asset')
 
-  sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-  sslcontext.load_verify_locations(certifi.where())
-  async with aiohttp.TCPConnector(ssl=sslcontext) as conn:
-    async with aiohttp.ClientSession(connector=conn) as session:
-      # TODO get real link here...
-      await get_download_url(data, session)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
+  # TODO get real link here...
+  await get_download_url(session, data)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
 
-      # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
-      # different than for the non free content. delete is here when called after failed append tries.
+  # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
+  # different than for the non free content. delete is here when called after failed append tries.
 
-      # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
-      if await check_existing(data):  # and not tcom.passargs.get('delete'):
-        # this sends the thread for processing, where another check should occur, since the file might be corrupted.
-        report_download_progress(data, progress=100, text='Asset found on hard drive')
-        report_download_finished(data)
-        print('found on hard drive, finishing ')
-        return
+  # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
+  if await check_existing(data):  # and not tcom.passargs.get('delete'):
+    # this sends the thread for processing, where another check should occur, since the file might be corrupted.
+    report_download_progress(data, progress=100, text='Asset found on hard drive')
+    report_download_finished(data)
+    print('found on hard drive, finishing ')
+    return
 
-      file_path = get_download_filepaths(data)[0]
+  file_path = get_download_filepaths(data)[0]
 
-      await download_file(session, file_path, data)
-      # unpack the file immediately after download
+  await download_file(session, file_path, data)
+  # unpack the file immediately after download
 
-      report_download_progress(data, text='Unpacking files', progress = 100)
-      # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
-      # remove the following line?
-      data['asset_data']['resolution'] = data['resolution']
-      await send_to_bg(data, file_path, command='unpack', wait=True)
+  report_download_progress(data, text='Unpacking files', progress = 100)
+  # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
+  # remove the following line?
+  data['asset_data']['resolution'] = data['resolution']
+  await send_to_bg(data, file_path, command='unpack', wait=True)
 
-      # print(f'Finished asset download: {data}')
-      report_download_finished(data)
+  # print(f'Finished asset download: {data}')
+  report_download_finished(data)
 
 
-async def download_file(session, file_path, data):
+async def download_file(session: aiohttp.ClientSession, file_path, data):
   print("DOWNLOADING FILE_PATH:", file_path)
 
   with open(file_path, "wb") as file:
@@ -199,7 +191,7 @@ def report_download_finished(data):
   print("FINISHED", globals.tasks[data['task_id']])
 
 
-async def get_download_url(data, session):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
+async def get_download_url(session: aiohttp.ClientSession, data):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
   """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
 
   headers = utils.get_headers(data['PREFS']['api_key'])
