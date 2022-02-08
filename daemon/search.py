@@ -2,20 +2,14 @@
 
 import asyncio
 import os
-import json
-import shutil
-import ssl
-import sys
-import tempfile
-import subprocess
 
 import aiohttp
-import certifi
 import globals, utils, assets
 
 
 def report_image_finished(data, filepath, done=True):
-  '''reports a thumbnail is downloaded and available. Not used by now.'''
+  """Report a thumbnail is downloaded and available. Not used by now."""
+
   globals.tasks[filepath] = {'app_id': data['PREFS']['app_id'],
                              'type': 'thumbnail-available',
                              'task_id': filepath,
@@ -23,7 +17,8 @@ def report_image_finished(data, filepath, done=True):
 
 
 async def download_image(session, url, filepath, data):
-  '''download a single image and report to addon.'''
+  """Download a single image and report to addon."""
+
   async with session.get(url) as resp:
     if resp and resp.status == 200:
       with open(filepath, 'wb') as f:
@@ -34,25 +29,25 @@ async def download_image(session, url, filepath, data):
       report_image_finished(data, filepath, done=False)
 
 
-async def download_image_batch(images=[], data={}, limit_per_host=0):
-  '''Download batch of images. images are tuples of file path and url.'''
-  sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-  sslcontext.load_verify_locations(certifi.where())
-  async with aiohttp.TCPConnector(ssl=sslcontext) as conn:
-    async with aiohttp.ClientSession(connector=conn) as session:
-      download_tasks = []
-      for imgpath, url in images:
+async def download_image_batch(session: aiohttp.ClientSession, images=[], data={}, limit_per_host=0):
+  """Download batch of images. images are tuples of file path and url."""
+  
+  download_tasks = []
+
+
+  for imgpath, url in images:
         if not os.path.exists(imgpath):
           task = asyncio.ensure_future(download_image(session, url, imgpath, data))
           download_tasks.append(task)
         else:
           report_image_finished(data, imgpath, done=True)
 
-      await asyncio.gather(*download_tasks)
+  await asyncio.gather(*download_tasks)
 
 
 async def parse_thumbnails(data):
-  '''go through results and extract correct filenames'''
+  """Go through results and extract correct filenames."""
+
   thumb_small_urls = []
   thumb_small_filepaths = []
   thumb_full_urls = []
@@ -81,49 +76,48 @@ async def parse_thumbnails(data):
   return sml_thbs, full_thbs
 
 
-async def do_search(data):
+async def do_search(session: aiohttp.ClientSession, data):
   rdata = {}
   rdata['results'] = []
   headers = utils.get_headers(data['PREFS']['api_key'])
-  async with aiohttp.ClientSession() as session:
-    async with session.get(data['urlquery'], headers=headers) as resp:
-      await resp.text()
-      rdata = await resp.json()
-      # except Exception as e:
-      #   if hasattr(r, 'text'):
-      #     error_description = parse_html_formated_error(r.text)
-      #     assets.add_error_report(data, text=error_description)
-      #   return
 
-      # if not rdata.get('results'):
-      # utils.pprint(rdata)
-      # if the result was converted to json and didn't return results,
-      # it means it's a server error that has a clear message.
-      # That's why it gets processed in the update timer, where it can be passed in messages to user.
-      # utils.p('end search thread')
+  async with session.get(data['urlquery'], headers=headers) as resp:
+    await resp.text()
+    rdata = await resp.json()
+    # except Exception as e:
+    #   if hasattr(r, 'text'):
+    #     error_description = parse_html_formated_error(r.text)
+    #     assets.add_error_report(data, text=error_description)
+    #   return
 
-      # save result so it can be returned to addon
+    # if not rdata.get('results'):
+    # utils.pprint(rdata)
+    # if the result was converted to json and didn't return results,
+    # it means it's a server error that has a clear message.
+    # That's why it gets processed in the update timer, where it can be passed in messages to user.
+    # utils.p('end search thread')
 
-      report = {
-        "app_id": data['PREFS']['app_id'],
-        'type': 'search-finished',
-        'result': rdata
-      }
-      data.update(report)
-      globals.tasks[data['task_id']] = data
-      # if self.stopped():
-      #   # utils.p('end search thread')
-      #
-      #   return
+    # save result so it can be returned to addon
 
-      sml_thbs, full_thbs = await parse_thumbnails(data)
+    report = {
+      "app_id": data['PREFS']['app_id'],
+      'type': 'search-finished',
+      'result': rdata
+    }
+    data.update(report)
+    globals.tasks[data['task_id']] = data
+    # if self.stopped():
+    #   # utils.p('end search thread')
+    #   return
 
-      # thumbnails fetching
-      await download_image_batch( images=sml_thbs, data=data)
+    sml_thbs, full_thbs = await parse_thumbnails(data)
 
-      # if self.stopped():
-      #   # utils.p('end search thread')
-      #   return
-      # full size images have connection limit to get lower priority
-      await download_image_batch(images=full_thbs, data=data, limit_per_host=3)
-      # small thumbnail downloads
+    # thumbnails fetching
+    await download_image_batch(session, images=sml_thbs, data=data)
+
+    # if self.stopped():
+    #   # utils.p('end search thread')
+    #   return
+    # full size images have connection limit to get lower priority
+    await download_image_batch(session, images=full_thbs, data=data, limit_per_host=3)
+    # small thumbnail downloads

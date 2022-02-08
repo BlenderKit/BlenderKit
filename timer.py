@@ -1,12 +1,17 @@
 import bpy
-from . import daemon_lib, tasks_queue, reports, download, search
+from . import daemon_lib, reports, download, search
 import os
 import time
 import threading
 import requests
+import sys
 import asyncio
 import concurrent.futures
 import queue
+import logging
+
+logger = logging.getLogger(__name__)
+
 # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 pending_tasks = dict()
 reader_loop = None
@@ -15,12 +20,10 @@ ENABLE_ASYNC_LOOP =False
 reports_queue = queue.Queue()
 
 
-
 @bpy.app.handlers.persistent
 def timer():
-  '''
-  Recieves all responses from daemon and runs according followup commands
-  '''
+  """Recieve all responses from daemon and run according followup commands."""
+
   mt = time.time()
   global pending_tasks
 
@@ -44,7 +47,7 @@ def timer():
     results = daemon_lib.get_reports(data)
 
   results.update(pending_tasks)
-  print('timer before', mt-time.time())
+  logger.debug(f'timer before {mt-time.time()}')
   pending_tasks = dict()
   for key, value in results.items():
     # print(key,value)
@@ -64,7 +67,7 @@ def timer():
       pass
 
   # print('timer',time.time()-mt)
-  print('timer',mt-time.time())
+  logger.debug(f'timer {mt-time.time()}')
   if len(download.download_tasks) > 0:
     return .2
   return .5
@@ -72,34 +75,31 @@ def timer():
 
 
 def setup_asyncio_executor():
-    """Sets up AsyncIO to run properly on each platform."""
+  """Set up AsyncIO to run properly on each platform."""
 
-    import sys
+  if sys.platform == 'win32':
+    asyncio.get_event_loop().close()
+    # On Windows, the default event loop is SelectorEventLoop, which does
+    # not support subprocesses. ProactorEventLoop should be used instead.
+    # Source: https://docs.python.org/3/library/asyncio-subprocess.html
+    loop = asyncio.ProactorEventLoop()
+    asyncio.set_event_loop(loop)
+  else:
+    loop = asyncio.get_event_loop()
 
-    if sys.platform == 'win32':
-        asyncio.get_event_loop().close()
-        # On Windows, the default event loop is SelectorEventLoop, which does
-        # not support subprocesses. ProactorEventLoop should be used instead.
-        # Source: https://docs.python.org/3/library/asyncio-subprocess.html
-        loop = asyncio.ProactorEventLoop()
-        asyncio.set_event_loop(loop)
-    else:
-        loop = asyncio.get_event_loop()
-
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
-    loop.set_default_executor(executor)
-    # loop.set_debug(True)
+  executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+  loop.set_default_executor(executor)
+  # loop.set_debug(True)
 
 
 def kick_async_loop(*args) -> bool:
-    """Performs a single iteration of the asyncio event loop.
-    """
+  """Perform a single iteration of the asyncio event loop."""
 
-    loop = asyncio.get_event_loop()
-    loop.stop()
-    loop.run_forever()
+  loop = asyncio.get_event_loop()
+  loop.stop()
+  loop.run_forever()
 
-    return True#stop_after_this_kick
+  return True#stop_after_this_kick
 
 def start_server_thread():
   with requests.Session() as session:
