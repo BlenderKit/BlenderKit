@@ -26,9 +26,19 @@ body:
     id: logs
     attributes:
       label: Logs and/or Screenshots
-      description: If possible please provide a log and/or screenshot of the problem.
+      description: |
+        If possible please provide a log and/or screenshot of the problem.
+        - On Mac or linux, you need to run Blender from a terminal, where you can later see the debug info.
+        - On Windows, you need to toggle system console in the top menu (see screenshot below).
     validations:
       required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        <p align="center">
+          <img width="50%" alt="To enable system console click CTRL+ALT+C or go to menu - Window - Toggle System Console" src="https://raw.githubusercontent.com/BlenderKit/blenderkit/master/.github/ISSUE_TEMPLATE/toggle-system-console.png">
+        </p>
 
   - type: textarea
     id: environment
