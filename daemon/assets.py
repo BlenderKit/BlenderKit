@@ -66,7 +66,7 @@ def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, 
   return closest, closest['fileType']
 
 
-async def do_asset_download(session: aiohttp.ClientSession, data):
+async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id: str):
   """Download an asset from BlenderKit.
 
   1. creates a Connector and Session for download, handles SSL configuration
@@ -76,6 +76,13 @@ async def do_asset_download(session: aiohttp.ClientSession, data):
   5. downloads the file
   6. unpacks the file
   """
+
+  task = globals.Task(data, task_id)
+  # Constructor Task.__init__() automatically appends task to list new_tasks
+  # idea here is to make it more readable by using Class and not just chaotic dict
+  # all non-Task specific is stored in Task.data - like PREFS, asset_data whatever
+  # all Task specific is stored outside Task.data - like Task.task_id, Task.progress, Task.text, Task.type etc.
+  # Task should have methods so working with it is compact: Task.to_JSON(), Task.change_progress()
 
   report_download_progress(data, progress=0, text='Looking for asset')
 
