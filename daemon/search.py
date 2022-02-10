@@ -16,7 +16,7 @@ def report_image_finished(data, filepath, done=True):
                              'done': done}
 
 
-async def download_image(session, url, filepath, data):
+async def download_image(session: aiohttp.ClientSession, url, filepath, data):
   """Download a single image and report to addon."""
 
   async with session.get(url) as resp:
@@ -33,19 +33,17 @@ async def download_image_batch(session: aiohttp.ClientSession, images=[], data={
   """Download batch of images. images are tuples of file path and url."""
   
   download_tasks = []
-
-
   for imgpath, url in images:
-        if not os.path.exists(imgpath):
-          task = asyncio.ensure_future(download_image(session, url, imgpath, data))
-          download_tasks.append(task)
-        else:
-          report_image_finished(data, imgpath, done=True)
+    if not os.path.exists(imgpath):
+      task = asyncio.ensure_future(download_image(session, url, imgpath, data))
+      download_tasks.append(task)
+    else:
+      report_image_finished(data, imgpath, done=True)
 
   await asyncio.gather(*download_tasks)
 
 
-async def parse_thumbnails(data):
+async def parse_thumbnails(data: dict):
   """Go through results and extract correct filenames."""
 
   thumb_small_urls = []
@@ -76,7 +74,7 @@ async def parse_thumbnails(data):
   return sml_thbs, full_thbs
 
 
-async def do_search(session: aiohttp.ClientSession, data):
+async def do_search(session: aiohttp.ClientSession, data: dict):
   rdata = {}
   rdata['results'] = []
   headers = utils.get_headers(data['PREFS']['api_key'])

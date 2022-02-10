@@ -23,9 +23,10 @@ async def download_asset(request):
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id
   print('Starting asset download:', data['asset_data']['name'])
-  asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], data))
+  asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], data, task_id))
   
   return web.json_response({'task_id': task_id})
+
 
 async def search_assets(request):
   """Handle request for download of asset."""
@@ -89,7 +90,6 @@ async def persistent_session(app):
 if __name__ == "__main__":
   server = web.Application()
   server.cleanup_ctx.append(persistent_session)
-
   server.add_routes([
     web.get('/', index),
     web.get('/report', report),

@@ -38,17 +38,15 @@ from bpy.types import (
   UIList
 )
 
-import requests, os, random
+import os
+import random
 import time
 import threading
 import platform
 import bpy
-import copy
 import json
 import math
 import unicodedata
-import urllib
-import queue
 import logging
 
 bk_logger = logging.getLogger('blenderkit')
@@ -714,45 +712,6 @@ def generate_author_textblock(adata):
       if adata.get('aboutMe') is not None:
         t = writeblockm(t, adata, key='aboutMe', pretext='', width=col_w)
   return t
-
-
-def download_image(session, url, filepath):
-  r = None
-  try:
-    r = session.get(url, stream=False)
-  except Exception as e:
-    bk_logger.error('Thumbnail download failed')
-    bk_logger.error(str(e))
-  if r and r.status_code == 200:
-    with open(filepath, 'wb') as f:
-      f.write(r.content)
-
-
-def thumb_download_worker(queue_sml, queue_full):
-  # print('thumb downloader', self.url)
-  # utils.p('start thumbdownloader thread')
-  while 1:
-    session = None
-    # start a session only for single search usually, if users starts scrolling, the session might last longer if
-    # queue gets filled.
-    if not queue_sml.empty() or not queue_full.empty():
-      if session is None:
-        session = requests.Session()
-      while not queue_sml.empty():
-        # first empty the small thumbs queue
-        url, filepath = queue_sml.get()
-        download_image(session, url, filepath)
-      exit_full = False
-      # download full resolution image, but only if no small thumbs are waiting. If there are small
-      while not queue_full.empty() and queue_sml.empty():
-        url, filepath = queue_full.get()
-        download_image(session, url, filepath)
-
-    if queue_sml.empty() and queue_full.empty():
-      if session is not None:
-        session.close()
-        session = None
-      time.sleep(.5)
 
 
 def write_gravatar(a_id, gravatar_path):
