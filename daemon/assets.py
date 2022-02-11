@@ -11,7 +11,7 @@ import aiohttp
 import globals, utils
 
 
-def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, find_closest_with_url=False):
+def get_res_file(task: globals.Task, find_closest_with_url: bool =False):  # asset_data, resolution, find_closest_with_url=False):
   """Returns closest resolution that current asset can offer.
   
   If there are no resolutions, return orig file.
@@ -36,19 +36,19 @@ def get_res_file(data, find_closest_with_url=False):  # asset_data, resolution, 
   orig = None
   res = None
   closest = None
-  target_resolution = resolutions.get(data['resolution'])
+  target_resolution = resolutions.get(task.data['resolution'])
   mindist = 100000000
 
-  for f in data['asset_data']['files']:
+  for f in task.data['asset_data']['files']:
     if f['fileType'] == 'blend':
       orig = f
-      if data['resolution'] == 'blend':
+      if task.data['resolution'] == 'blend':
         # orig file found, return.
         return orig, 'blend'
 
-    if f['fileType'] == data['resolution']:
+    if f['fileType'] == task.data['resolution']:
       # exact match found, return.
-      return f, data['resolution']
+      return f, task.data['resolution']
     # find closest resolution if the exact match won't be found.
     rval = resolutions.get(f['fileType'])
     if rval and target_resolution:
@@ -77,17 +77,12 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   6. unpacks the file
   """
 
-  task = globals.Task(data, task_id)
-  # Constructor Task.__init__() automatically appends task to list new_tasks
-  # idea here is to make it more readable by using Class and not just chaotic dict
-  # all non-Task specific is stored in Task.data - like PREFS, asset_data whatever
-  # all Task specific is stored outside Task.data - like Task.task_id, Task.progress, Task.text, Task.type etc.
-  # Task should have methods so working with it is compact: Task.to_JSON(), Task.change_progress()
-
-  report_download_progress(data, progress=0, text='Looking for asset')
+  app_id = data['app_id']
+  del data['app_id']
+  task = globals.Task(data, task_id, app_id, 'asset_download', text='Looking for asset')
 
   # TODO get real link here...
-  await get_download_url(session, data)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
+  await get_download_url(session, task)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
 
   # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
   # different than for the non free content. delete is here when called after failed append tries.
@@ -95,8 +90,9 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
   if await check_existing(data):  # and not tcom.passargs.get('delete'):
     # this sends the thread for processing, where another check should occur, since the file might be corrupted.
-    report_download_progress(data, progress=100, text='Asset found on hard drive')
-    report_download_finished(data)
+    #report_download_progress(data, progress=100, text='Asset found on hard drive')
+    #report_download_finished(data)
+    task.finished('Asset found on hard drive')
     print('found on hard drive, finishing ')
     return
 
@@ -105,15 +101,18 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   await download_file(session, file_path, data)
   # unpack the file immediately after download
 
-  report_download_progress(data, text='Unpacking files', progress = 100)
+  #report_download_progress(data, text='Unpacking files', progress = 100)
+  task.change_progress(100, 'Unpacking files')
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
   # remove the following line?
-  data['asset_data']['resolution'] = data['resolution']
+
+  task.data['asset_data']['resolution'] = task.data['resolution']
+  
   await send_to_bg(data, file_path, command='unpack', wait=True)
 
   # print(f'Finished asset download: {data}')
-  report_download_finished(data)
-
+  #report_download_finished(data)
+  task.change_progress(100, 'Asset downloaded')
 
 async def download_file(session: aiohttp.ClientSession, file_path, data):
   print("DOWNLOADING FILE_PATH:", file_path)
@@ -155,21 +154,6 @@ async def download_file(session: aiohttp.ClientSession, file_path, data):
           delete_unfinished_file(file_path)
           return
 
-
-def add_error_report(data, text=''):
-  """Adds error report to task results."""
-
-  # tasks[data['task_id']] = {
-  globals.tasks[data['task_id']] = {
-    "app_id": data['PREFS']['app_id'],
-    'type': 'error-report',
-    # "followup": "blenderLib.placeAssetIntoScene()".
-    'text': text,
-    'timeout': 20,
-  }
-  print(text, globals.tasks)
-
-
 def report_download_progress(data, text=None, progress=None):
   """Add download progress report to task results."""
 
@@ -182,8 +166,6 @@ def report_download_progress(data, text=None, progress=None):
     globals.tasks[data['task_id']]['progress'] = progress
   if text is not None:
     globals.tasks[data['task_id']]['text'] = text
-
-  # print(progress, text, tasks)
 
 
 def report_download_finished(data):
@@ -198,18 +180,18 @@ def report_download_finished(data):
   print("FINISHED", globals.tasks[data['task_id']])
 
 
-async def get_download_url(session: aiohttp.ClientSession, data):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
+async def get_download_url(session: aiohttp.ClientSession, task: globals.Task):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
   """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
 
-  headers = utils.get_headers(data['PREFS']['api_key'])
-  req_data = {'scene_uuid': data['PREFS']['scene_id']}
-  res_file_info, resolution = get_res_file(data)
+  headers = utils.get_headers(task.data['PREFS']['api_key'])
+  req_data = {'scene_uuid': task.data['PREFS']['scene_id']}
+  res_file_info, resolution = get_res_file(task)
 
   async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
     await resp.text()
     if resp == None:
-      add_error_report(data, text='Connection Error')
-      return False  # 'Connection Error'
+      task.error('Connection error')
+      return False
 
     if resp.status < 400:
       rdata = await resp.json()
@@ -220,15 +202,15 @@ async def get_download_url(session: aiohttp.ClientSession, data):  # asset_data,
 
     if resp.status == 403:
       report_text = 'You need Full plan to get this item.'
-
-    if resp.status == 404:
+    elif resp.status == 404:
       report_text = 'Url not found - 404.'
       # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
-
     elif resp.status >= 500:
       report_text = 'Server error'
 
-  add_error_report(data, text=report_text)
+  #add_error_report(data, text=report_text)
+  task.change_progress(-1, report_text)
+  
   return False
 
 

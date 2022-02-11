@@ -1,4 +1,5 @@
 from os import path, environ
+import os
 import sys
 import subprocess
 import requests
@@ -14,7 +15,7 @@ def get_address() -> str:
 
   return 'http://127.0.0.1:' + str(PORT)
 
-async def get_reports_async(data, queue):
+async def get_reports_async(app_id: str, queue):
   """Get report for all task at once with asyncio and aiohttp."""
   global reports_queue
   address = get_address()
@@ -22,6 +23,7 @@ async def get_reports_async(data, queue):
   t = time.time()
   async with aiohttp.ClientSession() as session:
     # ensure_daemon_alive(session)
+    data = {'app_id': app_id}
     async with session.get(url, json=data) as resp:
       # text = await resp.text()
       json_data = await resp.json()
@@ -30,7 +32,7 @@ async def get_reports_async(data, queue):
         queue.put(json_data)
         print(t-time.time())
 
-def get_reports(data):
+def get_reports(app_id: str):
   """Get report for all tasks at once."""
 
   # import time
@@ -40,7 +42,7 @@ def get_reports(data):
     ensure_daemon_alive(session)
     url = address + "/report"
     # print(mt-time.time())
-
+    data = {'app_id': app_id}
     resp = session.get(url, json=data)
     # print(resp)
     # print(mt-time.time())
@@ -50,6 +52,7 @@ def search_asset(data):
   """Search for specified asset."""
 
   address = get_address()
+  data['app_id'] = os.getpid()
   with requests.Session() as session:
     ensure_daemon_alive(session)
     url = address + "/search_asset"
@@ -61,6 +64,7 @@ def download_asset(data):
   """Download specified asset."""
 
   address = get_address()
+  data['app_id'] = os.getpid()
   with requests.Session() as session:
     ensure_daemon_alive(session)
     url = address + "/download_asset"

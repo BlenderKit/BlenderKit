@@ -6,6 +6,7 @@ import sys
 import uuid
 import ssl
 import certifi
+import json
 
 import aiohttp
 from aiohttp import web
@@ -21,8 +22,9 @@ async def download_asset(request):
 
   data = await request.json()
   task_id = str(uuid.uuid4())
-  data['task_id'] = task_id
+  data['task_id'] = task_id #mozna k nicemu
   print('Starting asset download:', data['asset_data']['name'])
+
   asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], data, task_id))
   
   return web.json_response({'task_id': task_id})
@@ -33,9 +35,11 @@ async def search_assets(request):
 
   data = await request.json()
   task_id = str(uuid.uuid4())
-  data['task_id'] = task_id
+  data['task_id'] = task_id #mozna k nicemu
   print('Starting search:', data['urlquery'])
-  asyncio.ensure_future(search.do_search(request.app['PERSISTENT_SESSION'], data))
+
+  asyncio.ensure_future(search.do_search(request.app['PERSISTENT_SESSION'], data, task_id))
+
   return web.json_response({'task_id': task_id})
 
 
@@ -56,10 +60,23 @@ async def kill_download(request):
 
 async def report(request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
-  
   data = await request.json()
-  reports = {key: value for (key, value) in globals.tasks.items() if value['app_id'] == data['app_id']}
-  globals.tasks = {key: value for (key, value) in globals.tasks.items() if value['app_id'] != data['app_id']}
+  if len(globals.tasks) > 0:
+    print("TOTAL TASKS:", len(globals.tasks))
+  #reports = {key: value for (key, value) in globals.tasks.items() if value['app_id'] == data['app_id']}
+  
+  #globals.tasks = {key: value for (key, value) in globals.tasks.items() if value['app_id'] != data['app_id']}
+  #tohle melo cistit? moc to tam nevidim :/
+  reports = list()
+  for task in globals.tasks:
+    print("TASK=", task)
+    if task.app_id != data['app_id']:
+      continue
+
+    reports.append(task.to_seriazable_object())
+    if task.status == "finished":
+      task.delete()
+
   return web.json_response(reports)
 
 
