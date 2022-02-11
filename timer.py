@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
-pending_tasks = dict()
+pending_tasks = list()
 reader_loop = None
 ENABLE_ASYNC_LOOP =False
 
@@ -29,10 +29,8 @@ def timer():
 
   search.check_clipboard()
 
-  data = {
-    'app_id': os.getpid(),
-  }
-  results = dict()
+  app_id = os.getpid()
+  results = list()
 
   if ENABLE_ASYNC_LOOP:
     global reports_queue
@@ -42,29 +40,44 @@ def timer():
       print('from queue', queue_result)
       results.update(queue_result)
     kick_async_loop()
-    asyncio.ensure_future(daemon_lib.get_reports_async(data, reports_queue))
+    asyncio.ensure_future(daemon_lib.get_reports_async(app_id, reports_queue))
   else:
-    results = daemon_lib.get_reports(data)
+    results = daemon_lib.get_reports(app_id)
 
-  results.update(pending_tasks)
+  results.extend(pending_tasks)
   logger.debug(f'timer before {mt-time.time()}')
-  pending_tasks = dict()
-  for key, value in results.items():
-    # print(key,value)
-    if value['type'] == 'error-report':
-      reports.add_report(value['text'], timeout=value['timeout'])
-    if value['type'] == 'download-progress':
-      download.download_write_progress(key, value)
-    if value['type'] == 'download-finished':
-      appended = download.download_post(value)
-      if not appended:
-        pending_tasks[key] = value
-    if value['type'] == 'search-finished':
-      parsed = search.search_post(key,value)
-      if not parsed:
-        pending_tasks[key] = value
-    if value['type'] == 'thumbnail-available':
-      pass
+  pending_tasks.clear()
+
+  for task in results:    
+    #HANDLE ASSET DOWNLOAD (candidate to be a function)
+    if task['task_type'] == 'asset_download':
+      if task['status'] == 'finished':
+        appended = download.download_post(task)
+        if not appended:
+          pending_tasks.append(task)
+      elif task['status'] == 'error':
+        reports.add_report(task['message'])
+      else:
+        download.download_write_progress(task['app_id'], task)
+    
+    #HANDLE SEARCH (candidate to be a function)
+    if task['task_type'] == 'search':
+      if task['status'] == 'finished':
+        parsed = search.search_post(task['app_id'], task)
+        if not parsed:
+          pending_tasks.append(task)
+      elif task['status'] == 'error':
+        reports.add_report(task['message'])
+
+    #HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
+    if task['task_type'] == 'thumbnail_download':
+      if task['status'] == 'finished':
+        pass #show thumbnail
+      elif task['status'] == 'error':
+        reports.add_report(task['message'])
+
+    print("TASK HANDLE ------------- OK !!!!!!!!!!!!!!")
+    
 
   # print('timer',time.time()-mt)
   logger.debug(f'timer {mt-time.time()}')
