@@ -69,27 +69,15 @@ def timer():
   return .5
 
 def handle_task(task: daemon_lib.Task):
-  #HANDLE ASSET DOWNLOAD (candidate to be a function)
-
+  """Handle incomming task information. Sort tasks by type and call apropriate functions."""
   if task.task_type == 'asset_download':
-    if task.status == 'finished':
-      appended = download.download_post(task)
-      if not appended:
-        pending_tasks.append(task)
-    elif task.status == 'error':
-      reports.add_report(task.message)
-    else:
-      download.download_write_progress(task.app_id, task)
+    download.handle_download_task(task)
     
   #HANDLE SEARCH (candidate to be a function)
   if task.task_type == 'search':
     if task.status == 'finished':
-      ok = search.handle_search_task(task)
-      print("SEARCH HANDLE OK?", ok)
-      #parsed = search.search_post(task['app_id'], task)
-      #print("SEARCH TASK parsed?", parsed)
-      #if not parsed:
-      #  pending_tasks.append(task)
+      search.handle_search_task(task)
+
     elif task.status == 'error':
       reports.add_report(task.message)
 
@@ -99,8 +87,6 @@ def handle_task(task: daemon_lib.Task):
       pass #show thumbnail
     elif task.status == 'error':
       reports.add_report(task.message)
-
-  print("TASK HANDLE ------------- OK !!!!!!!!!!!!!!")
 
 
 def setup_asyncio_executor():

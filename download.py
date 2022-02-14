@@ -16,13 +16,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports, global_vars, daemon_lib
+from . import paths, append_link, utils, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports, global_vars, daemon_lib
 
 import threading
 import time
 import requests
-import shutil, sys, os
-import uuid
+import shutil, os
 import copy
 import logging
 
@@ -672,6 +671,17 @@ def download_timer():
 
     return .5
 
+def handle_download_task(task: daemon_lib.Task):
+  """Handle incoming task information.
+  Update progress. Print messages. Fire post-download functions.
+  """
+  if task.status == "finished":
+    pass #place into scene
+  elif task.progress == "error":
+    pass #handle error
+  else:
+    pass #update progress and/or place message
+
 def download_write_progress(task_id, data):
     '''writes progress from daemon_lib reports to addon tasks list '''
     global download_tasks
@@ -682,13 +692,12 @@ def download_write_progress(task_id, data):
             if 'text' in data:
                 task['text'] = data['text']
 
+# TODO might get moved to handle all blenderkit stuff, not to slow down.
 def download_post(data):
-    # TODO might get moved to handle all blenderkit stuff, not to slow down.
-    '''
-    check for running and finished downloads.
+    """Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.
-     '''
+    """
     global download_tasks
 
     remove_keys = []
