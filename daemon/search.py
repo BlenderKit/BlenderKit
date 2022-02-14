@@ -43,6 +43,7 @@ async def download_image_batch(session: aiohttp.ClientSession, parent_task: glob
     }
     task_id = str(uuid.uuid4())
     task = globals.Task(data, task_id, parent_task.app_id, "thumbnail_download")
+    globals.tasks.append(task)
 
     if os.path.exists(imgpath):
       task.finished("thumbnail on disk")
@@ -90,6 +91,7 @@ async def do_search(session: aiohttp.ClientSession, data: dict, task_id: str):
   app_id = data['app_id']
   del data['app_id']
   task = globals.Task(data, task_id, app_id, 'search', message='Looking for asset')
+  globals.tasks.append(task)
 
   rdata = {}
   rdata['results'] = []

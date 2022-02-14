@@ -4,10 +4,7 @@ import json
 
 
 class Task():
-  """Holds all information needed for a task.
-  
-  Constructor automatically adds the instance of Task into list globals.new_tasks.
-  """
+  """Holds all information needed for a task."""
 
   def __init__(self, data: dict, task_id: str, app_id: str, task_type: str, message: str = ""):
     self.data = data
@@ -19,9 +16,6 @@ class Task():
     self.progress = 0
     self.status = "created" # created / finished / error
     self.result = None
-
-    global tasks
-    tasks.append(self)
 
   def change_progress(self, progress: int, message: str, status: str = ""):
     self.progress = progress
@@ -39,10 +33,6 @@ class Task():
     self.message = message
     self.status = "finished"
 
-  def delete(self):
-    global tasks
-    tasks.remove(self)
-
   def __str__(self):
     return f'ID={self.task_id}, APP_ID={self.app_id}'
 
@@ -51,10 +41,7 @@ class Task():
 
   def to_seriazable_object(self):
     return json.loads(self.to_JSON())
-  
 
 
 tasks: list[Task] = []
 """Server-wide variable holding all running tasks on the daemon-server."""
-
-#tasks = dict()

@@ -6,7 +6,6 @@ import sys
 import uuid
 import ssl
 import certifi
-import json
 
 import aiohttp
 from aiohttp import web
@@ -75,7 +74,7 @@ async def report(request):
 
     reports.append(task.to_seriazable_object())
     if task.status == "finished":
-      task.delete()
+      globals.tasks.remove(task)
 
   return web.json_response(reports)
 
