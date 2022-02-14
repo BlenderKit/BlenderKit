@@ -19,6 +19,8 @@
 from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
   resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops, global_vars, daemon_lib
 
+from . import daemon_lib
+
 from bpy.app.handlers import persistent
 
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
@@ -490,6 +492,80 @@ def search_post(key, task):
   if len(search_tasks) == 0:
     props.is_searching = False
   return True
+
+
+def handle_search_task(task: daemon_lib.Task) -> bool:
+  asset_type = task.data['asset_type']
+  props = utils.get_search_props()
+  search_name = f'bkit {asset_type} search'
+
+  if not task.data.get('get_next'):
+    result_field = []
+  else:
+    result_field = []
+    for r in global_vars.DATA[search_name]:
+      result_field.append(r)
+
+  # global reports_queue
+  # while not reports_queue.empty():
+  #     props.report = str(reports_queue.get())
+  #     return .2
+
+  global all_thumbs_loaded
+  ok, error = check_errors(task.result)
+  if ok:
+    ui_props = bpy.context.window_manager.blenderkitUI
+    orig_len = len(result_field)
+
+    for ri, r in enumerate(task.result['results']):
+      asset_data = parse_result(r)
+      if asset_data != None:
+        result_field.append(asset_data)
+        all_thumbs_loaded = all_thumbs_loaded and load_preview(asset_data, ri + orig_len)
+
+    # Get ratings from BlenderKit server
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    api_key = user_preferences.api_key
+    headers = utils.get_headers(api_key)
+    if utils.profile_is_validator():
+      for r in task.result['results']:
+        if ratings_utils.get_rating_local(r['id']) is None:
+          rating_thread = threading.Thread(target=ratings_utils.get_rating, args=([r['id'], headers]),
+                                           daemon=True)
+          rating_thread.start()
+
+    global_vars.DATA[search_name] = result_field
+    global_vars.DATA['search results'] = result_field
+
+    # rdata=['results']=[]
+    global_vars.DATA[search_name + ' orig'] = task.result
+    global_vars.DATA['search results orig'] = task.result
+
+    if len(result_field) < ui_props.scroll_offset or not (task.data.get('get_next')):
+      # jump back
+      ui_props.scroll_offset = 0
+    props.search_error = False
+    props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
+    if len(global_vars.DATA['search results']) == 0:
+      tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
+    else:
+      tasks_queue.add_task(
+        (reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
+    # undo push
+    # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
+    # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
+    if not ui_props.assetbar_on and not task.data.get('get_next'):
+      bpy.ops.view3d.run_assetbar_fix_context()
+
+  else:
+    bk_logger.error(error)
+    props.report = error
+    props.search_error = True
+
+  if len(search_tasks) == 0:
+    props.is_searching = False
+  return True
+
 
 
 # @bpy.app.handlers.persistent

@@ -80,6 +80,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   app_id = data['app_id']
   del data['app_id']
   task = globals.Task(data, task_id, app_id, 'asset_download', text='Looking for asset')
+  globals.tasks.append(task)
 
   # TODO get real link here...
   await get_download_url(session, task)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
