@@ -141,6 +141,16 @@ def get_comments(asset_id, api_key):
     #     tasks_queue.add_task((store_rating_local_empty,(asset_id,)))
     # return ratings
 
+def check_notifications():
+ # check for notifications only for users that actually use the add-on
+  # TODO move notifications elsewhere?
+  
+  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  all_notifications_count = comments_utils.count_all_notifications()
+  comments_utils.get_notifications_thread(user_preferences.api_key, all_count=all_notifications_count)
+  if utils.experimental_enabled() and not bpy.app.timers.is_registered(
+          refresh_notifications_timer) and not bpy.app.background:
+    bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
 
 def store_notifications_count_local(all_count):
   '''Store total count of notifications on server in preferences'''

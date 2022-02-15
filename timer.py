@@ -79,14 +79,14 @@ def handle_task(task: daemon_lib.Task):
       search.handle_search_task(task)
 
     elif task.status == 'error':
-      reports.add_report(task.message)
+      reports.add_report(task.message, 15, colors.RED)
 
   #HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
   if task.task_type == 'thumbnail_download':
     if task.status == 'finished':
       pass #show thumbnail
     elif task.status == 'error':
-      reports.add_report(task.message)
+      reports.add_report(task.message, 15, colors.RED)
 
 
 def setup_asyncio_executor():
