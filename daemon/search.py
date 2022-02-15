@@ -90,7 +90,7 @@ async def do_search(session: aiohttp.ClientSession, data: dict, task_id: str):
   
   app_id = data['app_id']
   del data['app_id']
-  task = globals.Task(data, task_id, app_id, 'search', message='Looking for asset')
+  task = globals.Task(data, task_id, app_id, 'search', message='Searching assets')
   globals.tasks.append(task)
 
   rdata = {}

@@ -676,126 +676,132 @@ def handle_download_task(task: daemon_lib.Task):
   Update progress. Print messages. Fire post-download functions.
   """
   if task.status == "finished":
+    download_post(task)
     pass #place into scene
   elif task.progress == "error":
+    reports.add_report(task.message, 15, colors.RED)
     pass #handle error
   else:
-    pass #update progress and/or place message
+    # update progress and/or place message
+    download_write_progress(task.task_id, task)
 
-def download_write_progress(task_id, data):
+def download_write_progress(task_id, task):
     '''writes progress from daemon_lib reports to addon tasks list '''
     global download_tasks
-    for key,task in download_tasks.items():
-        if key == task_id:
-            if 'progress' in data:
-                task['progress'] = data['progress']
-            if 'text' in data:
-                task['text'] = data['text']
+    task_addon = download_tasks.get(task.task_id)
+    if task_addon is None:
+        return
+    task_addon['progress'] = task.progress
+    task_addon['text'] = task.message
 
 # TODO might get moved to handle all blenderkit stuff, not to slow down.
-def download_post(data):
+def download_post(task: daemon_lib.Task):
     """Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.
     """
     global download_tasks
 
+    orig_task = download_tasks.get(task.task_id)
+    if orig_task is None:
+        return
+
     remove_keys = []
     done = False
     # print(data)
-    for key,task in download_tasks.items():
-        if data['asset_data']['id'] == task['asset_data']['id']:
-            progress_bars = []
-            downloaders = []
-            # TODO move to separate update function from download-progress
-            #
-            # sr = global_vars.DATA.get('search results')
-            # if sr is not None:
-            #     for r in sr:
-            #         if data['asset_data']['id'] == r['id']:
-            #             r['downloaded'] = 1.0
-
-            # TODO move to separate function ?
-            # if tcom.error:
-            #     sprops = utils.get_search_props()
-            #     sprops.report = tcom.report
-            #     download_threads.remove(threaddata)
-            #     # utils.p('end download timer')
-                # return
-
-            file_paths = paths.get_download_filepaths(data['asset_data'], data['resolution'])
-
-            if len(file_paths) == 0:
-                bk_logger.debug('library names not found in asset data after download')
-                remove_keys.append(key)
-                done = True
-
-            wm = bpy.context.window_manager
-
-            at = data['asset_data']['assetType']
-            if not (((bpy.context.mode == 'OBJECT' and \
-                 (at == 'model' or at == 'material'))) \
-                    or ((at == 'brush') \
-                        and wm.get('appendable') == True) or at == 'scene' or at == 'hdr'):
-                return done
-            if ((bpy.context.mode == 'OBJECT' and \
-                 (at == 'model' or at == 'material'))) \
-                    or ((at == 'brush') \
-                        and wm.get('appendable') == True) or at == 'scene' or at == 'hdr':
-                # don't do this stuff in editmode and other modes, just wait...
-                # we don't remove the task before it's actually possible to remove it.
-                remove_keys.append(key)
-
-                # duplicate file if the global and subdir are used in prefs
-                if len(file_paths) == 2:  # todo this should try to check if both files exist and are ok.
-                    utils.copy_asset(file_paths[0], file_paths[1])
-                    # shutil.copyfile(file_paths[0], file_paths[1])
-
-                bk_logger.debug('appending asset')
-                # progress bars:
-
-                # we need to check if mouse isn't down, which means an operator can be running.
-                # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
-                #
-                # TODO use redownload in data, this is used for downloading/ copying missing libraries.
-                if data.get('redownload'):
-                    # handle lost libraries here:
-                    for l in bpy.data.libraries:
-                        if l.get('asset_data') is not None and l['asset_data']['id'] == asset_data['id']:
-                            l.filepath = file_paths[-1]
-                            l.reload()
-
-                if data.get('replace_resolution'):
-                    # try to relink
-                    # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-                    # print('try to replace resolution')
-                    # print(data)
-                    ain, resolution = asset_in_scene(data['asset_data'])
-
-                    if ain == 'LINKED':
-                        replace_resolution_linked(file_paths, data['asset_data'])
 
 
-                    elif ain == 'APPENDED':
-                        replace_resolution_appended(file_paths, data['asset_data'], data['resolution'])
+    progress_bars = []
+    downloaders = []
+    # TODO move to separate update function from download-progress
+    #
+    # sr = global_vars.DATA.get('search results')
+    # if sr is not None:
+    #     for r in sr:
+    #         if data['asset_data']['id'] == r['id']:
+    #             r['downloaded'] = 1.0
 
-                    done = True
+    # TODO move to separate function ?
+    # if tcom.error:
+    #     sprops = utils.get_search_props()
+    #     sprops.report = tcom.report
+    #     download_threads.remove(threaddata)
+    #     # utils.p('end download timer')
+        # return
 
-                else:
-                    # print(data)
-                    task.update(data)
-                    done = try_finished_append( **task)
-                    # if not done:
-                        # TODO add back re-download capability for deamon - used for lost libraries
-                        # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
-                        # download(asset_data, **tcom.passargs)
+    file_paths = paths.get_download_filepaths(task.data['asset_data'], task.data['resolution'])
 
-                    if global_vars.DATA['search results'] is not None and done:
-                        for sres in global_vars.DATA['search results']:
-                            if data['asset_data']['id'] == sres['id']:
-                                sres['downloaded'] = 100
+    if len(file_paths) == 0:
+        bk_logger.debug('library names not found in asset data after download')
+        remove_keys.append(task.task_id)
+        done = True
 
-                bk_logger.debug('finished download thread')
+    wm = bpy.context.window_manager
+
+    at = task.data['asset_data']['assetType']
+    if not (((bpy.context.mode == 'OBJECT' and \
+         (at == 'model' or at == 'material'))) \
+            or ((at == 'brush') \
+                and wm.get('appendable') == True) or at == 'scene' or at == 'hdr'):
+        return done
+    if ((bpy.context.mode == 'OBJECT' and \
+         (at == 'model' or at == 'material'))) \
+            or ((at == 'brush') \
+                and wm.get('appendable') == True) or at == 'scene' or at == 'hdr':
+        # don't do this stuff in editmode and other modes, just wait...
+        # we don't remove the task before it's actually possible to remove it.
+        remove_keys.append(task.task_id)
+
+        # duplicate file if the global and subdir are used in prefs
+        if len(file_paths) == 2:  # todo this should try to check if both files exist and are ok.
+            utils.copy_asset(file_paths[0], file_paths[1])
+            # shutil.copyfile(file_paths[0], file_paths[1])
+
+        bk_logger.debug('appending asset')
+        # progress bars:
+
+        # we need to check if mouse isn't down, which means an operator can be running.
+        # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
+        #
+        # TODO use redownload in data, this is used for downloading/ copying missing libraries.
+        if task.data.get('redownload'):
+            # handle lost libraries here:
+            for l in bpy.data.libraries:
+                if l.get('asset_data') is not None and l['asset_data']['id'] == asset_data['id']:
+                    l.filepath = file_paths[-1]
+                    l.reload()
+
+        if task.data.get('replace_resolution'):
+            # try to relink
+            # HDRs are always swapped, so their swapping is handled without the replace_resolution option
+            # print('try to replace resolution')
+            # print(task.data)
+            ain, resolution = asset_in_scene(task.data['asset_data'])
+
+            if ain == 'LINKED':
+                replace_resolution_linked(file_paths, task.data['asset_data'])
+
+
+            elif ain == 'APPENDED':
+                replace_resolution_appended(file_paths, task.data['asset_data'], task.data['resolution'])
+
+            done = True
+
+        else:
+            # print(task.data)
+            orig_task.update(task.data)
+            done = try_finished_append( **task.data)
+            # if not done:
+                # TODO add back re-download capability for deamon - used for lost libraries
+                # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
+                # download(asset_data, **tcom.passargs)
+
+            if global_vars.DATA['search results'] is not None and done:
+                for sres in global_vars.DATA['search results']:
+                    if task.data['asset_data']['id'] == sres['id']:
+                        sres['downloaded'] = 100
+
+        bk_logger.debug('finished download thread')
     # utils.p('end download timer')
     for key in remove_keys:
         download_tasks.pop(key)
