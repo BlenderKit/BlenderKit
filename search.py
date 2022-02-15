@@ -398,7 +398,6 @@ def search_post(key, task):
   if bpy.context.window_manager.blenderkitUI.dragging:
     # utils.p('end search timer')
     return False
-
   orig_task = search_tasks.get(key)
   if orig_task is None:
     return True
@@ -495,10 +494,53 @@ def search_post(key, task):
 
 
 def handle_search_task(task: daemon_lib.Task) -> bool:
+  '''parse search results, try to load all available previews.'''
+  ##############original
+
+  global search_tasks, first_search_parsing
+  if len(search_tasks) == 0:
+    # utils.p('end search timer')
+    props = utils.get_search_props()
+    props.is_searching = False
+    return True
+
+  # don't do anything while dragging - this could switch asset during drag, and make results list length different,
+  # causing a lot of throuble.
+  if bpy.context.window_manager.blenderkitUI.dragging:
+    # utils.p('end search timer')
+    return False
+
+  #if original task was already removed (because user initiated another search), results are dropped- Returns True
+  # because that's OK.
+  orig_task = search_tasks.get(task.task_id)
+  if orig_task is None:
+    return True
+
+  search_tasks.pop(task.task_id)  #
+
+  # this fixes black thumbnails in asset bar, test if this bug still persist in blender and remove if it's fixed
+  sys_prefs = bpy.context.preferences.system
+  sys_prefs.gl_texture_limit = 'CLAMP_OFF'
+
+  # check for notifications only for users that actually use the add-on
+  # TODO move notifications elsewhere?
+  global first_search_parsing
+  if first_search_parsing:
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    first_search_parsing = False
+    all_notifications_count = comments_utils.count_all_notifications()
+    comments_utils.get_notifications_thread(user_preferences.api_key, all_count=all_notifications_count)
+    if utils.experimental_enabled() and not bpy.app.timers.is_registered(
+            refresh_notifications_timer) and not bpy.app.background:
+      bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
+
+  ###################
+
   asset_type = task.data['asset_type']
   props = utils.get_search_props()
   search_name = f'bkit {asset_type} search'
 
+  print(task.data.keys())
   if not task.data.get('get_next'):
     result_field = []
   else:
@@ -506,10 +548,7 @@ def handle_search_task(task: daemon_lib.Task) -> bool:
     for r in global_vars.DATA[search_name]:
       result_field.append(r)
 
-  # global reports_queue
-  # while not reports_queue.empty():
-  #     props.report = str(reports_queue.get())
-  #     return .2
+
 
   global all_thumbs_loaded
   ok, error = check_errors(task.result)

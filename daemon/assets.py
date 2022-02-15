@@ -11,7 +11,7 @@ import aiohttp
 import globals, utils
 
 
-def get_res_file(task: globals.Task, find_closest_with_url: bool =False):  # asset_data, resolution, find_closest_with_url=False):
+def get_res_file(data, find_closest_with_url: bool =False):  # asset_data, resolution, find_closest_with_url=False):
   """Returns closest resolution that current asset can offer.
   
   If there are no resolutions, return orig file.
@@ -36,19 +36,19 @@ def get_res_file(task: globals.Task, find_closest_with_url: bool =False):  # ass
   orig = None
   res = None
   closest = None
-  target_resolution = resolutions.get(task.data['resolution'])
+  target_resolution = resolutions.get(data['resolution'])
   mindist = 100000000
 
-  for f in task.data['asset_data']['files']:
+  for f in data['asset_data']['files']:
     if f['fileType'] == 'blend':
       orig = f
-      if task.data['resolution'] == 'blend':
+      if data['resolution'] == 'blend':
         # orig file found, return.
         return orig, 'blend'
 
-    if f['fileType'] == task.data['resolution']:
+    if f['fileType'] == data['resolution']:
       # exact match found, return.
-      return f, task.data['resolution']
+      return f, data['resolution']
     # find closest resolution if the exact match won't be found.
     rval = resolutions.get(f['fileType'])
     if rval and target_resolution:
@@ -79,7 +79,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
 
   app_id = data['app_id']
   del data['app_id']
-  task = globals.Task(data, task_id, app_id, 'asset_download', text='Looking for asset')
+  task = globals.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
   globals.tasks.append(task)
 
   # TODO get real link here...
@@ -99,7 +99,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
 
   file_path = get_download_filepaths(data)[0]
 
-  await download_file(session, file_path, data)
+  await download_file(session, file_path, task)
   # unpack the file immediately after download
 
   #report_download_progress(data, text='Unpacking files', progress = 100)
@@ -113,13 +113,15 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
 
   # print(f'Finished asset download: {data}')
   #report_download_finished(data)
-  task.change_progress(100, 'Asset downloaded')
+  task.change_progress(100, 'Asset is ready')
+  task.finished('Asset downloaded and ready')
 
-async def download_file(session: aiohttp.ClientSession, file_path, data):
+
+async def download_file(session: aiohttp.ClientSession, file_path, task:globals.Task):
   print("DOWNLOADING FILE_PATH:", file_path)
 
   with open(file_path, "wb") as file:
-    res_file_info, data['resolution'] = get_res_file(data)
+    res_file_info, task.data['resolution'] = get_res_file(task.data)
     async with session.get(res_file_info['url']) as resp:
       total_length = resp.headers.get('Content-Length')
       if total_length is None:  # no content length header
@@ -141,32 +143,32 @@ async def download_file(session: aiohttp.ClientSession, file_path, data):
       else:
         t = ' %iMB' % fsmb
       # tcom.report = f'Downloading {t} {self.resolution}'
-      report_download_progress(data, text=f"Downloading {t} {data['resolution']}", progress=0)
+      task.change_progress( progress = 0, message= f"Downloading {t} {task.data['resolution']}")
       downloaded = 0
 
       async for chunk in resp.content.iter_chunked(4096 * 32):
         # for rdata in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
         downloaded += len(chunk)
         progress = int(100 * downloaded / file_size)
-        report_download_progress(data, text=f"Downloading {t} {data['resolution']}", progress=progress)
+        task.change_progress(progress=progress, message=f"Downloading {t} {task.data['resolution']}")
         file.write(chunk)
 
-        if globals.tasks[data['task_id']].get('kill'):
-          delete_unfinished_file(file_path)
-          return
-
-def report_download_progress(data, text=None, progress=None):
-  """Add download progress report to task results."""
-
-  globals.tasks[data['task_id']] = {
-    "app_id": data['PREFS']['app_id'],
-    'type': 'download-progress',
-  }
-
-  if progress is not None:
-    globals.tasks[data['task_id']]['progress'] = progress
-  if text is not None:
-    globals.tasks[data['task_id']]['text'] = text
+        # if globals.tasks[data['task_id']].get('kill'):
+        #   delete_unfinished_file(file_path)
+        #   return
+#
+# def report_download_progress(data, text=None, progress=None):
+#   """Add download progress report to task results."""
+#
+#   globals.tasks[data['task_id']] = {
+#     "app_id": data['PREFS']['app_id'],
+#     'type': 'download-progress',
+#   }
+#
+#   if progress is not None:
+#     globals.tasks[data['task_id']]['progress'] = progress
+#   if text is not None:
+#     globals.tasks[data['task_id']]['text'] = text
 
 
 def report_download_finished(data):
@@ -186,7 +188,7 @@ async def get_download_url(session: aiohttp.ClientSession, task: globals.Task): 
 
   headers = utils.get_headers(task.data['PREFS']['api_key'])
   req_data = {'scene_uuid': task.data['PREFS']['scene_id']}
-  res_file_info, resolution = get_res_file(task)
+  res_file_info, resolution = get_res_file(task.data)
 
   async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
     await resp.text()
