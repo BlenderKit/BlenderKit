@@ -6,6 +6,7 @@ import sys
 import uuid
 import ssl
 import certifi
+import time
 
 import aiohttp
 from aiohttp import web
@@ -59,13 +60,12 @@ async def kill_download(request):
 
 async def report(request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
+
+  globals.last_report_time = time.time()
+
   data = await request.json()
   if len(globals.tasks) > 0:
     print("TOTAL TASKS:", len(globals.tasks))
-  #reports = {key: value for (key, value) in globals.tasks.items() if value['app_id'] == data['app_id']}
-  
-  #globals.tasks = {key: value for (key, value) in globals.tasks.items() if value['app_id'] != data['app_id']}
-  #tohle melo cistit? moc to tam nevidim :/
   reports = list()
   for task in globals.tasks:
     print("TASK=", task)
@@ -102,6 +102,15 @@ async def persistent_session(app):
     conn.close()
   )
 
+async def should_i_live(app: web.Application):
+  while True:
+    since_report = time.time() - globals.last_report_time
+    if since_report > globals.TIMEOUT:
+      sys.exit() #we should handle this more nicely
+    await asyncio.sleep(10)
+
+async def start_background_tasks(app: web.Application):
+  app['should_i_live'] = asyncio.create_task(should_i_live(app))
 
 if __name__ == "__main__":
   server = web.Application()
@@ -115,4 +124,5 @@ if __name__ == "__main__":
     web.view('/shutdown', Shutdown),
   ])
 
+  server.on_startup.append(start_background_tasks)
   web.run_app(server, host='127.0.0.1', port=PORT)
