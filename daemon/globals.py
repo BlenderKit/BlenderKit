@@ -1,6 +1,7 @@
 """Holds global variables used by modules of daemon server."""
 
 import json
+import time
 
 
 class Task():
@@ -45,3 +46,6 @@ class Task():
 
 tasks: list[Task] = []
 """Server-wide variable holding all running tasks on the daemon-server."""
+
+last_report_time: float = time.time()
+TIMEOUT: int = 300
