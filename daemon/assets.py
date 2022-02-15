@@ -113,7 +113,6 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
 
   # print(f'Finished asset download: {data}')
   #report_download_finished(data)
-  task.change_progress(100, 'Asset is ready')
   task.finished('Asset downloaded and ready')
 
 

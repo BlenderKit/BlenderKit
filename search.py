@@ -522,17 +522,11 @@ def handle_search_task(task: daemon_lib.Task) -> bool:
   sys_prefs = bpy.context.preferences.system
   sys_prefs.gl_texture_limit = 'CLAMP_OFF'
 
-  # check for notifications only for users that actually use the add-on
-  # TODO move notifications elsewhere?
   global first_search_parsing
   if first_search_parsing:
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    check_notifications()
     first_search_parsing = False
-    all_notifications_count = comments_utils.count_all_notifications()
-    comments_utils.get_notifications_thread(user_preferences.api_key, all_count=all_notifications_count)
-    if utils.experimental_enabled() and not bpy.app.timers.is_registered(
-            refresh_notifications_timer) and not bpy.app.background:
-      bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
+
 
   ###################
 
