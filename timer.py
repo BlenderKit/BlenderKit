@@ -1,5 +1,5 @@
 import bpy
-from . import daemon_lib, reports, download, search
+from . import daemon_lib, reports, download, search, colors
 import os
 import time
 import threading
@@ -67,6 +67,14 @@ def timer():
   if len(download.download_tasks) > 0:
     return .2
   return .5
+
+def cancel_all_tasks(self, context):
+  """Cancel all tasks."""
+
+  global pending_tasks
+  pending_tasks.clear()
+  download.clear_downloads()
+  search.clear_searches()
 
 def handle_task(task: daemon_lib.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""

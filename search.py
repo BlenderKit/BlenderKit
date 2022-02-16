@@ -109,15 +109,6 @@ def refresh_token_timer():
   return max(3600, user_preferences.api_key_life - 3600)
 
 
-def refresh_notifications_timer():
-  ''' this timer gets notifications.'''
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  fetch_server_data()
-  all_notifications_count = comments_utils.count_all_notifications()
-  comments_utils.get_notifications_thread(preferences.api_key, all_count=all_notifications_count)
-  return 7200
-
-
 def update_ad(ad):
   if not ad.get('assetBaseId'):
     try:
@@ -377,6 +368,11 @@ def parse_result(r):
     return asset_data
 
 
+def clear_searches():
+
+  global search_tasks
+  search_tasks.clear()
+
 def search_post(key, task):
   # this makes a first search after opening blender. showing latest assets.
   # utils.p('timer search')
@@ -407,16 +403,6 @@ def search_post(key, task):
   # this fixes black thumbnails in asset bar, test if this bug still persist in blender and remove if it's fixed
   sys_prefs = bpy.context.preferences.system
   sys_prefs.gl_texture_limit = 'CLAMP_OFF'
-
-  # check for notifications only for users that actually use the add-on
-  # TODO move notifications elsewhere?
-  if first_search_parsing:
-    first_search_parsing = False
-    all_notifications_count = comments_utils.count_all_notifications()
-    comments_utils.get_notifications_thread(preferences.api_key, all_count=all_notifications_count)
-    if utils.experimental_enabled() and not bpy.app.timers.is_registered(
-            refresh_notifications_timer) and not bpy.app.background:
-      bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
 
   # these 2 lines should update the previews enum and set the first result as active.
   # wm = bpy.context.window_manager
@@ -524,7 +510,7 @@ def handle_search_task(task: daemon_lib.Task) -> bool:
 
   global first_search_parsing
   if first_search_parsing:
-    check_notifications()
+    comments_utils.check_notifications()
     first_search_parsing = False
 
 

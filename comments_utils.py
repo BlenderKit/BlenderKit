@@ -18,7 +18,7 @@
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-from . import utils, paths, tasks_queue, rerequests, global_vars
+from . import utils, paths, tasks_queue, rerequests, global_vars, search
 
 import threading
 import requests
@@ -146,11 +146,19 @@ def check_notifications():
   # TODO move notifications elsewhere?
   
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  all_notifications_count = comments_utils.count_all_notifications()
-  comments_utils.get_notifications_thread(user_preferences.api_key, all_count=all_notifications_count)
+  all_notifications_count = count_all_notifications()
+  get_notifications_thread(user_preferences.api_key, all_count=all_notifications_count)
   if utils.experimental_enabled() and not bpy.app.timers.is_registered(
           refresh_notifications_timer) and not bpy.app.background:
     bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
+
+def refresh_notifications_timer():
+  ''' this timer gets notifications.'''
+  preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  search.fetch_server_data()
+  all_notifications_count = count_all_notifications()
+  get_notifications_thread(preferences.api_key, all_count=all_notifications_count)
+  return 7200
 
 def store_notifications_count_local(all_count):
   '''Store total count of notifications on server in preferences'''

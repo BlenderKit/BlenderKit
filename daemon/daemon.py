@@ -1,6 +1,7 @@
 """Main module (starting point) for daemon server. From here all other modules are imported."""
 
 import asyncio
+import argparse
 import os
 import sys
 import uuid
@@ -12,9 +13,6 @@ import aiohttp
 from aiohttp import web
 
 import assets, search, globals
-
-
-PORT = 10753
 
 
 async def download_asset(request):
@@ -112,7 +110,13 @@ async def should_i_live(app: web.Application):
 async def start_background_tasks(app: web.Application):
   app['should_i_live'] = asyncio.create_task(should_i_live(app))
 
+
 if __name__ == "__main__":
+
+  parser = argparse.ArgumentParser(description='Process some integers.')
+  parser.add_argument('--port', type=str, default="10753")
+  args = parser.parse_args()
+
   server = web.Application()
   server.cleanup_ctx.append(persistent_session)
   server.add_routes([
@@ -125,4 +129,4 @@ if __name__ == "__main__":
   ])
 
   server.on_startup.append(start_background_tasks)
-  web.run_app(server, host='127.0.0.1', port=PORT)
+  web.run_app(server, host='127.0.0.1', port=args.port)

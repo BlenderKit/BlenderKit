@@ -677,13 +677,16 @@ def handle_download_task(task: daemon_lib.Task):
   """
   if task.status == "finished":
     download_post(task)
-    pass #place into scene
   elif task.progress == "error":
     reports.add_report(task.message, 15, colors.RED)
-    pass #handle error
   else:
-    # update progress and/or place message
     download_write_progress(task.task_id, task)
+
+def clear_downloads():
+    """Cancel all downloads."""
+
+    global download_tasks
+    download_tasks.clear()
 
 def download_write_progress(task_id, task):
     '''writes progress from daemon_lib reports to addon tasks list '''
