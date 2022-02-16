@@ -1693,6 +1693,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs
     )
 
+    daemon_port: IntProperty(
+        name="Daemon port",
+        description="Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches.",
+        default=10753,
+        update=timer.cancel_all_tasks,
+    )
+
     project_subdir: StringProperty(
         name="Project Assets Subdirectory",
         description="where data will be stored for individual projects",
@@ -1873,6 +1880,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         layout.prop(self, "tips_on_start")
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
+        layout.prop(self, "daemon_port")
 
         if bpy.context.preferences.view.show_developer_ui:
             layout.prop(self, "use_timers")

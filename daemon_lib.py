@@ -7,13 +7,20 @@ import aiohttp
 import time
 import json
 
-PORT = 10753
-
-
 def get_address() -> str:
   """Get address of the daemon."""
 
-  return 'http://127.0.0.1:' + str(PORT)
+  return 'http://127.0.0.1:' + get_port()
+
+def get_port() -> str:
+  """Get port of the daemon."""
+  
+  if __name__ == "__main__":
+    port = 10753
+  else:
+    port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
+
+  return str(port)
 
 async def get_reports_async(app_id: str, queue):
   """Get report for all task at once with asyncio and aiohttp."""
@@ -92,12 +99,12 @@ def ensure_daemon_alive(session: requests.Session):
   if isAlive == True:
     return
 
-  print("Starting daemon server")
+  print(f'Starting daemon server on port {get_port()}')
   start_daemon_server()
   while True: #TODO: add a timeout break here
     isAlive, _ = daemon_is_alive(session)
     if isAlive == True:
-      print("Daemon server started")
+      print(f'Daemon server started on address {get_address()}')
       return
 
 
@@ -115,20 +122,23 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
     return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
 
 
-def start_daemon_server(logPath = None):
+def start_daemon_server(log_dir: str = None):
   """Start daemon server in separate process."""
-
+  
   daemonPath = path.join(path.dirname(__file__), 'daemon/daemon.py')
   pythonPath = sys.executable
   pythonHome = path.abspath(path.dirname(sys.executable) + "/..")
   env  = environ.copy()
   env['PYTHONPATH'] = pythonPath
   env['PYTHONHOME'] = pythonHome
-  if logPath == None:
-    logPath = path.abspath(path.expanduser('~') + "/blenderkit_data/daemon.log")
-  with open(logPath, "wb") as log:
+
+  if log_dir == None:
+    log_dir = path.abspath(path.expanduser('~') + "/blenderkit_data")
+
+  log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
+  with open(log_path, "wb") as log:
     process = subprocess.Popen(
-      args       = [pythonPath, "-u", daemonPath],
+      args       = [pythonPath, "-u", daemonPath, "--port", get_port()],
       env        = env,
       stdout     = log,
       stderr     = log
