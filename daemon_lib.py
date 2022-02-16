@@ -101,12 +101,6 @@ def ensure_daemon_alive(session: requests.Session):
 
   print(f'Starting daemon server on port {get_port()}')
   start_daemon_server()
-  while True: #TODO: add a timeout break here
-    isAlive, _ = daemon_is_alive(session)
-    if isAlive == True:
-      print(f'Daemon server started on address {get_address()}')
-      return
-
 
 def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   """Check whether daemon is responding."""
@@ -143,6 +137,8 @@ def start_daemon_server(log_dir: str = None):
       stdout     = log,
       stderr     = log
       )
+
+  print(f'Daemon server started on address {get_address()}')
 
 
 class Task():
