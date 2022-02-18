@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 from . import paths, append_link, utils, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports, global_vars, daemon_lib
+from .daemon import tasks
 
 import threading
 import time
@@ -671,7 +672,7 @@ def download_timer():
 
     return .5
 
-def handle_download_task(task: daemon_lib.Task):
+def handle_download_task(task: tasks.Task):
   """Handle incoming task information.
   Update progress. Print messages. Fire post-download functions.
   """
@@ -698,7 +699,7 @@ def download_write_progress(task_id, task):
     task_addon['text'] = task.message
 
 # TODO might get moved to handle all blenderkit stuff, not to slow down.
-def download_post(task: daemon_lib.Task):
+def download_post(task: tasks.Task):
     """Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.

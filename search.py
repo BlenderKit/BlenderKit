@@ -19,7 +19,8 @@
 from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
   resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops, global_vars, daemon_lib
 
-from . import daemon_lib
+from .daemon import tasks
+
 
 from bpy.app.handlers import persistent
 
@@ -479,7 +480,7 @@ def search_post(key, task):
   return True
 
 
-def handle_search_task(task: daemon_lib.Task) -> bool:
+def handle_search_task(task: tasks.Task) -> bool:
   '''parse search results, try to load all available previews.'''
   ##############original
 

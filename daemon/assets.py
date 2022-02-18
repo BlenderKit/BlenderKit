@@ -8,7 +8,7 @@ import sys
 import tempfile
 import aiohttp
 
-import globals, utils
+import globals, utils, tasks
 
 
 def get_res_file(data, find_closest_with_url: bool =False):  # asset_data, resolution, find_closest_with_url=False):
@@ -79,7 +79,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
 
   app_id = data['app_id']
   del data['app_id']
-  task = globals.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
+  task = tasks.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
   globals.tasks.append(task)
 
   # TODO get real link here...
@@ -116,7 +116,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   task.finished('Asset downloaded and ready')
 
 
-async def download_file(session: aiohttp.ClientSession, file_path, task:globals.Task):
+async def download_file(session: aiohttp.ClientSession, file_path, task:tasks.Task):
   print("DOWNLOADING FILE_PATH:", file_path)
 
   with open(file_path, "wb") as file:
@@ -182,7 +182,7 @@ def report_download_finished(data):
   print("FINISHED", globals.tasks[data['task_id']])
 
 
-async def get_download_url(session: aiohttp.ClientSession, task: globals.Task):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
+async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
   """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
 
   headers = utils.get_headers(task.data['PREFS']['api_key'])

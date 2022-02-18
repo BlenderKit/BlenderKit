@@ -112,8 +112,7 @@ async def start_background_tasks(app: web.Application):
 
 
 if __name__ == "__main__":
-
-  parser = argparse.ArgumentParser(description='Process some integers.')
+  parser = argparse.ArgumentParser()
   parser.add_argument('--port', type=str, default="10753")
   args = parser.parse_args()
 

@@ -1,5 +1,5 @@
 import bpy
-from . import daemon_lib, reports, download, search, colors
+
 import os
 import time
 import threading
@@ -9,6 +9,9 @@ import asyncio
 import concurrent.futures
 import queue
 import logging
+
+from . import daemon_lib, reports, download, search, colors
+from .daemon import tasks
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +52,7 @@ def timer():
   pending_tasks.clear()
 
   for task in results:
-    task = daemon_lib.Task(
+    task = tasks.Task(
       data = task['data'],
       task_id = task['task_id'],
       app_id = task['app_id'],
@@ -76,7 +79,7 @@ def cancel_all_tasks(self, context):
   download.clear_downloads()
   search.clear_searches()
 
-def handle_task(task: daemon_lib.Task):
+def handle_task(task: tasks.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""
   if task.task_type == 'asset_download':
     download.handle_download_task(task)
