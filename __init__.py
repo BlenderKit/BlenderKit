@@ -29,7 +29,11 @@ bl_info = {
     "category": "3D View",
 }
 
+import sys
 from os import path
+
+sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
+
 
 # lib = path.join(path.dirname(__file__), 'lib')
 # sys.path.insert(0, lib)

@@ -5,7 +5,7 @@ import os
 import uuid
 
 import aiohttp
-import globals, utils, assets
+import globals, utils, assets, tasks
 
 
 def report_image_finished(data, filepath, done=True):
@@ -17,7 +17,7 @@ def report_image_finished(data, filepath, done=True):
                              'done': done}
 
 
-async def download_image(session: aiohttp.ClientSession, task: globals.Task):
+async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
   """Download a single image and report to addon."""
 
   image_url = task.data["image_url"]
@@ -32,7 +32,7 @@ async def download_image(session: aiohttp.ClientSession, task: globals.Task):
       task.error(f"thumbnail download error: {resp.status}")
 
 
-async def download_image_batch(session: aiohttp.ClientSession, parent_task: globals.Task, images: list[tuple] =[], limit_per_host=0):
+async def download_image_batch(session: aiohttp.ClientSession, parent_task: tasks.Task, images: list[tuple] =[], limit_per_host=0):
   """Download batch of images. images are tuples of file path and url."""
   
   coroutines = []
@@ -42,7 +42,7 @@ async def download_image_batch(session: aiohttp.ClientSession, parent_task: glob
       "image_url" : url,
     }
     task_id = str(uuid.uuid4())
-    task = globals.Task(data, task_id, parent_task.app_id, "thumbnail_download")
+    task = tasks.Task(data, task_id, parent_task.app_id, "thumbnail_download")
     globals.tasks.append(task)
 
     if os.path.exists(imgpath):
@@ -54,7 +54,7 @@ async def download_image_batch(session: aiohttp.ClientSession, parent_task: glob
   await asyncio.gather(*coroutines)
 
 
-async def parse_thumbnails(task: globals.Task):
+async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames."""
 
   thumb_small_urls = []
@@ -90,7 +90,7 @@ async def do_search(session: aiohttp.ClientSession, data: dict, task_id: str):
   
   app_id = data['app_id']
   del data['app_id']
-  task = globals.Task(data, task_id, app_id, 'search', message='Searching assets')
+  task = tasks.Task(data, task_id, app_id, 'search', message='Searching assets')
   globals.tasks.append(task)
 
   rdata = {}

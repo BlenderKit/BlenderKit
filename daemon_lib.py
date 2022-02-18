@@ -7,6 +7,8 @@ import aiohttp
 import time
 import json
 
+from .daemon import tasks
+
 def get_address() -> str:
   """Get address of the daemon."""
 
@@ -119,12 +121,13 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
 def start_daemon_server(log_dir: str = None):
   """Start daemon server in separate process."""
   
-  daemonPath = path.join(path.dirname(__file__), 'daemon/daemon.py')
-  pythonPath = sys.executable
-  pythonHome = path.abspath(path.dirname(sys.executable) + "/..")
   env  = environ.copy()
-  env['PYTHONPATH'] = pythonPath
-  env['PYTHONHOME'] = pythonHome
+  blenderkit_path = path.dirname(__file__)
+  env['PYTHONPATH'] = f"{sys.executable}:{blenderkit_path}"
+  python_home = path.abspath(path.dirname(sys.executable) + "/..")
+  env['PYTHONHOME'] = python_home
+
+  daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
 
   if log_dir == None:
     log_dir = path.abspath(path.expanduser('~') + "/blenderkit_data")
@@ -132,58 +135,13 @@ def start_daemon_server(log_dir: str = None):
   log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
   with open(log_path, "wb") as log:
     process = subprocess.Popen(
-      args       = [pythonPath, "-u", daemonPath, "--port", get_port()],
+      args       = [sys.executable, "-u", daemon_path, "--port", get_port()],
       env        = env,
       stdout     = log,
       stderr     = log
       )
 
   print(f'Daemon server started on address {get_address()}')
-
-
-class Task():
-  """Holds all information needed for a task.
-  
-  THIS IS UGLY AS HELL. WE NEED TO IMPORT IT FROM DAEMON.GLOBALS OR ELSEWHERE.
-  IT IS NEEDED TO BE DEFINED ON JUST ONE PLACE.
-  UGLY. UGLY. UGLY. REMOVE ASAP.
-  """
-
-  def __init__(self, data: dict, task_id: str, app_id: str, task_type: str, message: str = "", progress: int = 0, status: str = "created", result: dict = {}):
-    self.data = data
-    self.task_id = task_id
-    self.app_id = app_id
-    self.task_type = task_type
-    self.message = message
-
-    self.progress = progress
-    self.status = status # created / finished / error
-    self.result = result
-
-  def change_progress(self, progress: int, message: str, status: str = ""):
-    self.progress = progress
-    self.message = message
-    if status != "":
-      self.status = status
-
-  def error(self, message: str, progress: int = -1):
-    self.message = message
-    self.status = "error"
-    if progress != -1:
-      self.progress = progress
-
-  def finished(self, message: str):
-    self.message = message
-    self.status = "finished"
-
-  def __str__(self):
-    return f'ID={self.task_id}, APP_ID={self.app_id}'
-
-  def to_JSON(self) -> str:
-    return json.dumps(self, default=lambda x: x.__dict__)
-
-  def to_seriazable_object(self):
-    return json.loads(self.to_JSON())
 
 
 if __name__ == "__main__":
