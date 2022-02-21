@@ -1310,7 +1310,7 @@ class AssetDebugPrint(Operator):
         result = None
         for r in sr:
             if r['id'] == self.asset_id:
-                result = r.to_dict()
+                result = r
         if not result:
             ad = bpy.context.active_object.get('asset_data')
             if ad:

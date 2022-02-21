@@ -34,6 +34,7 @@ icons_read = {
     'filter.png': 'filter',
     'filter_active.png': 'filter_active',
     'bell.png': 'bell',
+    'post_comment.png': 'post_comment',
 }
 
 verification_icons = {

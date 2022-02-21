@@ -84,7 +84,7 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
     preferences.api_key_refresh = refresh_token
     preferences.api_key = auth_token
-    preferences.api_key_timeout = time.time() + oauth_response['expires_in']
+    preferences.api_key_timeout = int(time.time() + oauth_response['expires_in'])
     preferences.api_key_life = oauth_response['expires_in']
     preferences.login_attempt = False
     preferences.refresh_in_progress = False
