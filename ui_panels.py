@@ -697,8 +697,42 @@ class LikeComment(bpy.types.Operator):
                                                    api_key=api_key)
         return {'FINISHED'}
 
+# class DeleteComment(bpy.types.Operator):
+#     """Delete comment on BlenderKit server"""
+#     bl_idname = "wm.blenderkit_delete_comment"
+#     bl_label = "BlenderKit delete comment"
+#     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+#
+#     asset_id: StringProperty(
+#         name="Asset Base Id",
+#         description="Unique id of the asset (hidden)",
+#         default="",
+#         options={'SKIP_SAVE'})
+#
+#     comment_id: bpy.props.IntProperty(
+#         name="Id",
+#         description="comment id",
+#         default=-1)
+#
+#     # flag: bpy.props.StringProperty(
+#     #     name="flag",
+#     #     description="Like/dislike comment",
+#     #     default="like")
+#
+#     @classmethod
+#     def poll(cls, context):
+#         return True
+#
+#     def execute(self, context):
+#         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+#         api_key = user_preferences.api_key
+#         comments_utils.send_comment_delete_to_thread(asset_id=self.asset_id, comment_id=self.comment_id,# flag=self.flag,
+#                                                    api_key=api_key)
+#         return {'FINISHED'}
+
+
 class PostComment(bpy.types.Operator):
-    """Mark notification as read here and also on BlenderKit server"""
+    """Post a comment to BlenderKit server"""
     bl_idname = "wm.blenderkit_post_comment"
     bl_label = "BlenderKit post a new comment"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -2203,15 +2237,21 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             op = name_row.operator('view3d.close_popup_button', text='', icon='CANCEL')
 
     def draw_comment_response(self, context, layout, comment_id):
+        pcoll = icons.icon_collections["main"]
+
+        layout.separator()
+
         row =layout.row()
         ui_props = bpy.context.window_manager.blenderkitUI
         split = row.split(factor=.8, align=True)
         split.active=True
-        split.prop(ui_props,'new_comment',text='')
+        split.prop(ui_props,'new_comment',text='', icon='GREASEPENCIL')
         split= split.split()
-        op = split.operator('wm.blenderkit_post_comment', text='post comment', icon='TRIA_RIGHT')
+        op = split.operator('wm.blenderkit_post_comment', text='post comment', icon_value=pcoll['post_comment'].icon_id)
         op.asset_id= self.asset_data['assetBaseId']
         op.comment_id = comment_id
+
+        layout.separator()
 
     def draw_comment(self, context, layout, comment, width=330):
         row = layout.row()
@@ -2253,6 +2293,16 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         op.asset_id = self.asset_data['assetBaseId']
         op.comment_id = comment['id']
         op.flag = 'dislike'
+        # op = split1.operator('wm.blenderkit_like_comment', text='', icon='CANCEL')
+        # op.asset_id = self.asset_data['assetBaseId']
+        # op.comment_id = comment['id']
+        # op.flag = 'delete'
+
+        # op = split1.operator('wm.blenderkit_delete_comment', text='', icon='CANCEL')
+        # op.asset_id = self.asset_data['assetBaseId']
+        # op.comment_id = comment['id']
+        # op.flag = 'dislike'
+
         # op = split1.operator('wm.blenderkit_like_comment', text='report', icon='ERROR')
         # op.asset_id = self.asset_data['assetBaseId']
         # op.comment_id = comment['id']
@@ -2261,9 +2311,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             row.alert = True
             row.label(text='', icon='ERROR')
 
-        rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']))
+        rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']), use_urls = True)
 
         row = rows[-1]
+        row = layout.row()
         split = row.split(factor=.8)
         split.label(text='')
         split = split.split()
@@ -2729,6 +2780,7 @@ classes = (
     MarkNotificationRead,
     LikeComment,
     PostComment,
+    # DeleteComment,
     ShowNotifications,
     NotificationOpenTarget,
     MarkAllNotificationsRead,

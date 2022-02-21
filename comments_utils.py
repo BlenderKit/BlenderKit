@@ -69,10 +69,27 @@ def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=
   }
   url = paths.get_api_url() + 'comments/feedback/'
   r = rerequests.post(url, data=data, verify=True, headers=headers)
-
+  print(r.text)
   # here it's important we read back, so likes are updated accordingly:
   get_comments(asset_id, api_key)
 
+# def comment_delete_thread(asset_id='', comment_id='', api_key=None):
+#   ''' Upload rating thread function / disconnected from blender data.'''
+#   headers = utils.get_headers(api_key)
+#   print('delete comment', comment_id)
+#   bk_logger.debug('delete comment ' + str(comment_id))
+# 
+#   # rating_url = url + rating_name + '/'
+#   data = {
+#     "comment": comment_id,
+#   }
+#   url = paths.get_api_url() + 'comments/delete/0/'
+#   print(url)
+#   r = rerequests.post(url, data=data, verify=True, headers=headers)
+#   if len(r.text)<1000:
+#     print(r.text)
+#   # here it's important we read back, so likes are updated accordingly:
+#   get_comments(asset_id, api_key)
 
 def send_comment_flag_to_thread(asset_id='', comment_id='', flag='like', api_key=None):
   '''Sens rating into thread rating, main purpose is for tasks_queue.
@@ -87,6 +104,12 @@ def send_comment_to_thread(asset_id, comment_id, comment, api_key):
   thread = threading.Thread(target=upload_comment_thread, args=(asset_id, comment_id, comment, api_key))
   thread.start()
 
+# def send_comment_delete_to_thread(asset_id='', comment_id='', flag='like', api_key=None):
+#   '''Sens rating into thread rating, main purpose is for tasks_queue.
+#   One function per property to avoid lost data due to stashing.'''
+#   # thread = threading.Thread(target=comment_delete_thread, args=(asset_id, comment_id,  api_key))
+#   thread = threading.Thread(target=comment_delete_thread, args=(asset_id, comment_id,  api_key))
+#   thread.start()
 
 def store_comments_local(asset_id, comments):
   context = bpy.context

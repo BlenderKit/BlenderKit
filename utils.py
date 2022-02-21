@@ -30,6 +30,7 @@ import traceback
 import inspect
 import datetime
 import uuid
+import re
 
 bk_logger = logging.getLogger('blenderkit')
 
@@ -1001,10 +1002,28 @@ def get_fake_context(context=None, area_type='VIEW_3D'):
     return C_dict
 
 
-# def is_url(text):
+def has_url(text):
+    # urls = re.findall('https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', text)
+    urls = re.findall(r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))""", text)
+    return urls
 
+def line_with_urls(row,text,urls, icon='NONE', use_urls = False):
+  used_urls = []
+  if use_urls:
+    for url in urls:
+      # print('url', url, text)
+      # print(text.find(url))
+      if text.find(url) > -1:
+        text = text.replace(url, '')
+        used_urls.append(url)
 
-def label_multiline(layout, text='', icon='NONE', width=-1, max_lines=10, split_last = 0):
+  row.label(text=text, icon=icon)
+  for url in used_urls:
+    op = row.operator('wm.blenderkit_url', text=url, icon='URL')
+    op.url = url
+    op.tooltip = 'Go online to read more'
+
+def label_multiline(layout, text='', icon='NONE', width=-1, max_lines=10, split_last = 0, use_urls = False):
     '''
      draw a ui label, but try to split it in multiple lines.
 
@@ -1031,15 +1050,20 @@ def label_multiline(layout, text='', icon='NONE', width=-1, max_lines=10, split_
         threshold = 35
     li = 0
     for l in lines:
-        # if is_url(l):
+        urls = []
+        if use_urls:
+          urls = has_url(l)
+
         li += 1
         while len(l) > threshold:
+            #find line split close to the end of line
             i = l.rfind(' ', 0, threshold)
+            #split long words
             if i < 1:
                 i = threshold
             l1 = l[:i]
             row = layout.row()
-            row.label(text=l1, icon=icon)
+            line_with_urls(row, l1, urls, icon = icon, use_urls = use_urls)
             rows.append(row)
             icon = 'NONE'
             l = l[i:].lstrip()
@@ -1051,7 +1075,9 @@ def label_multiline(layout, text='', icon='NONE', width=-1, max_lines=10, split_
         row = layout.row()
         if split_last > 0:
             row = row.split(factor=split_last)
-        row.label(text=l, icon=icon)
+        # row.label(text=l, icon=icon)
+        line_with_urls(row, l, urls, icon=icon, use_urls=use_urls)
+
         rows.append(row)
         icon = 'NONE'
     # if li > max_lines:
