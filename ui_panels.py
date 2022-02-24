@@ -1097,6 +1097,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
 
         # AGE
         layout.prop(props, "search_condition", text='Condition')  # , text ='condition of object new/old e.t.c.')
+        layout.prop(props, "search_animated", text='Animated')  # , text ='condition of object new/old e.t.c.')
         layout.prop(props, "quality_limit", slider=True)  # , text ='condition of object new/old e.t.c.')
 
         # layout.prop(props, "search_procedural", expand=True)
