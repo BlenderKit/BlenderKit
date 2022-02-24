@@ -1061,7 +1061,8 @@ def build_query_model():
   if props.search_texture_resolution:
     query["textureResolutionMax_gte"] = props.search_texture_resolution_min
     query["textureResolutionMax_lte"] = props.search_texture_resolution_max
-
+  if props.search_animated:
+    query["animated"] = True
   build_query_common(query, props)
 
   return query

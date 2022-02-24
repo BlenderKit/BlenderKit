@@ -41,7 +41,7 @@ def timer():
     while not reports_queue.empty():
       queue_result = reports_queue.get()
       print('from queue', queue_result)
-      results.update(queue_result)
+      results.extend(queue_result)
     kick_async_loop()
     asyncio.ensure_future(daemon_lib.get_reports_async(app_id, reports_queue))
   else:

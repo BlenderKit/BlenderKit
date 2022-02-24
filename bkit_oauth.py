@@ -54,6 +54,7 @@ def login(signup, url, r_url, authenticator):
     try:
         auth_token, refresh_token, oauth_response = authenticator.get_new_token(register=signup, redirect_url=r_url)
     except Exception as e:
+        print(e)
         tasks_queue.add_task((reports.add_report, (e, 20, colors.RED)))
 
     bk_logger.debug('tokens retrieved')

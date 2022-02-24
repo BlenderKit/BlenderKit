@@ -1502,6 +1502,12 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
                                       max=100000000,
                                       update=search.search_update,
                                       )
+    search_animated: BoolProperty(
+        name='Animated',
+        default=False,
+        description='Search only animated assets',
+        update=search.search_update
+    )
 
     append_method: EnumProperty(
         name="Import Method",
