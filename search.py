@@ -1390,7 +1390,8 @@ def update_filters():
                          sprops.search_style != 'ANY' or \
                          sprops.search_condition != 'UNSPECIFIED' or \
                          sprops.search_design_year or \
-                         sprops.search_polycount
+                         sprops.search_polycount or \
+                         sprops.search_animated
   elif ui_props.asset_type == 'MATERIAL':
     sprops.use_filters = fcommon
   elif ui_props.asset_type == 'HDR':
