@@ -2131,7 +2131,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             if rcount >= show_rating_threshold or upload.can_edit_asset(asset_data=self.asset_data):
                 s = numeric_to_str(self.asset_data['score'])
                 q = numeric_to_str(self.asset_data['ratingsAverage'].get('quality'))
-                c = numeric_to_str(self.asset_data['ratingsAverage'].get('workingHours'))
+                c = numeric_to_str(self.asset_data['ratingsMedian'].get('workingHours'))
             else:
                 s = '-'
                 q = '-'
