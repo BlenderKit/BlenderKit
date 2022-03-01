@@ -258,18 +258,18 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         asset.blenderkit.is_generating_thumbnail = True
         asset.blenderkit.thumbnail_generating_state = 'starting blender instance'
 
-        tempdir = tempfile.mkdtemp()
         ext = '.blend'
         filepath = os.path.join(tempdir, "thumbnailer_blenderkit" + ext)
 
         path_can_be_relative = True
-        file_dir = os.path.dirname(bpy.data.filepath)
-        if file_dir == '':
-            file_dir = tempdir
+        thumb_dir = os.path.dirname(bpy.data.filepath)
+        if thumb_dir == '':
+            thumb_dir = paths.get_temp_dir()
             path_can_be_relative = False
 
         an_slug = paths.slugify(asset.name)
-        thumb_path = os.path.join(file_dir, an_slug)
+        thumb_path = os.path.join(thumb_dir, an_slug)
+
         if path_can_be_relative:
             rel_thumb_path = os.path.join('//', an_slug)
         else:
@@ -278,7 +278,7 @@ class GenerateThumbnailOperator(bpy.types.Operator):
 
         i = 0
         while os.path.isfile(thumb_path + '.jpg'):
-            thumb_path = os.path.join(file_dir, an_slug + '_' + str(i).zfill(4))
+            thumb_path = os.path.join(thumb_dir, an_slug + '_' + str(i).zfill(4))
             rel_thumb_path = os.path.join('//', an_slug + '_' + str(i).zfill(4))
             i += 1
         bkit = asset.blenderkit
@@ -485,12 +485,20 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         # save a copy of actual scene but don't interfere with the users models
         bpy.ops.wm.save_as_mainfile(filepath=filepath, compress=False, copy=True)
 
+        path_can_be_relative = True
         thumb_dir = os.path.dirname(bpy.data.filepath)
+        if thumb_dir == '':#file not saved
+            thumb_dir = paths.get_temp_dir()
+            path_can_be_relative = False
         an_slug = paths.slugify(asset.name)
 
         thumb_path = os.path.join(thumb_dir, an_slug)
-        rel_thumb_path = os.path.join('//', an_slug)
 
+        if path_can_be_relative:
+            rel_thumb_path = os.path.join('//', an_slug)
+        else:
+            rel_thumb_path = thumb_path
+          
         # auto increase number of the generated thumbnail.
         i = 0
         while os.path.isfile(thumb_path + '.png'):
