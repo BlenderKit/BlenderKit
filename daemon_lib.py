@@ -5,9 +5,7 @@ import subprocess
 import requests
 import aiohttp
 import time
-import json
 
-from .daemon import tasks
 from . import vendor
 
 def get_address() -> str:
@@ -121,22 +119,23 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
 
 def start_daemon_server(log_dir: str = None):
   """Start daemon server in separate process."""
-  
+
   env  = environ.copy()
-  blenderkit_path = path.dirname(__file__)
   vendor_dir = vendor.get_vendor_path()
-  env['PYTHONPATH'] = f"{vendor_dir}"
+  fallback_dir = vendor.get_vendor_fallback_path()
+  env['PYTHONPATH'] = vendor_dir + os.pathsep + fallback_dir
+
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
 
-  print("python home:", python_home)
 
-  daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
 
   if log_dir == None:
     log_dir = path.abspath(path.expanduser('~') + "/blenderkit_data")
-
   log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
+
+  blenderkit_path = path.dirname(__file__)
+  daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
   with open(log_path, "wb") as log:
     process = subprocess.Popen(
       args       = [sys.executable, "-u", daemon_path, "--port", get_port()],
