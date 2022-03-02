@@ -258,13 +258,14 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         asset.blenderkit.is_generating_thumbnail = True
         asset.blenderkit.thumbnail_generating_state = 'starting blender instance'
 
+        tempdir = tempfile.mkdtemp()
         ext = '.blend'
         filepath = os.path.join(tempdir, "thumbnailer_blenderkit" + ext)
 
         path_can_be_relative = True
         thumb_dir = os.path.dirname(bpy.data.filepath)
         if thumb_dir == '':
-            thumb_dir = paths.get_temp_dir()
+            thumb_dir = tempdir
             path_can_be_relative = False
 
         an_slug = paths.slugify(asset.name)
@@ -488,7 +489,7 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         path_can_be_relative = True
         thumb_dir = os.path.dirname(bpy.data.filepath)
         if thumb_dir == '':#file not saved
-            thumb_dir = paths.get_temp_dir()
+            thumb_dir = tempdir
             path_can_be_relative = False
         an_slug = paths.slugify(asset.name)
 
@@ -498,7 +499,7 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
             rel_thumb_path = os.path.join('//', an_slug)
         else:
             rel_thumb_path = thumb_path
-          
+
         # auto increase number of the generated thumbnail.
         i = 0
         while os.path.isfile(thumb_path + '.png'):
