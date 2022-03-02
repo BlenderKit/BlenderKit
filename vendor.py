@@ -22,10 +22,10 @@ def get_vendor_path() -> str:
 def ensure_dependencies():
   """Make sure that dependencies which need installation are available. Install dependencies if needed."""
 
-  started = time.time()
   try:
     import aiohttp
   except:
+    started = time.time()
     requirements = path.join(path.dirname(__file__), 'requirements.txt')
     ok = subprocess.call([sys.executable, '-m', 'ensurepip'])
     print(f"Ensure pip: {ok}")
@@ -34,7 +34,7 @@ def ensure_dependencies():
     print(f"Aiohttp install: {ok}")
 
     import aiohttp
+    ended = time.time()
+    print(f"install finished in {ended-started}")
   
   del aiohttp
-  ended = time.time()
-  print(f"install finished in {ended-started}")
