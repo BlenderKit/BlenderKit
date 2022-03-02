@@ -66,7 +66,7 @@ def get_res_file(data, find_closest_with_url: bool =False):  # asset_data, resol
   return closest, closest['fileType']
 
 
-async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id: str):
+async def do_asset_download(session: aiohttp.ClientSession, task: tasks.Task):
   """Download an asset from BlenderKit.
 
   1. creates a Connector and Session for download, handles SSL configuration
@@ -77,11 +77,6 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   6. unpacks the file
   """
 
-  app_id = data['app_id']
-  del data['app_id']
-  task = tasks.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
-  globals.tasks.append(task)
-
   # TODO get real link here...
   await get_download_url(session, task)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
 
@@ -89,7 +84,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
   # different than for the non free content. delete is here when called after failed append tries.
 
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
-  if await check_existing(data):  # and not tcom.passargs.get('delete'):
+  if await check_existing(task.data):  # and not tcom.passargs.get('delete'):
     # this sends the thread for processing, where another check should occur, since the file might be corrupted.
     #report_download_progress(data, progress=100, text='Asset found on hard drive')
     #report_download_finished(data)
@@ -97,7 +92,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
     print('found on hard drive, finishing ')
     return
 
-  file_path = get_download_filepaths(data)[0]
+  file_path = get_download_filepaths(task.data)[0]
 
   await download_file(session, file_path, task)
   # unpack the file immediately after download
@@ -109,7 +104,7 @@ async def do_asset_download(session: aiohttp.ClientSession, data: dict, task_id:
 
   task.data['asset_data']['resolution'] = task.data['resolution']
   
-  await send_to_bg(data, file_path, command='unpack', wait=True)
+  await send_to_bg(task.data, file_path, command='unpack', wait=True)
 
   # print(f'Finished asset download: {data}')
   #report_download_finished(data)

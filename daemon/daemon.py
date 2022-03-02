@@ -12,7 +12,7 @@ import time
 import aiohttp
 from aiohttp import web
 
-import assets, search, globals
+import assets, search, globals, tasks
 
 
 async def download_asset(request):
@@ -21,9 +21,14 @@ async def download_asset(request):
   data = await request.json()
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id #mozna k nicemu
-  print('Starting asset download:', data['asset_data']['name'])
 
-  asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], data, task_id))
+  app_id = data['app_id']
+  del data['app_id']
+  task = tasks.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
+  globals.tasks.append(task)
+
+  print('Starting asset download:', data['asset_data']['name'])
+  task.async_task = asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], task))
   
   return web.json_response({'task_id': task_id})
 
@@ -49,10 +54,17 @@ async def index(request):
 
 
 async def kill_download(request):
-  """Handle request for kill of download with the task_id."""
+  """Handle request for kill of task with the task_id."""
 
   data = await request.json()
-  globals.tasks[data['task_id']]['kill'] = True
+
+  for i, task in enumerate(globals.tasks):
+    if data['task_id'] == task.task_id:
+      #globals.tasks[i].cancel() #needs to handle cleaning when download is cancelled
+      del globals.tasks[i]
+      break
+
+  print(f"Task {data['task_id']} cancelled.")
   return web.Response(text="ok")
 
 
@@ -66,7 +78,7 @@ async def report(request):
   #   print("TOTAL TASKS:", len(globals.tasks))
   reports = list()
   for task in globals.tasks:
-    # print("TASK=", task)
+    print("TASK:", task)
     if task.app_id != data['app_id']:
       continue
 

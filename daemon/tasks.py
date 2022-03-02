@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 class Task():
   """Holds all information needed for a task."""
@@ -13,6 +14,8 @@ class Task():
     self.progress = progress
     self.status = status # created / finished / error
     self.result = result
+
+    self.async_task: asyncio.Task | None = None
 
   def change_progress(self, progress: int, message: str, status: str = ""):
     self.progress = progress
@@ -30,11 +33,20 @@ class Task():
     self.message = message
     self.status = "finished"
 
+  def cancel(self):
+    if type(self.async_task) == asyncio.Task:
+      self.async_task.cancel()
+
   def __str__(self):
     return f'ID={self.task_id}, APP_ID={self.app_id}'
 
   def to_JSON(self) -> str:
-    return json.dumps(self, default=lambda x: x.__dict__)
+    async_task = self.async_task
+    del self.async_task
+    result = json.dumps(self, default=lambda x: x.__dict__)
+    self.async_task = async_task
+    print(self.async_task)
+    return result
 
   def to_seriazable_object(self):
     return json.loads(self.to_JSON())
