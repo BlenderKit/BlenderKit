@@ -8,6 +8,7 @@ import time
 import json
 
 from .daemon import tasks
+from . import vendor
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -123,9 +124,12 @@ def start_daemon_server(log_dir: str = None):
   
   env  = environ.copy()
   blenderkit_path = path.dirname(__file__)
-  env['PYTHONPATH'] = f"{sys.executable}:{blenderkit_path}"
+  vendor_dir = vendor.get_vendor_path()
+  env['PYTHONPATH'] = f"{sys.executable}:{blenderkit_path}:{vendor_dir}"
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
+
+  print("python home:", python_home)
 
   daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
 
