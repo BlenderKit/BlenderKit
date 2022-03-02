@@ -47,7 +47,7 @@ for OS in [MACOS, WINDOWS, LINUX]:
   for platform in OS['platforms']:
     for module in OS['platforms'][platform]:
       cmd = [
-        'pip3',
+        'pip',
         'install',
         '--only-binary=:all:',
         f'--platform={platform}',
