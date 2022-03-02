@@ -1575,6 +1575,7 @@ classes = [
 
 def register_search():
   bpy.app.handlers.load_post.append(scene_load)
+  bpy.app.handlers.load_post.append(undo_post_reload_previews)
   bpy.app.handlers.undo_post.append(undo_post_reload_previews)
   bpy.app.handlers.undo_pre.append(undo_pre_end_assetbar)
 
