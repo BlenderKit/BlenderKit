@@ -266,7 +266,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "procedural": props.is_procedural,
             "nodeCount": props.node_count,
             "textureCount": props.texture_count,
-            "megapixels": round(props.total_megapixels / 1000000),
+            "megapixels": props.total_megapixels,
             # "scene": props.is_scene,
         }
         if props.use_design_year:
@@ -394,7 +394,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "procedural": props.is_procedural,
             "nodeCount": props.node_count,
             "textureCount": props.texture_count,
-            "megapixels": round(props.total_megapixels / 1000000),
+            "megapixels": props.total_megapixels,
 
         }
 
