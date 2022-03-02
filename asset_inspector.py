@@ -32,6 +32,7 @@ def check_material(props, mat):
     props.texture_count = 0
     props.node_count = 0
     props.total_megapixels = 0
+    total_pixels = 0
     props.is_procedural = True
 
     if e == 'CYCLES':
@@ -54,7 +55,7 @@ def check_material(props, mat):
                         if n.image not in textures:
                             textures.append(n.image)
                             props.texture_count += 1
-                            props.total_megapixels += (n.image.size[0] * n.image.size[1])
+                            total_pixels += (n.image.size[0] * n.image.size[1])
 
                             maxres = max(n.image.size[0], n.image.size[1])
                             props.texture_resolution_max = max(props.texture_resolution_max, maxres)
@@ -63,7 +64,7 @@ def check_material(props, mat):
                                 props.texture_resolution_min = minres
                             else:
                                 props.texture_resolution_min = min(props.texture_resolution_min, minres)
-
+    props.total_megapixels = round(total_pixels /(1024*1024))
     props.shaders = ''
     for s in shaders:
         if s.startswith('BSDF_'):
@@ -84,6 +85,7 @@ def check_render_engine(props, obs):
     props.uv = False
     props.texture_count = 0
     props.total_megapixels = 0
+    total_pixels = 0
     props.node_count = 0
     for ob in obs:  # TODO , this is duplicated here for other engines, otherwise this should be more clever.
         for ms in ob.material_slots:
@@ -121,7 +123,7 @@ def check_render_engine(props, obs):
 
                             textures.append(n.image)
                             props.texture_count += 1
-                            props.total_megapixels += (n.image.size[0] * n.image.size[1])
+                            total_pixels += (n.image.size[0] * n.image.size[1])
 
                             maxres = max(n.image.size[0], n.image.size[1])
                             props.texture_resolution_max = max(props.texture_resolution_max, maxres)
@@ -131,7 +133,7 @@ def check_render_engine(props, obs):
                             else:
                                 props.texture_resolution_min = min(props.texture_resolution_min, minres)
 
-
+        props.total_megapixels =  round(total_pixels/(1024*1024))
         # if mattype == None:
         #    mattype = 'procedural'
         # tags['material type'] = mattype
