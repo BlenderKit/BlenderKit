@@ -125,7 +125,7 @@ def start_daemon_server(log_dir: str = None):
   env  = environ.copy()
   blenderkit_path = path.dirname(__file__)
   vendor_dir = vendor.get_vendor_path()
-  env['PYTHONPATH'] = f"{sys.executable}:{blenderkit_path}:{vendor_dir}"
+  env['PYTHONPATH'] = f"{vendor_dir}"
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
 
