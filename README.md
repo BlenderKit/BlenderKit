@@ -1,24 +1,15 @@
-# Asyncio proof of concept
+# Blenderkit addon
 
-This branch adds DOWNLOAD button to addon which will start 5 async downloads of 155MB Blender releases.
-Downloads are non-blocking and Blender seems to run just fine with them.
-There is not any visible lag.
+## Development
 
-## Installation
+### Building
 
-You need to install `aiohttp` package to Blender.
+Blenderkit addon requires few external modules - mostly aiohttp and its dependencies.
+To make the start of the addon faster those dependencies are bundled to the addon.
+To bundle them into the addon, run: `python build.py`.
+This script will download the dependencies into 3 different directories (`Windows`, `Darwin`, `Linux`) in the `vendor` directory.
 
-1. In terminal navigate to location where is stored Blender's Python binary.
-2. `python -m ensurepip`
-3. `python -m pip install --upgrade pip`
-4. `python -m pip install aiohttp` or specify directly the location via `python -m pip install --target <where-blender-python-modules-are> aiohttp`
-  
-## Problems 
-
-We need to figure out how to automatize installation of aiohttp
-or how to bundle it into addon.
-
-
+Once dependencies are bundled, you can zip the `blenderkit` directory and use it or release it.
 
 
 

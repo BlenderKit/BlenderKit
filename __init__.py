@@ -31,35 +31,12 @@ bl_info = {
 
 import sys
 from os import path
-import subprocess
 
 sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
 
-def ensure_dependencies():
-  import time
-  started = time.time()
-  try:
-    import aiohttp
-  except:
-    requirements = path.join(path.dirname(__file__), 'requirements.txt')
-    wheels = path.join(path.dirname(__file__), 'wheels')
-    ok = subprocess.call([sys.executable, '-m', 'ensurepip'])
-    print(f"Ensure pip: {ok}")
-    #ok = subprocess.call([sys.executable, '-m', 'pip', 'install', '-r', requirements])
-
-    ok = subprocess.call([sys.executable, '-m', 'pip', 'install', '-r', requirements, '-f', wheels])
-    print(f"Aiohttp install: {ok}")
-
-    import aiohttp
-    del aiohttp
-
-  ended = time.time()
-  print(f"install finished in {ended-started}")
-
-
-# THIS NEEDS TO BE HANDLED FOR EVERY PLATFORM
-# AND ALSO THE BUNDLE NEED TO BE ADDED IN DAEMON
-sys.path.insert(0,path.abspath(path.join(path.dirname(__file__), "bundle/linux")))
+from . import vendor
+vendor.add_vendored()
+vendor.ensure_dependencies()
 
 
 
