@@ -308,6 +308,7 @@ def get_upload_props():
     return None
 
 
+
 def previmg_name(index, fullsize=False):
     if not fullsize:
         return '.bkit_preview_' + str(index).zfill(3)
@@ -450,7 +451,7 @@ def get_hidden_image(tpath, bdata_name, force_reload=False, colorspace='sRGB'):
             tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
 
         if img is None:
-            img = bpy.data.images.load(tpath)
+            img = bpy.data.images.load(tpath, check_existing = True)
             img_to_preview(img)
             img.name = hidden_name
         else:
@@ -478,7 +479,7 @@ def get_thumbnail(name):
     name = '.%s' % name
     img = bpy.data.images.get(name)
     if img == None:
-        img = bpy.data.images.load(p)
+        img = bpy.data.images.load(p, check_existing = True)
         image_utils.set_colorspace(img, 'sRGB')
         img.name = name
         img.name = name

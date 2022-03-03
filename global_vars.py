@@ -1,6 +1,8 @@
 import logging
 
 PREFS = {}
-DATA = {}
+DATA = {
+  'loaded images': {}
+}
 
 log = logging.basicConfig(level=logging.INFO)
