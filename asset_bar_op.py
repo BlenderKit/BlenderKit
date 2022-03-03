@@ -239,6 +239,16 @@ def get_tooltip_data(asset_data):
     if gimg is not None:
         gimg = bpy.data.images[gimg]
 
+def set_image_check(element, img_filepath):
+    '''sets image in case it is loaded in search'''
+    if search.
+    if img is None or len(img.pixels) == 0:
+        img_filepath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
+    else:
+        img_filepath = img.filepath
+      
+    element.set_image(img_filepath)
+
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     bl_idname = "view3d.blenderkit_asset_bar_widget"
@@ -948,6 +958,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_data = sr[asset_button.asset_index]
                     if asset_data is None:
                         continue
+                      
                     iname = utils.previmg_name(asset_button.asset_index)
                     # show indices for debug purposes
                     # asset_button.text = str(asset_button.asset_index)
@@ -957,8 +968,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     else:
                         img_filepath = img.filepath
                     # print(asset_button.button_index, img_filepath)
-
-                    asset_button.set_image(img_filepath)
+                    set_image_check(asset_button, img_filepath)
+                    # asset_button.set_image(img_filepath)
                     self.update_validation_icon(asset_button, asset_data)
 
                     if utils.profile_is_validator() and asset_data['verificationStatus'] == 'uploaded':

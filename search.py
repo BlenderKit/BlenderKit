@@ -76,7 +76,6 @@ def check_errors(rdata):
 
 
 search_tasks = {}
-
 all_thumbs_loaded = True
 
 rtips_string = """You can disable tips in the add-on preferences.
@@ -374,111 +373,6 @@ def clear_searches():
   global search_tasks
   search_tasks.clear()
 
-def search_post(key, task):
-  # this makes a first search after opening blender. showing latest assets.
-  # utils.p('timer search')
-  # utils.p('start search timer')
-  global first_time
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
-
-  # finish loading thumbs from queues
-  # TODO move this to separate function from timer
-  global search_tasks, first_search_parsing
-  if len(search_tasks) == 0:
-    # utils.p('end search timer')
-    props = utils.get_search_props()
-    props.is_searching = False
-    return True
-
-  # don't do anything while dragging - this could switch asset during drag, and make results list length different,
-  # causing a lot of throuble.
-  if bpy.context.window_manager.blenderkitUI.dragging:
-    # utils.p('end search timer')
-    return False
-  orig_task = search_tasks.get(key)
-  if orig_task is None:
-    return True
-
-  search_tasks.pop(key)  #
-
-  # this fixes black thumbnails in asset bar, test if this bug still persist in blender and remove if it's fixed
-  sys_prefs = bpy.context.preferences.system
-  sys_prefs.gl_texture_limit = 'CLAMP_OFF'
-
-  # these 2 lines should update the previews enum and set the first result as active.
-  # wm = bpy.context.window_manager
-  asset_type = task['asset_type']
-  props = utils.get_search_props()
-  search_name = f'bkit {asset_type} search'
-
-  if not task.get('get_next'):
-    result_field = []
-  else:
-    result_field = []
-    for r in global_vars.DATA[search_name]:
-      result_field.append(r)
-
-  # global reports_queue
-  # while not reports_queue.empty():
-  #     props.report = str(reports_queue.get())
-  #     return .2
-
-  rdata = task['result']
-  global all_thumbs_loaded
-  ok, error = check_errors(rdata)
-  if ok:
-    ui_props = bpy.context.window_manager.blenderkitUI
-    orig_len = len(result_field)
-
-    for ri, r in enumerate(rdata['results']):
-      asset_data = parse_result(r)
-      if asset_data != None:
-        result_field.append(asset_data)
-        all_thumbs_loaded = all_thumbs_loaded and load_preview(asset_data, ri + orig_len)
-
-    # Get ratings from BlenderKit server
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    api_key = user_preferences.api_key
-    headers = utils.get_headers(api_key)
-    if utils.profile_is_validator():
-      for r in rdata['results']:
-        if ratings_utils.get_rating_local(r['id']) is None:
-          rating_thread = threading.Thread(target=ratings_utils.get_rating, args=([r['id'], headers]),
-                                           daemon=True)
-          rating_thread.start()
-
-    global_vars.DATA[search_name] = result_field
-    global_vars.DATA['search results'] = result_field
-
-    # rdata=['results']=[]
-    global_vars.DATA[search_name + ' orig'] = rdata
-    global_vars.DATA['search results orig'] = rdata
-
-    if len(result_field) < ui_props.scroll_offset or not (task.get('get_next')):
-      # jump back
-      ui_props.scroll_offset = 0
-    props.search_error = False
-    props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
-    if len(global_vars.DATA['search results']) == 0:
-      tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
-    else:
-      tasks_queue.add_task(
-        (reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
-    # undo push
-    # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
-    # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
-    if not ui_props.assetbar_on and not task.get('get_next'):
-      bpy.ops.view3d.run_assetbar_fix_context()
-
-  else:
-    bk_logger.error(error)
-    props.report = error
-    props.search_error = True
-
-  if len(search_tasks) == 0:
-    props.is_searching = False
-  return True
-
 
 def handle_search_task(task: tasks.Task) -> bool:
   '''parse search results, try to load all available previews.'''
@@ -541,7 +435,7 @@ def handle_search_task(task: tasks.Task) -> bool:
       asset_data = parse_result(r)
       if asset_data != None:
         result_field.append(asset_data)
-        all_thumbs_loaded = all_thumbs_loaded and load_preview(asset_data, ri + orig_len)
+        # all_thumbs_loaded = all_thumbs_loaded and load_preview(asset_data, ri + orig_len)
 
     # Get ratings from BlenderKit server
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
@@ -611,6 +505,7 @@ def search_timer():
       reports.add_report(text='BlenderKit Tip: ' + random.choice(rtips), timeout=12, color=colors.GREEN)
     # utils.p('end search timer')
   loaded_this_round = 0
+  '''
   global all_thumbs_loaded
   if not all_thumbs_loaded:
     ui_props = bpy.context.window_manager.blenderkitUI
@@ -629,8 +524,36 @@ def search_timer():
       all_thumbs_loaded = all_loaded
   if not all_thumbs_loaded:
     return .1
+  '''
   return .5
 
+def handle_preview_task(task: tasks.Task) -> bool:
+  '''parse search results, try to load all available previews.'''
+  iname = f".{os.path.basename(task.data['image_path'])}"
+  if iname in global_vars.DATA['loaded images']:
+    return
+
+  img = bpy.data.images.get(iname)
+
+  if img is None or len(img.pixels) == 0:
+    # wrap into try statement since sometimes
+    try:
+      img = bpy.data.images.load(task.data['image_path'], check_existing = True)
+
+      img.name = iname
+      if len(img.pixels) > 0:
+        return True
+    except:
+      pass
+      return False
+  global_vars.DATA['loaded images'][iname]=True
+  # if asset['assetType'] == 'hdr':
+  #   # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
+  #   image_utils.set_colorspace(img, 'Non-Color')
+  # else:
+  #   image_utils.set_colorspace(img, 'sRGB')
+  # asset['thumb_small_loaded'] = True
+  return True
 
 def load_preview(asset, index):
   # FIRST START SEARCH
@@ -653,7 +576,7 @@ def load_preview(asset, index):
       return False
     # wrap into try statement since sometimes
     try:
-      img = bpy.data.images.load(tpath)
+      img = bpy.data.images.load(tpath, check_existing = True)
 
       img.name = iname
       if len(img.pixels) > 0:
