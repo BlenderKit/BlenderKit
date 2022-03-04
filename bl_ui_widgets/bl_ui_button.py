@@ -3,6 +3,7 @@ from . bl_ui_widget import *
 import blf
 import bpy
 from .. import ui_bgl
+import os
 
 class BL_UI_Button(BL_UI_Widget):
 
@@ -69,23 +70,37 @@ class BL_UI_Button(BL_UI_Widget):
 
     def set_image(self, rel_filepath):
         #first try to access the image, for cases where it can get removed
-        try:
-            self.__image
-            self.__image.filepath
-            self.__image.pixels
-        except:
-            self.__image = None
+        # try:
+        #     self.__image
+        #     self.__image.filepath
+        #     self.__image.pixels
+        # except:
+        #     self.__image = None
+        print('set image')
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
-                self.__image = bpy.data.images.load(rel_filepath, check_existing=True)
+                imgname = f".{os.path.basename(rel_filepath)}"
+                img = bpy.data.images.get(imgname)
+                if img is not None:
+                    self.__image = img
+                else:
+                    self.__image = bpy.data.images.load(rel_filepath, check_existing=True)
+                    self.__image.name = imgname
+
                 self.__image.gl_load()
 
             if self.__image and len(self.__image.pixels) == 0:
                 self.__image.reload()
                 self.__image.gl_load()
-
+            
         except Exception as e:
+            print(e)
             self.__image = None
+
+    def get_image_path(self):
+        if self.__image is None:
+            return None
+        return self.__image.filepath
 
     def update(self, x, y):
         super().update(x, y)

@@ -17,10 +17,10 @@
 # ##### END GPL LICENSE BLOCK #####
 
 from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
-  resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops, global_vars, daemon_lib
+  resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops, global_vars, daemon_lib, \
+  asset_bar_op
 
 from .daemon import tasks
-
 
 from bpy.app.handlers import persistent
 
@@ -369,7 +369,6 @@ def parse_result(r):
 
 
 def clear_searches():
-
   global search_tasks
   search_tasks.clear()
 
@@ -390,11 +389,11 @@ def handle_search_task(task: tasks.Task) -> bool:
   if bpy.context.window_manager.blenderkitUI.dragging:
     # utils.p('end search timer')
     return False
-
-  #if original task was already removed (because user initiated another search), results are dropped- Returns True
+  # if original task was already removed (because user initiated another search), results are dropped- Returns True
   # because that's OK.
   orig_task = search_tasks.get(task.task_id)
   if orig_task is None:
+    print('search task result not from active search', task.task_id, len(search_tasks), list(search_tasks.keys()))
     return True
 
   search_tasks.pop(task.task_id)  #
@@ -402,12 +401,10 @@ def handle_search_task(task: tasks.Task) -> bool:
   # this fixes black thumbnails in asset bar, test if this bug still persist in blender and remove if it's fixed
   sys_prefs = bpy.context.preferences.system
   sys_prefs.gl_texture_limit = 'CLAMP_OFF'
-
   global first_search_parsing
   if first_search_parsing:
     comments_utils.check_notifications()
     first_search_parsing = False
-
 
   ###################
 
@@ -415,15 +412,12 @@ def handle_search_task(task: tasks.Task) -> bool:
   props = utils.get_search_props()
   search_name = f'bkit {asset_type} search'
 
-  print(task.data.keys())
   if not task.data.get('get_next'):
     result_field = []
   else:
     result_field = []
     for r in global_vars.DATA[search_name]:
       result_field.append(r)
-
-
 
   global all_thumbs_loaded
   ok, error = check_errors(task.result)
@@ -481,7 +475,6 @@ def handle_search_task(task: tasks.Task) -> bool:
   return True
 
 
-
 # @bpy.app.handlers.persistent
 def search_timer():
   # this makes a first search after opening blender. showing latest assets.
@@ -527,33 +520,14 @@ def search_timer():
   '''
   return .5
 
+
 def handle_preview_task(task: tasks.Task) -> bool:
   '''parse search results, try to load all available previews.'''
-  iname = f".{os.path.basename(task.data['image_path'])}"
-  if iname in global_vars.DATA['loaded images']:
-    return
-
-  img = bpy.data.images.get(iname)
-
-  if img is None or len(img.pixels) == 0:
-    # wrap into try statement since sometimes
-    try:
-      img = bpy.data.images.load(task.data['image_path'], check_existing = True)
-
-      img.name = iname
-      if len(img.pixels) > 0:
-        return True
-    except:
-      pass
-      return False
-  global_vars.DATA['loaded images'][iname]=True
-  # if asset['assetType'] == 'hdr':
-  #   # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
-  #   image_utils.set_colorspace(img, 'Non-Color')
-  # else:
-  #   image_utils.set_colorspace(img, 'sRGB')
-  # asset['thumb_small_loaded'] = True
+  global_vars.DATA['images available'][task.data['image_path']] = True
+  if asset_bar_op.asset_bar_operator is not None:
+    asset_bar_op.asset_bar_operator.update_image(task.data['assetBaseId'])
   return True
+
 
 def load_preview(asset, index):
   # FIRST START SEARCH
@@ -566,7 +540,7 @@ def load_preview(asset, index):
     # tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
     asset['thumb_small_loaded'] = False
 
-  iname = utils.previmg_name(index)
+  iname = f".{asset['thumbnail_small']}"
 
   # if os.path.exists(tpath):  # sometimes we are unlucky...
   img = bpy.data.images.get(iname)
@@ -576,7 +550,7 @@ def load_preview(asset, index):
       return False
     # wrap into try statement since sometimes
     try:
-      img = bpy.data.images.load(tpath, check_existing = True)
+      img = bpy.data.images.load(tpath, check_existing=True)
 
       img.name = iname
       if len(img.pixels) > 0:
@@ -615,6 +589,7 @@ def load_previews():
   # s = bpy.context.scene
   results = global_vars.DATA.get('search results')
   #
+  print('load previews')
   if results is not None:
     i = 0
     for r in results:
@@ -929,6 +904,7 @@ def parse_html_formated_error(text):
 
   return report
 
+
 def build_query_common(query, props):
   '''add shared parameters to query'''
   query_common = {}
@@ -1105,12 +1081,13 @@ def mt(text):
 
 
 def add_search_process(query, params):
-  global search_tasks,  all_thumbs_loaded
+  global search_tasks, all_thumbs_loaded
 
   while (len(search_tasks) > 0):
     # just remove all running search tasks.
     # we can also kill them in daemon, but not so urgent now
     # TODO stop tasks in daemon?
+    print('removing search tasks')
     search_tasks = dict()
   tempdir = paths.get_temp_dir('%s_search' % query['asset_type'])
   headers = utils.get_headers(params['api_key'])
@@ -1277,7 +1254,7 @@ def search(category='', get_next=False, author_id=''):
   # utils.p('searching')
   props.is_searching = True
 
-  page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows+5)
+  page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
   print('page_size', page_size)
   params = {
     'scene_uuid': bpy.context.scene.get('uuid', None),
@@ -1293,8 +1270,8 @@ def search(category='', get_next=False, author_id=''):
   if orig_results is not None and get_next:
     params['next'] = orig_results['next']
   add_search_process(query, params)
-  tasks_queue.add_task((reports.add_report, ('BlenderKit searching....', 2)))
 
+  reports.add_report('BlenderKit searching....', 2)
   props.report = 'BlenderKit searching....'
 
 

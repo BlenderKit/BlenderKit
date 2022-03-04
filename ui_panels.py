@@ -2436,7 +2436,7 @@ class OBJECT_MT_blenderkit_login_menu(bpy.types.Menu):
 class SetCommentReplyId(bpy.types.Operator):
     """Visit subcategory"""
     bl_idname = "view3d.blenderkit_set_comment_reply_id"
-    bl_label = "BlenderKit Set Active Category"
+    bl_label = "BlenderKit Set Comment reply ID"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     comment_id: bpy.props.IntProperty(

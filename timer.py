@@ -50,7 +50,6 @@ def timer():
   results.extend(pending_tasks)
   logger.debug(f'timer before {mt-time.time()}')
   pending_tasks.clear()
-
   for task in results:
     task = tasks.Task(
       data = task['data'],
@@ -87,6 +86,7 @@ def handle_task(task: tasks.Task):
   #HANDLE SEARCH (candidate to be a function)
   if task.task_type == 'search':
     if task.status == 'finished':
+      print('search is back')
       search.handle_search_task(task)
 
     elif task.status == 'error':
@@ -95,7 +95,7 @@ def handle_task(task: tasks.Task):
   #HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
   if task.task_type == 'thumbnail_download':
     if task.status == 'finished':
-      pass #show thumbnail
+      search.handle_preview_task(task)
     elif task.status == 'error':
       reports.add_report(task.message, 15, colors.RED)
 

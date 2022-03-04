@@ -14,6 +14,7 @@ from .bl_ui_widgets.bl_ui_draw_op import *
 import random
 import math
 import time
+import os
 
 from . import ui, paths, utils, search, comments_utils, global_vars
 
@@ -85,7 +86,7 @@ def modal_inside(self, context, event):
         if self.update_timer > self.update_timer_limit:
             self.update_timer = 0
             # print('timer', time.time())
-            self.update_images()
+            # self.update_images()
 
             # progress bar
             ui_scale = bpy.context.preferences.view.ui_scale
@@ -239,15 +240,28 @@ def get_tooltip_data(asset_data):
     if gimg is not None:
         gimg = bpy.data.images[gimg]
 
-def set_image_check(element, img_filepath):
+def set_thumb_check(element, asset, thumb_type = 'thumbnail_small'):
     '''sets image in case it is loaded in search'''
-    if search.
-    if img is None or len(img.pixels) == 0:
-        img_filepath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
-    else:
-        img_filepath = img.filepath
-      
-    element.set_image(img_filepath)
+    directory = paths.get_temp_dir('%s_search' % asset['assetType'])
+    tpath = os.path.join(directory, asset[thumb_type])
+    if element.get_image_path() == tpath:
+        return
+    img_name_datablock = f'.{asset["thumbnail_small"]}'
+    # if not os.path.exists(tpath):
+    #     global_vars.DATA['images available'][tpath]=None
+
+    if not global_vars.DATA['images available'].get(tpath):
+        tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
+        if element.get_image_path() == tpath:
+            return
+    # print('set button image', asset['thumbnail_small'])
+    element.set_image(tpath)
+    # if asset['assetType'] == 'hdr':
+    #   # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
+    #   image_utils.set_colorspace(img, 'Non-Color')
+    # else:
+    #   image_utils.set_colorspace(img, 'sRGB')
+    # asset['thumb_small_loaded'] = True
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
@@ -612,8 +626,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.bg_color = button_bg_color
         self.button_close.hover_bg_color = button_hover_color
         self.button_close.text = ""
-        img_fp = paths.get_addon_thumbnail_path('vs_rejected.png')
-        self.button_close.set_image(img_fp)
         self.button_close.set_mouse_down(self.cancel_press)
 
         self.widgets_panel.append(self.button_close)
@@ -623,7 +635,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_down.bg_color = button_bg_color
         self.button_scroll_down.hover_bg_color = button_hover_color
         self.button_scroll_down.text = ""
-        self.button_scroll_down.set_image(paths.get_addon_thumbnail_path('arrow_left.png'))
         self.button_scroll_down.set_image_size((self.scroll_width, self.button_size))
         self.button_scroll_down.set_image_position((0, int((self.bar_height - self.button_size) / 2)))
 
@@ -635,7 +646,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_up.bg_color = button_bg_color
         self.button_scroll_up.hover_bg_color = button_hover_color
         self.button_scroll_up.text = ""
-        self.button_scroll_up.set_image(paths.get_addon_thumbnail_path('arrow_right.png'))
         self.button_scroll_up.set_image_size((self.scroll_width, self.button_size))
         self.button_scroll_up.set_image_position((0, int((self.bar_height - self.button_size) / 2)))
 
@@ -651,12 +661,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_notifications.bg_color = button_bg_color
             self.button_notifications.hover_bg_color = button_hover_color
             self.button_notifications.text = ""
-            img_fp = paths.get_addon_thumbnail_path('bell.png')
-            self.button_notifications.set_image(img_fp)
+
             self.button_notifications.set_mouse_down(self.show_notifications)
             self.widgets_panel.append(self.button_notifications)
 
-        self.update_images()
+        # self.update_images()
+
+    def set_element_images(self):
+        '''set ui elements images, has to be done after init of UI.'''
+        img_fp = paths.get_addon_thumbnail_path('vs_rejected.png')
+        self.button_close.set_image(img_fp)
+        self.button_scroll_down.set_image(paths.get_addon_thumbnail_path('arrow_left.png'))
+        self.button_scroll_up.set_image(paths.get_addon_thumbnail_path('arrow_right.png'))
+        if not comments_utils.check_notifications_read():
+            img_fp = paths.get_addon_thumbnail_path('bell.png')
+            self.button_notifications.set_image(img_fp)
 
     def position_and_hide_buttons(self):
         # position and layout buttons
@@ -748,9 +767,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             # we erase search keywords for cateogry search now, since these combinations usually return nothing now.
             # when the db gets bigger, this can be deleted.
-            if self.category != '':
-                sprops = utils.get_search_props()
-                sprops.search_keywords = ''
+            # if self.category != '':
+            #     sprops = utils.get_search_props()
+            #     sprops.search_keywords = ''
             search.search(category=self.category)
 
         ui_props = context.window_manager.blenderkitUI
@@ -781,6 +800,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.active_index = -1
 
         self.setup_widgets(context, event)
+        self.set_element_images()
         self.position_and_hide_buttons()
         self.hide_tooltip()
 
@@ -842,9 +862,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = search_index  # + self.scroll_offset
 
-            img = ui.get_large_thumbnail_image(asset_data)
-            if img:
-                self.tooltip_image.set_image(img.filepath)
+            # img = ui.get_large_thumbnail_image(asset_data)
+            # if img:
+            set_thumb_check(self.tooltip_image,asset_data,thumb_type='thumbnail')
 
             get_tooltip_data(asset_data)
             an = asset_data['name']
@@ -944,6 +964,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             else:
                 asset_button.validation_icon.visible = False
 
+    def update_image(self, asset_id):
+        sr = global_vars.DATA.get('search results')
+        if not sr:
+            return
+        for asset_button in self.asset_buttons:
+            if asset_button.asset_index < len(sr):
+                asset_data = sr[asset_button.asset_index]
+                if asset_data['assetBaseId'] == asset_id:
+                    set_thumb_check(asset_button, asset_data, thumb_type = 'thumbnail_small')
+
     def update_images(self):
         sr = global_vars.DATA.get('search results')
         if not sr:
@@ -959,16 +989,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     if asset_data is None:
                         continue
                       
-                    iname = utils.previmg_name(asset_button.asset_index)
+
                     # show indices for debug purposes
                     # asset_button.text = str(asset_button.asset_index)
-                    img = bpy.data.images.get(iname)
-                    if img is None or len(img.pixels) == 0:
-                        img_filepath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
-                    else:
-                        img_filepath = img.filepath
-                    # print(asset_button.button_index, img_filepath)
-                    set_image_check(asset_button, img_filepath)
+
+
+                    set_thumb_check(asset_button, asset_data, thumb_type = 'thumbnail_small')
                     # asset_button.set_image(img_filepath)
                     self.update_validation_icon(asset_button, asset_data)
 
@@ -1066,10 +1092,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_up(self, widget):
         self.scroll_offset += self.wcount * self.hcount
         self.scroll_update()
+        self.enter_button(widget)
 
     def scroll_down(self, widget):
         self.scroll_offset -= self.wcount * self.hcount
         self.scroll_update()
+        self.enter_button(widget)
 
 
 def register():
