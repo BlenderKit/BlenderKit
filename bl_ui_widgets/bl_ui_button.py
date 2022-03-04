@@ -76,7 +76,6 @@ class BL_UI_Button(BL_UI_Widget):
         #     self.__image.pixels
         # except:
         #     self.__image = None
-        print('set image')
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
                 imgname = f".{os.path.basename(rel_filepath)}"
