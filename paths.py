@@ -437,5 +437,5 @@ def get_addon_thumbnail_path(name):
     next = ''
     if not (ext == 'jpg' or ext == 'png'):  # already has ext?
         next = '.jpg'
-    subpath = "thumbnails" + os.sep + name + next
+    subpath = f"thumbnails{os.sep}{name}{next}"
     return os.path.join(script_path, subpath)

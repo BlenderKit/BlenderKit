@@ -62,11 +62,11 @@ async def report(request):
   globals.last_report_time = time.time()
 
   data = await request.json()
-  if len(globals.tasks) > 0:
-    print("TOTAL TASKS:", len(globals.tasks))
+  # if len(globals.tasks) > 0:
+  #   print("TOTAL TASKS:", len(globals.tasks))
   reports = list()
   for task in globals.tasks:
-    print("TASK=", task)
+    # print("TASK=", task)
     if task.app_id != data['app_id']:
       continue
 

@@ -36,10 +36,11 @@ async def download_image_batch(session: aiohttp.ClientSession, parent_task: task
   """Download batch of images. images are tuples of file path and url."""
   
   coroutines = []
-  for imgpath, url in images:
+  for imgpath, url, asset_id in images:
     data = {
       "image_path" : imgpath,
       "image_url" : url,
+      "assetBaseId" : asset_id,
     }
     task_id = str(uuid.uuid4())
     task = tasks.Task(data, task_id, parent_task.app_id, "thumbnail_download")
@@ -61,6 +62,7 @@ async def parse_thumbnails(task: tasks.Task):
   thumb_small_filepaths = []
   thumb_full_urls = []
   thumb_full_filepaths = []
+  asset_ids = []
   # END OF PARSING
   # get thumbnails that need downloading
   for d in task.result.get('results', []):
@@ -79,9 +81,10 @@ async def parse_thumbnails(task: tasks.Task):
     imgname = assets.extract_filename_from_url(larege_thumb_url)
     imgpath = os.path.join(task.data['tempdir'], imgname)
     thumb_full_filepaths.append(imgpath)
+    asset_ids.append(d['assetBaseId'])
 
-  small_thumbnails = zip(thumb_small_filepaths, thumb_small_urls)
-  full_thumbnails = zip(thumb_full_filepaths, thumb_full_urls)
+  small_thumbnails = zip(thumb_small_filepaths, thumb_small_urls,asset_ids)
+  full_thumbnails = zip(thumb_full_filepaths, thumb_full_urls,asset_ids)
 
   return small_thumbnails, full_thumbnails
 
@@ -132,4 +135,3 @@ async def do_search(session: aiohttp.ClientSession, data: dict, task_id: str):
     #   return
     # full size images have connection limit to get lower priority
     await download_image_batch(session, task, full_thumbnails, limit_per_host=3)
-    # small thumbnail downloads

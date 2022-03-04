@@ -2,7 +2,7 @@ import logging
 
 PREFS = {}
 DATA = {
-  'loaded images': {}
+  'images available': {}
 }
 
 log = logging.basicConfig(level=logging.INFO)
