@@ -972,6 +972,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if asset_button.asset_index < len(sr):
                 asset_data = sr[asset_button.asset_index]
                 if asset_data['assetBaseId'] == asset_id:
+                    # print(asset_button.asset_index)
                     set_thumb_check(asset_button, asset_data, thumb_type = 'thumbnail_small')
 
     def update_images(self):

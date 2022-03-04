@@ -28,48 +28,50 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
         async for chunk in resp.content.iter_chunked(4096 * 32):
           file.write(chunk)
           task.finished("thumbnail downloaded")
+          print(task.data['index'])
     else:
       task.error(f"thumbnail download error: {resp.status}")
 
 
-async def download_image_batch(session: aiohttp.ClientSession, parent_task: tasks.Task, images: list[tuple] =[], limit_per_host=0):
+async def download_image_batch(session: aiohttp.ClientSession,  tasks: list[tuple] =[], limit_per_host=0, queued = False):
   """Download batch of images. images are tuples of file path and url."""
   
   coroutines = []
-  for imgpath, url, asset_id in images:
-    data = {
-      "image_path" : imgpath,
-      "image_url" : url,
-      "assetBaseId" : asset_id,
-    }
-    task_id = str(uuid.uuid4())
-    task = tasks.Task(data, task_id, parent_task.app_id, "thumbnail_download")
-    globals.tasks.append(task)
-
-    if os.path.exists(imgpath):
+  for task in tasks:
+    if os.path.exists(task.data['image_path']):
       task.finished("thumbnail on disk")
     else:
       coroutine = asyncio.ensure_future(download_image(session, task))
       coroutines.append(coroutine)
-
-  await asyncio.gather(*coroutines)
+      if queued:
+        await asyncio.gather(*coroutines)
+  if not queued:
+    await asyncio.gather(*coroutines)
 
 
 async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames."""
 
-  thumb_small_urls = []
-  thumb_small_filepaths = []
-  thumb_full_urls = []
-  thumb_full_filepaths = []
-  asset_ids = []
+  small_thumbs_tasks = []
+  full_thumbs_tasks = []
   # END OF PARSING
   # get thumbnails that need downloading
+  i=0
   for d in task.result.get('results', []):
-    thumb_small_urls.append(d["thumbnailSmallUrl"])
     imgname = assets.extract_filename_from_url(d['thumbnailSmallUrl'])
     imgpath = os.path.join(task.data['tempdir'], imgname)
-    thumb_small_filepaths.append(imgpath)
+    data = {
+      "image_path": imgpath,
+      "image_url": d["thumbnailSmallUrl"],
+      "assetBaseId": d['assetBaseId'],
+      "type": "small",
+      "index":i
+    }
+
+    task_id = str(uuid.uuid4())
+    thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
+    globals.tasks.append(thumb_task)
+    small_thumbs_tasks.append(thumb_task)
 
     if d["assetType"] == 'hdr':
       larege_thumb_url = d['thumbnailLargeUrlNonsquared']
@@ -77,16 +79,24 @@ async def parse_thumbnails(task: tasks.Task):
     else:
       larege_thumb_url = d['thumbnailMiddleUrl']
 
-    thumb_full_urls.append(larege_thumb_url)
     imgname = assets.extract_filename_from_url(larege_thumb_url)
     imgpath = os.path.join(task.data['tempdir'], imgname)
-    thumb_full_filepaths.append(imgpath)
-    asset_ids.append(d['assetBaseId'])
+    data = {
+      "image_path": imgpath,
+      "image_url": larege_thumb_url,
+      "assetBaseId": d['assetBaseId'],
+      "type": "full",
+      "index": i
 
-  small_thumbnails = zip(thumb_small_filepaths, thumb_small_urls,asset_ids)
-  full_thumbnails = zip(thumb_full_filepaths, thumb_full_urls,asset_ids)
+    }
 
-  return small_thumbnails, full_thumbnails
+    task_id = str(uuid.uuid4())
+    thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
+    globals.tasks.append(thumb_task)
+    full_thumbs_tasks.append(thumb_task)
+    i+=1
+
+  return small_thumbs_tasks, full_thumbs_tasks
 
 
 async def do_search(session: aiohttp.ClientSession, data: dict, task_id: str):
@@ -125,13 +135,13 @@ async def do_search(session: aiohttp.ClientSession, data: dict, task_id: str):
     #   # utils.p('end search thread')
     #   return
 
-    small_thumbnails, full_thumbnails = await parse_thumbnails(task)
+    small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
 
     # thumbnails fetching
-    await download_image_batch(session, task, small_thumbnails)
+    await download_image_batch(session, small_thumbs_tasks)
 
     # if self.stopped():
     #   # utils.p('end search thread')
     #   return
     # full size images have connection limit to get lower priority
-    await download_image_batch(session, task, full_thumbnails, limit_per_host=3)
+    await download_image_batch(session, full_thumbs_tasks, limit_per_host=3, queued = True)
