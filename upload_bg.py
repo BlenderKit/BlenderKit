@@ -85,7 +85,9 @@ def upload_file(upload_data, f):
     for a in range(0, 5):
         if not uploaded:
             try:
-                upload_response = requests.put(upload['s3UploadUrl'],
+                session = requests.Session()
+                session.trust_env = False
+                upload_response = session.put(upload['s3UploadUrl'],
                                                data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
                                                stream=True, verify=True)
 

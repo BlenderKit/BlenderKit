@@ -21,7 +21,6 @@ import bpy
 from . import utils, paths, tasks_queue, rerequests, global_vars
 
 import threading
-import requests
 import logging
 
 bk_logger = logging.getLogger('blenderkit')

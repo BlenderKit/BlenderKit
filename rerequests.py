@@ -41,7 +41,9 @@ def rerequest(method, url, recursion=0, **kwargs):
         kwargs.pop('immediate')
     # first normal attempt
     try:
-        response = requests.request(method, url, **kwargs)
+        session = requests.Session()
+        session.trust_env = False
+        response = session.request(method, url, **kwargs)
     except Exception as e:
         print(e)
         tasks_queue.add_task((reports.add_report, (
@@ -80,7 +82,9 @@ def rerequest(method, url, recursion=0, **kwargs):
                             tasks_queue.add_task((bkit_oauth.write_tokens, (auth_token, refresh_token, oauth_response)))
 
                         kwargs['headers'] = utils.get_headers(auth_token)
-                        response = requests.request(method, url, **kwargs)
+                        session = requests.Session()
+                        session.trust_env = False
+                        response = session.request(method, url, **kwargs)
                         bk_logger.debug('reresult', response.status_code)
                         if response.status_code >= 400:
                             bk_logger.debug('reresult', response.text)

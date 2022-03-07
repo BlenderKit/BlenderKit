@@ -176,7 +176,9 @@ class CancelLoginOnline(bpy.types.Operator):
         preferences.login_attempt = False
         try:
             if active_authenticator is not None:
-                requests.get(active_authenticator.redirect_uri)
+                session = requests.Session()
+                session.trust_env = False
+                session.get(active_authenticator.redirect_uri)
                 active_authenticator = None
         except Exception as e:
             print('stopped login attempt')

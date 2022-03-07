@@ -19,7 +19,6 @@
 
 from . import paths, utils, tasks_queue, rerequests, ui, colors, reports, global_vars
 
-import requests
 import json
 import os
 import bpy

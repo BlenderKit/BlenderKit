@@ -711,7 +711,9 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
         print("Downloading %s" % file_name)
         headers = utils.get_headers(api_key)
         res_file_info, resolution = paths.get_res_file(asset_data, resolution)
-        response = requests.get(res_file_info['url'], stream=True)
+        session = requests.Session()
+        session.trust_env = False
+        response = session.get(res_file_info['url'], stream=True)
         total_length = response.headers.get('Content-Length')
 
         if total_length is None or int(total_length) < 1000:  # no content length header
@@ -801,7 +803,9 @@ class Downloader(threading.Thread):
             bk_logger.debug("Downloading %s" % file_name)
             headers = utils.get_headers(api_key)
             res_file_info, self.resolution = paths.get_res_file(asset_data, self.resolution)
-            response = requests.get(res_file_info['url'], stream=True)
+            session = requests.Session()
+            session.trust_env = False
+            response = session.get(res_file_info['url'], stream=True)
             total_length = response.headers.get('Content-Length')
             if total_length is None:  # no content length header
                 print('no content length')

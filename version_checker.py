@@ -44,7 +44,9 @@ def check_version(url, api_key, module):
 
     print('checking online version of module %s' % str(module.bl_info['name']))
     try:
-        r = requests.get(url, headers=headers)
+        session = requests.Session()
+        session.trust_env = False
+        r = session.get(url, headers=headers)
         data = r.json()
         ver_online = {
             'addonVersion2.8': data['addonVersion']
