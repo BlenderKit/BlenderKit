@@ -33,8 +33,6 @@ from . import (
     reports,
     search,
     tasks_queue,
-    ui,
-    ui_panels,
     utils,
 )
 

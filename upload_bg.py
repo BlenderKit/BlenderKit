@@ -19,7 +19,6 @@
 
 
 import json
-import logging
 import os
 import sys
 import time
@@ -27,16 +26,7 @@ import time
 import bpy
 import requests
 
-from blenderkit import (
-    append_link,
-    bg_blender,
-    paths,
-    reports,
-    rerequests,
-    tasks_queue,
-    ui,
-    utils,
-)
+from blenderkit import append_link, paths, reports, rerequests, tasks_queue, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]

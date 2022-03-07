@@ -24,9 +24,8 @@ import os
 import sys
 
 import bpy
-import mathutils
 
-from blenderkit import append_link, bg_blender, download, upload, upload_bg, utils
+from blenderkit import append_link, bg_blender, download, upload_bg, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]

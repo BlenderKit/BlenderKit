@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import copy
 import json
 import logging
 import math
@@ -27,21 +26,15 @@ import random
 import threading
 import time
 import unicodedata
-import urllib
 
 import bpy
 import requests
 from bpy.app.handlers import persistent
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
     BoolProperty,
-    EnumProperty,
-    FloatProperty,
-    FloatVectorProperty,
-    IntProperty,
-    PointerProperty,
     StringProperty,
 )
-from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup, UIList
+from bpy.types import Operator
 
 from . import (
     addon_updater_ops,
@@ -97,9 +90,9 @@ all_thumbs_loaded = True
 rtips_string = """You can disable tips in the add-on preferences.
 Ratings help us distribute funds to creators.
 Creators also gain credits for free assets from subscribers.
-Click or drag model or material in scene to link/append 
+Click or drag model or material in scene to link/append
 Right click in the asset bar for more options
-Use Append in import settings if you want to edit downloaded objects. 
+Use Append in import settings if you want to edit downloaded objects.
 Please rate responsively and plentifully. This helps us distribute rewards to the authors.
 All materials are free.
 Storage for public assets is unlimited.

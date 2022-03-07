@@ -21,18 +21,9 @@ import ctypes
 import logging
 import os
 import platform
-import random
 
 import bpy
-from bpy.props import (
-    BoolProperty,
-    EnumProperty,
-    FloatProperty,
-    FloatVectorProperty,
-    IntProperty,
-    PointerProperty,
-    StringProperty,
-)
+from bpy.props import IntProperty, StringProperty
 from bpy.types import Panel
 
 from . import (
@@ -46,9 +37,7 @@ from . import (
     paths,
     ratings,
     ratings_utils,
-    resolutions,
     search,
-    tasks_queue,
     ui,
     upload,
     utils,

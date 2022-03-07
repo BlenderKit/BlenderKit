@@ -23,7 +23,7 @@ import tempfile
 
 import bpy
 
-from . import colors, global_vars, reports, tasks_queue, ui, utils
+from . import colors, global_vars, reports, tasks_queue, utils
 
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
@@ -198,7 +198,8 @@ def slugify(slug):
     and converts spaces to hyphens.
     """
     import re
-    import unicodedata
+
+    # import unicodedata
     slug = slug.lower()
 
     characters = '<>:"/\\|?\*., ()#'

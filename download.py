@@ -20,7 +20,6 @@ import copy
 import logging
 import os
 import shutil
-import sys
 import threading
 import time
 import uuid
@@ -37,7 +36,6 @@ from . import (
     resolutions,
     search,
     tasks_queue,
-    ui,
     ui_panels,
     utils,
 )
@@ -50,10 +48,8 @@ from bpy.app.handlers import persistent
 from bpy.props import (
     BoolProperty,
     EnumProperty,
-    FloatProperty,
     FloatVectorProperty,
     IntProperty,
-    PointerProperty,
     StringProperty,
 )
 

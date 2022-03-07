@@ -32,9 +32,7 @@ from . import (
     asset_bar_op,
     asset_inspector,
     autothumb,
-    bg_blender,
     categories,
-    colors,
     global_vars,
     image_utils,
     overrides,
@@ -43,7 +41,6 @@ from . import (
     rerequests,
     search,
     tasks_queue,
-    ui,
     ui_panels,
     upload_bg,
     utils,
@@ -58,7 +55,7 @@ from bpy.props import (  # TODO only keep the ones actually used when cleaning
     EnumProperty,
     StringProperty,
 )
-from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup, UIList
+from bpy.types import Operator
 
 
 licenses = (

@@ -29,8 +29,6 @@ bl_info = {
     "category": "3D View",
 }
 
-import sys
-from os import path
 
 
 # lib = path.join(path.dirname(__file__), 'lib')
@@ -135,9 +133,6 @@ else:
 
 import logging
 import math
-import os
-import pathlib
-import time
 
 import bpy
 

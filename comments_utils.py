@@ -21,7 +21,6 @@ import threading
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-import requests
 
 from . import global_vars, paths, rerequests, tasks_queue, utils
 

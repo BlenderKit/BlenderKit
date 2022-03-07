@@ -25,9 +25,8 @@ import threading
 import time
 
 import bpy
-import requests
 
-from . import colors, global_vars, paths, reports, rerequests, tasks_queue, ui, utils
+from . import colors, global_vars, paths, reports, rerequests, tasks_queue, utils
 
 
 bk_logger = logging.getLogger('blenderkit')

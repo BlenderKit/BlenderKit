@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import datetime
 import logging
 import math
 import os
@@ -34,16 +33,11 @@ from . import (
     colors,
     download,
     global_vars,
-    icons,
     paths,
-    ratings,
-    ratings_utils,
     reports,
     search,
-    tasks_queue,
     ui_bgl,
     ui_panels,
-    upload,
     utils,
 )
 

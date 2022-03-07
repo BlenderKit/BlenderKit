@@ -19,28 +19,12 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 
 import bpy
-from bpy.props import (
-    BoolProperty,
-    EnumProperty,
-    FloatProperty,
-    IntProperty,
-    StringProperty,
-)
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
 
-from . import (
-    bg_blender,
-    download,
-    global_vars,
-    icons,
-    paths,
-    tasks_queue,
-    ui_panels,
-    utils,
-)
+from . import bg_blender, global_vars, paths, tasks_queue, utils
 
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"

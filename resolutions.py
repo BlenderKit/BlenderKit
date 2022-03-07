@@ -18,7 +18,6 @@
 
 
 import json
-import math
 import os
 import subprocess
 import sys
@@ -30,7 +29,6 @@ import bpy
 import requests
 
 from . import (
-    append_link,
     bg_blender,
     download,
     global_vars,
