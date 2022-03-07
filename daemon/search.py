@@ -28,7 +28,8 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
         async for chunk in resp.content.iter_chunked(4096 * 32):
           file.write(chunk)
           task.finished("thumbnail downloaded")
-          print(task.data['index'])
+          # debug weird order of download - usually does odd numbers first
+          # print(task.data['index'])
     else:
       task.error(f"thumbnail download error: {resp.status}")
 
@@ -64,7 +65,7 @@ async def parse_thumbnails(task: tasks.Task):
       "image_path": imgpath,
       "image_url": d["thumbnailSmallUrl"],
       "assetBaseId": d['assetBaseId'],
-      "type": "small",
+      "thumbnail_type": "small",
       "index":i
     }
 
@@ -85,7 +86,7 @@ async def parse_thumbnails(task: tasks.Task):
       "image_path": imgpath,
       "image_url": larege_thumb_url,
       "assetBaseId": d['assetBaseId'],
-      "type": "full",
+      "thumbnail_type": "full",
       "index": i
 
     }
