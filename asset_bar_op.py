@@ -1,27 +1,24 @@
-import bpy
+import math
 
+# from .bl_ui_widgets.bl_ui_textbox import *
+import random
+import time
+
+import bpy
+from bpy.props import BoolProperty, IntProperty, StringProperty
 from bpy.types import Operator
 
-from .bl_ui_widgets.bl_ui_label import *
+from . import comments_utils, global_vars, paths, search, ui, utils
 from .bl_ui_widgets.bl_ui_button import *
-from .bl_ui_widgets.bl_ui_image import *
+
 # from .bl_ui_widgets.bl_ui_checkbox import *
 # from .bl_ui_widgets.bl_ui_slider import *
 # from .bl_ui_widgets.bl_ui_up_down import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
-# from .bl_ui_widgets.bl_ui_textbox import *
-import random
-import math
-import time
+from .bl_ui_widgets.bl_ui_image import *
+from .bl_ui_widgets.bl_ui_label import *
 
-from . import ui, paths, utils, search, comments_utils, global_vars
-
-from bpy.props import (
-    IntProperty,
-    BoolProperty,
-    StringProperty
-)
 
 active_area_pointer = 0
 

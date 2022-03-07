@@ -16,11 +16,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bgl, blf
-
-import bpy, blf
+import bgl
+import blf
+import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
+
 
 def draw_rect(x, y, width, height, color):
     xmax = x + width

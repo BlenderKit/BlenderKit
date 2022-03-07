@@ -1,8 +1,9 @@
-from . bl_ui_widget import *
-
 import blf
 import bpy
+
 from .. import ui_bgl
+from .bl_ui_widget import *
+
 
 class BL_UI_Image(BL_UI_Widget):
 

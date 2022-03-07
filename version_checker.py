@@ -16,10 +16,15 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import json
+import os
+import threading
+
 import bpy
+import requests
+
 from . import paths
 
-import requests, os, json, threading
 
 def get_blender_version():
     # should return addon version, but since Blender 3.0 this is synced with Blender version

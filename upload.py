@@ -17,31 +17,49 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import asset_inspector, paths, utils, bg_blender, autothumb, version_checker, search, ui_panels, ui, \
-    overrides, colors, rerequests, categories, upload_bg, tasks_queue, image_utils, asset_bar_op, reports, global_vars
-
-
-import tempfile, os, subprocess, json, re
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import threading
 
 import bpy
 import requests
-import threading
-import sys
+
+from . import (
+    asset_bar_op,
+    asset_inspector,
+    autothumb,
+    bg_blender,
+    categories,
+    colors,
+    global_vars,
+    image_utils,
+    overrides,
+    paths,
+    reports,
+    rerequests,
+    search,
+    tasks_queue,
+    ui,
+    ui_panels,
+    upload_bg,
+    utils,
+    version_checker,
+)
+
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
 
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
-    EnumProperty,
     BoolProperty,
+    EnumProperty,
     StringProperty,
 )
-from bpy.types import (
-    Operator,
-    Panel,
-    AddonPreferences,
-    PropertyGroup,
-    UIList
-)
+from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup, UIList
+
 
 licenses = (
     ('royalty_free', 'Royalty Free', 'royalty free commercial license'),

@@ -17,18 +17,20 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, rerequests, image_utils, global_vars
+import datetime
+import inspect
+import json
+import logging
+import os
+import shutil
+import sys
+import traceback
 
 import bpy
 from mathutils import Vector
-import json
-import os
-import sys
-import shutil
-import logging
-import traceback
-import inspect
-import datetime
+
+from . import global_vars, image_utils, paths, rerequests
+
 
 bk_logger = logging.getLogger('blenderkit')
 

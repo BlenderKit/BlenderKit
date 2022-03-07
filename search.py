@@ -16,40 +16,52 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
-    resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops,global_vars
-
-from bpy.app.handlers import persistent
-
-from bpy.props import (  # TODO only keep the ones actually used when cleaning
-    IntProperty,
-    FloatProperty,
-    FloatVectorProperty,
-    StringProperty,
-    EnumProperty,
-    BoolProperty,
-    PointerProperty,
-)
-from bpy.types import (
-    Operator,
-    Panel,
-    AddonPreferences,
-    PropertyGroup,
-    UIList
-)
-
-import requests, os, random
-import time
-import threading
-import platform
-import bpy
 import copy
 import json
+import logging
 import math
+import os
+import platform
+import queue
+import random
+import threading
+import time
 import unicodedata
 import urllib
-import queue
-import logging
+
+import bpy
+import requests
+from bpy.app.handlers import persistent
+from bpy.props import (  # TODO only keep the ones actually used when cleaning
+    BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    FloatVectorProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
+from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup, UIList
+
+from . import (
+    addon_updater_ops,
+    bkit_oauth,
+    categories,
+    colors,
+    comments_utils,
+    global_vars,
+    image_utils,
+    paths,
+    ratings_utils,
+    reports,
+    rerequests,
+    resolutions,
+    tasks_queue,
+    ui,
+    utils,
+    version_checker,
+)
+
 
 bk_logger = logging.getLogger('blenderkit')
 

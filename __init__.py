@@ -32,6 +32,7 @@ bl_info = {
 import sys
 from os import path
 
+
 # lib = path.join(path.dirname(__file__), 'lib')
 # sys.path.insert(0, lib)
 # from .lib import sentry_sdk
@@ -132,34 +133,31 @@ else:
     from .bl_ui_widgets import bl_ui_drag_panel
     # from .bl_ui_widgets import bl_ui_textbox
 
-import os
-import math
-import time
 import logging
-import bpy
+import math
+import os
 import pathlib
+import time
+
+import bpy
+
 
 log = logging.getLogger(__name__)
 
-from bpy.app.handlers import persistent
 import bpy.utils.previews
 import mathutils
-from mathutils import Vector
+from bpy.app.handlers import persistent
 from bpy.props import (
-    IntProperty,
+    BoolProperty,
+    EnumProperty,
     FloatProperty,
     FloatVectorProperty,
-    StringProperty,
-    EnumProperty,
-    BoolProperty,
+    IntProperty,
     PointerProperty,
+    StringProperty,
 )
-from bpy.types import (
-    Operator,
-    Panel,
-    AddonPreferences,
-    PropertyGroup,
-)
+from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup
+from mathutils import Vector
 
 
 # logging.basicConfig(filename = 'blenderkit.log', level = logging.INFO,

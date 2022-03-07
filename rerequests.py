@@ -17,11 +17,13 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import ui, utils, paths, tasks_queue, bkit_oauth, reports
-
-import requests
-import bpy
 import logging
+
+import bpy
+import requests
+
+from . import bkit_oauth, paths, reports, tasks_queue, ui, utils
+
 
 bk_logger = logging.getLogger('rerequests')
 

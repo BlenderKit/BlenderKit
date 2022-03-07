@@ -17,15 +17,31 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, append_link, bg_blender, utils, download, search, rerequests, upload_bg, image_utils, global_vars
-
-import sys, json, os, time
+import json
+import math
+import os
 import subprocess
+import sys
 import tempfile
+import threading
+import time
+
 import bpy
 import requests
-import math
-import threading
+
+from . import (
+    append_link,
+    bg_blender,
+    download,
+    global_vars,
+    image_utils,
+    paths,
+    rerequests,
+    search,
+    upload_bg,
+    utils,
+)
+
 
 resolutions = {
     'resolution_0_5K': 512,

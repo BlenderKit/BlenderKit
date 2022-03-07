@@ -15,26 +15,26 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-from . import paths, utils, rerequests, tasks_queue, ratings_utils, icons, global_vars
+import logging
+import threading
 
 import bpy
-import requests, threading
-import logging
+import requests
+
+from . import global_vars, icons, paths, ratings_utils, rerequests, tasks_queue, utils
+
 
 bk_logger = logging.getLogger('blenderkit')
 
 from bpy.props import (
-    IntProperty,
-    FloatProperty,
-    StringProperty,
-    EnumProperty,
     BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
     PointerProperty,
+    StringProperty,
 )
-from bpy.types import (
-    Operator,
-    Panel,
-)
+from bpy.types import Operator, Panel
 
 
 def pretty_print_POST(req):

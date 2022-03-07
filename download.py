@@ -16,29 +16,47 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from . import paths, append_link, utils, ui, colors, tasks_queue, rerequests, resolutions, ui_panels, search, reports,global_vars
-
-import threading
-import time
-import requests
-import shutil, sys, os
-import uuid
 import copy
 import logging
+import os
+import shutil
+import sys
+import threading
+import time
+import uuid
+
+import requests
+
+from . import (
+    append_link,
+    colors,
+    global_vars,
+    paths,
+    reports,
+    rerequests,
+    resolutions,
+    search,
+    tasks_queue,
+    ui,
+    ui_panels,
+    utils,
+)
+
 
 bk_logger = logging.getLogger('blenderkit')
 
 import bpy
+from bpy.app.handlers import persistent
 from bpy.props import (
-    IntProperty,
+    BoolProperty,
+    EnumProperty,
     FloatProperty,
     FloatVectorProperty,
-    StringProperty,
-    EnumProperty,
-    BoolProperty,
+    IntProperty,
     PointerProperty,
+    StringProperty,
 )
-from bpy.app.handlers import persistent
+
 
 download_threads = []
 

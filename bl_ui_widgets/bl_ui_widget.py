@@ -1,7 +1,7 @@
-import gpu
 import bgl
-
+import gpu
 from gpu_extras.batch import batch_for_shader
+
 
 class BL_UI_Widget:
 

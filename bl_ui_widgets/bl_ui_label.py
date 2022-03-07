@@ -1,6 +1,7 @@
-from . bl_ui_widget import *
-
 import blf
+
+from .bl_ui_widget import *
+
 
 class BL_UI_Label(BL_UI_Widget):
 

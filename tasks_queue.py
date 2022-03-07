@@ -17,13 +17,15 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import utils
+import logging
+import queue
 
 import bpy
 from bpy.app.handlers import persistent
 
-import queue
-import logging
+from . import utils
+
+
 bk_logger = logging.getLogger('blenderkit')
 
 @persistent
