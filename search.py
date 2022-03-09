@@ -738,6 +738,7 @@ def thumb_download_worker(queue_sml, queue_full):
         if not queue_sml.empty() or not queue_full.empty():
             if session is None:
                 session = requests.Session()
+                session.trust_env = False
             while not queue_sml.empty():
                 # first empty the small thumbs queue
                 url, filepath = queue_sml.get()
