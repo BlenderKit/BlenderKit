@@ -49,7 +49,9 @@ class SimpleOAuthAuthenticator(object):
         if refresh_token:
             data['refresh_token'] = refresh_token
 
-        response = requests.post(
+        session = requests.Session()
+        session.trust_env = False
+        response = session.post(
             '%s/o/token/' % self.server_url,
             data=data
         )
