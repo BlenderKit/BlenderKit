@@ -11,12 +11,12 @@ import certifi
 import time
 
 import aiohttp
-from aiohttp import web
+from aiohttp import web, web_request
 
 import assets, search, globals, tasks
 
 
-async def download_asset(request):
+async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
 
   data = await request.json()
@@ -33,7 +33,7 @@ async def download_asset(request):
   return web.json_response({'task_id': task_id})
 
 
-async def search_assets(request):
+async def search_assets(request: web_request.Request):
   """Handle request for download of asset."""
 
   data = await request.json()
@@ -44,7 +44,7 @@ async def search_assets(request):
   return web.json_response({'task_id': task_id})
 
 
-async def index(request):
+async def index(request: web_request.Request):
   """Report PID of server as Index page, can be used as is-alive endpoint."""
 
   pid = str(os.getpid())
@@ -65,7 +65,7 @@ async def kill_download(request):
   return web.Response(text="ok")
 
 
-async def report(request):
+async def report(request: web_request.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
 
   globals.last_report_time = time.time()
@@ -96,24 +96,32 @@ class Shutdown(web.View):
 
 
 async def persistent_sessions(app):
-  #sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-
-
   sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+  
+  if app['PROXY_CA_CERTS'] != '':
+    sslcontext.load_verify_locations(app['PROXY_CA_CERTS'])
   sslcontext.load_verify_locations(certifi.where())
   sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
 
+  if app['PROXY_WHICH'] == 'SYSTEM':
+    trust_env = True
+  elif app['PROXY_WHICH'] == 'CUSTOM':
+    trust_env = True
+    os.environ["HTTPS_PROXY"] = app['PROXY_ADDRESS']
+  else:
+    trust_env = False
+
   conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64)
-  app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests)
+  app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests, trust_env=trust_env)
 
   conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16)
-  app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs)
+  app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs, trust_env=trust_env)
   
   conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=4)
-  app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs)
+  app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs, trust_env=trust_env)
 
   conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=2)
-  app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets)
+  app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets, trust_env=trust_env)
 
   yield
   await asyncio.gather(
@@ -144,9 +152,16 @@ async def start_background_tasks(app: web.Application):
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--port', type=str, default="10753")
+  parser.add_argument('--proxy-which', type=str, default="SYSTEM")
+  parser.add_argument('--proxy-address', type=str, default="")
+  parser.add_argument('--proxy-ca-certs', type=str, default="")
   args = parser.parse_args()
 
   server = web.Application()
+  server['PROXY_WHICH'] = args.proxy_which
+  server['PROXY_ADDRESS'] = args.proxy_address
+  server['PROXY_CA_CERTS'] = args.proxy_ca_certs
+
   server.cleanup_ctx.append(persistent_sessions)
   server.add_routes([
     web.get('/', index),

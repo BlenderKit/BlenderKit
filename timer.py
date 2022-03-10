@@ -133,7 +133,6 @@ def start_server_thread():
     daemon_lib.ensure_daemon_alive(session)
 
 
-
 def register_timer():
   if ENABLE_ASYNC_LOOP:
     setup_asyncio_executor()

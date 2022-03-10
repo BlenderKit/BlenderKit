@@ -846,7 +846,17 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
         print("Downloading %s" % file_name)
         headers = utils.get_headers(api_key)
         res_file_info, resolution = paths.get_res_file(asset_data, resolution)
-        response = requests.get(res_file_info['url'], stream=True)
+        session = requests.Session()
+        proxy_which = global_vars.PREFS.get('proxy_which')
+        proxy_address = global_vars.PREFS.get('proxy_address')
+        if proxy_which == 'NONE':
+            session.trust_env = False
+        elif proxy_which == 'CUSTOM':
+            session.trust_env = False
+            session.proxies = {'https': proxy_address}
+        else:
+            session.trust_env = True
+        response = session.get(res_file_info['url'], stream=True)
         total_length = response.headers.get('Content-Length')
 
         if total_length is None or int(total_length) < 1000:  # no content length header

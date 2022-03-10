@@ -147,7 +147,6 @@ else:
 import math
 import bpy
 
-
 from bpy.app.handlers import persistent
 import bpy.utils.previews
 import mathutils
@@ -1629,7 +1628,6 @@ def fix_subdir(self, context):
                                      " It's a directory BlenderKit creates where your .blend is \n " \
                                      "and uses it for storing assets.")
 
-
 class BlenderKitAddonPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -1710,7 +1708,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     daemon_port: IntProperty(
         name="Daemon port",
-        description="Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches.",
+        description="Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches",
         default=10753,
         update=timer.cancel_all_tasks,
     )
@@ -1721,6 +1719,42 @@ class BlenderKitAddonPreferences(AddonPreferences):
         # subtype='DIR_PATH',
         default="//assets",
         update=fix_subdir
+    )
+
+    proxy_which: EnumProperty(
+        name="Proxy",
+        items=(
+            ('SYSTEM', 'SYSTEM: use system proxy settings',
+             'Addon will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored'),
+            ('CUSTOM', 'CUSTOM: use custom proxy settings',
+             'Addon will use custom proxy settings, system proxy settings will be ignored.'
+             'Please set the address in the addon preferences bellow in the field "Custom proxy address".'),
+            ('NONE', 'NONE: Ignore system and custom proxy setting',
+             'Addon will ignore both system-wide proxy settings and custom proxy settings defined in addon preferences.'
+             'All addon HTTP requests will not go through any proxy server'), 
+        ),
+        description="Which directories will be used for storing downloaded data",
+        default="SYSTEM",
+        update=utils.save_prefs
+
+    )
+
+    proxy_address: StringProperty(
+        name="Custom proxy address",
+        description="""Set custom proxy for HTTP requests of addon. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
+        
+If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication.
+
+If you use HTTPS proxy, set in format https://ip:port, or https://username:password@ip:port if your HTTPS proxy requires authentication. For HTTPS proxies you might also need to specify Proxy CA certificates path so the addon can verify the encrypted connection to your HTTPS proxy server""",
+        default="",
+        update=utils.save_prefs
+    )
+
+    proxy_ca_certs: StringProperty(
+        name="Custom proxy CA certificates path",
+        description="Define path to proxy's certificates in .pem format or system certificates with proxy's certs added as trusted. If empty the default certificates from certifi package will be used and HTTPS proxies might not work. This applies both for custom proxies, or system proxies",
+        default="",
+        update=utils.save_prefs
     )
 
     directory_behaviour: EnumProperty(
@@ -1896,6 +1930,9 @@ class BlenderKitAddonPreferences(AddonPreferences):
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
         layout.prop(self, "daemon_port")
+        layout.prop(self, "proxy_which")
+        layout.prop(self, "proxy_address")
+        layout.prop(self, "proxy_ca_certs")
 
         if bpy.context.preferences.view.show_developer_ui:
             layout.prop(self, "use_timers")

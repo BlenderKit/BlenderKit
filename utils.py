@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, rerequests, image_utils, global_vars
+from . import paths, rerequests, image_utils, global_vars, daemon_lib
 
 import bpy
 from mathutils import Vector
@@ -27,10 +27,10 @@ import sys
 import shutil
 import logging
 import traceback
-import inspect
 import datetime
 import uuid
 import re
+import urllib
 
 bk_logger = logging.getLogger('blenderkit')
 
@@ -308,7 +308,6 @@ def get_upload_props():
     return None
 
 
-
 def previmg_name(index, fullsize=False):
     if not fullsize:
         return '.bkit_preview_' + str(index).zfill(3)
@@ -339,6 +338,9 @@ def load_prefs():
                 user_preferences.global_dir = prefs.get('global_dir', paths.default_global_dict())
                 user_preferences.project_subdir = prefs.get('project_subdir', "//assets")
                 user_preferences.directory_behaviour = prefs.get('directory_behaviour')
+                user_preferences.proxy_which = prefs.get('proxy_which')
+                user_preferences.proxy_address = prefs.get('proxy_address', '')
+                user_preferences.proxy_ca_certs = prefs.get('proxy_ca_certs', '')
             return prefs
         except Exception as e:
             print('failed to read addon preferences.')
@@ -366,10 +368,22 @@ def get_prefs_dir():
         'directory_behaviour': user_preferences.directory_behaviour,
         'is_saved': user_preferences.directory_behaviour,
         'app_id': os.getpid(),
+        'proxy_which': user_preferences.proxy_which,
+        'proxy_address': user_preferences.proxy_address,
+        'proxy_ca_certs': user_preferences.proxy_ca_certs,
     }
     return prefs
 
+def set_proxy():
+    daemon_lib.kill_daemon_server() #this is not ideal, we should improve later
+
+    certs = global_vars.PREFS.get('proxy_ca_certs', '')
+    if certs != '':
+        os.environ['REQUESTS_CA_BUNDLE'] = certs
+
+
 def save_prefs(self, context):
+    
     # first check context, so we don't do this on registration or blender startup
     if not bpy.app.background:  # (hasattr kills blender)
         # print('saving prefs')
@@ -385,6 +399,7 @@ def save_prefs(self, context):
 
         prefs = get_prefs_dir()
         global_vars.PREFS = prefs
+        set_proxy()
 
         try:
             fpath = paths.BLENDERKIT_SETTINGS_FILENAME

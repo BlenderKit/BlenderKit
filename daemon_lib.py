@@ -6,7 +6,7 @@ import requests
 import aiohttp
 import time
 
-from . import dependencies
+from . import dependencies, global_vars
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -134,7 +134,14 @@ def start_daemon_server(log_dir: str = None):
   daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
   with open(log_path, "wb") as log:
     process = subprocess.Popen(
-      args       = [sys.executable, "-u", daemon_path, "--port", get_port()],
+      args       = [
+        sys.executable,
+        "-u", daemon_path,
+        "--port", get_port(),
+        "--proxy-which", global_vars.PREFS.get('proxy_which'),
+        "--proxy-address", global_vars.PREFS.get('proxy_address'),
+        "--proxy-ca-certs", global_vars.PREFS.get('proxy_ca_certs'),
+        ],
       env        = env,
       stdout     = log,
       stderr     = log

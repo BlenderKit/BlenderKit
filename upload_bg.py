@@ -18,7 +18,7 @@
 
 
 
-from blenderkit import paths, append_link, bg_blender, utils, rerequests, tasks_queue, ui, reports
+from blenderkit import paths, append_link, bg_blender, utils, rerequests, tasks_queue, ui, reports, global_vars
 
 import sys, json, os, time
 import requests
@@ -85,7 +85,17 @@ def upload_file(upload_data, f):
     for a in range(0, 5):
         if not uploaded:
             try:
-                upload_response = requests.put(upload['s3UploadUrl'],
+                session = requests.Session()
+                proxy_which = global_vars.PREFS.get('proxy_which')
+                proxy_address = global_vars.PREFS.get('proxy_address')
+                if proxy_which == 'NONE':
+                    session.trust_env = False
+                elif proxy_which == 'CUSTOM':
+                    session.trust_env = False
+                    session.proxies = {'https': proxy_address}
+                else:
+                    session.trust_env = True
+                upload_response = session.put(upload['s3UploadUrl'],
                                                data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
                                                stream=True, verify=True)
 

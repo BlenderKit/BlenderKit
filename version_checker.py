@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from . import paths
+from . import paths, global_vars
 
 import requests, os, json, threading
 
@@ -44,7 +44,17 @@ def check_version(url, api_key, module):
 
     print('checking online version of module %s' % str(module.bl_info['name']))
     try:
-        r = requests.get(url, headers=headers)
+        session = requests.Session()
+        proxy_which = global_vars.PREFS.get('proxy_which')
+        proxy_address = global_vars.PREFS.get('proxy_address')
+        if proxy_which == 'NONE':
+            session.trust_env = False
+        elif proxy_which == 'CUSTOM':
+            session.trust_env = False
+            session.proxies = {'https': proxy_address}
+        else:
+            session.trust_env = True
+        r = session.get(url, headers=headers)
         data = r.json()
         ver_online = {
             'addonVersion2.8': data['addonVersion']
