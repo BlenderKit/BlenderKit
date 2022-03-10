@@ -21,8 +21,9 @@ import json
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, quote as urlquote, urlparse
-
 import requests
+
+from . import global_vars
 
 
 class PortsBlockedException(Exception):
@@ -49,7 +50,17 @@ class SimpleOAuthAuthenticator(object):
         if refresh_token:
             data['refresh_token'] = refresh_token
 
-        response = requests.post(
+        session = requests.Session()
+        proxy_which = global_vars.PREFS.get('proxy_which')
+        proxy_address = global_vars.PREFS.get('proxy_address')
+        if proxy_which == 'NONE':
+            session.trust_env = False
+        elif proxy_which == 'CUSTOM':
+            session.trust_env = False
+            session.proxies = {'https': proxy_address}
+        else:
+            session.trust_env = True
+        response = session.post(
             '%s/o/token/' % self.server_url,
             data=data
         )

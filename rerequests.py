@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import ui, utils, paths, tasks_queue, bkit_oauth, reports
+from . import ui, utils, paths, tasks_queue, bkit_oauth, reports, global_vars
 
 import requests
 import bpy
@@ -41,7 +41,17 @@ def rerequest(method, url, recursion=0, **kwargs):
         kwargs.pop('immediate')
     # first normal attempt
     try:
-        response = requests.request(method, url, **kwargs)
+        session = requests.Session()
+        proxy_which = global_vars.PREFS.get('proxy_which')
+        proxy_address = global_vars.PREFS.get('proxy_address')
+        if proxy_which == 'NONE':
+            session.trust_env = False
+        elif proxy_which == 'CUSTOM':
+            session.trust_env = False
+            session.proxies = {'https': proxy_address}
+        else:
+            session.trust_env = True
+        response = session.request(method, url, **kwargs)
     except Exception as e:
         print(e)
         tasks_queue.add_task((reports.add_report, (
@@ -80,7 +90,7 @@ def rerequest(method, url, recursion=0, **kwargs):
                             tasks_queue.add_task((bkit_oauth.write_tokens, (auth_token, refresh_token, oauth_response)))
 
                         kwargs['headers'] = utils.get_headers(auth_token)
-                        response = requests.request(method, url, **kwargs)
+                        response = session.request(method, url, **kwargs)
                         bk_logger.debug('reresult', response.status_code)
                         if response.status_code >= 400:
                             bk_logger.debug('reresult', response.text)
