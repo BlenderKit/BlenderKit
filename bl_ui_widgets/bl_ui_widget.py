@@ -165,6 +165,9 @@ class BL_UI_Widget:
     def mouse_up(self, x, y):
         pass
 
+    def mouse_enter_func(self, widget):
+        pass
+
     def set_mouse_enter(self, mouse_enter_func):
         self.mouse_enter_func = mouse_enter_func
 
@@ -172,8 +175,8 @@ class BL_UI_Widget:
         try:
             if self.mouse_enter_func:
                 self.mouse_enter_func(self)
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     def mouse_enter(self, event, x, y):
         self.call_mouse_enter()
