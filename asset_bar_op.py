@@ -236,9 +236,7 @@ def get_tooltip_data(asset_data):
             'gimg': gimg
         }
         asset_data['tooltip_data'] = tooltip_data
-    gimg = tooltip_data['gimg']
-    if gimg is not None:
-        gimg = bpy.data.images[gimg]
+
 
 def set_thumb_check(element, asset, thumb_type = 'thumbnail_small'):
     '''sets image in case it is loaded in search'''
@@ -844,12 +842,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def enter_button(self, widget):
         # print('enter button', self.active_index, widget.button_index)
-        # print(widget.button_index+ self.scroll_offset, self.active_index)
+        # print(widget.button_index,self.scroll_offset)
         search_index = widget.button_index + self.scroll_offset
         if search_index < self.search_results_count:
             self.show_tooltip()
+        # print('showed tooltip')
         # print(self.active_index, search_index)
         if self.active_index != search_index:
+            # print('should change tooltip')
             self.active_index = search_index
 
             # scene = bpy.context.scene
@@ -865,7 +865,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # img = ui.get_large_thumbnail_image(asset_data)
             # if img:
             set_thumb_check(self.tooltip_image,asset_data,thumb_type='thumbnail')
-
             get_tooltip_data(asset_data)
             an = asset_data['name']
             max_name_length = 30
@@ -876,12 +875,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.quality_label.text = asset_data['tooltip_data']['quality']
             # print(asset_data['tooltip_data']['quality'])
             gimg = asset_data['tooltip_data']['gimg']
+            # print('got to gravatar', gimg)
             if gimg is not None:
-                gimg = bpy.data.images[gimg]
-            if gimg:
-                self.gravatar_image.set_image(gimg.filepath
-                                              )
-            # print('moving tooltip')
+                gimg = bpy.data.images.get(gimg)
+                if gimg:
+                    self.gravatar_image.set_image(gimg.filepath)
+
             properties_width = 0
             for r in bpy.context.area.regions:
                 if r.type == 'UI':
@@ -892,6 +891,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # self.init_tooltip()
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
+            # print('changed tooltip')
+
             # print(tooltip_x, tooltip_y)
             # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
