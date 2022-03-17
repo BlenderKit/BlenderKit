@@ -686,12 +686,12 @@ class UndoWithContext(bpy.types.Operator):
 def draw_callback_dragging(self, context):
     try:
         img = bpy.data.images.get(self.iname)
-    except:
+    except Exception as e:
         #  self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_dragging, args, 'WINDOW', 'POST_PIXEL')
         #  self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(draw_callback_3d_dragging, args, 'WINDOW',
         #   bpy.types.SpaceView3D.draw_handler_remove(self._handle,
         # bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, 'WINDOW')
-
+        print(e)
         return
     linelength = 35
     scene = bpy.context.scene
@@ -949,7 +949,7 @@ class AssetDragOperator(bpy.types.Operator):
             args = (self, context)
             # Add the region OpenGL drawing callback
             # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
-            self.iname = utils.previmg_name(self.asset_search_index)
+
 
             self.mouse_x = 0
             self.mouse_y = 0
@@ -966,6 +966,8 @@ class AssetDragOperator(bpy.types.Operator):
             sr = global_vars.DATA['search results']
             self.asset_data = sr[self.asset_search_index]
 
+            self.iname = f'.{self.asset_data["thumbnail_small"]}'
+            self.iname = (self.iname[:63]) if len(self.iname)>63 else self.iname
             if not self.asset_data.get('canDownload'):
                 message = "Let's support asset creators and Open source."
                 link_text = 'Unlock the asset.'
