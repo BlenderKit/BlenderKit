@@ -873,11 +873,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.asset_name.text = an
             self.authors_name.text = asset_data['tooltip_data']['author_text']
             self.quality_label.text = asset_data['tooltip_data']['quality']
-            
+
             authors = global_vars.DATA['bkit authors']
             a_id = asset_data['author']['id']
             if authors.get(a_id) is not None and authors[a_id].get('gravatarImg') is not None:
-                print(authors[a_id].get('gravatarImg'))
                 self.gravatar_image.set_image(authors[a_id].get('gravatarImg'))
             else:
                 img_path = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
