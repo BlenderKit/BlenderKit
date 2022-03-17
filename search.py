@@ -728,8 +728,8 @@ def fetch_gravatar(adata=None):
   adata - author data from elastic search result
 
   '''
-  # utils.p('fetch gravatar')
-  # print(adata)
+  print('fetch gravatar')
+  print(adata)
   # fetch new avatars if available already
   if adata.get('avatar128') is not None:
     avatar_path = paths.get_temp_dir(subdir='bkit_g/') + adata['id'] + '.jpg'
