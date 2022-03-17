@@ -28,7 +28,7 @@ async def download_asset(request):
   globals.tasks.append(task)
 
   print('Starting asset download:', data['asset_data']['name'])
-  task.async_task = asyncio.ensure_future(assets.do_asset_download(request.app['PERSISTENT_SESSION'], task))
+  task.async_task = asyncio.ensure_future(assets.do_asset_download(request, task))
   
   return web.json_response({'task_id': task_id})
 
@@ -41,7 +41,7 @@ async def search_assets(request):
   data['task_id'] = task_id #mozna k nicemu
   print('Starting search:', data['urlquery'])
 
-  asyncio.ensure_future(search.do_search(request.app['PERSISTENT_SESSION'], data, task_id))
+  asyncio.ensure_future(search.do_search(request, data, task_id))
 
   return web.json_response({'task_id': task_id})
 
@@ -101,15 +101,35 @@ class Shutdown(web.View):
     sys.exit()
 
 
-async def persistent_session(app):
+async def persistent_sessions(app):
   sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
   sslcontext.load_verify_locations(certifi.where())
-  conn = aiohttp.TCPConnector(ssl=sslcontext)
-  app['PERSISTENT_SESSION'] = session = aiohttp.ClientSession(connector=conn)
+  
+  conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64)
+  app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests)
+
+  conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16)
+  app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs)
+  
+  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=1)
+  app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs)
+
+  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=2)
+  app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets)
+
   yield
   await asyncio.gather(
-    session.close(),
-    conn.close()
+    conn_api_requests.close(),
+    session_api_requests.close(),
+
+    conn_small_thumbs.close(),
+    session_small_thumbs.close(),
+
+    conn_big_thumbs.close(),
+    session_big_thumbs.close(),
+
+    conn_assets.close(),
+    session_assets.close(),
   )
 
 async def should_i_live(app: web.Application):
@@ -129,7 +149,7 @@ if __name__ == "__main__":
   args = parser.parse_args()
 
   server = web.Application()
-  server.cleanup_ctx.append(persistent_session)
+  server.cleanup_ctx.append(persistent_sessions)
   server.add_routes([
     web.get('/', index),
     web.get('/report', report),

@@ -7,6 +7,7 @@ import shutil
 import sys
 import tempfile
 import aiohttp
+from aiohttp import web
 
 import globals, utils, tasks
 
@@ -66,7 +67,7 @@ def get_res_file(data, find_closest_with_url: bool =False):  # asset_data, resol
   return closest, closest['fileType']
 
 
-async def do_asset_download(session: aiohttp.ClientSession, task: tasks.Task):
+async def do_asset_download(request: web.Request, task: tasks.Task):
   """Download an asset from BlenderKit.
 
   1. creates a Connector and Session for download, handles SSL configuration
@@ -78,7 +79,7 @@ async def do_asset_download(session: aiohttp.ClientSession, task: tasks.Task):
   """
 
   # TODO get real link here...
-  await get_download_url(session, task)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
+  await get_download_url(request.app["SESSION_API_REQUESTS"], task)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
 
   # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
   # different than for the non free content. delete is here when called after failed append tries.
@@ -94,7 +95,7 @@ async def do_asset_download(session: aiohttp.ClientSession, task: tasks.Task):
 
   file_path = get_download_filepaths(task.data)[0]
 
-  await download_file(session, file_path, task)
+  await download_file(request.app["SESSION_ASSETS"], file_path, task)
   # unpack the file immediately after download
 
   #report_download_progress(data, text='Unpacking files', progress = 100)
