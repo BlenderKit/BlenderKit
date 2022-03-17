@@ -210,8 +210,8 @@ def get_tooltip_data(asset_data):
         if global_vars.DATA.get('bkit authors') is not None:
             a = global_vars.DATA['bkit authors'].get(asset_data['author']['id'])
             if a is not None and a != '':
-                if a.get('gravatarImg') is not None:
-                    gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash']).name
+                # if a.get('gravatarImg') is not None:
+                #     gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash']).name
 
                 if len(a['firstName']) > 0 or len(a['lastName']) > 0:
                     author_text = f"by {a['firstName']} {a['lastName']}"
@@ -233,7 +233,7 @@ def get_tooltip_data(asset_data):
             'aname': aname,
             'author_text': author_text,
             'quality': quality,
-            'gimg': gimg
+            # 'gimg': gimg
         }
         asset_data['tooltip_data'] = tooltip_data
 
@@ -873,14 +873,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.asset_name.text = an
             self.authors_name.text = asset_data['tooltip_data']['author_text']
             self.quality_label.text = asset_data['tooltip_data']['quality']
-            # print(asset_data['tooltip_data']['quality'])
-            gimg = asset_data['tooltip_data']['gimg']
-            # print('got to gravatar', gimg)
-            if gimg is not None:
-                gimg = bpy.data.images.get(gimg)
-                if gimg:
-                    self.gravatar_image.set_image(gimg.filepath)
+            
+            authors = global_vars.DATA['bkit authors']
+            a_id = asset_data['author']['id']
+            if authors.get(a_id) is not None and authors[a_id].get('gravatarImg') is not None:
+                print(authors[a_id].get('gravatarImg'))
+                self.gravatar_image.set_image(authors[a_id].get('gravatarImg'))
+            else:
+                img_path = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
 
+                self.gravatar_image.set_image(img_path)
             properties_width = 0
             for r in bpy.context.area.regions:
                 if r.type == 'UI':
