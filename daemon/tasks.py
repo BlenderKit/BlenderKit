@@ -45,7 +45,6 @@ class Task():
     del self.async_task
     result = json.dumps(self, default=lambda x: x.__dict__)
     self.async_task = async_task
-    print(self.async_task)
     return result
 
   def to_seriazable_object(self):

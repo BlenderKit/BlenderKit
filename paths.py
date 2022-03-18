@@ -338,7 +338,6 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
         n = server_2_local_filename(asset_data, fn)
         for d in dirs:
             asset_folder_path = os.path.join(d, asset_folder_name)
-            print(asset_folder_path)
             if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
                 tasks_queue.add_task((reports.add_report, (
                 'The path to assets is too long, '

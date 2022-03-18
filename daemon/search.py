@@ -29,20 +29,20 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
         async for chunk in resp.content.iter_chunked(4096 * 32):
           file.write(chunk)
           task.finished("thumbnail downloaded")
-          # debug weird order of download - usually does odd numbers first
-          # print(task.data['index'])
     else:
       task.error(f"thumbnail download error: {resp.status}")
 
 
-async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.Task]):
+async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.Task], block: bool = False):
   """Download batch of images. images are tuples of file path and url."""
   
   coroutines = []
   for task in tsks:
     coroutine = asyncio.ensure_future(download_image(session, task))
     coroutines.append(coroutine)
-  await asyncio.gather(*coroutines)
+  
+  if block == True:
+    await asyncio.gather(*coroutines)
 
 async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames."""
@@ -74,7 +74,6 @@ async def parse_thumbnails(task: tasks.Task):
 
     if d["assetType"] == 'hdr':
       larege_thumb_url = d['thumbnailLargeUrlNonsquared']
-
     else:
       larege_thumb_url = d['thumbnailMiddleUrl']
 
@@ -102,6 +101,13 @@ async def parse_thumbnails(task: tasks.Task):
 
 
 async def do_search(request: web.Request, data: dict, task_id: str):
+  """Searches for results and download thumbnails.
+  
+  1. Sends search request to BlenderKit server. (Creates search task.)
+  2. Reports the result to the addon. (Search task finished.)
+  3. Gets small and large thumbnails. (Thumbnail tasks.)
+  4. Reports paths to downloaded thumbnails. (Thumbnail task finished.)
+  """
   
   app_id = data['app_id']
   del data['app_id']
@@ -116,31 +122,13 @@ async def do_search(request: web.Request, data: dict, task_id: str):
   async with session.get(task.data['urlquery'], headers=headers) as resp:
     await resp.text()
     response = await resp.json()
-    # except Exception as e:
-    #   if hasattr(r, 'text'):
-    #     error_description = parse_html_formated_error(r.text)
-    #     assets.add_error_report(data, text=error_description)
-    #   return
-
-    # if not rdata.get('results'):
-    # utils.pprint(rdata)
-    # if the result was converted to json and didn't return results,
-    # it means it's a server error that has a clear message.
-    # That's why it gets processed in the update timer, where it can be passed in messages to user.
-    # utils.p('end search thread')
-
-    # save result so it can be returned to addon
 
     task.finished('Search results downloaded')
     task.result = response
     
-    # if self.stopped():
-    #   # utils.p('end search thread')
-    #   return
-
     small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
 
     # thumbnails fetching
-    await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks)
+    await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks, block=True)
     await download_image_batch(request.app['SESSION_BIG_THUMBS'], full_thumbs_tasks)
 

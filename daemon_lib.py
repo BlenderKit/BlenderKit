@@ -36,24 +36,18 @@ async def get_reports_async(app_id: str, queue):
       # text = await resp.text()
       json_data = await resp.json()
       if len(json_data)>0:
-        # print('from daemon', json_data)
         queue.put(json_data)
-        print(t-time.time())
 
 def get_reports(app_id: str):
   """Get report for all tasks at once."""
 
-  # import time
-  # mt = time.time()
   address = get_address()
   with requests.Session() as session:
     ensure_daemon_alive(session)
     url = address + "/report"
-    # print(mt-time.time())
     data = {'app_id': app_id}
     resp = session.get(url, json=data)
-    # print(resp)
-    # print(mt-time.time())
+
     return resp.json()
 
 def search_asset(data):
@@ -65,7 +59,6 @@ def search_asset(data):
     ensure_daemon_alive(session)
     url = address + "/search_asset"
     resp = session.post(url, json=data)
-    print(f"Asked for search, {data['urlquery']}, {resp.status_code}")
     return resp.json()
 
 def download_asset(data):
@@ -77,7 +70,6 @@ def download_asset(data):
     ensure_daemon_alive(session)
     url = address + "/download_asset"
     resp = session.post(url, json=data)
-    print(f"Asked for asset download, {data['asset_data']['name']}, {resp.status_code}")
     return resp.json()
 
 
@@ -89,7 +81,6 @@ def kill_download(task_id):
     ensure_daemon_alive(session)
     url = address + "/kill_download"
     resp = session.get(url, json={'task_id':task_id})
-    print(f"Asked for end of download, {task_id}, {resp.status_code}")
     return resp
 
 

@@ -294,10 +294,8 @@ def udpate_asset_data_in_dicts(asset_data):
 
 
 def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
-    '''Link asset to the scene.
-
-
-    '''
+    """Link asset to the scene."""
+    
     # asset_data = data['asset_data']
     # kwargs = data
     file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
@@ -374,7 +372,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         link = al == 'LINK'
         # then append link
         if downloaders:
-            print('downloaders')
             for downloader in downloaders:
                 # this cares for adding particle systems directly to target mesh, but I had to block it now,
                 # because of the sluggishnes of it. Possibly re-enable when it's possible to do this faster?
@@ -704,19 +701,17 @@ def download_post(task: tasks.Task):
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.
     """
+    
     global download_tasks
 
     orig_task = download_tasks.get(task.task_id)
+
     if orig_task is None:
         return
 
     remove_keys = []
     done = False
-    # print(data)
 
-
-    progress_bars = []
-    downloaders = []
     # TODO move to separate update function from download-progress
     #
     # sr = global_vars.DATA.get('search results')
@@ -888,7 +883,6 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
 
 def download(asset_data, **kwargs):
     '''Init download data and request task from daemon'''
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
     if kwargs.get('retry_counter', 0) > 3:
         sprops = utils.get_search_props()
@@ -1151,7 +1145,7 @@ def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend
         res_file_info['file_name'] = paths.extract_filename_from_url(url)
 
         # print(res_file_info, url)
-        print(url)
+        print("URL:", url)
         return True
 
     # let's print it into UI
@@ -1239,9 +1233,7 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     task_index: StringProperty(name="Task ID", description='ID of the task to kill', default='')
 
     def execute(self, context):
-        # TODO convert to daemon lib
         global download_tasks
-        td = download_tasks[self.task_index]
         download_tasks.pop(self.task_index)
         daemon_lib.kill_download(self.task_index)
         return {'FINISHED'}
@@ -1270,7 +1262,7 @@ def available_resolutions_callback(self, context):
 
 
 def show_enum_values(obj, prop_name):
-    print([item.identifier for item in obj.bl_rna.properties[prop_name].enum_items])
+    print("show_enum_values", [item.identifier for item in obj.bl_rna.properties[prop_name].enum_items])
 
 
 class BlenderkitDownloadOperator(bpy.types.Operator):

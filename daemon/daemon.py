@@ -24,10 +24,9 @@ async def download_asset(request):
 
   app_id = data['app_id']
   del data['app_id']
+  
   task = tasks.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
   globals.tasks.append(task)
-
-  print('Starting asset download:', data['asset_data']['name'])
   task.async_task = asyncio.ensure_future(assets.do_asset_download(request, task))
   
   return web.json_response({'task_id': task_id})
@@ -39,8 +38,6 @@ async def search_assets(request):
   data = await request.json()
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id #mozna k nicemu
-  print('Starting search:', data['urlquery'])
-
   asyncio.ensure_future(search.do_search(request, data, task_id))
 
   return web.json_response({'task_id': task_id})
@@ -64,7 +61,6 @@ async def kill_download(request):
       del globals.tasks[i]
       break
 
-  print(f"Task {data['task_id']} cancelled.")
   return web.Response(text="ok")
 
 
@@ -74,11 +70,8 @@ async def report(request):
   globals.last_report_time = time.time()
 
   data = await request.json()
-  # if len(globals.tasks) > 0:
-  #   print("TOTAL TASKS:", len(globals.tasks))
   reports = list()
   for task in globals.tasks:
-    print("TASK:", task)
     if task.app_id != data['app_id']:
       continue
 
@@ -111,7 +104,7 @@ async def persistent_sessions(app):
   conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16)
   app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs)
   
-  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=1)
+  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=4)
   app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs)
 
   conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=2)
