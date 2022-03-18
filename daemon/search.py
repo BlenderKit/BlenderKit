@@ -51,41 +51,41 @@ async def parse_thumbnails(task: tasks.Task):
   full_thumbs_tasks = []
   # END OF PARSING
   # get thumbnails that need downloading
-  i=0
-  for d in task.result.get('results', []):
-    imgname = assets.extract_filename_from_url(d['thumbnailSmallUrl'])
+
+  for i, search_result in enumerate(task.result.get('results', [])):
+    imgname = assets.extract_filename_from_url(search_result['thumbnailSmallUrl'])
     imgpath = os.path.join(task.data['tempdir'], imgname)
     data = {
       "image_path": imgpath,
-      "image_url": d["thumbnailSmallUrl"],
-      "assetBaseId": d['assetBaseId'],
+      "image_url": search_result["thumbnailSmallUrl"],
+      "assetBaseId": search_result['assetBaseId'],
       "thumbnail_type": "small",
-      "index":i
+      "index": i
     }
 
     task_id = str(uuid.uuid4())
     thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
     globals.tasks.append(thumb_task)
+
     if os.path.exists(thumb_task.data['image_path']):
       thumb_task.finished("thumbnail on disk")
     else:
       small_thumbs_tasks.append(thumb_task)
 
 
-    if d["assetType"] == 'hdr':
-      larege_thumb_url = d['thumbnailLargeUrlNonsquared']
+    if search_result["assetType"] == 'hdr':
+      large_thumb_url = search_result['thumbnailLargeUrlNonsquared']
     else:
-      larege_thumb_url = d['thumbnailMiddleUrl']
+      large_thumb_url = search_result['thumbnailMiddleUrl']
 
-    imgname = assets.extract_filename_from_url(larege_thumb_url)
+    imgname = assets.extract_filename_from_url(large_thumb_url)
     imgpath = os.path.join(task.data['tempdir'], imgname)
     data = {
       "image_path": imgpath,
-      "image_url": larege_thumb_url,
-      "assetBaseId": d['assetBaseId'],
+      "image_url": large_thumb_url,
+      "assetBaseId": search_result['assetBaseId'],
       "thumbnail_type": "full",
       "index": i
-
     }
 
     task_id = str(uuid.uuid4())
@@ -95,7 +95,6 @@ async def parse_thumbnails(task: tasks.Task):
       thumb_task.finished("thumbnail on disk")
     else:
       full_thumbs_tasks.append(thumb_task)
-    i+=1
 
   return small_thumbs_tasks, full_thumbs_tasks
 
