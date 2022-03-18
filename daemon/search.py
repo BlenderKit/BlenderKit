@@ -42,7 +42,7 @@ async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.
   for task in tsks:
     coroutine = asyncio.ensure_future(download_image(session, task))
     coroutines.append(coroutine)
-  asyncio.gather(coroutines)
+  await asyncio.gather(*coroutines)
 
 async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames."""
