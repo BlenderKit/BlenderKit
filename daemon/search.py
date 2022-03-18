@@ -35,21 +35,16 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
       task.error(f"thumbnail download error: {resp.status}")
 
 
-async def download_image_batch(session: aiohttp.ClientSession, parent_task: tasks.Task, images: list[tuple] =[]):
+async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.Task]):
   """Download batch of images. images are tuples of file path and url."""
   
   coroutines = []
-  for task in tasks:
+  for task in tsks:
     if os.path.exists(task.data['image_path']):
       task.finished("thumbnail on disk")
     else:
       coroutine = asyncio.ensure_future(download_image(session, task))
       coroutines.append(coroutine)
-      if queued:
-        await asyncio.gather(*coroutines)
-  if not queued:
-    await asyncio.gather(*coroutines)
-
 
 async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames."""
@@ -141,6 +136,6 @@ async def do_search(request: web.Request, data: dict, task_id: str):
     small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
 
     # thumbnails fetching
-    await download_image_batch(request.app['SESSION_SMALL_THUMBS'], task, small_thumbnails)
-    await download_image_batch(request.app['SESSION_BIG_THUMBS'], task, full_thumbnails)
+    await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks)
+    await download_image_batch(request.app['SESSION_BIG_THUMBS'], full_thumbs_tasks)
 
