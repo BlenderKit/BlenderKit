@@ -80,13 +80,14 @@ def cancel_all_tasks(self, context):
 
 def handle_task(task: tasks.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""
+  
+  #HANDLE ASSET DOWNLOAD
   if task.task_type == 'asset_download':
     download.handle_download_task(task)
     
   #HANDLE SEARCH (candidate to be a function)
   if task.task_type == 'search':
     if task.status == 'finished':
-      print('search is back')
       search.handle_search_task(task)
 
     elif task.status == 'error':

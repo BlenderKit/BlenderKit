@@ -582,19 +582,10 @@ def load_preview(asset, index):
 
 
 def load_previews():
-  scene = bpy.context.scene
-  # FIRST START SEARCH
-  props = bpy.context.window_manager.blenderkitUI
-  # directory = paths.get_temp_dir('%s_search' % props.asset_type.lower())
-  # s = bpy.context.scene
   results = global_vars.DATA.get('search results')
-  #
-  print('load previews')
   if results is not None:
-    i = 0
-    for r in results:
-      load_preview(r, i)
-      i += 1
+    for i, result in enumerate(results):
+      load_preview(result, i)
 
 
 #  line splitting for longer texts...
@@ -728,8 +719,7 @@ def fetch_gravatar(adata=None):
   adata - author data from elastic search result
 
   '''
-  print('fetch gravatar')
-  print(adata)
+
   # fetch new avatars if available already
   if adata.get('avatar128') is not None:
     avatar_path = paths.get_temp_dir(subdir='bkit_g/') + adata['id'] + '.jpg'
@@ -1255,7 +1245,6 @@ def search(category='', get_next=False, author_id=''):
   props.is_searching = True
 
   page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
-  print('page_size', page_size)
   params = {
     'scene_uuid': bpy.context.scene.get('uuid', None),
     'addon_version': version_checker.get_addon_version(),

@@ -12,7 +12,7 @@ from aiohttp import web
 import globals, utils, tasks
 
 
-def get_res_file(data, find_closest_with_url: bool =False):  # asset_data, resolution, find_closest_with_url=False):
+def get_res_file(data, find_closest_with_url: bool =False):
   """Returns closest resolution that current asset can offer.
   
   If there are no resolutions, return orig file.
@@ -57,13 +57,10 @@ def get_res_file(data, find_closest_with_url: bool =False):  # asset_data, resol
       if rdiff < mindist:
         closest = f
         mindist = rdiff
-        # print('\n\n\n\n\n\n\n\n')
-        # print(closest)
-        # print('\n\n\n\n\n\n\n\n')
+
   if not res and not closest:
-    # utils.pprint(f'will download blend instead of resolution {resolution}')
     return orig, 'blend'
-  # utils.pprint(f'found closest resolution {closest["fileType"]} instead of the requested {resolution}')
+
   return closest, closest['fileType']
 
 
@@ -78,44 +75,26 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   6. unpacks the file
   """
 
-  # TODO get real link here...
-  await get_download_url(request.app["SESSION_API_REQUESTS"], task)  # asset_data, scene_id, api_key, resolution=self.resolution, tcom=tcom)
-
-  # only now we can check if the file already exists. This should have 2 levels, for materials and for brushes
-  # different than for the non free content. delete is here when called after failed append tries.
+  await get_download_url(request.app["SESSION_API_REQUESTS"], task)
 
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
-  if await check_existing(task.data):  # and not tcom.passargs.get('delete'):
-    # this sends the thread for processing, where another check should occur, since the file might be corrupted.
-    #report_download_progress(data, progress=100, text='Asset found on hard drive')
-    #report_download_finished(data)
+  if await check_existing(task.data):
     task.finished('Asset found on hard drive')
-    print('found on hard drive, finishing ')
     return
 
   file_path = get_download_filepaths(task.data)[0]
-
   task.change_progress(0, "Waiting in queue")
   await download_file(request.app["SESSION_ASSETS"], file_path, task)
-  # unpack the file immediately after download
-
-  #report_download_progress(data, text='Unpacking files', progress = 100)
   task.change_progress(100, 'Unpacking files')
-  # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably
-  # remove the following line?
+  # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
 
   task.data['asset_data']['resolution'] = task.data['resolution']
   
   await send_to_bg(task.data, file_path, command='unpack', wait=True)
-
-  # print(f'Finished asset download: {data}')
-  #report_download_finished(data)
   task.finished('Asset downloaded and ready')
 
 
 async def download_file(session: aiohttp.ClientSession, file_path, task:tasks.Task):
-  print("DOWNLOADING FILE_PATH:", file_path)
-
   with open(file_path, "wb") as file:
     res_file_info, task.data['resolution'] = get_res_file(task.data)
     async with session.get(res_file_info['url']) as resp:
@@ -148,23 +127,9 @@ async def download_file(session: aiohttp.ClientSession, file_path, task:tasks.Ta
         progress = int(100 * downloaded / file_size)
         task.change_progress(progress=progress, message=f"Downloading {t} {task.data['resolution']}")
         file.write(chunk)
-
         # if globals.tasks[data['task_id']].get('kill'):
         #   delete_unfinished_file(file_path)
         #   return
-#
-# def report_download_progress(data, text=None, progress=None):
-#   """Add download progress report to task results."""
-#
-#   globals.tasks[data['task_id']] = {
-#     "app_id": data['PREFS']['app_id'],
-#     'type': 'download-progress',
-#   }
-#
-#   if progress is not None:
-#     globals.tasks[data['task_id']]['progress'] = progress
-#   if text is not None:
-#     globals.tasks[data['task_id']]['text'] = text
 
 
 def report_download_finished(data):
@@ -176,10 +141,8 @@ def report_download_finished(data):
     'type': 'download-finished',
   })
 
-  print("FINISHED", globals.tasks[data['task_id']])
 
-
-async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):  # asset_data, scene_id, api_key, tcom=None, resolution='blend'):
+async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):
   """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
 
   headers = utils.get_headers(task.data['PREFS']['api_key'])
@@ -226,15 +189,13 @@ def extract_filename_from_url(url: str) -> str:
 def server_2_local_filename(asset_data, filename):
   """Convert file name on server to file name local. This should get replaced."""
 
-  # print(filename)
   fn = filename.replace('blend_', '')
   fn = fn.replace('resolution_', '')
-  # print('after replace ', fn)
   n = utils.slugify(asset_data['name']) + '_' + fn
   return n
 
 
-def get_download_filepaths(data):  # asset_data, resolution='blend', can_return_others=False):
+def get_download_filepaths(data):
   """Get all possible paths of the asset and resolution. Usually global and local directory."""
 
   can_return_others = False  # TODO find out what this was and check if it's still needed
@@ -257,7 +218,6 @@ def get_download_filepaths(data):  # asset_data, resolution='blend', can_return_
   if res_file.get('url') is not None:
     # Tweak the names a bit:
     # remove resolution and blend words in names
-    #
     fn = extract_filename_from_url(res_file['url'])
     n = server_2_local_filename(asset_data, fn)
     for d in dirs:
@@ -321,7 +281,6 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
   with open(datafile, 'w', encoding='utf-8') as s:
     json.dump(process_data, s, ensure_ascii=False, indent=4)
 
-  print('opening Blender instance to do processing - ', command)
   args = [
     "--background",
     "-noaudio",
@@ -399,5 +358,3 @@ def delete_unfinished_file(file_path: str) -> None:
   asset_dir = os.path.dirname(file_path)
   if len(os.listdir(asset_dir)) == 0:
     os.rmdir(asset_dir)
-
-  return
