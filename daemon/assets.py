@@ -95,6 +95,7 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
 
   file_path = get_download_filepaths(task.data)[0]
 
+  task.change_progress(0, "Waiting in queue")
   await download_file(request.app["SESSION_ASSETS"], file_path, task)
   # unpack the file immediately after download
 
