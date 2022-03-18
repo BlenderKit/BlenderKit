@@ -40,11 +40,9 @@ async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.
   
   coroutines = []
   for task in tsks:
-    if os.path.exists(task.data['image_path']):
-      task.finished("thumbnail on disk")
-    else:
-      coroutine = asyncio.ensure_future(download_image(session, task))
-      coroutines.append(coroutine)
+    coroutine = asyncio.ensure_future(download_image(session, task))
+    coroutines.append(coroutine)
+  asyncio.gather(coroutines)
 
 async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames."""
@@ -68,7 +66,11 @@ async def parse_thumbnails(task: tasks.Task):
     task_id = str(uuid.uuid4())
     thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
     globals.tasks.append(thumb_task)
-    small_thumbs_tasks.append(thumb_task)
+    if os.path.exists(thumb_task.data['image_path']):
+      thumb_task.finished("thumbnail on disk")
+    else:
+      small_thumbs_tasks.append(thumb_task)
+
 
     if d["assetType"] == 'hdr':
       larege_thumb_url = d['thumbnailLargeUrlNonsquared']
@@ -90,7 +92,10 @@ async def parse_thumbnails(task: tasks.Task):
     task_id = str(uuid.uuid4())
     thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
     globals.tasks.append(thumb_task)
-    full_thumbs_tasks.append(thumb_task)
+    if os.path.exists(thumb_task.data['image_path']):
+      thumb_task.finished("thumbnail on disk")
+    else:
+      full_thumbs_tasks.append(thumb_task)
     i+=1
 
   return small_thumbs_tasks, full_thumbs_tasks
