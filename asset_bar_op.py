@@ -503,7 +503,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_layout(self, context, event):
         # restarting asset_bar completely since the widgets are too hard to get working with updates.
 
-        self.scroll_update()
+        self.scroll_update(always = True)
         self.position_and_hide_buttons()
 
         self.button_close.set_location(self.bar_width - self.other_button_size, -self.other_button_size)
@@ -805,7 +805,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.panel.set_location(self.bar_x,
                                 self.bar_y)
         # to hide arrows accordingly
-        self.scroll_update()
+        self.scroll_update(always = True)
 
         self.window = context.window
         self.area = context.area
@@ -1017,7 +1017,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 if utils.profile_is_validator():
                     asset_button.red_alert.visible = False
 
-    def scroll_update(self):
+    def scroll_update(self, always =False):
         sr = global_vars.DATA.get('search results')
         sro = global_vars.DATA.get('search results orig')
         # print('scroll update')
@@ -1032,7 +1032,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = max(self.scroll_offset, 0)
         # print(orig_offset, self.scroll_offset)
         #only update if scroll offset actually changed, otherwise this is unnecessary
-        if orig_offset == self.scroll_offset:
+        if always  or orig_offset != self.scroll_offset:
             self.update_images()
 
         # print(sro)
