@@ -107,6 +107,13 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   except requests.exceptions.ConnectionError as err:
     return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
 
+def kill_daemon_server():
+  ''' Request to restart the daemon server.'''
+  address = get_address()
+  with requests.Session() as session:
+    url = address + "/shutdown"
+    resp = session.get(url)
+    return resp
 
 def start_daemon_server(log_dir: str = None):
   """Start daemon server in separate process."""
