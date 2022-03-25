@@ -34,9 +34,9 @@ from os import path
 
 sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
 
-from . import vendor
-vendor.add_vendored()
-vendor.ensure_dependencies()
+from . import dependencies
+dependencies.add_dependencies()
+dependencies.ensure_dependencies()
 
 
 

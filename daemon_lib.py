@@ -6,7 +6,7 @@ import requests
 import aiohttp
 import time
 
-from . import vendor
+from . import dependencies
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -112,9 +112,7 @@ def start_daemon_server(log_dir: str = None):
   """Start daemon server in separate process."""
 
   env  = environ.copy()
-  vendor_dir = vendor.get_vendor_path()
-  fallback_dir = vendor.get_vendor_fallback_path()
-  env['PYTHONPATH'] = vendor_dir + os.pathsep + fallback_dir
+  env['PYTHONPATH'] = dependencies.get_dependencies_path()
 
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
