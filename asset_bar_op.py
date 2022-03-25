@@ -1021,7 +1021,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         sr = global_vars.DATA.get('search results')
         sro = global_vars.DATA.get('search results orig')
         # print('scroll update')
-        orig_offset = self.scroll_offset
+        # orig_offset = self.scroll_offset
         # empty results
         if sr is None:
             self.button_scroll_down.visible = False
@@ -1032,8 +1032,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = max(self.scroll_offset, 0)
         # print(orig_offset, self.scroll_offset)
         #only update if scroll offset actually changed, otherwise this is unnecessary
-        if always  or orig_offset != self.scroll_offset:
-            self.update_images()
+        # this was pretty stupid, since offset changes BEFORE entering the function.
+        # if always  or orig_offset != self.scroll_offset:
+        self.update_images()
 
         # print(sro)
         if sro['count'] > len(sr) and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15:
