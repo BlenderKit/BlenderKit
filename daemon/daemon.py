@@ -6,6 +6,7 @@ import os
 import sys
 import uuid
 import ssl
+from ssl import Purpose
 import certifi
 import time
 
@@ -95,9 +96,13 @@ class Shutdown(web.View):
 
 
 async def persistent_sessions(app):
-  sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+  #sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+
+
+  sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
   sslcontext.load_verify_locations(certifi.where())
-  
+  sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
+
   conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64)
   app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests)
 
