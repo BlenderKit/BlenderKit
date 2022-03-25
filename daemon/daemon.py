@@ -95,9 +95,13 @@ class Shutdown(web.View):
 
 
 async def persistent_sessions(app):
-  sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-  sslcontext.load_verify_locations(certifi.where())
+  #sslcontext = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+  #sslcontext.load_default_certs(purpose=ssl.Purpose.CLIENT_AUTH)
+  #sslcontext.load_verify_locations(certifi.where())
   
+  sslcontext = ssl.SSLContext()
+  sslcontext.load_verify_locations(certifi.where())
+
   conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64)
   app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests)
 
