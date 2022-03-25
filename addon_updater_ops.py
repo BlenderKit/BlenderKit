@@ -27,6 +27,8 @@ import traceback
 import bpy
 from bpy.app.handlers import persistent
 
+from . import daemon_lib
+
 # Safely import the updater.
 # Prevents popups for users with invalid python installs e.g. missing libraries
 # and will replace with a fake class instead if it fails (so UI draws work).
@@ -495,6 +497,11 @@ class AddonUpdaterUpdatedSuccessful(bpy.types.Operator):
     )
 
     def invoke(self, context, event):
+        #we need to restart BlenderKit daemon after update
+        try:
+            daemon_lib.kill_daemon_server()
+        except:
+            pass
         return context.window_manager.invoke_props_popup(self, event)
 
     def draw(self, context):
