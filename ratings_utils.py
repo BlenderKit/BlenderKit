@@ -172,19 +172,18 @@ def update_ratings_work_hours(self, context):
 def update_quality_ui(self, context):
     '''Converts the _ui the enum into actual quality number.'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.api_key == '':
-        # ui_panels.draw_not_logged_in(self, message='Please login/signup to rate assets.')
-        # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_login_menu')
+    #we need to check for matching value not to update twice/call the popup twice.
+    if user_preferences.api_key == '' and self.rating_quality != int(self.rating_quality_ui):
         # return
         bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
                                     message='Please login/signup to rate assets. Clicking OK takes you to web login.')
-        # self.rating_quality_ui = '0'
-    self.rating_quality = int(self.rating_quality_ui)
+    else:
+      self.rating_quality = int(self.rating_quality_ui)
 
 
 def update_ratings_work_hours_ui(self, context):
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.api_key == '':
+    if user_preferences.api_key == ''and self.rating_work_hours != float(self.rating_work_hours_ui):
         # ui_panels.draw_not_logged_in(self, message='Please login/signup to rate assets.')
         # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_login_menu')
         # return
@@ -351,6 +350,8 @@ class RatingsProperties():
 
     def prefill_ratings(self):
         # pre-fill ratings
+        if not utils.user_logged_in():
+          return
         ratings = get_rating_local(self.asset_id)
         print('prefill ratings')
         print(ratings)

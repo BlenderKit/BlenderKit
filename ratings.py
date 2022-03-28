@@ -164,6 +164,16 @@ class UploadRatingOperator(bpy.types.Operator):
 def draw_ratings_menu(self, context, layout):
     pcoll = icons.icon_collections["main"]
 
+    if not utils.user_logged_in():
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        if user_preferences.login_attempt:
+            draw_login_progress(layout)
+        else:
+            layout.operator_context = 'EXEC_DEFAULT'
+            layout.operator("wm.blenderkit_login", text="Login to Rate and Comment assets",
+                            icon='URL').signup = False
+        return
+
     profile_name = ''
     profile = global_vars.DATA.get('bkit profile')
     if profile and len(profile['user']['firstName']) > 0:

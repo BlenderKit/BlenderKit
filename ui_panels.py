@@ -2366,6 +2366,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
 
     def prefill_ratings(self):
         # pre-fill ratings
+        if not utils.user_logged_in():
+            return
+        
         ratings = ratings_utils.get_rating_local(self.asset_id)
         if ratings and ratings.get('quality'):
             self.rating_quality = ratings['quality']
