@@ -552,27 +552,38 @@ class ParticlesDropDialog(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         message = 'This asset is a particle setup. BlenderKit can apply particles to the active/drag-drop object.' \
-                  'The number of particles is caluclated automatically, but if there are 2 many particles,' \
-                  ' BlenderKit can do the following steps to make sure Blender continues to run:' \
+                  'The number of particles is caluclated automatically, but if there are too many particles,' \
+                  ' BlenderKit can do the following steps to make sure Blender continues to run:\n' \
                   '\n1.Switch to bounding box view of the particles.' \
                   '\n2.Turn down number of particles that are shown in the view.' \
                   '\n3.Hide the particle system completely from the 3D view.' \
                   "as a result of this, it's possible you'll see the particle setup only in render view or " \
                   "rendered images. You should still be careful and test particle systems on smaller objects first."
-        utils.label_multiline(layout, text=message, width=400)
+        utils.label_multiline(layout, text=message, width=600)
+        row = layout.row()
+        op = row.operator('scene.blenderkit_download', text='Append as plane')
+        op.tooltip = "Append particles as stored in the asset file.\n You can link the particles to your target object manually"
+        op.asset_index = self.asset_search_index
+        op.model_location = self.model_location
+        op.model_rotation = self.model_rotation
+        op.target_object = ''
+        op.replace = False
+        op.replace_resolution = False
+
+        op = row.operator('scene.blenderkit_download', text='Append on target')
+        op.tooltip = "Append and adjust particles counts automatically to the target object."
+        op.asset_index = self.asset_search_index
+        op.model_location = self.model_location
+        op.model_rotation = self.model_rotation
+        op.target_object = self.target_object
+        op.replace = False
+        op.replace_resolution = False
+
 
     def execute(self, context):
-        bpy.ops.scene.blenderkit_download(True,
-                                          # asset_type=ui_props.asset_type,
-                                          asset_index=self.asset_search_index,
-                                          model_location=self.model_rotation,
-                                          model_rotation=self.model_rotation,
-                                          target_object=self.target_object)
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
         wm = context.window_manager
-        return wm.invoke_props_dialog(self, width=400)
+        return wm.invoke_popup(self, width=600)
+
 
 
 # class MaterialDropDialog(bpy.types.Operator):
