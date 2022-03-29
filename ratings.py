@@ -15,7 +15,7 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-from . import paths, utils, rerequests, tasks_queue, ratings_utils, icons, global_vars
+from . import paths, utils, rerequests, tasks_queue, ratings_utils, icons, global_vars, ui_panels
 
 import bpy
 import requests, threading
@@ -167,7 +167,7 @@ def draw_ratings_menu(self, context, layout):
     if not utils.user_logged_in():
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         if user_preferences.login_attempt:
-            draw_login_progress(layout)
+            ui_panels.draw_login_progress(layout)
         else:
             layout.operator_context = 'EXEC_DEFAULT'
             layout.operator("wm.blenderkit_login", text="Login to Rate and Comment assets",
