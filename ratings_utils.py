@@ -356,7 +356,7 @@ class RatingsProperties():
         print('prefill ratings')
         print(ratings)
         if ratings and ratings.get('quality'):
-            self.rating_quality = ratings['quality']
+            self.rating_quality = int(ratings['quality'])
         if ratings and ratings.get('working_hours'):
             wh = int(ratings['working_hours'])
             whs = str(wh)

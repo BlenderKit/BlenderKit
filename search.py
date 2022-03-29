@@ -82,7 +82,7 @@ rtips_string = """You can disable tips in the add-on preferences.
 Ratings help us distribute funds to creators.
 Creators also gain credits for free assets from subscribers.
 Click or drag model or material in scene to link/append 
-Right click in the asset bar for more options
+Right click in the asset bar for a detailed asset card
 Use Append in import settings if you want to edit downloaded objects. 
 Please rate responsively and plentifully. This helps us distribute rewards to the authors.
 All materials are free.

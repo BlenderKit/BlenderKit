@@ -2368,10 +2368,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         # pre-fill ratings
         if not utils.user_logged_in():
             return
-        
+
         ratings = ratings_utils.get_rating_local(self.asset_id)
         if ratings and ratings.get('quality'):
-            self.rating_quality = ratings['quality']
+            self.rating_quality = int(ratings['quality'])
         if ratings and ratings.get('working_hours'):
             wh = int(ratings['working_hours'])
             whs = str(wh)
