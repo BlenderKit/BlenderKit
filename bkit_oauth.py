@@ -25,6 +25,7 @@ import threading
 import requests
 import time
 import logging
+import os
 
 
 bk_logger = logging.getLogger('blenderkit')

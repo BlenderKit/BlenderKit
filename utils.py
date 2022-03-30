@@ -375,12 +375,9 @@ def get_prefs_dir():
     return prefs
 
 def set_proxy():
-    daemon_lib.kill_daemon_server() #this is not ideal, we should improve later
-
     certs = global_vars.PREFS.get('proxy_ca_certs', '')
     if certs != '':
         os.environ['REQUESTS_CA_BUNDLE'] = certs
-
 
 def save_prefs(self, context):
     
@@ -400,6 +397,7 @@ def save_prefs(self, context):
         prefs = get_prefs_dir()
         global_vars.PREFS = prefs
         set_proxy()
+        daemon_lib.kill_daemon_server()
 
         try:
             fpath = paths.BLENDERKIT_SETTINGS_FILENAME
