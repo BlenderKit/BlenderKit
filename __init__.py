@@ -1986,6 +1986,7 @@ def register():
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     global_vars.PREFS = utils.get_prefs_dir()
+    utils.set_proxy()
 
     for cls in classes:
         bpy.utils.register_class(cls)
