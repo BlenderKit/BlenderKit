@@ -28,7 +28,7 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
       with open(image_path, 'wb') as file:
         async for chunk in resp.content.iter_chunked(4096 * 32):
           file.write(chunk)
-          task.finished("thumbnail downloaded")
+      task.finished("thumbnail downloaded")
     else:
       task.error(f"thumbnail download error: {resp.status}")
 
