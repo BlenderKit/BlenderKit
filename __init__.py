@@ -1938,8 +1938,9 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "thumbnail_use_gpu")
         layout.prop(self, "daemon_port")
         layout.prop(self, "proxy_which")
-        layout.prop(self, "proxy_address")
-        layout.prop(self, "proxy_ca_certs")
+        if self.proxy_which == 'CUSTOM':
+            layout.prop(self, "proxy_address")
+            layout.prop(self, "proxy_ca_certs")
 
         if bpy.context.preferences.view.show_developer_ui:
             layout.prop(self, "use_timers")
