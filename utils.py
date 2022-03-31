@@ -30,7 +30,6 @@ import traceback
 import datetime
 import uuid
 import re
-import urllib
 
 bk_logger = logging.getLogger('blenderkit')
 
@@ -378,6 +377,7 @@ def set_proxy():
     certs = global_vars.PREFS.get('proxy_ca_certs', '')
     if certs != '':
         os.environ['REQUESTS_CA_BUNDLE'] = certs
+        os.environ['CURL_CA_BUNDLE'] = certs
 
 def save_prefs(self, context):
     
@@ -397,7 +397,6 @@ def save_prefs(self, context):
         prefs = get_prefs_dir()
         global_vars.PREFS = prefs
         set_proxy()
-        daemon_lib.kill_daemon_server()
 
         try:
             fpath = paths.BLENDERKIT_SETTINGS_FILENAME

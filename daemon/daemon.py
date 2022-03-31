@@ -88,7 +88,7 @@ class Shutdown(web.View):
 
   async def get(self):
     asyncio.ensure_future(self.shutdown_in_future())
-    return web.Response(text='Going to kill him soon.')
+    return web.Response(text='Going to shutdown soon.')
 
   async def shutdown_in_future(self):
     await asyncio.sleep(1)

@@ -1726,12 +1726,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         items=(
             ('SYSTEM', 'SYSTEM: use system proxy settings',
              'Addon will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored'),
-            ('CUSTOM', 'CUSTOM: use custom proxy settings',
-             'Addon will use custom proxy settings, system proxy settings will be ignored.'
-             'Please set the address in the addon preferences bellow in the field "Custom proxy address".'),
-            ('NONE', 'NONE: Ignore system and custom proxy setting',
+            ('NONE', 'NONE: ignore system and custom proxy setting',
              'Addon will ignore both system-wide proxy settings and custom proxy settings defined in addon preferences.'
-             'All addon HTTP requests will not go through any proxy server'), 
+             'All addon HTTP requests will not go through any proxy server'),
+            ('CUSTOM', 'CUSTOM: use custom proxy settings (experimental)',
+             'Addon will use custom proxy settings, system proxy settings will be ignored.'
+             'Please set the address in the addon preferences bellow in the field "Custom proxy address".'
+             'This is an experimental feature, might not work on some systems'),
         ),
         description="Which directories will be used for storing downloaded data",
         default="SYSTEM",
@@ -1741,7 +1742,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     proxy_address: StringProperty(
         name="Custom proxy address",
-        description="""Set custom proxy for HTTP requests of addon. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
+        description="""(experimental) Set custom proxy for HTTP requests of addon. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
         
 If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication.
 
@@ -1751,9 +1752,15 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
     )
 
     proxy_ca_certs: StringProperty(
-        name="Custom proxy CA certificates path",
-        description="Define path to proxy's certificates in .pem format or system certificates with proxy's certs added as trusted. If empty the default certificates from certifi package will be used and HTTPS proxies might not work. This applies both for custom proxies, or system proxies",
+        name="Custom CA certificates path",
+        description=
+            "Define custom path to CA BUNDLE certificates in .pem or .crt format which owerwrites the usage of certificates in 'certifi' package."
+            "Specifying path to your system CA bundle containing proxy certs might fix HTTPS proxy issues."
+            "If empty the default certificates from certifi package will be used and HTTPS proxies might not work."
+            "This applies both for custom proxies, or system proxies. This is an experimental feature, might not work on some systems"
+            "When set, please shutdown the daemon server on address: http:localhost:port/shutdown so the daemon reloads new CA certificates.",
         default="",
+        subtype='DIR_PATH',
         update=utils.save_prefs
     )
 
