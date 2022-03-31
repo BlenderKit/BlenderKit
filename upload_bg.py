@@ -22,7 +22,6 @@ from blenderkit import paths, append_link, bg_blender, utils, rerequests, tasks_
 
 import sys, json, os, time
 import requests
-import logging
 
 import bpy
 
