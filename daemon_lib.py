@@ -5,6 +5,7 @@ import subprocess
 import requests
 import aiohttp
 import time
+import platform
 
 from . import dependencies, global_vars
 
@@ -124,28 +125,31 @@ def start_daemon_server(log_dir: str = None):
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
 
-
-
   if log_dir == None:
     log_dir = path.abspath(path.expanduser('~') + "/blenderkit_data")
   log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
 
   blenderkit_path = path.dirname(__file__)
   daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
+
   with open(log_path, "wb") as log:
-    process = subprocess.Popen(
-      args       = [
+    creation_flags = 0
+    if platform.system() == "Windows":
+      creation_flags = subprocess.DETACHED_PROCESS
+    subprocess.Popen(
+      args = [
         sys.executable,
         "-u", daemon_path,
         "--port", get_port(),
         "--proxy-which", global_vars.PREFS.get('proxy_which'),
         "--proxy-address", global_vars.PREFS.get('proxy_address'),
         "--proxy-ca-certs", global_vars.PREFS.get('proxy_ca_certs'),
-        ],
-      env        = env,
-      stdout     = log,
-      stderr     = log
-      )
+      ],
+      env           = env,
+      stdout        = log,
+      stderr        = log,
+      creationflags = creation_flags,
+    )
 
   print(f'Daemon server started on address {get_address()}')
 
