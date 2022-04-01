@@ -21,7 +21,7 @@ import uuid
 
 import bpy
 
-from . import ui, utils
+from . import utils
 
 
 def append_brush(file_name, brushname=None, link=False, fake_user=True):

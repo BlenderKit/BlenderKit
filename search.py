@@ -30,14 +30,9 @@ import bpy
 from bpy.app.handlers import persistent
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
     BoolProperty,
-    EnumProperty,
-    FloatProperty,
-    FloatVectorProperty,
-    IntProperty,
-    PointerProperty,
     StringProperty,
 )
-from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup, UIList
+from bpy.types import Operator
 
 from . import (
     addon_updater_ops,

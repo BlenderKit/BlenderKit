@@ -21,8 +21,6 @@ import bpy
 import mathutils
 from bpy.types import Operator
 
-from . import utils
-
 
 def getNodes(nt, node_type='OUTPUT_MATERIAL'):
     chnodes = nt.nodes[:]

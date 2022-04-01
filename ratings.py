@@ -19,7 +19,6 @@ import logging
 import threading
 
 import bpy
-import requests
 
 from . import (
     global_vars,
@@ -35,15 +34,7 @@ from . import (
 
 bk_logger = logging.getLogger('blenderkit')
 
-from bpy.props import (
-    BoolProperty,
-    EnumProperty,
-    FloatProperty,
-    IntProperty,
-    PointerProperty,
-    StringProperty,
-)
-from bpy.types import Operator, Panel
+from bpy.types import Operator
 
 
 def pretty_print_POST(req):
