@@ -17,8 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import time
+
 import bpy
-from . import colors, asset_bar_op, ui_bgl, utils
+
+from . import asset_bar_op, colors, ui_bgl, utils
+
 
 reports = []
 

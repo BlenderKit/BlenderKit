@@ -32,9 +32,12 @@ bl_info = {
 import sys
 from os import path
 
+
 sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
 
 from . import dependencies
+
+
 dependencies.add_dependencies()
 dependencies.ensure_dependencies()
 
@@ -145,27 +148,22 @@ else:
     # from .bl_ui_widgets import bl_ui_textbox
 
 import math
-import bpy
 
-from bpy.app.handlers import persistent
+import bpy
 import bpy.utils.previews
 import mathutils
-from mathutils import Vector
+from bpy.app.handlers import persistent
 from bpy.props import (
-    IntProperty,
+    BoolProperty,
+    EnumProperty,
     FloatProperty,
     FloatVectorProperty,
-    StringProperty,
-    EnumProperty,
-    BoolProperty,
+    IntProperty,
     PointerProperty,
+    StringProperty,
 )
-from bpy.types import (
-    Operator,
-    Panel,
-    AddonPreferences,
-    PropertyGroup,
-)
+from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup
+from mathutils import Vector
 
 
 # logging.basicConfig(filename = 'blenderkit.log', level = logging.INFO,

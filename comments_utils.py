@@ -16,13 +16,15 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import logging
+import threading
+
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-from . import utils, paths, tasks_queue, rerequests, global_vars, search
-
-import threading
 import requests
-import logging
+
+from . import global_vars, paths, rerequests, search, tasks_queue, utils
+
 
 bk_logger = logging.getLogger('blenderkit')
 

@@ -25,22 +25,23 @@ https://github.com/CGCookie/blender-addon-updater
 __version__ = "1.1.0"
 
 import errno
-import traceback
-import platform
-import ssl
-import urllib.request
-import urllib
-import os
-import json
-import zipfile
-import shutil
-import threading
 import fnmatch
+import json
+import os
+import platform
+import shutil
+import ssl
+import threading
+import traceback
+import urllib
+import urllib.request
+import zipfile
 from datetime import datetime, timedelta
+
+import addon_utils
 
 # Blender imports, used in limited cases.
 import bpy
-import addon_utils
 
 
 # -----------------------------------------------------------------------------

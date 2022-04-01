@@ -17,30 +17,43 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, comments_utils, ratings, ratings_utils, utils, download, categories, icons, search, \
-    resolutions, ui, \
-    tasks_queue, \
-    autothumb, upload, addon_updater_ops, global_vars
-
-from bpy.types import (
-    Panel
-)
-from bpy.props import (
-    IntProperty,
-    FloatProperty,
-    FloatVectorProperty,
-    StringProperty,
-    EnumProperty,
-    BoolProperty,
-    PointerProperty,
-)
+import ctypes
+import logging
+import os
+import platform
+import random
 
 import bpy
-import os
-import random
-import logging
-import platform
-import ctypes
+from bpy.props import (
+    BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    FloatVectorProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
+from bpy.types import Panel
+
+from . import (
+    addon_updater_ops,
+    autothumb,
+    categories,
+    comments_utils,
+    download,
+    global_vars,
+    icons,
+    paths,
+    ratings,
+    ratings_utils,
+    resolutions,
+    search,
+    tasks_queue,
+    ui,
+    upload,
+    utils,
+)
+
 
 bk_logger = logging.getLogger('blenderkit')
 

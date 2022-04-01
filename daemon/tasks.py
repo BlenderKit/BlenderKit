@@ -1,5 +1,6 @@
-import json
 import asyncio
+import json
+
 
 class Task():
   """Holds all information needed for a task."""

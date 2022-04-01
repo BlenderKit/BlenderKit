@@ -18,12 +18,26 @@
 
 
 
-from blenderkit import paths, append_link, bg_blender, utils, rerequests, tasks_queue, ui, reports, global_vars
-
-import sys, json, os, time
-import requests
+import json
+import os
+import sys
+import time
 
 import bpy
+import requests
+
+from blenderkit import (
+    append_link,
+    bg_blender,
+    global_vars,
+    paths,
+    reports,
+    rerequests,
+    tasks_queue,
+    ui,
+    utils,
+)
+
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
 

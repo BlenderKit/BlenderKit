@@ -1,5 +1,6 @@
 import logging
 
+
 PREFS = {}
 DATA = {
   'images available': {}

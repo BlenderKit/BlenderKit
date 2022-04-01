@@ -16,41 +16,51 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from . import paths, utils, categories, ui, colors, bkit_oauth, version_checker, tasks_queue, rerequests, \
-  resolutions, image_utils, ratings_utils, comments_utils, reports, addon_updater_ops, global_vars, daemon_lib, \
-  asset_bar_op
+import json
+import logging
+import math
+import os
+import platform
+import random
+import threading
+import time
+import unicodedata
 
+import bpy
+from bpy.app.handlers import persistent
+from bpy.props import (  # TODO only keep the ones actually used when cleaning
+    BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    FloatVectorProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
+from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup, UIList
+
+from . import (
+    addon_updater_ops,
+    asset_bar_op,
+    bkit_oauth,
+    categories,
+    colors,
+    comments_utils,
+    daemon_lib,
+    global_vars,
+    image_utils,
+    paths,
+    ratings_utils,
+    reports,
+    rerequests,
+    resolutions,
+    tasks_queue,
+    ui,
+    utils,
+    version_checker,
+)
 from .daemon import tasks
 
-from bpy.app.handlers import persistent
-
-from bpy.props import (  # TODO only keep the ones actually used when cleaning
-  IntProperty,
-  FloatProperty,
-  FloatVectorProperty,
-  StringProperty,
-  EnumProperty,
-  BoolProperty,
-  PointerProperty,
-)
-from bpy.types import (
-  Operator,
-  Panel,
-  AddonPreferences,
-  PropertyGroup,
-  UIList
-)
-
-import os
-import random
-import time
-import threading
-import platform
-import bpy
-import json
-import math
-import unicodedata
-import logging
 
 bk_logger = logging.getLogger('blenderkit')
 

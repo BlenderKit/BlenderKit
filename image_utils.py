@@ -1,6 +1,7 @@
-import bpy
 import os
 import time
+
+import bpy
 
 
 def get_orig_render_settings():

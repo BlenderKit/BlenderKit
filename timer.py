@@ -1,17 +1,18 @@
-import bpy
-
-import os
-import time
-import threading
-import requests
-import sys
 import asyncio
 import concurrent.futures
-import queue
 import logging
+import os
+import queue
+import sys
+import threading
+import time
 
-from . import daemon_lib, reports, download, search, colors
+import bpy
+import requests
+
+from . import colors, daemon_lib, download, reports, search
 from .daemon import tasks
+
 
 logger = logging.getLogger(__name__)
 

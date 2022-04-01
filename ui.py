@@ -16,28 +16,37 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from . import paths, ratings, utils, search, upload, ui_bgl, download, bg_blender, colors, tasks_queue, \
-    ui_panels, icons, ratings_utils, reports, global_vars
+import datetime
+import logging
+import math
+import os
+import random
+import time
 
 import bpy
+import mathutils
+from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
+from bpy_extras import view3d_utils
+from mathutils import Vector
 
-import math, random
-
-from bpy.props import (
-    BoolProperty,
-    StringProperty,
-    IntProperty,
-    FloatVectorProperty
+from . import (
+    bg_blender,
+    colors,
+    download,
+    global_vars,
+    icons,
+    paths,
+    ratings,
+    ratings_utils,
+    reports,
+    search,
+    tasks_queue,
+    ui_bgl,
+    ui_panels,
+    upload,
+    utils,
 )
 
-from bpy_extras import view3d_utils
-import mathutils
-from mathutils import Vector
-import time
-import datetime
-import os
-
-import logging
 
 draw_time = 0
 eval_time = 0
