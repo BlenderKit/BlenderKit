@@ -1,8 +1,9 @@
 
-import time
 import subprocess
-from os import path, makedirs
 import sys
+import time
+from os import makedirs, path
+
 
 def add_dependencies():
   """Add dependencies directory into path."""

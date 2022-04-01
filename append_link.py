@@ -17,10 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import utils, ui
+import uuid
 
 import bpy
-import uuid
+
+from . import ui, utils
 
 
 def append_brush(file_name, brushname=None, link=False, fake_user=True):

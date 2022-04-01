@@ -17,11 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import utils
+import bpy
+import mathutils
+from bpy.types import Operator
 
-import bpy, mathutils
-from bpy.types import (
-    Operator)
+from . import utils
 
 
 def getNodes(nt, node_type='OUTPUT_MATERIAL'):

@@ -17,15 +17,16 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import utils
+import os
+import re
+import sys
+import threading
 
 import bpy
-import sys, threading, os
-import re
+from bpy.props import EnumProperty
 
-from bpy.props import (
-    EnumProperty,
-)
+from . import utils
+
 
 bg_processes = []
 

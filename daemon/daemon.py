@@ -1,19 +1,22 @@
 """Main module (starting point) for daemon server. From here all other modules are imported."""
 
-import asyncio
 import argparse
+import asyncio
 import os
-import sys
-import uuid
 import ssl
-from ssl import Purpose
-import certifi
+import sys
 import time
+import uuid
+from ssl import Purpose
 
 import aiohttp
+import assets
+import certifi
+import globals
+import tasks
 from aiohttp import web, web_request
 
-import assets, search, globals, tasks
+import search
 
 
 async def download_asset(request: web_request.Request):

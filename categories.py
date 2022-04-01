@@ -17,17 +17,18 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import paths, utils, tasks_queue, rerequests, ui, colors, reports, global_vars
-
-import requests
 import json
+import logging
 import os
-import bpy
-import time
-
 import shutil
 import threading
-import logging
+import time
+
+import bpy
+import requests
+
+from . import colors, global_vars, paths, reports, rerequests, tasks_queue, ui, utils
+
 
 bk_logger = logging.getLogger('blenderkit')
 

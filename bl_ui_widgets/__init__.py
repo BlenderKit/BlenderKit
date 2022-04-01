@@ -9,7 +9,6 @@ bl_info = {
 
 # Blender imports
 import bpy
-
 from bpy.props import *
 
 

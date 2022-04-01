@@ -17,10 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from . import utils
-
 import bpy
 from object_print3d_utils import operators as ops
+
+from . import utils
+
 
 RENDER_OBTYPES = ['MESH', 'CURVE', 'SURFACE', 'METABALL', 'TEXT']
 

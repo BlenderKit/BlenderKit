@@ -1,13 +1,15 @@
-from os import path, environ
 import os
-import sys
-import subprocess
-import requests
-import aiohttp
-import time
 import platform
+import subprocess
+import sys
+import time
+from os import environ, path
+
+import aiohttp
+import requests
 
 from . import dependencies, global_vars
+
 
 def get_address() -> str:
   """Get address of the daemon."""

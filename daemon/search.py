@@ -5,8 +5,12 @@ import os
 import uuid
 
 import aiohttp
+import assets
+import globals
+import tasks
 from aiohttp import web
-import globals, utils, assets, tasks
+
+import utils
 
 
 def report_image_finished(data, filepath, done=True):

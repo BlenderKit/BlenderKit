@@ -1,15 +1,18 @@
 """Holds functionality for asset manipulation and download."""
 
 import asyncio
-import os
 import json
+import os
 import shutil
 import sys
 import tempfile
+
 import aiohttp
+import globals
+import tasks
 from aiohttp import web
 
-import globals, utils, tasks
+import utils
 
 
 def get_res_file(data, find_closest_with_url: bool =False):

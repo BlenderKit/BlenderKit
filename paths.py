@@ -16,8 +16,15 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, os, sys, tempfile, shutil
-from . import tasks_queue, ui, utils, reports, global_vars, colors
+import os
+import shutil
+import sys
+import tempfile
+
+import bpy
+
+from . import colors, global_vars, reports, tasks_queue, ui, utils
+
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
 BLENDERKIT_LOCAL = "http://localhost:8001"
@@ -189,7 +196,8 @@ def slugify(slug):
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
     """
-    import unicodedata, re
+    import re
+    import unicodedata
     slug = slug.lower()
 
     characters = '<>:"/\\|?\*., ()#'

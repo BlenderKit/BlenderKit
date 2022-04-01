@@ -29,6 +29,7 @@ from bpy.app.handlers import persistent
 
 from . import daemon_lib
 
+
 # Safely import the updater.
 # Prevents popups for users with invalid python installs e.g. missing libraries
 # and will replace with a fake class instead if it fails (so UI draws work).

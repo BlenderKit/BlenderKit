@@ -18,11 +18,15 @@
 
 
 
-from blenderkit import utils, append_link, bg_blender, upload_bg, download
-
-import sys, json, math, os
-import bpy
+import json
+import math
+import os
+import sys
 from pathlib import Path
+
+import bpy
+
+from blenderkit import append_link, bg_blender, download, upload_bg, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]

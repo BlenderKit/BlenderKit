@@ -3,6 +3,7 @@
 import re
 import sys
 
+
 def get_headers(api_key: str) -> dict[str, str]:
   """Get headers with authorization."""
 

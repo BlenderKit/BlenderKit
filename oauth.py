@@ -20,7 +20,10 @@
 import json
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, quote as urlquote, urlparse
+from urllib.parse import parse_qs
+from urllib.parse import quote as urlquote
+from urllib.parse import urlparse
+
 import requests
 
 from . import global_vars

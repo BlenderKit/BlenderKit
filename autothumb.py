@@ -16,18 +16,32 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 # import blenderkit
-from . import paths, utils, bg_blender, ui_panels, icons, tasks_queue, download,global_vars
-
-import tempfile, os, subprocess, json, sys
+import json
+import os
+import subprocess
+import sys
+import tempfile
 
 import bpy
 from bpy.props import (
+    BoolProperty,
+    EnumProperty,
     FloatProperty,
     IntProperty,
-    EnumProperty,
-    BoolProperty,
     StringProperty,
 )
+
+from . import (
+    bg_blender,
+    download,
+    global_vars,
+    icons,
+    paths,
+    tasks_queue,
+    ui_panels,
+    utils,
+)
+
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
 
