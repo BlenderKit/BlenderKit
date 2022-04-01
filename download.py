@@ -49,10 +49,8 @@ from bpy.app.handlers import persistent
 from bpy.props import (
     BoolProperty,
     EnumProperty,
-    FloatProperty,
     FloatVectorProperty,
     IntProperty,
-    PointerProperty,
     StringProperty,
 )
 

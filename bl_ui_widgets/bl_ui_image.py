@@ -1,6 +1,5 @@
 import os
 
-import blf
 import bpy
 
 from .. import ui_bgl

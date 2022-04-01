@@ -1,13 +1,8 @@
 import math
 import os
 
-# from .bl_ui_widgets.bl_ui_textbox import *
-import random
-import time
-
 import bpy
-from bpy.props import BoolProperty, IntProperty, StringProperty
-from bpy.types import Operator
+from bpy.props import BoolProperty, StringProperty
 
 from . import comments_utils, global_vars, paths, search, ui, utils
 from .bl_ui_widgets.bl_ui_button import *
@@ -19,6 +14,13 @@ from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 from .bl_ui_widgets.bl_ui_label import *
+
+
+# from .bl_ui_widgets.bl_ui_textbox import *
+
+
+
+
 
 
 active_area_pointer = 0

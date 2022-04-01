@@ -30,7 +30,7 @@ import uuid
 import bpy
 from mathutils import Vector
 
-from . import daemon_lib, global_vars, image_utils, paths, rerequests
+from . import global_vars, image_utils, paths, rerequests
 
 
 bk_logger = logging.getLogger('blenderkit')

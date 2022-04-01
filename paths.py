@@ -23,7 +23,7 @@ import tempfile
 
 import bpy
 
-from . import colors, global_vars, reports, tasks_queue, ui, utils
+from . import colors, global_vars, reports, tasks_queue, utils
 
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")

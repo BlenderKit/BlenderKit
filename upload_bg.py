@@ -28,13 +28,11 @@ import requests
 
 from blenderkit import (
     append_link,
-    bg_blender,
     global_vars,
     paths,
     reports,
     rerequests,
     tasks_queue,
-    ui,
     utils,
 )
 

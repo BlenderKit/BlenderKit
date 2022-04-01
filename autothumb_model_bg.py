@@ -24,7 +24,6 @@ import os
 import sys
 
 import bpy
-import mathutils
 
 from blenderkit import append_link, bg_blender, download, upload, upload_bg, utils
 
