@@ -1743,7 +1743,8 @@ def label_or_url_or_operator(layout, text='', tooltip='', url='', operator=None,
             op = layout.operator(operator, text=text)
         for kwarg in operator_kwargs.keys():
             if type(operator_kwargs[kwarg]) == str:
-                quoatation = "'"
+                quoatation = '"'
+                operator_kwargs[kwarg] = operator_kwargs[kwarg].replace('"',"'")
             else:
                 quoatation = ""
             exec(f"op.{kwarg} = {quoatation}{operator_kwargs[kwarg]}{quoatation}")
