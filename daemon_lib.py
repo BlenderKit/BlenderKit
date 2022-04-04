@@ -137,7 +137,7 @@ def start_daemon_server(log_dir: str = None):
   with open(log_path, "wb") as log:
     creation_flags = 0
     if platform.system() == "Windows":
-      creation_flags = subprocess.DETACHED_PROCESS
+      creation_flags = subprocess.CREATE_NO_WINDOW
     subprocess.Popen(
       args = [
         sys.executable,
