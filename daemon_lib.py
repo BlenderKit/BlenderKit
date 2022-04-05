@@ -122,7 +122,10 @@ def start_daemon_server(log_dir: str = None):
   """Start daemon server in separate process."""
 
   env  = environ.copy()
-  env['PYTHONPATH'] = dependencies.get_dependencies_path()
+
+  vendor_dir = dependencies.get_vendored_path()
+  fallback_dir = dependencies.get_fallback_path()
+  env['PYTHONPATH'] = vendor_dir + os.pathsep + fallback_dir
 
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home

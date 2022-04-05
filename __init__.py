@@ -38,8 +38,9 @@ sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
 from . import dependencies
 
 
-dependencies.add_dependencies()
-dependencies.ensure_dependencies()
+dependencies.add_vendored()
+dependencies.add_fallback()
+dependencies.ensure_deps()
 
 
 
