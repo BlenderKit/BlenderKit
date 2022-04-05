@@ -2415,10 +2415,12 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
 
         # pre-fill ratings
         self.prefill_ratings()
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+
+        user_preferences.asset_popup_counter+=1
 
         # get comments
         if utils.profile_is_validator():
-            user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
             api_key = user_preferences.api_key
             comments = comments_utils.get_comments_local(asset_data['assetBaseId'])
             # if comments is None:

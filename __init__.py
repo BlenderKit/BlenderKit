@@ -1828,6 +1828,12 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         description='count users notifications',
         default=0,
     )
+
+    asset_popup_counter: IntProperty(name="Asset Popup Card Counter",
+                               description="Counts Asset popup card counter. To enable hiding of the tooltip after some time.",
+                               default=0,
+                               min=0,
+                               max=6)
     # this is now made obsolete by the new popup upon registration -ensures the user knows about the first search.
     # first_run: BoolProperty(
     #     name="First run",
