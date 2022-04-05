@@ -360,9 +360,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         if user_preferences.asset_popup_counter<5:
             # this is shown only to users who don't know yet about the popup card.
-            label = self.new_text('Right click for menu.', 2 * self.margin + 3*self.asset_name_text_size,
-                                  self.tooltip_height - int(self.author_text_size) - self.margin,
-                                  text_size=int(self.author_text_size*.7))
+            label = self.new_text('Right click for menu.', self.margin,
+                                  self.tooltip_height + self.margin,
+                                  text_size=int(self.author_text_size))
             self.tooltip_widgets.append(label)
 
     def hide_tooltip(self):

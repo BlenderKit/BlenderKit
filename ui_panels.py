@@ -2241,6 +2241,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             op = name_row.operator('view3d.close_popup_button', text='', icon='CANCEL')
 
     def draw_comment_response(self, context, layout, comment_id):
+        if not utils.user_logged_in():
+            return
         pcoll = icons.icon_collections["main"]
 
         layout.separator()
@@ -2288,6 +2290,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
                 removal = True
         # row = box.row()
         split1 = split.split()
+        split1.enabled = utils.user_logged_in()
         # split1.emboss = 'NONE'
         op = split1.operator('wm.blenderkit_like_comment', text=str(likes), icon='TRIA_UP')
         op.asset_id = self.asset_data['assetBaseId']
@@ -2317,13 +2320,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
 
         rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']), use_urls = True)
 
-        row = rows[-1]
-        row = layout.row()
-        split = row.split(factor=.8)
-        split.label(text='')
-        split = split.split()
-        op = split.operator('view3d.blenderkit_set_comment_reply_id', text='Reply', icon='GREASEPENCIL')
-        op.comment_id = comment['id']
+        if utils.user_logged_in():
+            row = rows[-1]
+            # row = layout.row()
+            split = row.split(factor=.8)
+            split.label(text='')
+            split = split.split()
+            op = split.operator('view3d.blenderkit_set_comment_reply_id', text='Reply', icon='GREASEPENCIL')
+            op.comment_id = comment['id']
 
 
         # box.label(text=str(comment['flags']))
@@ -2354,17 +2358,16 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         tip_box = layout.box()
         tip_box.label(text=self.tip)
         # comments
-        if utils.profile_is_validator():
-            ui_props = bpy.context.window_manager.blenderkitUI
-            if ui_props.reply_id==0:
-                self.draw_comment_response(context,layout,0)
-            comments = global_vars.DATA.get('asset comments', {})
-            self.comments = comments.get(self.asset_data['assetBaseId'], [])
-            if self.comments is not None:
-                for comment in self.comments:
-                    self.draw_comment(context, layout, comment, width=self.width)
-                    if ui_props.reply_id == comment['id']:
-                        self.draw_comment_response(context,layout,comment['id'])
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if ui_props.reply_id==0:
+            self.draw_comment_response(context,layout,0)
+        comments = global_vars.DATA.get('asset comments', {})
+        self.comments = comments.get(self.asset_data['assetBaseId'], [])
+        if self.comments is not None:
+            for comment in self.comments:
+                self.draw_comment(context, layout, comment, width=self.width)
+                if ui_props.reply_id == comment['id']:
+                    self.draw_comment_response(context,layout,comment['id'])
 
 
     def prefill_ratings(self):
@@ -2420,13 +2423,12 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         user_preferences.asset_popup_counter+=1
 
         # get comments
-        if utils.profile_is_validator():
-            api_key = user_preferences.api_key
-            comments = comments_utils.get_comments_local(asset_data['assetBaseId'])
-            # if comments is None:
-            comments_utils.get_comments_thread(asset_data['assetBaseId'], api_key)
-            comments = global_vars.DATA.get('asset comments', {})
-            self.comments = comments.get(asset_data['assetBaseId'], [])
+        api_key = user_preferences.api_key
+        comments = comments_utils.get_comments_local(asset_data['assetBaseId'])
+        # if comments is None:
+        comments_utils.get_comments_thread(asset_data['assetBaseId'], api_key)
+        comments = global_vars.DATA.get('asset comments', {})
+        self.comments = comments.get(asset_data['assetBaseId'], [])
 
         return wm.invoke_popup(self, width=self.width)
 
