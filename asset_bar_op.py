@@ -349,7 +349,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         quality_star.set_image(img_path)
         quality_star.set_image_size((self.asset_name_text_size, self.asset_name_text_size))
         quality_star.set_image_position((0, 0))
-        # self.quality_star = quality_star
+        self.quality_star = quality_star
         self.tooltip_widgets.append(quality_star)
         label = self.new_text('', 2 * self.margin + self.asset_name_text_size,
                               self.tooltip_height - int(self.asset_name_text_size + self.margin * .5),
@@ -884,6 +884,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 img_path = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
 
                 self.gravatar_image.set_image(img_path)
+
             properties_width = 0
             for r in bpy.context.area.regions:
                 if r.type == 'UI':
@@ -891,6 +892,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             tooltip_x = min(int(widget.x_screen),
                             int(bpy.context.region.width - self.tooltip_panel.width - properties_width))
             tooltip_y = int(widget.y_screen + widget.height)
+            #need to set image here because of context issues.
+            img_path = paths.get_addon_thumbnail_path('star_grey.png')
+            self.quality_star.set_image(img_path)
             # self.init_tooltip()
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()

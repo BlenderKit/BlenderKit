@@ -23,6 +23,13 @@ class BL_UI_Image(BL_UI_Widget):
         self.__image_position = image_position
 
     def set_image(self, rel_filepath):
+        #first try to access the image, for cases where it can get removed
+        try:
+            self.__image
+            # self.__image.filepath
+            # self.__image.pixels
+        except:
+            self.__image = None
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
                 imgname = f".{os.path.basename(rel_filepath)}"
