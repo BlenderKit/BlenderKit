@@ -45,13 +45,31 @@ def ensure_deps():
       import certifi
       return
     except:
-      started = time.time()
-      requirements = path.join(path.dirname(__file__), 'requirements.txt')
-      ok = subprocess.call([sys.executable, '-m', 'ensurepip'])
-      print(f"Ensure pip exited: {ok}")
+      install_dependencies()
 
-      ok = subprocess.call([sys.executable, '-m', 'pip', 'install', '-t', get_fallback_path(), '-r', requirements])
-      print(f"Aiohttp install exited: {ok}")
-      print(f"Install finished in {time.time()-started}")
+def install_dependencies():
+  """Install pip and install dependencies."""
 
+  started = time.time()
 
+  command = [sys.executable, '-m', 'ensurepip', '--user']
+  result = subprocess.run(command, capture_output=True, text=True)
+  print(f"PIP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+
+  requirements = path.join(path.dirname(__file__), 'requirements.txt')
+  command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_fallback_path(), '-r', requirements]
+  result = subprocess.run(command, capture_output=True, text=True)
+  print(f"AIOHTTP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+  if result.returncode == 0:
+    print(f"Install succesfully finished in {time.time()-started}")
+    return
+
+  print(f"Install from requirements.txt failed, trying with unconstrained versions...")
+  command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_fallback_path(), 'aiohttp', 'certifi']
+  result = subprocess.run(command, capture_output=True, text=True)
+  print(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+  if result.returncode == 0:
+    print(f"Install succesfully finished in {time.time()-started}")
+    return
+  
+  print(f"Installation failed")
