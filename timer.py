@@ -71,6 +71,14 @@ def timer():
     return .2
   return .5
 
+@bpy.app.handlers.persistent
+def timer_image_cleanup():
+  imgs = bpy.data.images[:]
+  for i in imgs:
+    if (i.name[:11] == '.thumbnail_' or i.filepath.find('bkit_g')>-1) and not i.has_data and i.users == 0:
+      bpy.data.images.remove(i)
+  return 60
+
 def cancel_all_tasks(self, context):
   """Cancel all tasks."""
 
@@ -139,6 +147,7 @@ def register_timer():
     setup_asyncio_executor()
   if not bpy.app.background:
     bpy.app.timers.register(timer, persistent=True, first_interval=3)
+    bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
 
   thread = threading.Thread(target=start_server_thread, args=(), daemon=True)
   thread.start()
@@ -146,3 +155,4 @@ def register_timer():
 def unregister_timer():
   if bpy.app.timers.is_registered(timer):
     bpy.app.timers.unregister(timer)
+    bpy.app.timers.unregister(timer_image_cleanup)
