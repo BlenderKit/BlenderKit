@@ -1,0 +1,13 @@
+frozenlist-1.3.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+frozenlist-1.3.0.dist-info/LICENSE,sha256=atcq6P9K6Td0Wq4oBfNDqYf6o6YGrHLGCfLUj3GZspQ,11533
+frozenlist-1.3.0.dist-info/METADATA,sha256=9gHv8zW2TAZ0zIIOnUVYAoi3o5sk0p5UwGmfYottR3w,4662
+frozenlist-1.3.0.dist-info/RECORD,,
+frozenlist-1.3.0.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+frozenlist-1.3.0.dist-info/WHEEL,sha256=W26pYN7HLsBT1jrDSL9udgf_mdNKJmYmL23sIP-FcgM,102
+frozenlist-1.3.0.dist-info/top_level.txt,sha256=jivtxsPXA3nK3WBWW2LW5Mtu_GHt8UZA13NeCs2cKuA,11
+frozenlist/__init__.py,sha256=dAJSANyjpdU0FS-G36EQz-k4c5Q2P-vxtUzRRc9sw60,2419
+frozenlist/__init__.pyi,sha256=Ja2qc1nzmMYOqbgnfvB1q8FHgs1VPU6t2MyCZ_kUP8o,1517
+frozenlist/__pycache__/__init__.cpython-310.pyc,,
+frozenlist/_frozenlist.cp310-win_amd64.pyd,sha256=MI5P9rEKYcj37rMEVH_1rNIIqbfhqDG6Vfov7PrF-Yc,53248
+frozenlist/_frozenlist.pyx,sha256=IrNkJISUDLioWNUpIDj2VfxN_RFiJ6gHlv47rYBNgwQ,3106
+frozenlist/py.typed,sha256=3VVwXUAWVEVX7sDwyYDnW5ZdBC9_Z9AJAFfLCleUW0k,8
