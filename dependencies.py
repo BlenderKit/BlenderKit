@@ -42,6 +42,7 @@ def ensure_deps():
     tried = tried + 1
     try:
       import aiohttp
+      from aiohttp import web, web_request
       import certifi
       return
     except:
