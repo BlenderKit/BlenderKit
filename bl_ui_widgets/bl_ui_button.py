@@ -74,8 +74,8 @@ class BL_UI_Button(BL_UI_Widget):
         #first try to access the image, for cases where it can get removed
         try:
             self.__image
-            # self.__image.filepath
-            # self.__image.pixels
+            self.__image.filepath
+            self.__image.pixels
         except:
             self.__image = None
         try:
