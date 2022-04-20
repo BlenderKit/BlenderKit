@@ -42,8 +42,8 @@ def ensure_deps():
     tried = tried + 1
     try:
       import aiohttp
-      from aiohttp import web, web_request
       import certifi
+      from aiohttp import web, web_request
       return
     except:
       install_dependencies()
