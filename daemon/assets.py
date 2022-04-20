@@ -92,8 +92,8 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
 
   task.data['asset_data']['resolution'] = task.data['resolution']
-  
-  await send_to_bg(task.data, file_path, command='unpack', wait=True)
+  if task.data['PREFS']['unpack_files']:
+    await send_to_bg(task.data, file_path, command='unpack', wait=True)
   task.finished('Asset downloaded and ready')
 
 
