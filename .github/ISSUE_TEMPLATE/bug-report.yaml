@@ -23,11 +23,20 @@ body:
       required: false
 
   - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots/video
+      description: |
+        If applicable please provide a screenshot/video of the problem.
+    validations:
+      required: false
+
+  - type: textarea
     id: logs
     attributes:
-      label: Logs and/or Screenshots
+      label: Logs
       description: |
-        If possible please provide a log and/or screenshot of the problem.
+        If applicable please provide a log of the problem.
         - On Mac or linux, you need to run Blender from a terminal, where you can later see the debug info.
         - On Windows, you need to toggle system console in the top menu (see screenshot below).
     validations:
