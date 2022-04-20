@@ -1,5 +1,6 @@
 """Contains utility functions for daemon server. Mix of everything."""
 
+import platform
 import re
 import sys
 
@@ -7,7 +8,10 @@ import sys
 def get_headers(api_key: str) -> dict[str, str]:
   """Get headers with authorization."""
 
-  headers = {"accept": "application/json"}
+  headers = {
+    "accept": "application/json",
+    "Platform-Version": platform.platform(),
+  }
   if api_key != '':
     headers["Authorization"] = f"Bearer {api_key}"
 

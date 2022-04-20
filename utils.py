@@ -21,6 +21,7 @@ import datetime
 import json
 import logging
 import os
+import platform
 import re
 import shutil
 import sys
@@ -699,6 +700,7 @@ def requests_post_thread(url, json, headers):
 def get_headers(api_key):
     headers = {
         "accept": "application/json",
+        "Platform-Version": platform.platform(),
     }
     if api_key != '':
         headers["Authorization"] = "Bearer %s" % api_key
