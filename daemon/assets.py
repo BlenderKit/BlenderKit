@@ -287,6 +287,7 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
   args = [
     "--background",
     "-noaudio",
+    "--no-addons",
     fpath,
     "--python", os.path.join(script_path, "resolutions_bg.py"),
     "--", datafile
