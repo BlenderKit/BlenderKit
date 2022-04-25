@@ -2300,20 +2300,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         op.asset_id = self.asset_data['assetBaseId']
         op.comment_id = comment['id']
         op.flag = 'dislike'
-        # op = split1.operator('wm.blenderkit_like_comment', text='', icon='CANCEL')
-        # op.asset_id = self.asset_data['assetBaseId']
-        # op.comment_id = comment['id']
-        # op.flag = 'delete'
 
-        # op = split1.operator('wm.blenderkit_delete_comment', text='', icon='CANCEL')
-        # op.asset_id = self.asset_data['assetBaseId']
-        # op.comment_id = comment['id']
-        # op.flag = 'dislike'
-
-        # op = split1.operator('wm.blenderkit_like_comment', text='report', icon='ERROR')
-        # op.asset_id = self.asset_data['assetBaseId']
-        # op.comment_id = comment['id']
-        # op.flag = 'removal'
         if removal:
             row.alert = True
             row.label(text='', icon='ERROR')

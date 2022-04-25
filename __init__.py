@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy",
-    "version": (3, 1, 1),
+    "version": (3, 1, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
@@ -597,11 +597,6 @@ class BlenderKitCommonSearchProps(object):
     )
     free_only: BoolProperty(name="Free first", description="Show free models first",
                             default=False, update=search.search_update)
-
-    unpack_files: BoolProperty(name="Unpack Files",
-                               description="Unpack files after download",
-                               default=True
-                               )
 
     unrated_only: BoolProperty(name="Unrated only", description="Show only unrated models",
                                default=False, update=search.search_update)
@@ -1720,6 +1715,11 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=fix_subdir
     )
 
+    unpack_files: BoolProperty(name="Unpack Files",
+                               description="Unpack files after download",
+                               default=True
+                               )
+
     proxy_which: EnumProperty(
         name="Proxy",
         items=(
@@ -1934,6 +1934,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "project_subdir")
         # layout.prop(self, "temp_dir")
         layout.prop(self, "directory_behaviour")
+        layout.prop(self, "unpack_files")
         # layout.prop(self, "allow_proximity")
         # layout.prop(self, "panel_behaviour")
         layout.prop(self, "thumb_size")
