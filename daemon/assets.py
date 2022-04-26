@@ -291,7 +291,7 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
     "-noaudio",
     # "--no-addons",
     fpath,
-    "--python", os.path.join(script_path, "..", resolutions_bg.py"),
+    "--python", os.path.join(script_path, "..", "resolutions_bg.py"),
     "--", datafile
   ]
   proc = await asyncio.create_subprocess_exec(binary_path, *args, creationflags=utils.get_process_flags())
