@@ -10,3 +10,4 @@ tasks: list[tsks.Task] = []
 
 last_report_time: float = time.time()
 TIMEOUT: int = 300
+active_apps=[]

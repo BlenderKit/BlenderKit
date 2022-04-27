@@ -110,6 +110,13 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   except requests.exceptions.ConnectionError as err:
     return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
 
+def report_blender_quit():
+  address = get_address()
+  with requests.Session() as session:
+    url = address + "/report_blender_quit"
+    resp = session.get(url, json={'app_id':os.getpid()})
+    return resp
+
 def kill_daemon_server():
   ''' Request to restart the daemon server.'''
   address = get_address()

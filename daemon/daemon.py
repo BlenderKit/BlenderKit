@@ -74,6 +74,10 @@ async def report(request: web_request.Request):
   globals.last_report_time = time.time()
 
   data = await request.json()
+  #check if the app was already active
+  if data['app_id'] not in globals.active_apps:
+    globals.active_apps.append(data['app_id'])
+
   reports = list()
   for task in globals.tasks:
     if task.app_id != data['app_id']:
@@ -148,6 +152,15 @@ async def should_i_live(app: web.Application):
       sys.exit() #we should handle this more nicely
     await asyncio.sleep(10)
 
+async def report_blender_quit(request: web_request.Request):
+
+  data = await request.json()
+  if data['app_id'] in globals.active_apps:
+    globals.active_apps.remove(data['app_id'])
+  if len(globals.active_apps)==0:
+    print('no more apps to serve, exiting Daemon')
+    sys.exit() #we should handle this more nicely
+
 async def start_background_tasks(app: web.Application):
   app['should_i_live'] = asyncio.create_task(should_i_live(app))
 
@@ -173,6 +186,7 @@ if __name__ == "__main__":
     web.post('/download_asset', download_asset),
     web.post('/search_asset', search_assets),
     web.view('/shutdown', Shutdown),
+    web.view('/report_blender_quit', report_blender_quit),
   ])
 
   server.on_startup.append(start_background_tasks)
