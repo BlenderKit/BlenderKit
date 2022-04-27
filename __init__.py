@@ -1893,7 +1893,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
     updater_interval_days: bpy.props.IntProperty(
         name='Days',
         description="Number of days between checking for updates",
-        default=1,
+        default=10,
         min=0,
         max=31)
 
