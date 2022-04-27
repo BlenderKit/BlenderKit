@@ -1717,7 +1717,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     unpack_files: BoolProperty(name="Unpack Files",
                                description="Unpack files after download",
-                               default=True
+                               default=False
                                )
 
     proxy_which: EnumProperty(
