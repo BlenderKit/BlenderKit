@@ -886,7 +886,8 @@ def query_to_url(query={}, params={}):
 
   requeststring += '&page_size=' + str(params['page_size'])
   requeststring += '&addon_version=%s' % params['addon_version']
-  requeststring += '&blender_version=%s' % params['blender_version']
+  if not (query.get('query') and query.get('query').find('asset_base_id')>-1):
+    requeststring += '&blender_version=%s' % params['blender_version']
   if params.get('scene_uuid') is not None:
     requeststring += '&scene_uuid=%s' % params['scene_uuid']
   # print('params', params)

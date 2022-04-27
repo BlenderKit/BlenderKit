@@ -364,6 +364,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                                   self.tooltip_height + self.margin,
                                   text_size=int(self.author_text_size))
             self.tooltip_widgets.append(label)
+        else:
+            # this is shown only to users who don't know yet about the popup card.
+            version_warning = self.new_text('', self.margin,
+                                  self.tooltip_height + self.margin,
+                                  text_size=int(self.author_text_size))
+            version_warning.text_color = self.warning_color
+            self.tooltip_widgets.append(version_warning)
+            self.version_warning = version_warning
 
     def hide_tooltip(self):
         self.tooltip_panel.visible = False
@@ -734,6 +742,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = ui_props.scroll_offset
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
+        self.warning_color = (0.9, 0.5, 0.5, 1.0)
 
         self.init_ui()
         self.init_tooltip()
@@ -875,6 +884,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.asset_name.text = an
             self.authors_name.text = asset_data['tooltip_data']['author_text']
             self.quality_label.text = asset_data['tooltip_data']['quality']
+            if utils.asset_from_newer_blender_version(asset_data):
+                self.version_warning.text = 'Asset from newer Blender version! Use at your own risk.'
+            else:
+                self.version_warning.text = ''
 
             authors = global_vars.DATA['bkit authors']
             a_id = asset_data['author']['id']
