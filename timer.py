@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 pending_tasks = list()
 reader_loop = None
-ENABLE_ASYNC_LOOP =True
+ENABLE_ASYNC_LOOP =False
 
 reports_queue = queue.Queue()
 
