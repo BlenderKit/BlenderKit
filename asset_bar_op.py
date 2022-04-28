@@ -358,20 +358,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.quality_label = label
 
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        if user_preferences.asset_popup_counter<5:
+        offset = 0
+        if user_preferences.asset_popup_counter < 5:
             # this is shown only to users who don't know yet about the popup card.
             label = self.new_text('Right click for menu.', self.margin,
                                   self.tooltip_height + self.margin,
                                   text_size=int(self.author_text_size))
             self.tooltip_widgets.append(label)
-        else:
-            # this is shown only to users who don't know yet about the popup card.
-            version_warning = self.new_text('', self.margin,
-                                  self.tooltip_height + self.margin,
-                                  text_size=int(self.author_text_size))
-            version_warning.text_color = self.warning_color
-            self.tooltip_widgets.append(version_warning)
-            self.version_warning = version_warning
+            offset += 1
+        # version warning
+        version_warning = self.new_text('', self.margin,
+                                        self.tooltip_height + self.margin + int(self.author_text_size * offset),
+                                        text_size=int(self.author_text_size))
+        version_warning.text_color = self.warning_color
+        self.tooltip_widgets.append(version_warning)
+        self.version_warning = version_warning
 
     def hide_tooltip(self):
         self.tooltip_panel.visible = False
