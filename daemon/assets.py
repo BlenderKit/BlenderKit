@@ -15,7 +15,7 @@ from aiohttp import web
 import utils
 
 
-def get_res_file(data, find_closest_with_url: bool =False):
+def get_res_file(data, find_closest_with_url: bool = False):
   """Returns closest resolution that current asset can offer.
   
   If there are no resolutions, return orig file.
@@ -81,11 +81,11 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   await get_download_url(request.app["SESSION_API_REQUESTS"], task)
 
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
-  if await check_existing(task.data):
+  if await check_existing(task):
     task.finished('Asset found on hard drive')
     return
 
-  file_path = get_download_filepaths(task.data)[0]
+  file_path = get_download_filepaths(task)[0]
   task.change_progress(0, "Waiting in queue")
   await download_file(request.app["SESSION_ASSETS"], file_path, task)
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
@@ -94,19 +94,19 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   if task.data['PREFS']['unpack_files']:
     task.change_progress(100, 'Unpacking files')
     await send_to_bg(task.data, file_path, command='unpack', wait=True)
-    
+
   task.change_progress(100, 'Appending asset')
   task.finished('Asset downloaded and ready')
 
 
-async def download_file(session: aiohttp.ClientSession, file_path, task:tasks.Task):
+async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.Task):
   with open(file_path, "wb") as file:
     res_file_info, task.data['resolution'] = get_res_file(task.data)
     async with session.get(res_file_info['url']) as resp:
       total_length = resp.headers.get('Content-Length')
       if total_length is None:  # no content length header
         print('no content length: ', resp.content)
-        # tcom.report = response.content
+        task.error('no content length')
         delete_unfinished_file(file_path)
         return
 
@@ -122,8 +122,7 @@ async def download_file(session: aiohttp.ClientSession, file_path, task:tasks.Ta
         t = '%iKB' % fskb
       else:
         t = ' %iMB' % fsmb
-      # tcom.report = f'Downloading {t} {self.resolution}'
-      task.change_progress( progress = 0, message= f"Downloading {t} {task.data['resolution']}")
+      task.change_progress(progress=0, message=f"Downloading {t} {task.data['resolution']}")
       downloaded = 0
 
       async for chunk in resp.content.iter_chunked(4096 * 32):
@@ -168,16 +167,16 @@ async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):
       return True
 
     if resp.status == 403:
-      report_text = 'You need Full plan to get this item.'
+      task.error('You need Full plan to get this item.')
     elif resp.status == 404:
-      report_text = 'Url not found - 404.'
+      task.error('Url not found - 404.')
       # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
     elif resp.status >= 500:
-      report_text = 'Server error'
+      task.error('Server error')
 
-  #add_error_report(data, text=report_text)
+  # add_error_report(data, text=report_text)
   task.change_progress(-1, report_text)
-  
+
   return False
 
 
@@ -200,9 +199,9 @@ def server_2_local_filename(asset_data, filename):
   return n
 
 
-def get_download_filepaths(data):
+def get_download_filepaths(task):
   """Get all possible paths of the asset and resolution. Usually global and local directory."""
-
+  data = task.data
   can_return_others = False  # TODO find out what this was and check if it's still needed
   windows_path_limit = 250
   asset_data = data['asset_data']
@@ -219,6 +218,11 @@ def get_download_filepaths(data):
 
   if not res_file:
     return file_names
+  error_message = 'The path to assets is too long, ' \
+                  'only Global folder can be used. ' \
+                  'Move your .blend file to another ' \
+                  'folder with shorter path to ' \
+                  'store assets in a subfolder of your project.'
   # fn = asset_data['file_name'].replace('blend_', '')
   if res_file.get('url') is not None:
     # Tweak the names a bit:
@@ -228,13 +232,7 @@ def get_download_filepaths(data):
     for d in dirs:
       asset_folder_path = os.path.join(d, asset_folder_name)
       if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
-        add_error_report(data,
-                         text='The path to assets is too long, '
-                              'only Global folder can be used. '
-                              'Move your .blend file to another '
-                              'folder with shorter path to '
-                              'store assets in a subfolder of your project.',
-                         timeout=60)
+        task.error(error_message)
         continue
       if not os.path.exists(asset_folder_path):
         os.makedirs(asset_folder_path)
@@ -244,13 +242,7 @@ def get_download_filepaths(data):
 
   for f in file_names:
     if len(f) > windows_path_limit:
-      add_error_report(data,
-                       text='The path to assets is too long, '
-                            'only Global folder can be used. '
-                            'Move your .blend file to another '
-                            'folder with shorter path to '
-                            'store assets in a subfolder of your project.',
-                       timeout=60)
+      task.error(error_message)
 
       file_names.remove(f)
   return file_names
@@ -329,13 +321,13 @@ async def copy_asset(fp1, fp2):
   #     print(e)
 
 
-async def check_existing(data) -> bool:
+async def check_existing(task) -> bool:
   """Check if the object exists on the hard drive."""
-
+  data = task.data
   if data['asset_data'].get('files') == None:
     return False  # this is because of some very old files where asset data had no files structure.
 
-  file_paths = get_download_filepaths(data)
+  file_paths = get_download_filepaths(task)
 
   # bk_logger.debug('check if file already exists' + str(file_names))
   if len(file_paths) == 2:

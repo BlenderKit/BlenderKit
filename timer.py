@@ -107,7 +107,7 @@ def handle_task(task: tasks.Task):
     if task.status == 'finished':
       search.handle_preview_task(task)
     elif task.status == 'error':
-      reports.add_report(task.message, 15, colors.RED)
+      reports.add_report(task.message, 3, colors.RED)
 
 
 def setup_asyncio_executor():
