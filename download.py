@@ -310,7 +310,7 @@ def udpate_asset_data_in_dicts(asset_data):
 
 def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     """Link asset to the scene."""
-    
+
     # asset_data = data['asset_data']
     # kwargs = data
     file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
@@ -716,7 +716,7 @@ def download_post(task: tasks.Task):
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.
     """
-    
+
     global download_tasks
 
     orig_task = download_tasks.get(task.task_id)
@@ -1008,7 +1008,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
                 # or something else happened(shouldn't delete the files)
                 print(e)
                 done = False
-                reports.add_report('Appending asset Failed. Asset is probably incompatible with this Blender version.', 15, colors.RED)
+                reports.add_report('Appending asset Failed. This Asset is probably incompatible with this Blender version.', 15, colors.RED)
                 for f in file_names:
                     try:
                         os.remove(f)
