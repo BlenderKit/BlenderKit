@@ -2030,9 +2030,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
             box.alert = True
             self.draw_property(box,
                                'Blender version',
-                               self.asset_data['sourceAppVersion'],
-                               # icon='ERROR',
-                               tooltip='Asset is from a newer Blender version and might work incorrectly in your scene',
+                               self.asset_data['sourceAppVersion']+ '- newer than yours.',
+                               icon='ERROR',
+                               # tooltip='Asset is from a newer Blender version and might work incorrectly in your scene',
                                )
             box.alert = False
         else:
@@ -2040,7 +2040,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
                                'Blender version',
                                self.asset_data['sourceAppVersion'],
                                # icon='ERROR',
-                               tooltip='The version this asset was created in.',
+                               # tooltip='The version this asset was created in.',
                                )
         box.separator()
 

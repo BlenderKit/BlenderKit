@@ -998,16 +998,17 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         if os.path.isfile(file_names[-1]):
             kwargs['name'] = asset_data['name']
             # print(**kwargs)
-            append_asset(asset_data, **kwargs)
-            done = True
+
             try:
-                pass
+                append_asset(asset_data, **kwargs)
+                done = True
 
             except Exception as e:
                 # TODO: this should distinguis if the appending failed (wrong file)
                 # or something else happened(shouldn't delete the files)
                 print(e)
                 done = False
+                reports.add_report('Appending asset Failed. Asset is probably incompatible with this Blender version.', 15, colors.RED)
                 for f in file_names:
                     try:
                         os.remove(f)
