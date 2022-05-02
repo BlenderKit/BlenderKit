@@ -153,7 +153,8 @@ def register_timer():
   thread.start()
 
 def unregister_timer():
-  if bpy.app.timers.is_registered(timer):
-    bpy.app.timers.unregister(timer)
-    bpy.app.timers.unregister(timer_image_cleanup)
+  try:
     daemon_lib.report_blender_quit()
+  except Exception as e:
+    print(e)
+

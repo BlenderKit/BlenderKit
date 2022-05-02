@@ -312,6 +312,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         return_obs = []
         to_hidden_collection = []
         collection = None
+        main_object = None
         for ob in bpy.context.scene.objects:
             if ob.select_get():
                 return_obs.append(ob)
@@ -325,7 +326,6 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
 
                 else:
                     to_hidden_collection.append(ob)
-
         if kwargs.get('rotation'):
             main_object.rotation_euler = kwargs['rotation']
 

@@ -196,6 +196,24 @@ def check_timers_timer():
             bpy.app.timers.register(timer.timer)
         return 5.0
 
+def unregister_timers():
+    ''' Unregister all timers at the very start of unregistration.
+     This prevents the timers being called before the unregistration finishes.'''
+    if not bpy.app.background:
+        if bpy.app.timers.is_registered(check_timers_timer):
+            bpy.app.timers.unregister(check_timers_timer)
+        if bpy.app.timers.is_registered(search.search_timer):
+            bpy.app.timers.unregister(search.search_timer)
+        if bpy.app.timers.is_registered(download.download_timer):
+            bpy.app.timers.unregister(download.download_timer)
+        if (bpy.app.timers.is_registered(tasks_queue.queue_worker)):
+            bpy.app.timers.unregister(tasks_queue.queue_worker)
+        if bpy.app.timers.is_registered(bg_blender.bg_update):
+            bpy.app.timers.unregister(bg_blender.bg_update)
+        if bpy.app.timers.is_registered(timer.timer_image_cleanup):
+            bpy.app.timers.unregister(timer.timer_image_cleanup)
+        if bpy.app.timers.is_registered(timer.timer):
+            bpy.app.timers.unregister(timer.timer)
 
 conditions = (
     ('UNSPECIFIED', 'Unspecified', ""),
@@ -2080,8 +2098,8 @@ def register():
 
 
 def unregister():
-    if bpy.app.timers.is_registered(check_timers_timer):
-        bpy.app.timers.unregister(check_timers_timer)
+    unregister_timers()
+
     ui_panels.unregister_ui_panels()
     ui.unregister_ui()
 
