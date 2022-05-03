@@ -513,7 +513,7 @@ def search_timer():
       all_loaded = True
       for ri, r in enumerate(global_vars.DATA[search_name]):
         if not r.get('thumb_small_loaded'):
-          preview_loaded = load_preview(r, ri)
+          preview_loaded = load_preview(r)
           all_loaded = all_loaded and preview_loaded
           if preview_loaded:
             loaded_this_round += 1
@@ -534,7 +534,7 @@ def handle_preview_task(task: tasks.Task) -> bool:
   return True
 
 
-def load_preview(asset, index):
+def load_preview(asset):
   # FIRST START SEARCH
   props = bpy.context.window_manager.blenderkitUI
   directory = paths.get_temp_dir('%s_search' % props.asset_type.lower())
@@ -546,7 +546,6 @@ def load_preview(asset, index):
     asset['thumb_small_loaded'] = False
 
   iname = f".{asset['thumbnail_small']}"
-
   # if os.path.exists(tpath):  # sometimes we are unlucky...
   img = bpy.data.images.get(iname)
 
@@ -590,7 +589,7 @@ def load_previews():
   results = global_vars.DATA.get('search results')
   if results is not None:
     for i, result in enumerate(results):
-      load_preview(result, i)
+      load_preview(result)
 
 
 #  line splitting for longer texts...

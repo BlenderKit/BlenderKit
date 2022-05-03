@@ -317,7 +317,9 @@ def switch_search_results(self, context):
     # if global_vars.DATA['search results orig'] == None:
     #     global_vars.DATA['search results orig'] = {'count': 0, 'results': []}
 
-    search.load_previews()
+    if asset_bar_op.asset_bar_operator is not None:
+        asset_bar_op.asset_bar_operator.scroll_update(always = True)
+
     if global_vars.DATA['search results'] == None and props.down_up == 'SEARCH':
         search.search()
 
