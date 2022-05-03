@@ -326,6 +326,10 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
 
                 else:
                     to_hidden_collection.append(ob)
+
+        if main_object is None:
+            return None, None
+
         if kwargs.get('rotation'):
             main_object.rotation_euler = kwargs['rotation']
 
