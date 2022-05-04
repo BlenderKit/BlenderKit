@@ -836,15 +836,17 @@ class SingletonUpdater:
         if self._backup_ignore_patterns is not None:
             try:
                 shutil.copytree(self._addon_root, tempdest,
+                                copy_function=copy_by_moving, # added by BlenderKit
                                 ignore=shutil.ignore_patterns(
-                                    *self._backup_ignore_patterns))
+                                *self._backup_ignore_patterns))
             except:
                 print("Failed to create backup, still attempting update.")
                 self.print_trace()
                 return
         else:
             try:
-                shutil.copytree(self._addon_root, tempdest)
+                shutil.copytree(self._addon_root, tempdest,
+                                copy_function=copy_by_moving) # added by BlenderKit
             except:
                 print("Failed to create backup, still attempting update.")
                 self.print_trace()
@@ -918,87 +920,87 @@ class SingletonUpdater:
 
         self.print_verbose(
             "Begin extracting source from zip:" + str(self._source_zip))
-        zfile = zipfile.ZipFile(self._source_zip, "r")
+        with zipfile.ZipFile(self._source_zip, "r") as zfile:
 
-        if not zfile:
-            self._error = "Install failed"
-            self._error_msg = "Resulting file is not a zip, cannot extract"
-            self.print_verbose(self._error_msg)
-            return -1
-
-        # Now extract directly from the first subfolder (not root)
-        # this avoids adding the first subfolder to the path length,
-        # which can be too long if the download has the SHA in the name.
-        zsep = '/'  # Not using os.sep, always the / value even on windows.
-        for name in zfile.namelist():
-            if zsep not in name:
-                continue
-            top_folder = name[:name.index(zsep) + 1]
-            if name == top_folder + zsep:
-                continue  # skip top level folder
-            sub_path = name[name.index(zsep) + 1:]
-            if name.endswith(zsep):
-                try:
-                    os.mkdir(os.path.join(outdir, sub_path))
-                    self.print_verbose(
-                        "Extract - mkdir: " + os.path.join(outdir, sub_path))
-                except OSError as exc:
-                    if exc.errno != errno.EEXIST:
-                        self._error = "Install failed"
-                        self._error_msg = "Could not create folder from zip"
-                        self.print_trace()
-                        return -1
-            else:
-                with open(os.path.join(outdir, sub_path), "wb") as outfile:
-                    data = zfile.read(name)
-                    outfile.write(data)
-                    self.print_verbose(
-                        "Extract - create: " + os.path.join(outdir, sub_path))
-
-        self.print_verbose("Extracted source")
-
-        unpath = os.path.join(self._updater_path, "source")
-        if not os.path.isdir(unpath):
-            self._error = "Install failed"
-            self._error_msg = "Extracted path does not exist"
-            print("Extracted path does not exist: ", unpath)
-            return -1
-
-        if self._subfolder_path:
-            self._subfolder_path.replace('/', os.path.sep)
-            self._subfolder_path.replace('\\', os.path.sep)
-
-        # Either directly in root of zip/one subfolder, or use specified path.
-        if not os.path.isfile(os.path.join(unpath, "__init__.py")):
-            dirlist = os.listdir(unpath)
-            if len(dirlist) > 0:
-                if self._subfolder_path == "" or self._subfolder_path is None:
-                    unpath = os.path.join(unpath, dirlist[0])
-                else:
-                    unpath = os.path.join(unpath, self._subfolder_path)
-
-            # Smarter check for additional sub folders for a single folder
-            # containing the __init__.py file.
-            if not os.path.isfile(os.path.join(unpath, "__init__.py")):
-                print("Not a valid addon found")
-                print("Paths:")
-                print(dirlist)
+            if not zfile:
                 self._error = "Install failed"
-                self._error_msg = "No __init__ file found in new source"
+                self._error_msg = "Resulting file is not a zip, cannot extract"
+                self.print_verbose(self._error_msg)
                 return -1
 
-        # Merge code with the addon directory, using blender default behavior,
-        # plus any modifiers indicated by user (e.g. force remove/keep).
-        self.deep_merge_directory(self._addon_root, unpath, clean)
+            # Now extract directly from the first subfolder (not root)
+            # this avoids adding the first subfolder to the path length,
+            # which can be too long if the download has the SHA in the name.
+            zsep = '/'  # Not using os.sep, always the / value even on windows.
+            for name in zfile.namelist():
+                if zsep not in name:
+                    continue
+                top_folder = name[:name.index(zsep) + 1]
+                if name == top_folder + zsep:
+                    continue  # skip top level folder
+                sub_path = name[name.index(zsep) + 1:]
+                if name.endswith(zsep):
+                    try:
+                        os.mkdir(os.path.join(outdir, sub_path))
+                        self.print_verbose(
+                            "Extract - mkdir: " + os.path.join(outdir, sub_path))
+                    except OSError as exc:
+                        if exc.errno != errno.EEXIST:
+                            self._error = "Install failed"
+                            self._error_msg = "Could not create folder from zip"
+                            self.print_trace()
+                            return -1
+                else:
+                    with open(os.path.join(outdir, sub_path), "wb") as outfile:
+                        data = zfile.read(name)
+                        outfile.write(data)
+                        self.print_verbose(
+                            "Extract - create: " + os.path.join(outdir, sub_path))
 
-        # Now save the json state.
-        # Change to True to trigger the handler on other side if allowing
-        # reloading within same blender session.
-        self._json["just_updated"] = True
-        self.save_updater_json()
-        self.reload_addon()
-        self._update_ready = False
-        return 0
+            self.print_verbose("Extracted source")
+
+            unpath = os.path.join(self._updater_path, "source")
+            if not os.path.isdir(unpath):
+                self._error = "Install failed"
+                self._error_msg = "Extracted path does not exist"
+                print("Extracted path does not exist: ", unpath)
+                return -1
+
+            if self._subfolder_path:
+                self._subfolder_path.replace('/', os.path.sep)
+                self._subfolder_path.replace('\\', os.path.sep)
+
+            # Either directly in root of zip/one subfolder, or use specified path.
+            if not os.path.isfile(os.path.join(unpath, "__init__.py")):
+                dirlist = os.listdir(unpath)
+                if len(dirlist) > 0:
+                    if self._subfolder_path == "" or self._subfolder_path is None:
+                        unpath = os.path.join(unpath, dirlist[0])
+                    else:
+                        unpath = os.path.join(unpath, self._subfolder_path)
+
+                # Smarter check for additional sub folders for a single folder
+                # containing the __init__.py file.
+                if not os.path.isfile(os.path.join(unpath, "__init__.py")):
+                    print("Not a valid addon found")
+                    print("Paths:")
+                    print(dirlist)
+                    self._error = "Install failed"
+                    self._error_msg = "No __init__ file found in new source"
+                    return -1
+
+            # Merge code with the addon directory, using blender default behavior,
+            # plus any modifiers indicated by user (e.g. force remove/keep).
+            self.deep_merge_directory(self._addon_root, unpath, clean)
+
+            # Now save the json state.
+            # Change to True to trigger the handler on other side if allowing
+            # reloading within same blender session.
+            self._json["just_updated"] = True
+            self.save_updater_json()
+            self.reload_addon()
+            self._update_ready = False
+            return 0
 
     def deep_merge_directory(self, base, merger, clean=False):
         """Merge folder 'merger' into 'base' without deleting existing"""
@@ -1031,18 +1033,23 @@ class SingletonUpdater:
                          if os.path.isfile(os.path.join(base, f))]
                 folders = [f for f in os.listdir(base)
                            if os.path.isdir(os.path.join(base, f))]
-
                 for f in files:
-                    os.remove(os.path.join(base, f))
-                    self.print_verbose(
-                        "Clean removing file {}".format(os.path.join(base, f)))
+                    try:
+                        os.remove(os.path.join(base, f))
+                        self.print_verbose(
+                            "Clean removing file {}".format(os.path.join(base, f)))
+                    except Exception as e:
+                        print(f"Error removing file {os.path.join(base, f)}: {e}")
                 for f in folders:
                     if os.path.join(base, f) is self._updater_path:
                         continue
-                    shutil.rmtree(os.path.join(base, f))
-                    self.print_verbose(
-                        "Clean removing folder and contents {}".format(
-                            os.path.join(base, f)))
+                    try:
+                        shutil.rmtree(os.path.join(base, f))
+                        self.print_verbose(
+                            "Clean removing folder and contents {}".format(
+                                os.path.join(base, f)))
+                    except Exception as e:
+                        print(f"Error removing folder {os.path.join(base, f)}: {e}")
 
             except Exception as err:
                 error = "failed to create clean existing addon folder"
@@ -1079,33 +1086,36 @@ class SingletonUpdater:
             if not os.path.exists(dest_path):
                 os.makedirs(dest_path)
             for file in files:
-                # Bring in additional logic around copying/replacing.
-                # Blender default: overwrite .py's, don't overwrite the rest.
-                dest_file = os.path.join(dest_path, file)
-                srcFile = os.path.join(path, file)
+                try:
+                    # Bring in additional logic around copying/replacing.
+                    # Blender default: overwrite .py's, don't overwrite the rest.
+                    dest_file = os.path.join(dest_path, file)
+                    srcFile = os.path.join(path, file)
 
-                # Decide to replace if file already exists, and copy new over.
-                if os.path.isfile(dest_file):
-                    # Otherwise, check each file for overwrite pattern match.
-                    replaced = False
-                    for pattern in self._overwrite_patterns:
-                        if fnmatch.filter([file], pattern):
-                            replaced = True
-                            break
-                    if replaced:
-                        os.remove(dest_file)
+                    # Decide to replace if file already exists, and copy new over.
+                    if os.path.isfile(dest_file):
+                        # Otherwise, check each file for overwrite pattern match.
+                        replaced = False
+                        for pattern in self._overwrite_patterns:
+                            if fnmatch.filter([file], pattern):
+                                replaced = True
+                                break
+                        if replaced:
+                            os.remove(dest_file)
+                            os.rename(srcFile, dest_file)
+                            self.print_verbose(
+                                "Overwrote file " + os.path.basename(dest_file))
+                        else:
+                            self.print_verbose(
+                                "Pattern not matched to {}, not overwritten".format(
+                                    os.path.basename(dest_file)))
+                    else:
+                        # File did not previously exist, simply move it over.
                         os.rename(srcFile, dest_file)
                         self.print_verbose(
-                            "Overwrote file " + os.path.basename(dest_file))
-                    else:
-                        self.print_verbose(
-                            "Pattern not matched to {}, not overwritten".format(
-                                os.path.basename(dest_file)))
-                else:
-                    # File did not previously exist, simply move it over.
-                    os.rename(srcFile, dest_file)
-                    self.print_verbose(
-                        "New file " + os.path.basename(dest_file))
+                            "New file " + os.path.basename(dest_file))
+                except Exception as e:
+                    print(f"Error replacing file {file}: {e}")
 
         # now remove the temp staging folder and downloaded zip
         try:
@@ -1755,3 +1765,12 @@ class GitlabEngine:
 # -----------------------------------------------------------------------------
 
 Updater = SingletonUpdater()
+
+# added by BlenderKit
+def copy_by_moving(src: str, dest: str):
+    """
+    Moves the file into destination location and then copies it back to source destination.
+    Source file then should be deletable even though it was originally open by another process or program.
+    """
+    shutil.move(src, dest)
+    shutil.copy(dest, src)
