@@ -70,14 +70,17 @@ class BL_UI_Button(BL_UI_Widget):
     def set_image_position(self, image_position):
         self.__image_position = image_position
 
-    def set_image(self, rel_filepath):
-        #first try to access the image, for cases where it can get removed
+    def check_image_exists(self):
+        # it's possible image was removed and doesn't exist.
         try:
             self.__image
             self.__image.filepath
             self.__image.pixels
         except:
             self.__image = None
+
+    def set_image(self, rel_filepath):
+        self.check_image_exists()
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
                 imgname = f".{os.path.basename(rel_filepath)}"
@@ -99,6 +102,7 @@ class BL_UI_Button(BL_UI_Widget):
             self.__image = None
 
     def get_image_path(self):
+        self.check_image_exists()
         if self.__image is None:
             return None
         return self.__image.filepath

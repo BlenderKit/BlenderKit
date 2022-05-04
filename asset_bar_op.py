@@ -251,7 +251,6 @@ def set_thumb_check(element, asset, thumb_type = 'thumbnail_small'):
         tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
         if element.get_image_path() == tpath:
             return
-    # print('set button image', asset['thumbnail_small'])
     element.set_image(tpath)
     # if asset['assetType'] == 'hdr':
     #   # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
@@ -858,10 +857,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search_index = widget.button_index + self.scroll_offset
         if search_index < self.search_results_count:
             self.show_tooltip()
-        # print('showed tooltip')
         # print(self.active_index, search_index)
         if self.active_index != search_index:
-            # print('should change tooltip')
             self.active_index = search_index
 
             # scene = bpy.context.scene
