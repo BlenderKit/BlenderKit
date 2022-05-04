@@ -148,11 +148,10 @@ else:
     from .bl_ui_widgets import bl_ui_drag_panel
     # from .bl_ui_widgets import bl_ui_textbox
 
-import math
+from math import pi
 
 import bpy
 import bpy.utils.previews
-import mathutils
 from bpy.app.handlers import persistent
 from bpy.props import (
     BoolProperty,
@@ -163,8 +162,7 @@ from bpy.props import (
     PointerProperty,
     StringProperty,
 )
-from bpy.types import AddonPreferences, Operator, Panel, PropertyGroup
-from mathutils import Vector
+from bpy.types import AddonPreferences, PropertyGroup
 
 
 # logging.basicConfig(filename = 'blenderkit.log', level = logging.INFO,
@@ -1533,9 +1531,9 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
                                      default=False)
     randomize_rotation_amount: FloatProperty(name="Randomization Max Angle",
                                              description="maximum angle for random rotation",
-                                             default=math.pi / 36,
+                                             default=pi / 36,
                                              min=0,
-                                             max=2 * math.pi,
+                                             max=2 * pi,
                                              subtype='ANGLE')
     offset_rotation_amount: FloatProperty(name="Offset Rotation",
                                           description="offset rotation, hidden prop",
@@ -1545,7 +1543,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
                                           subtype='ANGLE')
     offset_rotation_step: FloatProperty(name="Offset Rotation Step",
                                         description="offset rotation, hidden prop",
-                                        default=math.pi / 2,
+                                        default=pi / 2,
                                         min=0,
                                         max=180,
                                         subtype='ANGLE')
