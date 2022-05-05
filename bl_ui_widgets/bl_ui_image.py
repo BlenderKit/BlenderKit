@@ -27,7 +27,7 @@ class BL_UI_Image(BL_UI_Widget):
         try:
             self.__image
             self.__image.filepath
-            self.__image.pixels
+            # self.__image.pixels
         except:
             self.__image = None
 
