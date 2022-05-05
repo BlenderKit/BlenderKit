@@ -923,6 +923,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props.draw_tooltip = False
             self.draw_tooltip = False
             self.hide_tooltip()
+            self.active_index = -1
         # popup asset card on mouse down
         # if utils.experimental_enabled():
         #     h = widget.get_area_height()
