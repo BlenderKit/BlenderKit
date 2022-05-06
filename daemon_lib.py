@@ -6,6 +6,7 @@ import time
 from os import environ, path
 
 import aiohttp
+import bpy
 import requests
 
 from . import dependencies, global_vars
@@ -125,7 +126,7 @@ def kill_daemon_server():
     resp = session.get(url)
     return resp
 
-def start_daemon_server(log_dir: str = None):
+def start_daemon_server():
   """Start daemon server in separate process."""
 
   env  = environ.copy()
@@ -137,8 +138,7 @@ def start_daemon_server(log_dir: str = None):
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
 
-  if log_dir == None:
-    log_dir = path.abspath(path.expanduser('~') + "/blenderkit_data")
+  log_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
   log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
 
   blenderkit_path = path.dirname(__file__)
@@ -164,9 +164,3 @@ def start_daemon_server(log_dir: str = None):
     )
 
   print(f'Daemon server started on address {get_address()}')
-
-
-if __name__ == "__main__":
-  pass
-else:
-  import bpy
