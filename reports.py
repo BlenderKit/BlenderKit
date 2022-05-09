@@ -33,7 +33,7 @@ def add_report(text='', timeout=5, color=colors.GREEN):
         if old_report.text == text:
             old_report.timeout = old_report.age + timeout
             return
-    report = Report(text=text,  timeout=timeout, color=color)
+    report = Report(text=text, timeout=timeout, color=color)
     reports.append(report)
 
 

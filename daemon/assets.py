@@ -297,28 +297,20 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
 async def copy_asset(fp1, fp2):
   """Synchronize the asset between folders, including it's texture subdirectories."""
 
-  if 1:
-    # bk_logger.debug('copy asset')
-    # bk_logger.debug(fp1 + ' ' + fp2)
-    if not os.path.exists(fp2):
-      shutil.copyfile(fp1, fp2)
-      # bk_logger.debug('copied')
-    source_dir = os.path.dirname(fp1)
-    target_dir = os.path.dirname(fp2)
-    for subdir in os.scandir(source_dir):
-      if not subdir.is_dir():
-        continue
-      target_subdir = os.path.join(target_dir, subdir.name)
-      if os.path.exists(target_subdir):
-        continue
-      # bk_logger.debug(str(subdir) + ' ' + str(target_subdir))
-      shutil.copytree(subdir, target_subdir)
-      # bk_logger.debug('copied')
-
-  # except Exception as e:
-  #     print('BlenderKit failed to copy asset')
-  #     print(fp1, fp2)
-  #     print(e)
+  if not os.path.exists(fp2):
+    shutil.copyfile(fp1, fp2)
+    # bk_logger.debug('copied')
+  source_dir = os.path.dirname(fp1)
+  target_dir = os.path.dirname(fp2)
+  for subdir in os.scandir(source_dir):
+    if not subdir.is_dir():
+      continue
+    target_subdir = os.path.join(target_dir, subdir.name)
+    if os.path.exists(target_subdir):
+      continue
+    # bk_logger.debug(str(subdir) + ' ' + str(target_subdir))
+    shutil.copytree(subdir, target_subdir)
+    # bk_logger.debug('copied')
 
 
 async def check_existing(task) -> bool:

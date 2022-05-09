@@ -25,7 +25,6 @@ import platform
 import re
 import shutil
 import sys
-import traceback
 import uuid
 
 import bpy
@@ -519,49 +518,40 @@ def get_brush_props(context):
     return None
 
 
-def p(text, text1='', text2='', text3='', text4='', text5='', level='DEBUG'):
-    '''debug printing depending on blender's debug value'''
+def p(text, text1='', text2='', text3='', text4='', text5=''):
+    '''debug printing'''
 
-    if 1:  # bpy.app.debug_value != 0:
-        # print('-----BKit debug-----\n')
-        # traceback.print_stack()
-        texts = [text1, text2, text3, text4, text5]
-        text = str(text)
-        for t in texts:
-            if t != '':
-                text += ' ' + str(t)
+    texts = [text1, text2, text3, text4, text5]
+    text = str(text)
+    for t in texts:
+        if t != '':
+            text += ' ' + str(t)
 
-        bk_logger.debug(text)
-        # print('---------------------\n')
+    bk_logger.debug(text)
 
 
 def copy_asset(fp1, fp2):
     '''synchronizes the asset between folders, including it's texture subdirectories'''
-    if 1:
-        bk_logger.debug('copy asset')
-        bk_logger.debug(fp1 + ' ' + fp2)
-        if not os.path.exists(fp2):
-            shutil.copyfile(fp1, fp2)
-            bk_logger.debug('copied')
-        source_dir = os.path.dirname(fp1)
-        target_dir = os.path.dirname(fp2)
-        for subdir in os.scandir(source_dir):
-            if not subdir.is_dir():
-                continue
-            target_subdir = os.path.join(target_dir, subdir.name)
-            if os.path.exists(target_subdir):
-                continue
-            bk_logger.debug(str(subdir) + ' ' + str(target_subdir))
-            shutil.copytree(subdir, target_subdir)
-            bk_logger.debug('copied')
 
-    # except Exception as e:
-    #     print('BlenderKit failed to copy asset')
-    #     print(fp1, fp2)
-    #     print(e)
+    bk_logger.debug('copy asset')
+    bk_logger.debug(fp1 + ' ' + fp2)
+    if not os.path.exists(fp2):
+        shutil.copyfile(fp1, fp2)
+        bk_logger.debug('copied')
+    source_dir = os.path.dirname(fp1)
+    target_dir = os.path.dirname(fp2)
+    for subdir in os.scandir(source_dir):
+        if not subdir.is_dir():
+            continue
+        target_subdir = os.path.join(target_dir, subdir.name)
+        if os.path.exists(target_subdir):
+            continue
+        bk_logger.debug(str(subdir) + ' ' + str(target_subdir))
+        shutil.copytree(subdir, target_subdir)
+        bk_logger.debug('copied')
 
 
-def pprint(data, data1=None, data2=None, data3=None, data4=None):
+def pprint(data):
     '''pretty print jsons'''
     p(json.dumps(data, indent=4, sort_keys=True))
 
@@ -591,7 +581,7 @@ def delete_hierarchy(ob):
     bpy.ops.object.delete({"selected_objects": obs})
 
 
-def get_bounds_snappable(obs, use_modifiers=False):
+def get_bounds_snappable(obs):
     # progress('getting bounds of object(s)')
     parent = obs[0]
     while parent.parent is not None:
@@ -651,7 +641,7 @@ def get_bounds_snappable(obs, use_modifiers=False):
     return minx, miny, minz, maxx, maxy, maxz
 
 
-def get_bounds_worldspace(obs, use_modifiers=False):
+def get_bounds_worldspace(obs):
     # progress('getting bounds of object(s)')
     s = bpy.context.scene
     maxx = maxy = maxz = -10000000
@@ -1121,6 +1111,3 @@ def is_upload_old(asset_data):
     if age > old:
         return (age.days - old.days)
     return 0
-
-def trace():
-    traceback.print_stack()

@@ -165,39 +165,6 @@ class BL_UI_Button(BL_UI_Widget):
             sx, sy = self.__image_size
             ui_bgl.draw_image(self.x_screen + off_x, y_screen_flip - off_y - sy, sx, sy, self.__image, 1.0, crop=(0, 0, 1, 1), batch=None)
             return
-            try:
-
-                y_screen_flip = self.get_area_height() - self.y_screen
-
-                off_x, off_y =  self.__image_position
-                sx, sy = self.__image_size
-
-                # bottom left, top left, top right, bottom right
-                vertices = (
-                            (self.x_screen + off_x, y_screen_flip - off_y),
-                            (self.x_screen + off_x, y_screen_flip - sy - off_y),
-                            (self.x_screen + off_x + sx, y_screen_flip - sy - off_y),
-                            (self.x_screen + off_x + sx, y_screen_flip - off_y))
-
-                self.shader_img = gpu.shader.from_builtin('2D_IMAGE')
-                self.batch_img = batch_for_shader(self.shader_img, 'TRI_FAN',
-                { "pos" : vertices,
-                "texCoord": ((0, 1), (0, 0), (1, 0), (1, 1))
-                },)
-
-                # send image to gpu if it isn't there already
-                if self.__image.gl_load():
-                    raise Exception()
-
-                bgl.glActiveTexture(bgl.GL_TEXTURE0)
-                bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.__image.bindcode)
-
-                self.shader_img.bind()
-                self.shader_img.uniform_int("image", 0)
-                self.batch_img.draw(self.shader_img)
-                return True
-            except:
-                pass
 
         return False
 

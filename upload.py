@@ -32,6 +32,7 @@ from . import (
     asset_bar_op,
     asset_inspector,
     autothumb,
+    bl_info,
     categories,
     global_vars,
     image_utils,
@@ -44,7 +45,6 @@ from . import (
     ui_panels,
     upload_bg,
     utils,
-    version_checker,
 )
 
 
@@ -80,8 +80,8 @@ def get_app_version():
 
 
 def add_version(data):
-    app_version = get_app_version()
-    addon_version = version_checker.get_addon_version()
+    app_version = bpy.app.version_string
+    addon_version = f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
     data["sourceAppName"] = "blender"
     data["sourceAppVersion"] = app_version
     data["addonVersion"] = addon_version

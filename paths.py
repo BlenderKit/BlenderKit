@@ -257,7 +257,7 @@ def round_to_closest_resolution(res):
     return p2res
 
 
-def get_res_file(asset_data, resolution, find_closest_with_url=False):
+def get_res_file(asset_data, resolution):
     '''
     Returns closest resolution that current asset can offer.
     If there are no resolutions, return orig file.
@@ -326,7 +326,7 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
     '''Get all possible paths of the asset and resolution. Usually global and local directory.'''
     windows_path_limit = 250
     dirs = get_download_dirs(asset_data['assetType'])
-    res_file, resolution = get_res_file(asset_data, resolution, find_closest_with_url=can_return_others)
+    res_file, resolution = get_res_file(asset_data, resolution)
     name_slug = slugify(asset_data['name'])
     if len(name_slug) > 16:
         name_slug = name_slug[:16]
@@ -418,14 +418,6 @@ def get_material_thumbnailer_filepath():
     # fpath = os.path.join(p, subpath)
     subpath = "blendfiles" + os.sep + "material_thumbnailer_cycles.blend"
     return os.path.join(script_path, subpath)
-    """
-    for p in bpy.utils.script_paths():
-        testfname= os.path.join(p, subpath)#p + '%saddons%sobject_fracture%sdata.blend' % (s,s,s)
-        if os.path.isfile( testfname):
-            fname=testfname
-            return(fname)
-    return None
-    """
 
 
 def get_addon_file(subpath=''):

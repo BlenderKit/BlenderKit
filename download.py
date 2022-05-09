@@ -94,29 +94,7 @@ def check_unused():
     for c in bpy.data.collections:
         if len(c.all_objects) == 0 and c.get('is_blenderkit_asset'):
             bpy.data.collections.remove(c)
-    return;
-    used_libs = []
-    for ob in bpy.data.objects:
-        if ob.instance_collection is not None and ob.instance_collection.library is not None:
-            # used_libs[ob.instance_collection.name] = True
-            if ob.instance_collection.library not in used_libs:
-                used_libs.append(ob.instance_collection.library)
-
-        for ps in ob.particle_systems:
-            set = ps.settings
-            if ps.settings.render_type == 'GROUP' \
-                    and ps.settings.instance_collection is not None \
-                    and ps.settings.instance_collection.library not in used_libs:
-                used_libs.append(ps.settings.instance_collection)
-
-    for l in bpy.data.libraries:
-        if l not in used_libs and l.getn('asset_data'):
-            print('attempt to remove this library: ', l.filepath)
-            # have to unlink all groups, since the file is a 'user' even if the groups aren't used at all...
-            for user_id in l.users_id:
-                if type(user_id) == bpy.types.Collection:
-                    bpy.data.collections.remove(user_id)
-            l.user_clear()
+    return
 
 
 @persistent

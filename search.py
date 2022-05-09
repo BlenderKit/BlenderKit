@@ -38,6 +38,7 @@ from . import (
     addon_updater_ops,
     asset_bar_op,
     bkit_oauth,
+    bl_info,
     categories,
     colors,
     comments_utils,
@@ -52,7 +53,6 @@ from . import (
     tasks_queue,
     ui,
     utils,
-    version_checker,
 )
 from .daemon import tasks
 
@@ -1252,8 +1252,8 @@ def search(category='', get_next=False, author_id=''):
   page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
   params = {
     'scene_uuid': bpy.context.scene.get('uuid', None),
-    'addon_version': version_checker.get_addon_version(),
-    'blender_version': version_checker.get_blender_version(),
+    'addon_version' : f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}",
+    'blender_version': bpy.app.version_string,
     'api_key': user_preferences.api_key,
     'get_next': get_next,
     'free_first': props.free_only,

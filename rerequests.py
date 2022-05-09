@@ -35,7 +35,7 @@ class FakeResponse():
     def json(self):
         return {}
 
-def rerequest(method, url, recursion=0, **kwargs):
+def rerequest(method, url, **kwargs):
     # first get any additional args from kwargs
     immediate = False
     if kwargs.get('immediate'):
