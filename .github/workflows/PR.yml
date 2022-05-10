@@ -1,0 +1,33 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [ '**' ]
+  workflow_dispatch:
+
+jobs:
+  Test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install
+        run: pip install isort
+      - name: Running isort
+        run: python -m isort . --check-only --diff
+
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build add-on
+        run: python dev.py build
+      - name: Get current date and time
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d--%H-%M-%S')"
+      - name: Store the build
+        uses: actions/upload-artifact@v3
+        with:
+          name: blenderkit-PR${{ github.event.pull_request.number }}-${{ steps.date.outputs.date }}
+          path: |
+            out
+            !out/blenderkit.zip
