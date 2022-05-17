@@ -152,6 +152,7 @@ from math import pi
 
 import bpy
 import bpy.utils.previews
+from bl_operators import userpref
 from bpy.app.handlers import persistent
 from bpy.props import (
     BoolProperty,
@@ -987,6 +988,60 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     is_generating_thumbnail: BoolProperty(name="Generating Thumbnail",
                                           description="True when background process is running", default=False,
                                           update=autothumb.update_upload_material_preview)
+
+
+class BlenderKitCustomAddonRemove(bpy.types.Operator):
+    """Delete the add-on from the file system"""
+
+    bl_idname = "preferences.addon_remove"
+    bl_label = "Remove Add-on"
+
+    module: StringProperty(
+            name="Module",
+            description="Module name of the add-on to remove",
+        )
+    
+    @staticmethod
+    def path_from_addon(module):
+        return userpref.PREFERENCES_OT_addon_remove.path_from_addon(module)
+
+    def execute(self, context):
+        if self.module != "blenderkit":
+            return userpref.PREFERENCES_OT_addon_remove.execute(self, context)
+        
+        print("Executing BlenderKit customized removal")
+        import os
+
+        import addon_utils
+
+        path, isdir = self.path_from_addon(self.module)
+        if path is None:
+            self.report({'WARNING'}, "Add-on path %r could not be found" % path)
+            return {'CANCELLED'}
+
+        # in case its enabled
+        addon_utils.disable(self.module, default_set=True)
+
+        import secrets
+        import shutil
+        if isdir and (not os.path.islink(path)):
+            trash = os.path.join(global_vars.PREFS['global_dir'], '.trash')
+            dest = os.path.join(trash, secrets.token_hex(5))
+            shutil.move(path, dest)
+            shutil.rmtree(trash, ignore_errors=True)
+        else:
+            os.remove(path)
+
+        addon_utils.modules_refresh()
+        context.area.tag_redraw()
+        print('Custom removal finished')
+        return {'FINISHED'}
+
+    def draw(self, _context):
+        return userpref.PREFERENCES_OT_addon_remove.draw(self, _context)
+
+    def invoke(self, context, _event):
+        return userpref.PREFERENCES_OT_addon_remove.invoke(self, context, _event)
 
 
 class BlenderKitTextureUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -2020,6 +2075,11 @@ def register():
     global_vars.PREFS = utils.get_prefs_dir()
     utils.set_proxy()
 
+    try:
+        bpy.utils.register_class(BlenderKitCustomAddonRemove)
+    except Exception as e:
+        print(f"Not registering BlenderKitCustomAddonRemove: {e}")
+    
     for cls in classes:
         bpy.utils.register_class(cls)
 
