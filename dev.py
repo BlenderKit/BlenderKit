@@ -30,7 +30,6 @@ def do_build(install_at=None):
     '.gitignore',
     'build.py',
     'README.md',
-    'requirements.txt',
     'setup.cfg'
   ]
 
