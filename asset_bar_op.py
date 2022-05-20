@@ -849,8 +849,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 a.tag_redraw()
         self._finished = True
 
-    # handlers
+    def update_tooltip_image(self, asset_id):
+        '''update tootlip image when it finishes downloading and the downloaded image matches the active one'''
+        sr = global_vars.DATA['search results']
+        asset_data = sr[self.active_index]
+        if asset_data['assetBaseId'] == asset_id:
+            set_thumb_check(self.tooltip_image, asset_data, thumb_type='thumbnail')
 
+    # handlers
     def enter_button(self, widget):
         # print('enter button', self.active_index, widget.button_index)
         # print(widget.button_index,self.scroll_offset)
@@ -871,8 +877,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = search_index  # + self.scroll_offset
 
-            # img = ui.get_large_thumbnail_image(asset_data)
-            # if img:
             set_thumb_check(self.tooltip_image,asset_data,thumb_type='thumbnail')
             get_tooltip_data(asset_data)
             an = asset_data['name']
