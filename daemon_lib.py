@@ -129,26 +129,38 @@ def kill_daemon_server():
 def start_daemon_server():
   """Start daemon server in separate process."""
 
-  env  = environ.copy()
-
+  log_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
+  log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
+  blenderkit_path = path.dirname(__file__)
+  daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
   vendor_dir = dependencies.get_vendored_path()
   fallback_dir = dependencies.get_fallback_path()
+
+  env  = environ.copy()
   env['PYTHONPATH'] = vendor_dir + os.pathsep + fallback_dir
 
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
+  
 
-  log_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
-  log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
 
-  blenderkit_path = path.dirname(__file__)
-  daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
+  creation_flags = 0
+  if platform.system() == "Windows":
+    env['PATH'] = env['PATH'] + os.pathsep + path.abspath(path.dirname(sys.executable) + "/../../../blender.crt")
+    creation_flags = subprocess.CREATE_NO_WINDOW
+
+  python_check = subprocess.run(args=[sys.executable, "--version"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  if python_check.returncode != 0:
+    print(
+      f"Error checking Python interpreter, exit code: {python_check.returncode}\n"
+      f"Stdout: {python_check.stdout}\n"
+      f"Stderr: {python_check.stderr}\n"
+      f"Where Python: {sys.executable}\n"
+      f"Environment: {env}"
+    )
 
   with open(log_path, "wb") as log:
-    creation_flags = 0
-    if platform.system() == "Windows":
-      creation_flags = subprocess.CREATE_NO_WINDOW
-    subprocess.Popen(
+    daemon_process = subprocess.Popen(
       args = [
         sys.executable,
         "-u", daemon_path,
@@ -163,4 +175,8 @@ def start_daemon_server():
       creationflags = creation_flags,
     )
 
-  print(f'Daemon server started on address {get_address()}')
+  if python_check.returncode == 0:
+    print(f'Daemon server started on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}')
+  else:
+    print(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}')
+    print(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.")
