@@ -527,9 +527,9 @@ def search_timer():
 
 
 def handle_preview_task(task: tasks.Task) -> bool:
-  '''parse search results, try to load all available previews.'''
-  global_vars.DATA['images available'][task.data['image_path']] = True
+  """Parse search results, try to load all available previews."""
 
+  global_vars.DATA['images available'][task.data['image_path']] = True
   if asset_bar_op.asset_bar_operator is not None:
     if task.data['thumbnail_type'] =='small':
       asset_bar_op.asset_bar_operator.update_image(task.data['assetBaseId'])
