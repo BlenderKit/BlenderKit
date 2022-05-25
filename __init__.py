@@ -2064,8 +2064,6 @@ classes = (
 
 
 def register():
-    #TODO REMOVE THIS, JUST FOR TESTING
-    global_vars.DATA['images available'] = {}
     #####
 
     bpy.utils.register_class(BlenderKitAddonPreferences)
