@@ -92,12 +92,13 @@ def refresh_token(api_key_refresh, url):
 def write_tokens(auth_token, refresh_token, oauth_response):
     bk_logger.debug('writing tokens')
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    preferences.api_key_refresh = refresh_token
-    preferences.api_key = auth_token
     preferences.api_key_timeout = int(time.time() + oauth_response['expires_in'])
     preferences.api_key_life = oauth_response['expires_in']
     preferences.login_attempt = False
     preferences.refresh_in_progress = False
+    preferences.api_key_refresh = refresh_token
+    preferences.api_key = auth_token
+
     props = utils.get_search_props()
     if props is not None:
         props.report = ''

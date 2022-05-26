@@ -98,7 +98,6 @@ def handle_task(task: tasks.Task):
   if task.task_type == 'search':
     if task.status == 'finished':
       search.handle_search_task(task)
-
     elif task.status == 'error':
       reports.add_report(task.message, 15, colors.RED)
 

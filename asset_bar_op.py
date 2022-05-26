@@ -853,6 +853,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Update tootlip image when it finishes downloading and the downloaded image matches the active one."""
 
         search_results = global_vars.DATA['search results']
+        if search_results == None:
+            return
+
         asset_data = search_results[self.active_index]
         if asset_data['assetBaseId'] == asset_id:
             set_thumb_check(self.tooltip_image, asset_data, thumb_type='thumbnail')
