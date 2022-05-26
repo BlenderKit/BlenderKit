@@ -379,20 +379,17 @@ def clear_searches():
 
 
 def cleanup_search_results():
-    dicts = ('search results',
-             'bkit model search',
-             'bkit scene search',
-             'bkit hdr search',
-             'bkit material search',
-             'bkit texture search',
-             'bkit brush search',
-             )
-    for sr in dicts:
-        try:
-            global_vars.DATA.pop(sr)
-            global_vars.DATA.pop(f'{sr} orig')
-        except Exception as e:
-            print(e)
+  dicts = (
+    'search results','bkit model search',
+    'bkit scene search',
+    'bkit hdr search',
+    'bkit material search',
+    'bkit texture search',
+    'bkit brush search',
+  )
+  for sr in dicts:
+    global_vars.DATA.pop(sr, None)
+    global_vars.DATA.pop(f'{sr} orig', None)
 
 def handle_search_task(task: tasks.Task) -> bool:
   '''parse search results, try to load all available previews.'''
