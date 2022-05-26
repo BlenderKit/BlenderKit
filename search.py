@@ -461,11 +461,11 @@ def handle_search_task(task: tasks.Task) -> bool:
           rating_thread.start()
 
     global_vars.DATA[search_name] = result_field
-    global_vars.DATA['search results'] = result_field
-
-    # rdata=['results']=[]
     global_vars.DATA[search_name + ' orig'] = task.result
-    global_vars.DATA['search results orig'] = task.result
+
+    if result_field and result_field[0]['assetType'] == ui_props.asset_type.lower():
+      global_vars.DATA['search results'] = result_field
+      global_vars.DATA['search results orig'] = task.result
 
     if len(result_field) < ui_props.scroll_offset or not (task.data.get('get_next')):
       # jump back
