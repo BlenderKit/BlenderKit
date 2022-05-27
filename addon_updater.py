@@ -920,87 +920,89 @@ class SingletonUpdater:
 
         self.print_verbose(
             "Begin extracting source from zip:" + str(self._source_zip))
-        with zipfile.ZipFile(self._source_zip, "r") as zfile:
+        zfile = zipfile.ZipFile(self._source_zip, "r")
 
-            if not zfile:
-                self._error = "Install failed"
-                self._error_msg = "Resulting file is not a zip, cannot extract"
-                self.print_verbose(self._error_msg)
-                return -1
+        if not zfile:
+            self._error = "Install failed"
+            self._error_msg = "Resulting file is not a zip, cannot extract"
+            self.print_verbose(self._error_msg)
+            return -1
 
-            # Now extract directly from the first subfolder (not root)
-            # this avoids adding the first subfolder to the path length,
-            # which can be too long if the download has the SHA in the name.
-            zsep = '/'  # Not using os.sep, always the / value even on windows.
-            for name in zfile.namelist():
-                if zsep not in name:
-                    continue
-                top_folder = name[:name.index(zsep) + 1]
-                if name == top_folder + zsep:
-                    continue  # skip top level folder
-                sub_path = name[name.index(zsep) + 1:]
-                if name.endswith(zsep):
-                    try:
-                        os.mkdir(os.path.join(outdir, sub_path))
-                        self.print_verbose(
-                            "Extract - mkdir: " + os.path.join(outdir, sub_path))
-                    except OSError as exc:
-                        if exc.errno != errno.EEXIST:
-                            self._error = "Install failed"
-                            self._error_msg = "Could not create folder from zip"
-                            self.print_trace()
-                            return -1
+        # Now extract directly from the first subfolder (not root)
+        # this avoids adding the first subfolder to the path length,
+        # which can be too long if the download has the SHA in the name.
+        zsep = '/'  # Not using os.sep, always the / value even on windows.
+        for name in zfile.namelist():
+            if zsep not in name:
+                continue
+            top_folder = name[:name.index(zsep) + 1]
+            if name == top_folder + zsep:
+                continue  # skip top level folder
+            sub_path = name[name.index(zsep) + 1:]
+            if name.endswith(zsep):
+                try:
+                    os.mkdir(os.path.join(outdir, sub_path))
+                    self.print_verbose(
+                        "Extract - mkdir: " + os.path.join(outdir, sub_path))
+                except OSError as exc:
+                    if exc.errno != errno.EEXIST:
+                        self._error = "Install failed"
+                        self._error_msg = "Could not create folder from zip"
+                        self.print_trace()
+                        return -1
+            else:
+                with open(os.path.join(outdir, sub_path), "wb") as outfile:
+                    data = zfile.read(name)
+                    outfile.write(data)
+                    self.print_verbose(
+                        "Extract - create: " + os.path.join(outdir, sub_path))
+
+        self.print_verbose("Extracted source")
+        zfile.close()
+        del zfile
+
+        unpath = os.path.join(self._updater_path, "source")
+        if not os.path.isdir(unpath):
+            self._error = "Install failed"
+            self._error_msg = "Extracted path does not exist"
+            print("Extracted path does not exist: ", unpath)
+            return -1
+
+        if self._subfolder_path:
+            self._subfolder_path.replace('/', os.path.sep)
+            self._subfolder_path.replace('\\', os.path.sep)
+
+        # Either directly in root of zip/one subfolder, or use specified path.
+        if not os.path.isfile(os.path.join(unpath, "__init__.py")):
+            dirlist = os.listdir(unpath)
+            if len(dirlist) > 0:
+                if self._subfolder_path == "" or self._subfolder_path is None:
+                    unpath = os.path.join(unpath, dirlist[0])
                 else:
-                    with open(os.path.join(outdir, sub_path), "wb") as outfile:
-                        data = zfile.read(name)
-                        outfile.write(data)
-                        self.print_verbose(
-                            "Extract - create: " + os.path.join(outdir, sub_path))
+                    unpath = os.path.join(unpath, self._subfolder_path)
 
-            self.print_verbose("Extracted source")
-
-            unpath = os.path.join(self._updater_path, "source")
-            if not os.path.isdir(unpath):
+            # Smarter check for additional sub folders for a single folder
+            # containing the __init__.py file.
+            if not os.path.isfile(os.path.join(unpath, "__init__.py")):
+                print("Not a valid addon found")
+                print("Paths:")
+                print(dirlist)
                 self._error = "Install failed"
-                self._error_msg = "Extracted path does not exist"
-                print("Extracted path does not exist: ", unpath)
+                self._error_msg = "No __init__ file found in new source"
                 return -1
 
-            if self._subfolder_path:
-                self._subfolder_path.replace('/', os.path.sep)
-                self._subfolder_path.replace('\\', os.path.sep)
+        # Merge code with the addon directory, using blender default behavior,
+        # plus any modifiers indicated by user (e.g. force remove/keep).
+        self.deep_merge_directory(self._addon_root, unpath, clean)
 
-            # Either directly in root of zip/one subfolder, or use specified path.
-            if not os.path.isfile(os.path.join(unpath, "__init__.py")):
-                dirlist = os.listdir(unpath)
-                if len(dirlist) > 0:
-                    if self._subfolder_path == "" or self._subfolder_path is None:
-                        unpath = os.path.join(unpath, dirlist[0])
-                    else:
-                        unpath = os.path.join(unpath, self._subfolder_path)
-
-                # Smarter check for additional sub folders for a single folder
-                # containing the __init__.py file.
-                if not os.path.isfile(os.path.join(unpath, "__init__.py")):
-                    print("Not a valid addon found")
-                    print("Paths:")
-                    print(dirlist)
-                    self._error = "Install failed"
-                    self._error_msg = "No __init__ file found in new source"
-                    return -1
-
-            # Merge code with the addon directory, using blender default behavior,
-            # plus any modifiers indicated by user (e.g. force remove/keep).
-            self.deep_merge_directory(self._addon_root, unpath, clean)
-
-            # Now save the json state.
-            # Change to True to trigger the handler on other side if allowing
-            # reloading within same blender session.
-            self._json["just_updated"] = True
-            self.save_updater_json()
-            self.reload_addon()
-            self._update_ready = False
-            return 0
+        # Now save the json state.
+        # Change to True to trigger the handler on other side if allowing
+        # reloading within same blender session.
+        self._json["just_updated"] = True
+        self.save_updater_json()
+        self.reload_addon()
+        self._update_ready = False
+        return 0
 
     def deep_merge_directory(self, base, merger, clean=False):
         """Merge folder 'merger' into 'base' without deleting existing"""
