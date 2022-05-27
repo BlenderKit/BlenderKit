@@ -3,7 +3,7 @@ import platform
 import subprocess
 import sys
 import time
-from os import makedirs, path
+from os import environ, makedirs, path, pathsep
 
 
 def add_fallback():
@@ -53,13 +53,17 @@ def install_dependencies():
 
   started = time.time()
 
+  env  = environ.copy()
+  if platform.system() == "Windows":
+    env['PATH'] = env['PATH'] + pathsep + path.abspath(path.dirname(sys.executable) + "/../../../blender.crt")
+
   command = [sys.executable, '-m', 'ensurepip', '--user']
-  result = subprocess.run(command, capture_output=True, text=True)
+  result = subprocess.run(command, env=env, capture_output=True, text=True)
   print(f"PIP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
 
   requirements = path.join(path.dirname(__file__), 'requirements.txt')
   command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_fallback_path(), '-r', requirements]
-  result = subprocess.run(command, capture_output=True, text=True)
+  result = subprocess.run(command, env=env, capture_output=True, text=True)
   print(f"AIOHTTP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
   if result.returncode == 0:
     print(f"Install succesfully finished in {time.time()-started}")
@@ -67,7 +71,7 @@ def install_dependencies():
 
   print(f"Install from requirements.txt failed, trying with unconstrained versions...")
   command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_fallback_path(), 'aiohttp', 'certifi']
-  result = subprocess.run(command, capture_output=True, text=True)
+  result = subprocess.run(command, env=env, capture_output=True, text=True)
   print(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
   if result.returncode == 0:
     print(f"Install succesfully finished in {time.time()-started}")
