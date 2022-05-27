@@ -98,6 +98,7 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     preferences.refresh_in_progress = False
     preferences.api_key_refresh = refresh_token
     preferences.api_key = auth_token
+    bpy.ops.wm.save_userpref()
 
     props = utils.get_search_props()
     if props is not None:
@@ -169,6 +170,7 @@ class Logout(bpy.types.Operator):
         preferences.login_attempt = False
         preferences.api_key_refresh = ''
         preferences.api_key = ''
+        bpy.ops.wm.save_userpref()
         if global_vars.DATA.get('bkit profile'):
             del (global_vars.DATA['bkit profile'])
         return {'FINISHED'}
