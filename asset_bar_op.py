@@ -856,6 +856,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if search_results == None:
             return
 
+        if self.active_index >= len(search_results):
+            return
+
         asset_data = search_results[self.active_index]
         if asset_data['assetBaseId'] == asset_id:
             set_thumb_check(self.tooltip_image, asset_data, thumb_type='thumbnail')
@@ -864,6 +867,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def enter_button(self, widget):
         # print('enter button', self.active_index, widget.button_index)
         # print(widget.button_index,self.scroll_offset)
+        if not hasattr(widget, "button_index"):
+            return #click on left/right arrow button gave no attr button_index
+            #we should detect on which button_index scroll/left/right happened to refresh shown thumbnail
+
         search_index = widget.button_index + self.scroll_offset
         if search_index < self.search_results_count:
             self.show_tooltip()
