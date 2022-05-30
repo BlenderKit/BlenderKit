@@ -214,8 +214,9 @@ def check_notifications_read():
 
 
 def get_notifications_thread(api_key, all_count=1000):
-  thread = threading.Thread(target=get_notifications, args=([api_key, all_count]), daemon=True)
-  thread.start()
+  if api_key!='':
+    thread = threading.Thread(target=get_notifications, args=([api_key, all_count]), daemon=True)
+    thread.start()
 
 
 def get_notifications(api_key, all_count=1000):
