@@ -388,6 +388,7 @@ def save_prefs(self, context):
     # first check context, so we don't do this on registration or blender startup
     if not bpy.app.background:  # (hasattr kills blender)
         # print('saving prefs')
+        bpy.ops.wm.save_userpref()
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         # we test the api key for length, so not a random accidentally typed sequence gets saved.
         lk = len(user_preferences.api_key)
