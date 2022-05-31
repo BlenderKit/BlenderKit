@@ -42,7 +42,6 @@ class BL_UI_Image(BL_UI_Widget):
                     self.__image = img
                 else:
                     self.__image = bpy.data.images.load(rel_filepath, check_existing=True)
-                    self.__image.name = imgname
 
                 self.__image.gl_load()
 
