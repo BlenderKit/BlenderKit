@@ -1266,24 +1266,22 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
 
 
 def available_resolutions_callback(self, context):
-    '''
-    Returns
-    checks active asset for available resolutions and offers only those available
+    """Checks active asset for available resolutions and offers only those available
     TODO: this currently returns always the same list of resolutions, make it actually work
-    '''
-    # print('callback called', self.asset_data)
+    """
+
     pat_items = (
-        ('512', '512', '', 1),
-        ('1024', '1024', '', 2),
-        ('2048', '2048', '', 3),
-        ('4096', '4096', '', 4),
-        ('8192', '8192', '', 5),
+        ("512", "512", "", 1),
+        ("1024", "1024", "", 2),
+        ("2048", "2048", "", 3),
+        ("4096", "4096", "", 4),
+        ("8192", "8192", "", 5),
     )
-    items = []
+    items = [("ORIGINAL", "Original", "", 0)]
     for item in pat_items:
         if int(self.max_resolution) >= int(item[0]):
             items.append(item)
-    items.append(('ORIGINAL', 'Original', '', 6))
+
     return items
 
 
@@ -1293,9 +1291,10 @@ def show_enum_values(obj, prop_name):
 
 class BlenderkitDownloadOperator(bpy.types.Operator):
     """Download and link asset to scene. Only link if asset already available locally"""
+
     bl_idname = "scene.blenderkit_download"
     bl_label = "Download"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     # asset_type: EnumProperty(
     #     name="Type",
@@ -1303,7 +1302,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     #     description="Type of download",
     #     default="MODEL",
     # )
-    asset_index: IntProperty(name="Asset Index", description='asset index in search results', default=-1)
+    asset_index: IntProperty(name="Asset Index", description="asset index in search results", default=-1)
 
     asset_base_id: StringProperty(
         name="Asset base Id",
@@ -1315,25 +1314,43 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         description="Material or object target for replacement",
         default="")
 
-    material_target_slot: IntProperty(name="Asset Index", description='asset index in search results', default=0)
-    model_location: FloatVectorProperty(name='Asset Location', default=(0, 0, 0))
-    model_rotation: FloatVectorProperty(name='Asset Rotation', default=(0, 0, 0))
+    material_target_slot: IntProperty(name="Asset Index", description="asset index in search results", default=0)
+    model_location: FloatVectorProperty(name="Asset Location", default=(0, 0, 0))
+    model_rotation: FloatVectorProperty(name="Asset Rotation", default=(0, 0, 0))
 
-    replace: BoolProperty(name='Replace', description='replace selection with the asset', default=False,options={'SKIP_SAVE'})
+    replace: BoolProperty(
+        name="Replace",
+        description="replace selection with the asset",
+        default=False,
+        options={"SKIP_SAVE"},
+        )
 
-    replace_resolution: BoolProperty(name='Replace resolution', description='replace resolution of the active asset',
-                                     default=False,options={'SKIP_SAVE'})
+    replace_resolution: BoolProperty(
+        name="Replace resolution", 
+        description="replace resolution of the active asset",
+        default=False,
+        options={"SKIP_SAVE"},
+        )
 
-    invoke_resolution: BoolProperty(name='Replace resolution popup',
-                                    description='pop up to ask which resolution to download', default=False,options={'SKIP_SAVE'})
-    invoke_scene_settings: BoolProperty(name='Scene import settings popup',
-                                        description='pop up scene import settings', default=False,options={'SKIP_SAVE'})
+    invoke_resolution: BoolProperty(
+        name="Replace resolution popup",
+        description="pop up to ask which resolution to download",
+        default=False,
+        options={"SKIP_SAVE"},
+        )
+
+    invoke_scene_settings: BoolProperty(
+        name="Scene import settings popup",
+        description="pop up scene import settings",
+        default=False,
+        options={"SKIP_SAVE"},
+        )
 
     resolution: EnumProperty(
         items=available_resolutions_callback,
-        default=512,
-        description='Replace resolution'
-    , options = {'SKIP_SAVE'}
+        default=0,
+        description="Replace resolution",
+        options = {"SKIP_SAVE"}
     )
 
     # needs to be passed to the operator to not show all resolution possibilities
@@ -1356,7 +1373,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     # def poll(cls, context):
     #     return bpy.context.window_manager.BlenderKitModelThumbnails is not ''
     tooltip: bpy.props.StringProperty(
-        default='Download and link asset to scene. Only link if asset already available locally')
+        default="Download and link asset to scene. Only link if asset already available locally")
 
     @classmethod
     def description(cls, context, properties):
@@ -1397,12 +1414,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
     def execute(self, context):
         sprops = utils.get_search_props()
-
         self.asset_data = self.get_asset_data(context)
-
-        # print('after getting asset data')
-        # print(self.asset_base_id)
-
         atype = self.asset_data['assetType']
         if bpy.context.mode != 'OBJECT' and (
                 atype == 'model' or atype == 'material') and bpy.context.view_layer.objects.active is not None:
@@ -1426,7 +1438,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                             (ob['asset_data']['assetBaseId'] == self.asset_base_id and ob['asset_data'][
                                 'resolution'] == resolution):
                         # print('skipping this one')
-                        continue;
+                        continue
                 parent = ob.parent
                 if parent:
                     parent = ob.parent.name  # after this, parent is either name or None.
