@@ -1773,10 +1773,20 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs
     )
 
-    daemon_port: IntProperty(
-        name="Daemon port",
-        description="Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches",
-        default=10753,
+    daemon_port: EnumProperty(
+        name='Daemon port',
+        description='Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches',
+        items=(
+            ('62485', '62485', ''),
+            ('65425', '65425', ''),
+            ('55428', '55428', ''),
+            ('49452', '49452', ''),
+            ('35452', '35452', ''),
+            ('25152', '25152', ''),
+            ('5152', '5152', ''),
+            ('1234', '1234', ''),
+        ),
+        default='62485',
         update=timer.cancel_all_tasks,
     )
 

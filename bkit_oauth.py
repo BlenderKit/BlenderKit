@@ -20,6 +20,8 @@
 import logging
 import threading
 import time
+import webbrowser
+from urllib.parse import quote as urlquote
 
 import bpy
 import requests
@@ -60,14 +62,33 @@ def login_thread(signup=False):
 
 
 def login(signup, url, r_url, authenticator):
-    try:
-        auth_token, refresh_token, oauth_response = authenticator.get_new_token(register=signup, redirect_url=r_url)
-    except Exception as e:
-        print(e)
-        tasks_queue.add_task((reports.add_report, (e, 20, colors.RED)))
+  bkit_URL = paths.get_bkit_url()
+  oauth_landing_URL = paths.get_oauth_landing_url()
+  daemon_port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
+  local_landing_URL = f"http://localhost:{daemon_port}/consumer/exchange/"
+  authorize_url = f"/o/authorize?client_id={CLIENT_ID}&state=random_state_string&response_type=code&redirect_uri={local_landing_URL}"
+  if register:
+    authorize_url = urlquote(authorize_url)
+    authorize_url = f"{bkit_URL}/accounts/register/?next={authorize_url}"
+  else:
+    authorize_url = f"{bkit_URL}{authorize_url}"
+        
+  webbrowser.open_new(authorize_url)
+  return
 
-    bk_logger.debug('tokens retrieved')
-    tasks_queue.add_task((write_tokens, (auth_token, refresh_token, oauth_response)))
+  authorization_code = httpServer.authorization_code
+  #return self._get_tokens(authorization_code=authorization_code)
+  
+  try:
+    auth_token, refresh_token, oauth_response = authenticator.get_new_token(register=signup, redirect_url=r_url)
+
+
+  except Exception as e:
+    print(e)
+    tasks_queue.add_task((reports.add_report, (e, 20, colors.RED)))
+
+  bk_logger.debug('tokens retrieved')
+  tasks_queue.add_task((write_tokens, (auth_token, refresh_token, oauth_response)))
 
 
 def refresh_token_thread():
@@ -142,6 +163,8 @@ class RegisterLoginOnline(bpy.types.Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
         preferences.login_attempt = True
+        
+        
         login_thread(self.signup)
         return {'FINISHED'}
 

@@ -78,6 +78,7 @@ class SimpleOAuthAuthenticator(object):
         return access_token, refresh_token, response_json
 
     def get_new_token(self, register=True, redirect_url=None):
+        print("GETTING NEW TOKEN")
         class HTTPServerHandler(BaseHTTPRequestHandler):
             html_template = '<html>%(head)s<h1>%(message)s</h1></html>'
 
@@ -121,6 +122,10 @@ class SimpleOAuthAuthenticator(object):
             authorize_url = "%s/accounts/register/?next=%s" % (self.server_url, urlquote(authorize_url))
         else:
             authorize_url = "%s%s" % (self.server_url, authorize_url)
+
+        print("SERVER_URL", self.server_url)
+        print("AUTHOTIZE_URL", authorize_url)
+
         webbrowser.open_new(authorize_url)
 
         httpServer.handle_request()
