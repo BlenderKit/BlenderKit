@@ -53,6 +53,20 @@ async def index(request: web_request.Request):
   pid = str(os.getpid())
   return web.Response(text=pid)
 
+async def consumer_exchange(request: web_request.Request):
+  code = request.rel_url.query.get('code', None)
+  redirect_url = "https://www.blenderkit.com/oauth-landing/" #this needs to switch between devel/stage/production
+  html_template = '<html>%(head)s<h1>%(message)s</h1></html>'
+
+  if code == None:
+    return web.Response(text="Authorization Failed. Authorization code was not provided.")
+
+  #here POST request will be done to retrieve token
+  #then we send token to addon
+  #once token is set, we can redirect to final page
+
+  return web.HTTPPermanentRedirect(redirect_url)
+
 
 async def kill_download(request):
   """Handle request for kill of task with the task_id."""
@@ -187,6 +201,7 @@ if __name__ == "__main__":
     web.post('/search_asset', search_assets),
     web.view('/shutdown', Shutdown),
     web.view('/report_blender_quit', report_blender_quit),
+    web.view('/consumer/exchange/', consumer_exchange),
   ])
 
   server.on_startup.append(start_background_tasks)
