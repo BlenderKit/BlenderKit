@@ -10,14 +10,15 @@ import uuid
 from ssl import Purpose
 
 import aiohttp
-import assets
 import certifi
-import globals
-import tasks
+
 from aiohttp import web, web_request
 
+import globals
+import tasks
 import search
-
+import oauth
+import assets
 
 async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
@@ -54,16 +55,21 @@ async def index(request: web_request.Request):
   return web.Response(text=pid)
 
 async def consumer_exchange(request: web_request.Request):
-  code = request.rel_url.query.get('code', None)
+  auth_code = request.rel_url.query.get('code', None)
   redirect_url = "https://www.blenderkit.com/oauth-landing/" #this needs to switch between devel/stage/production
-  html_template = '<html>%(head)s<h1>%(message)s</h1></html>'
 
-  if code == None:
+  if auth_code == None:
     return web.Response(text="Authorization Failed. Authorization code was not provided.")
 
-  #here POST request will be done to retrieve token
-  #then we send token to addon
-  #once token is set, we can redirect to final page
+  status, response_json = await oauth.get_tokens(request, auth_code=auth_code)
+  if status != 200:
+    return web.Response(text=f"Authorization Failed. Retrieval of tokens failed (status code: {status.code}). Response: {response_json}")
+
+  for app_id in globals.active_apps:
+    task = tasks.Task(None, str(uuid.uuid4()), app_id, 'login', message='Getting authorization code')
+    globals.tasks.append(task)
+    task.result = response_json
+    task.finished("Tokens obtained")
 
   return web.HTTPPermanentRedirect(redirect_url)
 
@@ -186,6 +192,7 @@ if __name__ == "__main__":
   parser.add_argument('--proxy-address', type=str, default="")
   parser.add_argument('--proxy-ca-certs', type=str, default="")
   args = parser.parse_args()
+  globals.PORT = args.port
 
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
