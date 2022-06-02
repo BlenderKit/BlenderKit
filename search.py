@@ -1341,36 +1341,38 @@ def search_update(self, context):
   instr = 'asset_base_id:'
   atstr = 'asset_type:'
   kwds = sprops.search_keywords
-  idi = kwds.find(instr)
-  ati = kwds.find(atstr)
-  # if the asset type already isn't there it means this update function
-  # was triggered by it's last iteration and needs to cancel
-  if ati > -1:
-    at = kwds[ati:].lower()
-    # uncertain length of the remaining string -  find as better method to check the presence of asset type
-    if at.find('model') > -1:
-      ats = 'MODEL'
-    elif at.find('material') > -1:
-      ats = 'MATERIAL'
-    elif at.find('brush') > -1:
-      ats = 'BRUSH'
-    elif at.find('scene') > -1:
-      ats = 'SCENE'
-    elif at.find('hdr') > -1:
-      ats = 'HDR'
-    if ui_props.asset_type != ats:
-      sprops.search_keywords = ''
-      ui_props.asset_type = ats
+  id_index = kwds.find(instr)
+  if id_index>-1:
+    asset_type_index = kwds.find(atstr)
+    # if the asset type already isn't there it means this update function
+    # was triggered by it's last iteration and needs to cancel
+    if asset_type_index > -1:
+      asset_type_string = kwds[asset_type_index:].lower()
+      # uncertain length of the remaining string -  find as better method to check the presence of asset type
+      if asset_type_string.find('model') > -1:
+        target_asset_type = 'MODEL'
+      elif asset_type_string.find('material') > -1:
+        target_asset_type = 'MATERIAL'
+      elif asset_type_string.find('brush') > -1:
+        target_asset_type = 'BRUSH'
+      elif asset_type_string.find('scene') > -1:
+        target_asset_type = 'SCENE'
+      elif asset_type_string.find('hdr') > -1:
+        target_asset_type = 'HDR'
+      if ui_props.asset_type != target_asset_type:
+        sprops.search_keywords = ''
+        ui_props.asset_type = target_asset_type
 
-    # now we trim the input copypaste by anything extra that is there,
-    # this is also a way for this function to recognize that it already has parsed the clipboard
-    # the search props can have changed and this needs to transfer the data to the other field
-    # this complex behaviour is here for the case where the user needs to paste manually into blender?
-    sprops = utils.get_search_props()
-    clean_filters()
-    sprops.search_keywords = kwds[:ati].rstrip()
-    # return here since writing into search keywords triggers this update function once more.
-    return
+      # now we trim the input copypaste by anything extra that is there,
+      # this is also a way for this function to recognize that it already has parsed the clipboard
+      # the search props can have changed and this needs to transfer the data to the other field
+      # this complex behaviour is here for the case where the user needs to paste manually into blender,
+      # Otherwise it could be processed directly in the clipboard check function.
+      sprops = utils.get_search_props()
+      clean_filters()
+      sprops.search_keywords = kwds[:asset_type_index].rstrip()
+      # return here since writing into search keywords triggers this update function once more.
+      return
 
   # print('search update search')
   search()
