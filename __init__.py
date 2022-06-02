@@ -75,7 +75,6 @@ if "bpy" in locals():
     download = reload(download)
     icons = reload(icons)
     image_utils = reload(image_utils)
-    oauth = reload(oauth)
     overrides = reload(overrides)
     paths = reload(paths)
     ratings = reload(ratings)
@@ -120,7 +119,6 @@ else:
     from . import download
     from . import icons
     from . import image_utils
-    from . import oauth
     from . import overrides
     from . import paths
     from . import ratings

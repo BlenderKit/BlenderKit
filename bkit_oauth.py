@@ -26,17 +26,13 @@ from urllib.parse import quote as urlquote
 import bpy
 import requests
 
-from . import (
-    categories,
-    colors,
-    global_vars,
-    oauth,
-    paths,
-    reports,
-    search,
-    tasks_queue,
-    utils,
-)
+
+from . import global_vars
+from . import paths
+from . import reports
+from . import search
+from . import tasks_queue
+from . import utils
 
 
 bk_logger = logging.getLogger('blenderkit')
@@ -45,25 +41,12 @@ from bpy.props import BoolProperty
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
-PORTS = [62485, 65425, 55428, 49452, 35452, 25152, 5152, 1234]
 
 active_authenticator = None
 
 
-def login_thread(signup=False):
-    global active_authenticator
-    r_url = paths.get_oauth_landing_url()
-    url = paths.get_bkit_url()
-    authenticator = oauth.SimpleOAuthAuthenticator(server_url=url, client_id=CLIENT_ID, ports=PORTS)
-    # we store authenticator globally to be able to ping the server if connection fails.
-    active_authenticator = authenticator
-    thread = threading.Thread(target=login, args=([signup, url, r_url, authenticator]), daemon=True)
-    thread.start()
-
-
-def login(signup, url, r_url, authenticator):
+def login():
   bkit_URL = paths.get_bkit_url()
-  oauth_landing_URL = paths.get_oauth_landing_url()
   daemon_port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
   local_landing_URL = f"http://localhost:{daemon_port}/consumer/exchange/"
   authorize_url = f"/o/authorize?client_id={CLIENT_ID}&state=random_state_string&response_type=code&redirect_uri={local_landing_URL}"
@@ -76,20 +59,26 @@ def login(signup, url, r_url, authenticator):
   webbrowser.open_new(authorize_url)
   return
 
-  authorization_code = httpServer.authorization_code
-  #return self._get_tokens(authorization_code=authorization_code)
-  
-  try:
-    auth_token, refresh_token, oauth_response = authenticator.get_new_token(register=signup, redirect_url=r_url)
+def write_tokens(auth_token, refresh_token, oauth_response):
 
+    preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    preferences.api_key_timeout = int(time.time() + oauth_response['expires_in'])
+    preferences.api_key_life = oauth_response['expires_in']
+    preferences.login_attempt = False
+    preferences.refresh_in_progress = False
+    preferences.api_key_refresh = refresh_token
+    preferences.api_key = auth_token
 
-  except Exception as e:
-    print(e)
-    tasks_queue.add_task((reports.add_report, (e, 20, colors.RED)))
-
-  bk_logger.debug('tokens retrieved')
-  tasks_queue.add_task((write_tokens, (auth_token, refresh_token, oauth_response)))
-
+    props = utils.get_search_props()
+    if props is not None:
+        props.report = ''
+    search.get_profile()
+    ui_props = bpy.context.window_manager.blenderkitUI
+    if ui_props.assetbar_on:
+        ui_props.turn_off = True
+        ui_props.assetbar_on = False
+    search.cleanup_search_results()
+    #categories.fetch_categories_thread(auth_token, force = False)
 
 def refresh_token_thread():
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
@@ -108,29 +97,6 @@ def refresh_token(api_key_refresh, url):
     if auth_token is not None and refresh_token is not None:
         tasks_queue.add_task((write_tokens, (auth_token, refresh_token, oauth_response)))
     return auth_token, refresh_token, oauth_response
-
-
-def write_tokens(auth_token, refresh_token, oauth_response):
-    bk_logger.debug('writing tokens')
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    preferences.api_key_timeout = int(time.time() + oauth_response['expires_in'])
-    preferences.api_key_life = oauth_response['expires_in']
-    preferences.login_attempt = False
-    preferences.refresh_in_progress = False
-    preferences.api_key_refresh = refresh_token
-    preferences.api_key = auth_token
-
-    props = utils.get_search_props()
-    if props is not None:
-        props.report = ''
-    reports.add_report('BlenderKit Re-Login success')
-    search.get_profile()
-    ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.assetbar_on:
-        ui_props.turn_off = True
-        ui_props.assetbar_on = False
-    search.cleanup_search_results()
-    categories.fetch_categories_thread(auth_token, force = False)
 
 
 class RegisterLoginOnline(bpy.types.Operator):
@@ -164,8 +130,7 @@ class RegisterLoginOnline(bpy.types.Operator):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
         preferences.login_attempt = True
         
-        
-        login_thread(self.signup)
+        login()
         return {'FINISHED'}
 
     def invoke(self, context, event):

@@ -10,7 +10,14 @@ import time
 import bpy
 import requests
 
-from . import colors, daemon_lib, download, reports, search
+from . import bkit_oauth
+from . import colors
+from . import daemon_lib
+from . import download
+from . import reports
+from . import search
+from . import tasks_queue
+
 from .daemon import tasks
 
 
@@ -19,7 +26,7 @@ logger = logging.getLogger(__name__)
 # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 pending_tasks = list()
 reader_loop = None
-ENABLE_ASYNC_LOOP =False
+ENABLE_ASYNC_LOOP = False
 
 reports_queue = queue.Queue()
 
@@ -107,6 +114,18 @@ def handle_task(task: tasks.Task):
       search.handle_preview_task(task)
     elif task.status == 'error':
       reports.add_report(task.message, 3, colors.RED)
+
+  #HANDLE LOGIN
+  if task.task_type == "login":
+    if task.status == "finished":
+      print(task.result)
+      logger.debug('tokens retrieved')
+      access_token = task.result["access_token"]
+      refresh_token = task.result["refresh_token"]
+      oauth_response = task.result
+      tasks_queue.add_task((bkit_oauth.write_tokens, (access_token, refresh_token, oauth_response)))
+    else:
+      tasks_queue.add_task((reports.add_report, (task.message, 20, colors.RED)))
 
 
 def setup_asyncio_executor():
