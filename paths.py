@@ -99,8 +99,10 @@ def get_asset_gallery_url(asset_id):
 
 
 def default_global_dict():
-    from os.path import expanduser
-    home = expanduser("~")
+    home = os.path.expanduser("~")
+    data_home = os.environ.get('XDG_DATA_HOME')
+    if data_home != None:
+        home = data_home
     return home + os.sep + 'blenderkit_data'
 
 
