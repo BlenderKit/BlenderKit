@@ -1285,6 +1285,25 @@ def search(category='', get_next=False, author_id=''):
   reports.add_report('BlenderKit searching....', 2)
   props.report = 'BlenderKit searching....'
 
+def clean_filters():
+  '''cleanup filters in case search needs to be reset, typicaly when asset id is copy pasted'''
+  sprops = utils.get_search_props()
+  ui_props = bpy.context.window_manager.blenderkitUI
+  sprops.property_unset('own_only')
+  sprops.property_unset('search_texture_resolution')
+  sprops.property_unset('search_file_size')
+  sprops.property_unset('search_procedural')
+  sprops.property_unset('free_only')
+  sprops.property_unset('quality_limit')
+  if ui_props.asset_type == 'MODEL':
+    sprops.property_unset('search_style')
+    sprops.property_unset('search_condition')
+    sprops.property_unset('search_design_year')
+    sprops.property_unset('search_polycount')
+    sprops.property_unset('search_animated')
+  if ui_props.asset_type == 'HDR':
+    sprops.true_hdr = False
+
 
 def update_filters():
   sprops = utils.get_search_props()
@@ -1330,20 +1349,25 @@ def search_update(self, context):
     at = kwds[ati:].lower()
     # uncertain length of the remaining string -  find as better method to check the presence of asset type
     if at.find('model') > -1:
-      ui_props.asset_type = 'MODEL'
+      ats = 'MODEL'
     elif at.find('material') > -1:
-      ui_props.asset_type = 'MATERIAL'
+      ats = 'MATERIAL'
     elif at.find('brush') > -1:
-      ui_props.asset_type = 'BRUSH'
+      ats = 'BRUSH'
     elif at.find('scene') > -1:
-      ui_props.asset_type = 'SCENE'
+      ats = 'SCENE'
     elif at.find('hdr') > -1:
-      ui_props.asset_type = 'HDR'
+      ats = 'HDR'
+    if ui_props.asset_type != ats:
+      sprops.search_keywords = ''
+      ui_props.asset_type = ats
+
     # now we trim the input copypaste by anything extra that is there,
     # this is also a way for this function to recognize that it already has parsed the clipboard
     # the search props can have changed and this needs to transfer the data to the other field
     # this complex behaviour is here for the case where the user needs to paste manually into blender?
     sprops = utils.get_search_props()
+    clean_filters()
     sprops.search_keywords = kwds[:ati].rstrip()
     # return here since writing into search keywords triggers this update function once more.
     return
