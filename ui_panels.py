@@ -2308,8 +2308,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']), use_urls = True)
 
         if utils.user_logged_in():
-            row = rows[-1]
-            # row = layout.row()
+            # row = rows[-1]
+            row = layout.row()
             split = row.split(factor=.8)
             split.label(text='')
             split = split.split()
