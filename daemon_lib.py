@@ -87,6 +87,14 @@ def kill_download(task_id):
     resp = session.get(url, json={'task_id':task_id})
     return resp
 
+def refresh_token(refresh_token):
+  """Refresh authentication token."""
+  
+  with requests.Session() as session:
+    ensure_daemon_alive(session)
+    url = get_address() + "/refresh_token"
+    resp = session.get(url, json={'refresh_token': refresh_token})
+    return resp
 
 def ensure_daemon_alive(session: requests.Session):
   """Make sure that daemon is running. If not start the daemon."""
@@ -142,8 +150,6 @@ def start_daemon_server():
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
   
-
-
   creation_flags = 0
   if platform.system() == "Windows":
     env['PATH'] = env['PATH'] + os.pathsep + path.abspath(path.dirname(sys.executable) + "/../../../blender.crt")

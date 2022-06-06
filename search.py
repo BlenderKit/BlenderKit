@@ -69,8 +69,6 @@ def check_errors(rdata):
     if rdata.get('detail') == 'Invalid token.':
       user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
       if user_preferences.api_key != '':
-        if user_preferences.enable_oauth:
-          bkit_oauth.refresh_token_thread()
         return False, rdata.get('detail')
       return False, 'Use login panel to connect your profile.'
     else:
@@ -102,16 +100,6 @@ Use the R key for fast rating of assets.
 Use the X key to delete the asset from your hard drive.
 """
 rtips = rtips_string.splitlines()
-
-
-def refresh_token_timer():
-  ''' this timer gets run every time the token needs refresh. It refreshes tokens and also categories.'''
-  utils.p('refresh timer')
-  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  fetch_server_data()
-  categories.load_categories()
-
-  return max(3600, user_preferences.api_key_life - 3600)
 
 
 def update_ad(ad):
@@ -201,8 +189,9 @@ def scene_load(context):
   # purge_search_results()
   fetch_server_data()
   categories.load_categories()
-  if not bpy.app.timers.is_registered(refresh_token_timer) and not bpy.app.background:
-    bpy.app.timers.register(refresh_token_timer, persistent=True, first_interval=36000)
+  if not bpy.app.timers.is_registered(bkit_oauth.refresh_token_timer) and not bpy.app.background:
+    bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=5)
+    #bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=36000)
   # if utils.experimental_enabled() and not bpy.app.timers.is_registered(
   #         refresh_notifications_timer) and not bpy.app.background:
   #     bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
@@ -216,10 +205,6 @@ def fetch_server_data():
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     api_key = user_preferences.api_key
     # Only refresh new type of tokens(by length), and only one hour before the token timeouts.
-    if user_preferences.enable_oauth and \
-            len(user_preferences.api_key) < 38 and len(user_preferences.api_key) > 0 and \
-            user_preferences.api_key_timeout < time.time() + 3600:
-      bkit_oauth.refresh_token_thread()
     if api_key != '' and global_vars.DATA.get('bkit profile') == None:
       get_profile()
     if global_vars.DATA.get('bkit_categories') is None:

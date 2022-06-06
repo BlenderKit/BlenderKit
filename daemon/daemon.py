@@ -54,6 +54,7 @@ async def index(request: web_request.Request):
   pid = str(os.getpid())
   return web.Response(text=pid)
 
+
 async def consumer_exchange(request: web_request.Request):
   auth_code = request.rel_url.query.get('code', None)
   redirect_url = "https://www.blenderkit.com/oauth-landing/" #this needs to switch between devel/stage/production
@@ -74,7 +75,11 @@ async def consumer_exchange(request: web_request.Request):
   return web.HTTPPermanentRedirect(redirect_url)
 
 
-async def kill_download(request):
+async def refresh_token(request: web_request.Request):
+  asyncio.ensure_future(oauth.refresh_tokens(request))
+  return web.Response(text="ok")
+
+async def kill_download(request: web_request.Request):
   """Handle request for kill of task with the task_id."""
 
   data = await request.json()
@@ -208,7 +213,8 @@ if __name__ == "__main__":
     web.post('/search_asset', search_assets),
     web.view('/shutdown', Shutdown),
     web.view('/report_blender_quit', report_blender_quit),
-    web.view('/consumer/exchange/', consumer_exchange),
+    web.get('/consumer/exchange/', consumer_exchange),
+    web.get('/refresh_token', refresh_token),
   ])
 
   server.on_startup.append(start_background_tasks)

@@ -18,7 +18,6 @@
 
 
 import logging
-import threading
 import time
 import webbrowser
 from urllib.parse import quote as urlquote
@@ -26,13 +25,12 @@ from urllib.parse import quote as urlquote
 import bpy
 import requests
 
-
 from . import global_vars
 from . import paths
 from . import reports
 from . import search
-from . import tasks_queue
 from . import utils
+from . import daemon_lib
 
 
 bk_logger = logging.getLogger('blenderkit')
@@ -45,25 +43,24 @@ CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 active_authenticator = None
 
 
-def login():
+def login(signup):
   bkit_URL = paths.get_bkit_url()
   daemon_port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
   local_landing_URL = f"http://localhost:{daemon_port}/consumer/exchange/"
   authorize_url = f"/o/authorize?client_id={CLIENT_ID}&state=random_state_string&response_type=code&redirect_uri={local_landing_URL}"
-  if register:
+  if signup:
     authorize_url = urlquote(authorize_url)
     authorize_url = f"{bkit_URL}/accounts/register/?next={authorize_url}"
   else:
     authorize_url = f"{bkit_URL}{authorize_url}"
-        
   webbrowser.open_new(authorize_url)
+
   return
 
 def write_tokens(auth_token, refresh_token, oauth_response):
-
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    oauth_response["expires_in"] = 60 #REMOVE - ONLY FOR TESTING
     preferences.api_key_timeout = int(time.time() + oauth_response['expires_in'])
-    preferences.api_key_life = oauth_response['expires_in']
     preferences.login_attempt = False
     preferences.refresh_in_progress = False
     preferences.api_key_refresh = refresh_token
@@ -80,27 +77,41 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     search.cleanup_search_results()
     #categories.fetch_categories_thread(auth_token, force = False)
 
-def refresh_token_thread():
+
+def ensure_api_key_freshness():
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    if preferences.api_key == "":
+      return
+    
+    if preferences.api_key_refresh == "":
+      #if we have api_key, we can get refresh token here
+      return
+
+    if time.time() + 4000 > preferences.api_key_timeout:
+      daemon_lib.refresh_token(preferences.api_key_refresh)
+      preferences.refresh_in_progress = True
+
     if len(preferences.api_key_refresh) > 0 and preferences.refresh_in_progress == False:
-        preferences.refresh_in_progress = True
-        url = paths.get_bkit_url()
-        thread = threading.Thread(target=refresh_token, args=([preferences.api_key_refresh, url]), daemon=True)
-        thread.start()
-    else:
-        reports.add_report('Already Refreshing token, will be ready soon. If this fails, please login again in Login panel.')
+        
+
+      reports.add_report('Already Refreshing token, will be ready soon. If this fails, please login again in Login panel.')
 
 
-def refresh_token(api_key_refresh, url):
-    authenticator = oauth.SimpleOAuthAuthenticator(server_url=url, client_id=CLIENT_ID, ports=PORTS)
-    auth_token, refresh_token, oauth_response = authenticator.get_refreshed_token(api_key_refresh)
-    if auth_token is not None and refresh_token is not None:
-        tasks_queue.add_task((write_tokens, (auth_token, refresh_token, oauth_response)))
-    return auth_token, refresh_token, oauth_response
+def refresh_token_timer():
+  """Checks if api_key needs refresh and makes refresh if needed."""
+
+  print("REFRESH TOKEN TIME RUNS...")
+  utils.p('refresh timer')
+
+  ensure_api_key_freshness()
+  #fetch_server_data()
+  #categories.load_categories()
+
+  return 30 #INCREASE, ONLY 30 FOR TESTING
 
 
-class RegisterLoginOnline(bpy.types.Operator):
-    """Login online on BlenderKit webpage"""
+class LoginOnline(bpy.types.Operator):
+    """Login or register online on BlenderKit webpage"""
 
     bl_idname = "wm.blenderkit_login"
     bl_label = "BlenderKit login/signup"
@@ -129,8 +140,8 @@ class RegisterLoginOnline(bpy.types.Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
         preferences.login_attempt = True
-        
-        login()
+        login(self.signup)
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -198,7 +209,7 @@ class CancelLoginOnline(bpy.types.Operator):
 
 
 classes = (
-    RegisterLoginOnline,
+    LoginOnline,
     CancelLoginOnline,
     Logout,
 )
