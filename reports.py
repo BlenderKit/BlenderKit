@@ -20,7 +20,10 @@ import time
 
 import bpy
 
-from . import asset_bar_op, colors, ui_bgl, utils
+from . import asset_bar_op
+from . import colors
+from . import ui_bgl
+from . import utils
 
 
 reports = []

@@ -1723,12 +1723,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=0,
     )
 
-    api_key_life: IntProperty(
-        name='api key life time',
-        description='maximum lifetime of the api key, in seconds',
-        default=0,
-    )
-
     refresh_in_progress: BoolProperty(
         name="Api key refresh in progress",
         description="Api key is currently being refreshed. Don't refresh it again",

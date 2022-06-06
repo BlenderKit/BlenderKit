@@ -1,10 +1,12 @@
 """OAuth for login."""
 
 import typing
+import uuid
 
 from aiohttp import web
 
 import globals
+import tasks
 
 async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[int, dict|str]:
   server_url = "https://www.blenderkit.com"
@@ -30,11 +32,22 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
       return response.status, response.text
 
     response_json = await response.json()
-    refresh_token = response_json['refresh_token']
-    access_token = response_json['access_token']
-
-    print("TYPE", type(response_json))
-    print("REFRESH_TOKEN", refresh_token)
-    print("ACCESS_TOKEN", access_token)
+    print("Token retrieval OK.")
 
     return 200, response_json
+
+async def refresh_tokens(request: web.Request):
+  data = await request.json()
+  refresh_token = data["refresh_token"]
+  status, response_json = await get_tokens(request, refresh_token=refresh_token, grant_type="refresh_token")
+  
+  for app_id in globals.active_apps:
+    task = tasks.Task(None, str(uuid.uuid4()), app_id, 'login', message='Refreshing tokens')
+    globals.tasks.append(task)
+    task.result = response_json
+    if status == 200:
+      task.finished("Refreshed tokens obtained")
+    else:
+      task.error(f"Error refreshing tokens ({status})")
+      #IF REFRESH TOKEN IS USED and not saved, it errors
+      #we should try to use auth_token to get refresh token and refresh everything
