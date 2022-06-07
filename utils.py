@@ -1028,28 +1028,22 @@ def has_url(text):
     name_regex = "[^]]+"
     # http:// or https:// followed by anything but a closing paren
     url_regex = "http[s]?://[^)]+"
-    markup_regex = '\[({0})]\(\s*({1})\s*\)'.format(name_regex, url_regex)
+    markup_regex = f"\[({name_regex})]\(\s*({url_regex})\s*\)"
     urls = re.findall(markup_regex, text)
-    replacechars = '[]()'
-    # nurls=[]
+    replacechars = "[]()"
     for url in urls:
-        # print(url)
-        text = re.sub(markup_regex, '', text)
-        # text = re.sub(url_regex, '', text)
-        #remove bold text markdown from coment
-        # url = (url[0].replace('*',''),url[1])
+        text = re.sub(markup_regex, "", text)
         for ch in replacechars:
             text.replace(ch,'')
-        # nurls.append(url)
     return urls, text
 
 def line_with_urls(row,text,urls, icon='NONE', use_urls = False):
   used_urls = []
   if use_urls:
     for i,url in enumerate(urls):
-        op = row.operator('wm.blenderkit_url',text=url[0])
+        op = row.operator("wm.blenderkit_url",text=url[0])
         op.url=url[1]
-        op.tooltip = 'Go online to read more'
+        op.tooltip = "Go online to read more"
         # text = text.replace(url, '')
         # used_urls.append(url)
     if len(urls)>0:
@@ -1068,6 +1062,7 @@ def label_multiline(layout, text='', icon='NONE', width=-1, max_lines=10, split_
     icon
     width width to split by in character count
     max_lines maximum lines to draw
+    split_last - split last row to enable a button after it on the right side. The parameter is a ratio where to split.
     use_urls - automatically parse urls to buttons
     Returns
     -------
@@ -1076,51 +1071,44 @@ def label_multiline(layout, text='', icon='NONE', width=-1, max_lines=10, split_
     rows = []
     if text.strip() == '':
         return [layout.row()]
-    text = text.replace('\r\n', '\n')
-    lines = text.split('\n')
+    text = text.replace("\r\n", "\n")
+    lines = text.split("\n")
     if width > 0:
         threshold = int(width / 5.5)
     else:
         threshold = 35
-    li = 0
-    for l in lines:
+    line_index = 0
+    for line in lines:
         urls = []
 
-        # if 3>l.find(' - ')>-1:
-        #     #markdown bullet list...
-        #     l.replace(' - ', '',1)
-        #     icon = 'DOT'
-
         if use_urls:
-          urls,l = has_url(l)
+          urls,line = has_url(line)
 
-        li += 1
-        while len(l) > threshold:
+        line_index += 1
+        while len(line) > threshold:
             #find line split close to the end of line
-            i = l.rfind(' ', 0, threshold)
+            i = line.rfind(" ", 0, threshold)
             #split long words
             if i < 1:
                 i = threshold
-            l1 = l[:i]
+            l1 = line[:i]
             row = layout.row()
             line_with_urls(row, l1, urls, icon = icon, use_urls = use_urls)
             rows.append(row)
-            icon = 'NONE'
-            l = l[i:].lstrip()
-            li += 1
-            if li > max_lines:
+            icon = "NONE"
+            line = line[i:].lstrip()
+            line_index += 1
+            if line_index > max_lines:
                 break;
-        if li > max_lines:
+        if line_index > max_lines:
             break;
         row = layout.row()
         if split_last > 0:
             row = row.split(factor=split_last)
-        # row.label(text=l, icon=icon)
-        line_with_urls(row, l, urls, icon=icon, use_urls=use_urls)
+        line_with_urls(row, line, urls, icon=icon, use_urls=use_urls)
 
         rows.append(row)
         icon = 'NONE'
-    # if li > max_lines:
     return rows
 
 
