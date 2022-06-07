@@ -2,8 +2,7 @@ import logging
 
 
 PREFS = {}
-DATA = {
-  'images available': {}
-}
+DATA = {'images available':{}}
 
 log = logging.basicConfig(level=logging.INFO)
+browser = None

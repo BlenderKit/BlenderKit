@@ -10,14 +10,7 @@ import time
 import bpy
 import requests
 
-from . import bkit_oauth
-from . import colors
-from . import daemon_lib
-from . import download
-from . import reports
-from . import search
-from . import tasks_queue
-
+from . import bkit_oauth, colors, daemon_lib, download, reports, search
 from .daemon import tasks
 
 
@@ -117,15 +110,7 @@ def handle_task(task: tasks.Task):
 
   #HANDLE LOGIN
   if task.task_type == "login":
-    if task.status == "finished":
-      print(task.result)
-      logger.debug('tokens retrieved')
-      access_token = task.result["access_token"]
-      refresh_token = task.result["refresh_token"]
-      oauth_response = task.result
-      tasks_queue.add_task((bkit_oauth.write_tokens, (access_token, refresh_token, oauth_response)))
-    else:
-      tasks_queue.add_task((reports.add_report, (task.message, 20, colors.RED)))
+    bkit_oauth.handle_login_task(task)
 
 
 def setup_asyncio_executor():

@@ -1723,12 +1723,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=0,
     )
 
-    refresh_in_progress: BoolProperty(
-        name="Api key refresh in progress",
-        description="Api key is currently being refreshed. Don't refresh it again",
-        default=False
-    )
-
     login_attempt: BoolProperty(
         name="Login/Signup attempt",
         description="When this is on, BlenderKit is trying to connect and login",
@@ -1766,19 +1760,19 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     daemon_port: EnumProperty(
-        name='Daemon port',
-        description='Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches',
+        name="Daemon port",
+        description="Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches",
         items=(
-            ('62485', '62485', ''),
-            ('65425', '65425', ''),
-            ('55428', '55428', ''),
-            ('49452', '49452', ''),
-            ('35452', '35452', ''),
-            ('25152', '25152', ''),
-            ('5152', '5152', ''),
-            ('1234', '1234', ''),
+            ("62485", "62485", ""),
+            ("65425", "65425", ""),
+            ("55428", "55428", ""),
+            ("49452", "49452", ""),
+            ("35452", "35452", ""),
+            ("25152", "25152", ""),
+            ("5152", "5152", ""),
+            ("1234", "1234", ""),
         ),
-        default='62485',
+        default="62485",
         update=timer.cancel_all_tasks,
     )
 
