@@ -10,15 +10,15 @@ import uuid
 from ssl import Purpose
 
 import aiohttp
+import assets
 import certifi
-
+import globals
+import oauth
+import tasks
 from aiohttp import web, web_request
 
-import globals
-import tasks
 import search
-import oauth
-import assets
+
 
 async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
@@ -62,9 +62,12 @@ async def consumer_exchange(request: web_request.Request):
   if auth_code == None:
     return web.Response(text="Authorization Failed. Authorization code was not provided.")
 
-  status, response_json = await oauth.get_tokens(request, auth_code=auth_code)
+  response_json, status, error = await oauth.get_tokens(request, auth_code=auth_code)
+  if status == -1:
+    return web.Response(text=f"Authorization Failed. Server is not reachable. Response: {error}")
+  
   if status != 200:
-    return web.Response(text=f"Authorization Failed. Retrieval of tokens failed (status code: {status.code}). Response: {response_json}")
+    return web.Response(text=f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}")
 
   for app_id in globals.active_apps:
     task = tasks.Task(None, str(uuid.uuid4()), app_id, 'login', message='Getting authorization code')
@@ -110,6 +113,9 @@ async def report(request: web_request.Request):
 
     reports.append(task.to_seriazable_object())
     if task.status == "finished":
+      globals.tasks.remove(task)
+    if task.status == "error":
+      print(f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}")
       globals.tasks.remove(task)
 
   return web.json_response(reports)

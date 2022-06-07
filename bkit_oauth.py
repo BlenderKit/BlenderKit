@@ -24,26 +24,56 @@ from urllib.parse import quote as urlquote
 
 import bpy
 import requests
-
-from . import global_vars
-from . import paths
-from . import reports
-from . import search
-from . import utils
-from . import daemon_lib
-
-
-bk_logger = logging.getLogger('blenderkit')
-
 from bpy.props import BoolProperty
+
+from . import (
+    colors,
+    daemon_lib,
+    global_vars,
+    paths,
+    reports,
+    search,
+    tasks_queue,
+    utils,
+)
+from .daemon import tasks
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
-
 active_authenticator = None
+bk_logger = logging.getLogger('blenderkit')
+
+
+def handle_login_task(task: tasks.Task):
+    """Handles incoming task of type Login. Writes tokens if it finished successfully, logouts the user on error."""
+
+    if task.status == "finished":
+        access_token = task.result["access_token"]
+        refresh_token = task.result["refresh_token"]
+        oauth_response = task.result
+        tasks_queue.add_task((write_tokens, (access_token, refresh_token, oauth_response)))
+    elif task.status == "error":
+        logout()
+        tasks_queue.add_task((reports.add_report, (task.message, 5, colors.RED)))
+
+
+def logout():
+    """Logs out user from add-on."""
+
+    preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    preferences.login_attempt = False
+    preferences.api_key_refresh = ''
+    preferences.api_key = ''
+    if global_vars.DATA.get('bkit profile'):
+        del (global_vars.DATA['bkit profile'])
 
 
 def login(signup):
+  """Logs user into the addon.
+  Opens a browser with login page. Once user is logged it redirects to daemon handling access code via URL querry parameter.
+  Using the access_code daemon then requests api_token and handles the results as a task with status finished/error.
+  This is handled by function handle_login_task which saves tokens, or shows error message."""
+
   bkit_URL = paths.get_bkit_url()
   daemon_port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
   local_landing_URL = f"http://localhost:{daemon_port}/consumer/exchange/"
@@ -53,16 +83,14 @@ def login(signup):
     authorize_url = f"{bkit_URL}/accounts/register/?next={authorize_url}"
   else:
     authorize_url = f"{bkit_URL}{authorize_url}"
-  webbrowser.open_new(authorize_url)
+  webbrowser.open_new_tab(authorize_url)
 
   return
 
 def write_tokens(auth_token, refresh_token, oauth_response):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    oauth_response["expires_in"] = 60 #REMOVE - ONLY FOR TESTING
     preferences.api_key_timeout = int(time.time() + oauth_response['expires_in'])
     preferences.login_attempt = False
-    preferences.refresh_in_progress = False
     preferences.api_key_refresh = refresh_token
     preferences.api_key = auth_token
 
@@ -78,36 +106,22 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     #categories.fetch_categories_thread(auth_token, force = False)
 
 
-def ensure_api_key_freshness():
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if preferences.api_key == "":
-      return
-    
-    if preferences.api_key_refresh == "":
-      #if we have api_key, we can get refresh token here
-      return
-
-    if time.time() + 4000 > preferences.api_key_timeout:
-      daemon_lib.refresh_token(preferences.api_key_refresh)
-      preferences.refresh_in_progress = True
-
-    if len(preferences.api_key_refresh) > 0 and preferences.refresh_in_progress == False:
-        
-
-      reports.add_report('Already Refreshing token, will be ready soon. If this fails, please login again in Login panel.')
-
-
 def refresh_token_timer():
-  """Checks if api_key needs refresh and makes refresh if needed."""
+  """Checks if API token needs refresh and makes it if needed."""
 
-  print("REFRESH TOKEN TIME RUNS...")
-  utils.p('refresh timer')
-
-  ensure_api_key_freshness()
+  preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  if preferences.api_key == "":
+    pass
+  elif time.time() + 7200 < preferences.api_key_timeout:
+    pass
+  if preferences.api_key_refresh != "":
+    daemon_lib.refresh_token(preferences.api_key_refresh)
+  else: #time to refresh, but refresh key does not exist -> logout and manual login needed
+    logout()
+  
   #fetch_server_data()
   #categories.load_categories()
-
-  return 30 #INCREASE, ONLY 30 FOR TESTING
+  return 1800
 
 
 class LoginOnline(bpy.types.Operator):
@@ -164,12 +178,7 @@ class Logout(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        preferences.login_attempt = False
-        preferences.api_key_refresh = ''
-        preferences.api_key = ''
-        if global_vars.DATA.get('bkit profile'):
-            del (global_vars.DATA['bkit profile'])
+        logout()
         return {'FINISHED'}
 
 

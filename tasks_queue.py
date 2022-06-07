@@ -19,6 +19,7 @@
 
 import logging
 import queue
+from typing import Tuple
 
 import bpy
 from bpy.app.handlers import persistent
@@ -53,7 +54,7 @@ class task_object:
         self.fake_context = fake_context
         self.fake_context_area = fake_context_area
 
-def add_task(task, wait = 0, only_last = False, fake_context = False, fake_context_area = 'VIEW_3D'):
+def add_task(task: Tuple, wait = 0, only_last = False, fake_context = False, fake_context_area = 'VIEW_3D'):
     q = get_queue()
     taskob = task_object(task[0],task[1], wait = wait, only_last = only_last, fake_context = fake_context, fake_context_area = fake_context_area)
     q.put(taskob)
