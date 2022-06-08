@@ -316,14 +316,13 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         for ob in bpy.context.scene.objects:
             if ob.select_get():
                 return_obs.append(ob)
-                if not ob.parent:
-                    main_object = ob
-                    ob.location = location
                 # check for object that should be hidden
                 if ob.users_collection[0].name == collection_name:
                     collection = ob.users_collection[0]
                     collection['is_blenderkit_asset'] = True
-
+                    if not ob.parent:
+                        main_object = ob
+                        ob.location = location
                 else:
                     to_hidden_collection.append(ob)
 
@@ -341,10 +340,12 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         #move objects that should be hidden to a sub collection
         if len(to_hidden_collection)>0 and collection is not None:
             hidden_collections=[]
+            scene_collection = bpy.context.scene.collection
             for ob in to_hidden_collection:
                 hide_collection = ob.users_collection[0]
+
                 # objects from scene collection (like rigify widgets go to a new collection
-                if hide_collection == bpy.context.scene.collection:
+                if hide_collection == scene_collection or hide_collection.name in scene_collection.children:
                     hidden_collection_name = collection_name + '_hidden'
                     h_col = bpy.data.collections.get(hidden_collection_name)
                     if h_col is None:
