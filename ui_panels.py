@@ -2544,7 +2544,9 @@ class UrlPopupDialog(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        utils.label_multiline(layout, text=self.message, width=300)
+        row = layout.row()
+        row.label(text = self.message)
+        row.operator('view3d.close_popup_button', text='', icon='CANCEL')
 
         layout.active_default = True
         op = layout.operator("wm.url_open", text=self.link_text, icon='QUESTION')
@@ -2559,11 +2561,8 @@ class UrlPopupDialog(bpy.types.Operator):
         op.url = self.url
 
     def execute(self, context):
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self, width=300)
+        wm = bpy.context.window_manager
+        return wm.invoke_popup(self, width=300)
 
 
 class LoginPopupDialog(bpy.types.Operator):
@@ -2759,7 +2758,7 @@ classes = (
     SetCommentReplyId,
     VIEW3D_PT_blenderkit_profile,
     VIEW3D_PT_blenderkit_login,
-    VIEW3D_PT_blenderkit_notifications,
+    # VIEW3D_PT_blenderkit_notifications,
     VIEW3D_PT_blenderkit_unified,
     VIEW3D_PT_blenderkit_advanced_model_search,
     VIEW3D_PT_blenderkit_advanced_material_search,
