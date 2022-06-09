@@ -517,8 +517,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.position_and_hide_buttons()
 
         self.button_close.set_location(self.bar_width - self.other_button_size, -self.other_button_size)
-        if hasattr(self, 'button_notifications'):
-            self.button_notifications.set_location(self.bar_width - self.other_button_size * 2, -self.other_button_size)
+        # if hasattr(self, 'button_notifications'):
+        #     self.button_notifications.set_location(self.bar_width - self.other_button_size * 2, -self.other_button_size)
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
@@ -662,16 +662,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel.append(self.button_scroll_up)
 
         # notifications
-        if not comments_utils.check_notifications_read():
-            self.button_notifications = BL_UI_Button(self.bar_width - self.other_button_size * 2,
-                                                     -self.other_button_size, self.other_button_size,
-                                                     self.other_button_size)
-            self.button_notifications.bg_color = button_bg_color
-            self.button_notifications.hover_bg_color = button_hover_color
-            self.button_notifications.text = ""
-
-            self.button_notifications.set_mouse_down(self.show_notifications)
-            self.widgets_panel.append(self.button_notifications)
+        # if not comments_utils.check_notifications_read():
+        #     self.button_notifications = BL_UI_Button(self.bar_width - self.other_button_size * 2,
+        #                                              -self.other_button_size, self.other_button_size,
+        #                                              self.other_button_size)
+        #     self.button_notifications.bg_color = button_bg_color
+        #     self.button_notifications.hover_bg_color = button_hover_color
+        #     self.button_notifications.text = ""
+        #
+        #     self.button_notifications.set_mouse_down(self.show_notifications)
+        #     self.widgets_panel.append(self.button_notifications)
 
         # self.update_images()
 
@@ -681,9 +681,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.set_image(img_fp)
         self.button_scroll_down.set_image(paths.get_addon_thumbnail_path('arrow_left.png'))
         self.button_scroll_up.set_image(paths.get_addon_thumbnail_path('arrow_right.png'))
-        if not comments_utils.check_notifications_read():
-            img_fp = paths.get_addon_thumbnail_path('bell.png')
-            self.button_notifications.set_image(img_fp)
+        # if not comments_utils.check_notifications_read():
+        #     img_fp = paths.get_addon_thumbnail_path('bell.png')
+        #     self.button_notifications.set_image(img_fp)
 
     def position_and_hide_buttons(self):
         # position and layout buttons

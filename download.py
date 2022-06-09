@@ -22,7 +22,7 @@ import os
 import shutil
 import threading
 import time
-
+import traceback
 import requests
 
 from . import (
@@ -1006,7 +1006,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
             except Exception as e:
                 # TODO: this should distinguis if the appending failed (wrong file)
                 # or something else happened(shouldn't delete the files)
-                print(e)
+                traceback.print_exc()
                 done = False
                 reports.add_report('Appending asset Failed. This Asset is probably incompatible with this Blender version.', 15, colors.RED)
                 for f in file_names:
