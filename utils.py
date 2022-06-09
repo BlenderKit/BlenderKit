@@ -75,10 +75,13 @@ def selection_get():
 
 def selection_set(sel):
     bpy.ops.object.select_all(action='DESELECT')
-    bpy.context.view_layer.objects.active = sel[0]
-    for ob in sel[1]:
-        ob.select_set(True)
-
+    try:
+        bpy.context.view_layer.objects.active = sel[0]
+        for ob in sel[1]:
+            ob.select_set(True)
+    except Exception as e:
+        print('Selectible objects not found')
+        print(e)
 
 def get_active_model():
     if bpy.context.view_layer.objects.active is not None:
