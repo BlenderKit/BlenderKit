@@ -1267,12 +1267,19 @@ class VIEW3D_PT_blenderkit_unified(Panel):
     bl_idname = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_label = "Find and Upload Assets"
+    bl_options = {'HEADER_LAYOUT_EXPAND',}
+    bl_label = ""
 
     @classmethod
     def poll(cls, context):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         return user_preferences.panel_behaviour == 'BOTH' or user_preferences.panel_behaviour == 'UNIFIED'
+
+    def draw_header(self, context):
+        layout = self.layout
+        pcoll = icons.icon_collections["main"]
+
+        layout.label(text ='Find and Upload Assets', icon_value=pcoll['logo'].icon_id)
 
     def draw(self, context):
         s = context.scene
@@ -2222,23 +2229,24 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         aname = self.asset_data['displayName']
         aname = aname[0].upper() + aname[1:]
 
-        if 1:
-            name_row = top_drag_bar.row()
-            # name_row = name_row.split(factor=0.5)
-            # name_row = name_row.column()
-            # name_row = name_row.row()
-            for i, c in enumerate(cat_path):
-                cat_name = cat_path_names[i]
-                op = name_row.operator('view3d.blenderkit_asset_bar_widget', text=cat_name + '     >', emboss=True)
-                op.do_search = True
-                op.keep_running = True
-                op.tooltip = f"Browse {cat_name} category"
-                op.category = c
-                # name_row.label(text='>')
+        name_row = top_drag_bar.row()
 
-            name_row.label(text=aname)
-            push_op_left(name_row, strength=3)
-            op = name_row.operator('view3d.close_popup_button', text='', icon='CANCEL')
+        pcoll = icons.icon_collections["main"]
+
+        name_row.label(text='', icon_value=pcoll['logo'].icon_id)
+
+        for i, c in enumerate(cat_path):
+            cat_name = cat_path_names[i]
+            op = name_row.operator('view3d.blenderkit_asset_bar_widget', text=cat_name + '     >', emboss=True)
+            op.do_search = True
+            op.keep_running = True
+            op.tooltip = f"Browse {cat_name} category"
+            op.category = c
+            # name_row.label(text='>')
+
+        name_row.label(text=aname)
+        push_op_left(name_row, strength=3)
+        op = name_row.operator('view3d.close_popup_button', text='', icon='CANCEL')
 
     def draw_comment_response(self, context, layout, comment_id):
         if not utils.user_logged_in():
