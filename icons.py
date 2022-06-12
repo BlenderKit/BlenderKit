@@ -37,6 +37,7 @@ icons_read = {
     'filter_active.png': 'filter_active',
     'bell.png': 'bell',
     'post_comment.png': 'post_comment',
+    'blenderkit_logo.png': 'logo',
 }
 
 verification_icons = {
