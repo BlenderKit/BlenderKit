@@ -9,7 +9,7 @@ import aiohttp
 import bpy
 import requests
 
-from . import dependencies, global_vars
+from . import colors, dependencies, global_vars, reports
 
 
 def get_address() -> str:
@@ -159,21 +159,25 @@ def start_daemon_server():
       f"Environment: {env}"
     )
 
-  with open(log_path, "wb") as log:
-    daemon_process = subprocess.Popen(
-      args = [
-        sys.executable,
-        "-u", daemon_path,
-        "--port", get_port(),
-        "--proxy-which", global_vars.PREFS.get('proxy_which'),
-        "--proxy-address", global_vars.PREFS.get('proxy_address'),
-        "--proxy-ca-certs", global_vars.PREFS.get('proxy_ca_certs'),
-      ],
-      env           = env,
-      stdout        = log,
-      stderr        = log,
-      creationflags = creation_flags,
-    )
+  try:
+    with open(log_path, "wb") as log:
+      daemon_process = subprocess.Popen(
+        args = [
+          sys.executable,
+          "-u", daemon_path,
+          "--port", get_port(),
+          "--proxy-which", global_vars.PREFS.get('proxy_which'),
+          "--proxy-address", global_vars.PREFS.get('proxy_address'),
+          "--proxy-ca-certs", global_vars.PREFS.get('proxy_ca_certs'),
+        ],
+        env           = env,
+        stdout        = log,
+        stderr        = log,
+        creationflags = creation_flags,
+      )
+  except PermissionError as e:
+    reports.add_report(f"FATAL ERROR: Write access denied to {log_dir}. Check you have write permissions to the directory.", 10, colors.RED)
+    raise(e)
 
   if python_check.returncode == 0:
     print(f'Daemon server started on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}')
