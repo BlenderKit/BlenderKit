@@ -44,7 +44,7 @@ from . import (
 )
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 
 #   this was moved to separate interface:

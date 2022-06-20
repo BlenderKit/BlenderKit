@@ -25,7 +25,7 @@ import requests
 from . import bkit_oauth, global_vars, paths, reports, tasks_queue, utils
 
 
-bk_logger = logging.getLogger('rerequests')
+bk_logger = logging.getLogger(__name__)
 
 
 class FakeResponse():

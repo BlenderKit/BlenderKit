@@ -44,7 +44,7 @@ from . import (
 draw_time = 0
 eval_time = 0
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 handler_2d = None
 handler_3d = None

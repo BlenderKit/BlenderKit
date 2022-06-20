@@ -41,7 +41,7 @@ from .daemon import tasks
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 active_authenticator = None
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 
 def handle_login_task(task: tasks.Task):

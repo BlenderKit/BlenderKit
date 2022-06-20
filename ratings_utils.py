@@ -27,7 +27,7 @@ from bpy.props import EnumProperty, FloatProperty, IntProperty, StringProperty
 from . import global_vars, paths, rerequests, tasks_queue, utils
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 
 def upload_rating_thread(url, ratings, headers):

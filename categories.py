@@ -29,7 +29,7 @@ import bpy
 from . import colors, global_vars, paths, reports, rerequests, tasks_queue, utils
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 
 def count_to_parent(parent):

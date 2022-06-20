@@ -34,7 +34,7 @@ from mathutils import Vector
 from . import global_vars, image_utils, paths, rerequests
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
