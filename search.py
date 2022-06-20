@@ -57,7 +57,7 @@ from . import (
 from .daemon import tasks
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 search_start_time = 0
 prev_time = 0

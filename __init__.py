@@ -32,16 +32,15 @@ bl_info = {
 import sys
 from os import path
 
+from . import dependencies, log
+
+
+log.configure_loggers()
 
 sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
-
-from . import dependencies
-
-
 dependencies.add_vendored()
 dependencies.add_fallback()
 dependencies.ensure_deps()
-
 
 
 # lib = path.join(path.dirname(__file__), 'lib')
@@ -162,10 +161,6 @@ from bpy.props import (
     StringProperty,
 )
 from bpy.types import AddonPreferences, PropertyGroup
-
-
-# logging.basicConfig(filename = 'blenderkit.log', level = logging.INFO,
-#                     format = '	%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d:%(message)s')
 
 
 @persistent

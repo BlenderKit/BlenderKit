@@ -25,7 +25,7 @@ import bpy
 from . import global_vars, paths, rerequests, search, tasks_queue, utils
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 
 def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):

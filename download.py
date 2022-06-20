@@ -43,7 +43,7 @@ from . import (
 from .daemon import tasks
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 import bpy
 from bpy.app.handlers import persistent

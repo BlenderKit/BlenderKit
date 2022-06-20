@@ -27,7 +27,7 @@ from bpy.app.handlers import persistent
 from . import utils
 
 
-bk_logger = logging.getLogger('blenderkit')
+bk_logger = logging.getLogger(__name__)
 
 @persistent
 def scene_load(context):
