@@ -1554,6 +1554,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                     op.replace = False
 
                     op.invoke_resolution = True
+                    op.use_resolution_operator = True
                     op.max_resolution = asset_data.get('max_resolution',
                                                        0)  # str(utils.get_param(asset_data, 'textureResolutionMax'))
 
@@ -1567,6 +1568,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                 op.replace_resolution = True
                 op.replace = False
                 op.invoke_resolution = True
+                op.use_resolution_operator = True
                 o = utils.get_active_model()
                 if o and o.get('asset_data'):
                     if o['asset_data']['assetBaseId'] == global_vars.DATA['search results'][
