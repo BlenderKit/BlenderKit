@@ -818,6 +818,7 @@ class AssetDragOperator(bpy.types.Operator):
                                               asset_index=self.asset_search_index,
                                               # replace_resolution=True,
                                               invoke_resolution=True,
+                                              use_resolution_operator=True,
                                               max_resolution=self.asset_data.get('max_resolution', 0)
                                               )
 

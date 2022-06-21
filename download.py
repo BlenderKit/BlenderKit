@@ -782,7 +782,7 @@ def download_post(task: tasks.Task):
         if task.data.get('redownload'):
             # handle lost libraries here:
             for l in bpy.data.libraries:
-                if l.get('asset_data') is not None and l['asset_data']['id'] == asset_data['id']:
+                if l.get('asset_data') is not None and l['asset_data']['id'] == task.data['asset_data']['id']:
                     l.filepath = file_paths[-1]
                     l.reload()
 
@@ -1278,11 +1278,11 @@ def available_resolutions_callback(self, context):
         ("4096", "4096", "", 4),
         ("8192", "8192", "", 5),
     )
-    items = [("ORIGINAL", "Original", "", 0)]
+    items = []
     for item in pat_items:
         if int(self.max_resolution) >= int(item[0]):
             items.append(item)
-
+    items.append(('ORIGINAL', 'Original', '', 6))
     return items
 
 
@@ -1347,9 +1347,16 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         options={"SKIP_SAVE"},
         )
 
+    use_resolution_operator: BoolProperty(
+        name="Use operator resolution set by the operator",
+        description="Use resolution set by the operator",
+        default=False,
+        options={"SKIP_SAVE"},
+    )
+
     resolution: EnumProperty(
         items=available_resolutions_callback,
-        default=0,
+        default=6,
         description="Replace resolution",
         options = {"SKIP_SAVE"}
     )
@@ -1420,8 +1427,10 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         if bpy.context.mode != 'OBJECT' and (
                 atype == 'model' or atype == 'material') and bpy.context.view_layer.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT')
-
-        if self.resolution == 0 or self.resolution == '':
+          
+        # either settings resolution is used, or the one set by operator.
+        # all operator calls need to set use_resolution_operator True if they want to define/swap resolution
+        if not self.use_resolution_operator:
             resolution = sprops.resolution
         else:
             resolution = self.resolution
