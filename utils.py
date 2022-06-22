@@ -330,8 +330,9 @@ def get_active_brush():
     return brush
 
 
-def load_prefs():
+def load_XXXXXXXXXXXX_prefs():
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    wm = bpy.context.window_manager
     # if user_preferences.api_key == '':
     fpath = paths.BLENDERKIT_SETTINGS_FILENAME
     if os.path.exists(fpath):
@@ -346,6 +347,10 @@ def load_prefs():
                 user_preferences.proxy_which = prefs.get('proxy_which')
                 user_preferences.proxy_address = prefs.get('proxy_address', '')
                 user_preferences.proxy_ca_certs = prefs.get('proxy_ca_certs', '')
+                wm.blenderkit_models.resolution = prefs.get('models_resolution')
+                wm.blenderkit_mat.resolution = prefs.get('materials_resolution')
+                wm.blenderkit_HDR.resolution = prefs.get('hdrs_resolution')
+            print("RETURNING PREFS", prefs)
             return prefs
         except Exception as e:
             print('failed to read addon preferences.')
@@ -360,8 +365,23 @@ def get_scene_id():
     bpy.context.scene['uuid'] = bpy.context.scene.get('uuid', str(uuid.uuid4()))
     return bpy.context.scene['uuid']
 
+def save_resolutions(self, context):
+    wm = bpy.context.window_manager
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    if self.__class__.__name__ == "BlenderKitModelSearchProps":
+        user_preferences.models_resolution = wm.blenderkit_models.resolution
+    if self.__class__.__name__ ==  "BlenderKitMaterialSearchProps":
+        user_preferences.mat_resolution = wm.blenderkit_mat.resolution
+    if self.__class__.__name__ == "BlenderKitHDRSearchProps":
+        user_preferences.hdr_resolution = wm.blenderkit_HDR.resolution
+
 def get_prefs_dir():
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    
+    wm = bpy.context.window_manager
+    wm.blenderkit_models.resolution = user_preferences.models_resolution
+    wm.blenderkit_mat.resolution = user_preferences.mat_resolution
+    wm.blenderkit_HDR.resolution = user_preferences.hdr_resolution
 
     prefs = {
         'debug_value': bpy.app.debug_value,
@@ -377,6 +397,9 @@ def get_prefs_dir():
         'proxy_address': user_preferences.proxy_address,
         'proxy_ca_certs': user_preferences.proxy_ca_certs,
         'unpack_files': user_preferences.unpack_files,
+        'models_resolution': user_preferences.models_resolution,
+        'mat_resolution': user_preferences.mat_resolution,
+        'hdr_resolution': user_preferences.hdr_resolution,
     }
     return prefs
 
@@ -401,11 +424,11 @@ def save_prefs(self, context):
             props = get_search_props()
             props.report = 'Login failed. Please paste a correct API Key.'
 
-
         prefs = get_prefs_dir()
         global_vars.PREFS = prefs
         set_proxy()
 
+        return
         try:
             fpath = paths.BLENDERKIT_SETTINGS_FILENAME
 
