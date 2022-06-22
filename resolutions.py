@@ -131,12 +131,12 @@ def extxchange_to_resolution(filepath):
 
 
 
-def upload_resolutions(files, asset_data):
+def upload_resolutions(files, asset_data, api_key = ''):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
     upload_data = {
         "name": asset_data['name'],
-        "token": preferences.api_key,
+        "token": api_key,
         "id": asset_data['id']
     }
 
@@ -347,6 +347,7 @@ def generate_lower_resolutions_hdr(asset_data, fpath):
         i+=1
 
     print('uploading resolution files')
+    print(files)
     upload_resolutions(files, asset_data)
 
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
@@ -439,9 +440,10 @@ def generate_lower_resolutions(data):
                 else:
                     p2res = rkeys[rkeys.index(p2res) - 1]
             print('uploading resolution files')
-            upload_resolutions(files, data['asset_data'])
-            preferences = bpy.context.preferences.addons['blenderkit'].preferences
-            patch_asset_empty(data['asset_data']['id'], preferences.api_key)
+            print(files)
+
+            upload_resolutions(files, data['asset_data'], api_key=data['api_key'])
+            patch_asset_empty(data['asset_data']['id'], api_key=data['api_key'])
         return
 
 
