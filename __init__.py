@@ -498,7 +498,7 @@ def search_procedural_update(self, context):
     search.search_update(self, context)
 
 
-class BlenderKitCommonSearchProps(object):
+class BlenderKitCommonSearchProps:
     # STATES
     is_searching: BoolProperty(name="Searching", description="search is currently running (internal)", default=False)
     is_downloading: BoolProperty(name="Downloading", description="download is currently running (internal)",
@@ -606,7 +606,9 @@ class BlenderKitCommonSearchProps(object):
 
         ),
         default='1024',
+        update=utils.save_resolutions,
     )
+
     free_only: BoolProperty(name="Free first", description="Show free models first",
                             default=False, update=search.search_update)
 
@@ -1697,6 +1699,10 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     enable_oauth = True
 
+    models_resolution: StringProperty(default="1024")
+    mat_resolution: StringProperty(default="1024")
+    hdr_resolution: StringProperty(default="1024")
+
     api_key: StringProperty(
         name="BlenderKit API Key",
         description="Your blenderkit API Key. Get it from your page on the website",
@@ -2055,14 +2061,8 @@ classes = (
 
 
 def register():
-    #####
-
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
-
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    global_vars.PREFS = utils.get_prefs_dir()
-    utils.set_proxy()
 
     try:
         bpy.utils.register_class(BlenderKitCustomAddonRemove)
@@ -2114,6 +2114,10 @@ def register():
         type=BlenderKitBrushUploadProps)
     bpy.types.Brush.bkit_ratings = PointerProperty(  # for uploads, not now...
         type=BlenderKitRatingProps)
+
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    global_vars.PREFS = utils.get_prefs_dir()
+    utils.set_proxy()
 
     timer.register_timer()
     search.register_search()
