@@ -1534,7 +1534,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             if from_panel:
                 # Called from addon panel
 
-                if asset_data.get('resolution'):
+                if asset_data.get('resolution') or asset_data.get('available_resolutions') is not None:
                     op = col.operator('scene.blenderkit_download', text='Replace asset resolution')
                     op.asset_base_id = asset_data['assetBaseId']
                     if asset_data['assetType'] == 'MODEL':
@@ -1558,7 +1558,8 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                     op.max_resolution = asset_data.get('max_resolution',
                                                        0)  # str(utils.get_param(asset_data, 'textureResolutionMax'))
 
-            elif asset_data['assetBaseId'] in s['assets used'].keys() and asset_data['assetType'] != 'hdr':
+            elif asset_data['assetBaseId'] in s['assets used'].keys() and asset_data['assetType'] != 'hdr' and \
+                    (asset_data.get('resolution') or asset_data.get('available_resolutions') is not None):
                 # HDRs are excluded from replacement, since they are always replaced.
                 # called from asset bar:
                 op = col.operator('scene.blenderkit_download', text='Replace asset resolution')
@@ -1887,15 +1888,21 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # resolution/s
         resolution = utils.get_param(self.asset_data, 'textureResolutionMax')
 
-        if resolution is not None:
-            fs = self.asset_data['files']
+        fs = self.asset_data['files']
 
-            ress = f"{int(round(resolution / 1024, 0))}K"
+        if resolution is not None or self.asset_data.get('available_resolutions') is not None:
+            if resolution is None:
+                #this should get removed once all assets that have texture have proper resolution parameter fixed
+                #by now part of assets that have texture don't have texture resolution marked
+                ress=f"{int(round(self.asset_data.get('available_resolutions')[-1] / 1024, 0))}K"
+            else:
+                ress = f"{int(round(resolution / 1024, 0))}K"
             self.draw_property(box, 'Resolution', ress,
                                tooltip='Maximal resolution of textures in this asset.\n' \
                                        'Most texture asset have also lower resolutions generated.\n' \
                                        'Go to BlenderKit add-on import settings to set default resolution')
-
+            #this would normally show only when theres's texture resolution parameter.
+            # but this parameter wasn't always uploaded correctly, that's why we need to check also for others
             if fs and len(fs) > 2: # and utils.profile_is_validator():
                 resolutions = ''
                 list.sort(fs, key=lambda f: f['fileType'])
@@ -1903,7 +1910,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     if f['fileType'].find('resolution') > -1:
                         resolutions += f['fileType'][11:] + ' '
                 resolutions = resolutions.replace('_', '.')
-                self.draw_property(box, 'Generated', resolutions)
+                self.draw_property(box, 'Generated res', resolutions)
 
         self.draw_asset_parameter(box, key='designer', pretext='Designer', do_search=True)
         self.draw_asset_parameter(box, key='manufacturer', pretext='Manufacturer',
