@@ -184,6 +184,18 @@ def start_daemon_server():
   except PermissionError as e:
     reports.add_report(f"FATAL ERROR: Write access denied to {log_dir}. Check you have write permissions to the directory.", 10, colors.RED)
     raise(e)
+  except OSError as e:
+    if platform.system() != "Windows":
+      raise(e)
+    if e.winerror == 87: # parameter is incorrect, issue #100
+      error_message = f"FATAL ERROR: Daemon server blocked from starting. Please check your antivirus or firewall. Error: {e}"
+      reports.add_report(error_message, 10, colors.RED)
+      print(error_message)
+      raise(e)
+  except Exception as e:
+    reports.add_report(f"Error: Daemon server failed to start - {e}", 10, colors.RED)
+    raise(e)
+
 
   if python_check.returncode == 0:
     print(f'Daemon server started on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}')
