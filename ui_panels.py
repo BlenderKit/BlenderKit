@@ -1887,14 +1887,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                                )
         # resolution/s
         resolution = utils.get_param(self.asset_data, 'textureResolutionMax')
-
+        available_res = self.asset_data.get('available_resolutions')
         fs = self.asset_data['files']
 
-        if resolution is not None or self.asset_data.get('available_resolutions') is not None:
+        if resolution is not None or len(available_res)>0:
             if resolution is None:
                 #this should get removed once all assets that have texture have proper resolution parameter fixed
                 #by now part of assets that have texture don't have texture resolution marked
-                ress=f"{int(round(self.asset_data.get('available_resolutions')[-1] / 1024, 0))}K"
+                ress=f"{int(round(available_res[-1] / 1024, 0))}K"
             else:
                 ress = f"{int(round(resolution / 1024, 0))}K"
             self.draw_property(box, 'Resolution', ress,
