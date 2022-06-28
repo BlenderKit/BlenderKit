@@ -108,20 +108,21 @@ def write_tokens(auth_token, refresh_token, oauth_response):
 
 def refresh_token_timer():
   """Checks if API token needs refresh and makes it if needed."""
-
+  next_time = 1800
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
   if preferences.api_key == "":
-    pass
-  elif time.time() + 7200 < preferences.api_key_timeout:
-    pass
+    return next_time
+  
+  if time.time() + 7200 < preferences.api_key_timeout:
+    return next_time
+  
   if preferences.api_key_refresh != "":
     daemon_lib.refresh_token(preferences.api_key_refresh)
   else: #time to refresh, but refresh key does not exist -> logout and manual login needed
     logout()
-  
   #fetch_server_data()
   #categories.load_categories()
-  return 1800
+  return next_time
 
 
 class LoginOnline(bpy.types.Operator):

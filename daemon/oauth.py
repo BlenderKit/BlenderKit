@@ -50,8 +50,8 @@ async def refresh_tokens(request: web.Request):
     globals.tasks.append(task)
     task.result = response_json
     if status == 200:
-      task.finished("Refreshed tokens obtained")
+      return task.finished("Refreshed tokens obtained")
     if status == -1:
-      task.error(f"Couldn't refresh API tokens, server is not reachable: {error}. Please login again.")
-    else:
-      task.error(f"Couldn't refresh API tokens ({status}). Please login again.")
+      return task.error(f"Couldn't refresh API tokens, server is not reachable: {error}. Please login again.")
+    
+    return task.error(f"Couldn't refresh API tokens ({status}). Please login again.")
