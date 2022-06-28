@@ -471,6 +471,7 @@ def make_possible_reductions_on_image(teximage, input_filepath, do_reductions=Fa
                 teximage.file_format = 'JPEG'
                 ims.quality = JPEG_QUALITY
                 ims.color_mode = 'RGB'
+                image_depth = '8'
 
             if is_image_bw(na):
                 ims.color_mode = 'BW'
