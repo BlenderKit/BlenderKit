@@ -303,8 +303,10 @@ def get_texture_filepath(tex_dir_path, image, resolution='blend'):
     return fpn
 
 
-def generate_lower_resolutions_hdr(asset_data, fpath):
+def generate_lower_resolutions_hdr(data):
     '''generates lower resolutions for HDR images'''
+    asset_data = data['asset_data']
+    fpath = data['fpath']
     hdr = bpy.data.images.load(fpath)
     actres = max(hdr.size[0], hdr.size[1])
     p2res = paths.round_to_closest_resolution(actres)
@@ -348,10 +350,8 @@ def generate_lower_resolutions_hdr(asset_data, fpath):
 
     print('uploading resolution files')
     print(files)
-    upload_resolutions(files, asset_data)
-
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    patch_asset_empty(asset_data['id'], preferences.api_key)
+    upload_resolutions(files, data['asset_data'], api_key=data['api_key'])
+    patch_asset_empty(data['asset_data']['id'], api_key=data['api_key'])
 
 
 def generate_lower_resolutions(data):
@@ -613,8 +613,6 @@ def generate_resolution_thread(asset_data, api_key):
         if asset_data['assetType'] != 'hdr':
             print('send to bg ', fpath)
             proc = send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True);
-        else:
-            generate_lower_resolutions_hdr(asset_data, fpath)
         # send_to_bg by now waits for end of the process.
         # time.sleep((5))
 
@@ -715,7 +713,12 @@ def run_bg(datafile):
     bpy.app.debug_value = data['debug_value']
     write_data_back(data['asset_data'])
     if data['command'] == 'generate_resolutions':
-        generate_lower_resolutions(data)
+        print('asset type is ', data['asset_data']['assetType'])
+
+        if data['asset_data']['assetType']=='hdr':
+            generate_lower_resolutions_hdr(data)
+        else:
+            generate_lower_resolutions(data)
     elif data['command'] == 'unpack':
         unpack_asset(data)
     elif data['command'] == 'regen_thumbnail':
