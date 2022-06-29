@@ -896,7 +896,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 an = an[:30] + '...'
             self.asset_name.text = an
             self.authors_name.text = asset_data['tooltip_data']['author_text']
-            self.quality_label.text = asset_data['tooltip_data']['quality']
+            quality_text = asset_data['tooltip_data']['quality']
+            if utils.profile_is_validator():
+                quality_text+=f" / {int(asset_data['score'])}"
+            self.quality_label.text  = quality_text
+
             if utils.asset_from_newer_blender_version(asset_data):
                 self.version_warning.text = 'Asset from newer Blender version! Use at your own risk.'
             else:
