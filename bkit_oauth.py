@@ -118,8 +118,9 @@ def refresh_token_timer():
   
   if preferences.api_key_refresh != "":
     daemon_lib.refresh_token(preferences.api_key_refresh)
-  else: #time to refresh, but refresh key does not exist -> logout and manual login needed
-    logout()
+  # the following would log out users who copy pasted their token manually. -not wanted behaviour.
+  # else: #time to refresh, but refresh key does not exist -> logout and manual login needed
+  #   logout()
   #fetch_server_data()
   #categories.load_categories()
   return next_time
