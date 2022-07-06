@@ -143,7 +143,7 @@ class LoginOnline(bpy.types.Operator):
     message: bpy.props.StringProperty(
         name="Message",
         description="",
-        default="You were logged out from .\n Clicking OK takes you to web login. ")
+        default="You were logged out from BlenderKit.\n Clicking OK takes you to web login. ")
 
     @classmethod
     def poll(cls, context):

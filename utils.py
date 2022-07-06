@@ -931,8 +931,10 @@ def update_tags(self, context):
 
 
 def user_logged_in():
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     a = global_vars.DATA.get('bkit profile')
-    if a is not None:
+    # Check both profile and token, profile sometimes isn't cleaned up after logout
+    if a is not None and user_preferences.api_key != '':
         return True
     return False
 
