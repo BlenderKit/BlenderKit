@@ -1280,7 +1280,6 @@ class VIEW3D_PT_blenderkit_unified(Panel):
     def draw_header(self, context):
         layout = self.layout
         pcoll = icons.icon_collections["main"]
-
         layout.label(text ='Find and Upload Assets', icon_value=pcoll['logo'].icon_id)
 
     def draw(self, context):
@@ -1499,7 +1498,9 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
         self.img = img
         w, a, r = utils.get_largest_area(area_type='VIEW_3D')
         if a is not None:
+            # Show regions in which the addon has UI
             a.spaces.active.show_region_ui = True
+            a.spaces.active.show_region_tool_header = True
 
         return wm.invoke_props_dialog(self, width=500)
 
@@ -2729,7 +2730,7 @@ def header_search_draw(self, context):
     # layout.separator_spacer()
     layout = layout.row(align=True)
     layout.label(text="",icon_value=pcoll['logo'].icon_id)
-    layout.separator()
+    # layout.separator()
     layout.prop(ui_props, "asset_type", expand=True, icon_only=True, text='', icon=asset_type_icon)
     layout.prop(props, "search_keywords", text="", icon='VIEWZOOM')
     draw_assetbar_show_hide(layout, props)
