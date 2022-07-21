@@ -239,7 +239,7 @@ def check_clipboard():
           search_props = utils.get_search_props()
           search_props.search_keywords = last_clipboard
           # don't run search after this - assigning to keywords runs the search_update function.
-        bpy.context.window_manager.clipboard = ''
+        # bpy.context.window_manager.clipboard = ''
 
 
 def parse_result(r):
