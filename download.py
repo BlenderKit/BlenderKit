@@ -686,10 +686,13 @@ def handle_download_task(task: tasks.Task):
   """Handle incoming task information.
   Update progress. Print messages. Fire post-download functions.
   """
+  global download_tasks
+
   if task.status == "finished":
     download_post(task)
-  elif task.progress == "error":
+  elif task.status == "error":
     reports.add_report(task.message, 15, colors.RED)
+    download_tasks.pop(task.task_id)
   else:
     download_write_progress(task.task_id, task)
 
