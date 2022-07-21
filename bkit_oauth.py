@@ -99,11 +99,14 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     if props is not None:
         props.report = ''
     search.get_profile()
-    ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.assetbar_on:
-        ui_props.turn_off = True
-        ui_props.assetbar_on = False
-    search.cleanup_search_results()
+    # ui_props = bpy.context.window_manager.blenderkitUI
+    # if ui_props.assetbar_on:
+    #     ui_props.turn_off = True
+    #     ui_props.assetbar_on = False
+    # search.cleanup_search_results()
+    history = global_vars.DATA['search history']
+    if len(history)>0:
+        search.search(query = global_vars.DATA['search history'][-1])
     #categories.fetch_categories_thread(auth_token, force = False)
 
 
