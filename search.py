@@ -1172,8 +1172,10 @@ def get_single_asset(asset_base_id):
   return None
 
 
-def search(category='', get_next=False, author_id=''):
-  ''' initialize searching'''
+def search(category='', get_next=False, query = None, author_id=''):
+  ''' initialize searching
+  query : submit an already built query from search history
+  '''
   global search_start_time
   # print(category,get_next,author_id)
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
@@ -1184,69 +1186,71 @@ def search(category='', get_next=False, author_id=''):
   ui_props = bpy.context.window_manager.blenderkitUI
 
   props = utils.get_search_props()
-  if ui_props.asset_type == 'MODEL':
-    if not hasattr(wm, 'blenderkit_models'):
-      return;
-    query = build_query_model()
-
-  if ui_props.asset_type == 'SCENE':
-    if not hasattr(wm, 'blenderkit_scene'):
-      return;
-    query = build_query_scene()
-
-  if ui_props.asset_type == 'HDR':
-    if not hasattr(wm, 'blenderkit_HDR'):
-      return;
-    query = build_query_HDR()
-
-  if ui_props.asset_type == 'MATERIAL':
-    if not hasattr(wm, 'blenderkit_mat'):
-      return;
-
-    query = build_query_material()
-
-  if ui_props.asset_type == 'TEXTURE':
-    if not hasattr(wm, 'blenderkit_tex'):
-      return;
-    # props = scene.blenderkit_tex
-    # query = build_query_texture()
-
-  if ui_props.asset_type == 'BRUSH':
-    if not hasattr(wm, 'blenderkit_brush'):
-      return;
-    query = build_query_brush()
-
-  # crop long searches
-  if query.get('query'):
-    if len(query['query']) > 50:
-      query['query'] = strip_accents(query['query'])
-
-    if len(query['query']) > 150:
-      idx = query['query'].find(' ', 142)
-      query['query'] = query['query'][:idx]
-
   # it's possible get_next was requested more than once.
-  # print(category,props.is_searching, get_next)
-  # print(query)
   if props.is_searching and get_next == True:
     # print('return because of get next and searching is happening')
     return;
 
-  if category != '':
-    if utils.profile_is_validator() and user_preferences.categories_fix:
-      query['category'] = category
-    else:
-      query['category_subtree'] = category
+  if not query:
+    if ui_props.asset_type == 'MODEL':
+      if not hasattr(wm, 'blenderkit_models'):
+        return;
+      query = build_query_model()
 
-  if author_id != '':
-    query['author_id'] = author_id
+    if ui_props.asset_type == 'SCENE':
+      if not hasattr(wm, 'blenderkit_scene'):
+        return;
+      query = build_query_scene()
 
-  elif props.own_only:
-    # if user searches for [another] author, 'only my assets' is invalid. that's why in elif.
-    profile = global_vars.DATA.get('bkit profile')
-    if profile is not None:
-      query['author_id'] = str(profile['user']['id'])
+    if ui_props.asset_type == 'HDR':
+      if not hasattr(wm, 'blenderkit_HDR'):
+        return;
+      query = build_query_HDR()
 
+    if ui_props.asset_type == 'MATERIAL':
+      if not hasattr(wm, 'blenderkit_mat'):
+        return;
+
+      query = build_query_material()
+
+    if ui_props.asset_type == 'TEXTURE':
+      if not hasattr(wm, 'blenderkit_tex'):
+        return;
+      # props = scene.blenderkit_tex
+      # query = build_query_texture()
+
+    if ui_props.asset_type == 'BRUSH':
+      if not hasattr(wm, 'blenderkit_brush'):
+        return;
+      query = build_query_brush()
+
+    # crop long searches
+    if query.get('query'):
+      if len(query['query']) > 50:
+        query['query'] = strip_accents(query['query'])
+
+      if len(query['query']) > 150:
+        idx = query['query'].find(' ', 142)
+        query['query'] = query['query'][:idx]
+
+    if category != '':
+      if utils.profile_is_validator() and user_preferences.categories_fix:
+        query['category'] = category
+      else:
+        query['category_subtree'] = category
+
+    if author_id != '':
+      query['author_id'] = author_id
+
+    elif props.own_only:
+      # if user searches for [another] author, 'only my assets' is invalid. that's why in elif.
+      profile = global_vars.DATA.get('bkit profile')
+      if profile is not None:
+        query['author_id'] = str(profile['user']['id'])
+    #write to search history and check hitory length
+    global_vars.DATA['search history'].append(query)
+    if len(global_vars.DATA['search history'])>20:
+      global_vars['search history'].pop[0]
   # utils.p('searching')
   props.is_searching = True
 
