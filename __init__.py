@@ -400,7 +400,7 @@ class BlenderKitUIProps(PropertyGroup):
 
     bar_height: IntProperty(name="Bar Height", default=thumb_size_def + 2 * margin_def, min=-1, max=2048)
     bar_x_offset: IntProperty(name="Bar X Offset", default=40, min=0, max=5000)
-    bar_y_offset: IntProperty(name="Bar Y Offset", default=80, min=0, max=5000)
+    bar_y_offset: IntProperty(name="Bar Y Offset", default=120, min=0, max=5000)
 
     bar_x: IntProperty(name="Bar X", default=100, min=0, max=5000)
     bar_y: IntProperty(name="Bar Y", default=100, min=50, max=5000)
