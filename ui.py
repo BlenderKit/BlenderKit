@@ -142,42 +142,6 @@ def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1
 
 
 
-def draw_ratings_bgl():
-    # return;
-    ui = bpy.context.window_manager.blenderkitUI
-
-    rating_possible, rated, asset, asset_data = is_rating_possible()
-    if rating_possible:  # (not rated or ui_props.rating_menu_on):
-        # print('rating is pssible', asset_data['name'])
-        bkit_ratings = asset.bkit_ratings
-
-        if ui.rating_button_on:
-            # print('should draw button')
-            img = utils.get_thumbnail('star_white.png')
-
-            ui_bgl.draw_image(ui.rating_x,
-                              ui.rating_y - ui.rating_button_width,
-                              ui.rating_button_width,
-                              ui.rating_button_width,
-                              img, 1)
-
-            # if ui_props.asset_type != 'BRUSH':
-            #     thumbnail_image = props.thumbnail
-            # else:
-            #     b = utils.get_active_brush()
-            #     thumbnail_image = b.icon_filepath
-
-            directory = paths.get_temp_dir('%s_search' % asset_data['assetType'])
-            tpath = os.path.join(directory, asset_data['thumbnail_small'])
-            img = utils.get_hidden_image(tpath, 'rating_preview')
-            ui_bgl.draw_image(ui.rating_x + ui.rating_button_width,
-                              ui.rating_y - ui.rating_button_width,
-                              ui.rating_button_width,
-                              ui.rating_button_width,
-                              img, 1)
-            return
-
-
 def draw_text_block(x=0, y=0, width=40, font_size=10, line_height=15, text='', color=colors.TEXT):
     lines = text.split('\n')
     nlines = []
@@ -428,13 +392,14 @@ def floor_raycast(context, mx, my):
 
 
 def is_rating_possible():
+    #TODO remove this, but first check and reuse the code for new rating system...
     ao = bpy.context.active_object
     ui = bpy.context.window_manager.blenderkitUI
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
     # first test if user is logged in.
     if preferences.api_key == '':
         return False, False, None, None
-    if bpy.context.scene.get('assets rated') is not None and ui.down_up == 'SEARCH':
+    if global_vars.DATA.get('asset ratings') is not None and ui.down_up == 'SEARCH':
         if bpy.context.mode in ('SCULPT', 'PAINT_TEXTURE'):
             b = utils.get_active_brush()
             ad = b.get('asset_data')
@@ -519,9 +484,6 @@ def update_ui_size(area, region):
     else:
         ui.reports_y = ui.bar_y - ui.bar_height - 100
         ui.reports_x = ui.bar_x
-
-    ui.rating_x = ui.bar_x
-    ui.rating_y = ui.bar_y - ui.bar_height
 
 
 class ParticlesDropDialog(bpy.types.Operator):
@@ -1162,8 +1124,8 @@ def register_ui():
     # fast rating shortcut
     wm = bpy.context.window_manager
     km = wm.keyconfigs.addon.keymaps['Window']
-    # kmi = km.keymap_items.new(ratings.FastRateMenu.bl_idname, 'R', 'PRESS', ctrl=False, shift=False)
-    # addon_keymapitems.append(kmi)
+    kmi = km.keymap_items.new("wm.blenderkit_menu_rating_upload", 'R', 'PRESS', ctrl=False, shift=False)
+    addon_keymapitems.append(kmi)
     # kmi = km.keymap_items.new(upload.FastMetadata.bl_idname, 'F', 'PRESS', ctrl=True, shift=False)
     # addon_keymapitems.append(kmi)
 

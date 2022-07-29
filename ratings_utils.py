@@ -22,7 +22,8 @@ import threading
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
 import requests
-from bpy.props import EnumProperty, FloatProperty, IntProperty, StringProperty
+from bpy.props import EnumProperty, FloatProperty, IntProperty, StringProperty,CollectionProperty
+from bpy.types import PropertyGroup
 
 from . import global_vars, paths, rerequests, tasks_queue, utils
 
@@ -49,14 +50,14 @@ def upload_rating_thread(url, ratings, headers):
 
 def send_rating_to_thread_quality(url, ratings, headers):
     '''Sens rating into thread rating, main purpose is for tasks_queue.
-    One function per property to avoid lost data due to stashing.'''
+    One function per property to avoid lost data due to stashing. - these need to be 2 functions'''
     thread = threading.Thread(target=upload_rating_thread, args=(url, ratings, headers))
     thread.start()
 
 
 def send_rating_to_thread_work_hours(url, ratings, headers):
     '''Sens rating into thread rating, main purpose is for tasks_queue.
-    One function per property to avoid lost data due to stashing.'''
+    One function per property to avoid lost data due to stashing. - these need to be 2 functions'''
     thread = threading.Thread(target=upload_rating_thread, args=(url, ratings, headers))
     thread.start()
 
@@ -112,6 +113,16 @@ def get_rating_local(asset_id):
     global_vars.DATA['asset ratings'] = global_vars.DATA.get('asset ratings', {})
     rating = global_vars.DATA['asset ratings'].get(asset_id)
     return rating
+
+def ensure_rating(asset_id):
+  '''downloads asset rating if this didn't happen yet. Mainly for assets already in the scene'''
+  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  api_key = user_preferences.api_key
+  headers = utils.get_headers(api_key)
+  if get_rating_local(asset_id) is None:
+    rating_thread = threading.Thread(target=get_rating, args=([asset_id, headers]),
+                                   daemon=True)
+    rating_thread.start()
 
 
 def update_ratings_quality(self, context):
@@ -225,7 +236,7 @@ def stars_enum_callback(self, context):
     return items
 
 
-class RatingsProperties():
+class RatingProperties(PropertyGroup):
     message: StringProperty(
         name="message",
         description="message",
@@ -359,3 +370,6 @@ class RatingsProperties():
                 self.rating_work_hours_ui_1_5 = whs
             if wh < 11 and wh in self.possible_wh_values_1_10:
                 self.rating_work_hours_ui_1_10 = whs
+
+# class RatingPropsCollection(PropertyGroup):
+#   ratings = CollectionProperty(type = RatingProperties)

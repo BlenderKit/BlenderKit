@@ -32,6 +32,7 @@ from . import (
     daemon_lib,
     global_vars,
     paths,
+    ratings_utils,
     reports,
     rerequests,
     resolutions,
@@ -273,9 +274,9 @@ def report_usages():
         scene['assets used'][k] = assets[k]
 
     ###########check ratings herer too:
-    scene['assets rated'] = scene.get('assets rated', {})
     for k in assets.keys():
-        scene['assets rated'][k] = scene['assets rated'].get(k, False)
+        ratings_utils.store_rating_local_empty()
+
     thread = threading.Thread(target=utils.requests_post_thread, args=(url, usage_report, headers))
     thread.start()
     mt = time.time() - mt
@@ -293,10 +294,6 @@ def udpate_asset_data_in_dicts(asset_data):
     scene = bpy.context.scene
     scene['assets used'] = scene.get('assets used', {})
     scene['assets used'][asset_data['assetBaseId']] = asset_data.copy()
-
-    scene['assets rated'] = scene.get('assets rated', {})
-    id = asset_data['assetBaseId']
-    scene['assets rated'][id] = scene['assets rated'].get(id, False)
     sr = global_vars.DATA['search results']
     if not sr:
         return;

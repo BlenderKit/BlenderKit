@@ -456,9 +456,6 @@ class BlenderKitUIProps(PropertyGroup):
     rating_button_width: IntProperty(name="Rating Button Width", default=50 * ui_scale)
     rating_button_height: IntProperty(name="Rating Button Height", default=50 * ui_scale)
 
-    rating_x: IntProperty(name="Rating UI X", default=10)
-    rating_y: IntProperty(name="Rating UI Y", default=10)
-
     rating_ui_width: IntProperty(name="Rating UI Width", default=rating_ui_scale * 600)
     rating_ui_height: IntProperty(name="Rating UI Heightt", default=rating_ui_scale * 256)
 
@@ -784,47 +781,6 @@ class BlenderKitCommonUploadProps(object):
         name="Subcategory lvl2",
         description="Subcategory to put into",
         items=categories.get_subcategory1_enums
-    )
-
-
-class BlenderKitRatingProps(PropertyGroup):
-    rating_quality: IntProperty(name="Quality",
-                                description="quality of the material",
-                                default=0,
-                                min=-1, max=10,
-                                update=ratings_utils.update_ratings_quality)
-
-    # the following enum is only to ease interaction - enums support 'drag over' and enable to draw the stars easily.
-    rating_quality_ui: EnumProperty(name='rating_quality_ui',
-                                    items=ratings_utils.stars_enum_callback,
-                                    description='Rating stars 0 - 10',
-                                    default=None,
-                                    update=ratings_utils.update_quality_ui,
-                                    )
-
-    rating_work_hours: FloatProperty(name="Work Hours",
-                                     description="How many hours did this work take?",
-                                     default=0.00,
-                                     min=0.0, max=150, update=ratings_utils.update_ratings_work_hours
-                                     )
-
-    # rating_complexity: IntProperty(name="Complexity",
-    #                                description="Complexity is a number estimating how much work was spent on the asset.aaa",
-    #                                default=0, min=0, max=10)
-    # rating_virtual_price: FloatProperty(name="Virtual Price",
-    #                                     description="How much would you pay for this object if buing it?",
-    #                                     default=0, min=0, max=10000)
-    rating_problems: StringProperty(
-        name="Problems",
-        description="Problems found/ why did you take points down - this will be available for the author"
-                    " As short as possible",
-        default="",
-    )
-    rating_compliments: StringProperty(
-        name="Compliments",
-        description="Comliments - let the author know you like his work! "
-                    " As short as possible",
-        default="",
     )
 
 
@@ -2055,8 +2011,6 @@ classes = (
 
     BlenderKitBrushSearchProps,
     BlenderKitBrushUploadProps,
-
-    BlenderKitRatingProps,
 )
 
 
@@ -2075,45 +2029,37 @@ def register():
     bpy.types.WindowManager.blenderkitUI = PointerProperty(
         type=BlenderKitUIProps)
 
+    # bpy.types.WindowManager.blenderkit_ratings = PointerProperty(
+    #     type =  ratings_utils.RatingPropsCollection)
     # MODELS
     bpy.types.WindowManager.blenderkit_models = PointerProperty(
         type=BlenderKitModelSearchProps)
     bpy.types.Object.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitModelUploadProps)
-    bpy.types.Object.bkit_ratings = PointerProperty(  # for uploads, not now...
-        type=BlenderKitRatingProps)
 
     # SCENES
     bpy.types.WindowManager.blenderkit_scene = PointerProperty(
         type=BlenderKitSceneSearchProps)
     bpy.types.Scene.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitSceneUploadProps)
-    bpy.types.Scene.bkit_ratings = PointerProperty(  # for uploads, not now...
-        type=BlenderKitRatingProps)
 
     # HDRs
     bpy.types.WindowManager.blenderkit_HDR = PointerProperty(
         type=BlenderKitHDRSearchProps)
     bpy.types.Image.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitHDRUploadProps)
-    bpy.types.Image.bkit_ratings = PointerProperty(  # for uploads, not now...
-        type=BlenderKitRatingProps)
 
     # MATERIALS
     bpy.types.WindowManager.blenderkit_mat = PointerProperty(
         type=BlenderKitMaterialSearchProps)
     bpy.types.Material.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitMaterialUploadProps)
-    bpy.types.Material.bkit_ratings = PointerProperty(  # for uploads, not now...
-        type=BlenderKitRatingProps)
 
     # BRUSHES
     bpy.types.WindowManager.blenderkit_brush = PointerProperty(
         type=BlenderKitBrushSearchProps)
     bpy.types.Brush.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitBrushUploadProps)
-    bpy.types.Brush.bkit_ratings = PointerProperty(  # for uploads, not now...
-        type=BlenderKitRatingProps)
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     global_vars.PREFS = utils.get_prefs_dir()
