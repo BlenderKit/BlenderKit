@@ -47,37 +47,6 @@ from . import (
 bk_logger = logging.getLogger(__name__)
 
 
-#   this was moved to separate interface:
-
-def draw_ratings(layout, context, asset):
-    # layout.operator("wm.url_open", text="Read rating instructions", icon='QUESTION').url = 'https://support.google.com/?hl=en'
-    # the following shouldn't happen at all in an optimal case,
-    # this function should run only when asset was already checked to be existing
-    if asset == None:
-        return;
-
-    col = layout.column()
-    bkit_ratings = asset.bkit_ratings
-
-    # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
-
-    row = col.row()
-    row.prop(bkit_ratings, 'rating_quality_ui', expand=True, icon_only=True, emboss=False)
-    if bkit_ratings.rating_quality > 0:
-        col.separator()
-        col.prop(bkit_ratings, 'rating_work_hours')
-    # w = context.region.width
-
-    # layout.label(text='problems')
-    # layout.prop(bkit_ratings, 'rating_problems', text='')
-    # layout.label(text='compliments')
-    # layout.prop(bkit_ratings, 'rating_compliments', text='')
-
-    # row = layout.row()
-    # op = row.operator("object.blenderkit_rating_upload", text="Send rating", icon='URL')
-    # return op
-    # re-enable layout if included in longer panel
-
 
 def draw_not_logged_in(source, message='Please Login/Signup to use this feature'):
     title = "You aren't logged in"
@@ -477,31 +446,33 @@ class NODE_PT_blenderkit_material_properties(Panel):
         # layout.operator('object.blenderkit_color_corrector')
 
 
-def draw_rating_asset(self, context, asset):
-    layout = self.layout
+def draw_rating_asset(self, context, layout, index = 0):
+    ### draws single asset rating.
+    # Todo: resolve multiple objects for display, now the props are on respective panel, which isn't great.
+
     col = layout.box()
     # split = layout.split(factor=0.5)
     # col1 = split.column()
     # col2 = split.column()
     # print('%s_search' % asset['asset_data']['assetType'])
-    directory = paths.get_temp_dir('%s_search' % asset['asset_data']['assetType'])
-    tpath = os.path.join(directory, asset['asset_data']['thumbnail_small'])
+    directory = paths.get_temp_dir('%s_search' % self.asset_data['assetType'])
+    tpath = os.path.join(directory, self.asset_data['thumbnail_small'])
     for image in bpy.data.images:
         if image.filepath == tpath:
             # split = row.split(factor=1.0, align=False)
             col.template_icon(icon_value=image.preview.icon_id, scale=6.0)
             break;
         # layout.label(text = '', icon_value=image.preview.icon_id, scale = 10)
-    col.label(text=asset.name)
-    draw_ratings(col, context, asset=asset)
+    col.label(text=self.asset_data['name'])
+    ratings.draw_ratings_menu(bpy.context.window_manager.blenderkit_ratings[index], context, col)
 
 
-class VIEW3D_PT_blenderkit_ratings(Panel):
+class VIEW3D_PT_blenderkit_ratings(Panel, ratings_utils.RatingProperties):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_ratings"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_label = "Please rate"
+    bl_label = "Rate assets"
     bl_context = "objectmode"
 
     @classmethod
@@ -517,10 +488,12 @@ class VIEW3D_PT_blenderkit_ratings(Panel):
         assets = ratings.get_assets_for_rating()
         if len(assets) > 0:
             utils.label_multiline(layout, text='Please help BlenderKit community by rating these assets:')
-
-            for a in assets:
-                if a.bkit_ratings.rating_work_hours == 0:
-                    draw_rating_asset(self, context, asset=a)
+            ad = assets[0].get('asset_data')
+            reference = bpy.context.window_manager.blenderkit_ratings[0]
+            reference.asset_data = ad
+            reference.asset_id = self.asset_data['id']
+            reference.asset_type = reference.asset_data['assetType']
+            draw_rating_asset(reference, context, layout, index = 0)
 
 
 def draw_login_progress(layout):
@@ -896,14 +869,6 @@ class VIEW3D_PT_blenderkit_login(Panel):
             draw_login_buttons(layout)
 
 
-def draw_panel_model_rating(self, context):
-    # o = bpy.context.active_object
-    o = utils.get_active_model()
-    # print('ratings active',o)
-    draw_ratings(self.layout, context, asset=o)  # , props)
-    # op.asset_type = 'MODEL'
-
-
 def draw_panel_material_upload(self, context):
     o = bpy.context.active_object
     mat = bpy.context.active_object.active_material
@@ -975,11 +940,6 @@ def draw_panel_material_search(self, context):
     # draw_panel_categories(self, context)
 
 
-def draw_panel_material_ratings(self, context):
-    asset = bpy.context.active_object.active_material
-    draw_ratings(self.layout, context, asset)  # , props)
-    # op.asset_type = 'MATERIAL'
-
 
 def draw_panel_brush_upload(self, context):
     brush = utils.get_active_brush()
@@ -1003,14 +963,6 @@ def draw_panel_brush_search(self, context):
 
     utils.label_multiline(layout, text=props.report)
     # draw_panel_categories(self, context)
-
-
-def draw_panel_brush_ratings(self, context):
-    # props = utils.get_brush_props(context)
-    brush = utils.get_active_brush()
-    draw_ratings(self.layout, context, asset=brush)  # , props)
-    #
-    # op.asset_type = 'BRUSH'
 
 
 def draw_login_buttons(layout, invoke=False):
@@ -1795,7 +1747,7 @@ def label_or_url_or_operator(layout, text='', tooltip='', url='', operator=None,
         layout.label(text=text)
 
 
-class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
+class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
     """Generate Cycles thumbnail for model assets"""
     bl_idname = "wm.blenderkit_asset_popup"
     bl_label = "BlenderKit asset popup"

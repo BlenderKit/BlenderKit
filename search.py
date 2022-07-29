@@ -135,7 +135,6 @@ def update_assets_data():  # updates assets data on scene load.
 
   dicts = [
     'assets used',
-    # 'assets rated',# assets rated stores only true/false, not asset data.
   ]
   for s in bpy.data.scenes:
     for bkdict in dicts:

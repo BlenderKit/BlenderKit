@@ -26,7 +26,7 @@ from . import (
     paths,
     ratings_utils,
     rerequests,
-    tasks_queue,
+    ui,
     ui_panels,
     utils,
 )
@@ -34,8 +34,14 @@ from . import (
 
 bk_logger = logging.getLogger(__name__)
 
-from bpy.types import Operator
+from bpy.types import (
+    Operator,
+    Gizmo,
+    GizmoGroup,
+)
 
+
+from mathutils import Matrix
 
 def pretty_print_POST(req):
     """
@@ -56,49 +62,6 @@ def upload_review_thread(url, reviews, headers):
     #     print('reviews upload failed: %s' % str(e))
 
 
-
-def upload_rating(asset):
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    api_key = user_preferences.api_key
-    headers = utils.get_headers(api_key)
-
-    bkit_ratings = asset.bkit_ratings
-    # print('rating asset', asset_data['name'], asset_data['assetBaseId'])
-    url = paths.get_api_url() + 'assets/' + asset['asset_data']['id'] + '/rating/'
-
-    ratings = [
-
-    ]
-
-    if bkit_ratings.rating_quality > 0.1:
-        ratings = (('quality', bkit_ratings.rating_quality),)
-        tasks_queue.add_task((ratings_utils.send_rating_to_thread_quality, (url, ratings, headers)), wait=2.5,
-                             only_last=True)
-    if bkit_ratings.rating_work_hours > 0.1:
-        ratings = (('working_hours', round(bkit_ratings.rating_work_hours, 1)),)
-        tasks_queue.add_task((ratings_utils.send_rating_to_thread_work_hours, (url, ratings, headers)), wait=2.5,
-                             only_last=True)
-
-    thread = threading.Thread(target=ratings_utils.upload_rating_thread, args=(url, ratings, headers))
-    thread.start()
-
-    url = paths.get_api_url() + 'assets/' + asset['asset_data']['id'] + '/review'
-
-    reviews = {
-        'reviewText': bkit_ratings.rating_compliments,
-        'reviewTextProblems': bkit_ratings.rating_problems,
-    }
-    if not (bkit_ratings.rating_compliments == '' and bkit_ratings.rating_compliments == ''):
-        thread = threading.Thread(target=upload_review_thread, args=(url, reviews, headers))
-        thread.start()
-
-    # the info that the user rated an item is stored in the scene
-    s = bpy.context.scene
-    s['assets rated'] = s.get('assets rated', {})
-    if bkit_ratings.rating_quality > 0.1 and bkit_ratings.rating_work_hours > 0.1:
-        s['assets rated'][asset['asset_data']['assetBaseId']] = True
-
-
 def get_assets_for_rating():
     '''
     gets assets from scene that could/should be rated by the user.
@@ -107,7 +70,7 @@ def get_assets_for_rating():
     '''
     assets = []
     for ob in bpy.context.scene.objects:
-        if ob.get('asset_data'):
+        if should_be_rated(ob):
             assets.append(ob)
     for m in bpy.data.materials:
         if m.get('asset_data'):
@@ -129,36 +92,23 @@ asset_types = (
 )
 
 
-# TODO drop this operator, not needed anymore.
-class UploadRatingOperator(bpy.types.Operator):
-    """Upload rating to the web db"""
-    bl_idname = "object.blenderkit_rating_upload"
-    bl_label = "Send Rating"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+def draw_ratings(layout, context, asset):
+    # layout.operator("wm.url_open", text="Read rating instructions", icon='QUESTION').url = 'https://support.google.com/?hl=en'
+    # the following shouldn't happen at all in an optimal case,
+    # this function should run only when asset was already checked to be existing
+    if asset == None:
+        return;
 
-    # type of upload - model, material, textures, e.t.c.
-    # asset_type: EnumProperty(
-    #     name="Type",
-    #     items=asset_types,
-    #     description="Type of asset",
-    #     default="MODEL",
-    # )
+    col = layout.column()
+    bkit_ratings = asset.bkit_ratings
 
-    # @classmethod
-    # def poll(cls, context):
-    #    return bpy.context.active_object != None and bpy.context.active_object.get('asset_id') is not None
-    def draw(self, context):
-        layout = self.layout
-        layout.label(text='Rating sent to server. Thanks for rating!')
+    # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
 
-    def execute(self, context):
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        wm = context.window_manager
-        asset = utils.get_active_asset()
-        upload_rating(asset)
-        return wm.invoke_props_dialog(self)
+    row = col.row()
+    row.prop(bkit_ratings, 'rating_quality_ui', expand=True, icon_only=True, emboss=False)
+    if bkit_ratings.rating_quality > 0:
+        col.separator()
+        col.prop(bkit_ratings, 'rating_work_hours')
 
 
 def draw_ratings_menu(self, context, layout):
@@ -182,9 +132,9 @@ def draw_ratings_menu(self, context, layout):
     col = layout.column()
     # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
     row = col.row()
-    row.label(text='Quality:', icon='SOLO_ON')
-    row = col.row()
-    row.label(text='Please help the community by rating quality:')
+    row.label(text='Rate Quality:', icon='SOLO_ON')
+    # row = col.row()
+    # row.label(text='Please help the community by rating quality:')
 
     row = col.row()
     row.prop(self, 'rating_quality_ui', expand=True, icon_only=True, emboss=False)
@@ -197,7 +147,7 @@ def draw_ratings_menu(self, context, layout):
     col.separator()
 
     row = col.row()
-    row.label(text='Complexity:', icon_value=pcoll['dumbbell'].icon_id)
+    row.label(text='Rate Complexity:', icon_value=pcoll['dumbbell'].icon_id)
     row = col.row()
     row.label(text=f"How many hours did this {self.asset_type} save you?")
 
@@ -233,7 +183,7 @@ def draw_ratings_menu(self, context, layout):
         row.label(text=f'Thanks{profile_name}, you are amazing!', icon='FUND')
 
 
-class FastRateMenu(Operator, ratings_utils.RatingsProperties):
+class FastRateMenu(Operator, ratings_utils.RatingProperties):
     """Rating of the assets , also directly from the asset bar - without need to download assets"""
     bl_idname = "wm.blenderkit_menu_rating_upload"
     bl_label = "Ratings"
@@ -247,7 +197,9 @@ class FastRateMenu(Operator, ratings_utils.RatingsProperties):
 
     def draw(self, context):
         layout = self.layout
+        layout.label(text = f"Rating of the asset: {self.asset_data['name']}")
         draw_ratings_menu(self, context, layout)
+        layout.template_icon(icon_value=self.img.preview.icon_id, scale=12)
 
     def execute(self, context):
         scene = bpy.context.scene
@@ -255,20 +207,32 @@ class FastRateMenu(Operator, ratings_utils.RatingsProperties):
         #get asset id
         if ui_props.active_index > -1:
             sr = global_vars.DATA['search results']
-            asset_data = dict(sr[ui_props.active_index])
-            self.asset_id = asset_data['id']
-            self.asset_type = asset_data['assetType']
-
+            self.asset_data = dict(sr[ui_props.active_index])
+            self.asset_id = self.asset_data['id']
+            self.asset_type = self.asset_data['assetType']
+        else:
+            if bpy.context.view_layer.objects.active is not None:
+                ob = utils.get_active_model()
+                s = bpy.context.scene
+                ad = ob.get('asset_data')
+                if ad:
+                    self.asset_data = ad
+                    self.asset_id = self.asset_data['id']
+                    self.asset_type = self.asset_data['assetType']
+                self.asset = ob
         if self.asset_id == '':
             return {'CANCELLED'}
 
         wm = context.window_manager
 
+        self.img = ui.get_large_thumbnail_image(self.asset_data)
+        utils.img_to_preview(self.img, copy_original=True)
+
         self.prefill_ratings()
 
         if self.asset_type in ('model', 'scene'):
             # spawn a wider one for validators for the enum buttons
-            return wm.invoke_popup(self, width=500)
+            return wm.invoke_popup(self, width=600)
         else:
             return wm.invoke_popup(self)
 
@@ -293,14 +257,143 @@ def rating_menu_draw(self, context):
     op.asset_type = asset_data['assetType']
 
 
+
+# Coordinates (each one is a triangle).
+custom_shape_verts = ((0.1896940916776657, 0.2608509361743927, 0.0), (0.2438376545906067, 0.09421423077583313, 0.0),
+                      (0.2979812026023865, 0.2608509361743927, 0.0), (0.1896940916776657, 0.2608509361743927, 0.0),
+                      (0.052547797560691833, 0.2484826147556305, 0.0), (0.15623150765895844, 0.1578637957572937, 0.0),
+                      (0.15623150765895844, 0.1578637957572937, 0.0), (0.12561391294002533, 0.023607879877090454, 0.0),
+                      (0.2438376545906067, 0.09421423077583313, 0.0), (0.2438376545906067, 0.09421423077583313, 0.0),
+                      (0.36206138134002686, 0.023607879877090454, 0.0), (0.33144378662109375, 0.1578637957572937, 0.0),
+                      (0.33144378662109375, 0.1578637957572937, 0.0), (0.4351276159286499, 0.2484826147556305, 0.0),
+                      (0.2979812026023865, 0.2608509361743927, 0.0), (0.2979812026023865, 0.2608509361743927, 0.0),
+                      (0.2438376396894455, 0.3874630033969879, 0.0), (0.1896940916776657, 0.2608509361743927, 0.0),
+                      (0.1896940916776657, 0.2608509361743927, 0.0), (0.15623150765895844, 0.1578637957572937, 0.0),
+                      (0.2438376545906067, 0.09421423077583313, 0.0), (0.2438376545906067, 0.09421423077583313, 0.0),
+                      (0.33144378662109375, 0.1578637957572937, 0.0), (0.2979812026023865, 0.2608509361743927, 0.0))
+
+
+class RatingStarWidget(Gizmo):
+    bl_idname = "VIEW3D_GT_custom_shape_widget"
+    bl_target_properties = (
+        {},
+    )
+
+    __slots__ = (
+        "custom_shape",
+        "init_mouse_y",
+        "init_value",
+    )
+
+
+    def _update_draw_matrix(self):
+        R = bpy.context.region_data.view_rotation.to_matrix().to_4x4()
+        loc, _, scale = self.matrix_basis.decompose()
+        self.matrix_basis = (
+                Matrix.Translation(loc) @
+                R @
+                Matrix.Diagonal(scale.to_4d())
+        )
+
+    def draw(self, context):
+        self._update_draw_matrix()
+        self.draw_custom_shape(self.custom_shape)
+
+    def draw_select(self, context, select_id):
+        self._update_draw_matrix()
+        self.draw_custom_shape(self.custom_shape, select_id=select_id)
+
+    def setup(self):
+        if not hasattr(self, "custom_shape"):
+            self.custom_shape = self.new_custom_shape('TRIS', custom_shape_verts)
+
+    def invoke(self, context, event):
+        return {'RUNNING_MODAL'}
+
+    def exit(self, context, cancel):
+        pass
+
+    def modal(self, context, event, tweak):
+        return {'FINISHED'}
+
+
+
+def should_be_rated(ob):
+    ad = ob.get('asset_data')
+    if ad is None:
+        return False
+    r = ratings_utils.get_rating_local(ad['id'])
+    ratings_utils.ensure_rating(ad['id'])
+    if r == {}: #is None would work too, but would show rating possibility and then hide it when the assets are already rated.
+        return True
+
+class RatingStarWidgetGroup(GizmoGroup):
+    bl_idname = "OBJECT_GGT_light_test"
+    bl_label = "Test Light Widget"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_options = {'3D', 'PERSISTENT'}
+
+    @classmethod
+    def poll(cls, context):
+        if not utils.profile_is_validator():
+            return False
+        if bpy.context.view_layer.objects.active is not None:
+            ob = utils.get_active_model()
+            return should_be_rated(ob)
+        return False
+
+    def setup(self, context):
+        ob = utils.get_active_model()
+        gz = self.gizmos.new(RatingStarWidget.bl_idname)
+        props = gz.target_set_operator("wm.blenderkit_menu_rating_upload")
+        props.asset_id = ob['asset_data']['assetBaseId']
+        gz.color = 0.5, 0.5, 0.0
+        gz.alpha = 0.5
+
+        gz.color_highlight = 1.0, 1.0, 1.0
+        gz.alpha_highlight = 0.5
+
+        gz.scale_basis = 1
+        gz.use_draw_modal = True
+
+        self.energy_gizmo = gz
+
+    def refresh(self, context):
+
+        ob = utils.get_active_model()
+        gz = self.energy_gizmo
+
+        R = bpy.context.region_data.view_rotation.to_matrix().to_4x4()
+
+        loc, _, _ = ob.matrix_world.decompose()
+        _, _, scale = gz.matrix_basis.decompose()
+
+        gz.matrix_basis = (
+                Matrix.Translation(loc) @
+                R @
+                Matrix.Diagonal(scale.to_4d())
+        )
+
+
+classes = (
+    FastRateMenu,
+    RatingStarWidget,
+    RatingStarWidgetGroup,
+    ratings_utils.RatingProperties,
+    # ratings_utils.RatingPropsCollection,
+)
+
+
+
+
 def register_ratings():
-    bpy.utils.register_class(UploadRatingOperator)
-    bpy.utils.register_class(FastRateMenu)
+    for cls in classes:
+        bpy.utils.register_class(cls)
     # bpy.types.OBJECT_MT_blenderkit_asset_menu.append(rating_menu_draw)
 
 
 def unregister_ratings():
     pass;
-    # bpy.utils.unregister_class(StarRatingOperator)
-    bpy.utils.unregister_class(UploadRatingOperator)
-    bpy.utils.unregister_class(FastRateMenu)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
