@@ -64,6 +64,7 @@ def logout():
     preferences.login_attempt = False
     preferences.api_key_refresh = ''
     preferences.api_key = ''
+    preferences.api_key_timeout = 0
     if global_vars.DATA.get('bkit profile'):
         del (global_vars.DATA['bkit profile'])
 
@@ -110,17 +111,17 @@ def refresh_token_timer():
   """Checks if API token needs refresh and makes it if needed."""
   next_time = 1800
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  if preferences.api_key == "":
+  if preferences.api_key == "": # Not logged in
+    return next_time
+
+  if preferences.api_key_refresh == "": # Using manually inserted permanent token
     return next_time
   
-  if time.time() + 7200 < preferences.api_key_timeout:
+  if time.time() + 7200 < preferences.api_key_timeout: # Token is not old
     return next_time
   
-  if preferences.api_key_refresh != "":
-    daemon_lib.refresh_token(preferences.api_key_refresh)
-  # the following would log out users who copy pasted their token manually. -not wanted behaviour.
-  # else: #time to refresh, but refresh key does not exist -> logout and manual login needed
-  #   logout()
+  # Token is at the end of life, refresh token exists, it is time to refresh
+  daemon_lib.refresh_token(preferences.api_key_refresh)
   #fetch_server_data()
   #categories.load_categories()
   return next_time
