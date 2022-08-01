@@ -73,6 +73,10 @@ def store_rating_local(asset_id, type='quality', value=0):
     ar   = global_vars.DATA['asset ratings']
     ar[asset_id] = ar.get(asset_id, {})
     ar[asset_id][type] = value
+    # for w in bpy.context.window_manager.windows:
+    #   for a in w.screen.areas:
+    #     a.tag_redraw()
+    #     print('redraw',a.type)
 
 
 def get_rating(asset_id, headers):
@@ -87,6 +91,8 @@ def get_rating(asset_id, headers):
     -------
     ratings - dict of type:value ratings
     '''
+    import time
+    t = time.time()
     url = paths.get_api_url() + 'assets/' + asset_id + '/rating/'
     params = {}
     r = rerequests.get(url, params=params, verify=True, headers=headers)
@@ -357,8 +363,11 @@ class RatingProperties(PropertyGroup):
         if not utils.user_logged_in():
           return
         ratings = get_rating_local(self.asset_id)
-        print('prefill ratings')
-        print(ratings)
+        if ratings in (None, {}):
+          return
+        if not self.rating_quality ==0:
+          #return if the rating was already filled
+          return
         if ratings and ratings.get('quality'):
             self.rating_quality = int(ratings['quality'])
         if ratings and ratings.get('working_hours'):
@@ -370,6 +379,6 @@ class RatingProperties(PropertyGroup):
                 self.rating_work_hours_ui_1_5 = whs
             if wh < 11 and wh in self.possible_wh_values_1_10:
                 self.rating_work_hours_ui_1_10 = whs
-
+        bpy.context.area.tag_redraw()
 # class RatingPropsCollection(PropertyGroup):
 #   ratings = CollectionProperty(type = RatingProperties)

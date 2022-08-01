@@ -196,10 +196,14 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         return True;
 
     def draw(self, context):
+        #when rating gets recieved while the window is already open, we need to prefill.
+        self.prefill_ratings()
+
         layout = self.layout
         layout.label(text = f"Rating of the asset: {self.asset_data['name']}")
         draw_ratings_menu(self, context, layout)
         layout.template_icon(icon_value=self.img.preview.icon_id, scale=12)
+
 
     def execute(self, context):
         scene = bpy.context.scene
@@ -228,6 +232,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         self.img = ui.get_large_thumbnail_image(self.asset_data)
         utils.img_to_preview(self.img, copy_original=True)
 
+        ratings_utils.ensure_rating(self.asset_id)
         self.prefill_ratings()
 
         if self.asset_type in ('model', 'scene'):

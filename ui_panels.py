@@ -2301,6 +2301,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         if not utils.user_is_owner(asset_data=self.asset_data):
             # Draw ratings, but not for owners of assets - doesn't make sense.
             ratings_box = layout.box()
+            self.prefill_ratings()
             ratings.draw_ratings_menu(self, context, ratings_box)
         # else:
         #     ratings_box.label('Here you should find ratings, but you can not rate your own assets ;)')
@@ -2319,24 +2320,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 if ui_props.reply_id == comment['id']:
                     self.draw_comment_response(context,layout,comment['id'])
 
-
-    def prefill_ratings(self):
-        # pre-fill ratings
-        if not utils.user_logged_in():
-            return
-
-        ratings = ratings_utils.get_rating_local(self.asset_id)
-        if ratings and ratings.get('quality'):
-            self.rating_quality = int(ratings['quality'])
-        if ratings and ratings.get('working_hours'):
-            wh = int(ratings['working_hours'])
-            whs = str(wh)
-            if wh in self.possible_wh_values:
-                self.rating_work_hours_ui = whs
-            if wh < 6 and wh in self.possible_wh_values_1_5:
-                self.rating_work_hours_ui_1_5 = whs
-            if wh < 11 and wh in self.possible_wh_values_1_10:
-                self.rating_work_hours_ui_1_10 = whs
 
     def execute(self, context):
         wm = context.window_manager
@@ -2366,6 +2349,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         self.tip = search.get_random_tip()
         self.tip = self.tip.replace('\n', '')
 
+        ratings_utils.ensure_rating(self.asset_id)
         # pre-fill ratings
         self.prefill_ratings()
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
