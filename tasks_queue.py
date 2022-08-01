@@ -64,8 +64,11 @@ def queue_worker():
     # utils.p('start queue worker timer')
 
     #bk_logger.debug('timer queue worker')
-    time_step = 2.0
+    time_step = .3
     q = get_queue()
+    #save some performance by returning early
+    if q.empty():
+        return time_step
 
     back_to_queue = [] #delayed events
     stashed = {}
@@ -117,7 +120,7 @@ def queue_worker():
         q.put(task)
     # utils.p('end queue worker timer')
 
-    return 2.0
+    return time_step
 
 
 def register():
