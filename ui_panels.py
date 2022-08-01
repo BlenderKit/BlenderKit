@@ -665,10 +665,10 @@ class NotificationOpenTarget(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class LikeComment(bpy.types.Operator):
-    """Mark notification as read here and also on BlenderKit server"""
-    bl_idname = "wm.blenderkit_like_comment"
-    bl_label = "BlenderKit like/dislike comment"
+class UpvoteComment(bpy.types.Operator):
+    """Up or downvote comment"""
+    bl_idname = "wm.blenderkit_upvote_comment"
+    bl_label = "BlenderKit up-downvote comment"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     asset_id: StringProperty(
@@ -684,7 +684,7 @@ class LikeComment(bpy.types.Operator):
 
     flag: bpy.props.StringProperty(
         name="flag",
-        description="Like/dislike comment",
+        description="Upvote/downvote comment",
         default="like")
 
     @classmethod
@@ -2303,11 +2303,11 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingsProperties):
         split1 = split.split()
         split1.enabled = utils.user_logged_in()
         # split1.emboss = 'NONE'
-        op = split1.operator('wm.blenderkit_like_comment', text=str(likes), icon='TRIA_UP')
+        op = split1.operator('wm.blenderkit_upvote_comment', text=str(likes), icon='TRIA_UP')
         op.asset_id = self.asset_data['assetBaseId']
         op.comment_id = comment['id']
         op.flag = 'like'
-        op = split1.operator('wm.blenderkit_like_comment', text=str(dislikes), icon='TRIA_DOWN')
+        op = split1.operator('wm.blenderkit_upvote_comment', text=str(dislikes), icon='TRIA_DOWN')
         op.asset_id = self.asset_data['assetBaseId']
         op.comment_id = comment['id']
         op.flag = 'dislike'
@@ -2442,7 +2442,7 @@ class OBJECT_MT_blenderkit_login_menu(bpy.types.Menu):
         draw_login_buttons(layout)
 
 class SetCommentReplyId(bpy.types.Operator):
-    """Visit subcategory"""
+    """Set comment reply ID, setting to which comment it is replied to and where the input box should be shown."""
     bl_idname = "view3d.blenderkit_set_comment_reply_id"
     bl_label = "BlenderKit Set Comment reply ID"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -2794,7 +2794,7 @@ classes = (
     ClosePopupButton,
     BlenderKitWelcomeOperator,
     MarkNotificationRead,
-    LikeComment,
+    UpvoteComment,
     PostComment,
     # DeleteComment,
     ShowNotifications,
