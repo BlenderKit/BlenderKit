@@ -20,28 +20,14 @@ import threading
 
 import bpy
 
-from . import (
-    global_vars,
-    icons,
-    paths,
-    ratings_utils,
-    rerequests,
-    ui,
-    ui_panels,
-    utils,
-)
+from . import global_vars, icons, paths, ratings_utils, rerequests, ui, ui_panels, utils
 
 
 bk_logger = logging.getLogger(__name__)
 
-from bpy.types import (
-    Operator,
-    Gizmo,
-    GizmoGroup,
-)
-
-
+from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
+
 
 def pretty_print_POST(req):
     """
