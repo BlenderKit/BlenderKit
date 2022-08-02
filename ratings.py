@@ -266,9 +266,7 @@ custom_shape_verts = ((0.1896940916776657, 0.2608509361743927, 0.0), (0.24383765
 
 class RatingStarWidget(Gizmo):
     bl_idname = "VIEW3D_GT_custom_shape_widget"
-    bl_target_properties = (
-        {},
-    )
+
 
     __slots__ = (
         "custom_shape",
