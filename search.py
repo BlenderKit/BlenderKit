@@ -1247,10 +1247,8 @@ def search(category='', get_next=False, query = None, author_id=''):
       profile = global_vars.DATA.get('bkit profile')
       if profile is not None:
         query['author_id'] = str(profile['user']['id'])
-    #write to search history and check hitory length
+    #write to search history and check history length
     global_vars.DATA['search history'].append(query)
-    if len(global_vars.DATA['search history'])>20:
-      global_vars.DATA['search history'].pop[0]
   # utils.p('searching')
   props.is_searching = True
 
