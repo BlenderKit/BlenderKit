@@ -106,7 +106,7 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     # search.cleanup_search_results()
     history = global_vars.DATA['search history']
     if len(history)>0:
-        search.search(query = global_vars.DATA['search history'][-1])
+        search.search(query = history[-1])
     #categories.fetch_categories_thread(auth_token, force = False)
 
 
