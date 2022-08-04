@@ -264,8 +264,8 @@ def check_meshprops(props, obs):
                 ob_eval.to_mesh_clear()
 
     # write out props
-    props.face_count = fc
-    props.face_count_render = fcr
+    props.face_count = int(fc)
+    props.face_count_render = int(fcr)
     # print(tris, quads, ngons)
     if quads > 0 and tris == 0 and ngons == 0:
         props.mesh_poly_type = 'QUAD'
