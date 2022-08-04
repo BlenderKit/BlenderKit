@@ -1183,6 +1183,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
         s = context.scene
         wm = bpy.context.window_manager
         ui_props = bpy.context.window_manager.blenderkitUI
+        preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
         if ui_props.asset_type == 'MODEL':
             # noinspection PyCallByClass
@@ -1212,7 +1213,8 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
             props = wm.blenderkit_HDR
 
         if ui_props.asset_type in ['MATERIAL', 'MODEL', 'HDR']:
-            layout.prop(props, 'resolution')
+            layout.prop(preferences, 'unpack_files')
+            layout.prop(preferences, 'resolution')
         # layout.prop(props, 'unpack_files')
 
 

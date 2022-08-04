@@ -587,25 +587,6 @@ class BlenderKitCommonSearchProps:
         update=search.search_update,
     )
 
-    # resolution download/import settings
-    resolution: EnumProperty(
-        name="Max resolution",
-        description="Cap texture sizes in the file to this resolution",
-        items=
-        (
-            # ('256', '256x256', ''),
-            ('512', '512x512', ''),
-            ('1024', '1024x1024', ''),
-            ('2048', '2048x2048', ''),
-            ('4096', '4096x4096', ''),
-            ('8192', '8192x8192', ''),
-            ('ORIGINAL', 'ORIGINAL FILE', ''),
-
-        ),
-        default='1024',
-        update=utils.save_resolutions,
-    )
-
     free_only: BoolProperty(name="Free first", description="Show free models first",
                             default=False, update=search.search_update)
 
@@ -1646,6 +1627,15 @@ def fix_subdir(self, context):
                                      " It's a directory BlenderKit creates where your .blend is \n " \
                                      "and uses it for storing assets.")
 
+def update_unpack(self, context):
+    ui_panels.ui_message(title="Unpack compatibility",
+                         message=" - With unpack on, you can access your textures easier," \
+                                 " and resolution swapping of assets is possible.\n\n" \
+                                 " - With unpack off, you can avoid some issues that " \
+                                 "are caused by other addons like e.g. Megascans. "
+                                 "Switch unpack off if you encounter problems like stuck downloads.")
+
+
 class BlenderKitAddonPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -1742,9 +1732,33 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     unpack_files: BoolProperty(name="Unpack Files",
-                               description="Unpack files after download",
-                               default=False
+                               description="Unpack assets after download \n " \
+                                           "- With unpack on, you can access your textures easier," \
+                                 " and resolution swapping of assets is possible.\n\n" \
+                                 " - With unpack off, you can avoid some issues that " \
+                                 "are caused by other addons like e.g. Megascans. "
+                                 "Switch unpack off if you encounter problems like stuck downloads.",
+                               default=False,
+                               update = update_unpack
                                )
+
+    # resolution download/import settings
+    resolution: EnumProperty(
+        name="Max resolution",
+        description="Cap texture sizes in the file to this resolution",
+        items=
+        (
+            # ('256', '256x256', ''),
+            ('512', '512x512', ''),
+            ('1024', '1024x1024', ''),
+            ('2048', '2048x2048', ''),
+            ('4096', '4096x4096', ''),
+            ('8192', '8192x8192', ''),
+            ('ORIGINAL', 'ORIGINAL FILE', ''),
+
+        ),
+        default='2048',
+    )
 
     proxy_which: EnumProperty(
         name="Proxy",

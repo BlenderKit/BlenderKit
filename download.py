@@ -1421,7 +1421,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return asset_data
 
     def execute(self, context):
-        sprops = utils.get_search_props()
+        preferences = bpy.context.preferences.addons['blenderkit'].preferences
         self.asset_data = self.get_asset_data(context)
         atype = self.asset_data['assetType']
         if bpy.context.mode != 'OBJECT' and (
@@ -1431,7 +1431,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         # either settings resolution is used, or the one set by operator.
         # all operator calls need to set use_resolution_operator True if they want to define/swap resolution
         if not self.use_resolution_operator:
-            resolution = sprops.resolution
+            resolution = preferences.resolution
         else:
             resolution = self.resolution
 
@@ -1502,11 +1502,11 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         if self.invoke_resolution:
             # show_enum_values(self, 'resolution')
             self.asset_data = self.get_asset_data(context)
-            sprops = utils.get_search_props()
+            preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
             # set initial resolutions enum activation
-            if sprops.resolution != 'ORIGINAL' and int(sprops.resolution) <= int(self.max_resolution):
-                self.resolution = sprops.resolution
+            if preferences.resolution != 'ORIGINAL' and int(preferences.resolution) <= int(self.max_resolution):
+                self.resolution = preferences.resolution
             elif int(self.max_resolution) > 0:
                 self.resolution = str(self.max_resolution)
             else:
