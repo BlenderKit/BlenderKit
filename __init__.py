@@ -32,16 +32,6 @@ bl_info = {
 import sys
 from os import path
 
-from . import dependencies, log
-
-
-log.configure_loggers()
-
-sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
-dependencies.add_vendored()
-dependencies.add_fallback()
-dependencies.ensure_deps()
-
 
 # lib = path.join(path.dirname(__file__), 'lib')
 # sys.path.insert(0, lib)
@@ -57,6 +47,19 @@ dependencies.ensure_deps()
 
 if "bpy" in locals():
     from importlib import reload
+
+    global_vars = reload(global_vars)
+    dependencies = reload(dependencies)
+    try:
+        log = reload(log)
+    except:
+        from . import log
+
+    log.configure_loggers()
+    sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
+    dependencies.add_vendored()
+    dependencies.add_fallback()
+    dependencies.ensure_deps()
 
     # alphabetically sorted all add-on modules since reload only happens from __init__.
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
@@ -76,8 +79,8 @@ if "bpy" in locals():
     image_utils = reload(image_utils)
     overrides = reload(overrides)
     paths = reload(paths)
-    ratings = reload(ratings)
     ratings_utils = reload(ratings_utils)
+    ratings = reload(ratings)
     comments_utils = reload(comments_utils)
     resolutions = reload(resolutions)
     search = reload(search)
@@ -102,7 +105,13 @@ if "bpy" in locals():
     # bl_ui_textbox = reload(bl_ui_textbox)
 
 else:
-    from . import global_vars
+    from . import dependencies, global_vars, log
+    
+    log.configure_loggers()
+    sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
+    dependencies.add_vendored()
+    dependencies.add_fallback()
+    dependencies.ensure_deps()
 
     from . import addon_updater_ops
     from . import timer
