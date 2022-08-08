@@ -20,7 +20,7 @@ PACKAGES = [
 ]
 
 
-def do_build(install_at=None):
+def do_build(install_at=None, include_tests=False):
   """Build addon by copying relevant addon directories and files to ./out/blenderkit directory. Create zip in ./out/blenderkit.zip."""
 
   shutil.rmtree('out', True)
@@ -45,6 +45,10 @@ def do_build(install_at=None):
       continue # we copied directories above
     if item in ignore_files:
       continue
+    if include_tests == False and item == "test.py":
+      continue
+    if include_tests == False and item.startswith('test_'):
+      continue # we do not include test files
     shutil.copy(item, f'{target_dir}/{item}')
 
   #CREATE ZIP
@@ -53,6 +57,22 @@ def do_build(install_at=None):
   if install_at != None:
     shutil.rmtree(f'{install_at}/blenderkit', ignore_errors=True)
     shutil.copytree('out/blenderkit', f'{install_at}/blenderkit')
+
+
+def run_tests():
+  test = subprocess.Popen([
+    'blender',
+    '--background',
+    '-noaudio',
+    '--python-exit-code',
+    '1',
+    '--python',
+    'test.py'
+    ])
+  test.wait()
+  
+  if test.returncode == 1:
+    exit(1)
 
 
 def bundle_dependencies():
@@ -105,12 +125,25 @@ def bundle_dependencies():
 ### COMMAND LINE INTERFACE
 
 parser = argparse.ArgumentParser()
-parser.add_argument("command", default='build', choices=['build', 'bundle'], help="""BUILD = copy relevant files into ./out/blenderkit. BUNDLE = bundle dependencies into ./dependencies""")
+parser.add_argument(
+  "command",
+  default='build',
+  choices=['build', 'bundle', 'test'],
+  help=
+  """
+  BUILD = copy relevant files into ./out/blenderkit.
+  BUNDLE = bundle dependencies into ./dependencies
+  TEST = build with test files and run tests
+  """
+  )
 parser.add_argument('--install-at', type=str, default=None, help='If path is specified, then builded addon will be copied to that location.')
 args = parser.parse_args()
 
 if args.command == "build":
   do_build(args.install_at)
+elif args.command == "test":
+  do_build(args.install_at, include_tests=True)
+  run_tests()
 elif args.command == "bundle":
   bundle_dependencies()
 else:
