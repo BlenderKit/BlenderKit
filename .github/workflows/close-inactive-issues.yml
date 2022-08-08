@@ -15,8 +15,11 @@ jobs:
           days-before-issue-stale: 30
           days-before-issue-close: 14
           stale-issue-label: "stale"
-          stale-issue-message: "This issue is marked stale because it has been open for 30 days with no activity. It will be closed in 14 days if there is no activity."
+          stale-issue-message: "This issue is marked stale - inactive because it has been open for 30 days with no activity. It will be closed in 14 days if there is no activity. Please comment to prevent closing if this issue is still relevant and present in BlenderKit."
           close-issue-message: "This issue was closed because it has been inactive for 14 days since being marked as stale. If the problem remains or the issue is still valid, please feel free to reopen the issue."
+          exempt-all-milestones: true
+          exempt-all-assignees: true
+          exempt-issue-labels: "unstale,NEED ANSWER"
           days-before-pr-stale: -1
           days-before-pr-close: -1
           repo-token: ${{ secrets.GITHUB_TOKEN }}
