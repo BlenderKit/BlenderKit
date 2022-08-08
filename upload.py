@@ -149,6 +149,11 @@ def check_missing_data(asset_type, props):
     if len(props.name) > 40:
         write_to_report(props, f'The name is too long. maximum is 40 letters')
 
+    if props.category == 'NONE' or \
+        props.subcategory != 'EMPTY' and props.subcategory =='NONE' or \
+        props.subcategory1 != 'EMPTY' and props.subcategory1 == 'NONE':
+            write_to_report(props, "fill in the category, including subcategories. \n"
+                                   "Category can't be 'None'.")
     if props.is_private == 'PUBLIC':
 
         if len(props.description) < 20:
@@ -159,6 +164,8 @@ def check_missing_data(asset_type, props):
         if props.tags == '':
             write_to_report(props, 'Write at least 3 tags.\n'
                                    'Tags help to bring your asset up in relevant search results.')
+
+
 
     if asset_type == 'MODEL':
         check_missing_data_model(props)

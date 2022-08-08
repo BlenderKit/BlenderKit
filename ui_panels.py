@@ -112,11 +112,21 @@ def draw_upload_common(layout, props, asset_type, context):
         # row = layout.row()
         # row.enabled = False
         # row.prop(props, 'id', icon='FILE_TICK')
-    layout.prop(props, 'category')
-    if props.category != 'NONE' and props.subcategory != 'NONE':
-        layout.prop(props, 'subcategory')
-    if props.subcategory != 'NONE' and props.subcategory1 != 'NONE':
-        layout.prop(props, 'subcategory1')
+    row = layout.row()
+    if props.category == 'NONE':
+        row.alert =True
+    row.prop(props, 'category')
+    if props.category != 'NONE' and props.subcategory != 'EMPTY':
+        row = layout.row()
+        if props.subcategory =='NONE':
+            row.alert = True
+        row.prop(props, 'subcategory')
+
+    if props.subcategory != 'NONE' and props.subcategory1 != 'EMPTY':
+        row = layout.row()
+        if props.subcategory1 == 'NONE':
+            row.alert = True
+        row.prop(props, 'subcategory1')
 
     layout.prop(props, 'is_private', expand=True)
     if props.is_private == 'PUBLIC':
@@ -975,7 +985,7 @@ def draw_login_buttons(layout, invoke=False):
             layout.operator_context = 'INVOKE_DEFAULT'
         else:
             layout.operator_context = 'EXEC_DEFAULT'
-        if user_preferences.api_key == '':
+        if not utils.user_logged_in():
             layout.operator("wm.blenderkit_login", text="Login",
                             icon='URL').signup = False
             layout.operator("wm.blenderkit_login", text="Sign up",
