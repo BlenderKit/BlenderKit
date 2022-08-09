@@ -80,6 +80,7 @@ class BL_UI_Button(BL_UI_Widget):
             self.__image = None
 
     def set_image(self, rel_filepath):
+        #first try to access the image, for cases where it can get removed
         self.check_image_exists()
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
