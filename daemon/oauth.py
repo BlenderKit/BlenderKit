@@ -8,7 +8,7 @@ import tasks
 from aiohttp import client_exceptions, web
 
 
-async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str|Exception]:
+async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str]:
   server_url = "https://www.blenderkit.com"
   data = {
     "grant_type": grant_type,
@@ -29,15 +29,15 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
       await response.text()
 
       if response.status != 200:
-        return None, response.status, response.text
+        return [], response.status, response.text
 
       response_json = await response.json()
       print("Token retrieval OK.")
 
-      return response_json, 200, None
+      return response_json, 200, ""
 
   except client_exceptions.ClientConnectorError as err:
-    return None, -1, err
+    return [], -1, str(err)
 
 
 async def refresh_tokens(request: web.Request):
@@ -54,4 +54,4 @@ async def refresh_tokens(request: web.Request):
     if status == -1:
       return task.error(f"Couldn't refresh API tokens, server is not reachable: {error}. Please login again.")
     
-    return task.error(f"Couldn't refresh API tokens ({status}). Please login again.")
+    return task.error(f"Couldn't refresh API tokens ({status}). Error: {error}. Please login again.")
