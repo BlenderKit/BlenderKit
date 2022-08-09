@@ -870,7 +870,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not hasattr(widget, "button_index"):
             return #click on left/right arrow button gave no attr button_index
             #we should detect on which button_index scroll/left/right happened to refresh shown thumbnail
-
+        bpy.context.window.cursor_set("HAND")
         search_index = widget.button_index + self.scroll_offset
         if search_index < self.search_results_count:
             self.show_tooltip()
@@ -945,6 +945,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.active_index = -1
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = self.active_index
+            bpy.context.window.cursor_set("DEFAULT")
             # print('exit')
         # popup asset card on mouse down
         # if utils.experimental_enabled():
