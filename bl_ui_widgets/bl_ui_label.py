@@ -11,7 +11,7 @@ class BL_UI_Label(BL_UI_Widget):
         self._text_color        = (1.0, 1.0, 1.0, 1.0)
         self._text = "Label"
         self._text_size = 16
-        self._ralign = 'LEFT'
+        self._halign = 'LEFT'
         self._valign = 'TOP'
 
     @property

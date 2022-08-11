@@ -88,6 +88,10 @@ class BL_UI_OT_draw_operator(Operator):
 
 def draw_callback_px_separated(self, op, context):
     #separated only for puprpose of profiling
+    if context.area.as_pointer() == self.active_area_pointer:
+        for widget in self.widgets:
+            widget.draw()
+    return
     try:
         if context.area.as_pointer() == self.active_area_pointer:
             for widget in self.widgets:

@@ -168,8 +168,6 @@ def asset_bar_invoke(self, context, event):
     return {"RUNNING_MODAL"}
 
 
-BL_UI_OT_draw_operator.modal = asset_bar_modal
-BL_UI_OT_draw_operator.invoke = asset_bar_invoke
 
 
 def set_mouse_down_right(self, mouse_down_right_func):
@@ -1140,6 +1138,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_update()
         self.enter_button(widget)
 
+BlenderKitAssetBarOperator.modal = asset_bar_modal
+BlenderKitAssetBarOperator.invoke = asset_bar_invoke
 
 def register():
     bpy.utils.register_class(BlenderKitAssetBarOperator)
