@@ -149,7 +149,7 @@ class BL_UI_Button(BL_UI_Widget):
     def draw_text(self, area_height):
         font_id = 1
         blf.size(font_id, self._text_size, 72)
-        size = blf.dimensions(0, self._text)
+        size = blf.dimensions(font_id, self._text)
 
         textpos_y = area_height - self._textpos[1] - (self.height + size[1]) / 2.0
         blf.position(font_id, self._textpos[0] + (self.width - size[0]) / 2.0, textpos_y + 1, 0)

@@ -77,6 +77,7 @@ if "bpy" in locals():
     categories = reload(categories)
     colors = reload(colors)
     daemon_lib = reload(daemon_lib)
+    disclaimer_op = reload(disclaimer_op)
     download = reload(download)
     icons = reload(icons)
     image_utils = reload(image_utils)
@@ -127,6 +128,7 @@ else:
     from . import categories
     from . import colors
     from . import daemon_lib
+    from . import disclaimer_op
     from . import download
     from . import icons
     from . import image_utils
@@ -2058,6 +2060,7 @@ def register():
     bkit_oauth.register()
     tasks_queue.register()
     asset_bar_op.register()
+    disclaimer_op.register()
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if user_preferences.use_timers:
@@ -2091,6 +2094,7 @@ def unregister():
     bkit_oauth.unregister()
     tasks_queue.unregister()
     asset_bar_op.unregister()
+    disclaimer_op.unregister()
 
     try:
         daemon_lib.report_blender_quit()

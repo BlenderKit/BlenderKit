@@ -133,6 +133,9 @@ def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batc
     # bgl.glDisable(bgl.GL_TEXTURE_2D)
     return batch
 
+def get_text_size(font_id = 0,text='',text_size = 16, dpi = 72):
+    blf.size(font_id, text_size, dpi)
+    return blf.dimensions(font_id, text)
 
 def draw_text(text, x, y, size, color=(1, 1, 1, 0.5), halign = 'LEFT', valign = 'TOP'):
     font_id = 1

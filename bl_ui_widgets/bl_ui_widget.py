@@ -123,7 +123,7 @@ class BL_UI_Widget:
                 self.__inrect = False
                 self.mouse_exit(event, x, y)
 
-            return False
+            return self.__inrect
 
         elif event.value == 'PRESS' and self.__inrect and (event.ascii != '' or event.type in self.get_input_keys()):
 
