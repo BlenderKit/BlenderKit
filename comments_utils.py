@@ -29,12 +29,10 @@ bk_logger = logging.getLogger(__name__)
 
 
 def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
-  ''' Upload rating thread function / disconnected from blender data.'''
+  ''' Upload comment thread function / disconnected from blender data.'''
   headers = utils.get_headers(api_key)
-  url = f'{paths.get_bkit_url()}/asset-comment/{asset_id}/'
+  url = f'{paths.get_api_url()}/comments/asset-comment/{asset_id}/'
   r = rerequests.get(url, headers=headers)
-  print(r.status_code)
-  print(r.text)
   comment_data = r.json()
   url = f'{paths.get_api_url()}/comments/comment/'
   data = {
@@ -47,12 +45,11 @@ def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
     "content_type": "assets.uuidasset",
     "object_pk": asset_id,
     "timestamp": comment_data['form']['timestamp'],
-    "security_hash": comment_data['form']['security_hash'],
+    "security_hash": comment_data['form']['securityHash'],
     "comment": comment,
   }
 
   r = rerequests.post(url, data=data, verify=True, headers=headers)
-  print(r.status_code)
 
   get_comments(asset_id, api_key)
 
