@@ -1495,6 +1495,9 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
         op.keywords += ' ' + asset_data.get('description') + ' '
     op.keywords += ' '.join(asset_data.get('tags'))
 
+    op = layout.operator('wm.url_open', text="See online", icon = 'URL')
+    op.url = paths.get_asset_gallery_url(asset_data['id'])
+
     if asset_data.get('canDownload') != 0:
         if len(bpy.context.selected_objects) > 0 and ui_props.asset_type == 'MODEL':
             aob = bpy.context.active_object
