@@ -218,8 +218,7 @@ class CancelLoginOnline(bpy.types.Operator):
                 session.get(active_authenticator.redirect_uri)
                 active_authenticator = None
         except Exception as e:
-            print('stopped login attempt')
-            print(e)
+            bk_logger.info(f'Login attempt stopped: {e}')
         return {'FINISHED'}
 
 

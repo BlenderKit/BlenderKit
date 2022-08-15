@@ -67,14 +67,13 @@ def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=
   }
   url = paths.get_api_url() + 'comments/feedback/'
   r = rerequests.post(url, data=data, verify=True, headers=headers)
-  print(r.text)
+  bk_logger.info(f'{r.text}')
   # here it's important we read back, so likes are updated accordingly:
   get_comments(asset_id, api_key)
 
 # def comment_delete_thread(asset_id='', comment_id='', api_key=None):
 #   ''' Upload rating thread function / disconnected from blender data.'''
 #   headers = utils.get_headers(api_key)
-#   print('delete comment', comment_id)
 #   bk_logger.debug('delete comment ' + str(comment_id))
 # 
 #   # rating_url = url + rating_name + '/'
@@ -82,10 +81,8 @@ def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=
 #     "comment": comment_id,
 #   }
 #   url = paths.get_api_url() + 'comments/delete/0/'
-#   print(url)
 #   r = rerequests.post(url, data=data, verify=True, headers=headers)
 #   if len(r.text)<1000:
-#     print(r.text)
 #   # here it's important we read back, so likes are updated accordingly:
 #   get_comments(asset_id, api_key)
 
@@ -149,12 +146,9 @@ def get_comments(asset_id, api_key):
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r is None:
     return
-  # print(r.status_code)
   if r.status_code == 200:
     rj = r.json()
     # store comments - send them to task queue
-    # print('retrieved comments')
-    # print(rj)
     tasks_queue.add_task((store_comments_local, (asset_id, rj['results'])))
 
     # if len(rj['results'])==0:
@@ -236,7 +230,6 @@ def get_notifications(api_key, all_count=1000):
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r.status_code == 200:
     rj = r.json()
-    # print(rj)
     # no new notifications?
     if all_count >= rj['allCount']:
       tasks_queue.add_task((store_notifications_count_local, ([rj['allCount']])))
@@ -268,9 +261,7 @@ def mark_notification_read(api_key, notification_id):
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r is None:
     return
-  # print(r.text)
   # if r.status_code == 200:
   #     rj = r.json()
   #     # store notifications - send them to task queue
-  #     print(rj)
   #     tasks_queue.add_task((mark_notification_read_local, ([notification_id])))

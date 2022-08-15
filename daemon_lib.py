@@ -1,3 +1,4 @@
+import logging
 import os
 import platform
 import subprocess
@@ -11,6 +12,8 @@ import requests
 
 from . import colors, dependencies, global_vars, reports
 
+
+bk_logger = logging.getLogger(__name__)
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -103,7 +106,7 @@ def ensure_daemon_alive(session: requests.Session):
   if isAlive == True:
     return
 
-  print(f'Starting daemon server on port {get_port()}')
+  bk_logger.info(f'Starting daemon server on port {get_port()}')
   start_daemon_server()
 
 def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
@@ -157,11 +160,11 @@ def start_daemon_server():
 
   python_check = subprocess.run(args=[sys.executable, "--version"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   if python_check.returncode != 0:
-    print(
-      f"Error checking Python interpreter, exit code: {python_check.returncode}\n"
-      f"Stdout: {python_check.stdout}\n"
-      f"Stderr: {python_check.stderr}\n"
-      f"Where Python: {sys.executable}\n"
+    bk_logger.warning(
+      f"Error checking Python interpreter, exit code: {python_check.returncode}," +
+      f"Stdout: {python_check.stdout}, " +
+      f"Stderr: {python_check.stderr}, " +
+      f"Where Python: {sys.executable}, " +
       f"Environment: {env}"
     )
 
@@ -186,19 +189,21 @@ def start_daemon_server():
     raise(e)
   except OSError as e:
     if platform.system() != "Windows":
+      reports.add_report(str(e), 10, colors.RED)
       raise(e)
     if e.winerror == 87: # parameter is incorrect, issue #100
       error_message = f"FATAL ERROR: Daemon server blocked from starting. Please check your antivirus or firewall. Error: {e}"
       reports.add_report(error_message, 10, colors.RED)
-      print(error_message)
+      raise(e)
+    else:
+      reports.add_report(str(e), 10, colors.RED)
       raise(e)
   except Exception as e:
     reports.add_report(f"Error: Daemon server failed to start - {e}", 10, colors.RED)
     raise(e)
 
-
   if python_check.returncode == 0:
-    print(f'Daemon server started on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}')
+    reports.add_report(f'Daemon server started on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}', 5, colors.GREEN)
   else:
-    print(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}')
-    print(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.")
+    reports.add_report(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
+    reports.add_report(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.", 5, colors.RED)

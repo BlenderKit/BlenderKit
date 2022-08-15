@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 
@@ -19,10 +20,7 @@ from .bl_ui_widgets.bl_ui_label import *
 # from .bl_ui_widgets.bl_ui_textbox import *
 
 
-
-
-
-
+bk_logger = logging.getLogger(__name__)
 active_area_pointer = 0
 
 
@@ -31,7 +29,6 @@ def get_area_height(self):
         if self.context is None:
             self.context = bpy.context
         self.context = self.context.copy()
-    # print(self.context)
     if self.context.get('area') is not None:
         return self.context['area'].height
     # else:
@@ -43,7 +40,6 @@ def get_area_height(self):
     #         self.update(self.x,self.y)
     #
     #         return self.context['area'].height
-    # print('no area found')
     return 100
 
 
@@ -84,7 +80,6 @@ def modal_inside(self, context, event):
 
         if self.update_timer > self.update_timer_limit:
             self.update_timer = 0
-            # print('timer', time.time())
             # self.update_images()
 
             # progress bar
@@ -123,7 +118,6 @@ def modal_inside(self, context, event):
             self.scroll_update()
             return {'RUNNING_MODAL'}
         if self.check_ui_resized(context) or self.check_new_search_results(context):
-            # print(self.check_ui_resized(context), print(self.check_new_search_results(context)))
             self.update_ui_size(context)
             self.update_layout(context, event)
             self.scroll_update() # one extra update for scroll for correct redraw, can test if still necessary
@@ -140,7 +134,7 @@ def modal_inside(self, context, event):
                     bpy.context.window_manager['appendable'] = False
         return {"PASS_THROUGH"}
     except Exception as e:
-        print(e)
+        bk_logger.warn(f'{e}')
         self.finish()
         return {'FINISHED'}
 
@@ -159,7 +153,6 @@ def asset_bar_invoke(self, context, event):
 
     self.update_timer_limit = 30
     self.update_timer = 0
-    # print('adding timer')
     # self._timer = context.window_manager.event_timer_add(10.0, window=context.window)
     global active_area_pointer
     context.window_manager.modal_handler_add(self)
@@ -185,7 +178,7 @@ def mouse_down_right(self, x, y):
         try:
             self.mouse_down_right_func(self)
         except Exception as e:
-            print(e)
+            bk_logger.warn(f'{e}')
 
         return True
 
@@ -508,7 +501,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props.reports_y = region.height - self.bar_y - self.bar_height - 50
             self.reports_x = self.bar_x
             ui_props.reports_x = self.bar_x
-            # print(self.bar_y, self.bar_height, region.height)
 
     def update_layout(self, context, event):
         # restarting asset_bar completely since the widgets are too hard to get working with updates.
@@ -865,8 +857,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     # handlers
     def enter_button(self, widget):
-        # print('enter button', self.active_index, widget.button_index)
-        # print(widget.button_index,self.scroll_offset)
         if not hasattr(widget, "button_index"):
             return #click on left/right arrow button gave no attr button_index
             #we should detect on which button_index scroll/left/right happened to refresh shown thumbnail
@@ -874,7 +864,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search_index = widget.button_index + self.scroll_offset
         if search_index < self.search_results_count:
             self.show_tooltip()
-        # print(self.active_index, search_index)
         if self.active_index != search_index:
             self.active_index = search_index
 
@@ -928,13 +917,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # self.init_tooltip()
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
-            # print('changed tooltip')
 
-            # print(tooltip_x, tooltip_y)
             # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
     def exit_button(self, widget):
-        # print(f'exit {widget.search_index} , {self.active_index}')
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
         if self.active_index == widget.button_index + self.scroll_offset:
             scene = bpy.context.scene
@@ -946,11 +932,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = self.active_index
             bpy.context.window.cursor_set("DEFAULT")
-            # print('exit')
         # popup asset card on mouse down
         # if utils.experimental_enabled():
         #     h = widget.get_area_height()
-        #     print(h,h-self.mouse_y,self.panel.y_screen, self.panel.y,widget.y_screen, widget.y)
         # if utils.experimental_enabled() and self.mouse_y<widget.y_screen:
         #     self.active_index = widget.button_index + self.scroll_offset
         # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
@@ -1015,7 +999,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if asset_button.asset_index < len(sr):
                 asset_data = sr[asset_button.asset_index]
                 if asset_data['assetBaseId'] == asset_id:
-                    # print(asset_button.asset_index)
                     set_thumb_check(asset_button, asset_data, thumb_type = 'thumbnail_small')
 
     def update_images(self):
@@ -1025,7 +1008,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         for asset_button in self.asset_buttons:
             if asset_button.visible:
                 asset_button.asset_index = asset_button.button_index + self.scroll_offset
-                # print(asset_button.asset_index, len(sr))
                 if asset_button.asset_index < len(sr):
                     asset_button.visible = True
 
@@ -1061,7 +1043,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_update(self, always =False):
         sr = global_vars.DATA.get('search results')
         sro = global_vars.DATA.get('search results orig')
-        # print('scroll update')
         # orig_offset = self.scroll_offset
         # empty results
         if sr is None:
@@ -1071,13 +1052,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.scroll_offset = min(self.scroll_offset, len(sr) - (self.wcount * self.hcount))
         self.scroll_offset = max(self.scroll_offset, 0)
-        # print(orig_offset, self.scroll_offset)
         #only update if scroll offset actually changed, otherwise this is unnecessary
         # this was pretty stupid, since offset changes BEFORE entering the function.
         # if always  or orig_offset != self.scroll_offset:
         self.update_images()
 
-        # print(sro)
         if sro['count'] > len(sr) and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15:
             self.search_more()
 
@@ -1111,7 +1090,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # delete downloaded files for this asset
             sr = global_vars.DATA['search results']
             asset_data = sr[self.active_index]
-            print('delete asset from local drive:' + asset_data['name'])
+            bk_logger.info(f'deleting asset from local drive: {asset_data["name"]}')
             paths.delete_asset_debug(asset_data)
             asset_data['downloaded'] = 0
             return True

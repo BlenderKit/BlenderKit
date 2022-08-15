@@ -177,7 +177,6 @@ def check_printable(props, obs):
         for item in info:
             passed = item[0].endswith(' 0')
             if not passed:
-                # print(item[0])
                 printable = False
 
         props.printable_3d = printable
@@ -266,7 +265,6 @@ def check_meshprops(props, obs):
     # write out props
     props.face_count = int(fc)
     props.face_count_render = int(fcr)
-    # print(tris, quads, ngons)
     if quads > 0 and tris == 0 and ngons == 0:
         props.mesh_poly_type = 'QUAD'
     elif quads > tris and quads > ngons:

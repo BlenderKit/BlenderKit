@@ -44,9 +44,6 @@ def pretty_print_POST(req):
 def upload_review_thread(url, reviews, headers):
     r = rerequests.put(url, data=reviews, verify=True, headers=headers)
 
-    # except requests.exceptions.RequestException as e:
-    #     print('reviews upload failed: %s' % str(e))
-
 
 def get_assets_for_rating():
     '''

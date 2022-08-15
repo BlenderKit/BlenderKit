@@ -51,7 +51,7 @@ def upload_rating_thread(url, ratings, headers):
                 r = rerequests.put(rating_url, data=data, verify=True, headers=headers)
 
             except requests.exceptions.RequestException as e:
-                print('ratings upload failed: %s' % str(e))
+                bk_logger.error(f'ratings upload failed: {e}')
 
 
 def send_rating_to_thread_quality(url, ratings, headers):
@@ -82,7 +82,6 @@ def store_rating_local(asset_id, type='quality', value=0):
     # for w in bpy.context.window_manager.windows:
     #   for a in w.screen.areas:
     #     a.tag_redraw()
-    #     print('redraw',a.type)
 
 
 def get_rating(asset_id, headers):
@@ -107,7 +106,6 @@ def get_rating(asset_id, headers):
     if r.status_code == 200:
         rj = r.json()
         ratings = {}
-        # print(rj)
         # store ratings - send them to task queue
         for r in rj['results']:
             ratings[r['ratingType']] = r['score']
@@ -230,8 +228,6 @@ def update_ratings_work_hours_ui_1_10(self, context):
         bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
                                     message='Please login/signup to rate assets. Clicking OK takes you to web login.')
         # self.rating_work_hours_ui_1_5 = '0'
-    # print('updating 1-5')
-    # print(float(self.rating_work_hours_ui_1_5))
     self.rating_work_hours = float(self.rating_work_hours_ui_1_10)
 
 

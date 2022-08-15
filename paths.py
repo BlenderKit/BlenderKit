@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import logging
 import os
 import shutil
 import sys
@@ -25,6 +26,8 @@ import bpy
 
 from . import colors, global_vars, reports, tasks_queue, utils
 
+
+bk_logger = logging.getLogger(__name__)
 
 _presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
 BLENDERKIT_LOCAL = "http://localhost:8001"
@@ -54,8 +57,7 @@ def cleanup_old_folders():
         try:
             shutil.rmtree(orig_temp)
         except Exception as e:
-            print(e)
-            print("couldn't delete old temp directory")
+            bk_logger.error(f'could not delete old temp directory: {e}')
 
 
 def get_bkit_url():
@@ -218,7 +220,6 @@ def slugify(slug):
 
 
 def extract_filename_from_url(url):
-    # print(url)
     if url is not None:
         imgname = url.split('/')[-1]
         imgname = imgname.split('?')[0]
@@ -248,9 +249,7 @@ def round_to_closest_resolution(res):
     #    while res/2>1:
     #        p2res*=2
     #        res = res/2
-    #        print(p2res, res)
     for rkey in resolutions:
-        # print(resolutions[rkey], rdist)
         d = abs(res - resolutions[rkey])
         if d < rdist:
             rdist = d
@@ -296,13 +295,8 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
             if rdiff < mindist:
                 closest = f
                 mindist = rdiff
-                # print('\n\n\n\n\n\n\n\n')
-                # print(closest)
-                # print('\n\n\n\n\n\n\n\n')
     if not res and not closest:
-        # utils.pprint(f'will download blend instead of resolution {resolution}')
         return orig, 'blend'
-    # utils.pprint(f'found closest resolution {closest["fileType"]} instead of the requested {resolution}')
     return closest, closest['fileType']
 
 
@@ -311,10 +305,9 @@ def server_2_local_filename(asset_data, filename):
     Convert file name on server to file name local.
     This should get replaced
     '''
-    # print(filename)
+
     fn = filename.replace('blend_', '')
     fn = fn.replace('resolution_', '')
-    # print('after replace ', fn)
     n = slugify(asset_data['name']) + '_' + fn
     return n
 
@@ -334,7 +327,6 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
         name_slug = name_slug[:16]
     asset_folder_name = f"{name_slug}_{asset_data['id']}"
 
-    # utils.pprint('get download filenames ', dict(res_file))
     file_names = []
 
     if not res_file:
@@ -391,14 +383,12 @@ def delete_asset_debug(asset_data):
         asset_dir = os.path.dirname(f)
 
         if os.path.isdir(asset_dir):
-
             try:
-                print(asset_dir)
+                bk_logger.info(f'{asset_dir}')
                 shutil.rmtree(asset_dir)
             except:
                 e = sys.exc_info()[0]
-                print(e)
-                pass;
+                bk_logger.error(f'{e}')
 
 
 def get_clean_filepath():

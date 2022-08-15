@@ -60,7 +60,6 @@ def threadread(tcom):
             #process terminated
             return
         inline = tcom.proc.stdout.readline()
-        # print('readthread', time.time())
         inline = str(inline)
         s = inline.find('progress{')
         if s > -1:
