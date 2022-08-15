@@ -29,9 +29,12 @@ bl_info = {
     "category": "3D View",
 }
 
+import logging
 import sys
 from os import path
 
+
+bk_logger = logging.getLogger(__name__)
 
 # lib = path.join(path.dirname(__file__), 'lib')
 # sys.path.insert(0, lib)
@@ -950,7 +953,7 @@ class BlenderKitCustomAddonRemove(bpy.types.Operator):
         if self.module != "blenderkit":
             return userpref.PREFERENCES_OT_addon_remove.execute(self, context)
         
-        print("Executing BlenderKit customized removal")
+        bk_logger.info("Executing BlenderKit customized removal")
         import os
 
         import addon_utils
@@ -975,7 +978,7 @@ class BlenderKitCustomAddonRemove(bpy.types.Operator):
 
         addon_utils.modules_refresh()
         context.area.tag_redraw()
-        print('Custom removal finished')
+        bk_logger.info('Custom removal finished')
         return {'FINISHED'}
 
     def draw(self, _context):
@@ -2044,7 +2047,7 @@ def register():
     try:
         bpy.utils.register_class(BlenderKitCustomAddonRemove)
     except Exception as e:
-        print(f"Not registering BlenderKitCustomAddonRemove: {e}")
+        bk_logger.info(f"Not registering BlenderKitCustomAddonRemove: {e}")
     
     for cls in classes:
         bpy.utils.register_class(cls)

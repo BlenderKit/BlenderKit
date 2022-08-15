@@ -17,12 +17,15 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
+import logging
 import uuid
 
 import bpy
 
 from . import utils
 
+
+bk_logger = logging.getLogger(__name__)
 
 def append_brush(file_name, brushname=None, link=False, fake_user=True):
     '''append a brush'''
@@ -38,10 +41,12 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
 
 
 def append_material(file_name, matname=None, link=False, fake_user=True):
-    '''append a material type asset'''
-    # first, we have to check if there is a material with same name
-    # in previous step there's check if the imported material
-    # is already in the scene, so we know same name != same material
+    '''append a material type asset
+
+    first, we have to check if there is a material with same name
+    in previous step there's check if the imported material
+    is already in the scene, so we know same name != same material
+    '''
 
     mats_before = bpy.data.materials[:]
     try:
@@ -50,7 +55,6 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
             for m in data_from.materials:
                 if m == matname or matname is None:
                     data_to.materials = [m]
-                    # print(m, type(m))
                     matname = m
                     found = True
                     break;
@@ -59,12 +63,10 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
             if not found and len(data_from.materials)>0:
                 data_to.materials = [data_from.materials[0]]
                 matname = data_from.materials[0]
-                print(f"the material wasn't found under the exact name, appended another one: {matname}")
-            # print('in the appended file the name is ', matname)
+                bk_logger.warn(f"the material wasn't found under the exact name, appended another one: {matname}")
 
     except Exception as e:
-        print(e)
-        print('failed to open the asset file')
+        bk_logger.error(f'{e} - failed to open the asset file')
     # we have to find the new material , due to possible name changes
     mat = None
     for m in bpy.data.materials:
@@ -359,7 +361,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 if hide_collection in hidden_collections:
                     continue
                 # All other collections are moved to be children of the model collection
-                print(hide_collection,collection)
+                bk_logger.info(f'{hide_collection}, {collection}')
                 utils.move_collection(hide_collection,collection)
                 utils.exclude_collection(hide_collection.name)
                 hidden_collections.append(hide_collection)

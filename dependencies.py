@@ -1,10 +1,13 @@
 
+import logging
 import platform
 import subprocess
 import sys
 import time
 from os import environ, makedirs, path, pathsep
 
+
+bk_logger = logging.getLogger(__name__)
 
 def add_fallback():
   """Add dependencies directory into PATH."""
@@ -59,22 +62,22 @@ def install_dependencies():
 
   command = [sys.executable, '-m', 'ensurepip', '--user']
   result = subprocess.run(command, env=env, capture_output=True, text=True)
-  print(f"PIP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+  bk_logger.warn(f"PIP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
 
   requirements = path.join(path.dirname(__file__), 'requirements.txt')
   command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_fallback_path(), '-r', requirements]
   result = subprocess.run(command, env=env, capture_output=True, text=True)
-  print(f"AIOHTTP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+  bk_logger.warn(f"AIOHTTP INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
   if result.returncode == 0:
-    print(f"Install succesfully finished in {time.time()-started}")
+    bk_logger.info(f"Install succesfully finished in {time.time()-started}")
     return
 
-  print(f"Install from requirements.txt failed, trying with unconstrained versions...")
+  bk_logger.warn(f"Install from requirements.txt failed, trying with unconstrained versions...")
   command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_fallback_path(), 'aiohttp', 'certifi']
   result = subprocess.run(command, env=env, capture_output=True, text=True)
-  print(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+  bk_logger.info(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
   if result.returncode == 0:
-    print(f"Install succesfully finished in {time.time()-started}")
+    bk_logger.info(f"Install succesfully finished in {time.time()-started}")
     return
   
-  print(f"Installation failed")
+  bk_logger.critical(f"Installation failed")

@@ -19,6 +19,7 @@
 
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -29,6 +30,7 @@ from blenderkit import append_link, bg_blender, download, upload_bg, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
+bk_logger = logging.getLogger(__name__)
 
 
 def render_thumbnails():
@@ -167,7 +169,7 @@ if __name__ == "__main__":
 
 
     except Exception as e:
-        print(e)
+        bk_logger.fatal(f'{e}')
         import traceback
 
         traceback.print_exc()

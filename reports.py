@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import logging
 import time
 
 import bpy
@@ -23,22 +24,33 @@ import bpy
 from . import asset_bar_op, colors, ui_bgl, utils
 
 
+bk_logger = logging.getLogger(__name__)
 reports = []
 
-
+# check for same reports and just make them longer by the timeout.
 def add_report(text='', timeout=5, color=colors.GREEN):
+    """
+    Add report to GUI. Function checks for same reports and make them longer by the timeout.
+    It also logs the message into the console with levels: Red=Error, other=info.
+    """
     global reports
+
+    if color == colors.RED:
+        bk_logger.error(text)
+    else:
+        bk_logger.info(text)
+
     # check for same reports and just make them longer by the timeout.
     for old_report in reports:
         if old_report.text == text:
             old_report.timeout = old_report.age + timeout
             return
-    report = Report(text=text,  timeout=timeout, color=color)
+    report = Report(text=text, timeout=timeout, color=color)
     reports.append(report)
 
 
 class Report():
-    def __init__(self, area_pointer=0, text='', timeout=5, color=(.5, 1, .5, 1)):
+    def __init__(self, text='', timeout=5, color=(.5, 1, .5, 1)):
         self.text = text
         self.timeout = timeout
         self.start_time = time.time()

@@ -59,9 +59,6 @@ from .daemon import tasks
 
 bk_logger = logging.getLogger(__name__)
 
-search_start_time = 0
-prev_time = 0
-
 
 def check_errors(rdata):
   if rdata.get('statusCode') and int(rdata.get('statusCode')) > 299:
@@ -459,8 +456,7 @@ def handle_search_task(task: tasks.Task) -> bool:
     if len(global_vars.DATA['search results']) == 0:
       tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
     else:
-      tasks_queue.add_task(
-        (reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
+      tasks_queue.add_task((reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
     # undo push
     # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
@@ -1068,23 +1064,16 @@ def build_query_brush():
   return query
 
 
-def mt(text):
-  global search_start_time, prev_time
-  alltime = time.time() - search_start_time
-  since_last = time.time() - prev_time
-  prev_time = time.time()
-  utils.p(text, alltime, since_last)
-
-
 def add_search_process(query, params):
   global search_tasks, all_thumbs_loaded
 
-  while (len(search_tasks) > 0):
+  if len(search_tasks) > 0:
     # just remove all running search tasks.
     # we can also kill them in daemon, but not so urgent now
     # TODO stop tasks in daemon?
-    print('removing search tasks')
+    bk_logger.debug('Removing old search tasks')
     search_tasks = dict()
+
   tempdir = paths.get_temp_dir('%s_search' % query['asset_type'])
   headers = utils.get_headers(params['api_key'])
 
@@ -1104,8 +1093,6 @@ def add_search_process(query, params):
   data.update(params)
   response = daemon_lib.search_asset(data)
   search_tasks[response['task_id']] = data
-
-  mt('search thread started')
 
 
 def get_search_simple(parameters, filepath=None, page_size=100, max_results=100000000, api_key=''):
@@ -1176,11 +1163,10 @@ def search(category='', get_next=False, query = None, author_id=''):
   ''' initialize searching
   query : submit an already built query from search history
   '''
-  global search_start_time
+
   # print(category,get_next,author_id)
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  search_start_time = time.time()
-  # mt('start')
+
   scene = bpy.context.scene
   wm = bpy.context.window_manager
   ui_props = bpy.context.window_manager.blenderkitUI
@@ -1268,7 +1254,6 @@ def search(category='', get_next=False, query = None, author_id=''):
     params['next'] = orig_results['next']
   add_search_process(query, params)
 
-  reports.add_report('BlenderKit searching....', 2)
   props.report = 'BlenderKit searching....'
 
 def clean_filters():
@@ -1315,7 +1300,6 @@ def update_filters():
 
 
 def search_update(self, context):
-  utils.p('search updater')
   # if self.search_keywords != '':
   update_filters()
   ui_props = bpy.context.window_manager.blenderkitUI
@@ -1360,7 +1344,7 @@ def search_update(self, context):
       # return here since writing into search keywords triggers this update function once more.
       return
 
-  # print('search update search')
+  reports.add_report(f"Searching for: '{kwds}'", 2)
   search()
 
 

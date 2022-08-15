@@ -74,8 +74,6 @@ def check_missing():
         if not os.path.exists(fp) and l.get('asset_data') is not None:
             missing.append(l)
 
-    # print('missing libraries', missing)
-
     for l in missing:
         asset_data = l['asset_data']
 
@@ -113,7 +111,7 @@ def check_unused():
 
     for l in bpy.data.libraries:
         if l not in used_libs and l.getn('asset_data'):
-            print('attempt to remove this library: ', l.filepath)
+            bk_logger.info(f'attempt to remove this library: {l.filepath}')
             # have to unlink all groups, since the file is a 'user' even if the groups aren't used at all...
             for user_id in l.users_id:
                 if type(user_id) == bpy.types.Collection:
@@ -168,18 +166,12 @@ def scene_load(context):
     #     if not done:
     #         downloading = check_downloading(asset_data)
     #         if not downloading:
-    #             print('redownloading %s' % asset_data['name'])
     #             download(asset_data, downloaders=reset_obs[asset_id], delete=True)
 
     # check for group users that have been deleted, remove the groups /files from the file...
     # TODO scenes fixing part... download the assets not present on drive,
     # and erase from scene linked files that aren't used in the scene.
-    # print('continue downlaods ', time.time() - t)
-    t = time.time()
     check_missing()
-    # print('missing check', time.time() - t)
-
-
 
 
 def report_usages():
@@ -280,7 +272,6 @@ def report_usages():
     thread = threading.Thread(target=utils.requests_post_thread, args=(url, usage_report, headers))
     thread.start()
     mt = time.time() - mt
-    # print('report generation:                ', mt)
 
 
 def udpate_asset_data_in_dicts(asset_data):
@@ -327,7 +318,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         sprops = wm.blenderkit_scene
 
         scene = append_link.append_scene(file_names[0], link=sprops.append_link == 'LINK', fake_user=False)
-        # print('scene appended')
         if scene is not None:
             props = scene.blenderkit
             asset_main = scene
@@ -547,9 +537,6 @@ def replace_resolution_appended(file_paths, asset_data, resolution):
     new_pattern = f"{asset_data['id']}{os.sep}textures{paths.resolution_suffix[resolution]}{os.sep}"
 
     # replace the pattern with the new one.
-    # print(existing_filename_patterns)
-    # print(new_filename_pattern)
-    # print('existing images:')
     for i in bpy.data.images:
 
         for old_pattern in all_patterns:
@@ -789,8 +776,6 @@ def download_post(task: tasks.Task):
         if task.data.get('replace_resolution'):
             # try to relink
             # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-            # print('try to replace resolution')
-            # print(task.data)
             ain, resolution = asset_in_scene(task.data['asset_data'])
 
             if ain == 'LINKED':
@@ -803,7 +788,6 @@ def download_post(task: tasks.Task):
             done = True
 
         else:
-            # print(task.data)
             orig_task.update(task.data)
             done = try_finished_append( **task.data)
             # if not done:
@@ -836,7 +820,7 @@ def delete_unfinished_file(file_name):
     try:
         os.remove(file_name)
     except Exception as e:
-        print(e)
+        bk_logger.error(f'{e}')
     asset_dir = os.path.dirname(file_name)
     if len(os.listdir(asset_dir)) == 0:
         os.rmdir(asset_dir)
@@ -859,8 +843,7 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
     download_canceled = False
 
     with open(file_name, "wb") as f:
-        print("Downloading %s" % file_name)
-        headers = utils.get_headers(api_key)
+        bk_logger.info(f"Downloading {file_name}")
         res_file_info, resolution = paths.get_res_file(asset_data, resolution)
         session = requests.Session()
         proxy_which = global_vars.PREFS.get('proxy_which')
@@ -877,7 +860,7 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
 
         if total_length is None or int(total_length) < 1000:  # no content length header
             download_canceled = True
-            print(response.content)
+            bk_logger.info(f'{response.content}')
         else:
             total_length = int(total_length)
             dl = 0
@@ -894,11 +877,9 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
                     last_percent = percent
                     # sys.stdout.write('\r')
                     # sys.stdout.write(f'Downloading {asset_data['name']} {fs_str} {percent}% ')  # + int(dl * 50 / total_length) * 'x')
-                    print(
-                        f'Downloading {asset_data["name"]} {fs_str} {percent}% ')  # + int(dl * 50 / total_length) * 'x')
+                    bk_logger.info(f'Downloading {asset_data["name"]} {fs_str} {percent}%')  # + int(dl * 50 / total_length) * 'x')
                     # sys.stdout.flush()
 
-                # print(int(dl*50/total_length)*'x'+'\r')
                 f.write(data)
     if download_canceled:
         delete_unfinished_file(file_name)
@@ -937,7 +918,6 @@ def download(asset_data, **kwargs):
     data['download_dirs']=paths.get_download_dirs(asset_data['assetType'])
     if 'downloaders' in kwargs:
         data['downloaders'] = kwargs['downloaders']
-    # print(data)
     response = daemon_lib.download_asset(data)
 
     download_tasks[response['task_id']] = data
@@ -998,8 +978,6 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
     if len(file_names) > 0:
         if os.path.isfile(file_names[-1]):
             kwargs['name'] = asset_data['name']
-            # print(**kwargs)
-
             try:
                 append_asset(asset_data, **kwargs)
                 done = True
@@ -1015,7 +993,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
                         os.remove(f)
                     except Exception as e:
                         # e = sys.exc_info()[0]
-                        print(e)
+                        bk_logger.error(f'{e}')
                         pass;
                 return done
 
@@ -1115,7 +1093,7 @@ def asset_in_scene(asset_data):
                                         # there can also be more linked collections with same name, we need to check id.
                                         if c.library and c.library.get('asset_data') and c.library['asset_data'][
                                             'assetBaseId'] == id:
-                                            print('asset linked')
+                                            bk_logger.info('asset linked')
                                             return 'LINKED', ad.get('resolution')
                             elif asset_data['assetType'] == 'MATERIAL':
                                 for m in bpy.data.materials:
@@ -1125,23 +1103,15 @@ def asset_in_scene(asset_data):
                                         'assetBaseId'] and bpy.context.active_object.active_material.library:
                                         return 'LINKED', ad.get('resolution')
 
-                            print('asset appended')
+                            bk_logger.info('asset appended')
                             return 'APPENDED', ad.get('resolution')
     return False, None
-
-
-def fprint(text):
-    print('###################################################################################')
-    print('\n\n\n')
-    print(text)
-    print('\n\n\n')
-    print('###################################################################################')
 
 
 def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend'):
     ''''retrieves the download url. The server checks if user can download the item.'''
     mt = time.time()
-    utils.pprint('getting download url')
+    bk_logger.info('getting download url')
 
     headers = utils.get_headers(api_key)
 
@@ -1155,7 +1125,7 @@ def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend
     try:
         r = rerequests.get(res_file_info['downloadUrl'], params=data, headers=headers)
     except Exception as e:
-        print(e)
+        bk_logger.error(f'{e}')
         if tcom is not None:
             tcom.error = True
     if r == None:
@@ -1171,8 +1141,7 @@ def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend
         res_file_info['url'] = url
         res_file_info['file_name'] = paths.extract_filename_from_url(url)
 
-        # print(res_file_info, url)
-        print("URL:", url)
+        bk_logger.info(f'URL: {url}')
         return True
 
     # let's print it into UI
@@ -1284,10 +1253,6 @@ def available_resolutions_callback(self, context):
             items.append(item)
     items.append(('ORIGINAL', 'Original', '', 6))
     return items
-
-
-def show_enum_values(obj, prop_name):
-    print("show_enum_values", [item.identifier for item in obj.bl_rna.properties[prop_name].enum_items])
 
 
 class BlenderkitDownloadOperator(bpy.types.Operator):
@@ -1438,16 +1403,13 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         resolution = resolutions.resolution_props_to_server[resolution]
         if self.replace:  # cleanup first, assign later.
             obs = utils.get_selected_replace_adepts()
-            # print(obs)
             for ob in obs:
-                # print('replace attempt ', ob.name)
                 if self.asset_base_id != '':
                     # this is for a case when replace is called from a panel,
                     # this uses active object as replacement source instead of target.
                     if ob.get('asset_data') is not None and \
                             (ob['asset_data']['assetBaseId'] == self.asset_base_id and ob['asset_data'][
                                 'resolution'] == resolution):
-                        # print('skipping this one')
                         continue
                 parent = ob.parent
                 if parent:
@@ -1495,12 +1457,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     def invoke(self, context, event):
         # if self.close_window:
         #     context.window.cursor_warp(event.mouse_x-1000, event.mouse_y - 1000);
-
-        # print(self.asset_base_id)
         wm = context.window_manager
         # only make a pop up in case of switching resolutions
         if self.invoke_resolution:
-            # show_enum_values(self, 'resolution')
             self.asset_data = self.get_asset_data(context)
             preferences = bpy.context.preferences.addons['blenderkit'].preferences
 

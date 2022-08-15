@@ -68,12 +68,10 @@ def get_category_path(categories, category):
     parents = {}
     while len(check_categories) > 0:
         ccheck = check_categories.pop()
-        #        print(ccheck['name'])
         if not ccheck.get('children'):
             continue
 
         for ch in ccheck['children']:
-            #                print(ch['name'])
             parents[ch['slug']] = ccheck['slug']
 
             if ch['slug'] == category:
@@ -91,15 +89,12 @@ def get_category_name_path(categories, category):
     category_path = []
     check_categories = categories[:]
     parents = {}
-    # utils.pprint(categories)
     while len(check_categories) > 0:
         ccheck = check_categories.pop()
-        #        print(ccheck['name'])
         if not ccheck.get('children'):
             continue
 
         for ch in ccheck['children']:
-            #                print(ch['name'])
             parents[ch['slug']] = ccheck
 
             if ch['slug'] == category:
@@ -172,7 +167,6 @@ def get_subcategory_enums(self, context):
             items.append((c['slug'], c['name'], c['description']))
     if len(items) == 0:
         items.append(('NONE', '', 'no categories on this level defined'))
-    # print('subcategory', items)
     return items
 
 
@@ -196,11 +190,10 @@ def copy_categories():
     categories_filepath = os.path.join(tempdir, 'categories.json')
     if not os.path.exists(categories_filepath):
         source_path = paths.get_addon_file(subpath='data' + os.sep + 'categories.json')
-        # print('attempt to copy categories from: %s to %s' % (categories_filepath, source_path))
         try:
             shutil.copy(source_path, categories_filepath)
-        except:
-            print("couldn't copy categories file")
+        except Exception as e:
+            bk_logger.warn(f'Could not copy categories file: {e}')
 
 
 def load_categories():
@@ -220,12 +213,7 @@ def load_categories():
             'BRUSH': ['brush'],
         }
     except Exception as e:
-        print(e)
-        print('categories failed to read')
-
-
-#
-catfetch_counter = 0
+        bk_logger.warn(f'categories failed to read: {e}')
 
 
 def fetch_categories(API_key, force=False):
