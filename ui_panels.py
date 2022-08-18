@@ -2038,6 +2038,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
                 author_left = author_box.split(factor=image_split)
                 author_left.template_icon(icon_value=self.gimg.preview.icon_id, scale=7)
+                self.gimg.gl_touch()
+
                 text_area = author_left.split()
                 text_width = int(text_width * (1 - image_split))
             else:
@@ -2090,6 +2092,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         box_thumbnail.scale_y = .4
         box_thumbnail.template_icon(icon_value=self.img.preview.icon_id, scale=width * .12)
+        self.img.gl_touch()
 
         # op = row.operator('view3d.asset_drag_drop', text='Drag & Drop from here', depress=True)
         # From here on, only ratings are drawn, which won't be displayed for private assets from now on.

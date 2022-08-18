@@ -31,10 +31,10 @@ bk_logger = logging.getLogger(__name__)
 def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
   ''' Upload comment thread function / disconnected from blender data.'''
   headers = utils.get_headers(api_key)
-  url = f'{paths.get_api_url()}/comments/asset-comment/{asset_id}/'
+  url = f'{paths.get_api_url()}comments/asset-comment/{asset_id}/'
   r = rerequests.get(url, headers=headers)
   comment_data = r.json()
-  url = f'{paths.get_api_url()}/comments/comment/'
+  url = f'{paths.get_api_url()}comments/comment/'
   data = {
     "name": "",
     "email": "",
