@@ -1,11 +1,15 @@
 import asyncio
 import json
+import uuid
 
 
 class Task():
   """Holds all information needed for a task."""
 
-  def __init__(self, data: dict, task_id: str, app_id: str, task_type: str, message: str = "", progress: int = 0, status: str = "created", result: dict = {}):
+  def __init__(self, data: dict, app_id: str, task_type: str, task_id: str = "", message: str = "", progress: int = 0, status: str = "created", result: dict = {}):
+    if task_id == "":
+      task_id = str(uuid.uuid4())
+    
     self.data = data
     self.task_id = task_id
     self.app_id = app_id

@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import logging
 import os
 import ssl
 import sys
@@ -20,6 +21,8 @@ from aiohttp import web, web_request
 import search
 
 
+logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [%(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
+
 async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
 
@@ -30,7 +33,7 @@ async def download_asset(request: web_request.Request):
   app_id = data['app_id']
   del data['app_id']
   
-  task = tasks.Task(data, task_id, app_id, 'asset_download', message='Looking for asset')
+  task = tasks.Task(data, app_id, 'asset_download', task_id, message='Looking for asset')
   globals.tasks.append(task)
   task.async_task = asyncio.ensure_future(assets.do_asset_download(request, task))
   
@@ -70,7 +73,7 @@ async def consumer_exchange(request: web_request.Request):
     return web.Response(text=f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}")
 
   for app_id in globals.active_apps:
-    task = tasks.Task(None, str(uuid.uuid4()), app_id, 'login', message='Getting authorization code')
+    task = tasks.Task(None, app_id, 'login', message='Getting authorization code')
     globals.tasks.append(task)
     task.result = response_json
     task.finished("Tokens obtained")
@@ -81,6 +84,7 @@ async def consumer_exchange(request: web_request.Request):
 async def refresh_token(request: web_request.Request):
   asyncio.ensure_future(oauth.refresh_tokens(request))
   return web.Response(text="ok")
+
 
 async def kill_download(request: web_request.Request):
   """Handle request for kill of task with the task_id."""
@@ -117,6 +121,9 @@ async def report(request: web_request.Request):
     if task.status == "error":
       print(f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}")
       globals.tasks.remove(task)
+
+  status_report = tasks.Task({}, data['app_id'], 'daemon_status', result= globals.servers_statuses)
+  reports.append(status_report.to_seriazable_object())
 
   return web.json_response(reports)
 
@@ -176,11 +183,30 @@ async def persistent_sessions(app):
     session_assets.close(),
   )
 
-async def should_i_live(app: web.Application):
+async def periodical_checks(app: web.Application):
   while True:
     since_report = time.time() - globals.last_report_time
     if since_report > globals.TIMEOUT:
       sys.exit() #we should handle this more nicely
+
+    #THIS NEEDS TO BE FIGURED OUT
+    """try:
+      for server in globals.servers_statuses:
+        try:
+          async with app['SESSION_API_REQUESTS'].head(server) as resp:
+            await resp.text()
+            globals.servers_statuses[server] = resp.status
+            if resp.status != 200:
+              logging.warning(f'{server}: status code {resp.status}')
+        except Exception as e:
+            logging.warning(f'{server}: request failed: {e} {type(e)}')
+            globals.servers_statuses[server] = f'{e}'
+            print("except...")
+        finally:
+          print(globals.servers_statuses)
+    except Exception as e:
+      print("exception", e) """
+
     await asyncio.sleep(10)
 
 async def report_blender_quit(request: web_request.Request):
@@ -193,8 +219,7 @@ async def report_blender_quit(request: web_request.Request):
     sys.exit() #we should handle this more nicely
 
 async def start_background_tasks(app: web.Application):
-  app['should_i_live'] = asyncio.create_task(should_i_live(app))
-
+  app['periodical_checks'] = asyncio.create_task(periodical_checks(app))
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()

@@ -30,14 +30,13 @@ def get_port() -> str:
 
   return str(port)
 
+
 async def get_reports_async(app_id: str, queue):
   """Get report for all task at once with asyncio and aiohttp."""
   global reports_queue
   address = get_address()
   url = address + "/report"
-  t = time.time()
   async with aiohttp.ClientSession() as session:
-    # ensure_daemon_alive(session)
     data = {'app_id': app_id}
     async with session.get(url, json=data) as resp:
       # text = await resp.text()
@@ -45,17 +44,20 @@ async def get_reports_async(app_id: str, queue):
       if len(json_data)>0:
         queue.put(json_data)
 
+
 def get_reports(app_id: str):
-  """Get report for all tasks at once."""
+  """Get reports for all tasks of app_id Blender instance at once."""
 
   address = get_address()
   with requests.Session() as session:
-    ensure_daemon_alive(session)
     url = address + "/report"
     data = {'app_id': app_id}
-    resp = session.get(url, json=data)
+    try:
+      resp = session.get(url, json=data)
+      return resp.json()
+    except Exception as e:
+      raise(e)
 
-    return resp.json()
 
 def search_asset(data):
   """Search for specified asset."""
@@ -63,10 +65,10 @@ def search_asset(data):
   address = get_address()
   data['app_id'] = os.getpid()
   with requests.Session() as session:
-    ensure_daemon_alive(session)
     url = address + "/search_asset"
     resp = session.post(url, json=data)
     return resp.json()
+
 
 def download_asset(data):
   """Download specified asset."""
@@ -74,7 +76,6 @@ def download_asset(data):
   address = get_address()
   data['app_id'] = os.getpid()
   with requests.Session() as session:
-    ensure_daemon_alive(session)
     url = address + "/download_asset"
     resp = session.post(url, json=data)
     return resp.json()
@@ -85,29 +86,19 @@ def kill_download(task_id):
 
   address = get_address()
   with requests.Session() as session:
-    ensure_daemon_alive(session)
     url = address + "/kill_download"
     resp = session.get(url, json={'task_id':task_id})
     return resp
+
 
 def refresh_token(refresh_token):
   """Refresh authentication token."""
   
   with requests.Session() as session:
-    ensure_daemon_alive(session)
     url = get_address() + "/refresh_token"
     resp = session.get(url, json={'refresh_token': refresh_token})
     return resp
 
-def ensure_daemon_alive(session: requests.Session):
-  """Make sure that daemon is running. If not start the daemon."""
-
-  isAlive, _ = daemon_is_alive(session)
-  if isAlive == True:
-    return
-
-  bk_logger.info(f'Starting daemon server on port {get_port()}')
-  start_daemon_server()
 
 def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   """Check whether daemon is responding."""
@@ -122,12 +113,14 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   except requests.exceptions.ConnectionError as err:
     return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
 
+
 def report_blender_quit():
   address = get_address()
   with requests.Session() as session:
     url = address + "/report_blender_quit"
     resp = session.get(url, json={'app_id':os.getpid()})
     return resp
+
 
 def kill_daemon_server():
   ''' Request to restart the daemon server.'''
@@ -136,6 +129,7 @@ def kill_daemon_server():
     url = address + "/shutdown"
     resp = session.get(url)
     return resp
+
 
 def start_daemon_server():
   """Start daemon server in separate process."""
@@ -203,7 +197,7 @@ def start_daemon_server():
     raise(e)
 
   if python_check.returncode == 0:
-    reports.add_report(f'Daemon server started on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}', 5, colors.GREEN)
+    reports.add_report(f'Daemon server starting on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}', 5, colors.GREEN)
   else:
     reports.add_report(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
     reports.add_report(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.", 5, colors.RED)
