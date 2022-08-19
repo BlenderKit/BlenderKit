@@ -67,8 +67,7 @@ async def parse_thumbnails(task: tasks.Task):
       "index": i
     }
 
-    task_id = str(uuid.uuid4())
-    thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
+    thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
     globals.tasks.append(thumb_task)
 
     if os.path.exists(thumb_task.data['image_path']):
@@ -92,8 +91,7 @@ async def parse_thumbnails(task: tasks.Task):
       "index": i
     }
 
-    task_id = str(uuid.uuid4())
-    thumb_task = tasks.Task(data, task_id, task.app_id, "thumbnail_download")
+    thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
     globals.tasks.append(thumb_task)
     if os.path.exists(thumb_task.data['image_path']):
       thumb_task.finished("thumbnail on disk")
@@ -114,7 +112,7 @@ async def do_search(request: web.Request, data: dict, task_id: str):
   
   app_id = data['app_id']
   del data['app_id']
-  task = tasks.Task(data, task_id, app_id, 'search', message='Searching assets')
+  task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
   globals.tasks.append(task)
 
   rdata = {}

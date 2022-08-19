@@ -46,7 +46,7 @@ async def refresh_tokens(request: web.Request):
   response_json, status, error = await get_tokens(request, refresh_token=refresh_token, grant_type="refresh_token")
   
   for app_id in globals.active_apps:
-    task = tasks.Task(None, str(uuid.uuid4()), app_id, 'login', message='Refreshing tokens')
+    task = tasks.Task(None, app_id, 'login', message='Refreshing tokens')
     globals.tasks.append(task)
     task.result = response_json
     if status == 200:

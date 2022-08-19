@@ -853,6 +853,27 @@ def draw_notifications(self, context, width=600):
             if notification['unread'] == 1:
                 draw_notification(self, notification, width=width)
 
+class LogoStatus(bpy.types.Operator):
+    """BlenderKit status"""
+    bl_idname = "wm.logo_status"
+    bl_label = "BLENDERKIT STATUS"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    logo: StringProperty(
+        name="logo",
+        default="logo_offline"
+        )
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        pcoll = icons.icon_collections["main"]
+        self.icon_value = pcoll[self.logo].icon_id
+        #layout = self.layout
+        #layout.label(text='',icon_value=pcoll[self.logo].icon_id)
+
 
 class ShowNotifications(bpy.types.Operator):
     """Show notifications"""
@@ -2786,7 +2807,8 @@ def header_search_draw(self, context):
     # if context.space_data.show_region_tool_header == True or context.mode[:4] not in ('EDIT', 'OBJE'):
     # layout.separator_spacer()
     layout = layout.row(align=True)
-    layout.label(text="",icon_value=pcoll['logo'].icon_id)
+    layout.label(text='',icon_value=pcoll[ui_props.logo_status].icon_id)
+    #TODO: HOW TO DO THIS? #layout.operator('wm.logo_status', text='',icon_value=pcoll[wm.logo_status.logo].icon_id)
     # layout.separator()
     layout.prop(ui_props, "asset_type", expand=True, icon_only=True, text='', icon=asset_type_icon)
     layout.prop(props, "search_keywords", text="", icon='VIEWZOOM')
@@ -2858,6 +2880,7 @@ classes = (
     PostComment,
     # DeleteComment,
     ShowNotifications,
+    LogoStatus,
     NotificationOpenTarget,
     MarkAllNotificationsRead,
 )

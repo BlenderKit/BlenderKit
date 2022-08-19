@@ -38,6 +38,7 @@ icons_read = {
     'bell.png': 'bell',
     'post_comment.png': 'post_comment',
     'blenderkit_logo.png': 'logo',
+    'blenderkit_logo_offline.png': 'logo_offline',
 }
 
 verification_icons = {

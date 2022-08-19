@@ -183,42 +183,6 @@ def scene_load(context):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
     preferences.login_attempt = False
 
-
-@bpy.app.handlers.persistent
-def check_timers_timer():
-    ''' checks if all timers are registered regularly. Prevents possible bugs from stopping the addon.'''
-    if not bpy.app.background:
-        if not bpy.app.timers.is_registered(search.search_timer):
-            bpy.app.timers.register(search.search_timer)
-        if not bpy.app.timers.is_registered(download.download_timer):
-            bpy.app.timers.register(download.download_timer)
-        if not (bpy.app.timers.is_registered(tasks_queue.queue_worker)):
-            bpy.app.timers.register(tasks_queue.queue_worker)
-        if not bpy.app.timers.is_registered(bg_blender.bg_update):
-            bpy.app.timers.register(bg_blender.bg_update)
-        if not bpy.app.timers.is_registered(timer.timer):
-            bpy.app.timers.register(timer.timer)
-        return 5.0
-
-def unregister_timers():
-    ''' Unregister all timers at the very start of unregistration.
-     This prevents the timers being called before the unregistration finishes.'''
-    if not bpy.app.background:
-        if bpy.app.timers.is_registered(check_timers_timer):
-            bpy.app.timers.unregister(check_timers_timer)
-        if bpy.app.timers.is_registered(search.search_timer):
-            bpy.app.timers.unregister(search.search_timer)
-        if bpy.app.timers.is_registered(download.download_timer):
-            bpy.app.timers.unregister(download.download_timer)
-        if (bpy.app.timers.is_registered(tasks_queue.queue_worker)):
-            bpy.app.timers.unregister(tasks_queue.queue_worker)
-        if bpy.app.timers.is_registered(bg_blender.bg_update):
-            bpy.app.timers.unregister(bg_blender.bg_update)
-        if bpy.app.timers.is_registered(timer.timer_image_cleanup):
-            bpy.app.timers.unregister(timer.timer_image_cleanup)
-        if bpy.app.timers.is_registered(timer.timer):
-            bpy.app.timers.unregister(timer.timer)
-
 conditions = (
     ('UNSPECIFIED', 'Unspecified', ""),
     ('NEW', 'New', 'Shiny new item'),
@@ -390,7 +354,8 @@ class BlenderKitUIProps(PropertyGroup):
         default=None,
         update=switch_search_results
     )
-
+    #TODO: HOW TO UPDATE IN REAL TIME? NOW IT NEEDS MOUSE CLICK OR MOUSE OVER SEARCH BAR/DIFFERENT BLENDER MENUS
+    logo_status: StringProperty(name='', default='logo_offline')
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
     draw_tooltip: BoolProperty(name="Draw Tooltip", default=False)
@@ -518,7 +483,6 @@ class BlenderKitCommonSearchProps:
                            default=False, update=search.search_update)
     use_filters: BoolProperty(name="Filters are on", description="some filters are used",
                               default=False)
-
     search_error: BoolProperty(name="Search Error", description="last search had an error", default=False)
     report: StringProperty(
         name="Report",
@@ -2091,7 +2055,6 @@ def register():
     global_vars.PREFS = utils.get_prefs_dir()
     utils.set_proxy()
 
-    timer.register_timer()
     search.register_search()
     asset_inspector.register_asset_inspector()
     download.register_download()
@@ -2108,8 +2071,11 @@ def register():
     asset_bar_op.register()
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.use_timers and not bpy.app.background:
-        bpy.app.timers.register(check_timers_timer, persistent=True)
+    if user_preferences.use_timers:
+        bpy.app.timers.register(timer.check_timers_timer, persistent=True)
+
+    if not bpy.app.background:
+        daemon_lib.start_daemon_server()
 
     bpy.app.handlers.load_post.append(scene_load)
     # detect if the user just enabled the addon in preferences, thus enable to run
@@ -2123,13 +2089,10 @@ def register():
 
 
 def unregister():
-    unregister_timers()
-
+    timer.unregister_timers()
     ui_panels.unregister_ui_panels()
     ui.unregister_ui()
-
     icons.unregister_icons()
-    timer.unregister_timer()
     search.unregister_search()
     asset_inspector.unregister_asset_inspector()
     download.unregister_download()
@@ -2141,6 +2104,11 @@ def unregister():
     bkit_oauth.unregister()
     tasks_queue.unregister()
     asset_bar_op.unregister()
+
+    try:
+        daemon_lib.report_blender_quit()
+    except Exception as e:
+        bk_logger.error(e)
 
     del bpy.types.WindowManager.blenderkit_models
     del bpy.types.WindowManager.blenderkit_scene
@@ -2162,3 +2130,5 @@ def unregister():
     bpy.utils.unregister_class(BlenderKitAddonPreferences)
 
     bpy.app.handlers.load_post.remove(scene_load)
+
+

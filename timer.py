@@ -4,31 +4,27 @@ import logging
 import os
 import queue
 import sys
-import threading
-import time
 
 import bpy
 import requests
 
-from . import bkit_oauth, colors, daemon_lib, download, reports, search
+from . import bkit_oauth, colors, daemon_lib, download, global_vars, reports, search, tasks_queue, bg_blender
 from .daemon import tasks
 
 
-logger = logging.getLogger(__name__)
-
-# pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
-pending_tasks = list()
-reader_loop = None
-ENABLE_ASYNC_LOOP = False
-
+bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
+pending_tasks = list() # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
+ENABLE_ASYNC_LOOP = False
 
 
 @bpy.app.handlers.persistent
-def timer():
-  """Recieve all responses from daemon and run according followup commands."""
+def daemon_communication_timer():
+  """Recieve all responses from daemon and run according followup commands.
+  This function is the only one responsible for keeping the daemon up and running.
+  """
 
-  mt = time.time()
+  bk_logger.debug('daemon_communication_timer started')
   global pending_tasks
 
   search.check_clipboard()
@@ -46,10 +42,24 @@ def timer():
     kick_async_loop()
     asyncio.ensure_future(daemon_lib.get_reports_async(app_id, reports_queue))
   else:
-    results = daemon_lib.get_reports(app_id)
+    wm = bpy.context.window_manager
+    try:
+      results = daemon_lib.get_reports(app_id)
+    except requests.exceptions.ConnectionError as e:
+      if global_vars.DAEMON_ONLINE == True:
+        reports.add_report('Daemon is not running, add-on will not work', 5, colors.RED)
+        global_vars.DAEMON_ONLINE = False
+        wm.blenderkitUI.logo_status = "logo_offline"
+      daemon_lib.start_daemon_server()
+      return 5
+
+    if global_vars.DAEMON_ONLINE != True:
+      reports.add_report("Daemon is running!")
+      global_vars.DAEMON_ONLINE = True
+      wm.blenderkitUI.logo_status = "logo"
 
   results.extend(pending_tasks)
-  logger.debug(f'timer before {mt-time.time()}')
+  bk_logger.debug('daemon_communication_timer handling tasks')
   pending_tasks.clear()
   for task in results:
     task = tasks.Task(
@@ -63,10 +73,8 @@ def timer():
       result = task['result'],
       )
     handle_task(task)
-    
 
-  # print('timer',time.time()-mt)
-  logger.debug(f'timer {mt-time.time()}')
+  bk_logger.debug('daemon_communication_timer finished')
   if len(download.download_tasks) > 0:
     return .2
   return .5
@@ -112,6 +120,10 @@ def handle_task(task: tasks.Task):
   if task.task_type == "login":
     bkit_oauth.handle_login_task(task)
 
+  #HANDLE DAEMON STATUS REPORT
+  if task.task_type == "daemon_status":
+    print("DAEMON online status:", task.result)
+
 
 def setup_asyncio_executor():
   """Set up AsyncIO to run properly on each platform."""
@@ -140,24 +152,53 @@ def kick_async_loop(*args) -> bool:
 
   return True#stop_after_this_kick
 
-def start_server_thread():
-  with requests.Session() as session:
-    daemon_lib.ensure_daemon_alive(session)
 
+@bpy.app.handlers.persistent
+def check_timers_timer():
+  """Checks if all timers are registered regularly. Prevents possible bugs from stopping the addon."""
+  
+  if bpy.app.background:
+    return
 
-def register_timer():
   if ENABLE_ASYNC_LOOP:
     setup_asyncio_executor()
-  if not bpy.app.background:
-    bpy.app.timers.register(timer, persistent=True, first_interval=3)
+  
+
+  if not bpy.app.timers.is_registered(search.search_timer):
+    bpy.app.timers.register(search.search_timer)
+  if not bpy.app.timers.is_registered(download.download_timer):
+    bpy.app.timers.register(download.download_timer)
+  if not bpy.app.timers.is_registered(tasks_queue.queue_worker):
+    bpy.app.timers.register(tasks_queue.queue_worker)
+  if not bpy.app.timers.is_registered(bg_blender.bg_update):
+    bpy.app.timers.register(bg_blender.bg_update)
+  if not bpy.app.timers.is_registered(daemon_communication_timer):
+    bpy.app.timers.register(daemon_communication_timer, persistent=True, first_interval=3)
+  if not bpy.app.timers.is_registered(timer_image_cleanup):
     bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
+  return 5.0
 
-  thread = threading.Thread(target=start_server_thread, args=(), daemon=True)
-  thread.start()
 
-def unregister_timer():
-  try:
-    daemon_lib.report_blender_quit()
-  except Exception as e:
-    print(e)
+def unregister_timers():
+  """Unregister all timers at the very start of unregistration.
+  This prevents the timers being called before the unregistration finishes.
+  Also reports unregistration to daemon.
+  """
 
+  if bpy.app.background:
+    return
+
+  if bpy.app.timers.is_registered(check_timers_timer):
+    bpy.app.timers.unregister(check_timers_timer)
+  if bpy.app.timers.is_registered(search.search_timer):
+    bpy.app.timers.unregister(search.search_timer)
+  if bpy.app.timers.is_registered(download.download_timer):
+    bpy.app.timers.unregister(download.download_timer)
+  if bpy.app.timers.is_registered(tasks_queue.queue_worker):
+    bpy.app.timers.unregister(tasks_queue.queue_worker)
+  if bpy.app.timers.is_registered(bg_blender.bg_update):
+    bpy.app.timers.unregister(bg_blender.bg_update)
+  if bpy.app.timers.is_registered(timer_image_cleanup):
+    bpy.app.timers.unregister(timer_image_cleanup)
+  if bpy.app.timers.is_registered(daemon_communication_timer):
+    bpy.app.timers.unregister(daemon_communication_timer)
