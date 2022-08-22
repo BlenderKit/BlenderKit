@@ -71,6 +71,22 @@ def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=
   # here it's important we read back, so likes are updated accordingly:
   get_comments(asset_id, api_key)
 
+def upload_comment_is_private_thread(asset_id='', comment_id='', is_private=False, api_key=None):
+  ''' Upload rating thread function / disconnected from blender data.'''
+  headers = utils.get_headers(api_key)
+
+  bk_logger.debug('upload comment is private' + str(comment_id))
+
+  # rating_url = url + rating_name + '/'
+  data = {
+    "is_private": is_private,
+  }
+  url = f"{paths.get_api_url()}comments/is_private/{comment_id}/"
+  r = rerequests.post(url, data=data, verify=True, headers=headers)
+  print(r.text)
+  # here it's important we read back, so likes are updated accordingly:
+  get_comments(asset_id, api_key)
+
 # def comment_delete_thread(asset_id='', comment_id='', api_key=None):
 #   ''' Upload rating thread function / disconnected from blender data.'''
 #   headers = utils.get_headers(api_key)
@@ -92,6 +108,12 @@ def send_comment_flag_to_thread(asset_id='', comment_id='', flag='like', api_key
   thread = threading.Thread(target=upload_comment_flag_thread, args=(asset_id, comment_id, flag, api_key))
   thread.start()
 
+
+def send_comment_is_private_to_thread(asset_id='', comment_id='', is_private=False, api_key=None):
+  '''Sens rating into thread rating, main purpose is for tasks_queue.
+  One function per property to avoid lost data due to stashing.'''
+  thread = threading.Thread(target=upload_comment_is_private_thread, args=(asset_id, comment_id, is_private, api_key))
+  thread.start()
 
 def send_comment_to_thread(asset_id, comment_id, comment, api_key):
   '''Sens rating into thread rating, main purpose is for tasks_queue.

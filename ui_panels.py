@@ -667,7 +667,53 @@ class UpvoteComment(bpy.types.Operator):
     def execute(self, context):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         api_key = user_preferences.api_key
+        comments = comments_utils.get_comments_local(self.asset_id)
+        if comments is not None:
+            for comment in comments:
+                if comment['id'] == self.comment_id:
+                    profile = global_vars.DATA.get('bkit profile')
+                    comment['flags'].append({'flag': self.flag, 'user': '', 'id': profile['user']['id']})
+
         comments_utils.send_comment_flag_to_thread(asset_id=self.asset_id, comment_id=self.comment_id, flag=self.flag,
+                                                   api_key=api_key)
+        return {'FINISHED'}
+
+class SetPrivateComment(bpy.types.Operator):
+    """Up or downvote comment"""
+    bl_idname = "wm.blenderkit_is_private_comment"
+    bl_label = "BlenderKit set comment or thread private or public"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    asset_id: StringProperty(
+        name="Asset Base Id",
+        description="Unique id of the asset (hidden)",
+        default="",
+        options={'SKIP_SAVE'})
+
+    comment_id: bpy.props.IntProperty(
+        name="Id",
+        description="comment id",
+        default=-1)
+
+    is_private: bpy.props.BoolProperty(
+        name="Is private",
+        description="set comment/thread private or public",
+        default=False)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        api_key = user_preferences.api_key
+        comments = comments_utils.get_comments_local(self.asset_id)
+        if comments is not None:
+            for comment in comments:
+                if comment['id'] == self.comment_id:
+                    comment['isPrivate'] = self.is_private
+
+        comments_utils.send_comment_is_private_to_thread(asset_id=self.asset_id, comment_id=self.comment_id, is_private=self.is_private,
                                                    api_key=api_key)
         return {'FINISHED'}
 
@@ -2254,7 +2300,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         box = row.box()
         box.emboss = 'NORMAL'
         row = box.row()
-        split = row.split(factor=0.8)
+        facetor = 0.8
+        if comment['canChangeIsPrivate']:
+            factor = 0.7
+        split = row.split(factor=factor)
         is_moderator = comment['userModerator']
         if is_moderator:
             role_text = f" - moderator"
@@ -2263,25 +2312,58 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         row = split.row()
         row.enabled = False
         row.label(text=f"{comment['submitDate']} - {comment['userName']}{role_text}")
+
+
+        if comment['canChangeIsPrivate']:
+            if comment['isPrivate']:
+                ptext = 'Private'
+                val = False
+            else:
+                ptext = 'Public'
+                val = True
+            split = split.split()
+            split = split.split(factor = 0.333)
+            split.enabled = True
+            op = split.operator('wm.blenderkit_is_private_comment', text=ptext)#, icon='TRIA_DOWN')
+            op.asset_id = self.asset_data['assetBaseId']
+            op.comment_id = comment['id']
+            op.is_private = val
+
         removal = False
         likes = 0
         dislikes = 0
+        user_liked = False
+        user_disliked = False
+        profile = global_vars.DATA.get('bkit profile')
+
         for l in comment['flags']:
             if l['flag'] == 'like':
                 likes += 1
+                if l['id'] == profile['user']['id']:
+                    user_liked = True
             if l['flag'] == 'dislike':
                 dislikes += 1
+                if l['id'] == profile['user']['id']:
+                    user_disliked = True
+
             if l['flag'] == 'removal':
                 removal = True
+
         # row = box.row()
-        split1 = split.split()
-        split1.enabled = utils.user_logged_in()
+        split = split.split()
+        split_like = split.split(factor = 0.5)
+        sub_like = split_like.row()
+        sub_like.enabled = utils.user_logged_in() and not user_liked
         # split1.emboss = 'NONE'
-        op = split1.operator('wm.blenderkit_upvote_comment', text=str(likes), icon='TRIA_UP')
+        op = sub_like.operator('wm.blenderkit_upvote_comment', text=str(likes), icon='TRIA_UP')
         op.asset_id = self.asset_data['assetBaseId']
         op.comment_id = comment['id']
         op.flag = 'like'
-        op = split1.operator('wm.blenderkit_upvote_comment', text=str(dislikes), icon='TRIA_DOWN')
+
+        split_dislike = split_like.split()
+        split_dislike = split_dislike.row()
+        split_dislike.enabled = utils.user_logged_in() and not user_disliked
+        op = split_dislike.operator('wm.blenderkit_upvote_comment', text=str(dislikes), icon='TRIA_DOWN')
         op.asset_id = self.asset_data['assetBaseId']
         op.comment_id = comment['id']
         op.flag = 'dislike'
@@ -2289,7 +2371,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         if removal:
             row.alert = True
             row.label(text='', icon='ERROR')
-
+        row = layout.row()
+        row.label(text = f'user liked {user_liked}, user disliked {user_disliked}')
         rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']), use_urls = True)
 
         if utils.user_logged_in():
@@ -2753,6 +2836,7 @@ classes = (
     BlenderKitWelcomeOperator,
     MarkNotificationRead,
     UpvoteComment,
+    SetPrivateComment,
     PostComment,
     # DeleteComment,
     ShowNotifications,
