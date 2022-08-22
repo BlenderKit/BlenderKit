@@ -673,6 +673,10 @@ class UpvoteComment(bpy.types.Operator):
                 if comment['id'] == self.comment_id:
                     profile = global_vars.DATA.get('bkit profile')
                     comment['flags'].append({'flag': self.flag, 'user': '', 'id': profile['user']['id']})
+                    for flag in comment['flags']:
+                        if flag['id'] == profile['user']['id'] and flag['flag'] != self.flag:
+                            comment['flags'].remove(flag)
+                            break
 
         comments_utils.send_comment_flag_to_thread(asset_id=self.asset_id, comment_id=self.comment_id, flag=self.flag,
                                                    api_key=api_key)
