@@ -1497,7 +1497,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
 
     op = layout.operator('wm.url_open', text="See online", icon = 'URL')
     if utils.user_is_owner(asset_data) and asset_data["verificationStatus"] != "validated":
-        op.url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS
+        op.url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS + f"/{asset_data['assetBaseId']}/?preview#"
     else:
         op.url = paths.get_asset_gallery_url(asset_data['id'])
         #TODO this is where validator should be able to go and see non-validated the assets in gallery,
