@@ -2343,12 +2343,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         for l in comment['flags']:
             if l['flag'] == 'like':
                 likes += 1
-                if l['id'] == profile['user']['id']:
-                    user_liked = True
+                if profile is not None:
+                    if l['id'] == profile['user']['id']:
+                        user_liked = True
             if l['flag'] == 'dislike':
                 dislikes += 1
-                if l['id'] == profile['user']['id']:
-                    user_disliked = True
+                if profile is not None:
+                    if l['id'] == profile['user']['id']:
+                        user_disliked = True
 
             if l['flag'] == 'removal':
                 removal = True
