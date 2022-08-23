@@ -83,7 +83,8 @@ def upload_comment_is_private_thread(asset_id='', comment_id='', is_private=Fals
   }
   url = f"{paths.get_api_url()}comments/is_private/{comment_id}/"
   r = rerequests.post(url, data=data, verify=True, headers=headers)
-  print(r.text)
+  bk_logger.debug(r.text)
+  
   # here it's important we read back, so likes are updated accordingly:
   get_comments(asset_id, api_key)
 

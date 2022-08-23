@@ -2304,7 +2304,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         box = row.box()
         box.emboss = 'NORMAL'
         row = box.row()
-        facetor = 0.8
+        factor = 0.8
         if comment['canChangeIsPrivate']:
             factor = 0.7
         split = row.split(factor=factor)
@@ -2376,7 +2376,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             row.alert = True
             row.label(text='', icon='ERROR')
         row = layout.row()
-        row.label(text = f'user liked {user_liked}, user disliked {user_disliked}')
+        #row.label(text = f'user liked {user_liked}, user disliked {user_disliked}')
         rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']), use_urls = True)
 
         if utils.user_logged_in():
