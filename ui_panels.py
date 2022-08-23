@@ -2375,17 +2375,27 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         if removal:
             row.alert = True
             row.label(text='', icon='ERROR')
-        row = layout.row()
-        #row.label(text = f'user liked {user_liked}, user disliked {user_disliked}')
         rows = utils.label_multiline(box, text=comment['comment'], width=width * (1 - 0.05 * comment['level']), use_urls = True)
 
+        if utils.profile_is_validator():
+            row = box.row()
+            split = row.split(factor=.9)
+            split.label(text='')
+            split = split.split()
+            row.alert = False
+            op = row.operator("wm.url_open", text="", icon="GREASEPENCIL")
+            op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/change/"
+            row.alert = True
+            op = row.operator("wm.url_open", text="", icon='CANCEL')
+            op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/delete/"
+          
         if utils.user_logged_in():
             # row = rows[-1]
             row = layout.row()
             split = row.split(factor=.8)
             split.label(text='')
             split = split.split()
-            op = split.operator('view3d.blenderkit_set_comment_reply_id', text='Reply', icon='GREASEPENCIL')
+            op = split.operator('view3d.blenderkit_set_comment_reply_id', text="Reply", icon="GREASEPENCIL")
             op.comment_id = comment['id']
 
 
