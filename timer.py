@@ -8,7 +8,17 @@ import sys
 import bpy
 import requests
 
-from . import bkit_oauth, colors, daemon_lib, download, global_vars, reports, search, tasks_queue, bg_blender
+from . import (
+    bg_blender,
+    bkit_oauth,
+    colors,
+    daemon_lib,
+    download,
+    global_vars,
+    reports,
+    search,
+    tasks_queue,
+)
 from .daemon import tasks
 
 

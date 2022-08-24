@@ -21,11 +21,28 @@ class TestDaemonUtilFunctions(unittest.TestCase):
 
 
 class TestDaemon(unittest.TestCase):
-  def test_daemon_is_alive(self):
+  def test_daemon_not_running(self):
+    """Tests run in background (bpy.app.background == True), so daemon is not started during registration.
+    Also the daemon_communication_timer() and all other timers are not registered.
+    So we expect daemon to be not running.
+    """
     with requests.Session() as session:
-      for x in range(10):
-        alive, pid = daemon_lib.daemon_is_alive(session)
+      alive, pid = daemon_lib.daemon_is_alive(session)
+      self.assertFalse(alive)
+      self.assertIsInstance(alive, bool)
+      self.assertIsInstance(pid, str)
+  
+  def test_daemon_up_and_down(self):
+    daemon_lib.start_daemon_server()
+    with requests.Session() as session:
+      for _ in range(10):
+        alive, _ = daemon_lib.daemon_is_alive(session)
         if alive == True:
-          return
+          break
         time.sleep(1)
-      self.fail('Daemon is offline')
+      self.assertTrue(alive)
+
+      daemon_lib.kill_daemon_server()
+      alive, _ = daemon_lib.daemon_is_alive(session)
+      self.assertFalse(alive)
+
