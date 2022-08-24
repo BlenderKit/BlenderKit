@@ -46,16 +46,16 @@ def daemon_communication_timer():
     try:
       results = daemon_lib.get_reports(app_id)
     except requests.exceptions.ConnectionError as e:
-      if global_vars.DAEMON_ONLINE == True:
+      if global_vars.DAEMON_ACCESSIBLE == True:
         reports.add_report('Daemon is not running, add-on will not work', 5, colors.RED)
-        global_vars.DAEMON_ONLINE = False
+        global_vars.DAEMON_ACCESSIBLE = False
         wm.blenderkitUI.logo_status = "logo_offline"
       daemon_lib.start_daemon_server()
       return 5
 
-    if global_vars.DAEMON_ONLINE != True:
+    if global_vars.DAEMON_ACCESSIBLE != True:
       reports.add_report("Daemon is running!")
-      global_vars.DAEMON_ONLINE = True
+      global_vars.DAEMON_ACCESSIBLE = True
       wm.blenderkitUI.logo_status = "logo"
 
   results.extend(pending_tasks)
@@ -122,7 +122,20 @@ def handle_task(task: tasks.Task):
 
   #HANDLE DAEMON STATUS REPORT
   if task.task_type == "daemon_status":
-    print("DAEMON online status:", task.result)
+    handle_daemon_status_task(task)
+
+
+def handle_daemon_status_task(task):
+  bk_server_status = task.result['https://www.blenderkit.com'] 
+  if bk_server_status == 200:
+    if global_vars.DAEMON_ONLINE == False:
+      reports.add_report('Connected to blenderkit.com')
+      global_vars.DAEMON_ONLINE = True
+    return
+
+  if global_vars.DAEMON_ONLINE == True:
+    reports.add_report('Disconnected from blenderkit.com', timeout=10, color=colors.RED)
+    global_vars.DAEMON_ONLINE = False
 
 
 def setup_asyncio_executor():
