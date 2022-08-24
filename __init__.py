@@ -2089,6 +2089,7 @@ def register():
 
 
 def unregister():
+    bk_logger.info("Unregistering BlenderKit add-on")
     timer.unregister_timers()
     ui_panels.unregister_ui_panels()
     ui.unregister_ui()
@@ -2107,6 +2108,7 @@ def unregister():
 
     try:
         daemon_lib.report_blender_quit()
+        bk_logger.info("Reported Blender quit to daemon")
     except Exception as e:
         bk_logger.error(e)
 

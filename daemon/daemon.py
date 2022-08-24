@@ -5,7 +5,6 @@ import asyncio
 import logging
 import os
 import ssl
-import sys
 import time
 import uuid
 from ssl import Purpose
@@ -128,17 +127,70 @@ async def report(request: web_request.Request):
   return web.json_response(reports)
 
 
-class Shutdown(web.View):
+async def shutdown(request: web_request.Request):
   """Shedules shutdown of the server."""
 
-  async def get(self):
-    asyncio.ensure_future(self.shutdown_in_future())
-    return web.Response(text='Going to shutdown soon.')
+  logging.warning('Shutdown requested, exiting Daemon')
+  asyncio.ensure_future(shutdown_daemon(request.app))
+  return web.Response(text='Going to shutdown.')
 
-  async def shutdown_in_future(self):
-    await asyncio.sleep(1)
-    sys.exit()
 
+async def report_blender_quit(request: web_request.Request):
+  data = await request.json()
+  logging.warning(f"Blender quit (ID {data['app_id']}) was reported")
+  if data['app_id'] in globals.active_apps:
+    globals.active_apps.remove(data['app_id'])
+  if len(globals.active_apps)==0:
+    logging.warning('No more apps to serve, exiting Daemon')
+    asyncio.ensure_future(shutdown_daemon(request.app))
+
+  return web.Response(text="ok") 
+
+
+## BACKGROUND TASKS
+
+async def life_check(app: web.Application):
+  while True:
+    since_report = time.time() - globals.last_report_time
+    if since_report > globals.TIMEOUT:
+      asyncio.ensure_future(shutdown_daemon(app))
+    await asyncio.sleep(10)
+
+
+async def online_status_check(app: web.Application, server: str):
+  while True:
+    try:
+      resp = await app['SESSION_API_REQUESTS'].head(server, timeout=3)
+      globals.servers_statuses[server] = resp.status
+      if resp.status != 200:
+        logging.warning(f'{server}: status code {resp.status}')
+    except Exception as e:
+        logging.warning(f'{server}: request failed')
+        globals.servers_statuses[server] = f'{e}'
+    finally:
+      resp.close()
+
+    await asyncio.sleep(10)
+
+async def start_background_tasks(app: web.Application):
+  app['life_check'] = asyncio.create_task(life_check(app))
+  for i, server in enumerate(globals.servers_statuses):
+    app[f'online-status-check-{i}'] = asyncio.create_task(online_status_check(app, server))
+
+
+async def cleanup_background_tasks(app: web.Application):
+  app['life_check'].cancel()
+  for i, _ in enumerate(globals.servers_statuses):
+    app[f'online-status-check-{i}'].cancel()
+  exit(0)
+
+
+async def shutdown_daemon(app: web.Application):
+  await app.shutdown()
+  await app.cleanup()
+
+
+## CONFIGURATION
 
 async def persistent_sessions(app):
   sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
@@ -183,43 +235,8 @@ async def persistent_sessions(app):
     session_assets.close(),
   )
 
-async def periodical_checks(app: web.Application):
-  while True:
-    since_report = time.time() - globals.last_report_time
-    if since_report > globals.TIMEOUT:
-      sys.exit() #we should handle this more nicely
 
-    #THIS NEEDS TO BE FIGURED OUT
-    """try:
-      for server in globals.servers_statuses:
-        try:
-          async with app['SESSION_API_REQUESTS'].head(server) as resp:
-            await resp.text()
-            globals.servers_statuses[server] = resp.status
-            if resp.status != 200:
-              logging.warning(f'{server}: status code {resp.status}')
-        except Exception as e:
-            logging.warning(f'{server}: request failed: {e} {type(e)}')
-            globals.servers_statuses[server] = f'{e}'
-            print("except...")
-        finally:
-          print(globals.servers_statuses)
-    except Exception as e:
-      print("exception", e) """
-
-    await asyncio.sleep(10)
-
-async def report_blender_quit(request: web_request.Request):
-
-  data = await request.json()
-  if data['app_id'] in globals.active_apps:
-    globals.active_apps.remove(data['app_id'])
-  if len(globals.active_apps)==0:
-    print('no more apps to serve, exiting Daemon')
-    sys.exit() #we should handle this more nicely
-
-async def start_background_tasks(app: web.Application):
-  app['periodical_checks'] = asyncio.create_task(periodical_checks(app))
+## MAIN 
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
@@ -242,11 +259,12 @@ if __name__ == "__main__":
     web.get('/kill_download', kill_download),
     web.post('/download_asset', download_asset),
     web.post('/search_asset', search_assets),
-    web.view('/shutdown', Shutdown),
+    web.view('/shutdown', shutdown),
     web.view('/report_blender_quit', report_blender_quit),
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
   ])
 
   server.on_startup.append(start_background_tasks)
+  server.on_cleanup.append(cleanup_background_tasks)
   web.run_app(server, host='127.0.0.1', port=args.port)
