@@ -2381,15 +2381,15 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         if utils.profile_is_validator():
             row = box.row()
-            split = row.split(factor=.9)
+            split = row.split(factor=.95)
             split.label(text='')
             split = split.split()
             row.alert = False
             op = row.operator("wm.url_open", text="", icon="GREASEPENCIL")
             op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/change/"
-            row.alert = True
-            op = row.operator("wm.url_open", text="", icon='CANCEL')
-            op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/delete/"
+            # row.alert = True
+            # op = row.operator("wm.url_open", text="", icon='CANCEL')
+            # op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/delete/"
           
         if utils.user_logged_in():
             # row = rows[-1]
@@ -2470,9 +2470,11 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         self.tip = search.get_random_tip()
         self.tip = self.tip.replace('\n', '')
 
-        ratings_utils.ensure_rating(self.asset_id)
-        # pre-fill ratings
-        self.prefill_ratings()
+        if utils.user_logged_in():
+            ratings_utils.ensure_rating(self.asset_id)
+            # pre-fill ratings
+            self.prefill_ratings()
+
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
         user_preferences.asset_popup_counter+=1

@@ -146,6 +146,10 @@ def asset_bar_modal(self, context, event):
 def asset_bar_invoke(self, context, event):
     if not self.on_invoke(context, event):
         return {"CANCELLED"}
+    if not context.window:
+        return {"CANCELLED"}
+    if not context.area:
+        return {"CANCELLED"}
 
     args = (self, context)
 
@@ -319,8 +323,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.gravatar_size = int(self.tooltip_height * bottom_panel_fraction - self.margin)
 
-        authors_name = self.new_text('author', self.tooltip_width - self.gravatar_size - self.margin,
-                                     self.tooltip_height - self.author_text_size - self.margin, labels_start,
+        authors_name = self.new_text('author',
+                                     self.tooltip_width - self.gravatar_size - self.margin,
+                                     self.tooltip_height - int(-1.5*self.author_text_size - self.margin),
+                                     labels_start,
                                      text_size=self.author_text_size, halign='RIGHT')
         self.authors_name = authors_name
         self.tooltip_widgets.append(authors_name)
@@ -343,11 +349,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         quality_star.set_image_position((0, 0))
         self.quality_star = quality_star
         self.tooltip_widgets.append(quality_star)
-        label = self.new_text('', 2 * self.margin + self.asset_name_text_size,
-                              self.tooltip_height - int(self.asset_name_text_size + self.margin * .5),
+        quality_label = self.new_text('', 2 * self.margin + self.asset_name_text_size,
+                              self.tooltip_height - int(self.asset_name_text_size + self.margin),
                               text_size=self.asset_name_text_size)
-        self.tooltip_widgets.append(label)
-        self.quality_label = label
+        self.tooltip_widgets.append(quality_label)
+        self.quality_label = quality_label
 
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         offset = 0
@@ -426,8 +432,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_ui_size(self, context):
 
-        if bpy.app.background or not context.area:
-            return
 
         region = context.region
         area = context.area
@@ -440,7 +444,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.margin = int(9 * ui_scale)
         self.button_margin = int(0 * ui_scale)
         self.asset_name_text_size = int(20 * ui_scale)
-        self.author_text_size = int(self.asset_name_text_size * .7 * ui_scale)
+        self.author_text_size = int(self.asset_name_text_size * .8 * ui_scale)
         self.assetbar_margin = int(2 * ui_scale)
         self.tooltip_size = int(512 * ui_scale)
 
@@ -626,6 +630,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.bg_color = button_bg_color
         self.button_close.hover_bg_color = button_hover_color
         self.button_close.text = ""
+        self.button_close.set_image_position((0,0))
+        self.button_close.set_image_size((self.other_button_size,self.other_button_size))
         self.button_close.set_mouse_down(self.cancel_press)
 
         self.widgets_panel.append(self.button_close)
@@ -724,10 +730,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def __init__(self):
         super().__init__()
 
+    def on_init(self, context):
+
         self.update_ui_size(bpy.context)
 
         # todo move all this to update UI size
-        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props = context.window_manager.blenderkitUI
 
         self.draw_tooltip = False
         # let's take saved scroll offset and use it to keep scroll between operator runs
@@ -760,7 +768,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.add_widgets(self.tooltip_widgets)
 
     def on_invoke(self, context, event):
+        if not context.area:
+            return{'CANCELLED'}
 
+        self.on_init(context)
         self.context = context
 
         if self.do_search or global_vars.DATA.get('search results') is None:
@@ -800,6 +811,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.active_index = -1
 
+        self.check_new_search_results()
         self.setup_widgets(context, event)
         self.set_element_images()
         self.position_and_hide_buttons()
@@ -844,8 +856,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_tooltip_image(self, asset_id):
         """Update tootlip image when it finishes downloading and the downloaded image matches the active one."""
 
-        search_results = global_vars.DATA['search results']
-        if search_results == None:
+        search_results = global_vars.DATA.get('search results')
+        if search_results is None:
             return
 
         if self.active_index >= len(search_results):
@@ -1014,7 +1026,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_data = sr[asset_button.asset_index]
                     if asset_data is None:
                         continue
-                      
+
 
                     # show indices for debug purposes
                     # asset_button.text = str(asset_button.asset_index)
