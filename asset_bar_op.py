@@ -811,7 +811,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.active_index = -1
 
-        self.check_new_search_results()
+        self.check_new_search_results(context)
         self.setup_widgets(context, event)
         self.set_element_images()
         self.position_and_hide_buttons()
