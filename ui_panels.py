@@ -683,7 +683,7 @@ class UpvoteComment(bpy.types.Operator):
         return {'FINISHED'}
 
 class SetPrivateComment(bpy.types.Operator):
-    """Up or downvote comment"""
+    """Set comment private or public"""
     bl_idname = "wm.blenderkit_is_private_comment"
     bl_label = "BlenderKit set comment or thread private or public"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
