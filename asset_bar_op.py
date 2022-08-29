@@ -317,6 +317,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(dark_panel)
 
         name_label = self.new_text('', self.margin, labels_start + self.margin,
+                                   height=self.asset_name_text_size,
                                    text_size=self.asset_name_text_size)
         self.asset_name = name_label
         self.tooltip_widgets.append(name_label)
@@ -325,8 +326,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         authors_name = self.new_text('author',
                                      self.tooltip_width - self.gravatar_size - self.margin,
-                                     self.tooltip_height - int(-1.5*self.author_text_size - self.margin),
+                                     self.tooltip_height - self.author_text_size - self.margin,
                                      labels_start,
+                                     height = self.author_text_size,
                                      text_size=self.author_text_size, halign='RIGHT')
         self.authors_name = authors_name
         self.tooltip_widgets.append(authors_name)
@@ -351,6 +353,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(quality_star)
         quality_label = self.new_text('', 2 * self.margin + self.asset_name_text_size,
                               self.tooltip_height - int(self.asset_name_text_size + self.margin),
+                              height = self.asset_name_text_size,
                               text_size=self.asset_name_text_size)
         self.tooltip_widgets.append(quality_label)
         self.quality_label = quality_label
@@ -361,13 +364,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # this is shown only to users who don't know yet about the popup card.
             label = self.new_text('Right click for menu.', self.margin,
                                   self.tooltip_height + self.margin,
-                                  text_size=int(self.author_text_size))
+                                  height = self.author_text_size,
+                                  text_size=self.author_text_size)
             self.tooltip_widgets.append(label)
             offset += 1
         # version warning
         version_warning = self.new_text('', self.margin,
                                         self.tooltip_height + self.margin + int(self.author_text_size * offset),
-                                        text_size=int(self.author_text_size))
+                                        height = self.author_text_size,
+                                        text_size=self.author_text_size)
         version_warning.text_color = self.warning_color
         self.tooltip_widgets.append(version_warning)
         self.version_warning = version_warning
@@ -440,11 +445,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         ui_scale = bpy.context.preferences.view.ui_scale
 
-        self.margin = int(ui_props.bl_rna.properties['margin'].default * ui_scale)
+        # self.margin = int(ui_props.bl_rna.properties['margin'].default * ui_scale)
         self.margin = int(9 * ui_scale)
         self.button_margin = int(0 * ui_scale)
         self.asset_name_text_size = int(20 * ui_scale)
-        self.author_text_size = int(self.asset_name_text_size * .8 * ui_scale)
+        self.author_text_size = int(self.asset_name_text_size * .8)
         self.assetbar_margin = int(2 * ui_scale)
         self.tooltip_size = int(512 * ui_scale)
 
