@@ -354,7 +354,6 @@ class BlenderKitUIProps(PropertyGroup):
         default=None,
         update=switch_search_results
     )
-    #TODO: HOW TO UPDATE IN REAL TIME? NOW IT NEEDS MOUSE CLICK OR MOUSE OVER SEARCH BAR/DIFFERENT BLENDER MENUS
     logo_status: StringProperty(name='', default='logo_offline')
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
@@ -2073,9 +2072,6 @@ def register():
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if user_preferences.use_timers:
         bpy.app.timers.register(timer.check_timers_timer, persistent=True)
-
-    if not bpy.app.background:
-        daemon_lib.start_daemon_server()
 
     bpy.app.handlers.load_post.append(scene_load)
     # detect if the user just enabled the addon in preferences, thus enable to run

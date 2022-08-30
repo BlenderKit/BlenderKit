@@ -201,8 +201,7 @@ def start_daemon_server():
     raise(e)
 
   if python_check.returncode == 0:
-    #reports.add_report(f'Daemon server starting on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}', 5, colors.GREEN)
-    pass # FOR SOME REASON, reports.add_report fails here, need to investigate
+    reports.add_report(f'Daemon server starting on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}', 5, colors.GREEN)
   else:
     reports.add_report(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
     reports.add_report(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.", 5, colors.RED)
