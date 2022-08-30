@@ -48,12 +48,14 @@ async def get_reports_async(app_id: str, queue):
 def get_reports(app_id: str):
   """Get reports for all tasks of app_id Blender instance at once."""
 
+  bk_logger.debug('Getting reports')
   address = get_address()
   with requests.Session() as session:
     url = address + "/report"
     data = {'app_id': app_id}
     try:
       resp = session.get(url, json=data)
+      bk_logger.debug('Got reports')
       return resp.json()
     except Exception as e:
       raise(e)
@@ -62,11 +64,13 @@ def get_reports(app_id: str):
 def search_asset(data):
   """Search for specified asset."""
 
+  bk_logger.debug('Starting search request')
   address = get_address()
   data['app_id'] = os.getpid()
   with requests.Session() as session:
     url = address + "/search_asset"
     resp = session.post(url, json=data)
+    bk_logger.debug('Got search response')
     return resp.json()
 
 

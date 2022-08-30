@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-import uuid
 
 import aiohttp
 import assets
@@ -57,6 +56,7 @@ async def parse_thumbnails(task: tasks.Task):
   # get thumbnails that need downloading
 
   for i, search_result in enumerate(task.result.get('results', [])):
+    # SMALL THUMBNAIL
     imgname = assets.extract_filename_from_url(search_result['thumbnailSmallUrl'])
     imgpath = os.path.join(task.data['tempdir'], imgname)
     data = {
@@ -67,15 +67,15 @@ async def parse_thumbnails(task: tasks.Task):
       "index": i
     }
 
-    thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
-    globals.tasks.append(thumb_task)
+    small_thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
+    globals.tasks.append(small_thumb_task)
 
-    if os.path.exists(thumb_task.data['image_path']):
-      thumb_task.finished("thumbnail on disk")
+    if os.path.exists(small_thumb_task.data['image_path']):
+      small_thumb_task.finished("thumbnail on disk")
     else:
-      small_thumbs_tasks.append(thumb_task)
+      small_thumbs_tasks.append(small_thumb_task)
 
-
+    # FULL THUMBNAIL
     if search_result["assetType"] == 'hdr':
       large_thumb_url = search_result['thumbnailLargeUrlNonsquared']
     else:
@@ -91,12 +91,12 @@ async def parse_thumbnails(task: tasks.Task):
       "index": i
     }
 
-    thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
-    globals.tasks.append(thumb_task)
-    if os.path.exists(thumb_task.data['image_path']):
-      thumb_task.finished("thumbnail on disk")
+    full_thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
+    globals.tasks.append(full_thumb_task)
+    if os.path.exists(full_thumb_task.data['image_path']):
+      full_thumb_task.finished("thumbnail on disk")
     else:
-      full_thumbs_tasks.append(thumb_task)
+      full_thumbs_tasks.append(full_thumb_task)
 
   return small_thumbs_tasks, full_thumbs_tasks
 
@@ -132,4 +132,3 @@ async def do_search(request: web.Request, data: dict, task_id: str):
     # thumbnails fetching
     await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks, block=True)
     await download_image_batch(request.app['SESSION_BIG_THUMBS'], full_thumbs_tasks)
-
