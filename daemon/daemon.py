@@ -110,7 +110,7 @@ async def report(request: web_request.Request):
     globals.active_apps.append(data['app_id'])
 
   reports = list()
-  for task in globals.tasks:
+  for task in reversed(globals.tasks): #reversed so removal doesn't skip items
     if task.app_id != data['app_id']:
       continue
 
@@ -123,6 +123,7 @@ async def report(request: web_request.Request):
 
   status_report = tasks.Task({}, data['app_id'], 'daemon_status', result= globals.servers_statuses)
   reports.append(status_report.to_seriazable_object())
+  reports.reverse()
 
   return web.json_response(reports)
 
@@ -214,10 +215,10 @@ async def persistent_sessions(app):
   conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16)
   app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs, trust_env=trust_env)
   
-  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=4)
+  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8)
   app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs, trust_env=trust_env)
 
-  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=2)
+  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=4)
   app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets, trust_env=trust_env)
 
   yield
