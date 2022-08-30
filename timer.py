@@ -26,7 +26,7 @@ bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
 pending_tasks = list() # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 ENABLE_ASYNC_LOOP = False
-
+first_run = True
 
 @bpy.app.handlers.persistent
 def daemon_communication_timer():
@@ -34,7 +34,13 @@ def daemon_communication_timer():
   This function is the only one responsible for keeping the daemon up and running.
   """
 
-  bk_logger.debug('daemon_communication_timer started')
+  global first_run
+  if first_run:
+    daemon_lib.start_daemon_server()
+    first_run = False
+    return 3
+  
+  bk_logger.debug('Getting tasks from daemon')
   global pending_tasks
 
   search.check_clipboard()
@@ -69,7 +75,7 @@ def daemon_communication_timer():
       wm.blenderkitUI.logo_status = "logo"
 
   results.extend(pending_tasks)
-  bk_logger.debug('daemon_communication_timer handling tasks')
+  bk_logger.debug('Handling tasks')
   pending_tasks.clear()
   for task in results:
     task = tasks.Task(
@@ -84,7 +90,7 @@ def daemon_communication_timer():
       )
     handle_task(task)
 
-  bk_logger.debug('daemon_communication_timer finished')
+  bk_logger.debug('Task handling finished')
   if len(download.download_tasks) > 0:
     return .2
   return .5
@@ -136,15 +142,19 @@ def handle_task(task: tasks.Task):
 
 
 def handle_daemon_status_task(task):
-  bk_server_status = task.result['https://www.blenderkit.com'] 
+  bk_server_status = task.result['https://www.blenderkit.com']
   if bk_server_status == 200:
     if global_vars.DAEMON_ONLINE == False:
       reports.add_report('Connected to blenderkit.com')
+      wm = bpy.context.window_manager
+      wm.blenderkitUI.logo_status = "logo"
       global_vars.DAEMON_ONLINE = True
     return
 
   if global_vars.DAEMON_ONLINE == True:
     reports.add_report('Disconnected from blenderkit.com', timeout=10, color=colors.RED)
+    wm = bpy.context.window_manager
+    wm.blenderkitUI.logo_status = "logo_offline"
     global_vars.DAEMON_ONLINE = False
 
 
@@ -196,7 +206,7 @@ def check_timers_timer():
   if not bpy.app.timers.is_registered(bg_blender.bg_update):
     bpy.app.timers.register(bg_blender.bg_update)
   if not bpy.app.timers.is_registered(daemon_communication_timer):
-    bpy.app.timers.register(daemon_communication_timer, persistent=True, first_interval=3)
+    bpy.app.timers.register(daemon_communication_timer, persistent=True)
   if not bpy.app.timers.is_registered(timer_image_cleanup):
     bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
   return 5.0

@@ -2808,7 +2808,6 @@ def header_search_draw(self, context):
     # layout.separator_spacer()
     layout = layout.row(align=True)
     layout.label(text='',icon_value=pcoll[ui_props.logo_status].icon_id)
-    #TODO: HOW TO DO THIS? #layout.operator('wm.logo_status', text='',icon_value=pcoll[wm.logo_status.logo].icon_id)
     # layout.separator()
     layout.prop(ui_props, "asset_type", expand=True, icon_only=True, text='', icon=asset_type_icon)
     layout.prop(props, "search_keywords", text="", icon='VIEWZOOM')
