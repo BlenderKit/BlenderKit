@@ -26,7 +26,7 @@ bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
 pending_tasks = list() # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 ENABLE_ASYNC_LOOP = False
-first_run = True
+start_count = 0
 
 @bpy.app.handlers.persistent
 def daemon_communication_timer():
@@ -34,15 +34,9 @@ def daemon_communication_timer():
   This function is the only one responsible for keeping the daemon up and running.
   """
 
-  global first_run
-  if first_run:
-    daemon_lib.start_daemon_server()
-    first_run = False
-    return 3
-  
-  bk_logger.debug('Getting tasks from daemon')
+  global start_count
   global pending_tasks
-
+  bk_logger.debug('Getting tasks from daemon')
   search.check_clipboard()
 
   app_id = os.getpid()
@@ -61,13 +55,19 @@ def daemon_communication_timer():
     wm = bpy.context.window_manager
     try:
       results = daemon_lib.get_reports(app_id)
-    except requests.exceptions.ConnectionError as e:
-      if global_vars.DAEMON_ACCESSIBLE == True:
-        reports.add_report('Daemon is not running, add-on will not work', 5, colors.RED)
-        global_vars.DAEMON_ACCESSIBLE = False
-        wm.blenderkitUI.logo_status = "logo_offline"
+    except Exception as e:
+      global_vars.DAEMON_ACCESSIBLE = False
+      
+      if start_count < 3:
+        start_count = start_count + 1
+        daemon_lib.start_daemon_server()
+        return start_count
+
+      reports.add_report('Daemon is not running, add-on will not work', 5, colors.RED)
+      bk_logger.warning(f'Could not get reports: {e}')
+      wm.blenderkitUI.logo_status = "logo_offline"
       daemon_lib.start_daemon_server()
-      return 5
+      return 30
 
     if global_vars.DAEMON_ACCESSIBLE != True:
       reports.add_report("Daemon is running!")
@@ -138,24 +138,7 @@ def handle_task(task: tasks.Task):
 
   #HANDLE DAEMON STATUS REPORT
   if task.task_type == "daemon_status":
-    handle_daemon_status_task(task)
-
-
-def handle_daemon_status_task(task):
-  bk_server_status = task.result['https://www.blenderkit.com']
-  if bk_server_status == 200:
-    if global_vars.DAEMON_ONLINE == False:
-      reports.add_report('Connected to blenderkit.com')
-      wm = bpy.context.window_manager
-      wm.blenderkitUI.logo_status = "logo"
-      global_vars.DAEMON_ONLINE = True
-    return
-
-  if global_vars.DAEMON_ONLINE == True:
-    reports.add_report('Disconnected from blenderkit.com', timeout=10, color=colors.RED)
-    wm = bpy.context.window_manager
-    wm.blenderkitUI.logo_status = "logo_offline"
-    global_vars.DAEMON_ONLINE = False
+    daemon_lib.handle_daemon_status_task(task)
 
 
 def setup_asyncio_executor():
