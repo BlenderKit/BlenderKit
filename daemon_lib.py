@@ -135,6 +135,23 @@ def kill_daemon_server():
     return resp
 
 
+def handle_daemon_status_task(task):
+  bk_server_status = task.result['https://www.blenderkit.com']
+  if bk_server_status == 200:
+    if global_vars.DAEMON_ONLINE == False:
+      reports.add_report('Connected to blenderkit.com')
+      wm = bpy.context.window_manager
+      wm.blenderkitUI.logo_status = "logo"
+      global_vars.DAEMON_ONLINE = True
+    return
+
+  if global_vars.DAEMON_ONLINE == True:
+    reports.add_report('Disconnected from blenderkit.com', timeout=10, color=colors.RED)
+    wm = bpy.context.window_manager
+    wm.blenderkitUI.logo_status = "logo_offline"
+    global_vars.DAEMON_ONLINE = False
+
+
 def start_daemon_server():
   """Start daemon server in separate process."""
 
@@ -201,7 +218,7 @@ def start_daemon_server():
     raise(e)
 
   if python_check.returncode == 0:
-    reports.add_report(f'Daemon server starting on address {get_address()}, PID: {daemon_process.pid}, log file located at: {log_path}', 5, colors.GREEN)
+    reports.add_report(f'Daemon server starting on address {get_address()}, log file for errors located at: {log_path}', 3, colors.GREEN)
   else:
     reports.add_report(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
     reports.add_report(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.", 5, colors.RED)

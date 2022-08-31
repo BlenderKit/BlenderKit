@@ -1164,6 +1164,10 @@ def search(category='', get_next=False, query = None, author_id=''):
   query : submit an already built query from search history
   '''
 
+  if global_vars.DAEMON_ACCESSIBLE != True:
+    reports.add_report('Cannot search, daemon is not accessible.', timeout = 2, color=colors.RED)
+    return
+
   # print(category,get_next,author_id)
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
@@ -1344,7 +1348,8 @@ def search_update(self, context):
       # return here since writing into search keywords triggers this update function once more.
       return
 
-  reports.add_report(f"Searching for: '{kwds}'", 2)
+  if global_vars.DAEMON_ACCESSIBLE:
+    reports.add_report(f"Searching for: '{kwds}'", 2)
   search()
 
 
