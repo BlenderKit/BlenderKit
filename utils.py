@@ -798,7 +798,7 @@ def automap(target_object=None, target_slot=None, tex_size=1, bg_exception=False
             if not just_scale:
                 #compensate for the undocumented operator change in blender 3.2
                 if bpy.app.version>=(3,2,0):
-                    cube_size = scale *  (tex_size)
+                    cube_size =   (tex_size) / scale
                 else:
                     cube_size = scale * 2.0 / (tex_size)# it's * 2.0 because blender can't tell size of a unit cube :)
 
