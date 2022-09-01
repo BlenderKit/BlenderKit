@@ -74,7 +74,6 @@ def check_errors(rdata):
 
 
 search_tasks = {}
-all_thumbs_loaded = True
 
 rtips_string = """You can disable tips in the add-on preferences.
 Ratings help us distribute funds to creators.
@@ -143,23 +142,6 @@ def update_assets_data():  # updates assets data on scene load.
         # bpy.context.scene['assets used'][ad] = ad
 
 
-# def purge_search_results():
-#     ''' clean up search results on save/load.'''
-#
-#     s = bpy.context.scene
-#
-#     sr_props = [
-#         'search results',
-#         'search results orig',
-#     ]
-#     asset_types = ['model', 'material', 'scene', 'hdr', 'brush']
-#     for at in asset_types:
-#         sr_props.append('bkit {at} search')
-#         sr_props.append('bkit {at} search orig')
-#     for sr_prop in sr_props:
-#         if s.get(sr_prop):
-#             del (s[sr_prop])
-
 @persistent
 def undo_post_reload_previews(context):
   load_previews()
@@ -180,7 +162,6 @@ def scene_load(context):
   Should (probably)also update asset data from server (after user consent)
   '''
   wm = bpy.context.window_manager
-  # purge_search_results()
   fetch_server_data()
   categories.load_categories()
   if not bpy.app.timers.is_registered(bkit_oauth.refresh_token_timer) and not bpy.app.background:
@@ -416,7 +397,6 @@ def handle_search_task(task: tasks.Task) -> bool:
     for r in global_vars.DATA[search_name]:
       result_field.append(r)
 
-  global all_thumbs_loaded
   ok, error = check_errors(task.result)
   if ok:
     ui_props = bpy.context.window_manager.blenderkitUI
@@ -426,7 +406,6 @@ def handle_search_task(task: tasks.Task) -> bool:
       asset_data = parse_result(r)
       if asset_data != None:
         result_field.append(asset_data)
-        # all_thumbs_loaded = all_thumbs_loaded and load_preview(asset_data, ri + orig_len)
 
     # Get ratings from BlenderKit server
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
@@ -470,14 +449,13 @@ def handle_search_task(task: tasks.Task) -> bool:
 
 
 # @bpy.app.handlers.persistent
-def search_timer():
+def startup_search_timer():
   # this makes a first search after opening blender. showing latest assets.
   # utils.p('timer search')
   # utils.p('start search timer')
   global first_time
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  if first_time and not bpy.app.background:  # first time
-
+  if first_time and not bpy.app.background and global_vars.DAEMON_ONLINE:  # first time
     first_time = False
     # bpy.ops.blenderkit.updater_install_popup(clean_install=False)
     addon_updater_ops.check_for_update_background()
@@ -490,28 +468,9 @@ def search_timer():
       utils.get_largest_area()
       ui.update_ui_size(ui.active_area_pointer, ui.active_region_pointer)
       reports.add_report(text='BlenderKit Tip: ' + random.choice(rtips), timeout=12, color=colors.GREEN)
-    # utils.p('end search timer')
-  loaded_this_round = 0
-  '''
-  global all_thumbs_loaded
-  if not all_thumbs_loaded:
-    ui_props = bpy.context.window_manager.blenderkitUI
-    search_name = f'bkit {ui_props.asset_type.lower()} search'
-    wm = bpy.context.window_manager
-    if global_vars.DATA.get(search_name) is not None:
-      all_loaded = True
-      for ri, r in enumerate(global_vars.DATA[search_name]):
-        if not r.get('thumb_small_loaded'):
-          preview_loaded = load_preview(r)
-          all_loaded = all_loaded and preview_loaded
-          if preview_loaded:
-            loaded_this_round += 1
-            if loaded_this_round >=3:
-              return .1
-      all_thumbs_loaded = all_loaded
-  if not all_thumbs_loaded:
-    return .1
-  '''
+    #this only should run once
+    return
+
   return .5
 
 
@@ -1061,7 +1020,7 @@ def build_query_brush():
 
 
 def add_search_process(query, params):
-  global search_tasks, all_thumbs_loaded
+  global search_tasks
 
   if len(search_tasks) > 0:
     # just remove all running search tasks.
@@ -1077,8 +1036,6 @@ def add_search_process(query, params):
     urlquery = params['next']
   else:
     urlquery = query_to_url(query, params)
-
-  all_thumbs_loaded = False
 
   data = {
     'PREFS': utils.get_prefs_dir(),
@@ -1233,8 +1190,14 @@ def search(category='', get_next=False, query = None, author_id=''):
       profile = global_vars.DATA.get('bkit profile')
       if profile is not None:
         query['author_id'] = str(profile['user']['id'])
-    #write to search history and check history length
-    global_vars.DATA['search history'].append(query)
+
+    if not get_next:
+      #write to search history and check history length
+      if len(global_vars.DATA['search history'])>0 and global_vars.DATA['search history'][-1] == query:
+        # don't send same query again, when user clicks multiple times and waits e.t.c.
+        return
+
+      global_vars.DATA['search history'].append(query)
   # utils.p('searching')
   props.is_searching = True
 
@@ -1492,7 +1455,7 @@ def register_search():
 
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
   if user_preferences.use_timers and not bpy.app.background:
-    bpy.app.timers.register(search_timer)
+    bpy.app.timers.register(startup_search_timer)
 
   categories.load_categories()
 

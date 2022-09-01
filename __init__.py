@@ -1970,15 +1970,6 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         addon_updater_ops.update_settings_ui(self, context)
 
 
-# # @bpy.app.handlers.persistent
-# def blenderkit_timer():
-#
-#
-# if not user_preferences.use_timers:
-#     search.search_timer()
-#     download.download_timer()
-#     tasks_queue.queue_worker()
-#     bg_blender.bg_update()
 # registration
 classes = (
     BlenderKitUIProps,

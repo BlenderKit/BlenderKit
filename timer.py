@@ -180,8 +180,8 @@ def check_timers_timer():
     setup_asyncio_executor()
   
 
-  if not bpy.app.timers.is_registered(search.search_timer):
-    bpy.app.timers.register(search.search_timer)
+  if not bpy.app.timers.is_registered(search.startup_search_timer):
+    bpy.app.timers.register(search.startup_search_timer)
   if not bpy.app.timers.is_registered(download.download_timer):
     bpy.app.timers.register(download.download_timer)
   if not bpy.app.timers.is_registered(tasks_queue.queue_worker):
@@ -206,8 +206,8 @@ def unregister_timers():
 
   if bpy.app.timers.is_registered(check_timers_timer):
     bpy.app.timers.unregister(check_timers_timer)
-  if bpy.app.timers.is_registered(search.search_timer):
-    bpy.app.timers.unregister(search.search_timer)
+  if bpy.app.timers.is_registered(search.startup_search_timer):
+    bpy.app.timers.unregister(search.startup_search_timer)
   if bpy.app.timers.is_registered(download.download_timer):
     bpy.app.timers.unregister(download.download_timer)
   if bpy.app.timers.is_registered(tasks_queue.queue_worker):
