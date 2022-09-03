@@ -482,7 +482,6 @@ class BlenderKitCommonSearchProps:
                            default=False, update=search.search_update)
     use_filters: BoolProperty(name="Filters are on", description="some filters are used",
                               default=False)
-    search_error: BoolProperty(name="Search Error", description="last search had an error", default=False)
     report: StringProperty(
         name="Report",
         description="errors and messages",
