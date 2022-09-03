@@ -64,10 +64,8 @@ def check_errors(rdata):
   if rdata.get('statusCode') and int(rdata.get('statusCode')) > 299:
     utils.p(rdata)
     if rdata.get('detail') == 'Invalid token.':
-      user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-      if user_preferences.api_key != '':
-        return False, rdata.get('detail')
-      return False, 'Use login panel to connect your profile.'
+      bkit_oauth.logout()
+      return False, "Invalid token. You've been logged out. Use login panel to connect your profile."
     else:
       return False, rdata.get('detail')
   if rdata.get('statusCode') is None and rdata.get('results') is None:
@@ -451,7 +449,6 @@ def handle_search_task(task: tasks.Task) -> bool:
     if len(result_field) < ui_props.scroll_offset or not (task.data.get('get_next')):
       # jump back
       ui_props.scroll_offset = 0
-    props.search_error = False
     props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
     if len(global_vars.DATA['search results']) == 0:
       tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
@@ -464,9 +461,8 @@ def handle_search_task(task: tasks.Task) -> bool:
       bpy.ops.view3d.run_assetbar_fix_context()
 
   else:
-    bk_logger.error(error)
     props.report = error
-    props.search_error = True
+    reports.add_report(error, 15, colors.RED)
 
   if len(search_tasks) == 0:
     props.is_searching = False
