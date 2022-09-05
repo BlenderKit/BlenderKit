@@ -6,6 +6,7 @@ Creators also gain credits for free assets from subscribers.
 Click or drag model or material in scene to link/append 
 Right click in the asset bar for a detailed asset card
 Use Append in import settings if you want to edit downloaded objects. 
+Go to import settings to set default texture resolution. 
 Please rate responsively and plentifully. This helps us distribute rewards to the authors.
 All materials are free.
 Storage for public assets is unlimited.
@@ -15,8 +16,8 @@ Use 'A' key over the asset bar to search assets by the same author.
 Use semicolon - ; to hide or show the AssetBar.
 Support the authors by subscribing to Full plan.
 Use the W key over the asset bar to open the Author's webpage.
-Use the R key for fast rating of assets.
-Use the X key to delete the asset from your hard drive.
+Use the R key over the asset bar for fast rating of assets.
+Use the X key over the asset bar to delete the asset from your hard drive.
 """
 rtips = rtips_string.splitlines()
 
