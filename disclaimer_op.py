@@ -5,7 +5,12 @@ from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 
-from . import paths
+from . import colors, paths, reports, tasks_queue, tips, utils
+
+from bpy.props import (
+  IntProperty,
+  StringProperty,
+)
 
 
 class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
@@ -13,6 +18,24 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
   bl_label = "BlenderKit disclaimer"
   bl_description = "BlenderKit disclaimer"
   bl_options = {'REGISTER'}
+
+  message: StringProperty(
+    name="message",
+    description="message",
+    default="Welcome to BlenderKit!",
+    options={'SKIP_SAVE'})
+
+  url: StringProperty(
+    name="url",
+    description="ULR",
+    default="www.blenderkit.com",
+    options={'SKIP_SAVE'})
+
+  fadeout_time: IntProperty(name="Fadout time",
+                            description="after how many seconds do fadout",
+                            default=5,
+                            min=1, max=50,
+                            options={'SKIP_SAVE'})
 
   def cancel_press(self, widget):
     self.finish()
@@ -22,28 +45,29 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
   def __init__(self):
     super().__init__()
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    ui_scale = bpy.context.preferences.view.ui_scale
 
-    self.url = "www.blenderkit.com"
-    text = "It should be a rather long text box with the possibility of "
-    text_size = 14
-    margin = 10
-    area_margin = 50
+    text_size = int(14 * ui_scale)
+    margin = int(10 * ui_scale)
+    area_margin = int(50 * ui_scale)
     self.bg_color = (.127, .034, 1, 0.1)
     self.hover_bg_color = (.127, .034, 1, 1.0)
     self.text_color = (.9, .9, .9, 1)
-    pix_size = ui_bgl.get_text_size(font_id=1, text=text, text_size=text_size, dpi=bpy.context.preferences.system.dpi)
+    pix_size = ui_bgl.get_text_size(font_id=1, text=self.message, text_size=text_size,
+                                    dpi=int(bpy.context.preferences.system.dpi / ui_scale))
     self.height = pix_size[1] + 2 * margin
     self.button_size = int(self.height)
-    self.width = pix_size[0] + 2 * margin + 2* self.button_size #adding logo and cancel button to width
+    self.width = pix_size[0] + 2 * margin + 2 * self.button_size  # adding logo and cancel button to width
 
     a = bpy.context.area
     self.panel = BL_UI_Drag_Panel(area_margin, a.height - self.height - area_margin, self.width, self.height)
     self.panel.bg_color = (.2, .2, .2, .02)
 
-    self.logo = BL_UI_Image(0,0,self.height,self.height)
+    self.logo = BL_UI_Image(0, 0, self.button_size, self.button_size)
 
     self.label = BL_UI_Button(self.button_size, 0, pix_size[0] + 2 * margin, self.height)
-    self.label.text = text
+    self.label.text = self.message
     self.label.text_size = text_size
     self.label.text_color = self.text_color
 
@@ -59,16 +83,14 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     self.button_close.text = ""
     self.button_close.set_mouse_down(self.cancel_press)
 
-
-
   def on_invoke(self, context, event):
     # Add new widgets here (TODO: perhaps a better, more automated solution?)
-    widgets_panel = [self.label, self.button_close, self.logo ]
+    widgets_panel = [self.label, self.button_close, self.logo]
     widgets = [self.panel]
 
     widgets += widgets_panel
 
-    #assign image to the cancel button
+    # assign image to the cancel button
     img_fp = paths.get_addon_thumbnail_path('vs_rejected.png')
     img_size = int(self.button_size / 2)
     img_pos = int(img_size / 2)
@@ -79,7 +101,9 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
     img_fp = paths.get_addon_thumbnail_path('blenderkit_logo.png')
     self.logo.set_image(img_fp)
-    self.logo.set_image_size((self.button_size,self.button_size))
+    self.logo.set_image_size((img_size, img_size))
+    self.logo.set_image_position((img_pos, img_pos))
+
     # self.logo.set_image_position(0,0)
 
     self.init_widgets(context, widgets)
@@ -105,8 +129,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
       self.finish()
 
     if event.type == 'TIMER':
-      self.counter+=1
-      if self.counter > 20:
+      self.counter += 1
+      if self.counter > self.fadeout_time * 10:
         self.fadeout()
 
     return {"PASS_THROUGH"}
@@ -143,6 +167,28 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
   # Button press handlers
   def button1_press(self, widget):
     print("Button '{0}' is pressed".format(widget.text))
+
+
+def run_disclaimer_task(message="testing", url="www.blenderkit.com"):
+  fc = utils.get_fake_context(bpy.context)
+  bpy.ops.view3d.blenderkit_disclaimer_widget(fc, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=10)
+
+
+def handle_disclaimer_task(task):
+  if task.status == "finished":
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+
+    if len(task.result["results"]) > 0 and user_preferences.show_disclaimers:
+      # show the disclaimer
+      d = task.result["results"][0]
+      tasks_queue.add_task((run_disclaimer_task, (d["message"], d["url"])), wait=5)
+
+    elif user_preferences.tips_on_start:
+      # serve a random tip instaed
+      tasks_queue.add_task((run_disclaimer_task, (tips.get_random_tip(), "www.blenderkit.com")), wait=5)
+
+  elif task.status == "error":
+    tasks_queue.add_task((reports.add_report, (task.message, 5, colors.RED)))
 
 
 def register():

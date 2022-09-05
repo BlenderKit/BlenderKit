@@ -12,6 +12,7 @@ from ssl import Purpose
 import aiohttp
 import assets
 import certifi
+import disclaimer
 import globals
 import oauth
 import tasks
@@ -82,6 +83,11 @@ async def consumer_exchange(request: web_request.Request):
 
 async def refresh_token(request: web_request.Request):
   asyncio.ensure_future(oauth.refresh_tokens(request))
+  return web.Response(text="ok")
+
+
+async def get_disclaimer(request: web_request.Request):
+  asyncio.ensure_future(disclaimer.get_disclaimer(request))
   return web.Response(text="ok")
 
 
@@ -264,6 +270,7 @@ if __name__ == "__main__":
     web.view('/report_blender_quit', report_blender_quit),
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
+    web.get('/disclaimer', get_disclaimer),
   ])
 
   server.on_startup.append(start_background_tasks)

@@ -94,6 +94,15 @@ def kill_download(task_id):
     resp = session.get(url, json={'task_id':task_id})
     return resp
 
+def get_disclaimer():
+  """Get disclaimer from server."""
+
+  address = get_address()
+  with requests.Session() as session:
+    url = address + "/disclaimer"
+    data = {'app_id': os.getpid()}
+    resp = session.get(url, json=data)
+    return resp
 
 def refresh_token(refresh_token):
   """Refresh authentication token."""
