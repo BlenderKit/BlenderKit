@@ -171,7 +171,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
 def run_disclaimer_task(message="testing", url="www.blenderkit.com"):
   fc = utils.get_fake_context(bpy.context)
-  bpy.ops.view3d.blenderkit_disclaimer_widget(fc, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=10)
+  bpy.ops.view3d.blenderkit_disclaimer_widget(fc, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=8)
 
 
 def handle_disclaimer_task(task):
