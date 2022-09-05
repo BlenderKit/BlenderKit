@@ -140,6 +140,9 @@ def handle_task(task: tasks.Task):
   if task.task_type == "daemon_status":
     daemon_lib.handle_daemon_status_task(task)
 
+  #HANDLE DISCLAIMER
+  if task.task_type == "disclaimer":
+    disclaimer_op.handle_disclaimer_task(task)
 
 def setup_asyncio_executor():
   """Set up AsyncIO to run properly on each platform."""

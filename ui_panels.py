@@ -38,6 +38,7 @@ from . import (
     ratings,
     ratings_utils,
     search,
+    tips,
     ui,
     upload,
     utils,
@@ -2488,8 +2489,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash'])
 
         bl_label = asset_data['name']
-        self.tip = search.get_random_tip()
-        self.tip = self.tip.replace('\n', '')
+        self.tip = f"Tip:{tips.get_random_tip()}"
 
         if utils.user_logged_in():
             ratings_utils.ensure_rating(self.asset_id)
