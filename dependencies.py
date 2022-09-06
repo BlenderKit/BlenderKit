@@ -16,12 +16,14 @@ def add_fallback():
   makedirs(dependencies_path, exist_ok=True)
   sys.path.insert(0, dependencies_path)
 
+
 def get_fallback_path():
   """Get path to fallback dependencies directory. Here addon will install external modules if needed. Located at dependencies/Fallback."""
 
   directory = "dependencies/Fallback"
   fallback_path = path.join(path.dirname(__file__), directory)
   return path.abspath(fallback_path)
+
 
 def add_vendored():
   """Add vendored modules directory into PATH. It contains pre-installed dependency modules. Located at dependencies/Windows, dependencies/Darwin or dependencies/Linux."""
@@ -30,12 +32,20 @@ def add_vendored():
   makedirs(vendored_path, exist_ok=True)
   sys.path.insert(0, vendored_path)
 
+
 def get_vendored_path() -> str:
   """Get path to pre-installed modules for current platform: dependencies/Windows, dependencies/Darwin or dependencies/Linux."""
 
   directory = f"dependencies/{platform.system()}"
   vendor_path = path.join(path.dirname(__file__), directory)
   return path.abspath(vendor_path)
+
+
+def get_dependencies_path() -> str:
+  """Get path to dependencies directory which holds dependencies for Windows, Darwin, Linux and Fallback dependencies."""
+  vendor_path = path.join(path.dirname(__file__), "dependencies")
+  return path.abspath(vendor_path)
+
 
 def ensure_deps():
   """Make sure that dependencies which need installation are available. Install dependencies if needed."""
@@ -50,6 +60,7 @@ def ensure_deps():
       return
     except:
       install_dependencies()
+
 
 def install_dependencies():
   """Install pip and install dependencies."""

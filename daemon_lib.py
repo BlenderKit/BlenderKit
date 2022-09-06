@@ -161,6 +161,30 @@ def handle_daemon_status_task(task):
     global_vars.DAEMON_ONLINE = False
 
 
+def check_daemon_exit_code() -> tuple[int, str]:
+  """Checks the exit code of daemon process. Returns exit_code and its message.
+  Function polls the process which should not block, but better run only when daemon misbehaves and is expected that it already exited.
+  """
+
+  exit_code = global_vars.daemon_process.poll()
+  if exit_code == None:
+    return exit_code, "Daemon process is running."
+  
+  #exit_code = global_vars.daemon_process.returncode
+  if exit_code == 101:
+    message = f'Failed to import AIOHTTP. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
+  elif exit_code == 102:
+    message = f'Failed to import CERTIFI. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
+  elif exit_code == 113:
+    message = 'OSError: [Errno 10013] - cannot open port. Please check your antivirus or firewall and unblock blenderkit and/or daemon.py script.'
+  else:
+    log_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
+    log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
+    message = f'Unknown problem. Please report a bug and paste content of log {log_path}'
+
+  return exit_code, message
+
+
 def start_daemon_server():
   """Start daemon server in separate process."""
 
@@ -194,7 +218,7 @@ def start_daemon_server():
 
   try:
     with open(log_path, "wb") as log:
-      daemon_process = subprocess.Popen(
+      global_vars.daemon_process = subprocess.Popen(
         args = [
           sys.executable,
           "-u", daemon_path,
@@ -230,5 +254,5 @@ def start_daemon_server():
   if python_check.returncode == 0:
     reports.add_report(f'Daemon server starting on address {get_address()}, log file for errors located at: {log_path}', 3, colors.GREEN)
   else:
-    reports.add_report(f'Tried to start daemon server on address {get_address()}, PID: {daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
-    reports.add_report(f"Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.", 5, colors.RED)
+    reports.add_report(f'Tried to start daemon server on address {get_address()}, PID: {global_vars.daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
+    reports.add_report(f'Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.', 5, colors.RED)
