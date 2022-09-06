@@ -1,4 +1,6 @@
-"""Main module (starting point) for daemon server. From here all other modules are imported."""
+"""Main module (starting point) for daemon server. From here all other modules are imported.
+Uses exit codes to signal different error types. Their meaning is defined and handled at daemon_lib.check_daemon_exit_code().
+"""
 
 import argparse
 import asyncio
@@ -9,19 +11,30 @@ import time
 import uuid
 from ssl import Purpose
 
-import aiohttp
+
+logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [%(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
+
+try:
+  import aiohttp
+  from aiohttp import web, web_request
+except Exception as e:
+  logging.ERROR(f'{e}')
+  exit(101)
+
+try:
+  import certifi
+except Exception as e:
+  logging.ERROR(f'{e}')
+  exit(102)
+
 import assets
-import certifi
 import disclaimer
 import globals
 import oauth
 import tasks
-from aiohttp import web, web_request
 
 import search
 
-
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [%(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
 
 async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
@@ -278,4 +291,17 @@ if __name__ == '__main__':
 
   server.on_startup.append(start_background_tasks)
   server.on_cleanup.append(cleanup_background_tasks)
-  web.run_app(server, host='127.0.0.1', port=args.port)
+
+  try:
+    web.run_app(server, host='127.0.0.1', port=args.port)
+  except OSError as e:
+    # [Errno 10013] error while attempting to bind on address ('[host IP]', [port?]): An attempt was made to access a socket in a way forbidden by its access permissions
+    if e.errno == 10013:
+      logging.ERROR(f'Antivirus blocked Daemon: {e}')
+      exit(113)
+    else:
+      logging.ERROR(f'Daemon start blocked by error: {e}')
+      exit(100)
+  except Exception as e:
+    logging.ERROR(f'Daemon start blocked by error: {e}')
+    exit(100)

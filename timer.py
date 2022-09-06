@@ -64,7 +64,12 @@ def daemon_communication_timer():
         daemon_lib.start_daemon_server()
         return start_count
 
-      reports.add_report('Daemon is not running, add-on will not work', 5, colors.RED)
+      return_code, meaning = daemon_lib.check_daemon_exit_code()
+      if return_code == None:
+        reports.add_report(f'Daemon is not responding, add-on will not work.', 10, colors.RED)  
+      else:
+        reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, colors.RED)
+
       bk_logger.warning(f'Could not get reports: {e}')
       wm.blenderkitUI.logo_status = "logo_offline"
       daemon_lib.start_daemon_server()
