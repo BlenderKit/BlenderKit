@@ -1,11 +1,12 @@
 import bpy
+import random
 
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 
-from . import colors, paths, reports, tasks_queue, tips, utils
+from . import colors, global_vars, paths, reports, tasks_queue, utils
 
 from bpy.props import (
   IntProperty,
@@ -185,7 +186,8 @@ def handle_disclaimer_task(task):
 
     elif user_preferences.tips_on_start:
       # serve a random tip instaed
-      tasks_queue.add_task((run_disclaimer_task, (tips.get_random_tip(), "www.blenderkit.com")), wait=5)
+      tip = random.choice(global_vars.TIPS)
+      tasks_queue.add_task((run_disclaimer_task, (tip, "www.blenderkit.com")), wait=5)
 
   elif task.status == "error":
     tasks_queue.add_task((reports.add_report, (task.message, 5, colors.RED)))
