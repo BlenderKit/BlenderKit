@@ -441,7 +441,6 @@ def startup_search_timer():
     first_time = False
     # bpy.ops.blenderkit.updater_install_popup(clean_install=False)
     addon_updater_ops.check_for_update_background()
-    tasks_queue.add_task((bpy.ops.view3d.blenderkit_disclaimer_widget, ('INVOKE_DEFAULT',)), fake_context=True, wait = 5)
 
     if preferences.show_on_start:
       # TODO here it should check if there are some results, and only open assetbar if this is the case, not search.

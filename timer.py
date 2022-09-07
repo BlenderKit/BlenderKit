@@ -12,6 +12,7 @@ from . import (
     bkit_oauth,
     colors,
     daemon_lib,
+    disclaimer_op,
     download,
     global_vars,
     reports,
@@ -94,6 +95,7 @@ def daemon_communication_timer():
     return .2
   return .5
 
+
 @bpy.app.handlers.persistent
 def timer_image_cleanup():
   imgs = bpy.data.images[:]
@@ -174,16 +176,10 @@ def kick_async_loop(*args) -> bool:
 @bpy.app.handlers.persistent
 def check_timers_timer():
   """Checks if all timers are registered regularly. Prevents possible bugs from stopping the addon."""
-  
-  if bpy.app.background:
-    return
 
   if ENABLE_ASYNC_LOOP:
     setup_asyncio_executor()
   
-
-  if not bpy.app.timers.is_registered(search.startup_search_timer):
-    bpy.app.timers.register(search.startup_search_timer)
   if not bpy.app.timers.is_registered(download.download_timer):
     bpy.app.timers.register(download.download_timer)
   if not bpy.app.timers.is_registered(tasks_queue.queue_worker):
@@ -195,6 +191,20 @@ def check_timers_timer():
   if not bpy.app.timers.is_registered(timer_image_cleanup):
     bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
   return 5.0
+
+
+def register_timers():
+  """Registers all timers. 
+  It registers check_timers_timer which registers all other periodic non-ending timers.
+  And individually it register all timers which are expected to end.
+  """
+
+  if bpy.app.background:
+    return
+
+  bpy.app.timers.register(check_timers_timer, persistent=True) # registers all other non-ending timers
+  bpy.app.timers.register(disclaimer_op.show_disclaimer_timer, first_interval=1)
+  bpy.app.timers.register(search.startup_search_timer, first_interval=1)
 
 
 def unregister_timers():
@@ -216,7 +226,9 @@ def unregister_timers():
     bpy.app.timers.unregister(tasks_queue.queue_worker)
   if bpy.app.timers.is_registered(bg_blender.bg_update):
     bpy.app.timers.unregister(bg_blender.bg_update)
-  if bpy.app.timers.is_registered(timer_image_cleanup):
-    bpy.app.timers.unregister(timer_image_cleanup)
+  if bpy.app.timers.is_registered(disclaimer_op.show_disclaimer_timer):
+    bpy.app.timers.unregister(disclaimer_op.show_disclaimer_timer)
   if bpy.app.timers.is_registered(daemon_communication_timer):
     bpy.app.timers.unregister(daemon_communication_timer)
+  if bpy.app.timers.is_registered(timer_image_cleanup):
+    bpy.app.timers.unregister(timer_image_cleanup)

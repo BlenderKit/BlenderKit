@@ -3,12 +3,14 @@ import random
 import bpy
 from bpy.props import IntProperty, StringProperty
 
-from . import colors, global_vars, paths, reports, tasks_queue, utils
+from . import colors, daemon_lib, global_vars, paths, tasks_queue, reports, utils
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 
+
+disclaimer_counter = 0 
 
 class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
   bl_idname = "view3d.blenderkit_disclaimer_widget"
@@ -172,21 +174,22 @@ def run_disclaimer_task(message="testing", url="www.blenderkit.com"):
 
 
 def handle_disclaimer_task(task):
-  if task.status == "finished":
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  if task.status == 'finished':
+    if task.result == None:
+      show_random_tip()
+      return
+    d = task.result['results'][0]
+    tasks_queue.add_task((run_disclaimer_task, (d['message'], d['url'])), wait=5)
+    return
 
-    if len(task.result["results"]) > 0 and user_preferences.show_disclaimers:
-      # show the disclaimer
-      d = task.result["results"][0]
-      tasks_queue.add_task((run_disclaimer_task, (d["message"], d["url"])), wait=5)
+  if task.status == 'error':
+    reports.add_report(f'Error downloading disclaimer info: {task.message}', 2, colors.RED)
+    show_random_tip()
 
-    elif user_preferences.tips_on_start:
-      # serve a random tip instaed
-      tip = random.choice(global_vars.TIPS)
-      tasks_queue.add_task((run_disclaimer_task, (tip, "www.blenderkit.com")), wait=5)
 
-  elif task.status == "error":
-    tasks_queue.add_task((reports.add_report, (task.message, 5, colors.RED)))
+def show_random_tip():
+  tip = random.choice(global_vars.TIPS)
+  tasks_queue.add_task((run_disclaimer_task, (tip, "www.blenderkit.com")), wait=5)
 
 
 def register():
@@ -195,3 +198,23 @@ def register():
 
 def unregister():
   bpy.utils.unregister_class(BlenderKitDisclaimerOperator)
+
+
+@bpy.app.handlers.persistent
+def show_disclaimer_timer():
+  """Timer responsible for showing the tip disclaimer after the startup once.
+  It waits for daemon to be online, then prompts daemon to get the disclaimers and ends.
+  If daemon does not go online in few seconds, it shows the tips instead and ends.
+  """
+
+  global disclaimer_counter
+  if global_vars.DAEMON_ONLINE == True:
+    daemon_lib.get_disclaimer()
+    return
+
+  if disclaimer_counter > 2:
+    show_random_tip()
+    return
+
+  disclaimer_counter = disclaimer_counter + 1
+  return disclaimer_counter

@@ -1,4 +1,4 @@
-"""Holds functionality for search and thumbnail fetching."""
+"""Holds functionality for getting disclaimers."""
 
 
 import uuid
@@ -15,7 +15,7 @@ async def get_disclaimer(request: web.Request):
 
   data = await request.json()
   app_id = data['app_id']
-  task = tasks.Task(data, str(uuid.uuid4()), app_id, 'disclaimer', message='Getting disclaimer')
+  task = tasks.Task(data, app_id, 'disclaimer', str(uuid.uuid4()), message='Getting disclaimer')
   globals.tasks.append(task)
 
   session = request.app['SESSION_API_REQUESTS']
@@ -23,12 +23,9 @@ async def get_disclaimer(request: web.Request):
     await resp.text()
     response = await resp.json()
     if len(response["results"])>0:
-
+      task.result = response
       task.finished('Disclaimer retrieved')
-      task.result = response
-    else:
-      #remove the task and don't report to Blender, not needed
-      task.finished('Disclaimer not retrieved, serve a tip to user')
-      task.result = response
+      return
 
-
+    task.result = None
+    task.finished('Disclaimer not retrieved, serve a tip to user')

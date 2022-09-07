@@ -99,7 +99,7 @@ def get_disclaimer():
 
   address = get_address()
   with requests.Session() as session:
-    url = address + "/disclaimer"
+    url = address + "/get_disclaimer"
     data = {'app_id': os.getpid()}
     resp = session.get(url, json=data)
     return resp
