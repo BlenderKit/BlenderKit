@@ -3,8 +3,8 @@ import os
 import platform
 import subprocess
 import sys
-import time
 from os import environ, path
+from urllib.parse import urlparse
 
 import aiohttp
 import bpy
@@ -145,17 +145,17 @@ def kill_daemon_server():
 
 
 def handle_daemon_status_task(task):
-  bk_server_status = task.result['https://www.blenderkit.com']
+  bk_server_status = task.result[global_vars.SERVER]
   if bk_server_status == 200:
     if global_vars.DAEMON_ONLINE == False:
-      reports.add_report('Connected to blenderkit.com')
+      reports.add_report(f'Connected to {urlparse(global_vars.SERVER).netloc}')
       wm = bpy.context.window_manager
       wm.blenderkitUI.logo_status = "logo"
       global_vars.DAEMON_ONLINE = True
     return
 
   if global_vars.DAEMON_ONLINE == True:
-    reports.add_report('Disconnected from blenderkit.com', timeout=10, color=colors.RED)
+    reports.add_report(f'Disconnected from {urlparse(global_vars.SERVER).netloc}', timeout=10, color=colors.RED)
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
     global_vars.DAEMON_ONLINE = False
@@ -199,6 +199,7 @@ def start_daemon_server():
           sys.executable,
           "-u", daemon_path,
           "--port", get_port(),
+          "--server", global_vars.SERVER,
           "--proxy-which", global_vars.PREFS.get('proxy_which'),
           "--proxy-address", global_vars.PREFS.get('proxy_address'),
           "--proxy-ca-certs", global_vars.PREFS.get('proxy_ca_certs'),

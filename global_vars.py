@@ -2,6 +2,8 @@ import collections
 import logging
 
 
+DAEMON_ACCESSIBLE = False
+DAEMON_ONLINE = False
 DATA = {
   'images available': {} ,
   'search history': collections.deque(maxlen=20),
@@ -9,10 +11,7 @@ DATA = {
 LOGGING_LEVEL_BLENDERKIT = logging.INFO
 LOGGING_LEVEL_IMPORTED = logging.WARN
 PREFS = {}
-
-DAEMON_ACCESSIBLE = False
-DAEMON_ONLINE = False
-
+SERVER = 'https://www.blenderkit.com'
 TIPS = [
   'You can disable tips in the add-on preferences.',
   'Ratings help us distribute funds to creators.',

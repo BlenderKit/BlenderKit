@@ -1,17 +1,13 @@
-import bpy
 import random
 
+import bpy
+from bpy.props import IntProperty, StringProperty
+
+from . import colors, global_vars, paths, reports, tasks_queue, utils
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
-
-from . import colors, global_vars, paths, reports, tasks_queue, utils
-
-from bpy.props import (
-  IntProperty,
-  StringProperty,
-)
 
 
 class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):

@@ -452,7 +452,6 @@ def startup_search_timer():
     if preferences.tips_on_start:
       utils.get_largest_area()
       ui.update_ui_size(ui.active_area_pointer, ui.active_region_pointer)
-      reports.add_report(text='BlenderKit Tip: ' + random.choice(global_vars.TIPS), timeout=12, color=colors.GREEN)
     #this only should run once
     return
 

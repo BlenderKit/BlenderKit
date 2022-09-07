@@ -1,21 +1,17 @@
 """Holds functionality for search and thumbnail fetching."""
 
-import asyncio
 
-import aiohttp
+import uuid
+
 import globals
 import tasks
-import uuid
 from aiohttp import web
-
-import utils
 
 
 async def get_disclaimer(request: web.Request):
   """
-  Gets disclaimer from the server
+  Gets disclaimer from the server.
   """
-  server_url = 'www.blenderkit.com'
 
   data = await request.json()
   app_id = data['app_id']
@@ -23,7 +19,7 @@ async def get_disclaimer(request: web.Request):
   globals.tasks.append(task)
 
   session = request.app['SESSION_API_REQUESTS']
-  async with session.get(f"https://{server_url}/api/v1/disclaimer/active/") as resp:
+  async with session.get(f'{globals.SERVER}/api/v1/disclaimer/active/') as resp:
     await resp.text()
     response = await resp.json()
     if len(response["results"])>0:
