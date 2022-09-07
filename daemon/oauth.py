@@ -9,7 +9,6 @@ from aiohttp import client_exceptions, web
 
 
 async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str]:
-  server_url = "https://www.blenderkit.com"
   data = {
     "grant_type": grant_type,
     "state": "random_state_string",
@@ -25,7 +24,7 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
 
   session = request.app['SESSION_API_REQUESTS']
   try:
-    async with session.post(f"{server_url}/o/token/", data = data) as response:
+    async with session.post(f"{globals.SERVER}/o/token/", data = data) as response:
       await response.text()
 
       if response.status != 200:

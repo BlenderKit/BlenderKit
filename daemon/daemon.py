@@ -60,7 +60,7 @@ async def index(request: web_request.Request):
 
 async def consumer_exchange(request: web_request.Request):
   auth_code = request.rel_url.query.get('code', None)
-  redirect_url = "https://www.blenderkit.com/oauth-landing/" #this needs to switch between devel/stage/production
+  redirect_url = f'{globals.SERVER}/oauth-landing/'
 
   if auth_code == None:
     return web.Response(text="Authorization Failed. Authorization code was not provided.")
@@ -245,14 +245,19 @@ async def persistent_sessions(app):
 
 ## MAIN 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('--port', type=str, default="10753")
-  parser.add_argument('--proxy-which', type=str, default="SYSTEM")
-  parser.add_argument('--proxy-address', type=str, default="")
-  parser.add_argument('--proxy-ca-certs', type=str, default="")
+  parser.add_argument('--port', type=str, default='10753')
+  parser.add_argument('--server', type=str, default='https://www.blenderkit.com')
+  parser.add_argument('--proxy-which', type=str, default='SYSTEM')
+  parser.add_argument('--proxy-address', type=str, default='')
+  parser.add_argument('--proxy-ca-certs', type=str, default='')
   args = parser.parse_args()
   globals.PORT = args.port
+  globals.SERVER = args.server
+  globals.servers_statuses[args.server] = None
+
+  print(globals.servers_statuses)
 
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which

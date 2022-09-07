@@ -6,7 +6,6 @@ import queue
 import sys
 
 import bpy
-import requests
 
 from . import (
     bg_blender,
