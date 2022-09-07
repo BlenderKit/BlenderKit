@@ -8,6 +8,7 @@ from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
+from .daemon import tasks
 
 
 disclaimer_counter = 0 
@@ -44,7 +45,6 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
   def __init__(self):
     super().__init__()
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     ui_scale = bpy.context.preferences.view.ui_scale
 
     text_size = int(14 * ui_scale)
@@ -112,7 +112,6 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     self.counter = 0
 
   def modal(self, context, event):
-
     if self._finished:
       return {'FINISHED'}
 
@@ -168,18 +167,22 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     print("Button '{0}' is pressed".format(widget.text))
 
 
-def run_disclaimer_task(message="testing", url="www.blenderkit.com"):
-  fc = utils.get_fake_context(bpy.context)
-  bpy.ops.view3d.blenderkit_disclaimer_widget(fc, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=8)
+def run_disclaimer_task(message: str, url: str):
+  fake_context = utils.get_fake_context(bpy.context)
+  bpy.ops.view3d.blenderkit_disclaimer_widget(fake_context, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=8)
 
 
-def handle_disclaimer_task(task):
+def handle_disclaimer_task(task: tasks.Task):
+  """Handles incoming disclaimer task. If there are any results, it shows them in disclaimer popup.
+  If the results are empty, it shows random tip in the disclaimer popup.
+  """
+
   if task.status == 'finished':
     if task.result == None:
       show_random_tip()
       return
-    d = task.result['results'][0]
-    tasks_queue.add_task((run_disclaimer_task, (d['message'], d['url'])), wait=5)
+    disclaimer = task.result['results'][0]
+    tasks_queue.add_task((run_disclaimer_task, (disclaimer['message'], disclaimer['url'])), wait=0)
     return
 
   if task.status == 'error':
@@ -188,8 +191,9 @@ def handle_disclaimer_task(task):
 
 
 def show_random_tip():
+  """Shows random tip in the disclaimer popup."""
   tip = random.choice(global_vars.TIPS)
-  tasks_queue.add_task((run_disclaimer_task, (tip, "www.blenderkit.com")), wait=5)
+  tasks_queue.add_task((run_disclaimer_task, (tip, "www.blenderkit.com")), wait=0)
 
 
 def register():
@@ -208,6 +212,10 @@ def show_disclaimer_timer():
   """
 
   global disclaimer_counter
+  preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  if preferences.tips_on_start == False:
+    return
+
   if global_vars.DAEMON_ONLINE == True:
     daemon_lib.get_disclaimer()
     return

@@ -429,34 +429,6 @@ def handle_search_task(task: tasks.Task) -> bool:
   return True
 
 
-# @bpy.app.handlers.persistent
-def startup_search_timer():
-  # this makes a first search after opening blender. showing latest assets.
-  # utils.p('timer search')
-  # utils.p('start search timer')
-  global first_time
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  if first_time and not bpy.app.background and global_vars.DAEMON_ONLINE:  # first time
-
-    first_time = False
-    # bpy.ops.blenderkit.updater_install_popup(clean_install=False)
-    addon_updater_ops.check_for_update_background()
-
-    if preferences.show_on_start:
-      # TODO here it should check if there are some results, and only open assetbar if this is the case, not search.
-      # if bpy.context.window_manager.get('search results') is None:
-      search()
-      # preferences.first_run = False
-
-    if preferences.tips_on_start:
-      utils.get_largest_area()
-      ui.update_ui_size(ui.active_area_pointer, ui.active_region_pointer)
-    #this only should run once
-    return
-
-  return .5
-
-
 def handle_preview_task(task: tasks.Task) -> bool:
   """Parse search results, try to load all available previews."""
 
@@ -1428,10 +1400,6 @@ def register_search():
 
   for c in classes:
     bpy.utils.register_class(c)
-
-  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  if user_preferences.use_timers and not bpy.app.background:
-    bpy.app.timers.register(startup_search_timer)
 
   categories.load_categories()
 
