@@ -3,7 +3,7 @@ import random
 import bpy
 from bpy.props import IntProperty, StringProperty
 
-from . import colors, daemon_lib, global_vars, paths, tasks_queue, reports, utils
+from . import colors, daemon_lib, global_vars, paths, reports, tasks_queue, utils
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *

@@ -21,6 +21,7 @@ import ctypes
 import logging
 import os
 import platform
+import random
 
 import bpy
 from bpy.props import IntProperty, StringProperty
@@ -2487,7 +2488,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash'])
 
         bl_label = asset_data['name']
-        self.tip = f"Tip:{tips.get_random_tip()}"
+        self.tip = f"Tip:{random.choice(global_vars.TIPS)}"
 
         if utils.user_logged_in():
             ratings_utils.ensure_rating(self.asset_id)

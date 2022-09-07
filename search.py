@@ -436,7 +436,7 @@ def startup_search_timer():
   # utils.p('start search timer')
   global first_time
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  if first_time and not bpy.app.background:  # first time
+  if first_time and not bpy.app.background and global_vars.DAEMON_ONLINE:  # first time
 
     first_time = False
     # bpy.ops.blenderkit.updater_install_popup(clean_install=False)
