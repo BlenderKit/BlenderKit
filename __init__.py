@@ -2070,7 +2070,8 @@ def register():
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if user_preferences.use_timers:
-        bpy.app.timers.register(timer.check_timers_timer, persistent=True)
+        timer.register_timers()
+
 
     bpy.app.handlers.load_post.append(scene_load)
     # detect if the user just enabled the addon in preferences, thus enable to run

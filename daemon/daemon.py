@@ -253,12 +253,10 @@ if __name__ == '__main__':
   parser.add_argument('--proxy-address', type=str, default='')
   parser.add_argument('--proxy-ca-certs', type=str, default='')
   args = parser.parse_args()
+
   globals.PORT = args.port
   globals.SERVER = args.server
   globals.servers_statuses[args.server] = None
-
-  print(globals.servers_statuses)
-
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
   server['PROXY_ADDRESS'] = args.proxy_address
@@ -275,7 +273,7 @@ if __name__ == '__main__':
     web.view('/report_blender_quit', report_blender_quit),
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
-    web.get('/disclaimer', get_disclaimer),
+    web.get('/get_disclaimer', get_disclaimer),
   ])
 
   server.on_startup.append(start_background_tasks)
