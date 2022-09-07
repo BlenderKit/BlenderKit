@@ -37,8 +37,6 @@ from . import (
     paths,
     ratings,
     ratings_utils,
-    search,
-    tips,
     ui,
     upload,
     utils,

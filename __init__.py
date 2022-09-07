@@ -96,7 +96,6 @@ if "bpy" in locals():
     upload_bg = reload(upload_bg)
     utils = reload(utils)
     reports = reload(reports)
-    tips = reload(tips)
 
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
@@ -141,7 +140,6 @@ else:
     from . import resolutions
     from . import search
     from . import tasks_queue
-    from . import tips
     from . import ui
     from . import ui_bgl
     from . import ui_panels
