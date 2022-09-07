@@ -8,6 +8,7 @@ import sys
 import bpy
 
 from . import (
+    addon_updater_ops,
     bg_blender,
     bkit_oauth,
     colors,
@@ -192,6 +193,22 @@ def check_timers_timer():
     bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
   return 5.0
 
+def on_startup_timer():
+  """Run once on the startup of add-on."""
+
+  addon_updater_ops.check_for_update_background()
+  return
+
+def on_startup_daemon_online_timer():
+  """Run once when daemon is online after startup."""
+
+  if global_vars.DAEMON_ONLINE:
+    preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    if preferences.show_on_start:
+      search.search()
+    return
+
+  return 1
 
 def register_timers():
   """Registers all timers. 
@@ -202,9 +219,13 @@ def register_timers():
   if bpy.app.background:
     return
 
+  #PERIODIC TIMERS
   bpy.app.timers.register(check_timers_timer, persistent=True) # registers all other non-ending timers
+  
+  #ONETIMERS
+  bpy.app.timers.register(on_startup_timer)
+  bpy.app.timers.register(on_startup_daemon_online_timer, first_interval=1)
   bpy.app.timers.register(disclaimer_op.show_disclaimer_timer, first_interval=1)
-  bpy.app.timers.register(search.startup_search_timer, first_interval=1)
 
 
 def unregister_timers():
@@ -218,17 +239,20 @@ def unregister_timers():
 
   if bpy.app.timers.is_registered(check_timers_timer):
     bpy.app.timers.unregister(check_timers_timer)
-  if bpy.app.timers.is_registered(search.startup_search_timer):
-    bpy.app.timers.unregister(search.startup_search_timer)
   if bpy.app.timers.is_registered(download.download_timer):
     bpy.app.timers.unregister(download.download_timer)
   if bpy.app.timers.is_registered(tasks_queue.queue_worker):
     bpy.app.timers.unregister(tasks_queue.queue_worker)
   if bpy.app.timers.is_registered(bg_blender.bg_update):
     bpy.app.timers.unregister(bg_blender.bg_update)
-  if bpy.app.timers.is_registered(disclaimer_op.show_disclaimer_timer):
-    bpy.app.timers.unregister(disclaimer_op.show_disclaimer_timer)
   if bpy.app.timers.is_registered(daemon_communication_timer):
     bpy.app.timers.unregister(daemon_communication_timer)
   if bpy.app.timers.is_registered(timer_image_cleanup):
     bpy.app.timers.unregister(timer_image_cleanup)
+
+  if bpy.app.timers.is_registered(on_startup_timer):
+    bpy.app.timers.unregister(on_startup_timer)
+  if bpy.app.timers.is_registered(on_startup_daemon_online_timer):
+    bpy.app.timers.unregister(on_startup_daemon_online_timer)
+  if bpy.app.timers.is_registered(disclaimer_op.show_disclaimer_timer):
+    bpy.app.timers.unregister(disclaimer_op.show_disclaimer_timer)

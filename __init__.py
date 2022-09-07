@@ -1665,12 +1665,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=True,
         update=utils.save_prefs
     )
-    show_disclaimers: BoolProperty(
-        name="Show BlenderKit disclaimers when starting blender",
-        description="Show disclaimers when starting blender",
-        default=True,
-        update=utils.save_prefs
-    )
     search_in_header: BoolProperty(
         name="Show BlenderKit search in 3D view header",
         description="Show BlenderKit search in 3D view header",
@@ -1961,7 +1955,6 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "thumb_size")
         layout.prop(self, "max_assetbar_rows")
         layout.prop(self, "tips_on_start")
-        layout.prop(self, "show_disclaimers")
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
         layout.prop(self, "daemon_port")
@@ -2071,7 +2064,6 @@ def register():
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if user_preferences.use_timers:
         timer.register_timers()
-
 
     bpy.app.handlers.load_post.append(scene_load)
     # detect if the user just enabled the addon in preferences, thus enable to run
