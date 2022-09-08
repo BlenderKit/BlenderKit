@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import logging
 import os
+import socket
 import ssl
 import time
 import uuid
@@ -16,6 +17,7 @@ import globals
 import oauth
 import tasks
 from aiohttp import web, web_request
+from aiohttp.resolver import AsyncResolver
 
 import search
 
@@ -209,16 +211,18 @@ async def persistent_sessions(app):
   else:
     trust_env = False
 
-  conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64)
+  resolver = AsyncResolver(nameservers=globals.DNS_SERVERS)
+
+  conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64, resolver=resolver, family=socket.AF_INET)
   app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests, trust_env=trust_env)
 
-  conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16)
+  conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16, resolver=resolver, family=socket.AF_INET)
   app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs, trust_env=trust_env)
   
-  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8)
+  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8, resolver=resolver, family=socket.AF_INET)
   app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs, trust_env=trust_env)
 
-  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=4)
+  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=4, resolver=resolver, family=socket.AF_INET)
   app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets, trust_env=trust_env)
 
   yield

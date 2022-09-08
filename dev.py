@@ -9,14 +9,18 @@ PYTHON_VERSION = "3.10"
 PACKAGES = [
   "multidict==6.0.2",
   "yarl==1.8.1",
+  "aiodns==3.0.0",
   "aiohttp==3.8.1",
   "aiosignal==1.2.0",
   "async-timeout==4.0.2",
   "attrs==22.1.0",
   "certifi==2022.6.15",
+  "cffi==1.15.1",
   "charset-normalizer==2.1.1",
   "frozenlist==1.3.1",
   "idna==3.3",
+  "pycares==4.2.2",
+  "pycparser==2.21",
 ]
 
 
@@ -81,16 +85,16 @@ def bundle_dependencies():
   MACOS = {
     'name': 'Darwin',
     'platforms': {
-      #'macosx_10_9_x86_64': packages,
-      'macosx_10_9_universal2': PACKAGES,
+      'macosx_10_9_x86_64': [PACKAGES[8],],
+      'macosx_10_9_universal2': PACKAGES[0:8] + PACKAGES[9:],
     }
   }
 
   LINUX = {
     'name': 'Linux',
     'platforms' : {
-      'manylinux_2_17_x86_64': PACKAGES[0:2],
-      'manylinux1_x86_64': PACKAGES[2:],
+      'manylinux_2_17_x86_64': PACKAGES[0:2] + [PACKAGES[8],PACKAGES[12]],
+      'manylinux1_x86_64': PACKAGES[2:8] + PACKAGES[9:12] + PACKAGES[13:],
     }
   }
 

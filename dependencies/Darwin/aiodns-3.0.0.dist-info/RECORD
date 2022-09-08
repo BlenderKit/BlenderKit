@@ -1,0 +1,11 @@
+aiodns-3.0.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+aiodns-3.0.0.dist-info/LICENSE,sha256=6wRV01EpQl7TmYg81xCSPePiRqUQ4uuE2fAAMtC77Jc,1070
+aiodns-3.0.0.dist-info/METADATA,sha256=Astns3SiRpVdzt6WnddB0QYU53o-Ya5-M6TAm5SNI3A,3498
+aiodns-3.0.0.dist-info/RECORD,,
+aiodns-3.0.0.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+aiodns-3.0.0.dist-info/WHEEL,sha256=OqRkF0eY5GHssMorFjlbTIq072vpHpF60fIQA6lS9xA,92
+aiodns-3.0.0.dist-info/top_level.txt,sha256=5J2m3NWP4dezFZNpQoHaj8mv472iPcUzFboQoqWcEe4,7
+aiodns/__init__.py,sha256=LYkgENt5pWV6WkrT27jFpLR9qpLLdQpNU1Q_lTpgPCI,5081
+aiodns/__pycache__/__init__.cpython-310.pyc,,
+aiodns/__pycache__/error.cpython-310.pyc,,
+aiodns/error.py,sha256=fnNPLc8ceLk9drumwt-6Un5iiowyWApTe_VIoJ5gT5U,134
