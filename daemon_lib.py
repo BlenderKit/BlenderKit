@@ -6,7 +6,6 @@ import sys
 from os import environ, path
 from urllib.parse import urlparse
 
-import aiohttp
 import bpy
 import requests
 
@@ -29,20 +28,6 @@ def get_port() -> str:
     port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
 
   return str(port)
-
-
-async def get_reports_async(app_id: str, queue):
-  """Get report for all task at once with asyncio and aiohttp."""
-  global reports_queue
-  address = get_address()
-  url = address + "/report"
-  async with aiohttp.ClientSession() as session:
-    data = {'app_id': app_id}
-    async with session.get(url, json=data) as resp:
-      # text = await resp.text()
-      json_data = await resp.json()
-      if len(json_data)>0:
-        queue.put(json_data)
 
 
 def get_reports(app_id: str):
@@ -192,7 +177,7 @@ def start_daemon_server():
   log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
   blenderkit_path = path.dirname(__file__)
   daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
-  vendor_dir = dependencies.get_vendored_path()
+  vendor_dir = dependencies.get_installed_path()
   fallback_dir = dependencies.get_fallback_path()
 
   env  = environ.copy()
