@@ -60,9 +60,6 @@ if "bpy" in locals():
 
     log.configure_loggers()
     sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
-    dependencies.add_vendored()
-    dependencies.add_fallback()
-    dependencies.ensure_deps()
 
     # alphabetically sorted all add-on modules since reload only happens from __init__.
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
@@ -113,9 +110,6 @@ else:
     
     log.configure_loggers()
     sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
-    dependencies.add_vendored()
-    dependencies.add_fallback()
-    dependencies.ensure_deps()
 
     from . import addon_updater_ops
     from . import timer
@@ -896,60 +890,6 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     is_generating_thumbnail: BoolProperty(name="Generating Thumbnail",
                                           description="True when background process is running", default=False,
                                           update=autothumb.update_upload_material_preview)
-
-
-class BlenderKitCustomAddonRemove(bpy.types.Operator):
-    """Delete the add-on from the file system"""
-
-    bl_idname = "preferences.addon_remove"
-    bl_label = "Remove Add-on"
-
-    module: StringProperty(
-            name="Module",
-            description="Module name of the add-on to remove",
-        )
-    
-    @staticmethod
-    def path_from_addon(module):
-        return userpref.PREFERENCES_OT_addon_remove.path_from_addon(module)
-
-    def execute(self, context):
-        if self.module != "blenderkit":
-            return userpref.PREFERENCES_OT_addon_remove.execute(self, context)
-        
-        bk_logger.info("Executing BlenderKit customized removal")
-        import os
-
-        import addon_utils
-
-        path, isdir = self.path_from_addon(self.module)
-        if path is None:
-            self.report({'WARNING'}, "Add-on path %r could not be found" % path)
-            return {'CANCELLED'}
-
-        # in case its enabled
-        addon_utils.disable(self.module, default_set=True)
-
-        import secrets
-        import shutil
-        if isdir and (not os.path.islink(path)):
-            trash = os.path.join(global_vars.PREFS['global_dir'], '.trash')
-            dest = os.path.join(trash, secrets.token_hex(5))
-            shutil.move(path, dest)
-            shutil.rmtree(trash, ignore_errors=True)
-        else:
-            os.remove(path)
-
-        addon_utils.modules_refresh()
-        context.area.tag_redraw()
-        bk_logger.info('Custom removal finished')
-        return {'FINISHED'}
-
-    def draw(self, _context):
-        return userpref.PREFERENCES_OT_addon_remove.draw(self, _context)
-
-    def invoke(self, context, _event):
-        return userpref.PREFERENCES_OT_addon_remove.invoke(self, context, _event)
 
 
 class BlenderKitTextureUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -1997,11 +1937,10 @@ classes = (
 def register():
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
-
-    try:
-        bpy.utils.register_class(BlenderKitCustomAddonRemove)
-    except Exception as e:
-        bk_logger.info(f"Not registering BlenderKitCustomAddonRemove: {e}")
+    dependencies.ensure_preinstalled_copied()
+    dependencies.add_installed()
+    dependencies.add_fallback()
+    dependencies.ensure_deps()
     
     for cls in classes:
         bpy.utils.register_class(cls)
