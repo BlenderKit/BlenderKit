@@ -41,7 +41,7 @@ def get_installed_deps_path() -> str:
 
 
 def get_preinstalled_deps_path() -> str:
-  """Get path to preinstalled modules for current platform: global-dir/dependencies_3-x-y/installed."""
+  """Get path to preinstalled modules for current platform."""
 
   vendor_path = path.join(get_deps_directory_path(), 'preinstalled')
   return path.abspath(vendor_path)
