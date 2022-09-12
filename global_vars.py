@@ -32,5 +32,6 @@ TIPS = [
   'Use the R key over the asset bar for fast rating of assets.',
   'Use the X key over the asset bar to delete the asset from your hard drive.',
   ]
+VERSION = None #filled in register()
 
 daemon_process = None

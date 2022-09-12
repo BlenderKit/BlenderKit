@@ -14,10 +14,12 @@ from . import colors, dependencies, global_vars, reports
 
 bk_logger = logging.getLogger(__name__)
 
+
 def get_address() -> str:
   """Get address of the daemon."""
 
   return 'http://127.0.0.1:' + get_port()
+
 
 def get_port() -> str:
   """Get port of the daemon."""
@@ -28,6 +30,13 @@ def get_port() -> str:
     port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
 
   return str(port)
+
+
+def get_daemon_directory_path() -> str:
+  """Get path to daemon directory in blenderkit_data directory."""
+  global_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
+  directory = path.join(global_dir, 'daemon')
+  return path.abspath(directory)
 
 
 def get_reports(app_id: str):
@@ -79,6 +88,7 @@ def kill_download(task_id):
     resp = session.get(url, json={'task_id':task_id})
     return resp
 
+
 def get_disclaimer():
   """Get disclaimer from server."""
 
@@ -88,6 +98,7 @@ def get_disclaimer():
     data = {'app_id': os.getpid()}
     resp = session.get(url, json=data)
     return resp
+
 
 def refresh_token(refresh_token):
   """Refresh authentication token."""
@@ -173,15 +184,15 @@ def check_daemon_exit_code() -> tuple[int, str]:
 def start_daemon_server():
   """Start daemon server in separate process."""
 
-  log_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
-  log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
+  daemon_dir = get_daemon_directory_path()
+  log_path = f'{daemon_dir}/daemon-{get_port()}.log'
   blenderkit_path = path.dirname(__file__)
   daemon_path = path.join(blenderkit_path, 'daemon/daemon.py')
-  vendor_dir = dependencies.get_installed_path()
-  fallback_dir = dependencies.get_fallback_path()
+  preinstalled_deps = dependencies.get_preinstalled_deps_path()
+  installed_deps = dependencies.get_installed_deps_path()
 
   env  = environ.copy()
-  env['PYTHONPATH'] = vendor_dir + os.pathsep + fallback_dir
+  env['PYTHONPATH'] = installed_deps + os.pathsep + preinstalled_deps
 
   python_home = path.abspath(path.dirname(sys.executable) + "/..")
   env['PYTHONHOME'] = python_home
@@ -219,7 +230,7 @@ def start_daemon_server():
         creationflags = creation_flags,
       )
   except PermissionError as e:
-    reports.add_report(f"FATAL ERROR: Write access denied to {log_dir}. Check you have write permissions to the directory.", 10, colors.RED)
+    reports.add_report(f"FATAL ERROR: Write access denied to {daemon_dir}. Check you have write permissions to the directory.", 10, colors.RED)
     raise(e)
   except OSError as e:
     if platform.system() != "Windows":

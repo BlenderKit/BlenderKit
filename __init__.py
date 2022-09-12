@@ -1935,11 +1935,12 @@ classes = (
 
 
 def register():
+    global_vars.VERSION = bl_info['version']
     bpy.utils.register_class(BlenderKitAddonPreferences)
     addon_updater_ops.register(bl_info)
-    dependencies.ensure_preinstalled_copied()
-    dependencies.add_installed()
-    dependencies.add_fallback()
+    dependencies.ensure_preinstalled_deps_copied()
+    dependencies.add_installed_deps()
+    dependencies.add_preinstalled_deps()
     dependencies.ensure_deps()
     
     for cls in classes:
