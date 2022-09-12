@@ -7,7 +7,6 @@ import sys
 import time
 from os import environ, makedirs, path, pathsep
 
-
 from . import global_vars
 from .daemon_lib import get_daemon_directory_path
 
@@ -20,8 +19,11 @@ def ensure_preinstalled_deps_copied():
 
   deps_path = path.join(path.dirname(__file__), f"dependencies/{platform.system()}")
   deps_path = path.abspath(deps_path)
-
-  shutil.copytree(deps_path, get_preinstalled_deps_path(), dirs_exist_ok=True)
+  install_into = get_preinstalled_deps_path()
+  
+  if not path.isdir(install_into):
+    bk_logger.info(f'Copying dependencies from {deps_path} into {install_into}')
+    shutil.copytree(deps_path, install_into)
 
 
 def get_deps_directory_path() -> str:
@@ -29,7 +31,7 @@ def get_deps_directory_path() -> str:
 
   daemon_directory = get_daemon_directory_path()
   version = f'{global_vars.VERSION[0]}-{global_vars.VERSION[1]}-{global_vars.VERSION[2]}'
-  install_path = path.join(daemon_directory, 'dependencies', version) #TODO: fetch version dynamically
+  install_path = path.join(daemon_directory, 'dependencies', version)
   return path.abspath(install_path)
 
 
@@ -43,23 +45,21 @@ def get_installed_deps_path() -> str:
 def get_preinstalled_deps_path() -> str:
   """Get path to preinstalled modules for current platform."""
 
-  vendor_path = path.join(get_deps_directory_path(), 'preinstalled')
-  return path.abspath(vendor_path)
+  preinstalled_path = path.join(get_deps_directory_path(), 'preinstalled')
+  return path.abspath(preinstalled_path)
 
 
 def add_installed_deps():
   """Add installed dependencies directory into PATH."""
 
-  dependencies_path = get_installed_deps_path()
-  makedirs(dependencies_path, exist_ok=True)
-  sys.path.insert(0, dependencies_path)
+  installed_path = get_installed_deps_path()
+  makedirs(installed_path, exist_ok=True)
+  sys.path.insert(0, installed_path)
 
 def add_preinstalled_deps():
   """Add preinstalled dependencies directory into PATH."""
 
-  installed_path = get_preinstalled_deps_path()
-  makedirs(installed_path, exist_ok=True)
-  sys.path.insert(0, installed_path)
+  sys.path.insert(0, get_preinstalled_deps_path())
 
 
 def ensure_deps():
