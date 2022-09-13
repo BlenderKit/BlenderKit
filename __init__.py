@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy",
-    "version": (3, 1, 7),
+    "version": (3, 1, 7), #if prerelease include negative number as 4th int
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
@@ -1838,6 +1838,11 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
         default=True)
+
+    enable_prereleases: bpy.props.BoolProperty(
+        name="Enable pre-releases",
+        description="If enabled, updater will include also pre-release versions",
+        default=False)
 
     updater_interval_months: bpy.props.IntProperty(
         name='Months',
