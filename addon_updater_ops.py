@@ -163,13 +163,6 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
         return True
 
     def invoke(self, context, event):
-        if updater.invalid_updater:
-            return {'CANCELLED'}
-        if updater.update_ready is None:
-            # _ = check_for_update_background()
-            return{'FINISHED'}
-        if not updater.update_ready:
-            return {'FINISHED'}
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -227,14 +220,14 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
                     print("Updater returned successful")
                 else:
                     print("Updater returned {}, error occurred".format(res))
-        # elif updater.update_ready is None:
-        #     _ = updater.check_for_update(now=True)
-        #
-        #     # Re-launch this dialog.
-        #     atr = AddonUpdaterInstallPopup.bl_idname.split(".")
-        #     getattr(getattr(bpy.ops, atr[0]), atr[1])('INVOKE_DEFAULT')
-        # else:
-        #     updater.print_verbose("Doing nothing, not ready for update")
+        elif updater.update_ready is None:
+            _ = updater.check_for_update(now=True)
+
+            # Re-launch this dialog.
+            atr = AddonUpdaterInstallPopup.bl_idname.split(".")
+            getattr(getattr(bpy.ops, atr[0]), atr[1])('INVOKE_DEFAULT')
+        else:
+            updater.print_verbose("Doing nothing, not ready for update")
         return {'FINISHED'}
 
 
@@ -698,7 +691,7 @@ def updater_run_install_popup_handler(scene):
         version = updater.json["version_text"]["version"]
         ver_tuple = updater.version_tuple_from_text(version)
 
-        if ver_tuple < updater.current_version:
+        if ver_tuple+(0,) < updater.current_version:
             # User probably manually installed to get the up to date addon
             # in here. Clear out the update flag using this function.
             updater.print_verbose(
@@ -723,28 +716,25 @@ def background_update_callback(update_ready):
     if not update_ready:
         return
 
-    atr = AddonUpdaterInstallPopup.bl_idname.split(".")
-    getattr(getattr(bpy.ops, atr[0]), atr[1])('INVOKE_DEFAULT')
+    # See if we need add to the update handler to trigger the popup.
+    handlers = []
+    if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
+        handlers = bpy.app.handlers.scene_update_post
+    else:  # 2.8+
+        handlers = bpy.app.handlers.depsgraph_update_post
+    in_handles = updater_run_install_popup_handler in handlers
 
-    # # See if we need add to the update handler to trigger the popup.
-    # handlers = []
-    # if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
-    #     handlers = bpy.app.handlers.scene_update_post
-    # else:  # 2.8+
-    #     handlers = bpy.app.handlers.depsgraph_update_post
-    # in_handles = updater_run_install_popup_handler in handlers
-    #
-    # if in_handles or ran_auto_check_install_popup:
-    #     return
-    #
-    # if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
-    #     bpy.app.handlers.scene_update_post.append(
-    #         updater_run_install_popup_handler)
-    # else:  # 2.8+
-    #     bpy.app.handlers.depsgraph_update_post.append(
-    #         updater_run_install_popup_handler)
-    # ran_auto_check_install_popup = True
-    # updater.print_verbose("Attempted popup prompt")
+    if in_handles or ran_auto_check_install_popup:
+        return
+
+    if "scene_update_post" in dir(bpy.app.handlers):  # 2.7x
+        bpy.app.handlers.scene_update_post.append(
+            updater_run_install_popup_handler)
+    else:  # 2.8+
+        bpy.app.handlers.depsgraph_update_post.append(
+            updater_run_install_popup_handler)
+    ran_auto_check_install_popup = True
+    updater.print_verbose("Attempted popup prompt")
 
 
 def post_update_callback(module_name, res=None):
@@ -997,6 +987,7 @@ def update_settings_ui(self, context, element=None):
     split = layout_split(row, factor=0.4)
     sub_col = split.column()
     sub_col.prop(settings, "auto_check_update")
+    sub_col.prop(settings, "enable_prereleases")
     sub_col = split.column()
 
     if not settings.auto_check_update:
@@ -1273,8 +1264,9 @@ def skip_tag_function(self, tag):
     # ---- write any custom code here, return true to disallow version ---- #
     #
     # # Filter out e.g. if 'beta' is in name of release
-    # if 'beta' in tag.lower():
-    # 	return True
+    if get_user_preferences().enable_prereleases == False:
+        if 'alpha' in tag['name'].lower() or 'beta' in tag['name'].lower() or 'rc' in tag['name'].lower():
+            return True
     # ---- write any custom code above, return true to disallow version --- #
 
     if self.include_branches:
@@ -1349,15 +1341,6 @@ classes = (
     AddonUpdaterEndBackground
 )
 
-def get_global_dir():
-    ''' get global data directory of BlenderKit'''
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    ddir = user_preferences.global_dir
-    if ddir.startswith('//'):
-        ddir = bpy.path.abspath(ddir)
-    if not os.path.exists(ddir):
-        os.makedirs(ddir)
-    return ddir
 
 def register(bl_info):
     """Registering the operators in this module"""
@@ -1381,7 +1364,7 @@ def register(bl_info):
 
     # Choose your own username, must match website (not needed for GitLab).
     updater.user = "blenderkit"
-    
+
     # Choose your own repository, must match git name for GitHUb and Bitbucket,
     # for GitLab use project ID (numbers only).
     updater.repo = "blenderkit"
@@ -1411,8 +1394,8 @@ def register(bl_info):
     # essentially a staging folder used by the updater on its own
     # Needs to be within the same folder as the addon itself
     # Need to supply a full, absolute path to folder
-    updater.updater_path = get_global_dir()# set path of updater folder, by default:
-    			# /addons/{__package__}/{__package__}_updater
+    # updater.updater_path = # set path of updater folder, by default:
+    # 			/addons/{__package__}/{__package__}_updater
 
     # Auto create a backup of the addon when installing other versions.
     updater.backup_current = True  # True by default

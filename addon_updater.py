@@ -22,7 +22,7 @@ See documentation for usage
 https://github.com/CGCookie/blender-addon-updater
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 import errno
 import fnmatch
@@ -56,7 +56,6 @@ class SingletonUpdater:
     needed throughout the addon. It implements all the interfaces for running
     updates.
     """
-
     def __init__(self):
 
         self._engine = GithubEngine()
@@ -113,7 +112,7 @@ class SingletonUpdater:
         self._addon = __package__.lower()
         self._addon_package = __package__  # Must not change.
         self._updater_path = os.path.join(
-            os.path.dirname(__file__), '../../addons_updates/', self._addon + "_updater")
+            os.path.dirname(__file__), self._addon + "_updater")
         self._addon_root = os.path.dirname(__file__)
         self._json = dict()
         self._error = None
@@ -648,9 +647,9 @@ class SingletonUpdater:
                 branch, self._tags[0]))
 
         elif ((len(self._tags) - len(self._include_branch_list) == 0
-               and self._include_branches)
-              or (len(self._tags) == 0 and not self._include_branches)
-              and self._prefiltered_tag_count > 0):
+                and self._include_branches)
+                or (len(self._tags) == 0 and not self._include_branches)
+                and self._prefiltered_tag_count > 0):
             self._tag_latest = None
             self._error = "No releases available"
             self._error_msg = "No versions found within compatible version range"
@@ -810,7 +809,7 @@ class SingletonUpdater:
         self.print_verbose("Backing up current addon folder")
         local = os.path.join(self._updater_path, "backup")
         tempdest = os.path.join(
-            self._addon_root, os.pardir, os.pardir, 'addons_updates', self._addon + "_updater_backup_temp")
+            self._addon_root, os.pardir, self._addon + "_updater_backup_temp")
 
         self.print_verbose("Backup destination path: " + str(local))
 
@@ -836,7 +835,6 @@ class SingletonUpdater:
         if self._backup_ignore_patterns is not None:
             try:
                 shutil.copytree(self._addon_root, tempdest,
-                                copy_function=copy_by_moving, # added by BlenderKit
                                 ignore=shutil.ignore_patterns(
                                 *self._backup_ignore_patterns))
             except:
@@ -845,18 +843,12 @@ class SingletonUpdater:
                 return
         else:
             try:
-                shutil.copytree(self._addon_root, tempdest,
-                                copy_function=copy_by_moving) # added by BlenderKit
+                shutil.copytree(self._addon_root, tempdest)
             except:
                 print("Failed to create backup, still attempting update.")
                 self.print_trace()
                 return
-        try:
-            shutil.move(tempdest, local)
-        except:
-            print("Failed to move the backup")
-            self.print_trace()
-            return
+        shutil.move(tempdest, local)
 
         # Save the date for future reference.
         now = datetime.now()
@@ -869,7 +861,7 @@ class SingletonUpdater:
         self.print_verbose("Restoring backup, backing up current addon folder")
         backuploc = os.path.join(self._updater_path, "backup")
         tempdest = os.path.join(
-            self._addon_root, os.pardir, os.pardir, 'addons_updates', self._addon + "_updater_backup_temp")
+            self._addon_root, os.pardir, self._addon + "_updater_backup_temp")
         tempdest = os.path.abspath(tempdest)
 
         # Move instead contents back in place, instead of copy.
@@ -920,46 +912,44 @@ class SingletonUpdater:
 
         self.print_verbose(
             "Begin extracting source from zip:" + str(self._source_zip))
-        zfile = zipfile.ZipFile(self._source_zip, "r")
+        with zipfile.ZipFile(self._source_zip, "r") as zfile:
 
-        if not zfile:
-            self._error = "Install failed"
-            self._error_msg = "Resulting file is not a zip, cannot extract"
-            self.print_verbose(self._error_msg)
-            return -1
+            if not zfile:
+                self._error = "Install failed"
+                self._error_msg = "Resulting file is not a zip, cannot extract"
+                self.print_verbose(self._error_msg)
+                return -1
 
-        # Now extract directly from the first subfolder (not root)
-        # this avoids adding the first subfolder to the path length,
-        # which can be too long if the download has the SHA in the name.
-        zsep = '/'  # Not using os.sep, always the / value even on windows.
-        for name in zfile.namelist():
-            if zsep not in name:
-                continue
-            top_folder = name[:name.index(zsep) + 1]
-            if name == top_folder + zsep:
-                continue  # skip top level folder
-            sub_path = name[name.index(zsep) + 1:]
-            if name.endswith(zsep):
-                try:
-                    os.mkdir(os.path.join(outdir, sub_path))
-                    self.print_verbose(
-                        "Extract - mkdir: " + os.path.join(outdir, sub_path))
-                except OSError as exc:
-                    if exc.errno != errno.EEXIST:
-                        self._error = "Install failed"
-                        self._error_msg = "Could not create folder from zip"
-                        self.print_trace()
-                        return -1
-            else:
-                with open(os.path.join(outdir, sub_path), "wb") as outfile:
-                    data = zfile.read(name)
-                    outfile.write(data)
-                    self.print_verbose(
-                        "Extract - create: " + os.path.join(outdir, sub_path))
+            # Now extract directly from the first subfolder (not root)
+            # this avoids adding the first subfolder to the path length,
+            # which can be too long if the download has the SHA in the name.
+            zsep = '/'  # Not using os.sep, always the / value even on windows.
+            for name in zfile.namelist():
+                if zsep not in name:
+                    continue
+                top_folder = name[:name.index(zsep) + 1]
+                if name == top_folder + zsep:
+                    continue  # skip top level folder
+                sub_path = name[name.index(zsep) + 1:]
+                if name.endswith(zsep):
+                    try:
+                        os.mkdir(os.path.join(outdir, sub_path))
+                        self.print_verbose(
+                            "Extract - mkdir: " + os.path.join(outdir, sub_path))
+                    except OSError as exc:
+                        if exc.errno != errno.EEXIST:
+                            self._error = "Install failed"
+                            self._error_msg = "Could not create folder from zip"
+                            self.print_trace()
+                            return -1
+                else:
+                    with open(os.path.join(outdir, sub_path), "wb") as outfile:
+                        data = zfile.read(name)
+                        outfile.write(data)
+                        self.print_verbose(
+                            "Extract - create: " + os.path.join(outdir, sub_path))
 
         self.print_verbose("Extracted source")
-        zfile.close()
-        del zfile
 
         unpath = os.path.join(self._updater_path, "source")
         if not os.path.isdir(unpath):
@@ -1035,6 +1025,7 @@ class SingletonUpdater:
                          if os.path.isfile(os.path.join(base, f))]
                 folders = [f for f in os.listdir(base)
                            if os.path.isdir(os.path.join(base, f))]
+
                 for f in files:
                     try:
                         os.remove(os.path.join(base, f))
@@ -1208,10 +1199,10 @@ class SingletonUpdater:
     def check_for_update_async(self, callback=None):
         """Called for running check in a background thread"""
         is_ready = (
-                self._json is not None
-                and "update_ready" in self._json
-                and self._json["version_text"] != dict()
-                and self._json["update_ready"])
+            self._json is not None
+            and "update_ready" in self._json
+            and self._json["version_text"] != dict()
+            and self._json["update_ready"])
 
         if is_ready:
             self._update_ready = True
@@ -1229,7 +1220,7 @@ class SingletonUpdater:
             # already running the bg thread
         elif self._update_ready is None:
             print("{} updater: Running background check for update".format(
-                self.addon))
+                  self.addon))
             self.start_async_check_update(False, callback)
 
     def check_for_update_now(self, callback=None):
@@ -1344,7 +1335,8 @@ class SingletonUpdater:
 
         else:
             # Situation where branches not included.
-            if new_version > self._current_version:
+            if new_version+(0,) > self._current_version:
+
                 self._update_ready = True
                 self._update_version = new_version
                 self._update_link = link
@@ -1522,17 +1514,11 @@ class SingletonUpdater:
             os.makedirs(self._updater_path)
 
         jpath = self.get_json_path()
-        has_file = False
         if os.path.isfile(jpath):
-            try:
-                with open(jpath) as data_file:
-                    self._json = json.load(data_file)
-                    self.print_verbose("Read in JSON settings from file")
-                has_file = True
-            except Exception as e:
-                print(e)
-
-        if not has_file:
+            with open(jpath) as data_file:
+                self._json = json.load(data_file)
+                self.print_verbose("Read in JSON settings from file")
+        else:
             self._json = {
                 "last_check": "",
                 "backup_date": "",
@@ -1767,12 +1753,3 @@ class GitlabEngine:
 # -----------------------------------------------------------------------------
 
 Updater = SingletonUpdater()
-
-# added by BlenderKit
-def copy_by_moving(src: str, dest: str):
-    """
-    Moves the file into destination location and then copies it back to source destination.
-    Source file then should be deletable even though it was originally open by another process or program.
-    """
-    shutil.move(src, dest)
-    shutil.copy(dest, src)
