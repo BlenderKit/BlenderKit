@@ -357,6 +357,11 @@ def handle_search_task(task: tasks.Task) -> bool:
 
   search_tasks.pop(task.task_id)
 
+  # this fixes black thumbnails in asset bar, test if this bug still persist in blender and remove if it's fixed
+  if bpy.app.version < (3, 3, 0):
+    sys_prefs = bpy.context.preferences.system
+    sys_prefs.gl_texture_limit = 'CLAMP_OFF'
+
   global first_search_parsing
   if first_search_parsing:
     comments_utils.check_notifications()
