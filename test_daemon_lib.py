@@ -43,6 +43,9 @@ class TestDaemon(unittest.TestCase):
       self.assertTrue(alive)
 
       daemon_lib.kill_daemon_server()
-      alive, _ = daemon_lib.daemon_is_alive(session)
+      for _ in range(5):
+        alive, _ = daemon_lib.daemon_is_alive(session)
+        if alive == False:
+          break
+        time.sleep(1)
       self.assertFalse(alive)
-
