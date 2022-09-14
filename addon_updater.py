@@ -1335,7 +1335,7 @@ class SingletonUpdater:
 
         else:
             # Situation where branches not included.
-            if new_version+(0,) > self._current_version:
+            if new_version > self._current_version:
 
                 self._update_ready = True
                 self._update_version = new_version
