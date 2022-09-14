@@ -355,11 +355,8 @@ def handle_search_task(task: tasks.Task) -> bool:
     print('search task result not from active search', task.task_id, len(search_tasks), list(search_tasks.keys()))
     return True
 
-  search_tasks.pop(task.task_id)  #
+  search_tasks.pop(task.task_id)
 
-  # this fixes black thumbnails in asset bar, test if this bug still persist in blender and remove if it's fixed
-  sys_prefs = bpy.context.preferences.system
-  sys_prefs.gl_texture_limit = 'CLAMP_OFF'
   global first_search_parsing
   if first_search_parsing:
     comments_utils.check_notifications()
