@@ -28,8 +28,9 @@ def do_build(install_at=None, include_tests=False):
   target_dir = "out/blenderkit"
   ignore_files = [
     '.gitignore',
-    'build.py',
+    'dev.py',
     'README.md',
+    'CONTRIBUTING.md',
     'setup.cfg'
   ]
 
