@@ -1010,11 +1010,6 @@ def get_largest_area(context = None, area_type='VIEW_3D'):
 
     if maxw is None or maxa is None:
         return None,None,None
-
-    global active_area_pointer, active_window_pointer, active_region_pointer
-    active_window_pointer = maxw.as_pointer()
-    active_area_pointer = maxa.as_pointer()
-    active_region_pointer = region.as_pointer()
     return maxw, maxa, region
 
 

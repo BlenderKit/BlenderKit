@@ -21,8 +21,8 @@ from .bl_ui_widgets.bl_ui_label import *
 
 
 bk_logger = logging.getLogger(__name__)
-active_area_pointer = 0
 
+active_area_pointer = 0
 
 def get_area_height(self):
     if type(self.context) != dict:
@@ -158,11 +158,12 @@ def asset_bar_invoke(self, context, event):
     self.update_timer_limit = 30
     self.update_timer = 0
     # self._timer = context.window_manager.event_timer_add(10.0, window=context.window)
-    global active_area_pointer
+
     context.window_manager.modal_handler_add(self)
+    global active_area_pointer
     self.active_window_pointer = context.window.as_pointer()
     self.active_area_pointer = context.area.as_pointer()
-    active_area_pointer = context.area.as_pointer()
+    active_area_pointer = self.active_area_pointer
     self.active_region_pointer = context.region.as_pointer()
 
     return {"RUNNING_MODAL"}
@@ -828,11 +829,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.window = context.window
         self.area = context.area
         self.scene = bpy.context.scene
-        # global active_window_pointer, active_area_pointer, active_region_pointer
-        # ui.active_window_pointer = self.window.as_pointer()
-        # ui.active_area_pointer = self.area.as_pointer()
-        # ui.active_region_pointer = self.region.as_pointer()
-
         return True
 
     def on_finish(self, context):

@@ -48,9 +48,6 @@ bk_logger = logging.getLogger(__name__)
 
 handler_2d = None
 handler_3d = None
-active_area_pointer = None
-active_window_pointer = None
-active_region_pointer = None
 
 mappingdict = {
     'MODEL': 'model',
@@ -447,45 +444,6 @@ def mouse_in_region(r, mx, my):
         return False
 
 
-def update_ui_size(area, region):
-    if bpy.app.background or not area:
-        return
-    ui = bpy.context.window_manager.blenderkitUI
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    ui_scale = bpy.context.preferences.view.ui_scale
-
-    ui.margin = ui.bl_rna.properties['margin'].default * ui_scale
-    ui.thumb_size = user_preferences.thumb_size * ui_scale
-
-    reg_multiplier = 1
-    if not bpy.context.preferences.system.use_region_overlap:
-        reg_multiplier = 0
-
-    for r in area.regions:
-        if r.type == 'TOOLS':
-            ui.bar_x = r.width * reg_multiplier + ui.margin + ui.bar_x_offset * ui_scale
-        elif r.type == 'UI':
-            ui.bar_end = r.width * reg_multiplier + 100 * ui_scale
-
-    ui.bar_width = region.width - ui.bar_x - ui.bar_end
-    ui.wcount = math.floor(
-        (ui.bar_width - 2 * ui.drawoffset) / (ui.thumb_size + ui.margin))
-
-    search_results = global_vars.DATA.get('search results')
-    if search_results != None and ui.wcount > 0:
-        ui.hcount = min(user_preferences.max_assetbar_rows, math.ceil(len(search_results) / ui.wcount))
-    else:
-        ui.hcount = 1
-    ui.bar_height = (ui.thumb_size + ui.margin) * ui.hcount + ui.margin
-    ui.bar_y = region.height - ui.bar_y_offset * ui_scale
-    if ui.down_up == 'UPLOAD':
-        ui.reports_y = ui.bar_y - 600
-        ui.reports_x = ui.bar_x
-    else:
-        ui.reports_y = ui.bar_y - ui.bar_height - 100
-        ui.reports_x = ui.bar_x
-
-
 class ParticlesDropDialog(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "object.blenderkit_particles_drop"
@@ -630,31 +588,6 @@ class TransferBlenderkitData(bpy.types.Operator):
                         continue
                     target_ob.blenderkit[k] = source_ob.blenderkit[k]
         # source_ob.property_unset('blenderkit')
-        return {'FINISHED'}
-
-
-class UndoWithContext(bpy.types.Operator):
-    """Regenerate cobweb"""
-    bl_idname = "wm.undo_push_context"
-    bl_label = "BlenderKit undo push"
-    bl_description = "BlenderKit undo push with fixed context"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
-    # def modal(self, context, event):
-    #     return {'RUNNING_MODAL'}
-
-    message: StringProperty('Undo Message', default='BlenderKit operation')
-
-    def execute(self, context):
-        # C_dict = utils.get_fake_context(context)
-        # w, a, r = get_largest_area(area_type=area_type)
-        # wm = bpy.context.window_manager#bpy.data.window_managers[0]
-        # w = wm.windows[0]
-        #
-        # C_dict = {'window': w, 'screen': w.screen}
-        # bpy.ops.ed.undo_push(C_dict, 'INVOKE_REGION_WIN', message=self.message)
-        bpy.ops.ed.undo_push('INVOKE_REGION_WIN', message=self.message)
-
         return {'FINISHED'}
 
 
@@ -968,24 +901,6 @@ class AssetDragOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
 
-class View3DExecutor(bpy.types.Operator):
-    '''should run anything with correct context, avoiding the need for get fake context tricks in timers'''
-    bl_idname = "view3d.run_func_in_operator"
-    bl_label = "BlenderKit executor"
-    bl_description = "BlenderKit operator to execute various functions in correct context"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
-    keep_running: StringProperty(name="Run function", description='', default='', options={'SKIP_SAVE'})
-
-    def execute(self,context):
-        C_dict = bpy.context.copy()# let's try to get the right context
-        bpy.ops.view3d.blenderkit_asset_bar_widget(C_dict, 'INVOKE_REGION_WIN', keep_running=self.keep_running,
-                                                   do_search=self.do_search)
-        return {'FINISHED'}
-
-
-
-
 class ModalTimerOperator(bpy.types.Operator):
     """Operator which runs its self from a timer"""
     bl_idname = "wm.modal_timer_operator"
@@ -1079,11 +994,9 @@ class RunAssetBarWithContext(bpy.types.Operator):
 
 classes = (
     AssetDragOperator,
-    View3DExecutor,
     AssetBarModalStarter,
     RunAssetBarWithContext,
     TransferBlenderkitData,
-    UndoWithContext,
     ParticlesDropDialog
 )
 

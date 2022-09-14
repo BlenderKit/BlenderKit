@@ -367,7 +367,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                         if new_obs:
                             # update here assets rated/used because there might be new download urls?
                             udpate_asset_data_in_dicts(asset_data)
-                            bpy.ops.wm.undo_push_context(message='add %s to scene' % asset_data['name'])
+                            bpy.ops.ed.undo_push('INVOKE_REGION_WIN', message='add %s to scene' % asset_data['name'])
 
                             return
 
@@ -495,7 +495,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     asset_main.blenderkit.asset_base_id = asset_data['assetBaseId']
     asset_main.blenderkit.id = asset_data['id']
 
-    bpy.ops.wm.undo_push_context(message='add %s to scene' % asset_data['name'])
+    bpy.ops.ed.undo_push('INVOKE_REGION_WIN', message='add %s to scene' % asset_data['name'])
     # moving reporting to on save.
     # report_use_success(asset_data['id'])
 

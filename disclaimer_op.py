@@ -10,8 +10,7 @@ from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 from .daemon import tasks
 
-
-disclaimer_counter = 0 
+disclaimer_counter = 0
 
 class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
   bl_idname = "view3d.blenderkit_disclaimer_widget"
@@ -83,6 +82,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     self.button_close.set_mouse_down(self.cancel_press)
 
   def on_invoke(self, context, event):
+
+
     # Add new widgets here (TODO: perhaps a better, more automated solution?)
     widgets_panel = [self.label, self.button_close, self.logo]
     widgets = [self.panel]
@@ -220,7 +221,7 @@ def show_disclaimer_timer():
     daemon_lib.get_disclaimer()
     return
 
-  if disclaimer_counter > 2:
+  elif disclaimer_counter > 2:
     show_random_tip()
     return
 
