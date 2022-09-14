@@ -691,7 +691,7 @@ def updater_run_install_popup_handler(scene):
         version = updater.json["version_text"]["version"]
         ver_tuple = updater.version_tuple_from_text(version)
 
-        if ver_tuple+(0,) < updater.current_version:
+        if ver_tuple < updater.current_version:
             # User probably manually installed to get the up to date addon
             # in here. Clear out the update flag using this function.
             updater.print_verbose(
@@ -1363,7 +1363,7 @@ def register(bl_info):
     updater.private_token = None  # "tokenstring"
 
     # Choose your own username, must match website (not needed for GitLab).
-    updater.user = "blenderkit"
+    updater.user = "agajdosi"
 
     # Choose your own repository, must match git name for GitHUb and Bitbucket,
     # for GitLab use project ID (numbers only).
