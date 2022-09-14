@@ -27,7 +27,6 @@ class BL_UI_OT_draw_operator(Operator):
         self._finished = True
 
     def invoke(self, context, event):
-
         self.on_invoke(context, event)
 
         args = (self, context)
@@ -36,6 +35,7 @@ class BL_UI_OT_draw_operator(Operator):
 
         context.window_manager.modal_handler_add(self)
 
+        #first set pointers to keep track if the area is still available
         self.active_window_pointer = context.window.as_pointer()
         self.active_area_pointer = context.area.as_pointer()
         self.active_region_pointer = context.region.as_pointer()

@@ -414,8 +414,6 @@ def handle_search_task(task: tasks.Task) -> bool:
       tasks_queue.add_task((reports.add_report, ('No matching results found.',)))
     else:
       tasks_queue.add_task((reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
-    # undo push
-    # bpy.ops.wm.undo_push_context(message='Get BlenderKit search')
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get('get_next'):
       bpy.ops.view3d.run_assetbar_fix_context()
