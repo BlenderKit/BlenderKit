@@ -2488,7 +2488,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash'])
 
         bl_label = asset_data['name']
-        self.tip = f"Tip:{random.choice(global_vars.TIPS)}"
+        self.tip = f"Tip:{random.choice(global_vars.TIPS)[0]}"
 
         if utils.user_logged_in():
             ratings_utils.ensure_rating(self.asset_id)
