@@ -1,7 +1,7 @@
 import random
 
 import bpy
-from bpy.props import IntProperty, StringProperty
+from bpy.props import BoolProperty, IntProperty, StringProperty
 
 from . import colors, daemon_lib, global_vars, paths, reports, tasks_queue, utils
 from .bl_ui_widgets.bl_ui_button import *
@@ -36,6 +36,10 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
                             default=5,
                             min=1, max=50,
                             options={'SKIP_SAVE'})
+  tip: BoolProperty(name="Tip",
+                    description="Message is a tip, not from server",
+                    default=True,
+                    options={"SKIP_SAVE"})
 
   def cancel_press(self, widget):
     self.finish()
@@ -50,9 +54,14 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     text_size = int(14 * ui_scale)
     margin = int(10 * ui_scale)
     area_margin = int(50 * ui_scale)
-    self.bg_color = (.127, .034, 1, 0.1)
-    self.hover_bg_color = (.127, .034, 1, 1.0)
+    if self.tip:
+      self.bg_color = (.05, .05, .05, 0.5)
+      self.hover_bg_color = (.05, .05, .05, 1.0)
+    else:
+      self.bg_color = (.127, .034, 1, 0.1)
+      self.hover_bg_color = (.127, .034, 1, 1.0)
     self.text_color = (.9, .9, .9, 1)
+
     pix_size = ui_bgl.get_text_size(font_id=1, text=self.message, text_size=text_size,
                                     dpi=int(bpy.context.preferences.system.dpi / ui_scale))
     self.height = pix_size[1] + 2 * margin
@@ -169,9 +178,9 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     print("Button '{0}' is pressed".format(widget.text))
 
 
-def run_disclaimer_task(message: str, url: str):
+def run_disclaimer_task(message: str, url: str, tip: bool):
   fake_context = utils.get_fake_context(bpy.context)
-  bpy.ops.view3d.blenderkit_disclaimer_widget(fake_context, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=8)
+  bpy.ops.view3d.blenderkit_disclaimer_widget(fake_context, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=8, tip = tip)
 
 
 def handle_disclaimer_task(task: tasks.Task):
@@ -184,7 +193,7 @@ def handle_disclaimer_task(task: tasks.Task):
       show_random_tip()
       return
     disclaimer = task.result['results'][0]
-    tasks_queue.add_task((run_disclaimer_task, (disclaimer['message'], disclaimer['url'])), wait=0)
+    tasks_queue.add_task((run_disclaimer_task, (disclaimer['message'], disclaimer['url'], False)), wait=0)
     return
 
   if task.status == 'error':
@@ -195,7 +204,7 @@ def handle_disclaimer_task(task: tasks.Task):
 def show_random_tip():
   """Shows random tip in the disclaimer popup."""
   tip = random.choice(global_vars.TIPS)
-  tasks_queue.add_task((run_disclaimer_task, (tip, "www.blenderkit.com")), wait=0)
+  tasks_queue.add_task((run_disclaimer_task, (tip[0], tip[1],True)), wait=0)
 
 
 def register():
