@@ -1586,6 +1586,14 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=0,
     )
 
+    uuid_token: StringProperty(
+        name='BlenderKit UUID token',
+        description='Identificator of the machine running the installation of BlenderKit',
+        default='',
+        subtype='PASSWORD',
+        update=utils.save_prefs
+    )
+
     login_attempt: BoolProperty(
         name="Login/Signup attempt",
         description="When this is on, BlenderKit is trying to connect and login",
@@ -1605,6 +1613,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=True,
         update=utils.save_prefs
     )
+
     search_in_header: BoolProperty(
         name="Show BlenderKit search in 3D view header",
         description="Show BlenderKit search in 3D view header",
@@ -2006,7 +2015,6 @@ def register():
     asset_bar_op.register()
     disclaimer_op.register()
 
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if user_preferences.use_timers:
         timer.register_timers()
 
