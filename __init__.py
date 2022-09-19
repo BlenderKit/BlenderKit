@@ -1586,9 +1586,9 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=0,
     )
 
-    uuid_token: StringProperty(
-        name='BlenderKit UUID token',
-        description='Identificator of the machine running the installation of BlenderKit',
+    system_uuid: StringProperty(
+        name='UUID of the system',
+        description='Identificator of the machine running the BlenderKit, is the same independently of BlenderKit or Blender versions',
         default='',
         subtype='PASSWORD',
         update=utils.save_prefs
