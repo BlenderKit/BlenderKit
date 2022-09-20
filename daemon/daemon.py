@@ -180,7 +180,7 @@ async def life_check(app: web.Application):
 async def online_status_check(app: web.Application, server: str):
   while True:
     try:
-      resp = await app['SESSION_API_REQUESTS'].head(server, timeout=3)
+      resp = await app['SESSION_API_REQUESTS'].head("https://www.blenderkit.com/static/img/blenderkit-logo-hexa-256x296.png", timeout=3) #QUICK FIX, NEEDS TO BE RESOLVED
       globals.servers_statuses[server] = resp.status
       if resp.status != 200:
         logging.warning(f'{server}: status code {resp.status}')
@@ -268,7 +268,7 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   globals.PORT = args.port
-  globals.SERVER = "https://www.blenderkit.com/static/img/blenderkit-logo-hexa-256x296.png" #QUICK FIX
+  globals.SERVER = args.server
   globals.servers_statuses[args.server] = None
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
