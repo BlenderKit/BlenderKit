@@ -190,7 +190,7 @@ async def online_status_check(app: web.Application, server: str):
     finally:
       resp.close()
 
-    await asyncio.sleep(10)
+    await asyncio.sleep(60)
 
 async def start_background_tasks(app: web.Application):
   app['life_check'] = asyncio.create_task(life_check(app))
@@ -268,7 +268,7 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   globals.PORT = args.port
-  globals.SERVER = args.server
+  globals.SERVER = "https://www.blenderkit.com/static/img/blenderkit-logo-hexa-256x296.png" #QUICK FIX
   globals.servers_statuses[args.server] = None
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
