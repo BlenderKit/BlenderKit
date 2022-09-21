@@ -74,7 +74,6 @@ async def index(request: web_request.Request):
 async def consumer_exchange(request: web_request.Request):
   auth_code = request.rel_url.query.get('code', None)
   redirect_url = f'{globals.SERVER}/oauth-landing/'
-
   if auth_code == None:
     return web.Response(text="Authorization Failed. Authorization code was not provided.")
 
@@ -115,6 +114,14 @@ async def kill_download(request: web_request.Request):
       del globals.tasks[i]
       break
 
+  return web.Response(text="ok")
+
+
+async def code_verifier(request: web_request.Request):
+  """Gets code_verifier for OAuth login."""
+  
+  data = await request.json()
+  globals.code_verifier = data['code_verifier']
   return web.Response(text="ok")
 
 
@@ -191,6 +198,7 @@ async def online_status_check(app: web.Application, server: str):
       resp.close()
 
     await asyncio.sleep(60)
+
 
 async def start_background_tasks(app: web.Application):
   app['life_check'] = asyncio.create_task(life_check(app))
@@ -287,6 +295,7 @@ if __name__ == '__main__':
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
     web.get('/get_disclaimer', get_disclaimer),
+    web.post('/code_verifier', code_verifier),
   ])
 
   server.on_startup.append(start_background_tasks)

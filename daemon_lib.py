@@ -100,6 +100,13 @@ def get_disclaimer():
     return resp
 
 
+def send_code_verifier(code_verifier: str):
+  data = {'code_verifier': code_verifier}
+  with requests.Session() as session:
+    resp = session.post(f'{get_address()}/code_verifier', json=data)
+    return resp
+
+
 def refresh_token(refresh_token):
   """Refresh authentication token."""
   
