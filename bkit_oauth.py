@@ -17,7 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
+import base64
+import hashlib
 import logging
+import random
+import string
 import time
 import webbrowser
 from urllib.parse import quote as urlquote
@@ -26,16 +30,7 @@ import bpy
 import requests
 from bpy.props import BoolProperty
 
-from . import (
-    colors,
-    daemon_lib,
-    global_vars,
-    paths,
-    reports,
-    search,
-    tasks_queue,
-    utils,
-)
+from . import colors, daemon_lib, global_vars, reports, search, tasks_queue, utils
 from .daemon import tasks
 
 
@@ -75,18 +70,31 @@ def login(signup):
   Using the access_code daemon then requests api_token and handles the results as a task with status finished/error.
   This is handled by function handle_login_task which saves tokens, or shows error message."""
 
-  bkit_URL = paths.get_bkit_url()
   daemon_port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
   local_landing_URL = f"http://localhost:{daemon_port}/consumer/exchange/"
-  authorize_url = f"/o/authorize?client_id={CLIENT_ID}&state=random_state_string&response_type=code&redirect_uri={local_landing_URL}"
+  code_verifier, code_challenge = generate_pkce_pair()
+  daemon_lib.send_code_verifier(code_verifier)
+  authorize_url = f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state=random_state_string&redirect_uri={local_landing_URL}&code_challenge={code_challenge}&code_challenge_method=S256"
   if signup:
     authorize_url = urlquote(authorize_url)
-    authorize_url = f"{bkit_URL}/accounts/register/?next={authorize_url}"
+    authorize_url = f"{global_vars.SERVER}/accounts/register/?next={authorize_url}"
   else:
-    authorize_url = f"{bkit_URL}{authorize_url}"
+    authorize_url = f"{global_vars.SERVER}{authorize_url}"
   webbrowser.open_new_tab(authorize_url)
 
   return
+
+
+def generate_pkce_pair() -> tuple[str, str]:
+    rand = random.SystemRandom()
+    code_verifier = ''.join(rand.choices(string.ascii_letters + string.digits, k=128))
+
+    code_sha_256 = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    b64 = base64.urlsafe_b64encode(code_sha_256)
+    code_challenge = b64.decode('utf-8').replace('=', '')
+
+    return code_verifier, code_challenge
+
 
 def write_tokens(auth_token, refresh_token, oauth_response):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences

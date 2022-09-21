@@ -1,7 +1,7 @@
 """OAuth for login."""
 
+import logging
 import typing
-import uuid
 
 import globals
 import tasks
@@ -11,8 +11,8 @@ from aiohttp import client_exceptions, web
 async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str]:
   data = {
     "grant_type": grant_type,
-    "state": "random_state_string",
     "client_id": globals.OAUTH_CLIENT_ID,
+    "code_verifier": globals.code_verifier,
     "scopes": "read write",
     "redirect_uri" : f"http://localhost:{globals.PORT}/consumer/exchange/",
   }
@@ -25,13 +25,13 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
   session = request.app['SESSION_API_REQUESTS']
   try:
     async with session.post(f"{globals.SERVER}/o/token/", data = data) as response:
-      await response.text()
+      text = await response.text()
 
       if response.status != 200:
-        return [], response.status, response.text
+        return [], response.status, text
 
       response_json = await response.json()
-      print("Token retrieval OK.")
+      logging.info("Token retrieval OK.")
 
       return response_json, 200, ""
 
