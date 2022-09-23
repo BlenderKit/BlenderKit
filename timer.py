@@ -203,7 +203,7 @@ def on_startup_timer():
   """Run once on the startup of add-on."""
 
   addon_updater_ops.check_for_update_background()
-  utils.ensure_system_UUID()
+  utils.ensure_system_ID()
   return
 
 def on_startup_daemon_online_timer():

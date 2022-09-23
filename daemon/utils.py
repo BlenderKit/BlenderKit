@@ -4,13 +4,16 @@ import platform
 import re
 import sys
 
+import globals
 
-def get_headers(api_key: str) -> dict[str, str]:
+
+def get_headers(api_key: str = '') -> dict[str, str]:
   """Get headers with authorization."""
 
   headers = {
     "accept": "application/json",
     "Platform-Version": platform.platform(),
+    'system-id': globals.SYSTEM_ID,
   }
   if api_key != '':
     headers["Authorization"] = f"Bearer {api_key}"

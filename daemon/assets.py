@@ -102,7 +102,8 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
 async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.Task):
   with open(file_path, "wb") as file:
     res_file_info, task.data['resolution'] = get_res_file(task.data)
-    async with session.get(res_file_info['url']) as resp:
+    headers = utils.get_headers()
+    async with session.get(res_file_info['url'], headers=headers) as resp:
       total_length = resp.headers.get('Content-Length')
       if total_length is None:  # no content length header
         print('no content length: ', resp.content)
