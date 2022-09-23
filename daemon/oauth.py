@@ -7,6 +7,7 @@ import globals
 import tasks
 from aiohttp import client_exceptions, web
 
+import utils
 
 async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str]:
   data = {
@@ -23,8 +24,9 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
     data['refresh_token'] = refresh_token
 
   session = request.app['SESSION_API_REQUESTS']
+  headers = utils.get_headers()
   try:
-    async with session.post(f"{globals.SERVER}/o/token/", data = data) as response:
+    async with session.post(f"{globals.SERVER}/o/token/", data=data, headers=headers) as response:
       text = await response.text()
 
       if response.status != 200:

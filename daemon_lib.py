@@ -230,6 +230,7 @@ def start_daemon_server():
           "--proxy-which", global_vars.PREFS.get('proxy_which'),
           "--proxy-address", global_vars.PREFS.get('proxy_address'),
           "--proxy-ca-certs", global_vars.PREFS.get('proxy_ca_certs'),
+          "--system-id", bpy.context.preferences.addons['blenderkit'].preferences.system_id,
         ],
         env           = env,
         stdout        = log,

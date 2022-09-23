@@ -388,7 +388,7 @@ def get_prefs_dir():
         'binary_path': bpy.app.binary_path,
         'api_key': user_preferences.api_key,
         'api_key_refresh': user_preferences.api_key_refresh,
-        'system_uuid': user_preferences.system_uuid,
+        'system_id': user_preferences.system_id,
         'global_dir': user_preferences.global_dir,
         'project_subdir': user_preferences.project_subdir,
         'directory_behaviour': user_preferences.directory_behaviour,
@@ -730,17 +730,17 @@ def get_headers(api_key):
     headers = {
         'accept': 'application/json',
         'Platform-Version': platform.platform(),
-        'system-uuid': bpy.context.preferences.addons['blenderkit'].preferences.system_uuid,
+        'system-id': bpy.context.preferences.addons['blenderkit'].preferences.system_id,
         'addon-version': f'{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}',
     }
     if api_key != '':
         headers["Authorization"] = "Bearer %s" % api_key
     return headers
 
-def ensure_system_UUID():
+def ensure_system_ID():
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if preferences.system_uuid == '':
-        preferences.system_uuid = str(uuid.UUID(int=uuid.getnode()))
+    if preferences.system_id == '':
+        preferences.system_id = str(uuid.getnode())
 
 def scale_2d(v, s, p):
     '''scale a 2d vector with a pivot'''
