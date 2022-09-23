@@ -218,7 +218,10 @@ async def persistent_sessions(app):
   if app['PROXY_CA_CERTS'] != '':
     sslcontext.load_verify_locations(app['PROXY_CA_CERTS'])
   sslcontext.load_verify_locations(certifi.where())
-  sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
+  try:
+    sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
+  except Exception as e:
+    logging.warning('failed to load default certs:', e)
 
   if app['PROXY_WHICH'] == 'SYSTEM':
     trust_env = True
