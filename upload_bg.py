@@ -106,9 +106,14 @@ def upload_file(upload_data, f):
                     session.proxies = {'https': proxy_address}
                 else:
                     session.trust_env = True
-                upload_response = session.put(upload['s3UploadUrl'],
-                                               data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
-                                               stream=True, verify=True)
+                upload_response = session.put(
+                    upload['s3UploadUrl'],
+                    data=upload_in_chunks(f['file_path'],
+                    chunk_size, f['type']),
+                    stream=True,
+                    verify=True,
+                    headers=headers,
+                    )
 
                 if 250 > upload_response.status_code > 199:
                     uploaded = True
