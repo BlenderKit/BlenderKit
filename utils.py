@@ -726,7 +726,7 @@ def requests_post_thread(url, json, headers):
     r = rerequests.post(url, json=json, verify=True, headers=headers)
 
 
-def get_headers(api_key):
+def get_headers(api_key: str = '') -> dict[str, str]:
     headers = {
         'accept': 'application/json',
         'Platform-Version': platform.platform(),
@@ -734,7 +734,8 @@ def get_headers(api_key):
         'addon-version': f'{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}',
     }
     if api_key != '':
-        headers["Authorization"] = "Bearer %s" % api_key
+        headers['Authorization'] = f'Bearer {api_key}'
+
     return headers
 
 def ensure_system_ID():

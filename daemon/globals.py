@@ -14,6 +14,7 @@ PORT: int = -1
 OAUTH_CLIENT_ID: str = 'IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F'
 SERVER = None
 SYSTEM_ID = None
+VERSION = None
 
 active_apps=[]
 last_report_time: float = time.time()

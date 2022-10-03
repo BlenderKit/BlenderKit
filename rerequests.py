@@ -22,7 +22,7 @@ import logging
 import bpy
 import requests
 
-from . import bkit_oauth, global_vars, paths, reports, tasks_queue, utils
+from . import global_vars, reports, tasks_queue, utils
 
 
 bk_logger = logging.getLogger(__name__)
