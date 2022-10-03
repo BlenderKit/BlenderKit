@@ -181,7 +181,7 @@ def report_usages():
     api_key = user_preferences.api_key
     sid = utils.get_scene_id()
     headers = utils.get_headers(api_key)
-    url = paths.get_api_url() + paths.BLENDERKIT_REPORT_URL
+    url = paths.BLENDERKIT_REPORT_URL
 
     assets = {}
     asset_obs = []

@@ -217,7 +217,7 @@ def load_categories():
 
 
 def fetch_categories(API_key, force=False):
-    url = paths.get_api_url() + 'categories/'
+    url = paths.BLENDERKIT_API + '/categories/'
 
     headers = utils.get_headers(API_key)
 

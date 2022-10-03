@@ -629,9 +629,9 @@ def fetch_gravatar(adata=None):
     avatar_path = paths.get_temp_dir(subdir='bkit_g/') + adata['id'] + '.jpg'
     if os.path.exists(avatar_path):
       tasks_queue.add_task((write_gravatar, (adata['id'], avatar_path)))
-      return;
+      return
 
-    url = paths.get_bkit_url() + adata['avatar128']
+    url = global_vars.SERVER + adata['avatar128']
     r = rerequests.get(url, stream=False)
     # print(r.body)
     if r.status_code == 200:
@@ -713,7 +713,7 @@ def write_profile(adata):
 
 
 def request_profile(api_key):
-  a_url = paths.get_api_url() + 'me/'
+  a_url = f'{paths.BLENDERKIT_API}/me/'
   headers = utils.get_headers(api_key)
   r = rerequests.get(a_url, headers=headers)
   adata = r.json()
@@ -745,7 +745,7 @@ def get_profile():
 
 def query_to_url(query={}, params={}):
   # build a new request
-  url = paths.get_api_url() + 'search/'
+  url = f'{paths.BLENDERKIT_API}/search/'
 
   # build request manually
   # TODO use real queries
@@ -1015,7 +1015,7 @@ def get_search_simple(parameters, filepath=None, page_size=100, max_results=1000
 
   '''
   headers = utils.get_headers(api_key)
-  url = paths.get_api_url() + 'search/'
+  url = f'{paths.BLENDERKIT_API}/search/'
   requeststring = url + '?query='
   for p in parameters.keys():
     requeststring += f'+{p}:{parameters[p]}'

@@ -242,7 +242,7 @@ def patch_asset_empty(asset_id, api_key):
     '''
     upload_data = {
     }
-    url = paths.get_api_url() + 'assets/' + str(asset_id) + '/'
+    url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/'
     headers = utils.get_headers(api_key)
     try:
         r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
@@ -487,11 +487,9 @@ def assets_db_path():
 
 
 def get_assets_search():
-    # bpy.app.debug_value = 2
-
     results = []
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    url = paths.get_api_url() + 'search/all'
+    url = f'{paths.BLENDERKIT_API}/search/all'
     i = 0
     while url is not None:
         headers = utils.get_headers(preferences.api_key)
@@ -703,7 +701,7 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
 
 def write_data_back(asset_data):
     '''ensures that the data in the resolution file is the same as in the database.'''
-    pass;
+    pass
 
 
 def run_bg(datafile):

@@ -880,7 +880,7 @@ class AssetDragOperator(bpy.types.Operator):
             if not self.asset_data.get('canDownload'):
                 message = "Let's support asset creators and Open source."
                 link_text = 'Unlock the asset.'
-                url = paths.get_bkit_url() + '/get-blenderkit/' + self.asset_data['id'] + '/?from_addon=True'
+                url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
                 bpy.ops.wm.blenderkit_url_dialog('INVOKE_REGION_WIN', url=url, message=message,
                                                  link_text=link_text)
 

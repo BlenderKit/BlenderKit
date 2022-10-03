@@ -325,7 +325,7 @@ def draw_panel_model_search(self, context):
         icon = 'ERROR'
     utils.label_multiline(layout, text=props.report, icon=icon)
     if props.report == 'You need Full plan to get this item.':
-        layout.operator("wm.url_open", text="Get Full plan", icon='URL').url = paths.BLENDERKIT_PLANS
+        layout.operator("wm.url_open", text="Get Full plan", icon='URL').url = paths.BLENDERKIT_PLANS_URL
 
     # layout.prop(props, "search_style")
     # layout.prop(props, "own_only")
@@ -549,8 +549,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                     row.label(text='My plan:')
                     row.label(text='%s plan' % pn, icon_value=my_icon.icon_id)
                     if pn == 'Free':
-                        layout.operator("wm.url_open", text="Change plan",
-                                        icon='URL').url = paths.get_bkit_url() + paths.BLENDERKIT_PLANS
+                        layout.operator("wm.url_open", text="Change plan", icon='URL').url = paths.BLENDERKIT_PLANS_URL
 
                 # storage statistics
                 # if me.get('sumAssetFilesSize') is not None:  # TODO remove this when production server has these too.
@@ -560,8 +559,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                 if me.get('remainingPrivateQuota') is not None:
                     layout.label(text='My free storage: %i MiB' % (me['remainingPrivateQuota']))
 
-            layout.operator("wm.url_open", text="See my uploads",
-                            icon='URL').url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS
+            layout.operator("wm.url_open", text="See my uploads", icon='URL').url = paths.BLENDERKIT_USER_ASSETS_URL
         addon_updater_ops.update_notice_box_ui(self,context)
 
 class MarkNotificationRead(bpy.types.Operator):
@@ -832,7 +830,7 @@ def draw_notification(self, notification, width=600):
 
         op = row.operator('wm.blenderkit_open_notification_target', text='Open page', icon='HIDE_OFF')
         op.tooltip = 'Open the browser on the asset page to comment'
-        op.url = paths.get_bkit_url() + notification['target']['url']
+        op.url = global_vars.SERVER + notification['target']['url']
         op.notification_id = notification['id']
         # split =
         op = row.operator("wm.blenderkit_mark_notification_read", text="", icon='CANCEL')
@@ -1475,7 +1473,7 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
 
             # utils.label_multiline(layout, text="\n Let's start by searching for some cool materials?", width=300)
             op = layout.operator("wm.url_open", text='Watch Video Tutorial', icon='QUESTION')
-            op.url = paths.BLENDERKIT_MANUAL
+            op.url = paths.BLENDERKIT_MANUAL_URL
 
         else:
             message = "Operator Tutorial called with invalid step"
@@ -1568,7 +1566,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
 
     op = layout.operator('wm.url_open', text="See online", icon = 'URL')
     if utils.user_is_owner(asset_data) and asset_data["verificationStatus"] != "validated":
-        op.url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS + f"/{asset_data['assetBaseId']}/?preview#"
+        op.url =  f'{paths.BLENDERKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?preview#'
     else:
         op.url = paths.get_asset_gallery_url(asset_data['id'])
         #TODO this is where validator should be able to go and see non-validated the assets in gallery,
@@ -1681,7 +1679,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             if author_id == str(profile['user']['id']):
                 row.operator_context = 'EXEC_DEFAULT'
                 op = layout.operator('wm.blenderkit_url', text='Edit Metadata (browser)', icon='GREASEPENCIL')
-                op.url = paths.get_bkit_url() + paths.BLENDERKIT_USER_ASSETS + f"/{asset_data['assetBaseId']}/?edit#"
+                op.url = f'{paths.BLENDERKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?edit#'
 
             row.operator_context = 'INVOKE_DEFAULT'
 
@@ -1930,7 +1928,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         self.draw_property(box,
                            'License', t,
                            # icon_value=icon.icon_id,
-                           url="https://www.blenderkit.com/docs/licenses/",
+                           url=f'{global_vars.SERVER}/docs/licenses/',
                            tooltip='All BlenderKit assets are available for commercial use. \n' \
                                    'Click to read more about BlenderKit licenses on the website'
                            )
@@ -1962,7 +1960,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                                'Verification',
                                self.asset_data['verificationStatus'],
                                icon_value=icon.icon_id,
-                               url="https://www.blenderkit.com/docs/validation-status/",
+                               url=f'{global_vars.SERVER}/docs/validation-status/',
                                tooltip=verification_status_tooltips[self.asset_data['verificationStatus']]
 
                                )
@@ -2055,7 +2053,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                         '  *  Free plan - more than 50% of all assets\n' \
                         '  *  Full plan - unlimited access to everything\n' \
                         'Click to go to subscriptions page'
-        plans_link = 'https://www.blenderkit.com/plans/pricing/'
         if self.asset_data['isPrivate']:
             t = 'Private'
             self.draw_property(box, 'Access', t, icon='LOCKED')
@@ -2065,14 +2062,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.draw_property(box, 'Access', t,
                                icon_value=icon.icon_id,
                                tooltip=plans_tooltip,
-                               url=plans_link)
+                               url=paths.BLENDERKIT_PLANS_URL)
         else:
             t = 'Full plan'
             icon = pcoll['full']
             self.draw_property(box, 'Access', t,
                                icon_value=icon.icon_id,
                                tooltip=plans_tooltip,
-                               url=plans_link)
+                               url=paths.BLENDERKIT_PLANS_URL)
         if utils.profile_is_validator():
             date = self.asset_data['created'][:10]
             date = f"{date[8:10]}. {date[5:7]}. {date[:4]}"
@@ -2134,7 +2131,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 row.label(text='Please introduce yourself to the community!')
 
                 op = col.operator('wm.blenderkit_url', text='Edit your profile')
-                op.url = 'https://www.blenderkit.com/profile'
+                op.url = f'{global_vars.SERVER}/profile'
                 op.tooltip = 'Edit your profile on BlenderKit webpage'
 
             button_row = author_box.row()
@@ -2229,7 +2226,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             row.prop(ui_props, 'drag_init_button', icon='MOUSE_LMB_DRAG', text='Click / Drag from here', emboss=True)
         else:
             op = layout.operator('wm.blenderkit_url', text='Unlock this asset', icon='UNLOCKED')
-            op.url = paths.get_bkit_url() + '/get-blenderkit/' + self.asset_data['id'] + '/?from_addon=True'
+            op.url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
 
     def draw_menu_desc_author(self, context, layout, width=330):
         box = layout.column()
@@ -2407,10 +2404,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             split = split.split()
             row.alert = False
             op = row.operator("wm.url_open", text="", icon="GREASEPENCIL")
-            op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/change/"
+            op.url = f'{global_vars.SERVER}/bksecretadmin/django_comments_xtd/xtdcomment/{comment["id"]}/change/'
             # row.alert = True
             # op = row.operator("wm.url_open", text="", icon='CANCEL')
-            # op.url = f"https://www.blenderkit.com/bksecretadmin/django_comments_xtd/xtdcomment/{comment['id']}/delete/"
+            # op.url = f'{global_vars.SERVER}/bksecretadmin/django_comments_xtd/xtdcomment/{comment["id"]}/delete/'
           
         if utils.user_logged_in():
             # row = rows[-1]

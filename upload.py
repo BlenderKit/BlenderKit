@@ -546,7 +546,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
 
 def patch_individual_metadata(asset_id, metadata_dict, api_key):
     upload_data = metadata_dict
-    url = paths.get_api_url() + 'assets/' + str(asset_id) + '/'
+    url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/'
     headers = utils.get_headers(api_key)
     try:
         r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
@@ -785,7 +785,7 @@ def verification_status_change_thread(asset_id, state, api_key):
     upload_data = {
         "verificationStatus": state
     }
-    url = paths.get_api_url() + 'assets/' + str(asset_id) + '/'
+    url = paths.BLENDERKIT_API + '/assets/' + str(asset_id) + '/'
     headers = utils.get_headers(api_key)
     try:
         r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
@@ -904,7 +904,7 @@ class Uploader(threading.Thread):
         script_path = os.path.dirname(os.path.realpath(__file__))
 
         # first upload metadata to server, so it can be saved inside the current file
-        url = paths.get_api_url() + 'assets/'
+        url = paths.BLENDERKIT_API + '/assets/'
 
         headers = utils.get_headers(self.upload_data['token'])
 
@@ -1042,7 +1042,7 @@ class Uploader(threading.Thread):
                         "verificationStatus": "uploaded"
                     }
 
-                    url = paths.get_api_url() + 'assets/'
+                    url = paths.BLENDERKIT_API + '/assets/'
 
                     headers = utils.get_headers(self.upload_data['token'])
 
