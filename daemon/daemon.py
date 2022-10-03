@@ -277,12 +277,14 @@ if __name__ == '__main__':
   parser.add_argument('--proxy-address', type=str, default='')
   parser.add_argument('--proxy-ca-certs', type=str, default='')
   parser.add_argument('--system-id', type=str, default='')
+  parser.add_argument('--version', type=str, default='')
   args = parser.parse_args()
 
   globals.PORT = args.port
   globals.SERVER = args.server
   globals.servers_statuses[args.server] = None
   globals.SYSTEM_ID = args.system_id
+  globals.VERSION = args.version
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
   server['PROXY_ADDRESS'] = args.proxy_address
