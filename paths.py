@@ -29,25 +29,22 @@ from . import colors, global_vars, reports, tasks_queue, utils
 
 bk_logger = logging.getLogger(__name__)
 
-_presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets")
-BLENDERKIT_LOCAL = "http://localhost:8001"
-BLENDERKIT_MAIN = "https://www.blenderkit.com"
-BLENDERKIT_DEVEL = "https://devel.blenderkit.com"
-BLENDERKIT_STAGING = "https://staging.blenderkit.com"
-BLENDERKIT_API = "/api/v1/"
-BLENDERKIT_REPORT_URL = "usage_report/"
-BLENDERKIT_USER_ASSETS = "/my-assets"
-BLENDERKIT_PLANS = "/plans/pricing/"
-BLENDERKIT_MANUAL = "https://youtu.be/pSay3yaBWV0"
-BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = "https://www.blenderkit.com/docs/upload/"
-BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = "https://www.blenderkit.com/docs/uploading-material/"
-BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = "https://www.blenderkit.com/docs/uploading-brush/"
-BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = "https://www.blenderkit.com/docs/uploading-hdr/"
-BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = "https://www.blenderkit.com/docs/uploading-scene/"
-BLENDERKIT_LOGIN_URL = "https://www.blenderkit.com/accounts/login"
-BLENDERKIT_OAUTH_LANDING_URL = "/oauth-landing/"
-BLENDERKIT_SIGNUP_URL = "https://www.blenderkit.com/accounts/register"
-BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, "bkit.json")
+_presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), 'presets')
+BLENDERKIT_API = f'{global_vars.SERVER}/api/v1'
+BLENDERKIT_OAUTH_LANDING_URL = f'{global_vars.SERVER}/oauth-landing'
+BLENDERKIT_PLANS_URL = f'{global_vars.SERVER}/plans/pricing'
+BLENDERKIT_REPORT_URL = f'{global_vars.SERVER}/usage_report'
+BLENDERKIT_USER_ASSETS_URL = f'{global_vars.SERVER}/my-assets'
+BLENDERKIT_MANUAL_URL = 'https://youtu.be/pSay3yaBWV0'
+BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/upload/'
+BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-material/'
+BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-brush/'
+BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-hdr/'
+BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-scene/'
+BLENDERKIT_LOGIN_URL = f'{global_vars.SERVER}/accounts/login'
+BLENDERKIT_SIGNUP_URL = f'{global_vars.SERVER}/accounts/register'
+
+BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, 'bkit.json')
 
 
 def cleanup_old_folders():
@@ -60,21 +57,6 @@ def cleanup_old_folders():
             bk_logger.error(f'could not delete old temp directory: {e}')
 
 
-def get_bkit_url():
-    # bpy.app.debug_value = 2
-    d = bpy.app.debug_value
-    # d = 2
-    if d == 1:
-        url = BLENDERKIT_LOCAL
-    elif d == 2:
-        url = BLENDERKIT_DEVEL
-    elif d == 3:
-        url = BLENDERKIT_STAGING
-    else:
-        url = BLENDERKIT_MAIN
-    return url
-
-
 def find_in_local(text=''):
     fs = []
     for p, d, f in os.walk('.'):
@@ -84,20 +66,12 @@ def find_in_local(text=''):
     return fs
 
 
-def get_api_url():
-    return get_bkit_url() + BLENDERKIT_API
-
-
-def get_oauth_landing_url():
-    return get_bkit_url() + BLENDERKIT_OAUTH_LANDING_URL
-
-
 def get_author_gallery_url(author_id):
-    return f'{get_bkit_url()}/asset-gallery?query=author_id:{author_id}'
+    return f'{global_vars.SERVER}/asset-gallery?query=author_id:{author_id}'
 
 
 def get_asset_gallery_url(asset_id):
-    return f'{get_bkit_url()}/asset-gallery-detail/{asset_id}/'
+    return f'{global_vars.SERVER}/asset-gallery-detail/{asset_id}/'
 
 
 def default_global_dict():

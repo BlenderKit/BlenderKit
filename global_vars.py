@@ -11,7 +11,13 @@ DATA = {
 LOGGING_LEVEL_BLENDERKIT = logging.INFO
 LOGGING_LEVEL_IMPORTED = logging.WARN
 PREFS = {}
-SERVER = 'https://devel.blenderkit.com'
+
+BLENDERKIT_LOCAL = 'http://localhost:8001'
+BLENDERKIT_MAIN = 'https://www.blenderkit.com'
+BLENDERKIT_DEVEL = 'https://devel.blenderkit.com'
+BLENDERKIT_STAGING = 'https://staging.blenderkit.com'
+SERVER = BLENDERKIT_MAIN
+
 TIPS = [
   ('You can disable tips in the add-on preferences.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#preferences'),
   ('Ratings help us distribute funds to creators.', 'https://www.blenderkit.com/docs/rating/'),

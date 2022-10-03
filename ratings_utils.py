@@ -96,9 +96,8 @@ def get_rating(asset_id, headers):
     -------
     ratings - dict of type:value ratings
     '''
-    import time
-    t = time.time()
-    url = paths.get_api_url() + 'assets/' + asset_id + '/rating/'
+
+    url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/rating/'
     params = {}
     r = rerequests.get(url, params=params, verify=True, headers=headers)
     if r is None:
@@ -152,7 +151,7 @@ def update_ratings_quality(self, context):
         asset_id = self.asset_id
 
     if bkit_ratings.rating_quality > 0.1:
-        url = paths.get_api_url() + f'assets/{asset_id}/rating/'
+        url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/rating/'
 
         store_rating_local(asset_id, type='quality', value=bkit_ratings.rating_quality)
 
@@ -175,7 +174,7 @@ def update_ratings_work_hours(self, context):
         asset_id = self.asset_id
 
     if bkit_ratings.rating_work_hours > 0.45:
-        url = paths.get_api_url() + f'assets/{asset_id}/rating/'
+        url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/rating/'
 
         store_rating_local(asset_id, type='working_hours', value=bkit_ratings.rating_work_hours)
 

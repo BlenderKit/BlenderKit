@@ -84,7 +84,7 @@ def upload_file(upload_data, f):
         'fileIndex': f['index'],
         'originalFilename': os.path.basename(f['file_path'])
     }
-    upload_create_url = paths.get_api_url() + 'uploads/'
+    upload_create_url = f'{paths.BLENDERKIT_API}/uploads/'
     upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
     upload = upload.json()
     #
@@ -112,7 +112,7 @@ def upload_file(upload_data, f):
 
                 if 250 > upload_response.status_code > 199:
                     uploaded = True
-                    upload_done_url = paths.get_api_url() + 'uploads_s3/' + upload['id'] + '/upload-file/'
+                    upload_done_url = f'{paths.BLENDERKIT_API}/uploads_s3/{upload["id"]}/upload-file/'
                     upload_response = rerequests.post(upload_done_url, headers=headers, verify=True)
                     # print(upload_response)
                     # print(upload_response.text)

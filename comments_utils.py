@@ -31,10 +31,10 @@ bk_logger = logging.getLogger(__name__)
 def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
   ''' Upload comment thread function / disconnected from blender data.'''
   headers = utils.get_headers(api_key)
-  url = f'{paths.get_api_url()}comments/asset-comment/{asset_id}/'
+  url = f'{paths.BLENDERKIT_API}/comments/asset-comment/{asset_id}/'
   r = rerequests.get(url, headers=headers)
   comment_data = r.json()
-  url = f'{paths.get_api_url()}comments/comment/'
+  url = f'{paths.BLENDERKIT_API}/comments/comment/'
   data = {
     "name": "",
     "email": "",
@@ -65,7 +65,7 @@ def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=
     "comment": comment_id,
     "flag": flag,
   }
-  url = paths.get_api_url() + 'comments/feedback/'
+  url = paths.BLENDERKIT_API + '/comments/feedback/'
   r = rerequests.post(url, data=data, verify=True, headers=headers)
   bk_logger.info(f'{r.text}')
   # here it's important we read back, so likes are updated accordingly:
@@ -81,7 +81,7 @@ def upload_comment_is_private_thread(asset_id='', comment_id='', is_private=Fals
   data = {
     "is_private": is_private,
   }
-  url = f"{paths.get_api_url()}comments/is_private/{comment_id}/"
+  url = f"{paths.BLENDERKIT_API}/comments/is_private/{comment_id}/"
   r = rerequests.post(url, data=data, verify=True, headers=headers)
   bk_logger.debug(r.text)
   
@@ -97,7 +97,7 @@ def upload_comment_is_private_thread(asset_id='', comment_id='', is_private=Fals
 #   data = {
 #     "comment": comment_id,
 #   }
-#   url = paths.get_api_url() + 'comments/delete/0/'
+#   url = paths.BLENDERKIT_API + '/comments/delete/0/'
 #   r = rerequests.post(url, data=data, verify=True, headers=headers)
 #   if len(r.text)<1000:
 #   # here it's important we read back, so likes are updated accordingly:
@@ -164,7 +164,7 @@ def get_comments(asset_id, api_key):
   '''
   headers = utils.get_headers(api_key)
 
-  url = paths.get_api_url() + 'comments/assets-uuidasset/' + asset_id + '/'
+  url = paths.BLENDERKIT_API + '/comments/assets-uuidasset/' + asset_id + '/'
   params = {}
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r is None:
@@ -249,7 +249,7 @@ def get_notifications(api_key, all_count=1000):
 
   params = {}
 
-  url = paths.get_api_url() + 'notifications/all_count/'
+  url = paths.BLENDERKIT_API + '/notifications/all_count/'
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r.status_code == 200:
     rj = r.json()
@@ -258,7 +258,7 @@ def get_notifications(api_key, all_count=1000):
       tasks_queue.add_task((store_notifications_count_local, ([rj['allCount']])))
 
       return
-  url = paths.get_api_url() + 'notifications/unread/'
+  url = paths.BLENDERKIT_API + '/notifications/unread/'
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r is None:
     return
@@ -279,7 +279,7 @@ def mark_notification_read(api_key, notification_id):
   '''
   headers = utils.get_headers(api_key)
 
-  url = paths.get_api_url() + f'notifications/mark-as-read/{notification_id}/'
+  url = f'{paths.BLENDERKIT_API}/notifications/mark-as-read/{notification_id}/'
   params = {}
   r = rerequests.get(url, params=params, verify=True, headers=headers)
   if r is None:
