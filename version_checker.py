@@ -23,7 +23,7 @@ import threading
 import bpy
 import requests
 
-from . import global_vars, paths
+from . import global_vars, paths, utils
 
 
 def get_blender_version():
@@ -43,10 +43,7 @@ def get_addon_version():
 
 
 def check_version(url, api_key, module):
-    headers = {
-        "accept": "application/json",
-        "Authorization": "Bearer %s" % api_key}
-
+    headers = utils.get_headers(api_key=api_key)
     print('checking online version of module %s' % str(module.bl_info['name']))
     try:
         session = requests.Session()

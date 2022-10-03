@@ -26,8 +26,7 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
 
   image_url = task.data["image_url"]
   image_path = task.data["image_path"]
-  headers = utils.get_headers()
-  async with session.get(image_url, headers=headers) as resp:
+  async with session.get(image_url, headers=utils.get_headers()) as resp:
     if resp and resp.status == 200:
       with open(image_path, 'wb') as file:
         async for chunk in resp.content.iter_chunked(4096 * 32):

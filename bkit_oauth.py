@@ -223,7 +223,7 @@ class CancelLoginOnline(bpy.types.Operator):
                     session.proxies = {'https': proxy_address}
                 else:
                     session.trust_env = True
-                session.get(active_authenticator.redirect_uri)
+                session.get(active_authenticator.redirect_uri, headers=utils.get_headers())
                 active_authenticator = None
         except Exception as e:
             bk_logger.info(f'Login attempt stopped: {e}')

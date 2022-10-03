@@ -855,7 +855,8 @@ def download_asset_file(asset_data, resolution='blend', api_key=''):
             session.proxies = {'https': proxy_address}
         else:
             session.trust_env = True
-        response = session.get(res_file_info['url'], stream=True,)
+
+        response = session.get(res_file_info['url'], stream=True, headers=utils.get_headers())
         total_length = response.headers.get('Content-Length')
 
         if total_length is None or int(total_length) < 1000:  # no content length header

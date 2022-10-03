@@ -632,7 +632,7 @@ def fetch_gravatar(adata=None):
       return
 
     url = global_vars.SERVER + adata['avatar128']
-    r = rerequests.get(url, stream=False)
+    r = rerequests.get(url, stream=False, headers=utils.get_headers())
     # print(r.body)
     if r.status_code == 200:
       # print(url)
@@ -654,7 +654,7 @@ def fetch_gravatar(adata=None):
       return;
 
     url = "https://www.gravatar.com/avatar/" + adata['gravatarHash'] + '?d=404'
-    r = rerequests.get(url, stream=False)
+    r = rerequests.get(url, stream=False, headers=utils.get_headers())
     if r.status_code == 200:
       with open(gravatar_path, 'wb') as f:
         f.write(r.content)

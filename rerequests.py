@@ -53,7 +53,7 @@ def rerequest(method, url, recursion=0, **kwargs):
             session.proxies = {'https': proxy_address}
         else:
             session.trust_env = True
-        response = session.request(method, url, **kwargs)
+        response = session.request(method, url, headers=utils.get_headers(), **kwargs)
     except Exception as e:
         print(e)
         tasks_queue.add_task((reports.add_report, (
