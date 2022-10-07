@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import bpy
 import requests
 
-from . import colors, dependencies, global_vars, reports
+from . import colors, dependencies, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -43,13 +43,18 @@ def get_reports(app_id: str):
   """Get reports for all tasks of app_id Blender instance at once."""
 
   bk_logger.debug('Getting reports')
+  scene_uuid = utils.get_scene_id()
+  api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
   address = get_address()
   with requests.Session() as session:
     url = address + "/report"
-    data = {'app_id': app_id}
+    data = {
+      'app_id': app_id,
+      'scene_uuid': scene_uuid,
+      'api_key': api_key,
+      }
     try:
       resp = session.get(url, json=data)
-      bk_logger.debug('Got reports')
       return resp.json()
     except Exception as e:
       raise(e)

@@ -8,6 +8,7 @@ from aiohttp import web
 import assets
 import tasks
 import globals
+import search
 
 async def websocket_handler(request):
   ws = web.WebSocketResponse(protocols=('v0.1.0'))
@@ -18,25 +19,33 @@ async def websocket_handler(request):
       if msg.data == 'close':
         await ws.close()
       else:
-        data = json.loads(msg.data)
-        print(data)
-        data = {
-          "asset_data": {
-            "assetBaseId": data["asset_base_id"],
-            "assetType" : data["asset_type"]
-          },
-          'PREFS': {
-            'api_key': data
-          }
-        }
+        for app_id in globals.active_apps:
+          app_id = app_id
+          scene_uuid = globals.active_apps[app_id]['scene_uuid']
+          api_key = globals.active_apps[app_id]['api_key']
+          download_dirs = ["/Users/ag/blenderkit_data/models"]
+          break
 
+        data = json.loads(msg.data)
+
+        response = await search.search_asset_by_asset_base_id(request, data['asset_base_id'], api_key)
+        
+
+        data = {
+          'PREFS': {
+            'api_key': api_key,
+            'scene_id': scene_uuid,
+          },
+          'resolution': 'resolution_1K', # we can get this from prefs also
+          'download_dirs': download_dirs,
+        }
+        data['asset_data'] = response['results'][0]
 
         task_id = str(uuid.uuid4())
-        app_id = globals.active_apps[0]
         task = tasks.Task(data, app_id, 'asset_download', task_id, message='Looking for asset')
         globals.tasks.append(task)
         task.async_task = asyncio.ensure_future(assets.do_asset_download(request, task))
-        print("DOWNLOAD TASK ADDED")
+        print("DOWNLOAD FROM WEBSITE ADDED", data)
 
         await ws.send_str('got it')
 

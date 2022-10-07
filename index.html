@@ -1,0 +1,30 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Download test</title>
+</head>
+
+<body>
+  <!-- your content here... -->
+  <script>
+    const ws = new WebSocket("ws://localhost:62485/server_websocket", "v0.1.0");
+
+    download = {
+      "asset_base_id":"67f55944-a088-48de-8a60-6132547cbf75",
+      "asset_type":"model",
+    }
+
+    ws.onopen = (event) => {
+      ws.send(JSON.stringify(download));
+    };
+
+    ws.onmessage = (event) => {
+      console.log(event.data)
+    }
+
+
+  </script>
+</body>
+</html>

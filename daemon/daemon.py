@@ -126,15 +126,20 @@ async def report(request: web_request.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
 
   globals.last_report_time = time.time()
-
   data = await request.json()
-  #check if the app was already active
-  if data['app_id'] not in globals.active_apps:
-    globals.active_apps.append(data['app_id'])
+  app_id = data['app_id']
+  scene_uuid = data['scene_uuid']
+  api_key = data['api_key']
+  globals.active_apps[app_id] = {
+    'scene_uuid': scene_uuid,
+    'api_key': api_key,
+  }
 
   reports = list()
+
+  print(globals.tasks)
   for task in reversed(globals.tasks): #reversed so removal doesn't skip items
-    if task.app_id != data['app_id']:
+    if task.app_id != app_id:
       continue
 
     reports.append(task.to_seriazable_object())
@@ -144,11 +149,9 @@ async def report(request: web_request.Request):
       print(f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}")
       globals.tasks.remove(task)
 
-  status_report = tasks.Task({}, data['app_id'], 'daemon_status', result= globals.servers_statuses)
+  status_report = tasks.Task({}, app_id, 'daemon_status', result= globals.servers_statuses)
   reports.append(status_report.to_seriazable_object())
   reports.reverse()
-
-  print("TASKS", globals.tasks)
 
   return web.json_response(reports)
 
@@ -163,9 +166,10 @@ async def shutdown(request: web_request.Request):
 
 async def report_blender_quit(request: web_request.Request):
   data = await request.json()
-  logging.warning(f"Blender quit (ID {data['app_id']}) was reported")
-  if data['app_id'] in globals.active_apps:
-    globals.active_apps.remove(data['app_id'])
+  app_id = data['app_id']
+  logging.warning(f"Blender quit (ID {app_id}) was reported")
+  if app_id in globals.active_apps:
+    del globals.active_apps[app_id]
   if len(globals.active_apps)==0:
     logging.warning('No more apps to serve, exiting Daemon')
     asyncio.ensure_future(shutdown_daemon(request.app))

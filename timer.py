@@ -57,7 +57,6 @@ def daemon_communication_timer():
     wm = bpy.context.window_manager
     try:
       results = daemon_lib.get_reports(app_id)
-      print("RESULTS", results)
     except Exception as e:
       global_vars.DAEMON_ACCESSIBLE = False
       
@@ -123,8 +122,10 @@ def cancel_all_tasks(self, context):
 def handle_task(task: tasks.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""
   
+
   #HANDLE ASSET DOWNLOAD
   if task.task_type == 'asset_download':
+    print("ASSET DOWNLOAD!!!!!", task.task_type, task.status)
     download.handle_download_task(task)
     
   #HANDLE SEARCH (candidate to be a function)

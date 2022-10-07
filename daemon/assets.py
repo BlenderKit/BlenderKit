@@ -42,15 +42,16 @@ def get_res_file(data, find_closest_with_url: bool = False):
   closest = None
   target_resolution = resolutions.get(data['resolution'])
   mindist = 100000000
-
+  print('got resolutions')
   for f in data['asset_data']['files']:
     if f['fileType'] == 'blend':
       orig = f
       if data['resolution'] == 'blend':
         # orig file found, return.
         return orig, 'blend'
-
+    print("GOT 52")
     if f['fileType'] == data['resolution']:
+      print("got 54")
       # exact match found, return.
       return f, data['resolution']
     # find closest resolution if the exact match won't be found.
@@ -61,6 +62,7 @@ def get_res_file(data, find_closest_with_url: bool = False):
         closest = f
         mindist = rdiff
 
+  print("got 64")
   if not res and not closest:
     return orig, 'blend'
 
@@ -84,7 +86,10 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
   if await check_existing(task):
     task.finished('Asset found on hard drive')
+    print('found on hard drive')
     return
+
+  print('not found on hard drive')
 
   print("getting filepaths")
   file_path = get_download_filepaths(task)[0]
@@ -140,14 +145,17 @@ async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.T
         #   return
 
 
-async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):
+async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task, api_key: str = '', scene_id: str = ''):
   """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
 
-  headers = utils.get_headers(task.data['PREFS']['api_key'])
-  req_data = {'scene_uuid': task.data['PREFS']['scene_id']}
-  res_file_info, resolution = get_res_file(task.data)
+  api_key = api_key or task.data['PREFS']['api_key']
+  scene_id = scene_id or task.data['PREFS']['scene_id'] or task.data['PREFS']['scene']
+  headers = utils.get_headers(api_key)
+  print("got headers")
+  res_file_info, _ = get_res_file(task.data)
 
-  async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
+  print("getting downloadURL")
+  async with session.get(res_file_info['downloadUrl'], params={'scene_uuid': scene_id}, headers=headers) as resp:
     await resp.text()
     if resp == None:
       task.error('Connection error')
@@ -167,9 +175,6 @@ async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):
       # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
     elif resp.status >= 500:
       task.error('Server error')
-
-  # add_error_report(data, text=report_text)
-  task.change_progress(-1, report_text)
 
   return False
 
@@ -321,7 +326,10 @@ async def check_existing(task) -> bool:
   if data['asset_data'].get('files') == None:
     return False  # this is because of some very old files where asset data had no files structure.
 
+  print('getting file paths')
   file_paths = get_download_filepaths(task)
+
+  print('got filepaths')
 
   # bk_logger.debug('check if file already exists' + str(file_names))
   if len(file_paths) == 2:

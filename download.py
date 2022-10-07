@@ -676,6 +676,7 @@ def handle_download_task(task: tasks.Task):
   global download_tasks
 
   if task.status == "finished":
+    print("running download post")
     download_post(task)
   elif task.status == "error":
     reports.add_report(task.message, 15, colors.RED)
@@ -710,7 +711,7 @@ def download_post(task: tasks.Task):
     orig_task = download_tasks.get(task.task_id)
 
     if orig_task is None:
-        return
+        return #### THIS NEEDS TO BE IMPLEMENTED - orig_task does not exist for downloads from website
 
     remove_keys = []
     done = False

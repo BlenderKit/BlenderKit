@@ -132,3 +132,14 @@ async def do_search(request: web.Request, data: dict, task_id: str):
     # thumbnails fetching
     await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks, block=True)
     await download_image_batch(request.app['SESSION_BIG_THUMBS'], full_thumbs_tasks)
+
+
+async def search_asset_by_asset_base_id(request: web.Request, asset_base_id: str, api_key: str):
+  headers = utils.get_headers(api_key)
+  session = request.app['SESSION_API_REQUESTS']
+  url = f'{globals.SERVER}/api/v1/search/?query=asset_base_id:{asset_base_id}'
+  async with session.get(url, headers=headers) as resp:
+    await resp.text()
+    response = await resp.json()
+
+    return response

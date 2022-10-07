@@ -1,6 +1,7 @@
 """Holds global variables used by modules of daemon server."""
 
 import time
+from typing import OrderedDict
 
 import tasks as tsks
 
@@ -14,7 +15,7 @@ PORT: int = -1
 OAUTH_CLIENT_ID: str = 'IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F'
 SERVER = None
 
-active_apps=[]
+active_apps = OrderedDict()
 last_report_time: float = time.time()
 servers_statuses = {
     #SERVER: None, is added on daemon startup
