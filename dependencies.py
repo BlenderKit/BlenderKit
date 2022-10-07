@@ -72,6 +72,7 @@ def ensure_deps():
       import aiohttp
       import certifi
       from aiohttp import web, web_request
+      import aiohttp_cors
       return
     except:
       install_dependencies()
@@ -98,7 +99,7 @@ def install_dependencies():
     return
 
   bk_logger.warn(f"Install from requirements.txt failed, trying with unconstrained versions...")
-  command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_installed_deps_path(), 'aiohttp', 'certifi']
+  command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_installed_deps_path(), 'aiohttp', 'certifi', 'aiohttp_cors']
   result = subprocess.run(command, env=env, capture_output=True, text=True)
   bk_logger.info(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
   if result.returncode == 0:

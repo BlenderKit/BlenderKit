@@ -1,3 +1,7 @@
+../../../../../../../../../Users/ag/Library/Caches/com.apple.python/private/var/folders/n5/zgtk48652gq_1_b8h9g2mfph0000gn/T/pip-target-2bofhwys/lib/python/yarl/__init__.cpython-38.pyc,,
+../../../../../../../../../Users/ag/Library/Caches/com.apple.python/private/var/folders/n5/zgtk48652gq_1_b8h9g2mfph0000gn/T/pip-target-2bofhwys/lib/python/yarl/_quoting.cpython-38.pyc,,
+../../../../../../../../../Users/ag/Library/Caches/com.apple.python/private/var/folders/n5/zgtk48652gq_1_b8h9g2mfph0000gn/T/pip-target-2bofhwys/lib/python/yarl/_quoting_py.cpython-38.pyc,,
+../../../../../../../../../Users/ag/Library/Caches/com.apple.python/private/var/folders/n5/zgtk48652gq_1_b8h9g2mfph0000gn/T/pip-target-2bofhwys/lib/python/yarl/_url.cpython-38.pyc,,
 yarl-1.8.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 yarl-1.8.1.dist-info/LICENSE,sha256=VtasbIEFwKUTBMIdsGDjYa-ajqCvmnXCOcKLXRNpODg,609
 yarl-1.8.1.dist-info/METADATA,sha256=miGXpqjgTKfnHjfF_OaWDj5fSflKjCUMzCHTVW3e4ts,21168
@@ -7,10 +11,6 @@ yarl-1.8.1.dist-info/WHEEL,sha256=AENPUwuTc6qB95Mrn5JB5boXegWw6oDhuwuuX0q_ONg,15
 yarl-1.8.1.dist-info/top_level.txt,sha256=vf3SJuQh-k7YtvsUrV_OPOrT9Kqn0COlk7IPYyhtGkQ,5
 yarl/__init__.py,sha256=fjrukeRbTWwAxpA2u31Znyr0EBu_LDID-29qpQEGvPU,154
 yarl/__init__.pyi,sha256=ES2kbXk-0ra-aCz_VI1accDanuHfkoW964hbRfqSYeU,3883
-yarl/__pycache__/__init__.cpython-310.pyc,,
-yarl/__pycache__/_quoting.cpython-310.pyc,,
-yarl/__pycache__/_quoting_py.cpython-310.pyc,,
-yarl/__pycache__/_url.cpython-310.pyc,,
 yarl/_quoting.py,sha256=A35UGLJW4EOOHZNNocSiK7tRNGKe1NgqH3jxMoYN2x0,519
 yarl/_quoting_c.cpython-310-x86_64-linux-gnu.so,sha256=Kd5msOd0-6PvQ53UKPcRSbB1hTo3kWkOTPG6Vhelv8U,843696
 yarl/_quoting_c.pyi,sha256=plPeUkIbXp4Hzi0AbYII4JA0H9tCjtjw-UUPU5Na1s0,447

@@ -78,16 +78,20 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   6. unpacks the file
   """
 
+  print("getting download URL")
   await get_download_url(request.app["SESSION_API_REQUESTS"], task)
-
+  print("got download URL")
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
   if await check_existing(task):
     task.finished('Asset found on hard drive')
     return
 
+  print("getting filepaths")
   file_path = get_download_filepaths(task)[0]
+
+  print("got filepaths")
   task.change_progress(0, "Waiting in queue")
-  await download_file(request.app["SESSION_ASSETS"], file_path, task)
+  await download_file(request.app["SESSION_ASSETS"], file_path, task)  
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
 
   task.data['asset_data']['resolution'] = task.data['resolution']
@@ -134,16 +138,6 @@ async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.T
         # if globals.tasks[data['task_id']].get('kill'):
         #   delete_unfinished_file(file_path)
         #   return
-
-
-def report_download_finished(data):
-  """Return download finished results."""
-
-  globals.tasks[data['task_id']] = data
-  globals.tasks[data['task_id']].update({
-    "app_id": data['PREFS']['app_id'],
-    'type': 'download-finished',
-  })
 
 
 async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):

@@ -57,6 +57,7 @@ def daemon_communication_timer():
     wm = bpy.context.window_manager
     try:
       results = daemon_lib.get_reports(app_id)
+      print("RESULTS", results)
     except Exception as e:
       global_vars.DAEMON_ACCESSIBLE = False
       

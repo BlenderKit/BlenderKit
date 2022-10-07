@@ -17,6 +17,7 @@ PACKAGES = [
   "charset-normalizer==2.1.1",
   "frozenlist==1.3.1",
   "idna==3.3",
+  "aiohttp_cors==0.7.0",
 ]
 
 
@@ -109,7 +110,7 @@ def bundle_dependencies():
     for platform in OS['platforms']:
       for module in OS['platforms'][platform]:
         cmd = [
-          'pip',
+          'pip3',
           'install',
           '--only-binary=:all:',
           f'--platform={platform}',

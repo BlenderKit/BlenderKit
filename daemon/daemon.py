@@ -27,12 +27,15 @@ except Exception as e:
   logging.ERROR(f'{e}')
   exit(102)
 
+import aiohttp_cors
+
+
 import assets
 import disclaimer
 import globals
 import oauth
 import tasks
-
+import bkserver
 import search
 
 
@@ -40,6 +43,7 @@ async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
 
   data = await request.json()
+  print(data)
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id #mozna k nicemu
 
@@ -143,6 +147,8 @@ async def report(request: web_request.Request):
   status_report = tasks.Task({}, data['app_id'], 'daemon_status', result= globals.servers_statuses)
   reports.append(status_report.to_seriazable_object())
   reports.reverse()
+
+  print("TASKS", globals.tasks)
 
   return web.json_response(reports)
 
@@ -270,16 +276,17 @@ if __name__ == '__main__':
   globals.PORT = args.port
   globals.SERVER = args.server
   globals.servers_statuses[args.server] = None
+
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
   server['PROXY_ADDRESS'] = args.proxy_address
   server['PROXY_CA_CERTS'] = args.proxy_ca_certs
+  cors = aiohttp_cors.setup(server)
 
   server.cleanup_ctx.append(persistent_sessions)
   server.add_routes([
     web.get('/', index),
     web.get('/report', report),
-    web.get('/kill_download', kill_download),
     web.post('/download_asset', download_asset),
     web.post('/search_asset', search_assets),
     web.view('/shutdown', shutdown),
@@ -287,7 +294,18 @@ if __name__ == '__main__':
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
     web.get('/get_disclaimer', get_disclaimer),
+    web.get('/kill_download', kill_download, name='server'),
+    web.get('/server_websocket', bkserver.websocket_handler, name='server_websocket'),
   ])
+
+  cors.add(server.router['server_websocket'], {
+    "*": aiohttp_cors.ResourceOptions(
+      allow_credentials=True,
+      expose_headers=("X-Custom-Server-Header",),
+      allow_headers=("X-Requested-With", "Content-Type"),
+      max_age=3600,
+      )
+    })
 
   server.on_startup.append(start_background_tasks)
   server.on_cleanup.append(cleanup_background_tasks)
