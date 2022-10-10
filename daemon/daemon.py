@@ -129,15 +129,14 @@ async def report(request: web_request.Request):
   data = await request.json()
   app_id = data['app_id']
   scene_uuid = data['scene_uuid']
-  api_key = data['api_key']
+  prefs = data['PREFS']
   globals.active_apps[app_id] = {
     'scene_uuid': scene_uuid,
-    'api_key': api_key,
+    'PREFS' : prefs,
   }
 
   reports = list()
 
-  print(globals.tasks)
   for task in reversed(globals.tasks): #reversed so removal doesn't skip items
     if task.app_id != app_id:
       continue

@@ -285,9 +285,9 @@ def udpate_asset_data_in_dicts(asset_data):
     scene = bpy.context.scene
     scene['assets used'] = scene.get('assets used', {})
     scene['assets used'][asset_data['assetBaseId']] = asset_data.copy()
-    sr = global_vars.DATA['search results']
+    sr = global_vars.DATA.get('search results')
     if not sr:
-        return;
+        return
     for i, r in enumerate(sr):
         if r['assetBaseId'] == asset_data['assetBaseId']:
             for f in asset_data['files']:
@@ -670,7 +670,7 @@ def download_timer():
     return .5
 
 def handle_download_task(task: tasks.Task):
-  """Handle incoming task information.
+  """Handle incoming download task information.
   Update progress. Print messages. Fire post-download functions.
   """
   global download_tasks
@@ -683,6 +683,27 @@ def handle_download_task(task: tasks.Task):
     download_tasks.pop(task.task_id)
   else:
     download_write_progress(task.task_id, task)
+
+def handle_ws_download_task(task: tasks.Task):
+  """Handle incoming websocket download task information.
+  As websocket download task was created from web not from addon and is uknown for addon, few tweaks are made:
+  First it adds the task into global var download_tasks.
+  Then it parses all asset_data parameters from list to dict named dictParameters.
+  Finally it continues as if it was normal asset download by calling handle_download_task().
+  """
+
+  global download_tasks
+  if download_tasks.get(task.task_id) == None:
+    task.data['asset_data']['dictParameters'] = {}
+    for parameter in task.data['asset_data']['parameters']:
+      param_key = parameter['parameterType']
+      param_value = parameter['value']
+      task.data['asset_data']['dictParameters'][param_key] = param_value
+
+    task.data['asset_data'] = search.parse_result(task.data['asset_data'])
+    download_tasks[task.task_id] = task.data
+
+  handle_download_task(task)
 
 def clear_downloads():
     """Cancel all downloads."""
@@ -796,7 +817,7 @@ def download_post(task: tasks.Task):
                 # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
                 # download(asset_data, **tcom.passargs)
 
-            if global_vars.DATA['search results'] is not None and done:
+            if global_vars.DATA.get('search results') is not None and done:
                 for sres in global_vars.DATA['search results']:
                     if task.data['asset_data']['id'] == sres['id']:
                         sres['downloaded'] = 100

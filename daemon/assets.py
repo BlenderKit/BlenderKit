@@ -80,30 +80,28 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   6. unpacks the file
   """
 
-  print("getting download URL")
   await get_download_url(request.app["SESSION_API_REQUESTS"], task)
-  print("got download URL")
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
   if await check_existing(task):
     task.finished('Asset found on hard drive')
-    print('found on hard drive')
     return
 
-  print('not found on hard drive')
-
-  print("getting filepaths")
   file_path = get_download_filepaths(task)[0]
 
-  print("got filepaths")
   task.change_progress(0, "Waiting in queue")
+  print('waiting in queuee')
   await download_file(request.app["SESSION_ASSETS"], file_path, task)  
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
 
+  print('file downloaded')
   task.data['asset_data']['resolution'] = task.data['resolution']
   if task.data['PREFS']['unpack_files']:
+    print('unpacking files')
     task.change_progress(100, 'Unpacking files')
     await send_to_bg(task.data, file_path, command='unpack', wait=True)
+    print('unpack')
 
+  print('appending asset')
   task.change_progress(100, 'Appending asset')
   task.finished('Asset downloaded and ready')
 
@@ -151,7 +149,6 @@ async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task, api
   api_key = api_key or task.data['PREFS']['api_key']
   scene_id = scene_id or task.data['PREFS']['scene_id'] or task.data['PREFS']['scene']
   headers = utils.get_headers(api_key)
-  print("got headers")
   res_file_info, _ = get_res_file(task.data)
 
   print("getting downloadURL")

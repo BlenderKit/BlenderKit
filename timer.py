@@ -125,9 +125,12 @@ def handle_task(task: tasks.Task):
 
   #HANDLE ASSET DOWNLOAD
   if task.task_type == 'asset_download':
-    print("ASSET DOWNLOAD!!!!!", task.task_type, task.status)
     download.handle_download_task(task)
-    
+
+  #HANDLE WEBSOCKET ASSET DOWNLOAD
+  if task.task_type == 'ws_asset_download':
+    download.handle_ws_download_task(task)
+
   #HANDLE SEARCH (candidate to be a function)
   if task.task_type == 'search':
     if task.status == 'finished':
