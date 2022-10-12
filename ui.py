@@ -887,7 +887,7 @@ class AssetDragOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         if self.asset_data.get('assetType') == 'brush':
-          if not context.sculpt_object or not context.image_paint_object:
+          if not (context.sculpt_object or context.image_paint_object):
             message = "Please switch to sculpt or image paint modes."
             bpy.ops.wm.blenderkit_popup_dialog('INVOKE_REGION_WIN', message=message)
             return {'CANCELLED'}
