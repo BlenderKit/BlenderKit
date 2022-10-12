@@ -923,14 +923,15 @@ def download(asset_data, **kwargs):
     download_tasks[response['task_id']] = data
 
 
-
-def check_downloading(asset_data, **kwargs):
-    ''' check if an asset is already downloading, if yes, just make a progress bar with downloader object.'''
+def check_downloading(asset_data, **kwargs) -> bool:
+    """Check if the asset is already being downloaded.
+    If not, return False.
+    If yes, just make a progress bar with downloader object and return True.
+    """
     global download_tasks
-
     downloading = False
 
-    for key,task in download_tasks.items():
+    for _, task in download_tasks.items():
         p_asset_data = task['asset_data']
         if p_asset_data['id'] == asset_data['id']:
             at = asset_data['assetType']
@@ -1170,43 +1171,37 @@ def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend
     return False
 
 
-def start_download(asset_data, **kwargs):
-    '''
-    check if file isn't downloading or doesn't exist, then start new download
-    '''
+def start_download(asset_data, **kwargs) -> bool:
+    """Check if file isn't downloading or is not in scene, then start new download.
+    Return true if new download was started.
+    """
     # first check if the asset is already in scene. We can use that asset without checking with server
-    ain, resolution = asset_in_scene(asset_data)
+    ain, _ = asset_in_scene(asset_data)
     # quota_ok = ain is not False
-
     # if resolution:
     #     kwargs['resolution'] = resolution
     # otherwise, check on server
 
-    s = bpy.context.scene
-    done = False
-    # is the asseet being currently downloaded?
-    downloading = check_downloading(asset_data, **kwargs)
-    if not downloading:
-        # check if there are files already. This check happens 2x once here(for free assets),
-        # once in thread(for non-free)
-        fexists = check_existing(asset_data, resolution=kwargs['resolution'])
-        bk_logger.debug('does file exist?' + str(fexists))
-        bk_logger.debug('asset is in scene' + str(ain))
-        if ain and not kwargs.get('replace_resolution'):
-            # this goes to appending asset - where it should duplicate the original asset already in scene.
-            done = try_finished_append(asset_data, **kwargs)
-        # else:
-        #     props = utils.get_search_props()
-        #     props.report = str('asset ')
-        if not done:
-            at = asset_data['assetType']
-            if at in ('model', 'material'):
-                downloader = {'location': kwargs['model_location'],
-                              'rotation': kwargs['model_rotation']}
-                download(asset_data, downloaders=[downloader], **kwargs)
+    if check_downloading(asset_data, **kwargs):
+      return False
 
-            else:
-                download(asset_data, **kwargs)
+    # check if there are files already. This check happens 2x once here(for free assets), once in thread(for non-free)
+    fexists = check_existing(asset_data, resolution=kwargs['resolution'])
+    bk_logger.debug('does file exist?' + str(fexists))
+    bk_logger.debug('asset is in scene' + str(ain))
+    if ain and not kwargs.get('replace_resolution'):
+        # this goes to appending asset - where it should duplicate the original asset already in scene.
+        append_ok = try_finished_append(asset_data, **kwargs)
+        if append_ok:
+          return False
+
+    if asset_data['assetType'] in ('model', 'material'):
+        downloader = {'location': kwargs['model_location'], 'rotation': kwargs['model_rotation']}
+        download(asset_data, downloaders=[downloader], **kwargs)
+        return True
+    
+    download(asset_data, **kwargs)
+    return True
 
 
 asset_types = (
@@ -1388,9 +1383,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
         self.asset_data = self.get_asset_data(context)
-        atype = self.asset_data['assetType']
-        if bpy.context.mode != 'OBJECT' and (
-                atype == 'model' or atype == 'material') and bpy.context.view_layer.objects.active is not None:
+        asset_type = self.asset_data['assetType']
+        if (asset_type == 'model' or asset_type == 'material') and (bpy.context.mode != 'OBJECT') and (bpy.context.view_layer.objects.active is not None):
             bpy.ops.object.mode_set(mode='OBJECT')
           
         # either settings resolution is used, or the one set by operator.
@@ -1429,22 +1423,23 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                 # TODO - move this After download, not before, so that the replacement
                 utils.delete_hierarchy(ob)
                 start_download(self.asset_data, **kwargs)
-        else:
-            # replace resolution needs to replace all instances of the resolution in the scene
-            # and deleting originals has to be thus done after the downlaod
+                return {'FINISHED'}
 
-            kwargs = {
-                'cast_parent': self.cast_parent,
-                'target_object': self.target_object,
-                'material_target_slot': self.material_target_slot,
-                'model_location': tuple(self.model_location),
-                'model_rotation': tuple(self.model_rotation),
-                'replace': False,
-                'replace_resolution': self.replace_resolution,
-                'resolution': resolution
-            }
+        # replace resolution needs to replace all instances of the resolution in the scene
+        # and deleting originals has to be thus done after the downlaod
 
-            start_download(self.asset_data, **kwargs)
+        kwargs = {
+            'cast_parent': self.cast_parent,
+            'target_object': self.target_object,
+            'material_target_slot': self.material_target_slot,
+            'model_location': tuple(self.model_location),
+            'model_rotation': tuple(self.model_rotation),
+            'replace': False,
+            'replace_resolution': self.replace_resolution,
+            'resolution': resolution
+        }
+
+        start_download(self.asset_data, **kwargs)
         return {'FINISHED'}
 
     def draw(self, context):
