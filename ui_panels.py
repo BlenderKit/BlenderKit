@@ -1306,10 +1306,8 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         layout.label(text ='Find and Upload Assets', icon_value=pcoll['logo'].icon_id)
 
     def draw(self, context):
-        s = context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        wm = bpy.context.window_manager
         layout = self.layout
         # layout.prop_tabs_enum(ui_props, "asset_type", icon_only = True)
 
@@ -1335,7 +1333,6 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         split.prop(ui_props, 'asset_type_fold', icon=expand_icon, icon_only=True, emboss=False)
 
         if ui_props.asset_type_fold:
-            pass
             # expanded interface with names in column
             split = split.row()
             split.scale_x = 8
@@ -1349,7 +1346,6 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         # row = layout.column(align = False)
         # layout.prop(ui_props, 'asset_type', expand=False, text='')
 
-        w = context.region.width
         if user_preferences.login_attempt:
             draw_login_progress(layout)
             return
@@ -1371,72 +1367,74 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         #     layout.separator()
 
         if ui_props.down_up == 'SEARCH':
-            if utils.profile_is_validator():
-                search_props = utils.get_search_props()
-                layout.prop(search_props, 'search_verification_status')
-                layout.prop(search_props, "unrated_only")
+            self.draw_search(context, layout, ui_props)
 
-            if ui_props.asset_type == 'MODEL':
-                # noinspection PyCallByClass
-                draw_panel_model_search(self, context)
-            if ui_props.asset_type == 'SCENE':
-                # noinspection PyCallByClass
-                draw_panel_scene_search(self, context)
-            if ui_props.asset_type == 'HDR':
-                # noinspection PyCallByClass
-                draw_panel_hdr_search(self, context)
-            elif ui_props.asset_type == 'MATERIAL':
-                draw_panel_material_search(self, context)
-            elif ui_props.asset_type == 'BRUSH':
-                if context.sculpt_object or context.image_paint_object:
-                    # noinspection PyCallByClass
-                    draw_panel_brush_search(self, context)
-                else:
-                    utils.label_multiline(layout, text='Switch to paint or sculpt mode.', width=context.region.width)
-                    return
+        if ui_props.down_up == 'UPLOAD':
+            self.draw_upload(context, layout, ui_props)
 
+    def draw_search(self, context, layout, ui_props):
+        if utils.profile_is_validator():
+            search_props = utils.get_search_props()
+            layout.prop(search_props, 'search_verification_status')
+            layout.prop(search_props, "unrated_only")
 
-        elif ui_props.down_up == 'UPLOAD':
-            # if not ui_props.assetbar_on:
-            #     text = 'Show asset preview - ;'
-            # else:
-            #     text = 'Hide asset preview - ;'
-            # op = layout.operator('view3d.blenderkit_asset_bar_widget', text=text, icon='EXPORT')
-            # op.keep_running = False
-            # op.do_search = False
-            # op.tooltip = 'Show/Hide asset preview'
+        if ui_props.asset_type == 'MODEL':
+            return draw_panel_model_search(self, context)
 
-            e = s.render.engine
-            if e not in ('CYCLES', 'BLENDER_EEVEE'):
-                rtext = 'Only Cycles and EEVEE render engines are currently supported. ' \
-                        'Please use Cycles for all assets you upload to BlenderKit.'
-                utils.label_multiline(layout, rtext, icon='ERROR', width=w)
-                return;
+        if ui_props.asset_type == 'SCENE':
+            return draw_panel_scene_search(self, context)
 
-            if ui_props.asset_type == 'MODEL':
-                # utils.label_multiline(layout, "Uploaded models won't be available in b2.79", icon='ERROR')
-                if bpy.context.view_layer.objects.active is not None:
-                    draw_panel_model_upload(self, context)
-                else:
-                    layout.label(text='selet object to upload')
-            elif ui_props.asset_type == 'SCENE':
-                draw_panel_scene_upload(self, context)
-            elif ui_props.asset_type == 'HDR':
-                draw_panel_hdr_upload(self, context)
+        if ui_props.asset_type == 'HDR':
+            return draw_panel_hdr_search(self, context)
 
-            elif ui_props.asset_type == 'MATERIAL':
-                # utils.label_multiline(layout, "Uploaded materials won't be available in b2.79", icon='ERROR')
+        if ui_props.asset_type == 'MATERIAL':
+            return draw_panel_material_search(self, context)
 
-                if bpy.context.view_layer.objects.active is not None and bpy.context.active_object.active_material is not None:
-                    draw_panel_material_upload(self, context)
-                else:
-                    utils.label_multiline(layout, text='select object with material to upload materials', width=w)
+        if ui_props.asset_type == 'BRUSH':
+            if context.sculpt_object or context.image_paint_object:
+                return draw_panel_brush_search(self, context)
+            utils.label_multiline(layout, text='Switch to paint or sculpt mode.', width=context.region.width)
+            return
 
-            elif ui_props.asset_type == 'BRUSH':
-                if context.sculpt_object or context.image_paint_object:
-                    draw_panel_brush_upload(self, context)
-                else:
-                    layout.label(text='Switch to paint or sculpt mode.')
+    def draw_upload(self, context, layout, ui_props):
+        # if not ui_props.assetbar_on:
+        #     text = 'Show asset preview - ;'
+        # else:
+        #     text = 'Hide asset preview - ;'
+        # op = layout.operator('view3d.blenderkit_asset_bar_widget', text=text, icon='EXPORT')
+        # op.keep_running = False
+        # op.do_search = False
+        # op.tooltip = 'Show/Hide asset preview'
+        if  context.scene.render.engine not in ('CYCLES', 'BLENDER_EEVEE'):
+            rtext = 'Only Cycles and EEVEE render engines are currently supported. ' \
+                    'Please use Cycles for all assets you upload to BlenderKit.'
+            utils.label_multiline(layout, rtext, icon='ERROR', width=context.region.width)
+            return
+
+        if ui_props.asset_type == 'MODEL':
+            if bpy.context.view_layer.objects.active is not None:
+                return draw_panel_model_upload(self, context)
+            layout.label(text='selet object to upload')
+            return
+
+        if ui_props.asset_type == 'SCENE':
+            return draw_panel_scene_upload(self, context)
+
+        if ui_props.asset_type == 'HDR':
+            return draw_panel_hdr_upload(self, context)
+
+        if ui_props.asset_type == 'MATERIAL':
+            if (bpy.context.view_layer.objects.active is not None) and (bpy.context.active_object.active_material is not None):
+                return draw_panel_material_upload(self, context)
+
+            utils.label_multiline(layout, text='select object with material to upload materials', width=context.region.width)
+            return
+
+        if ui_props.asset_type == 'BRUSH':
+            if context.sculpt_object or context.image_paint_object:
+                return draw_panel_brush_upload(self, context)
+            layout.label(text='Switch to paint or sculpt mode.')
+            return
 
 
 class BlenderKitWelcomeOperator(bpy.types.Operator):
@@ -2602,6 +2600,27 @@ class ClosePopupButton(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class PopupDialog(bpy.types.Operator):
+    """Small popup dialog to inform user."""
+    bl_idname = "wm.blenderkit_popup_dialog"
+    bl_label = "BlenderKit message:"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    message: bpy.props.StringProperty(default="")
+    width: bpy.props.IntProperty(default=300)
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label(text = self.message)
+        row.operator('view3d.close_popup_button', text='', icon='CANCEL')
+        layout.active_default = True
+
+    def execute(self, context):
+        wm = bpy.context.window_manager
+        return wm.invoke_popup(self, width=self.width)
+
+
 class UrlPopupDialog(bpy.types.Operator):
     """Generate Cycles thumbnail for model assets"""
     bl_idname = "wm.blenderkit_url_dialog"
@@ -2866,6 +2885,7 @@ classes = (
     OBJECT_MT_blenderkit_asset_menu,
     OBJECT_MT_blenderkit_login_menu,
     AssetPopupCard,
+    PopupDialog,
     UrlPopupDialog,
     ClosePopupButton,
     BlenderKitWelcomeOperator,

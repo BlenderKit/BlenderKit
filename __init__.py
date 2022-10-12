@@ -252,7 +252,6 @@ def udate_down_up(self, context):
 
 
 def switch_search_results(self, context):
-    s = bpy.context.scene
     props = bpy.context.window_manager.blenderkitUI
 
     if props.asset_type == 'MODEL':
@@ -274,12 +273,7 @@ def switch_search_results(self, context):
         global_vars.DATA['search results'] = global_vars.DATA.get('bkit brush search')
         global_vars.DATA['search results orig'] = global_vars.DATA.get('bkit brush search orig')
         if not (context.sculpt_object or context.image_paint_object):
-            reports.add_report(
-                'Switch to paint or sculpt mode to search in BlenderKit brushes.')
-    # if global_vars.DATA['search results'] == None:
-    #     global_vars.DATA['search results'] = []
-    # if global_vars.DATA['search results orig'] == None:
-    #     global_vars.DATA['search results orig'] = {'count': 0, 'results': []}
+            reports.add_report('Switch to paint or sculpt mode to search in BlenderKit brushes.')
 
     if asset_bar_op.asset_bar_operator is not None:
         asset_bar_op.asset_bar_operator.scroll_update(always = True)
@@ -292,15 +286,12 @@ def asset_type_callback(self, context):
     '''
     Returns
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
-
     '''
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
     if self.down_up == 'SEARCH':
         items = (
             ('MODEL', 'Models', 'Find models', 'OBJECT_DATAMODE', 0),
             ('MATERIAL', 'Materials', 'Find materials', 'MATERIAL', 2),
-            # ('TEXTURE', 'Texture', 'Browse textures', 'TEXTURE', 3),
             ('SCENE', 'Scenes', 'Find scenes', 'SCENE_DATA', 3),
             ('HDR', 'HDRs', 'Find HDRs', 'WORLD', 4),
             ('BRUSH', 'Brushes', 'Find brushes', 'BRUSH_DATA', 5)
@@ -308,9 +299,7 @@ def asset_type_callback(self, context):
     else:
         items = (
             ('MODEL', 'Model', 'Upload a model', 'OBJECT_DATAMODE', 0),
-            # ('SCENE', 'SCENE', 'Browse scenes', 'SCENE_DATA', 1),
             ('MATERIAL', 'Material', 'Upload a material', 'MATERIAL', 2),
-            # ('TEXTURE', 'Texture', 'Browse textures', 'TEXTURE', 3),
             ('SCENE', 'Scene', 'Upload a scene', 'SCENE_DATA', 3),
             ('HDR', 'HDR', 'Upload a HDR', 'WORLD', 4),
             ('BRUSH', 'Brush', 'Upload a brush', 'BRUSH_DATA', 5)

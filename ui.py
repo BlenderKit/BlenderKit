@@ -853,52 +853,54 @@ class AssetDragOperator(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def invoke(self, context, event):
-        if context.area.type == 'VIEW_3D':
-            # the arguments we pass the the callback
-            args = (self, context)
-            # Add the region OpenGL drawing callback
-            # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
-
-
-            self.mouse_x = 0
-            self.mouse_y = 0
-            self.steps = 0
-
-            self.has_hit = False
-            self.snapped_location = (0, 0, 0)
-            self.snapped_normal = (0, 0, 1)
-            self.snapped_rotation = (0, 0, 0)
-            self.face_index = 0
-            object = None
-            self.matrix = None
-
-            sr = global_vars.DATA['search results']
-            self.asset_data = sr[self.asset_search_index]
-
-            self.iname = f'.{self.asset_data["thumbnail_small"]}'
-            self.iname = (self.iname[:63]) if len(self.iname)>63 else self.iname
-            if not self.asset_data.get('canDownload'):
-                message = "Let's support asset creators and Open source."
-                link_text = 'Unlock the asset.'
-                url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
-                bpy.ops.wm.blenderkit_url_dialog('INVOKE_REGION_WIN', url=url, message=message,
-                                                 link_text=link_text)
-
-                return {'CANCELLED'}
-
-            self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_dragging, args, 'WINDOW', 'POST_PIXEL')
-            self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(draw_callback_3d_dragging, args, 'WINDOW',
-                                                                     'POST_VIEW')
-
-            bpy.context.window.cursor_set("NONE")
-            ui_props = bpy.context.window_manager.blenderkitUI
-            ui_props.dragging = True
-            self.drag = False
-            context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
-        else:
+        if context.area.type != 'VIEW_3D':
             self.report({'WARNING'}, "View3D not found, cannot run operator")
             return {'CANCELLED'}
+
+        # the arguments we pass the the callback
+        args = (self, context)
+        # Add the region OpenGL drawing callback
+        # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
+
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.steps = 0
+
+        self.has_hit = False
+        self.snapped_location = (0, 0, 0)
+        self.snapped_normal = (0, 0, 1)
+        self.snapped_rotation = (0, 0, 0)
+        self.face_index = 0
+        self.matrix = None
+
+        sr = global_vars.DATA['search results']
+        self.asset_data = sr[self.asset_search_index]
+
+        self.iname = f'.{self.asset_data["thumbnail_small"]}'
+        self.iname = (self.iname[:63]) if len(self.iname)>63 else self.iname
+        
+        if not self.asset_data.get('canDownload'):
+            message = "Let's support asset creators and Open source."
+            link_text = 'Unlock the asset.'
+            url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
+            bpy.ops.wm.blenderkit_url_dialog('INVOKE_REGION_WIN', url=url, message=message, link_text=link_text)
+            return {'CANCELLED'}
+
+        if self.asset_data.get('assetType') == 'brush':
+          if not context.sculpt_object or not context.image_paint_object:
+            message = "Please switch to sculpt or image paint modes."
+            bpy.ops.wm.blenderkit_popup_dialog('INVOKE_REGION_WIN', message=message)
+            return {'CANCELLED'}
+
+        self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_dragging, args, 'WINDOW', 'POST_PIXEL')
+        self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(draw_callback_3d_dragging, args, 'WINDOW', 'POST_VIEW')
+
+        bpy.context.window.cursor_set("NONE")
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props.dragging = True
+        self.drag = False
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
 
 
 class ModalTimerOperator(bpy.types.Operator):
