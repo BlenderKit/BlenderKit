@@ -68,9 +68,9 @@ def daemon_communication_timer():
 
       return_code, meaning = daemon_lib.check_daemon_exit_code()
       if return_code == None:
-        reports.add_report(f'Daemon is not responding, add-on will not work.', 10, colors.RED)  
+        reports.add_report(f'Daemon is not responding, add-on will not work.', 10, 'ERROR')
       else:
-        reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, colors.RED)
+        reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, 'ERROR')
 
       bk_logger.warning(f'Could not get reports: {e}')
       wm.blenderkitUI.logo_status = "logo_offline"
@@ -132,14 +132,14 @@ def handle_task(task: tasks.Task):
     if task.status == 'finished':
       search.handle_search_task(task)
     elif task.status == 'error':
-      reports.add_report(task.message, 15, colors.RED)
+      reports.add_report(task.message, 15, 'ERROR')
 
   #HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
   if task.task_type == 'thumbnail_download':
     if task.status == 'finished':
       search.handle_preview_task(task)
     elif task.status == 'error':
-      reports.add_report(task.message, 3, colors.RED)
+      reports.add_report(task.message, 3, 'ERROR')
 
   #HANDLE LOGIN
   if task.task_type == "login":
