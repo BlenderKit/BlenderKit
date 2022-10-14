@@ -149,7 +149,7 @@ def upload_files(upload_data, files):
         uploaded = upload_file(upload_data, f)
         if not uploaded:
             uploaded_all = False
-        tasks_queue.add_task((reports.add_report, (f"Uploaded all files for asset {upload_data['name']}",)))
+        tasks_queue.add_task((reports.add_report, (f"Uploaded all files for asset {upload_data['displayName']}",)))
     return uploaded_all
 
 

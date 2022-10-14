@@ -27,6 +27,10 @@ import threading
 
 import bpy
 import requests
+import traceback
+import logging
+
+bk_logger = logging.getLogger(__name__)
 
 from . import (
     asset_bar_op,
@@ -551,7 +555,7 @@ def patch_individual_metadata(asset_id, metadata_dict, api_key):
     try:
         r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
     except requests.exceptions.RequestException as e:
-        print(e)
+        bk_logger.error(e)
         return {'CANCELLED'}
     return {'FINISHED'}
 
@@ -759,9 +763,9 @@ class FastMetadata(bpy.types.Operator):
             if len(cat_path) > 2:
                 self.subcategory = cat_path[2]
         except Exception as e:
-            print(e)
+            bk_logger.error(e)
 
-        self.message = f"Fast edit metadata of {asset_data['name']}"
+        self.message = f"Fast edit metadata of {asset_data['displayName']}"
         self.name = asset_data['displayName']
         self.description = asset_data['description']
         self.tags = ','.join(asset_data['tags'])
@@ -790,7 +794,7 @@ def verification_status_change_thread(asset_id, state, api_key):
     try:
         r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
     except requests.exceptions.RequestException as e:
-        print(e)
+        bk_logger.error(e)
         return {'CANCELLED'}
     return {'FINISHED'}
 
@@ -883,18 +887,18 @@ class Uploader(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def send_message(self, message):
+    def send_message(self, message, type = 'INFO'):
         message = str(message).replace("'", "")
 
         # this adds a UI report but also writes above the upload panel fields.
-        tasks_queue.add_task((reports.add_report, (message,)))
+        tasks_queue.add_task((reports.add_report, (message,5,type)))
         estring = f"{self.export_data['eval_path_state']} = '{message}'"
         tasks_queue.add_task((exec, (estring,)))
 
-    def end_upload(self, message):
+    def end_upload(self, message, type='INFO'):
         estring = self.export_data['eval_path_computing'] + ' = False'
         tasks_queue.add_task((exec, (estring,)))
-        self.send_message(message)
+        self.send_message(message, type = type)
 
     def run(self):
         # utils.pprint(upload_data)
@@ -920,11 +924,12 @@ class Uploader(threading.Thread):
 
                 # tasks_queue.add_task((reports.add_report, ('uploaded metadata',)))
                 utils.p(r.text)
+                asset_data = r.json()
                 self.send_message('uploaded metadata')
 
             except requests.exceptions.RequestException as e:
-                print(e)
-                self.end_upload(e)
+                bk_logger.error(e)
+                self.end_upload(e,type='ERROR')
                 return {'CANCELLED'}
 
         else:
@@ -935,29 +940,24 @@ class Uploader(threading.Thread):
                 r = rerequests.patch(url, json=json_metadata, headers=headers, verify=True,
                                      immediate=True)  # files = files,
                 self.send_message('uploaded metadata')
+                asset_data = r.json()
 
-                # tasks_queue.add_task((reports.add_report, ('uploaded metadata',)))
-                # parse the request
-                # print('uploaded metadata')
-                print(r.text)
             except requests.exceptions.RequestException as e:
-                print(e)
-                self.end_upload(e)
+                bk_logger.error(e)
+                self.end_upload(e,type='ERROR')
                 return {'CANCELLED'}
 
         if self.stopped():
-            self.end_upload('Upload cancelled by user')
+            self.end_upload('Upload cancelled by user', type='INFO')
             return
-        # props.upload_state = 'step 1'
-        if self.upload_set == ['METADATA']:
-            self.end_upload('Metadata posted successfully')
-            return {'FINISHED'}
+
+
         try:
             rj = r.json()
             # utils.pprint(rj)
             # if r.status_code not in (200, 201):
             #     if r.status_code == 401:
-            #         ###reports.add_report(r.detail, 5, colors.RED)
+            #         ###reports.add_report(r.detail, 5, 'ERROR')
             #     return {'CANCELLED'}
             # if props.asset_base_id == '':
             #     props.asset_base_id = rj['assetBaseId']
@@ -977,7 +977,6 @@ class Uploader(threading.Thread):
             self.upload_data['assetBaseId'] = self.export_data['assetBaseId']
             self.upload_data['id'] = self.export_data['id']
 
-            # props.uploading = True
 
             if 'MAINFILE' in self.upload_set:
                 if self.upload_data['assetType'] == 'hdr':
@@ -1010,7 +1009,7 @@ class Uploader(threading.Thread):
                     ], bufsize=1, stdout=sys.stdout, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
 
             if self.stopped():
-                self.end_upload('Upload stopped by user')
+                self.end_upload('Upload stopped by user', type='INFO')
                 return
 
             files = []
@@ -1031,13 +1030,29 @@ class Uploader(threading.Thread):
                     self.send_message("File packing failed, please try manual packing first")
                     return {'CANCELLED'}
 
-            self.send_message('Uploading files')
+            if len(files)>0:
+                self.send_message('Uploading files')
 
-            uploaded = upload_bg.upload_files(self.upload_data, files)
+                uploaded = upload_bg.upload_files(self.upload_data, files)
+            else:
+                #for case of metadata only
+                uploaded = True
 
             if uploaded:
-                # mark on server as uploaded
+                set_uploaded_status = False
+
+                #Check the status if only thumbnail or metadata gets reuploaded.
+                #the logic is that on hold assets might be switched to uploaded state for validators,
+                #if the asset was put on hold because of thumbnail only.
+                if 'MAINFILE' not in self.upload_set:
+                    if asset_data.get('verificationStatus') in ('on_hold','deleted','rejected'):
+                        set_uploaded_status = True
+
                 if 'MAINFILE' in self.upload_set:
+                    set_uploaded_status = True
+
+                # mark on server as uploaded
+                if set_uploaded_status:
                     confirm_data = {
                         "verificationStatus": "uploaded"
                     }
@@ -1047,15 +1062,16 @@ class Uploader(threading.Thread):
                     headers = utils.get_headers(self.upload_data['token'])
 
                     url += self.upload_data["id"] + '/'
-
                     r = rerequests.patch(url, json=confirm_data, headers=headers, verify=True)  # files = files,
 
-                self.end_upload('Upload finished successfully')
+                self.end_upload('Upload finished successfully', type='INFO')
             else:
-                self.end_upload('Upload failed')
+                self.end_upload('Upload failed',type='ERROR')
         except Exception as e:
-            self.end_upload(e)
-            print(e)
+            self.end_upload(e, type='ERROR')
+            exc_strings = traceback.format_exception(e)
+            for es in exc_strings:
+                bk_logger.error(es)
             return {'CANCELLED'}
 
 
@@ -1331,7 +1347,7 @@ class AssetDebugPrint(Operator):
             if ad:
                 result = ad.to_dict()
         if result:
-            t = bpy.data.texts.new(result['name'])
+            t = bpy.data.texts.new(result['displayName'])
             t.write(json.dumps(result, indent=4, sort_keys=True))
             print(json.dumps(result, indent=4, sort_keys=True))
         return {'FINISHED'}

@@ -158,7 +158,7 @@ def handle_daemon_status_task(task):
     return
 
   if global_vars.DAEMON_ONLINE == True:
-    reports.add_report(f'Disconnected from {urlparse(global_vars.SERVER).netloc}', timeout=10, color=colors.RED)
+    reports.add_report(f'Disconnected from {urlparse(global_vars.SERVER).netloc}', timeout=10, type='ERROR')
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
     global_vars.DAEMON_ONLINE = False
@@ -239,25 +239,26 @@ def start_daemon_server():
         creationflags = creation_flags,
       )
   except PermissionError as e:
-    reports.add_report(f"FATAL ERROR: Write access denied to {daemon_dir}. Check you have write permissions to the directory.", 10, colors.RED)
+    reports.add_report(f"FATAL ERROR: Write access denied to {daemon_dir}. Check you have write permissions to the directory.", 10, 'ERROR')
     raise(e)
   except OSError as e:
     if platform.system() != "Windows":
-      reports.add_report(str(e), 10, colors.RED)
+      reports.add_report(str(e), 10, 'ERROR')
       raise(e)
     if e.winerror == 87: # parameter is incorrect, issue #100
       error_message = f"FATAL ERROR: Daemon server blocked from starting. Please check your antivirus or firewall. Error: {e}"
-      reports.add_report(error_message, 10, colors.RED)
+      reports.add_report(error_message, 10, 'ERROR')
       raise(e)
     else:
-      reports.add_report(str(e), 10, colors.RED)
+      reports.add_report(str(e), 10, 'ERROR')
       raise(e)
   except Exception as e:
-    reports.add_report(f"Error: Daemon server failed to start - {e}", 10, colors.RED)
+    reports.add_report(f"Error: Daemon server failed to start - {e}", 10, 'ERROR')
     raise(e)
 
   if python_check.returncode == 0:
     bk_logger.info(f'Daemon server starting on address {get_address()}, log file for errors located at: {log_path}')
   else:
     bk_logger.warning(f'Tried to start daemon server on address {get_address()}, PID: {global_vars.daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
-    reports.add_report(f'Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.', 5, colors.RED)
+    reports.add_report(f'Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.', 5, 'ERROR')
+

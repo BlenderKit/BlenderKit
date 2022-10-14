@@ -417,7 +417,7 @@ def handle_search_task(task: tasks.Task) -> bool:
 
   else:
     props.report = error
-    reports.add_report(error, 15, colors.RED)
+    reports.add_report(error, 15, 'ERROR')
 
   if len(search_tasks) == 0:
     props.is_searching = False
@@ -1061,7 +1061,7 @@ def search(category='', get_next=False, query = None, author_id=''):
   '''
 
   if global_vars.DAEMON_ACCESSIBLE != True:
-    reports.add_report('Cannot search, daemon is not accessible.', timeout = 2, color=colors.RED)
+    reports.add_report('Cannot search, daemon is not accessible.', timeout = 2, type='ERROR')
     return
 
   # print(category,get_next,author_id)

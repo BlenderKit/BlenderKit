@@ -678,7 +678,7 @@ def handle_download_task(task: tasks.Task):
   if task.status == "finished":
     download_post(task)
   elif task.status == "error":
-    reports.add_report(task.message, 15, colors.RED)
+    reports.add_report(task.message, 15, 'ERROR')
     download_tasks.pop(task.task_id)
   else:
     download_write_progress(task.task_id, task)
@@ -896,7 +896,7 @@ def download(asset_data, **kwargs):
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
         sprops.report = report
-        reports.add_report(report, 5, colors.RED)
+        reports.add_report(report, 5, 'ERROR')
 
         bk_logger.debug(sprops.report)
         return
@@ -989,7 +989,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
                 # or something else happened(shouldn't delete the files)
                 traceback.print_exc()
                 done = False
-                reports.add_report('Appending asset Failed. This Asset is probably incompatible with this Blender version.', 15, colors.RED)
+                reports.add_report('Appending asset Failed. This Asset is probably incompatible with this Blender version.', 15, 'ERROR')
                 for f in file_names:
                     try:
                         os.remove(f)
@@ -1147,12 +1147,12 @@ def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend
         return True
 
     # let's print it into UI
-    tasks_queue.add_task((reports.add_report, (str(r), 10, colors.RED)))
+    tasks_queue.add_task((reports.add_report, (str(r), 10, 'ERROR')))
 
     if r.status_code == 403:
         report = 'You need Full plan to get this item.'
         # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
-        # tasks_queue.add_task((reports.add_report, (r1, 5, colors.RED)))
+        # tasks_queue.add_task((reports.add_report, (r1, 5, 'ERROR')))
         if tcom is not None:
             tcom.report = report
             tcom.error = True

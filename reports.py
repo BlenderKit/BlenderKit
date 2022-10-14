@@ -28,17 +28,19 @@ bk_logger = logging.getLogger(__name__)
 reports = []
 
 # check for same reports and just make them longer by the timeout.
-def add_report(text='', timeout=5, color=colors.GREEN):
+def add_report(text='', timeout=5, type='INFO'):
     """
     Add report to GUI. Function checks for same reports and make them longer by the timeout.
     It also logs the message into the console with levels: Red=Error, other=info.
     """
     global reports
 
-    if color == colors.RED:
+    if type == 'ERROR':
         bk_logger.error(text)
-    else:
+        color = colors.RED
+    elif type == 'INFO':
         bk_logger.info(text)
+        color = colors.GREEN
 
     # check for same reports and just make them longer by the timeout.
     for old_report in reports:
