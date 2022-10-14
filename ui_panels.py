@@ -1945,7 +1945,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                             "it's awaiting validation. If it's private, use it",
                 'on_hold': "Your asset needs some (usually smaller) fixes, "
                            "so we can make it public for everybody."
-                           " Please check your email to see the feedback "
+                           " Please check validator comments under your asset to see the feedback "
                            "that we send to every creator personally",
                 'rejected': "The asset has serious quality issues, " \
                             "and it's probable that it might be good to start " \
