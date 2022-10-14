@@ -107,7 +107,7 @@ if "bpy" in locals():
 
 else:
     from . import dependencies, global_vars, log
-    
+
     log.configure_loggers()
     sys.path.insert(0, path.join(path.dirname(__file__), 'daemon'))
 
@@ -1940,12 +1940,14 @@ classes = (
 def register():
     global_vars.VERSION = bl_info['version']
     bpy.utils.register_class(BlenderKitAddonPreferences)
+    log.add_file_logger(bpy.context.preferences.addons['blenderkit'].preferences.global_dir)
+
     addon_updater_ops.register(bl_info)
     dependencies.ensure_preinstalled_deps_copied()
     dependencies.add_installed_deps()
     dependencies.add_preinstalled_deps()
     dependencies.ensure_deps()
-    
+
     for cls in classes:
         bpy.utils.register_class(cls)
 
@@ -2063,5 +2065,4 @@ def unregister():
     bpy.utils.unregister_class(BlenderKitAddonPreferences)
 
     bpy.app.handlers.load_post.remove(scene_load)
-
 
