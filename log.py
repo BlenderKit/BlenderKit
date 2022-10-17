@@ -40,6 +40,7 @@ def setup_logging_to_file(global_dir: str):
   File output is located at `global_dir/blenderkit.log`.
   """
   log_path = os.path.join(global_dir, 'blenderkit.log')
+  os.makedirs(global_dir, exist_ok=True)
 
   file_handler = logging.FileHandler(log_path)
   file_handler.setFormatter(get_formatter())
