@@ -49,6 +49,7 @@ async def download_asset(request: web_request.Request):
   task = tasks.Task(data, app_id, 'asset_download', task_id, message='Looking for asset')
   globals.tasks.append(task)
   task.async_task = asyncio.ensure_future(assets.do_asset_download(request, task))
+  task.async_task.add_done_callback(tasks.handle_async_errors)
   
   return web.json_response({'task_id': task_id})
 
@@ -58,8 +59,15 @@ async def search_assets(request: web_request.Request):
 
   data = await request.json()
   task_id = str(uuid.uuid4())
+
   data['task_id'] = task_id #mozna k nicemu
-  asyncio.ensure_future(search.do_search(request, data, task_id))
+  app_id = data['app_id']
+  del data['app_id']
+
+  task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
+  globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(search.do_search(request, task))
+  task.async_task.add_done_callback(tasks.handle_async_errors)
 
   return web.json_response({'task_id': task_id})
 

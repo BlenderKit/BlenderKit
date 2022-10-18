@@ -42,6 +42,7 @@ async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.
   coroutines = []
   for task in tsks:
     coroutine = asyncio.ensure_future(download_image(session, task))
+    coroutine.add_done_callback(tasks.handle_async_errors)
     coroutines.append(coroutine)
   
   if block == True:
@@ -101,7 +102,7 @@ async def parse_thumbnails(task: tasks.Task):
   return small_thumbs_tasks, full_thumbs_tasks
 
 
-async def do_search(request: web.Request, data: dict, task_id: str):
+async def do_search(request: web.Request, task: tasks.Task):
   """Searches for results and download thumbnails.
   
   1. Sends search request to BlenderKit server. (Creates search task.)
@@ -109,11 +110,6 @@ async def do_search(request: web.Request, data: dict, task_id: str):
   3. Gets small and large thumbnails. (Thumbnail tasks.)
   4. Reports paths to downloaded thumbnails. (Thumbnail task finished.)
   """
-  
-  app_id = data['app_id']
-  del data['app_id']
-  task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
-  globals.tasks.append(task)
 
   rdata = {}
   rdata['results'] = []
@@ -130,5 +126,5 @@ async def do_search(request: web.Request, data: dict, task_id: str):
     small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
 
     # thumbnails fetching
-    await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks, block=True)
+    await download_image_batch(request.app['SESSION_SMALL_THUMBS'], small_thumbs_tasks)
     await download_image_batch(request.app['SESSION_BIG_THUMBS'], full_thumbs_tasks)
