@@ -54,3 +54,17 @@ class Task():
 
   def to_seriazable_object(self):
     return json.loads(self.to_JSON())
+
+
+def handle_async_errors(atask: asyncio.Task):
+  stack = atask.get_stack()
+  exception = atask.exception()
+  if exception == None and stack == []:
+    return
+  
+  import globals #ugly but we cannot import on start as this is also imported from add-on directly
+  for task in globals.tasks:
+    if atask is not task.async_task:
+      continue    
+    task.error(str(exception))
+    atask.print_stack()
