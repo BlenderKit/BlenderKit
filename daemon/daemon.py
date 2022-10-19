@@ -38,7 +38,6 @@ import search
 
 async def download_asset(request: web_request.Request):
   """Handle request for download of asset."""
-
   data = await request.json()
   task_id = str(uuid.uuid4())
   data['task_id'] = task_id #mozna k nicemu
@@ -56,10 +55,8 @@ async def download_asset(request: web_request.Request):
 
 async def search_assets(request: web_request.Request):
   """Handle request for download of asset."""
-
   data = await request.json()
   task_id = str(uuid.uuid4())
-
   data['task_id'] = task_id #mozna k nicemu
   app_id = data['app_id']
   del data['app_id']
@@ -74,7 +71,6 @@ async def search_assets(request: web_request.Request):
 
 async def index(request: web_request.Request):
   """Report PID of server as Index page, can be used as is-alive endpoint."""
-
   pid = str(os.getpid())
   return web.Response(text=pid)
 
@@ -102,20 +98,20 @@ async def consumer_exchange(request: web_request.Request):
 
 
 async def refresh_token(request: web_request.Request):
-  asyncio.ensure_future(oauth.refresh_tokens(request))
+  atask = asyncio.ensure_future(oauth.refresh_tokens(request)) #TODO: Await errors here
+  atask.add_done_callback(tasks.handle_async_errors)
   return web.Response(text="ok")
 
 
 async def get_disclaimer(request: web_request.Request):
-  asyncio.ensure_future(disclaimer.get_disclaimer(request))
+  atask = asyncio.ensure_future(disclaimer.get_disclaimer(request))
+  atask.add_done_callback(tasks.handle_async_errors)
   return web.Response(text="ok")
 
 
 async def kill_download(request: web_request.Request):
   """Handle request for kill of task with the task_id."""
-
   data = await request.json()
-
   for i, task in enumerate(globals.tasks):
     if data['task_id'] == task.task_id:
       #globals.tasks[i].cancel() #needs to handle cleaning when download is cancelled
@@ -127,7 +123,6 @@ async def kill_download(request: web_request.Request):
 
 async def code_verifier(request: web_request.Request):
   """Gets code_verifier for OAuth login."""
-  
   data = await request.json()
   globals.code_verifier = data['code_verifier']
   return web.Response(text="ok")
@@ -135,9 +130,7 @@ async def code_verifier(request: web_request.Request):
 
 async def report(request: web_request.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
-
   globals.last_report_time = time.time()
-
   data = await request.json()
   #check if the app was already active
   if data['app_id'] not in globals.active_apps:
@@ -164,7 +157,6 @@ async def report(request: web_request.Request):
 
 async def shutdown(request: web_request.Request):
   """Shedules shutdown of the server."""
-
   logging.warning('Shutdown requested, exiting Daemon')
   asyncio.ensure_future(shutdown_daemon(request.app))
   return web.Response(text='Going to shutdown.')
