@@ -11,10 +11,7 @@ import utils
 
 
 async def get_disclaimer(request: web.Request):
-  """
-  Gets disclaimer from the server.
-  """
-
+  """Get disclaimer from the server."""
   data = await request.json()
   app_id = data['app_id']
   task = tasks.Task(data, app_id, 'disclaimer', str(uuid.uuid4()), message='Getting disclaimer')
