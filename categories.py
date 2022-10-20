@@ -197,7 +197,6 @@ def copy_categories():
 
 
 def load_categories():
-    print("LOAD CATEGORIES CALLED")
     copy_categories()
     tempdir = paths.get_temp_dir()
     categories_filepath = os.path.join(tempdir, 'categories.json')

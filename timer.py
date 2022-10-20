@@ -11,6 +11,7 @@ from . import (
     addon_updater_ops,
     bg_blender,
     bkit_oauth,
+    categories,
     colors,
     daemon_lib,
     disclaimer_op,
@@ -201,10 +202,12 @@ def check_timers_timer():
 
 def on_startup_timer():
   """Run once on the startup of add-on."""
-
   addon_updater_ops.check_for_update_background()
   utils.ensure_system_ID()
-  return
+
+  api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
+  categories.fetch_categories_thread(api_key)
+
 
 def on_startup_daemon_online_timer():
   """Run once when daemon is online after startup."""
