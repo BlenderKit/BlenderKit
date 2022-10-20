@@ -82,6 +82,7 @@ def draw_ratings(layout, context, asset):
     if asset == None:
         return;
 
+
     col = layout.column()
     bkit_ratings = asset.bkit_ratings
 
@@ -107,14 +108,20 @@ def draw_ratings_menu(self, context, layout):
                             icon='URL').signup = False
         return
 
+    col = layout.column()
+    # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
+    row = col.row()
+
+    if self.asset_data.get('canDownload') != True:
+        print("cannot download, thus cannot rate")
+        row.label(text='Rating is not possible for locked assets.', icon='SOLO_ON')
+        return
+
     profile_name = ''
     profile = global_vars.DATA.get('bkit profile')
     if profile and len(profile['user']['firstName']) > 0:
         profile_name = ' ' + profile['user']['firstName']
 
-    col = layout.column()
-    # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
-    row = col.row()
     row.label(text='Rate Quality:', icon='SOLO_ON')
     # row = col.row()
     # row.label(text='Please help the community by rating quality:')
