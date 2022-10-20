@@ -113,8 +113,7 @@ def draw_ratings_menu(self, context, layout):
     row = col.row()
 
     if self.asset_data.get('canDownload') != True:
-        print("cannot download, thus cannot rate")
-        row.label(text='Rating is not possible for locked assets.', icon='SOLO_ON')
+        row.label(text='Asset in Full Plan. Subscribe to rate it.', icon='SOLO_ON')
         return
 
     profile_name = ''
