@@ -197,6 +197,7 @@ def copy_categories():
 
 
 def load_categories():
+    print("LOAD CATEGORIES CALLED")
     copy_categories()
     tempdir = paths.get_temp_dir()
     categories_filepath = os.path.join(tempdir, 'categories.json')
@@ -216,44 +217,29 @@ def load_categories():
         bk_logger.warn(f'categories failed to read: {e}')
 
 
-def fetch_categories(API_key, force=False):
+def fetch_categories(API_key): #TODO: move to daemon
     url = paths.BLENDERKIT_API + '/categories/'
-
     headers = utils.get_headers(API_key)
-
     tempdir = paths.get_temp_dir()
     categories_filepath = os.path.join(tempdir, 'categories.json')
-    if os.path.exists(categories_filepath):
-        catfile_age = time.time() - os.path.getmtime(categories_filepath)
-    else:
-        catfile_age = 10000000
-
-    # global catfetch_counter
-    # catfetch_counter += 1
-    # bk_logger.debug('fetching categories: ', catfetch_counter)
-    # bk_logger.debug('age of cat file', catfile_age)
     try:
-        # read categories only once per day maximum, or when forced to do so.
-        if catfile_age > 86400 or force:
-            bk_logger.debug('requesting categories from server')
-            r = rerequests.get(url, headers=headers)
-            rdata = r.json()
-            categories = rdata['results']
-            fix_category_counts(categories)
-            # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
-            with open(categories_filepath, 'w', encoding='utf-8') as s:
-                json.dump(categories, s, ensure_ascii=False, indent=4)
-        tasks_queue.add_task((load_categories, ()))
+        bk_logger.debug('requesting categories from server')
+        r = rerequests.get(url, headers=headers)
+        rdata = r.json()
+        categories = rdata['results']
+        fix_category_counts(categories)
+        # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
+        with open(categories_filepath, 'w', encoding='utf-8') as s:
+            json.dump(categories, s, ensure_ascii=False, indent=4)
     except Exception as e:
-        t = 'BlenderKit failed to download fresh categories from the server'
-        tasks_queue.add_task((reports.add_report(),(t, 15, colors.RED)))
-        bk_logger.debug(t)
-        bk_logger.exception(e)
+        text = 'BlenderKit failed to download fresh categories from the server'
+        reports.add_report(text, 15, colors.RED)
+        bk_logger.error(e)
         if not os.path.exists(categories_filepath):
             source_path = paths.get_addon_file(subpath='data' + os.sep + 'categories.json')
             shutil.copy(source_path, categories_filepath)
+    tasks_queue.add_task((load_categories, ()))
 
-
-def fetch_categories_thread(API_key, force=False):
-    cat_thread = threading.Thread(target=fetch_categories, args=([API_key, force]), daemon=True)
+def fetch_categories_thread(API_key):
+    cat_thread = threading.Thread(target=fetch_categories, args=(API_key,), daemon=True)
     cat_thread.start()
