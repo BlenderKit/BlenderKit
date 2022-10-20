@@ -143,7 +143,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download Blender
-        run: curl https://www.blender.org/download/release/Blender3.3/blender-3.3.1-linux-x64.tar.xz/ -o /home/runner/blender.tar.xz
+        run: curl https://download.blender.org/release/Blender3.3/blender-3.3.1-linux-x64.tar.xz -o /home/runner/blender.tar.xz
       - name: Mkdir
         run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
       - name: Extract Blender
