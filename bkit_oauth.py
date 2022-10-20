@@ -133,8 +133,6 @@ def refresh_token_timer():
   
   # Token is at the end of life, refresh token exists, it is time to refresh
   daemon_lib.refresh_token(preferences.api_key_refresh)
-  #fetch_server_data()
-  #categories.load_categories()
   return next_time
 
 
