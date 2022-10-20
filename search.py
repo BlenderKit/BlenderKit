@@ -138,13 +138,10 @@ def undo_pre_end_assetbar(context):
 
 @persistent
 def scene_load(context):
-  '''
-  Loads categories , checks timers registration, and updates scene asset data.
-  Should (probably)also update asset data from server (after user consent)
-  '''
-  wm = bpy.context.window_manager
+  """Load categories , check timers registration, and update scene asset data.
+  Should (probably) also update asset data from server (after user consent).
+  """
   fetch_server_data()
-  categories.load_categories()
   if not bpy.app.timers.is_registered(bkit_oauth.refresh_token_timer) and not bpy.app.background:
     bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=5)
     #bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=36000)
@@ -157,16 +154,16 @@ def scene_load(context):
 
 def fetch_server_data():
   ''' download categories , profile, and refresh token if needed.'''
-  if not bpy.app.background:
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    api_key = user_preferences.api_key
-    # Only refresh new type of tokens(by length), and only one hour before the token timeouts.
-    if api_key != '' and global_vars.DATA.get('bkit profile') == None:
-      get_profile()
-    if global_vars.DATA.get('bkit_categories') is None:
-      categories.fetch_categories_thread(api_key, force=False)
-    # all_notifications_count = comments_utils.count_all_notifications()
-    # comments_utils.get_notifications_thread(api_key, all_count = all_notifications_count)
+  if bpy.app.background:
+    return
+  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  api_key = user_preferences.api_key
+  # Only refresh new type of tokens(by length), and only one hour before the token timeouts.
+  if api_key != '' and global_vars.DATA.get('bkit profile') == None:
+    get_profile()
+  categories.fetch_categories_thread(api_key)
+  # all_notifications_count = comments_utils.count_all_notifications()
+  # comments_utils.get_notifications_thread(api_key, all_count = all_notifications_count)
 
 
 first_time = True
@@ -1400,8 +1397,6 @@ def register_search():
 
   for c in classes:
     bpy.utils.register_class(c)
-
-  categories.load_categories()
 
 
 def unregister_search():
