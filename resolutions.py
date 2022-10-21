@@ -36,7 +36,7 @@ from . import (
     paths,
     rerequests,
     search,
-    upload_bg,
+    upload,
     utils,
 )
 
@@ -140,7 +140,7 @@ def upload_resolutions(files, asset_data, api_key = ''):
         "id": asset_data['id']
     }
 
-    uploaded = upload_bg.upload_files(upload_data, files)
+    uploaded = upload.upload_files(upload_data, files)
 
     if uploaded:
         bg_blender.progress('upload finished successfully')
