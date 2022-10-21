@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 
+import bpy
+
 from . import global_vars
 
 
@@ -38,7 +40,11 @@ def setup_logging_to_file(global_dir: str):
   """Setup logging to file by redirecting all stdout and stderr into dedicated loggers which logs into file and into stream (back to console), also add file handler to `blenderkit` logger.
   The redirection is done by setting `sys.stdout` and `sys.stderr` to custom `LogFile()` object.
   File output is located at `global_dir/blenderkit.log`.
+  If the blender runs in background logging to file is skipped.
   """
+  if bpy.app.background:
+    return
+
   log_path = os.path.join(global_dir, 'blenderkit.log')
   os.makedirs(global_dir, exist_ok=True)
 

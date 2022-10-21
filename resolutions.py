@@ -18,6 +18,7 @@
 
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -40,6 +41,7 @@ from . import (
     utils,
 )
 
+bk_logger = logging.getLogger(__name__)
 
 resolutions = {
     'resolution_0_5K': 512,
@@ -121,19 +123,7 @@ def save_image_safely(teximage, filepath):
     ims.compression = orig_compression
 
 
-def extxchange_to_resolution(filepath):
-    base, ext = os.path.splitext(filepath)
-    if ext in ('.png', '.PNG'):
-        ext = 'jpg'
-
-
-
-
-
-
 def upload_resolutions(files, asset_data, api_key = ''):
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-
     upload_data = {
         "name": asset_data['name'],
         "token": api_key,
@@ -141,12 +131,10 @@ def upload_resolutions(files, asset_data, api_key = ''):
     }
 
     uploaded = upload.upload_files(upload_data, files)
-
     if uploaded:
         bg_blender.progress('upload finished successfully')
     else:
         bg_blender.progress('upload failed.')
-
 
 
 def unpack_asset(data):
@@ -606,7 +594,7 @@ def generate_resolution_thread(asset_data, api_key):
     '''
 
     fpath = download_asset(asset_data, unpack=True, api_key=api_key)
-
+    bk_logger("GENERATE RESOLUTIONS THREAD")
     if fpath:
         if asset_data['assetType'] != 'hdr':
             print('send to bg ', fpath)
@@ -625,7 +613,7 @@ def iterate_for_resolutions(filepath, process_count=12, api_key='', do_checks = 
         if asset_data is not None:
 
             if not do_checks or check_needs_resolutions(asset_data):
-                print('downloading and generating resolution for  %s' % asset_data['name'])
+                bk_logger.info('downloading and generating resolution for  %s' % asset_data['name'])
                 # this is just a quick hack for not using original dirs in blendrkit...
                 # generate_resolution_thread(asset_data, api_key)
                 thread = threading.Thread(target=generate_resolution_thread, args=(asset_data, api_key))
@@ -672,9 +660,10 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
     with open(datafile, 'w', encoding = 'utf-8') as s:
         json.dump(data, s,  ensure_ascii=False, indent=4)
 
-    print('opening Blender instance to do processing - ', command)
+    bk_logger.info('opening Blender instance to do processing - ', command)
 
     if wait:
+        print(">>>>>>>>> RUNNING RESOLUTIONS_BG WITHOUT WAIT")
         proc = subprocess.run([
             binary_path,
             "--background",
@@ -687,6 +676,7 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
 
     else:
         # TODO this should be fixed to allow multithreading.
+        print(">>>>>>>>> RUNNING RESOLUTIONS_BG WITHOUT WAIT")
         proc = subprocess.Popen([
             binary_path,
             "--background",

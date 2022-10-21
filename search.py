@@ -689,7 +689,6 @@ def get_author(r):
 
 
 def write_profile(adata):
-  utils.p('writing profile information')
   user = adata['user']
   # we have to convert to MiB here, numbers too big for python int type
   if user.get('sumAssetFilesSize') is not None:
@@ -720,7 +719,6 @@ def request_profile(api_key):
 
 
 def fetch_profile(api_key):
-  utils.p('fetch profile')
   try:
     adata = request_profile(api_key)
     if adata is not None:
@@ -731,11 +729,11 @@ def fetch_profile(api_key):
 
 def get_profile():
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  a = global_vars.DATA.get('bkit profile')
+  profile = global_vars.DATA.get('bkit profile')
   thread = threading.Thread(target=fetch_profile, args=(preferences.api_key,), daemon=True)
   thread.start()
 
-  return a
+  return profile
 
 
 def query_to_url(query={}, params={}):
