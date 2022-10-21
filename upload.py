@@ -910,27 +910,19 @@ class Uploader(threading.Thread):
 
         # first upload metadata to server, so it can be saved inside the current file
         url = paths.BLENDERKIT_API + '/assets/'
-
         headers = utils.get_headers(self.upload_data['token'])
 
         # self.upload_data['license'] = 'ovejajojo'
         json_metadata = self.upload_data  # json.dumps(self.upload_data, ensure_ascii=False).encode('utf8')
-
-        # tasks_queue.add_task((reports.add_report, ('Posting metadata',)))
         self.send_message('Posting metadata')
         if self.export_data['assetBaseId'] == '':
             try:
-                r = rerequests.post(url, json=json_metadata, headers=headers, verify=True,
-                                    immediate=True)  # files = files,
-
-                # tasks_queue.add_task((reports.add_report, ('uploaded metadata',)))
-                utils.p(r.text)
+                r = rerequests.post(url, json=json_metadata, headers=headers, verify=True, immediate=True)  # files = files,
+                bk_logger.info(f'Got response ({r.status_code}) for {url}')
                 asset_data = r.json()
-                self.send_message('uploaded metadata')
-
             except requests.exceptions.RequestException as e:
-                bk_logger.error(e)
-                self.end_upload(e,type='ERROR')
+                self.end_upload('Metadata upload failed', type='ERROR')
+                bk_logger.error(str(e))
                 return {'CANCELLED'}
 
         else:
@@ -938,20 +930,18 @@ class Uploader(threading.Thread):
             try:
                 if 'MAINFILE' in self.upload_set:
                     json_metadata["verificationStatus"] = "uploading"
-                r = rerequests.patch(url, json=json_metadata, headers=headers, verify=True,
-                                     immediate=True)  # files = files,
-                self.send_message('uploaded metadata')
+                r = rerequests.patch(url, json=json_metadata, headers=headers, verify=True, immediate=True)  # files = files,
+                bk_logger.info(f'Got response ({r.status_code}) for {url}')
                 asset_data = r.json()
-
             except requests.exceptions.RequestException as e:
-                bk_logger.error(e)
-                self.end_upload(e,type='ERROR')
+                self.end_upload('Metadata upload failed', type='ERROR')
+                bk_logger.error(str(e))
                 return {'CANCELLED'}
 
+        self.send_message('Metadata uploaded')
         if self.stopped():
             self.end_upload('Upload cancelled by user', type='INFO')
             return
-
 
         try:
             rj = r.json()
@@ -1007,7 +997,7 @@ class Uploader(threading.Thread):
                         clean_file_path,
                         "--python", os.path.join(script_path, "upload_bg.py"),
                         "--", datafile
-                    ], bufsize=1, stdout=sys.stdout, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
+                    ], bufsize=1, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
 
             if self.stopped():
                 self.end_upload('Upload stopped by user', type='INFO')
@@ -1067,7 +1057,7 @@ class Uploader(threading.Thread):
 
                 self.end_upload('Upload finished successfully', type='INFO')
             else:
-                self.end_upload('Upload failed',type='ERROR')
+                self.end_upload('Upload failed', type='ERROR')
         except Exception as e:
             self.end_upload(e, type='ERROR')
             exc_strings = traceback.format_exception(e)
@@ -1107,7 +1097,7 @@ def upload_file(upload_data, f):
     version_id = upload_data['id']
 
     message = f"uploading {f['type']} {os.path.basename(f['file_path'])}"
-    tasks_queue.add_task((reports.add_report, (message,)))
+    bk_logger.info(message)
 
     upload_info = {
         'assetId': version_id,
@@ -1115,56 +1105,49 @@ def upload_file(upload_data, f):
         'fileIndex': f['index'],
         'originalFilename': os.path.basename(f['file_path'])
     }
-    upload_create_url = paths.get_api_url() + 'uploads/'
+    upload_create_url = paths.BLENDERKIT_API + '/uploads/'
     upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
     upload = upload.json()
-    #
+
     chunk_size = 1024 * 1024 * 2
     # utils.pprint(upload)
     # file gets uploaded here:
-    uploaded = False
     # s3 upload is now the only option
     for a in range(0, 5):
-        if not uploaded:
-            try:
-                session = requests.Session()
-                proxy_which = global_vars.PREFS.get('proxy_which')
-                proxy_address = global_vars.PREFS.get('proxy_address')
-                if proxy_which == 'NONE':
-                    session.trust_env = False
-                elif proxy_which == 'CUSTOM':
-                    session.trust_env = False
-                    session.proxies = {'https': proxy_address}
-                else:
-                    session.trust_env = True
-                upload_response = session.put(upload['s3UploadUrl'],
-                                               data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
-                                               stream=True, verify=True)
+        try:
+            session = requests.Session()
+            proxy_which = global_vars.PREFS.get('proxy_which')
+            proxy_address = global_vars.PREFS.get('proxy_address')
+            if proxy_which == 'NONE':
+                session.trust_env = False
+            elif proxy_which == 'CUSTOM':
+                session.trust_env = False
+                session.proxies = {'https': proxy_address}
+            else:
+                session.trust_env = True
+            upload_response = session.put(upload['s3UploadUrl'],
+                                            data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
+                                            stream=True, verify=True)
 
-                if 250 > upload_response.status_code > 199:
-                    uploaded = True
-                    upload_done_url = paths.get_api_url() + 'uploads_s3/' + upload['id'] + '/upload-file/'
-                    upload_response = rerequests.post(upload_done_url, headers=headers, verify=True)
-                    # print(upload_response)
-                    # print(upload_response.text)
-                    tasks_queue.add_task((reports.add_report, (f"Finished file upload: {os.path.basename(f['file_path'])}",)))
-                    return True
-                else:
-                    print(upload_response.text)
-                    message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
-                    tasks_queue.add_task((reports.add_report, (message,)))
-
-            except Exception as e:
-                print(e)
+            if 250 > upload_response.status_code > 199:
+                upload_done_url = paths.BLENDERKIT_API + '/uploads_s3/' + upload['id'] + '/upload-file/'
+                upload_response = rerequests.post(upload_done_url, headers=headers, verify=True)
+                # print(upload_response)
+                # print(upload_response.text)
+                tasks_queue.add_task((reports.add_report, (f"Finished file upload: {os.path.basename(f['file_path'])}",)))
+                return True
+            else:
                 message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
                 tasks_queue.add_task((reports.add_report, (message,)))
-                time.sleep(1)
+
+        except Exception as e:
+            print(e)
+            message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
+            tasks_queue.add_task((reports.add_report, (message,)))
+            import time
+            time.sleep(1)
 
             # confirm single file upload to bkit server
-
-
-
-
     return False
 
 

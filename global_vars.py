@@ -16,7 +16,7 @@ BLENDERKIT_LOCAL = 'http://localhost:8001'
 BLENDERKIT_MAIN = 'https://www.blenderkit.com'
 BLENDERKIT_DEVEL = 'https://devel.blenderkit.com'
 BLENDERKIT_STAGING = 'https://staging.blenderkit.com'
-SERVER = BLENDERKIT_MAIN
+SERVER = BLENDERKIT_DEVEL
 
 TIPS = [
   ('You can disable tips in the add-on preferences.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#preferences'),
