@@ -197,7 +197,7 @@ def handle_disclaimer_task(task: tasks.Task):
     return
 
   if task.status == 'error':
-    reports.add_report(f'Error downloading disclaimer info: {task.message}', 2, colors.RED)
+    reports.add_report(f'Error downloading disclaimer info: {task.message}', 2, 'ERROR')
     show_random_tip()
 
 

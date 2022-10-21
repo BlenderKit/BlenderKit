@@ -232,7 +232,7 @@ def fetch_categories(API_key): #TODO: move to daemon
             json.dump(categories, s, ensure_ascii=False, indent=4)
     except Exception as e:
         text = 'BlenderKit failed to download fresh categories from the server'
-        reports.add_report(text, 15, colors.RED)
+        reports.add_report(text, 15, 'ERROR')
         bk_logger.error(e)
         if not os.path.exists(categories_filepath):
             source_path = paths.get_addon_file(subpath='data' + os.sep + 'categories.json')

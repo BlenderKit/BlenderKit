@@ -112,7 +112,7 @@ async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.T
 
       # bk_logger.debug(total_length)
       # if int(total_length) < 1000:  # means probably no file returned.
-      # tasks_queue.add_task((reports.add_report, (response.content, 20, colors.RED)))
+      # tasks_queue.add_task((reports.add_report, (response.content, 20, 'ERROR')))
       #
       #   tcom.report = response.content
       file_size = int(total_length)
