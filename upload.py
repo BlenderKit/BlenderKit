@@ -18,17 +18,18 @@
 
 
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
 import tempfile
 import threading
+import traceback
 
 import bpy
 import requests
-import traceback
-import logging
+
 
 bk_logger = logging.getLogger(__name__)
 
