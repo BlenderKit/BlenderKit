@@ -164,7 +164,7 @@ if __name__ == "__main__":
                 "token": preferences.api_key,
                 "id": data['asset_data']['id']
             }
-            upload_bg.upload_file(upload_data, file)
+            upload.upload_file(upload_data, file)
         bg_blender.progress('background autothumbnailer finished successfully')
 
 

@@ -163,7 +163,6 @@ def get_comments(asset_id, api_key):
   ratings - dict of type:value ratings
   '''
   headers = utils.get_headers(api_key)
-
   url = paths.get_api_url() + 'comments/assets-uuidasset/' + asset_id + '/'
   params = {}
   r = rerequests.get(url, params=params, verify=True, headers=headers)
