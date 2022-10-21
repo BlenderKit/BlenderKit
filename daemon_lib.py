@@ -259,6 +259,6 @@ def start_daemon_server():
   if python_check.returncode == 0:
     bk_logger.info(f'Daemon server starting on address {get_address()}, log file for errors located at: {log_path}')
   else:
-    bk_logger.warning(f'Tried to start daemon server on address {get_address()}, PID: {global_vars.daemon_process.pid},\nlog file located at: {log_path}', 5, colors.RED)
+    bk_logger.warning(f'Tried to start daemon server on address {get_address()}, PID: {global_vars.daemon_process.pid},\nlog file located at: {log_path}')
     reports.add_report(f'Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.', 5, 'ERROR')
 
