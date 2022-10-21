@@ -134,7 +134,7 @@ def check_missing_data_brush(props):
 
 def check_missing_data(asset_type, props):
     '''
-    checks if user did everything allright for particular assets and notifies him back if not.
+    checks if user did everything alright for particular assets and notifies him back if not.
     Parameters
     ----------
     asset_type
@@ -1033,7 +1033,7 @@ class Uploader(threading.Thread):
             if len(files)>0:
                 self.send_message('Uploading files')
 
-                uploaded = upload_bg.upload_files(self.upload_data, files)
+                uploaded = upload_files(self.upload_data, files)
             else:
                 #for case of metadata only
                 uploaded = True
@@ -1074,6 +1074,108 @@ class Uploader(threading.Thread):
                 bk_logger.error(es)
             return {'CANCELLED'}
 
+class upload_in_chunks(object):
+    def __init__(self, filename, chunksize=1 << 13, report_name='file'):
+        self.filename = filename
+        self.chunksize = chunksize
+        self.totalsize = os.path.getsize(filename)
+        self.readsofar = 0
+        self.report_name = report_name
+
+    def __iter__(self):
+        with open(self.filename, 'rb') as file:
+            while True:
+                data = file.read(self.chunksize)
+                if not data:
+                    sys.stderr.write("\n")
+                    break
+                self.readsofar += len(data)
+                percent = self.readsofar * 1e2 / self.totalsize
+                tasks_queue.add_task((reports.add_report, (f"Uploading {self.report_name} {percent}%",)))
+
+                # bg_blender.progress('uploading %s' % self.report_name, percent)
+                # sys.stderr.write("\r{percent:3.0f}%".format(percent=percent))
+                yield data
+
+    def __len__(self):
+        return self.totalsize
+
+
+def upload_file(upload_data, f):
+    headers = utils.get_headers(upload_data['token'])
+    version_id = upload_data['id']
+
+    message = f"uploading {f['type']} {os.path.basename(f['file_path'])}"
+    tasks_queue.add_task((reports.add_report, (message,)))
+
+    upload_info = {
+        'assetId': version_id,
+        'fileType': f['type'],
+        'fileIndex': f['index'],
+        'originalFilename': os.path.basename(f['file_path'])
+    }
+    upload_create_url = paths.get_api_url() + 'uploads/'
+    upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
+    upload = upload.json()
+    #
+    chunk_size = 1024 * 1024 * 2
+    # utils.pprint(upload)
+    # file gets uploaded here:
+    uploaded = False
+    # s3 upload is now the only option
+    for a in range(0, 5):
+        if not uploaded:
+            try:
+                session = requests.Session()
+                proxy_which = global_vars.PREFS.get('proxy_which')
+                proxy_address = global_vars.PREFS.get('proxy_address')
+                if proxy_which == 'NONE':
+                    session.trust_env = False
+                elif proxy_which == 'CUSTOM':
+                    session.trust_env = False
+                    session.proxies = {'https': proxy_address}
+                else:
+                    session.trust_env = True
+                upload_response = session.put(upload['s3UploadUrl'],
+                                               data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
+                                               stream=True, verify=True)
+
+                if 250 > upload_response.status_code > 199:
+                    uploaded = True
+                    upload_done_url = paths.get_api_url() + 'uploads_s3/' + upload['id'] + '/upload-file/'
+                    upload_response = rerequests.post(upload_done_url, headers=headers, verify=True)
+                    # print(upload_response)
+                    # print(upload_response.text)
+                    tasks_queue.add_task((reports.add_report, (f"Finished file upload: {os.path.basename(f['file_path'])}",)))
+                    return True
+                else:
+                    print(upload_response.text)
+                    message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
+                    tasks_queue.add_task((reports.add_report, (message,)))
+
+            except Exception as e:
+                print(e)
+                message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
+                tasks_queue.add_task((reports.add_report, (message,)))
+                time.sleep(1)
+
+            # confirm single file upload to bkit server
+
+
+
+
+    return False
+
+
+def upload_files(upload_data, files):
+    '''uploads several files in one run'''
+    uploaded_all = True
+    for f in files:
+        uploaded = upload_file(upload_data, f)
+        if not uploaded:
+            uploaded_all = False
+        tasks_queue.add_task((reports.add_report, (f"Uploaded all files for asset {upload_data['displayName']}",)))
+    return uploaded_all
 
 def start_upload(self, context, asset_type, reupload, upload_set):
     '''start upload process, by processing data, then start a thread that cares about the rest of the upload.'''
