@@ -1633,7 +1633,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
             ("1234", "1234", ""),
         ),
         default="62485",
-        update=timer.cancel_all_tasks,
+        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
     )
 
     project_subdir: StringProperty(
@@ -1673,6 +1673,21 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default='2048',
     )
 
+    ip_version: EnumProperty(
+        name="IP version",
+        items=(
+            ('BOTH', 'Use both IPv4 and IPv6',
+             'Add-on will use both IPv4 and IPv6 families of addresses for connections'),
+            ('IPv4', 'Use only IPv4',
+             'Add-on will use only IPv4 family of addresses for connections. This might fix connection issues on some systems connected to only IPv4 networks'),
+            ('IPv6', 'Use only IPv6',
+             'Add-on will use only IPv6 families of addresses for connections. Not recommended'),
+        ),
+        description="Which address family add-on should use for connections - IPv4, IPv6 or both protocols.",
+        default="BOTH",
+        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
+    )
+
     proxy_which: EnumProperty(
         name="Proxy",
         items=(
@@ -1688,8 +1703,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         ),
         description="Which directories will be used for storing downloaded data",
         default="SYSTEM",
-        update=utils.save_prefs
-
+        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
     )
 
     proxy_address: StringProperty(
@@ -1700,7 +1714,7 @@ If you use simple HTTP proxy, set in format http://ip:port, or http://username:p
 
 If you use HTTPS proxy, set in format https://ip:port, or https://username:password@ip:port if your HTTPS proxy requires authentication. For HTTPS proxies you might also need to specify Proxy CA certificates path so the addon can verify the encrypted connection to your HTTPS proxy server""",
         default="",
-        update=utils.save_prefs
+        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
     )
 
     proxy_ca_certs: StringProperty(
@@ -1713,7 +1727,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
             "When set, please shutdown the daemon server on address: http:localhost:port/shutdown so the daemon reloads new CA certificates.",
         default="",
         subtype='DIR_PATH',
-        update=utils.save_prefs
+        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
     )
 
     directory_behaviour: EnumProperty(
@@ -1901,6 +1915,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
         layout.prop(self, "daemon_port")
+        layout.prop(self, "ip_version")
         layout.prop(self, "proxy_which")
         if self.proxy_which == 'CUSTOM':
             layout.prop(self, "proxy_address")
