@@ -29,17 +29,16 @@ reports = []
 
 # check for same reports and just make them longer by the timeout.
 def add_report(text='', timeout=5, type='INFO'):
-    """
-    Add report to GUI. Function checks for same reports and make them longer by the timeout.
+    """Add report to GUI. Function checks for same reports and make them longer by the timeout.
     It also logs the message into the console with levels: Red=Error, other=info.
     """
     global reports
 
     if type == 'ERROR':
-        bk_logger.error(text)
+        bk_logger.error(text, stacklevel=2)
         color = colors.RED
     elif type == 'INFO':
-        bk_logger.info(text)
+        bk_logger.info(text, stacklevel=2)
         color = colors.GREEN
 
     # check for same reports and just make them longer by the timeout.
