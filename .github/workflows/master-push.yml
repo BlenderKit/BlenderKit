@@ -14,6 +14,8 @@ jobs:
         run: pip install isort
       - name: Running isort
         run: python -m isort . --check-only --diff
+      - name: Server set to production
+        run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
 
   Build:
     runs-on: ubuntu-latest
@@ -172,7 +174,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download Blender
-        run: curl https://builder.blender.org/download/daily/blender-3.4.0-alpha+master.40afb8ae6a03-linux.x86_64-release.tar.xz -o /home/runner/blender.tar.xz
+        run: curl https://builder.blender.org/download/daily/blender-3.4.0-alpha+master.93afc50ac3ef-linux.x86_64-release.tar.xz -o /home/runner/blender.tar.xz
       - name: Mkdir
         run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
       - name: Extract Blender
