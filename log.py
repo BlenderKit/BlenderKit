@@ -80,7 +80,7 @@ class LogFile(object):
   def write(self, msg, level = logging.INFO):
     if msg.strip() == "":
       return
-    self.logger.log(level, msg.rstrip())
+    self.logger.log(level, msg.rstrip(), stacklevel=2)
 
   def flush(self):
     for handler in self.logger.handlers:
