@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 # import blenderkit
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -27,6 +28,7 @@ from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
 from . import bg_blender, global_vars, paths, tasks_queue, utils
 
 
+bk_logger = logging.getLogger(__name__)
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
 
 thumbnail_resolutions = (
@@ -150,8 +152,7 @@ def start_thumbnailer(self=None, json_args=None, props=None, wait=False, add_bg_
             tfpath,
             "--python", os.path.join(script_path, "autothumb_model_bg.py"),
             "--", datafile,
-        ], bufsize=1, stdout=subprocess.PIPE, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
-
+        ], stdout=subprocess.PIPE, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
         eval_path_computing = "bpy.data.objects['%s'].blenderkit.is_generating_thumbnail" % json_args['asset_name']
         eval_path_state = "bpy.data.objects['%s'].blenderkit.thumbnail_generating_state" % json_args['asset_name']
         eval_path = "bpy.data.objects['%s']" % json_args['asset_name']
