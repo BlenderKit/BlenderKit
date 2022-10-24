@@ -394,6 +394,7 @@ def get_prefs_dir():
         'directory_behaviour': user_preferences.directory_behaviour,
         'is_saved': user_preferences.directory_behaviour,
         'app_id': os.getpid(),
+        'ip_version': user_preferences.ip_version,
         'proxy_which': user_preferences.proxy_which,
         'proxy_address': user_preferences.proxy_address,
         'proxy_ca_certs': user_preferences.proxy_ca_certs,

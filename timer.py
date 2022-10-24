@@ -58,6 +58,7 @@ def daemon_communication_timer():
     wm = bpy.context.window_manager
     try:
       results = daemon_lib.get_reports(app_id)
+      start_count = 0
     except Exception as e:
       global_vars.DAEMON_ACCESSIBLE = False
       
@@ -111,6 +112,18 @@ def timer_image_cleanup():
     if (i.name[:11] == '.thumbnail_' or i.filepath.find('bkit_g')>-1) and not i.has_data and i.users == 0:
       bpy.data.images.remove(i)
   return 60
+
+def save_prefs_cancel_all_tasks_and_restart_daemon(self, context):
+  """Save preferences, cancel all daemon tasks and shutdown the daemon.
+  The daemon_communication_timer will soon take care of starting the daemon again leading to a restart.
+  """
+  utils.save_prefs(self, context)
+  reports.add_report("Restarting daemon server", 5, "INFO")
+  try:
+    cancel_all_tasks(self, context)
+    daemon_lib.kill_daemon_server()
+  except Exception as e:
+    bk_logger.warning(str(e))
 
 def cancel_all_tasks(self, context):
   """Cancel all tasks."""

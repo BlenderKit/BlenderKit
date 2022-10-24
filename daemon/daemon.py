@@ -240,16 +240,23 @@ async def persistent_sessions(app):
   else:
     trust_env = False
 
-  conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64, family=socket.AF_INET)
+  if globals.IP_VERSION == 'IPv4':
+    family = socket.AF_INET
+  elif globals.IP_VERSION == 'IPv6':
+    family = socket.AF_INET6
+  else: # default value
+    family = 0
+
+  conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64, family=family)
   app['SESSION_API_REQUESTS'] = session_api_requests = aiohttp.ClientSession(connector=conn_api_requests, trust_env=trust_env)
 
-  conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16, family=socket.AF_INET)
+  conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16, family=family)
   app['SESSION_SMALL_THUMBS'] = session_small_thumbs = aiohttp.ClientSession(connector=conn_small_thumbs, trust_env=trust_env)
   
-  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8, family=socket.AF_INET)
+  conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8, family=family)
   app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs, trust_env=trust_env)
 
-  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=4, family=socket.AF_INET)
+  conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=4, family=family)
   app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets, trust_env=trust_env)
 
   yield
@@ -274,15 +281,17 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--port', type=str, default='10753')
   parser.add_argument('--server', type=str, default='https://www.blenderkit.com')
-  parser.add_argument('--proxy-which', type=str, default='SYSTEM')
-  parser.add_argument('--proxy-address', type=str, default='')
-  parser.add_argument('--proxy-ca-certs', type=str, default='')
-  parser.add_argument('--system-id', type=str, default='')
+  parser.add_argument('--proxy_which', type=str, default='SYSTEM')
+  parser.add_argument('--proxy_address', type=str, default='')
+  parser.add_argument('--proxy_ca_certs', type=str, default='')
+  parser.add_argument('--ip_version', type=str, default='BOTH')
+  parser.add_argument('--system_id', type=str, default='')
   parser.add_argument('--version', type=str, default='')
   args = parser.parse_args()
 
   globals.PORT = args.port
   globals.SERVER = args.server
+  globals.IP_VERSION = args.ip_version
   globals.servers_statuses[args.server] = None
   globals.SYSTEM_ID = args.system_id
   globals.VERSION = args.version
@@ -308,8 +317,9 @@ if __name__ == '__main__':
 
   server.on_startup.append(start_background_tasks)
   server.on_cleanup.append(cleanup_background_tasks)
-
+  
   try:
+    print(f'Starting with {args}')
     web.run_app(server, host='127.0.0.1', port=args.port)
   except OSError as e:
     # [Errno 10013] error while attempting to bind on address ('[host IP]', [port?]): An attempt was made to access a socket in a way forbidden by its access permissions

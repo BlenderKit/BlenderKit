@@ -139,7 +139,7 @@ def report_blender_quit():
 
 
 def kill_daemon_server():
-  ''' Request to restart the daemon server.'''
+  '''Request to restart the daemon server.'''
   address = get_address()
   with requests.Session() as session:
     url = address + "/shutdown"
@@ -227,10 +227,11 @@ def start_daemon_server():
           '-u', daemon_path,
           '--port', get_port(),
           '--server', global_vars.SERVER,
-          '--proxy-which', global_vars.PREFS.get('proxy_which'),
-          '--proxy-address', global_vars.PREFS.get('proxy_address'),
-          '--proxy-ca-certs', global_vars.PREFS.get('proxy_ca_certs'),
-          '--system-id', bpy.context.preferences.addons['blenderkit'].preferences.system_id,
+          '--proxy_which', global_vars.PREFS.get('proxy_which'),
+          '--proxy_address', global_vars.PREFS.get('proxy_address'),
+          '--proxy_ca_certs', global_vars.PREFS.get('proxy_ca_certs'),
+          '--ip_version', global_vars.PREFS.get('ip_version'),
+          '--system_id', bpy.context.preferences.addons['blenderkit'].preferences.system_id,
           '--version', f'{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}',
         ],
         env           = env,
