@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
+import logging
 import re
 import sys
 import threading
@@ -27,6 +28,7 @@ from bpy.props import EnumProperty
 from . import utils
 
 
+bk_logger = logging.getLogger(__name__)
 bg_processes = []
 
 
@@ -251,8 +253,7 @@ class KillBgProcess(bpy.types.Operator):
         return {'FINISHED'}
 
 
-def add_bg_process(location=None, name=None, eval_path_computing='', eval_path_state='', eval_path='', process_type='',
-                   process=None):
+def add_bg_process(location=None, name=None, eval_path_computing='', eval_path_state='', eval_path='', process_type='', process=None):
     '''adds process for monitoring'''
     global bg_processes
     tcom = threadCom(eval_path_computing, eval_path_state, eval_path, process_type, process, location, name)

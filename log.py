@@ -7,6 +7,8 @@ import bpy
 from . import global_vars
 
 
+bk_logger = logging.getLogger(__name__)
+
 def get_formatter():
   """Get default formatter for BlenderKit loggers."""
   return logging.Formatter(fmt='blenderkit %(levelname)s: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
