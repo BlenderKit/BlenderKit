@@ -21,6 +21,7 @@ def configure_bk_logger():
   logging.basicConfig(level=global_vars.LOGGING_LEVEL_BLENDERKIT)
   bk_logger = logging.getLogger("blenderkit")
   bk_logger.propagate = False
+  bk_logger.handlers = []
 
   stream_handler = logging.StreamHandler()
   stream_handler.setFormatter(get_formatter())
@@ -31,6 +32,7 @@ def configure_imported_loggers():
   """Configure loggers for imported modules so they can have different logging level `global_vars.LOGGING_LEVEL_IMPORTED` than main blenderkit logger."""
   urllib3_logger = logging.getLogger("urllib3")
   urllib3_logger.propagate = False
+  urllib3_logger.handlers = []
 
   urllib3_handler = logging.StreamHandler()
   urllib3_handler.setLevel(global_vars.LOGGING_LEVEL_IMPORTED)
@@ -38,6 +40,13 @@ def configure_imported_loggers():
   urllib3_logger.addHandler(urllib3_handler)
 
 
+def configure_loggers():
+  """Configure all loggers for BlenderKit addon. See called functions for details."""
+  configure_bk_logger()
+  configure_imported_loggers()
+
+
+### UNUSED - REMOVE IF FIX IS NOT FOUND
 def setup_logging_to_file(global_dir: str):
   """Setup logging to file by redirecting all stdout and stderr into dedicated loggers which logs into file and into stream (back to console), also add file handler to `blenderkit` logger.
   The redirection is done by setting `sys.stdout` and `sys.stderr` to custom `LogFile()` object.
@@ -85,9 +94,3 @@ class LogFile(object):
   def flush(self):
     for handler in self.logger.handlers:
       handler.flush()
-
-
-def configure_loggers():
-  """Configure all loggers for BlenderKit addon. See called functions for details."""
-  configure_bk_logger()
-  configure_imported_loggers()

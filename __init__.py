@@ -1955,7 +1955,6 @@ classes = (
 def register():
     global_vars.VERSION = bl_info['version']
     bpy.utils.register_class(BlenderKitAddonPreferences)
-    log.setup_logging_to_file(bpy.context.preferences.addons['blenderkit'].preferences.global_dir)
 
     addon_updater_ops.register(bl_info)
     dependencies.ensure_preinstalled_deps_copied()
