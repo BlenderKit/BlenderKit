@@ -168,18 +168,3 @@ jobs:
         run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
       - name: TEST
         run: python dev.py test --install-at /home/runner/.config/blender/3.3/scripts/addons
-
-  Test_Blender_3-4-0_alpha:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Download Blender
-        run: curl https://builder.blender.org/download/daily/blender-3.4.0-alpha+master.93afc50ac3ef-linux.x86_64-release.tar.xz -o /home/runner/blender.tar.xz
-      - name: Mkdir
-        run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
-      - name: Extract Blender
-        run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
-      - name: Add Blender to PATH
-        run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
-      - name: TEST
-        run: python dev.py test --install-at /home/runner/.config/blender/3.4/scripts/addons
