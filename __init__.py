@@ -1680,10 +1680,8 @@ class BlenderKitAddonPreferences(AddonPreferences):
              'Add-on will use both IPv4 and IPv6 families of addresses for connections'),
             ('IPv4', 'Use only IPv4',
              'Add-on will use only IPv4 family of addresses for connections. This might fix connection issues on some systems connected to only IPv4 networks'),
-            ('IPv6', 'Use only IPv6',
-             'Add-on will use only IPv6 families of addresses for connections. Not recommended'),
         ),
-        description="Which address family add-on should use for connections - IPv4, IPv6 or both protocols.",
+        description="Which address family add-on should use for connection",
         default="BOTH",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
     )

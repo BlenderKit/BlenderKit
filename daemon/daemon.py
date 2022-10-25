@@ -242,8 +242,6 @@ async def persistent_sessions(app):
 
   if globals.IP_VERSION == 'IPv4':
     family = socket.AF_INET
-  elif globals.IP_VERSION == 'IPv6':
-    family = socket.AF_INET6
   else: # default value
     family = 0
 
