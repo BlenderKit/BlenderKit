@@ -127,6 +127,7 @@ def save_image_safely(teximage, filepath):
 def upload_resolutions(files, asset_data, api_key = ''):
     upload_data = {
         "name": asset_data['name'],
+        "displayName": asset_data['displayName'],
         "token": api_key,
         "id": asset_data['id']
     }
