@@ -315,6 +315,13 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         to_hidden_collection = []
         collection = None
         main_object = None
+        #get first at least one parent for sure
+        for ob in bpy.context.scene.objects:
+            if ob.select_get():
+                if not ob.parent:
+                    main_object = ob
+                    ob.location = location
+        #do once again to ensure hidden objects are hidden
         for ob in bpy.context.scene.objects:
             if ob.select_get():
                 return_obs.append(ob)
