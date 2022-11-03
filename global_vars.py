@@ -1,5 +1,6 @@
 import collections
 import logging
+import os
 
 
 DAEMON_ACCESSIBLE = False
@@ -17,6 +18,14 @@ BLENDERKIT_MAIN = 'https://www.blenderkit.com'
 BLENDERKIT_DEVEL = 'https://devel.blenderkit.com'
 BLENDERKIT_STAGING = 'https://staging.blenderkit.com'
 SERVER = BLENDERKIT_MAIN
+
+SERVERS = {
+  'LOCAL': 'http://localhost:8001',
+  'MAIN': 'https://www.blenderkit.com',
+  'DEVEL': 'https://devel.blenderkit.com',
+  'STAGING': 'https://staging.blenderkit.com',
+}
+SERVER = SERVERS[os.environ.get('BLENDERKIT_SERVER', 'MAIN')]
 
 TIPS = [
   ('You can disable tips in the add-on preferences.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#preferences'),
