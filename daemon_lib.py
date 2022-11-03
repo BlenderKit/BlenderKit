@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import bpy
 import requests
 
-from . import colors, dependencies, global_vars, reports
+from . import dependencies, global_vars, reports
 
 
 bk_logger = logging.getLogger(__name__)
@@ -181,8 +181,7 @@ def check_daemon_exit_code() -> tuple[int, str]:
   elif exit_code == 113:
     message = 'OSError: [Errno 10013] - cannot open port. Please check your antivirus or firewall and unblock blenderkit and/or daemon.py script.'
   else:
-    log_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
-    log_path = f'{log_dir}/blenderkit-daemon-{get_port()}.log'
+    log_path = f'{get_daemon_directory_path()}/daemon-{get_port()}.log'
     message = f'Unknown problem. Please report a bug and paste content of log {log_path}'
 
   return exit_code, message

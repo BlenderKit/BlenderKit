@@ -19,13 +19,13 @@ try:
   import aiohttp
   from aiohttp import web, web_request
 except Exception as e:
-  logging.ERROR(f'{e}')
+  logging.error(f'{e}')
   exit(101)
 
 try:
   import certifi
 except Exception as e:
-  logging.ERROR(f'{e}')
+  logging.error(f'{e}')
   exit(102)
 
 import assets
@@ -322,11 +322,11 @@ if __name__ == '__main__':
   except OSError as e:
     # [Errno 10013] error while attempting to bind on address ('[host IP]', [port?]): An attempt was made to access a socket in a way forbidden by its access permissions
     if e.errno == 10013:
-      logging.ERROR(f'Antivirus blocked Daemon: {e}')
+      logging.error(f'Antivirus blocked Daemon: {e}')
       exit(113)
     else:
-      logging.ERROR(f'Daemon start blocked by error: {e}')
+      logging.error(f'Daemon start blocked by error: {e}')
       exit(100)
   except Exception as e:
-    logging.ERROR(f'Daemon start blocked by error: {e}')
+    logging.error(f'Daemon start blocked by error: {e}')
     exit(100)
