@@ -555,12 +555,6 @@ class BlenderKitCommonSearchProps:
                                default=0, min=0, max=10, update=search.search_update)
 
 
-def name_update(self, context):
-    ''' checks for name change, because it decides if whole asset has to be re-uploaded. Name is stored in the blend file
-    and that's the reason.'''
-    utils.name_update(self)
-
-
 def update_free(self, context):
     if self.is_free == 'FULL':
         self.is_free = 'FREE'
@@ -605,7 +599,7 @@ class BlenderKitCommonUploadProps(object):
         name="Name",
         description="Main name of the asset",
         default="",
-        update=name_update
+        update=utils.name_update
     )
     # this is to store name for purpose of checking if name has changed.
     name_old: StringProperty(

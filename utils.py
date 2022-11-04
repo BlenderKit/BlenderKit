@@ -286,6 +286,7 @@ def get_active_asset():
 
 
 def get_upload_props():
+    """Get uploaded object properties based on the selected asset_type."""
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type == 'MODEL':
@@ -296,7 +297,6 @@ def get_upload_props():
         s = bpy.context.scene
         return s.blenderkit
     if ui_props.asset_type == 'HDR':
-
         hdr = ui_props.hdr_upload_image  # bpy.data.images.get(ui_props.hdr_upload_image)
         if not hdr:
             return None
@@ -826,11 +826,12 @@ def automap(target_object=None, target_slot=None, tex_size=1, bg_exception=False
             bpy.context.view_layer.objects.active = actob
 
 
-def name_update(props):
-    '''
-    Update asset name function, gets run also before upload. Makes sure name doesn't change in case of reuploads,
+def name_update(props, context=None):
+    """Update asset name function, gets run also before upload. Makes sure name doesn't change in case of reuploads,
     and only displayName gets written to server.
-    '''
+    Checks for name change, because it decides if whole asset has to be re-uploaded. Name is stored in the blend file
+    and that's the reason.
+    """
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
 
