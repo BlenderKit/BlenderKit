@@ -70,6 +70,19 @@ async def search_assets(request: web_request.Request):
   return web.json_response({'task_id': task_id})
 
 
+async def upload_asset(request: web_request.Request):
+  """WORK IN PROGRESS: Handle request for download of asset."""
+  data = await request.json()
+  task_id = str(uuid.uuid4())
+  #TODO: call here the actual upload in uploads.py :)
+  #TODO: first we need to move it there ;)
+  #task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
+  #globals.tasks.append(task)
+  #task.async_task = asyncio.ensure_future(search.do_search(request, task))
+  #task.async_task.add_done_callback(tasks.handle_async_errors)
+  return web.json_response({'task_id': task_id})
+
+
 async def index(request: web_request.Request):
   """Report PID of server as Index page, can be used as is-alive endpoint."""
   pid = str(os.getpid())
@@ -308,6 +321,7 @@ if __name__ == '__main__':
     web.get('/kill_download', kill_download),
     web.post('/download_asset', download_asset),
     web.post('/search_asset', search_assets),
+    web.post('/upload_asset', upload_asset),
     web.view('/shutdown', shutdown),
     web.view('/report_blender_quit', report_blender_quit),
     web.get('/consumer/exchange/', consumer_exchange),

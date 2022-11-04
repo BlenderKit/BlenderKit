@@ -79,9 +79,24 @@ def download_asset(data):
     return resp.json()
 
 
+def upload_asset(upload_data, export_data, upload_set):
+  """Upload specified asset.
+  WIP: Only a sketch, needs to be further implemented."""
+  data = {
+    'app_id': os.getpid(),
+    'upload_data': upload_data,
+    'export_data': export_data,
+    'upload_set': upload_set,
+  }
+  with requests.Session() as session:
+    url = get_address() + "/upload_asset"
+    bk_logger.info(f"making a request to: {url}")
+    resp = session.post(url, json=data)
+    return resp.json()
+
+
 def kill_download(task_id):
   """Kill the specified task with ID on the daemon."""
-
   address = get_address()
   with requests.Session() as session:
     url = address + "/kill_download"

@@ -38,6 +38,7 @@ from . import (
     asset_inspector,
     autothumb,
     categories,
+    daemon_lib,
     global_vars,
     image_utils,
     overrides,
@@ -47,7 +48,6 @@ from . import (
     search,
     tasks_queue,
     ui_panels,
-    upload_bg,
     utils,
     version_checker,
 )
@@ -1161,18 +1161,21 @@ def upload_files(upload_data, files):
         tasks_queue.add_task((reports.add_report, (f"Uploaded all files for asset {upload_data['displayName']}",)))
     return uploaded_all
 
-def start_upload(self, context, asset_type, reupload, upload_set):
-    '''start upload process, by processing data, then start a thread that cares about the rest of the upload.'''
+
+def prepare_asset_data(self, context, asset_type, reupload, upload_set):
+    """Process asset and its data for upload."""
 
     # fix the name first
     props = utils.get_upload_props()
-
     utils.name_update(props)
 
+    #TODO: remove check should be outside this function
+    ###### this goes to Daemon
     storage_quota_ok = check_storage_quota(props)
     if not storage_quota_ok:
         self.report({'ERROR_INVALID_INPUT'}, props.report)
-        return {'CANCELLED'}
+        return False, None, None
+    ###### end of TODO
 
     location = get_upload_location(props)
     props.upload_state = 'preparing upload'
@@ -1186,7 +1189,7 @@ def start_upload(self, context, asset_type, reupload, upload_set):
     check_missing_data(asset_type, props)
     # if previous check did find any problems then
     if props.report != '':
-        return {'CANCELLED'}
+        return False, None, None
 
     if not reupload:
         props.asset_base_id = ''
@@ -1204,7 +1207,7 @@ def start_upload(self, context, asset_type, reupload, upload_set):
         elif not os.path.exists(export_data["thumbnail_path"]):
             props.upload_state = 'Thumbnail not found'
             props.uploading = False
-            return {'CANCELLED'}
+            return False, None, None
 
     if upload_set == {'METADATA'}:
         props.upload_state = "Updating metadata. Please don't close Blender until upload finishes"
@@ -1228,12 +1231,13 @@ def start_upload(self, context, asset_type, reupload, upload_set):
     export_data['binary_path'] = bpy.app.binary_path
     export_data['debug_value'] = bpy.app.debug_value
 
+    return True, upload_data, export_data
+
+
+def upload_asset(upload_data, export_data, upload_set):
     upload_thread = Uploader(upload_data=upload_data, export_data=export_data, upload_set=upload_set)
-
     upload_thread.start()
-
     upload_threads.append(upload_thread)
-    return {'FINISHED'}
 
 
 asset_types = (
@@ -1243,7 +1247,7 @@ asset_types = (
     ('MATERIAL', 'Material', 'Any .blend Material'),
     ('TEXTURE', 'Texture', 'A texture, or texture set'),
     ('BRUSH', 'Brush', 'Brush, can be any type of blender brush'),
-    ('ADDON', 'Addon', 'Addnon'),
+    ('ADDON', 'Addon', 'Addon'),
 )
 
 
@@ -1320,13 +1324,21 @@ class UploadOperator(Operator):
         if 'MAINFILE' in upload_set:
             self.main_file = True
 
-        result = start_upload(self, context, self.asset_type, self.reupload, upload_set=upload_set, )
+        ok, upload_data, export_data = prepare_asset_data(self, context, self.asset_type, self.reupload, upload_set=upload_set)
+        if not ok:
+          return {'CANCELLED'}
+
+        #TODO: switch to => daemon_lib.upload_asset()
+        bk_logger.info('daemon asset upload called')
+        daemon_lib.upload_asset(upload_data, export_data, upload_set)
+        bk_logger.info('daemon upload task call finished')
+        upload_asset(upload_data, export_data, upload_set)
 
         if props.report != '':
             # self.report({'ERROR_INVALID_INPUT'}, props.report)
             self.report({'ERROR_INVALID_CONTEXT'}, props.report)
 
-        return result
+        return {'FINISHED'}
 
     def draw(self, context):
         props = utils.get_upload_props()
