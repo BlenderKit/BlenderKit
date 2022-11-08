@@ -33,6 +33,7 @@ import disclaimer
 import globals
 import oauth
 import tasks
+import uploads
 
 import search
 
@@ -72,14 +73,15 @@ async def search_assets(request: web_request.Request):
 
 async def upload_asset(request: web_request.Request):
   """WORK IN PROGRESS: Handle request for download of asset."""
-  data = await request.json()
+  data = await request.json()  
   task_id = str(uuid.uuid4())
-  #TODO: call here the actual upload in uploads.py :)
-  #TODO: first we need to move it there ;)
-  #task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
-  #globals.tasks.append(task)
-  #task.async_task = asyncio.ensure_future(search.do_search(request, task))
-  #task.async_task.add_done_callback(tasks.handle_async_errors)
+  app_id = data.pop('app_id')
+
+  task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
+  globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(uploads.do_upload(request, task))
+  task.async_task.add_done_callback(tasks.handle_async_errors)
+
   return web.json_response({'task_id': task_id})
 
 

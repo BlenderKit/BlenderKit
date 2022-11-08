@@ -29,12 +29,14 @@ class Task():
       self.status = status
 
   def error(self, message: str, progress: int = -1):
+    """End the task with error."""
     self.message = message
     self.status = "error"
     if progress != -1:
       self.progress = progress
 
   def finished(self, message: str):
+    """End the task successfuly."""
     self.message = message
     self.status = "finished"
 

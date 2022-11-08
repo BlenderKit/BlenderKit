@@ -3,6 +3,7 @@
 import platform
 import re
 import sys
+import os
 
 import globals
 
@@ -20,6 +21,30 @@ def get_headers(api_key: str = '') -> dict[str, str]:
     headers['Authorization'] = f'Bearer {api_key}'
 
   return headers
+
+
+def dict_to_params(inputs, parameters=None):
+  if parameters == None:
+    parameters = []
+  for k in inputs.keys():
+    if type(inputs[k]) == list:
+      strlist = ""
+      for idx, s in enumerate(inputs[k]):
+        strlist += s
+        if idx < len(inputs[k]) - 1:
+          strlist += ','
+
+      value = "%s" % strlist
+    elif type(inputs[k]) != bool:
+      value = inputs[k]
+    else:
+      value = str(inputs[k])
+    parameters.append(
+      {
+        "parameterType": k,
+        "value": value
+      })
+  return parameters
 
 
 def slugify(slug: str) -> str:
