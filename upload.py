@@ -1065,7 +1065,7 @@ class Uploader(threading.Thread):
                 bk_logger.error(es)
             return {'CANCELLED'}
 
-class upload_in_chunks(object):
+class  upload_in_chunks(object):
     def __init__(self, filename, chunksize=1 << 13, report_name='file'):
         self.filename = filename
         self.chunksize = chunksize
@@ -1105,9 +1105,16 @@ def upload_file(upload_data, f):
         'fileIndex': f['index'],
         'originalFilename': os.path.basename(f['file_path'])
     }
+
+
+
     upload_create_url = paths.BLENDERKIT_API + '/uploads/'
     upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
     upload = upload.json()
+
+
+
+
 
     chunk_size = 1024 * 1024 * 2
     # utils.pprint(upload)
@@ -1331,7 +1338,10 @@ class UploadOperator(Operator):
         #TODO: switch to => daemon_lib.upload_asset()
         bk_logger.info('daemon asset upload called')
         daemon_lib.upload_asset(upload_data, export_data, upload_set)
-        bk_logger.info('daemon upload task call finished')
+        bk_logger.info('daemon upload task created')
+        
+        return {'FINISHED'}
+
         upload_asset(upload_data, export_data, upload_set)
 
         if props.report != '':

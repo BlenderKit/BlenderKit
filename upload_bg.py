@@ -21,20 +21,10 @@
 import json
 import os
 import sys
-import time
 
 import bpy
-import requests
 
-from blenderkit import (
-    append_link,
-    global_vars,
-    paths,
-    reports,
-    rerequests,
-    tasks_queue,
-    utils,
-)
+from blenderkit import append_link
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
@@ -46,7 +36,6 @@ if __name__ == "__main__":
         with open(BLENDERKIT_EXPORT_DATA, 'r',encoding='utf-8') as s:
             data = json.load(s)
 
-        bpy.app.debug_value = data.get('debug_value', 0)
         export_data = data['export_data']
         upload_data = data['upload_data']
 
