@@ -2,16 +2,16 @@
 Extends upload.py on addon side."""
 
 import asyncio
+import json
+import logging
 import os
 from pathlib import Path
-import logging
-import json
-
-from aiohttp import web, ClientSession
 
 import globals
-import utils
 import tasks
+from aiohttp import ClientSession, web
+
+import utils
 
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"

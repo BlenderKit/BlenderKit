@@ -1,9 +1,9 @@
 """Contains utility functions for daemon server. Mix of everything."""
 
+import os
 import platform
 import re
 import sys
-import os
 
 import globals
 

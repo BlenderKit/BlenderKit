@@ -21,11 +21,8 @@ import json
 import logging
 import os
 import re
-import subprocess
-import sys
 import tempfile
 import threading
-import traceback
 
 import bpy
 import requests
@@ -182,11 +179,6 @@ def sub_to_camel(content):
     replaced = re.sub(r"_.",
                       lambda m: m.group(0)[1].upper(), content)
     return (replaced)
-
-
-def camel_to_sub(content):
-    replaced = re.sub(r"[A-Z]", lambda m: '_' + m.group(0).lower(), content)
-    return replaced
 
 
 def get_upload_data(caller=None, context=None, asset_type=None):
@@ -858,240 +850,6 @@ def auto_fix(asset_type=''):
         asset.name = props.name
 
 
-upload_threads = []
-
-
-class Uploader(threading.Thread):
-    '''
-       Upload thread -
-        - first uploads metadata
-        - blender gets started to process the file if .blend is uploaded
-        - if files need to be uploaded, uploads them
-        - thumbnail goes first
-        - files get uploaded
-
-       Returns
-       -------
-
-   '''
-
-    def __init__(self, upload_data=None, export_data=None, upload_set=None):
-        super(Uploader, self).__init__()
-        self.upload_data = upload_data
-        self.export_data = export_data
-        self.upload_set = upload_set
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
-
-    def send_message(self, message, type = 'INFO'):
-        message = str(message).replace("'", "")
-
-        # this adds a UI report but also writes above the upload panel fields.
-        tasks_queue.add_task((reports.add_report, (message,5,type)))
-        estring = f"{self.export_data['eval_path_state']} = '{message}'"
-        tasks_queue.add_task((exec, (estring,)))
-
-    def end_upload(self, message, type='INFO'):
-        estring = self.export_data['eval_path_computing'] + ' = False'
-        tasks_queue.add_task((exec, (estring,)))
-        self.send_message(message, type = type)
-
-    def run(self):
-        # utils.pprint(upload_data)
-        self.upload_data['parameters'] = utils.dict_to_params(
-            self.upload_data['parameters'])  # weird array conversion only for upload, not for tooltips.
-
-        script_path = os.path.dirname(os.path.realpath(__file__))
-
-        # first upload metadata to server, so it can be saved inside the current file
-        url = paths.BLENDERKIT_API + '/assets/'
-        headers = utils.get_headers(self.upload_data['token'])
-
-        # self.upload_data['license'] = 'ovejajojo'
-        json_metadata = self.upload_data  # json.dumps(self.upload_data, ensure_ascii=False).encode('utf8')
-        self.send_message('Posting metadata')
-        if self.export_data['assetBaseId'] == '':
-            try:
-                r = rerequests.post(url, json=json_metadata, headers=headers, verify=True, immediate=True)  # files = files,
-                bk_logger.info(f'Got response ({r.status_code}) for {url}')
-                asset_data = r.json()
-            except requests.exceptions.RequestException as e:
-                self.end_upload('Metadata upload failed', type='ERROR')
-                bk_logger.error(str(e))
-                return {'CANCELLED'}
-
-        else:
-            url += self.export_data['id'] + '/'
-            try:
-                if 'MAINFILE' in self.upload_set:
-                    json_metadata["verificationStatus"] = "uploading"
-                r = rerequests.patch(url, json=json_metadata, headers=headers, verify=True, immediate=True)  # files = files,
-                bk_logger.info(f'Got response ({r.status_code}) for {url}')
-                asset_data = r.json()
-            except requests.exceptions.RequestException as e:
-                self.end_upload('Metadata upload failed', type='ERROR')
-                bk_logger.error(str(e))
-                return {'CANCELLED'}
-
-        self.send_message('Metadata uploaded')
-        if self.stopped():
-            self.end_upload('Upload cancelled by user', type='INFO')
-            return
-
-        try:
-            rj = r.json()
-            # utils.pprint(rj)
-            # if r.status_code not in (200, 201):
-            #     if r.status_code == 401:
-            #         ###reports.add_report(r.detail, 5, 'ERROR')
-            #     return {'CANCELLED'}
-            # if props.asset_base_id == '':
-            #     props.asset_base_id = rj['assetBaseId']
-            #     props.id = rj['id']
-            if self.export_data['assetBaseId'] == '':
-                self.export_data['assetBaseId'] = rj['assetBaseId']
-                self.export_data['id'] = rj['id']
-                # here we need to send asset ID's back into UI to be written in asset data.
-                estring = f"{self.export_data['eval_path']}.blenderkit.asset_base_id = '{rj['assetBaseId']}'"
-                tasks_queue.add_task((exec, (estring,)))
-                estring = f"{self.export_data['eval_path']}.blenderkit.id = '{rj['id']}'"
-                tasks_queue.add_task((exec, (estring,)))
-                # after that, the user's file needs to be saved to save the
-                # estring = f"bpy.ops.wm.save_as_mainfile(filepath={self.export_data['source_filepath']}, compress=False, copy=True)"
-                # tasks_queue.add_task((exec, (estring,)))
-
-            self.upload_data['assetBaseId'] = self.export_data['assetBaseId']
-            self.upload_data['id'] = self.export_data['id']
-
-
-            if 'MAINFILE' in self.upload_set:
-                if self.upload_data['assetType'] == 'hdr':
-                    fpath = self.export_data['hdr_filepath']
-                else:
-                    fpath = os.path.join(self.export_data['temp_dir'], self.upload_data['assetBaseId'] + '.blend')
-
-                    clean_file_path = paths.get_clean_filepath()
-
-                    data = {
-                        'export_data': self.export_data,
-                        'upload_data': self.upload_data,
-                        'debug_value': self.export_data['debug_value'],
-                        'upload_set': self.upload_set,
-                    }
-                    datafile = os.path.join(self.export_data['temp_dir'], BLENDERKIT_EXPORT_DATA_FILE)
-
-                    with open(datafile, 'w', encoding='utf-8') as s:
-                        json.dump(data, s, ensure_ascii=False, indent=4)
-
-                    self.send_message('preparing scene - running blender instance')
-
-                    proc = subprocess.run([
-                        self.export_data['binary_path'],
-                        "--background",
-                        "-noaudio",
-                        clean_file_path,
-                        "--python", os.path.join(script_path, "upload_bg.py"),
-                        "--", datafile
-                    ], bufsize=1, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
-
-            if self.stopped():
-                self.end_upload('Upload stopped by user', type='INFO')
-                return
-
-            files = []
-            if 'THUMBNAIL' in self.upload_set:
-                files.append({
-                    "type": "thumbnail",
-                    "index": 0,
-                    "file_path": self.export_data["thumbnail_path"]
-                })
-            if 'MAINFILE' in self.upload_set:
-                files.append({
-                    "type": "blend",
-                    "index": 0,
-                    "file_path": fpath
-                })
-
-                if not os.path.exists(fpath):
-                    self.send_message("File packing failed, please try manual packing first")
-                    return {'CANCELLED'}
-
-            if len(files)>0:
-                self.send_message('Uploading files')
-
-                uploaded = upload_files(self.upload_data, files)
-            else:
-                #for case of metadata only
-                uploaded = True
-
-            if uploaded:
-                set_uploaded_status = False
-
-                #Check the status if only thumbnail or metadata gets reuploaded.
-                #the logic is that on hold assets might be switched to uploaded state for validators,
-                #if the asset was put on hold because of thumbnail only.
-                if 'MAINFILE' not in self.upload_set:
-                    if asset_data.get('verificationStatus') in ('on_hold','deleted','rejected'):
-                        set_uploaded_status = True
-
-                if 'MAINFILE' in self.upload_set:
-                    set_uploaded_status = True
-
-                # mark on server as uploaded
-                if set_uploaded_status:
-                    confirm_data = {
-                        "verificationStatus": "uploaded"
-                    }
-
-                    url = paths.BLENDERKIT_API + '/assets/'
-
-                    headers = utils.get_headers(self.upload_data['token'])
-
-                    url += self.upload_data["id"] + '/'
-                    r = rerequests.patch(url, json=confirm_data, headers=headers, verify=True)  # files = files,
-
-                self.end_upload('Upload finished successfully', type='INFO')
-            else:
-                self.end_upload('Upload failed', type='ERROR')
-        except Exception as e:
-            self.end_upload(e, type='ERROR')
-            exc_strings = traceback.format_exception(e)
-            for es in exc_strings:
-                bk_logger.error(es)
-            return {'CANCELLED'}
-
-class  upload_in_chunks(object):
-    def __init__(self, filename, chunksize=1 << 13, report_name='file'):
-        self.filename = filename
-        self.chunksize = chunksize
-        self.totalsize = os.path.getsize(filename)
-        self.readsofar = 0
-        self.report_name = report_name
-
-    def __iter__(self):
-        with open(self.filename, 'rb') as file:
-            while True:
-                data = file.read(self.chunksize)
-                if not data:
-                    sys.stderr.write("\n")
-                    break
-                self.readsofar += len(data)
-                percent = self.readsofar * 1e2 / self.totalsize
-                tasks_queue.add_task((reports.add_report, (f"Uploading {self.report_name} {percent}%",)))
-
-                # bg_blender.progress('uploading %s' % self.report_name, percent)
-                # sys.stderr.write("\r{percent:3.0f}%".format(percent=percent))
-                yield data
-
-    def __len__(self):
-        return self.totalsize
-
-
 def upload_file(upload_data, f):
     headers = utils.get_headers(upload_data['token'])
     version_id = upload_data['id']
@@ -1241,12 +999,6 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     return True, upload_data, export_data
 
 
-def upload_asset(upload_data, export_data, upload_set):
-    upload_thread = Uploader(upload_data=upload_data, export_data=export_data, upload_set=upload_set)
-    upload_thread.start()
-    upload_threads.append(upload_thread)
-
-
 asset_types = (
     ('MODEL', 'Model', 'Set of objects'),
     ('SCENE', 'Scene', 'Scene'),
@@ -1335,20 +1087,12 @@ class UploadOperator(Operator):
         if not ok:
           return {'CANCELLED'}
 
-        #TODO: switch to => daemon_lib.upload_asset()
         bk_logger.info('daemon asset upload called')
         daemon_lib.upload_asset(upload_data, export_data, upload_set)
         bk_logger.info('daemon upload task created')
         
         return {'FINISHED'}
 
-        upload_asset(upload_data, export_data, upload_set)
-
-        if props.report != '':
-            # self.report({'ERROR_INVALID_INPUT'}, props.report)
-            self.report({'ERROR_INVALID_CONTEXT'}, props.report)
-
-        return {'FINISHED'}
 
     def draw(self, context):
         props = utils.get_upload_props()
