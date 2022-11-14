@@ -77,7 +77,7 @@ async def upload_asset(request: web_request.Request):
   task_id = str(uuid.uuid4())
   app_id = data.pop('app_id')
 
-  task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
+  task = tasks.Task(data, app_id, 'asset_upload', task_id, message='Asset upload has started')
   globals.tasks.append(task)
   task.async_task = asyncio.ensure_future(uploads.do_upload(request, task))
   task.async_task.add_done_callback(tasks.handle_async_errors)

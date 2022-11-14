@@ -22,10 +22,11 @@ class Task():
 
     self.async_task: asyncio.Task | None = None
 
-  def change_progress(self, progress: int, message: str, status: str = ""):
+  def change_progress(self, progress: int, message: str = '', status: str = ''):
     self.progress = progress
-    self.message = message
-    if status != "":
+    if message != '':
+      self.message = message
+    if status != '':
       self.status = status
 
   def error(self, message: str, progress: int = -1):
