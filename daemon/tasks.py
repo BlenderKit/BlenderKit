@@ -40,6 +40,7 @@ class Task():
     """End the task successfuly."""
     self.message = message
     self.status = "finished"
+    self.progress = 100
 
   def cancel(self):
     if type(self.async_task) == asyncio.Task:

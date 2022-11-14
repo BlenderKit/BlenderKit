@@ -48,7 +48,6 @@ from . import (
     utils,
     version_checker,
 )
-
 from .daemon import tasks
 
 
@@ -866,15 +865,9 @@ def upload_file(upload_data, f):
         'originalFilename': os.path.basename(f['file_path'])
     }
 
-
-
     upload_create_url = paths.BLENDERKIT_API + '/uploads/'
     upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
     upload = upload.json()
-
-
-
-
 
     chunk_size = 1024 * 1024 * 2
     # utils.pprint(upload)
@@ -945,7 +938,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     ###### end of TODO
 
     location = get_upload_location(props)
-    props.upload_state = 'preparing upload'
+    props.upload_state = '0% - preparing upload'
 
     auto_fix(asset_type=asset_type)
 
@@ -972,16 +965,11 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
             export_data, upload_data = get_upload_data(caller=self, context=context, asset_type=asset_type)
 
         elif not os.path.exists(export_data["thumbnail_path"]):
-            props.upload_state = 'Thumbnail not found'
+            props.upload_state = '0% - thumbnail not found'
             props.uploading = False
             return False, None, None
 
-    if upload_set == {'METADATA'}:
-        props.upload_state = "Updating metadata. Please don't close Blender until upload finishes"
-    else:
-        props.upload_state = "Starting upload. Please don't close Blender until upload finishes"
     props.uploading = True
-
     # save a copy of the file for processing. Only for blend files
     basename, ext = os.path.splitext(bpy.data.filepath)
     if not ext:
@@ -1089,10 +1077,7 @@ class UploadOperator(Operator):
         if not ok:
           return {'CANCELLED'}
 
-        bk_logger.info('daemon asset upload called')
-        daemon_lib.upload_asset(upload_data, export_data, upload_set)
-        bk_logger.info('daemon upload task created')
-        
+        daemon_lib.upload_asset(upload_data, export_data, upload_set)        
         return {'FINISHED'}
 
 
@@ -1238,7 +1223,7 @@ class AssetVerificationStatusChange(Operator):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
         if not global_vars.DATA['search results']:
-            return {'CANCELLED'};
+            return {'CANCELLED'}
         # update status in search results for validator's clarity
         sr =global_vars.DATA['search results']
 
@@ -1262,7 +1247,14 @@ class AssetVerificationStatusChange(Operator):
 
 
 def handle_asset_upload(task: tasks.Task):
-  bk_logger.info(f"UPLOAD TASK REPORTED: {task.progress}, {task.status}")
+  name = task.data['upload_data']['name']
+  bpy.data.objects[name].blenderkit.upload_state = f'{task.progress}% - {task.message}'
+  if task.status == 'error':
+    bpy.data.objects[name].blenderkit.uploading = False
+    return reports.add_report(f'Upload has failed: {task.message}', type='ERROR')
+  if task.status == 'finished':
+    bpy.data.objects[name].blenderkit.uploading = False
+    return reports.add_report(f'Upload successfull')
 
 
 def register_upload():
