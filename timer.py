@@ -12,7 +12,6 @@ from . import (
     bg_blender,
     bkit_oauth,
     categories,
-    colors,
     daemon_lib,
     disclaimer_op,
     download,
@@ -20,6 +19,7 @@ from . import (
     reports,
     search,
     tasks_queue,
+    upload,
     utils,
 )
 from .daemon import tasks
@@ -113,6 +113,7 @@ def timer_image_cleanup():
       bpy.data.images.remove(i)
   return 60
 
+
 def save_prefs_cancel_all_tasks_and_restart_daemon(self, context):
   """Save preferences, cancel all daemon tasks and shutdown the daemon.
   The daemon_communication_timer will soon take care of starting the daemon again leading to a restart.
@@ -125,6 +126,7 @@ def save_prefs_cancel_all_tasks_and_restart_daemon(self, context):
   except Exception as e:
     bk_logger.warning(str(e))
 
+
 def cancel_all_tasks(self, context):
   """Cancel all tasks."""
 
@@ -133,38 +135,44 @@ def cancel_all_tasks(self, context):
   download.clear_downloads()
   search.clear_searches()
 
+
 def handle_task(task: tasks.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""
   
   #HANDLE ASSET DOWNLOAD
   if task.task_type == 'asset_download':
-    download.handle_download_task(task)
+    return download.handle_download_task(task)
+
+  #HANDLE ASSET UPLOAD
+  if task.task_type == 'asset_upload':
+    return upload.handle_asset_upload(task)
     
   #HANDLE SEARCH (candidate to be a function)
   if task.task_type == 'search':
     if task.status == 'finished':
-      search.handle_search_task(task)
+      return search.handle_search_task(task)
     elif task.status == 'error':
-      reports.add_report(task.message, 15, 'ERROR')
+      return reports.add_report(task.message, 15, 'ERROR')
 
   #HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
   if task.task_type == 'thumbnail_download':
     if task.status == 'finished':
-      search.handle_preview_task(task)
+      return search.handle_preview_task(task)
     elif task.status == 'error':
-      reports.add_report(task.message, 3, 'ERROR')
+      return reports.add_report(task.message, 3, 'ERROR')
 
   #HANDLE LOGIN
   if task.task_type == "login":
-    bkit_oauth.handle_login_task(task)
+    return bkit_oauth.handle_login_task(task)
 
   #HANDLE DAEMON STATUS REPORT
   if task.task_type == "daemon_status":
-    daemon_lib.handle_daemon_status_task(task)
+    return daemon_lib.handle_daemon_status_task(task)
 
   #HANDLE DISCLAIMER
   if task.task_type == "disclaimer":
-    disclaimer_op.handle_disclaimer_task(task)
+    return disclaimer_op.handle_disclaimer_task(task)
+
 
 def setup_asyncio_executor():
   """Set up AsyncIO to run properly on each platform."""

@@ -49,6 +49,8 @@ from . import (
     version_checker,
 )
 
+from .daemon import tasks
+
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
 
@@ -1257,6 +1259,10 @@ class AssetVerificationStatusChange(Operator):
             wm = context.window_manager
             return wm.invoke_props_dialog(self)
         return {'RUNNING_MODAL'}
+
+
+def handle_asset_upload(task: tasks.Task):
+  bk_logger.info(f"UPLOAD TASK REPORTED: {task.progress}, {task.status}")
 
 
 def register_upload():
