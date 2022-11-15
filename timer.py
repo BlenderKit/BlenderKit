@@ -220,7 +220,8 @@ def on_startup_timer():
 
   api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
   categories.fetch_categories_thread(api_key)
-  search.get_profile()
+  if api_key != '':
+    search.get_profile()
 
 
 def on_startup_daemon_online_timer():
