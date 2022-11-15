@@ -296,18 +296,18 @@ def append_particle_system(file_name, obnames=[], location=(0, 0, 0), link=False
 
 
 def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwargs):
-    '''append objects into scene individually'''
+    """Append object into scene individually. 2 approaches based in definition of name argument.
+    TODO: really split this function into 2 functions: kwargs.get('name')==None and else.
+    """
     #simplified version of append
     if kwargs.get('name'):
-        # by now used for appending into scene
         scene = bpy.context.scene
         sel = utils.selection_get()
         bpy.ops.object.select_all(action='DESELECT')
 
-        path = file_name + "\\Collection\\"
+        path = file_name + "/Collection"
         collection_name = kwargs.get('name')
-
-        bpy.ops.wm.append( filename=collection_name, directory=path)
+        bpy.ops.wm.append(filename=collection_name, directory=path)
         # fc = utils.get_fake_context(bpy.context, area_type='VIEW_3D')
         # bpy.ops.wm.append(fc, filename=collection_name, directory=path)
 
@@ -335,16 +335,13 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 else:
                     to_hidden_collection.append(ob)
 
-        if main_object is None:
-            return None, None
-
+        assert main_object != None, 'asset not found in scene after appending'
         if kwargs.get('rotation'):
             main_object.rotation_euler = kwargs['rotation']
 
         if kwargs.get('parent') is not None:
             main_object.parent = bpy.data.objects[kwargs['parent']]
             main_object.matrix_world.translation = location
-
 
         #move objects that should be hidden to a sub collection
         if len(to_hidden_collection)>0 and collection is not None:
@@ -372,7 +369,6 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 utils.move_collection(hide_collection,collection)
                 utils.exclude_collection(hide_collection.name)
                 hidden_collections.append(hide_collection)
-            #
 
         bpy.ops.object.select_all(action='DESELECT')
         utils.selection_set(sel)
@@ -399,7 +395,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
     return_obs = []  # this might not be needed, but better be sure to rewrite the list.
     main_object = None
     hidden_objects = []
-    #
+
     for obj in data_to.objects:
         if obj is not None:
             # if obj.name not in scene.objects:
@@ -429,8 +425,6 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         main_object.matrix_world.translation = location
 
     bpy.ops.object.select_all(action='DESELECT')
-
     utils.selection_set(sel)
-
 
     return main_object, return_obs

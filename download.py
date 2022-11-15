@@ -972,34 +972,32 @@ def check_existing(asset_data, resolution='blend', can_return_others=False):
 
 
 def try_finished_append(asset_data, **kwargs):  # location=None, material_target=None):
-    ''' try to append asset, if not successfully delete source files.
-     This means probably wrong download, so download should restart'''
+    """Try to append asset, if not successfully delete source files.
+    This means probably wrong download, so download should restart
+    """
     file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
-    done = False
     bk_logger.debug('try to append already existing asset')
-    if len(file_names) > 0:
-        if os.path.isfile(file_names[-1]):
-            kwargs['name'] = asset_data['name']
+    if len(file_names) == 0:
+      return False
+
+    if not os.path.isfile(file_names[-1]):
+      return False
+
+    kwargs['name'] = asset_data['name']
+    try:
+        append_asset(asset_data, **kwargs)
+        return True
+    except Exception as e:
+        # TODO: this should distinguis if the appending failed (wrong file)
+        # or something else happened(shouldn't delete the files)
+        traceback.print_exc()
+        reports.add_report(f'Append failed: {e}', 15, 'ERROR')
+        for f in file_names:
             try:
-                append_asset(asset_data, **kwargs)
-                done = True
-
+                os.remove(f)
             except Exception as e:
-                # TODO: this should distinguis if the appending failed (wrong file)
-                # or something else happened(shouldn't delete the files)
-                traceback.print_exc()
-                done = False
-                reports.add_report('Appending asset Failed. This Asset is probably incompatible with this Blender version.', 15, 'ERROR')
-                for f in file_names:
-                    try:
-                        os.remove(f)
-                    except Exception as e:
-                        # e = sys.exc_info()[0]
-                        bk_logger.error(f'{e}')
-                        pass;
-                return done
-
-    return done
+                bk_logger.error(f'{e}')
+    return False
 
 
 def get_asset_in_scene(asset_data):
