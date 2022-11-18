@@ -19,13 +19,14 @@ def get_daily_builds(jobs: list):
   resp = request.urlopen('https://builder.blender.org/download/daily/')
   page = resp.read().decode('utf-8')
   releases = re.findall(r'(https://builder.blender.org/download/daily/blender-((3\.\d)\.\d-\w+)\+\S{1,6}\.\S{12}-linux\.x86_64-release\.tar\.xz)', page)
-  for release in set(releases):
+  for release in releases:
     job = {
       'version': release[1],
       'version_x_y': release[2],
       'download_url': release[0],
     }
-    jobs.append(job)
+    if job not in jobs:
+      jobs.append(job)
 
 
 get_daily_builds(jobs)
