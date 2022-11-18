@@ -17,6 +17,7 @@ IP_VERSION = None
 SYSTEM_ID = None
 VERSION = None
 
+code_verifier = None
 active_apps=[]
 last_report_time: float = time.time()
 servers_statuses = {
