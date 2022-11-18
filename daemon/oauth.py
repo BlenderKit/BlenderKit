@@ -14,11 +14,12 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
   data = {
     "grant_type": grant_type,
     "client_id": globals.OAUTH_CLIENT_ID,
-    "code_verifier": globals.code_verifier,
     "scopes": "read write",
     "redirect_uri" : f"http://localhost:{globals.PORT}/consumer/exchange/",
   }
 
+  if globals.code_verifier:
+    data['code_verifier'] = globals.code_verifier
   if auth_code:
     data['code'] = auth_code
   if refresh_token:

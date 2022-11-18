@@ -49,5 +49,4 @@ TIPS = [
   ]
 VERSION = None #filled in register()
 
-code_verifier = None
 daemon_process = None
