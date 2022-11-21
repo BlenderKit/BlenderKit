@@ -1,6 +1,7 @@
 """Holds functionality for getting disclaimers."""
 
 
+import logging
 import uuid
 
 import globals
@@ -18,13 +19,16 @@ async def get_disclaimer(request: web.Request):
   globals.tasks.append(task)
 
   session = request.app['SESSION_API_REQUESTS']
-  async with session.get(f'{globals.SERVER}/api/v1/disclaimer/active/', headers=utils.get_headers()) as resp:
-    await resp.text()
-    response = await resp.json()
-    if len(response["results"])>0:
-      task.result = response
-      task.finished('Disclaimer retrieved')
-      return
+  try:
+    async with session.get(f'{globals.SERVER}/api/v1/disclaimer/active/', headers=utils.get_headers()) as resp:
+      await resp.text()
+      response = await resp.json()
+      if len(response["results"])>0:
+        task.result = response
+        task.finished('Disclaimer retrieved')
+        return
+  except Exception as e:
+    logging.error(str(e))
 
-    task.result = None
-    task.finished('Disclaimer not retrieved, serve a tip to user')
+  task.result = None
+  task.finished('Disclaimer not retrieved, serve a tip to user')
