@@ -54,6 +54,8 @@ async def refresh_tokens(request: web.Request):
     task.result = response_json
     if status == 200:
       return task.finished("Refreshed tokens obtained")
+    if status == 429:
+      return task.error("Couldn't refresh API tokens, API rate exceeded.")
     if status == -1:
       return task.error(f"Couldn't refresh API tokens, server is not reachable: {error}. Please login again.")
     
