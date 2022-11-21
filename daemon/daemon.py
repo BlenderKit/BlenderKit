@@ -198,7 +198,10 @@ async def online_status_check(app: web.Application):
     finally:
       resp.close()
 
-    await asyncio.sleep(60)
+    if globals.online_status == 200:
+      await asyncio.sleep(300)
+    else:
+      await asyncio.sleep(60)
 
 
 async def start_background_tasks(app: web.Application):
