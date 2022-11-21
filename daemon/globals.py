@@ -20,7 +20,4 @@ VERSION = None
 code_verifier = None
 active_apps=[]
 last_report_time: float = time.time()
-servers_statuses = {
-    #SERVER: None, is added on daemon startup
-    'https://www.google.com': None,
-}
+online_status = None

@@ -149,10 +149,9 @@ async def report(request: web_request.Request):
       print(f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}")
       globals.tasks.remove(task)
 
-  status_report = tasks.Task({}, data['app_id'], 'daemon_status', result= globals.servers_statuses)
+  status_report = tasks.Task({}, data['app_id'], 'daemon_status', result={'online_status': globals.online_status})
   reports.append(status_report.to_seriazable_object())
   reports.reverse()
-
   return web.json_response(reports)
 
 
@@ -185,16 +184,17 @@ async def life_check(app: web.Application):
     await asyncio.sleep(10)
 
 
-async def online_status_check(app: web.Application, server: str):
+async def online_status_check(app: web.Application):
   while True:
     try:
-      resp = await app['SESSION_API_REQUESTS'].head("https://www.blenderkit.com/static/img/blenderkit-logo-hexa-256x296.png", timeout=3) #QUICK FIX, NEEDS TO BE RESOLVED
-      globals.servers_statuses[server] = resp.status
+      url = f'{globals.SERVER}/-/alive/'
+      resp = await app['SESSION_API_REQUESTS'].head(url, timeout=3)
+      globals.online_status = resp.status
       if resp.status != 200:
-        logging.warning(f'{server}: status code {resp.status}')
+        logging.warning(f'{url}: status code {resp.status}')
     except Exception as e:
-        logging.warning(f'{server}: request failed')
-        globals.servers_statuses[server] = f'{e}'
+      logging.warning(f'{url}: request failed')
+      globals.online_status = f'{e}'
     finally:
       resp.close()
 
@@ -203,14 +203,15 @@ async def online_status_check(app: web.Application, server: str):
 
 async def start_background_tasks(app: web.Application):
   app['life_check'] = asyncio.create_task(life_check(app))
-  for i, server in enumerate(globals.servers_statuses):
-    app[f'online-status-check-{i}'] = asyncio.create_task(online_status_check(app, server))
+  app[f'online_status_check'] = asyncio.create_task(online_status_check(app))
 
 
 async def cleanup_background_tasks(app: web.Application):
-  app['life_check'].cancel()
-  for i, _ in enumerate(globals.servers_statuses):
-    app[f'online-status-check-{i}'].cancel()
+  try:
+    app['life_check'].cancel()
+    app[f'online_status_check'].cancel()
+  except:
+    logging.warning(f'BG tasks canceling failed: {e}')
   exit(0)
 
 
@@ -290,7 +291,6 @@ if __name__ == '__main__':
   globals.PORT = args.port
   globals.SERVER = args.server
   globals.IP_VERSION = args.ip_version
-  globals.servers_statuses[args.server] = None
   globals.SYSTEM_ID = args.system_id
   globals.VERSION = args.version
   server = web.Application()

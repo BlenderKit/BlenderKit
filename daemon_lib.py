@@ -148,7 +148,7 @@ def kill_daemon_server():
 
 
 def handle_daemon_status_task(task):
-  bk_server_status = task.result[global_vars.SERVER]
+  bk_server_status = task.result['online_status']
   if bk_server_status == 200:
     if global_vars.DAEMON_ONLINE == False:
       reports.add_report(f'Connected to {urlparse(global_vars.SERVER).netloc}')
