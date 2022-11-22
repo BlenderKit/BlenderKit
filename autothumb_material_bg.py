@@ -26,7 +26,7 @@ from pathlib import Path
 
 import bpy
 
-from blenderkit import append_link, bg_blender, download, upload_bg, utils
+from blenderkit import append_link, bg_blender, download, upload_bg, utils, upload
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]

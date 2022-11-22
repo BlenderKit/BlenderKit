@@ -267,7 +267,10 @@ def reduce_all_images(target_scale=1024):
 
 
 def get_texture_filepath(tex_dir_path, image, resolution='blend'):
-    image_file_name = bpy.path.basename(image.filepath)
+    if len(image.packed_files) > 0:
+        image_file_name = bpy.path.basename(image.packed_files[0].filepath)
+    else:
+        image_file_name = bpy.path.basename(image.filepath)
     if image_file_name == '':
         image_file_name = image.name.split('.')[0]
 
