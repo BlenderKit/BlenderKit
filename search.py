@@ -214,19 +214,16 @@ def parse_result(r):
     get_author(r)
 
     r['available_resolutions'] = []
-    allthumbs = []
     durl, tname, small_tname = '', '', ''
 
+    # Find out if the asset is older than 1 hour, so we can use .webp images
+    webp_ext = '.webp'
+
     if r['assetType'] == 'hdr':
-      tname = paths.extract_filename_from_url(r['thumbnailLargeUrlNonsquared'])
+      tname = paths.extract_filename_from_url(r['thumbnailLargeUrlNonsquared'])+webp_ext
     else:
-      tname = paths.extract_filename_from_url(r['thumbnailMiddleUrl'])
-    small_tname = paths.extract_filename_from_url(r['thumbnailSmallUrl'])
-    allthumbs.append(tname)  # TODO just first thumb is used now.
-    # if r['fileType'] == 'thumbnail':
-    #     tname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
-    #     small_tname = paths.extract_filename_from_url(f['fileThumbnail'])
-    #     allthumbs.append(tname)  # TODO just first thumb is used now.
+      tname = paths.extract_filename_from_url(r['thumbnailMiddleUrl'])+webp_ext
+    small_tname = paths.extract_filename_from_url(r['thumbnailSmallUrl'])+webp_ext
 
     for f in r['files']:
       # if f['fileType'] == 'thumbnail':
