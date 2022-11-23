@@ -2,51 +2,52 @@ import collections
 import logging
 import os
 
-
 DAEMON_ACCESSIBLE = False
 DAEMON_ONLINE = False
 DATA = {
-  'images available': {} ,
+  'images available': {},
   'search history': collections.deque(maxlen=20),
 }
 LOGGING_LEVEL_BLENDERKIT = logging.INFO
 LOGGING_LEVEL_IMPORTED = logging.WARN
 PREFS = {}
 
-BLENDERKIT_LOCAL = 'http://localhost:8001'
-BLENDERKIT_MAIN = 'https://www.blenderkit.com'
-BLENDERKIT_DEVEL = 'https://devel.blenderkit.com'
-BLENDERKIT_STAGING = 'https://staging.blenderkit.com'
-SERVER = BLENDERKIT_MAIN
-
-SERVERS = {
-  'LOCAL': 'http://localhost:8001',
-  'MAIN': 'https://www.blenderkit.com',
-  'DEVEL': 'https://devel.blenderkit.com',
-  'STAGING': 'https://staging.blenderkit.com',
-}
-SERVER = SERVERS[os.environ.get('BLENDERKIT_SERVER', 'MAIN')]
+SERVER = os.environ.get('BLENDERKIT_SERVER', 'https://www.blenderkit.com')
 
 TIPS = [
-  ('You can disable tips in the add-on preferences.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#preferences'),
-  ('Ratings help us distribute funds to creators.', 'https://www.blenderkit.com/docs/rating/'),
-  ('Creators also gain credits for free assets from subscribers.', 'https://www.blenderkit.com/docs/fair-share/'),
-  ('Click or drag model or material in scene to link/append.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#basic-usage'),
-  ('Right click in the asset bar for a detailed asset card.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#'),
-  ('Use Append in import settings if you want to edit downloaded objects.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#import-method'),
-  ('Go to import settings to set default texture resolution.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#import-method'),
-  ('Please rate responsively and plentifully. This helps us distribute rewards to the authors.', 'https://www.blenderkit.com/docs/rating/'),
-  ('All materials are free.', 'https://www.blenderkit.com/asset-gallery?query=category_subtree:material%20order:-created'),
-  ('Storage for public assets is unlimited.', 'https://www.blenderkit.com/become-creator/'),
-  ('Locked models are available if you subscribe to Full plan.', 'https://www.blenderkit.com/plans/pricing/'),
-  ('Login to upload your own models, materials or brushes.', 'https://www.blenderkit.com/'),
-  ('Use \'A\' key over the asset bar to search assets by the same author.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#basic-usage'),
-  ('Use semicolon - ; to hide or show the AssetBar.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
-  ('Support the authors by subscribing to Full plan.', 'https://www.blenderkit.com/plans/pricing/'),
-  ('Use the W key over the asset bar to open the Author\'s webpage.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
-  ('Use the R key over the asset bar for fast rating of assets.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
-  ('Use the X key over the asset bar to delete the asset from your hard drive.', 'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
-  ]
-VERSION = None #filled in register()
+  ('You can disable tips in the add-on preferences.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#preferences'),
+  ('Ratings help us distribute funds to creators.', f'{SERVER}/docs/rating/'),
+  ('Creators also gain credits for free assets from subscribers.', f'{SERVER}/docs/fair-share/'),
+  ('Click or drag model or material in scene to link/append.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#basic-usage'),
+  ('Right click in the asset bar for a detailed asset card.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#'),
+  ('Use Append in import settings if you want to edit downloaded objects.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#import-method'),
+  ('Go to import settings to set default texture resolution.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#import-method'),
+  ('Please rate responsively and plentifully. This helps us distribute rewards to the authors.',
+   f'{SERVER}/docs/rating/'),
+  ('All materials are free.', f'{SERVER}/asset-gallery?query=category_subtree:material%20order:-created'),
+  ('Storage for public assets is unlimited.', f'{SERVER}/become-creator/'),
+  ('Locked models are available if you subscribe to Full plan.', f'{SERVER}/plans/pricing/'),
+  ('Login to upload your own models, materials or brushes.', f'{SERVER}/'),
+  ('Use \'A\' key over the asset bar to search assets by the same author.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#basic-usage'),
+  ('Use semicolon - ; to hide or show the AssetBar.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
+  ('Support the authors by subscribing to Full plan.', f'{SERVER}/plans/pricing/'),
+  ('Use the W key over the asset bar to open the Author\'s webpage.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
+  ('Use the R key over the asset bar for fast rating of assets.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
+  ('Use the X key over the asset bar to delete the asset from your hard drive.',
+   'https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html#assetbar'),
+  (
+  'Want to help us test the latest experimental versions of the add-on? Enable pre-releases in the add-on preferences.',
+  ''),
+]
+VERSION = None  # filled in register()
 
 daemon_process = None
