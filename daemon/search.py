@@ -59,9 +59,13 @@ async def parse_thumbnails(task: tasks.Task):
   # get thumbnails that need downloading
 
   for i, search_result in enumerate(task.result.get('results', [])):
+    # Find out if the asset is older than 1 hour, so we can use .webp images
+    webp_ext = '.webp'
+
     # SMALL THUMBNAIL
-    imgname = assets.extract_filename_from_url(search_result['thumbnailSmallUrl'])
+    imgname = assets.extract_filename_from_url(search_result['thumbnailSmallUrl'])+webp_ext
     imgpath = os.path.join(task.data['tempdir'], imgname)
+
     data = {
       "image_path": imgpath,
       "image_url": search_result["thumbnailSmallUrl"],
@@ -84,11 +88,11 @@ async def parse_thumbnails(task: tasks.Task):
     else:
       large_thumb_url = search_result['thumbnailMiddleUrl']
 
-    imgname = assets.extract_filename_from_url(large_thumb_url)
+    imgname = assets.extract_filename_from_url(large_thumb_url)+webp_ext
     imgpath = os.path.join(task.data['tempdir'], imgname)
     data = {
       "image_path": imgpath,
-      "image_url": large_thumb_url,
+      "image_url": large_thumb_url+webp_ext,
       "assetBaseId": search_result['assetBaseId'],
       "thumbnail_type": "full",
       "index": i
