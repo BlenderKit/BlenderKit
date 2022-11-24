@@ -36,7 +36,7 @@ To release do:
 5. create release on Github
 6. set tag to `vX.Y.Z.yymmdd` (add ending `-alpha`, `-beta`, `-rc` for prereleases!)
 7. set release name to `BlenderKit vX.Y.Z.yymmdd` (add ending `-alpha`, `-beta`, `-rc` for prereleases!)
-8. if pre-release set `This is a pre-release ` button and double check if tag, zip and release name ends with alpha/beta/rc!
+8. if prerelease set `This is a pre-release ` button and double check if tag, zip and release name ends with alpha/beta/rc!
 8. upload file and finish the release!
 
 Alternatively if automated builds are broken, you can build locally: run `python dev.py build` to build the zip file in `out/blenderkit.zip`
