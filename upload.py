@@ -1247,14 +1247,24 @@ class AssetVerificationStatusChange(Operator):
 
 
 def handle_asset_upload(task: tasks.Task):
-  name = task.data['upload_data']['name']
-  bpy.data.objects[name].blenderkit.upload_state = f'{task.progress}% - {task.message}'
-  if task.status == 'error':
-    bpy.data.objects[name].blenderkit.uploading = False
-    return reports.add_report(f'Upload has failed: {task.message}', type='ERROR')
-  if task.status == 'finished':
-    bpy.data.objects[name].blenderkit.uploading = False
-    return reports.add_report(f'Upload successfull')
+    name = task.data['upload_data']['name']
+    asset_type = task.data['upload_data']['assetType'].upper()
+
+    if asset_type == 'MODEL': asset = bpy.context.view_layer.objects[name].blenderkit
+    elif asset_type == 'MATERIAL': asset = bpy.context.view_layer.objects[name].blenderkit
+    elif asset_type == 'SCENE': asset = bpy.context.scene.blenderkit
+    elif asset_type == 'HDR': asset = bpy.data.images[name].blenderkit
+    elif asset_type == 'BRUSH': asset = bpy.data.brushes[name].blenderkit
+
+    asset.upload_state = f'{task.progress}% - {task.message}'
+   
+    if task.status == 'error':
+      asset.uploading = False
+      return reports.add_report(f'Upload has failed: {task.message}', type='ERROR')
+
+    if task.status == 'finished':
+      asset.uploading = False
+      return reports.add_report(f'Upload successfull')
 
 
 def register_upload():
