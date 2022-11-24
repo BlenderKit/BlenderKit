@@ -287,7 +287,6 @@ def get_active_asset():
 
 def get_upload_props():
     """Get uploaded object properties based on the selected asset_type."""
-    scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type == 'MODEL':
         if bpy.context.view_layer.objects.active is not None:
