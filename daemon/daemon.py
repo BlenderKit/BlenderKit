@@ -19,7 +19,7 @@ logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [
 
 try:
   import aiohttp
-  from aiohttp import web, web_request
+  from aiohttp import web
 except Exception as e:
   logging.error(f'{e}')
   exit(101)
@@ -40,7 +40,7 @@ import uploads
 import search
 
 
-async def download_asset(request: web_request.Request):
+async def download_asset(request: web.Request):
   """Handle request for download of asset."""
   data = await request.json()
   task_id = str(uuid.uuid4())
@@ -57,7 +57,7 @@ async def download_asset(request: web_request.Request):
   return web.json_response({'task_id': task_id})
 
 
-async def search_assets(request: web_request.Request):
+async def search_assets(request: web.Request):
   """Handle request for download of asset."""
   data = await request.json()
   task_id = str(uuid.uuid4())
@@ -73,7 +73,7 @@ async def search_assets(request: web_request.Request):
   return web.json_response({'task_id': task_id})
 
 
-async def upload_asset(request: web_request.Request):
+async def upload_asset(request: web.Request):
   """WORK IN PROGRESS: Handle request for download of asset."""
   data = await request.json()  
   task_id = str(uuid.uuid4())
@@ -87,13 +87,13 @@ async def upload_asset(request: web_request.Request):
   return web.json_response({'task_id': task_id})
 
 
-async def index(request: web_request.Request):
+async def index(request: web.Request):
   """Report PID of server as Index page, can be used as is-alive endpoint."""
   pid = str(os.getpid())
   return web.Response(text=pid)
 
 
-async def consumer_exchange(request: web_request.Request):
+async def consumer_exchange(request: web.Request):
   auth_code = request.rel_url.query.get('code', None)
   redirect_url = f'{globals.SERVER}/oauth-landing/'
   if auth_code == None:
@@ -115,22 +115,25 @@ async def consumer_exchange(request: web_request.Request):
   return web.HTTPPermanentRedirect(redirect_url)
 
 
-async def refresh_token(request: web_request.Request):
+async def refresh_token(request: web.Request):
   atask = asyncio.ensure_future(oauth.refresh_tokens(request)) #TODO: Await errors here
   atask.add_done_callback(tasks.handle_async_errors)
   return web.Response(text="ok")
 
 
-async def subscribe_new_addon(request: web_request.Request, app_id: str):
+async def subscribe_new_addon(request: web.Request, data: dict):
   """Subscribe new add-on into list of active applications.
   Also run all tasks which are needed on add-on startup - will be reported once finished.
   """
-  globals.active_apps.append(app_id)
-  atask = asyncio.ensure_future(disclaimer.get_disclaimer(request))
-  atask.add_done_callback(tasks.handle_async_errors)
+  globals.active_apps.append(data['app_id'])
+  disclaimer_task = asyncio.ensure_future(disclaimer.get_disclaimer(request))
+  disclaimer_task.add_done_callback(tasks.handle_async_errors)
+
+  categories_task = asyncio.ensure_future(search.fetch_categories(request))
+  categories_task.add_done_callback(tasks.handle_async_errors)
 
 
-async def kill_download(request: web_request.Request):
+async def kill_download(request: web.Request):
   """Handle request for kill of task with the task_id."""
   data = await request.json()
   for i, task in enumerate(globals.tasks):
@@ -142,20 +145,20 @@ async def kill_download(request: web_request.Request):
   return web.Response(text="ok")
 
 
-async def code_verifier(request: web_request.Request):
+async def code_verifier(request: web.Request):
   """Gets code_verifier for OAuth login."""
   data = await request.json()
   globals.code_verifier = data['code_verifier']
   return web.Response(text="ok")
 
 
-async def report(request: web_request.Request):
+async def report(request: web.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
   globals.last_report_time = time.time()
   data = await request.json()
   #check if the app was already active
   if data['app_id'] not in globals.active_apps:
-    await subscribe_new_addon(request, data['app_id'])
+    await subscribe_new_addon(request, data)
 
   reports = list()
   for task in reversed(globals.tasks): #reversed so removal doesn't skip items
@@ -175,14 +178,14 @@ async def report(request: web_request.Request):
   return web.json_response(reports)
 
 
-async def shutdown(request: web_request.Request):
+async def shutdown(request: web.Request):
   """Shedules shutdown of the server."""
   logging.warning('Shutdown requested, exiting Daemon')
   signal.raise_signal(signal.SIGINT)
   return web.Response(text='Going to shutdown.')
 
 
-async def report_blender_quit(request: web_request.Request):
+async def report_blender_quit(request: web.Request):
   data = await request.json()
   logging.warning(f"Blender quit (ID {data['app_id']}) was reported")
   if data['app_id'] in globals.active_apps:

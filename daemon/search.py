@@ -1,7 +1,9 @@
 """Holds functionality for search and thumbnail fetching."""
 
 import asyncio
+import logging
 import os
+import uuid
 
 import aiohttp
 import assets
@@ -38,6 +40,7 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
   except Exception as e:
     task.error(f"thumbnail download error: {e}")
 
+
 async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.Task], block: bool = False):
   """Download batch of images. images are tuples of file path and url."""
   
@@ -49,6 +52,7 @@ async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.
   
   if block == True:
     await asyncio.gather(*coroutines)
+
 
 async def parse_thumbnails(task: tasks.Task):
   """Go through results and extract correct filenames and URLs. Use webp versions if available.
@@ -145,3 +149,38 @@ async def do_search(request: web.Request, task: tasks.Task):
       await download_image_batch(request.app['SESSION_BIG_THUMBS'], full_thumbs_tasks)
   except Exception as e:
     task.error(f'Search task failed: {str(e)}')
+
+
+async def fetch_categories(request: web.Request):
+  data = await request.json()
+  app_id = data['app_id']
+  prefs = data.get('PREFS', {})
+  api_key = prefs.get('api_key', '')
+  task = tasks.Task(data, app_id, 'categories_update', str(uuid.uuid4()), message='Getting updated categories')
+  globals.tasks.append(task)
+
+  url = f'{globals.SERVER}/api/v1/categories/'
+  headers = utils.get_headers(api_key)
+  session = request.app['SESSION_API_REQUESTS']
+  try:
+    async with session.get(url, headers=headers) as resp:
+      data = await resp.json()
+      categories = data['results']
+      fix_category_counts(categories)           # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
+      task.result = categories
+      task.finished('Categories fetched')
+
+  except Exception as e:
+    logging.error(e)
+    task.error('Failed to download categories: {e}')
+
+
+def count_to_parent(parent):
+  for c in parent['children']:
+    count_to_parent(c)
+    parent['assetCount'] += c['assetCount']
+
+
+def fix_category_counts(categories):
+  for c in categories:
+    count_to_parent(c)
