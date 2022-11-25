@@ -21,26 +21,14 @@ import json
 import logging
 import os
 import shutil
-import threading
-import time
 
 import bpy
 
-from . import colors, global_vars, paths, reports, rerequests, tasks_queue, utils
+from . import global_vars, paths
+from .daemon import tasks
 
 
 bk_logger = logging.getLogger(__name__)
-
-
-def count_to_parent(parent):
-    for c in parent['children']:
-        count_to_parent(c)
-        parent['assetCount'] += c['assetCount']
-
-
-def fix_category_counts(categories):
-    for c in categories:
-        count_to_parent(c)
 
 
 def filter_category(category):
@@ -119,6 +107,43 @@ def get_category(categories, cat_path=()):
                 break;
 
 
+def handle_categories_task(task: tasks.Task):
+  """Handle incomming categories_update task which contains information about fetching updated categories.
+  TODO: would be ideal if the file handling (saving, reading fallback JSON) would be done on the daemon side.
+  """
+  if task.status not in ['finished', 'error']:
+    return
+  tempdir = paths.get_temp_dir()
+  categories_filepath = os.path.join(tempdir, 'categories.json')
+  global_vars.DATA['active_category'] = {
+    'MODEL': ['model'],
+    'SCENE': ['scene'],
+    'HDR': ['hdr'],
+    'MATERIAL': ['material'],
+    'BRUSH': ['brush'],
+  }
+  if task.status == 'finished':
+    global_vars.DATA['bkit_categories'] = task.result
+    with open(categories_filepath, 'w', encoding='utf-8') as file:
+      json.dump(task.result, file, ensure_ascii=False, indent=4) #TODO: do this in daemon, just saving the file so next time it is updated even without internet
+    return
+  
+  bk_logger.warning(task.message)
+  if not os.path.exists(categories_filepath):
+    source_path = paths.get_addon_file(subpath='data' + os.sep + 'categories.json')
+    try:
+      shutil.copy(source_path, categories_filepath)
+    except Exception as e:
+      bk_logger.warn(f'Could not copy categories file: {e}')
+      return
+
+  try:
+    with open(categories_filepath, 'r', encoding='utf-8') as catfile:
+      global_vars.DATA['bkit_categories'] = json.load(catfile)
+  except Exception as e:
+    bk_logger.warning(f'Could not read categories file: {e}')
+
+
 # def get_upload_asset_type(self):
 #     typemapper = {
 #         bpy.types.Object.blenderkit: 'model',
@@ -129,6 +154,7 @@ def get_category(categories, cat_path=()):
 #     }
 #     asset_type = typemapper[type(self)]
 #     return asset_type
+
 
 def update_category_enums(self, context):
     '''Fixes if lower level is empty - sets it to None, because enum value can be higher.'''
@@ -198,63 +224,3 @@ def get_subcategory1_enums(self, context):
         items.insert(0, ('NONE', 'None', 'Default state, category not defined by user'), )
 
     return items
-
-
-def copy_categories():
-    # this creates the categories system on only
-    tempdir = paths.get_temp_dir()
-    categories_filepath = os.path.join(tempdir, 'categories.json')
-    if not os.path.exists(categories_filepath):
-        source_path = paths.get_addon_file(subpath='data' + os.sep + 'categories.json')
-        try:
-            shutil.copy(source_path, categories_filepath)
-        except Exception as e:
-            bk_logger.warn(f'Could not copy categories file: {e}')
-
-
-def load_categories():
-    copy_categories()
-    tempdir = paths.get_temp_dir()
-    categories_filepath = os.path.join(tempdir, 'categories.json')
-
-    try:
-        with open(categories_filepath, 'r', encoding='utf-8') as catfile:
-            global_vars.DATA['bkit_categories'] = json.load(catfile)
-
-        global_vars.DATA['active_category'] = {
-            'MODEL': ['model'],
-            'SCENE': ['scene'],
-            'HDR': ['hdr'],
-            'MATERIAL': ['material'],
-            'BRUSH': ['brush'],
-        }
-    except Exception as e:
-        bk_logger.warn(f'categories failed to read: {e}')
-
-
-def fetch_categories(API_key): #TODO: move to daemon
-    url = paths.BLENDERKIT_API + '/categories/'
-    headers = utils.get_headers(API_key)
-    tempdir = paths.get_temp_dir()
-    categories_filepath = os.path.join(tempdir, 'categories.json')
-    try:
-        bk_logger.debug('requesting categories from server')
-        r = rerequests.get(url, headers=headers)
-        rdata = r.json()
-        categories = rdata['results']
-        fix_category_counts(categories)
-        # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
-        with open(categories_filepath, 'w', encoding='utf-8') as s:
-            json.dump(categories, s, ensure_ascii=False, indent=4)
-    except Exception as e:
-        text = 'BlenderKit failed to download fresh categories from the server'
-        reports.add_report(text, 15, 'ERROR')
-        bk_logger.error(e)
-        if not os.path.exists(categories_filepath):
-            source_path = paths.get_addon_file(subpath='data' + os.sep + 'categories.json')
-            shutil.copy(source_path, categories_filepath)
-    tasks_queue.add_task((load_categories, ()))
-
-def fetch_categories_thread(API_key):
-    cat_thread = threading.Thread(target=fetch_categories, args=(API_key,), daemon=True)
-    cat_thread.start()

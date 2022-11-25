@@ -178,6 +178,10 @@ def handle_task(task: tasks.Task):
     return disclaimer_op.handle_disclaimer_task(task)
 
 
+  #HANDLE CATEGORIES FETCH
+  if task.task_type == "categories_update":
+    categories.handle_categories_task(task)
+
 def setup_asyncio_executor():
   """Set up AsyncIO to run properly on each platform."""
 
@@ -231,7 +235,6 @@ def on_startup_timer():
   utils.ensure_system_ID()
 
   api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
-  categories.fetch_categories_thread(api_key)
   if api_key != '':
     search.get_profile()
 
