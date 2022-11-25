@@ -103,17 +103,6 @@ def kill_download(task_id):
     return resp
 
 
-def get_disclaimer():
-  """Get disclaimer from server."""
-
-  address = get_address()
-  with requests.Session() as session:
-    url = address + "/get_disclaimer"
-    data = {'app_id': os.getpid()}
-    resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
-    return resp
-
-
 def send_code_verifier(code_verifier: str):
   data = {'code_verifier': code_verifier}
   with requests.Session() as session:

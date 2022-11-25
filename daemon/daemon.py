@@ -121,10 +121,13 @@ async def refresh_token(request: web_request.Request):
   return web.Response(text="ok")
 
 
-async def get_disclaimer(request: web_request.Request):
+async def subscribe_new_addon(request: web_request.Request, app_id: str):
+  """Subscribe new add-on into list of active applications.
+  Also run all tasks which are needed on add-on startup - will be reported once finished.
+  """
+  globals.active_apps.append(app_id)
   atask = asyncio.ensure_future(disclaimer.get_disclaimer(request))
   atask.add_done_callback(tasks.handle_async_errors)
-  return web.Response(text="ok")
 
 
 async def kill_download(request: web_request.Request):
@@ -152,7 +155,7 @@ async def report(request: web_request.Request):
   data = await request.json()
   #check if the app was already active
   if data['app_id'] not in globals.active_apps:
-    globals.active_apps.append(data['app_id'])
+    await subscribe_new_addon(request, data['app_id'])
 
   reports = list()
   for task in reversed(globals.tasks): #reversed so removal doesn't skip items
@@ -322,7 +325,6 @@ if __name__ == '__main__':
     web.view('/report_blender_quit', report_blender_quit),
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
-    web.get('/get_disclaimer', get_disclaimer),
     web.post('/code_verifier', code_verifier),
   ])
 

@@ -238,14 +238,14 @@ def on_startup_timer():
 
 def on_startup_daemon_online_timer():
   """Run once when daemon is online after startup."""
+  if not global_vars.DAEMON_ONLINE:
+    return 1
 
-  if global_vars.DAEMON_ONLINE:
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if preferences.show_on_start:
-      search.search()
-    return
+  preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  if preferences.show_on_start:
+    search.search()
+  return
 
-  return 1
 
 def register_timers():
   """Registers all timers. 

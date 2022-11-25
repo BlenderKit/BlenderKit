@@ -27,10 +27,9 @@ import webbrowser
 from urllib.parse import quote as urlquote
 
 import bpy
-import requests
 from bpy.props import BoolProperty
 
-from . import colors, daemon_lib, global_vars, reports, search, tasks_queue, utils
+from . import daemon_lib, global_vars, reports, search, tasks_queue, utils
 from .daemon import tasks
 
 
@@ -86,13 +85,14 @@ def login(signup):
 
 
 def generate_pkce_pair() -> tuple[str, str]:
+    """Generate PKCE pair - a code verifier and code challange.
+    The challange should be sent first to the server, the verifier is used in next steps to verify identity (handles daemon)."""
     rand = random.SystemRandom()
     code_verifier = ''.join(rand.choices(string.ascii_letters + string.digits, k=128))
 
     code_sha_256 = hashlib.sha256(code_verifier.encode('utf-8')).digest()
     b64 = base64.urlsafe_b64encode(code_sha_256)
     code_challenge = b64.decode('utf-8').replace('=', '')
-
     return code_verifier, code_challenge
 
 
@@ -115,7 +115,6 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     history = global_vars.DATA['search history']
     if len(history)>0:
         search.search(query = history[-1])
-    #categories.fetch_categories_thread(auth_token, force = False)
 
 
 def refresh_token_timer():
@@ -196,7 +195,6 @@ class Logout(bpy.types.Operator):
 
 class CancelLoginOnline(bpy.types.Operator):
     """Cancel login attempt"""
-
     bl_idname = "wm.blenderkit_login_cancel"
     bl_label = "BlenderKit login cancel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -206,25 +204,8 @@ class CancelLoginOnline(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        global active_authenticator
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
         preferences.login_attempt = False
-        try:
-            if active_authenticator is not None:
-                session = requests.Session()
-                proxy_which = global_vars.PREFS.get('proxy_which')
-                proxy_address = global_vars.PREFS.get('proxy_address')
-                if proxy_which == 'NONE':
-                    session.trust_env = False
-                elif proxy_which == 'CUSTOM':
-                    session.trust_env = False
-                    session.proxies = {'https': proxy_address}
-                else:
-                    session.trust_env = True
-                session.get(active_authenticator.redirect_uri, headers=utils.get_headers())
-                active_authenticator = None
-        except Exception as e:
-            bk_logger.info(f'Login attempt stopped: {e}')
         return {'FINISHED'}
 
 

@@ -190,7 +190,8 @@ def handle_disclaimer_task(task: tasks.Task):
   """Handles incoming disclaimer task. If there are any results, it shows them in disclaimer popup.
   If the results are empty, it shows random tip in the disclaimer popup.
   """
-
+  global disclaimer_counter
+  disclaimer_counter = -1
   if task.status == 'finished':
     if task.result == None:
       show_random_tip()
@@ -230,11 +231,10 @@ def show_disclaimer_timer():
   if preferences.tips_on_start == False:
     return
 
-  if global_vars.DAEMON_ONLINE == True:
-    daemon_lib.get_disclaimer()
+  if disclaimer_counter == -1:
     return
 
-  elif disclaimer_counter > 2:
+  if disclaimer_counter > 2:
     show_random_tip()
     return
 
