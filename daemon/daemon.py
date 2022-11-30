@@ -74,7 +74,7 @@ async def search_assets(request: web.Request):
 
 
 async def upload_asset(request: web.Request):
-  """WORK IN PROGRESS: Handle request for download of asset."""
+  """Handle request for upload of asset."""
   data = await request.json()  
   task_id = str(uuid.uuid4())
   app_id = data.pop('app_id')
@@ -123,7 +123,7 @@ async def refresh_token(request: web.Request):
 
 async def subscribe_new_addon(request: web.Request, data: dict):
   """Subscribe new add-on into list of active applications.
-  Also run all tasks which are needed on add-on startup - will be reported once finished.
+  Also run all tasks which are needed on add-on startup - will be reported back to add-on once finished.
   """
   globals.active_apps.append(data['app_id'])
   disclaimer_task = asyncio.ensure_future(disclaimer.get_disclaimer(request))
@@ -131,6 +131,11 @@ async def subscribe_new_addon(request: web.Request, data: dict):
 
   categories_task = asyncio.ensure_future(search.fetch_categories(request))
   categories_task.add_done_callback(tasks.handle_async_errors)
+  if data['app_id'] == '':
+    return #everything done, if not logged in
+
+  notifications_task = asyncio.ensure_future(disclaimer.get_notifications(request))
+  notifications_task.add_done_callback(tasks.handle_async_errors)
 
 
 async def kill_download(request: web.Request):

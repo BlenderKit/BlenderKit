@@ -51,7 +51,7 @@ class Test02DaemonRunning(unittest.TestCase):
 
 class Test03DaemonUtilFunctions(unittest.TestCase):
   def test_get_port(self):
-    ports = ["62485","65425", "55428", "49452", "35452","25152","5152", "1234"]
+    ports = ["62485","65425","55428","49452","35452","25152","5152","1234"]
     self.assertIn(daemon_lib.get_port(), ports)
 
   def test_get_address(self):

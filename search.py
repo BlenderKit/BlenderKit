@@ -144,38 +144,16 @@ def scene_load(context):
   if not bpy.app.timers.is_registered(bkit_oauth.refresh_token_timer) and not bpy.app.background:
     bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=5)
     #bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=36000)
-  # if utils.experimental_enabled() and not bpy.app.timers.is_registered(
-  #         refresh_notifications_timer) and not bpy.app.background:
-  #     bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
 
   update_assets_data()
 
 
-def fetch_server_data():
-  '''Download profile, and refresh token if needed.'''
-  if bpy.app.background:
-    return
-  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  api_key = user_preferences.api_key
-  # Only refresh new type of tokens(by length), and only one hour before the token timeouts.
-  if api_key != '' and global_vars.DATA.get('bkit profile') == None:
-    get_profile()
-  # all_notifications_count = comments_utils.count_all_notifications()
-  # comments_utils.get_notifications_thread(api_key, all_count = all_notifications_count)
-
-
-first_time = True
-first_search_parsing = True
 last_clipboard = ''
-
-
 def check_clipboard():
-  '''
-  Checks clipboard for an exact string containing asset ID.
+  """Check clipboard for an exact string containing asset ID.
   The string is generated on www.blenderkit.com as for example here:
   https://www.blenderkit.com/get-blenderkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
-  '''
-
+  """
   # clipboard monitoring to search assets from web
   if platform.system() != 'Linux':
     global last_clipboard
@@ -336,10 +314,8 @@ def cleanup_search_results():
     global_vars.DATA.pop(f'{sr} orig', None)
 
 def handle_search_task(task: tasks.Task) -> bool:
-  '''parse search results, try to load all available previews.'''
-  ##############original
-
-  global search_tasks, first_search_parsing
+  """Parse search results, try to load all available previews."""
+  global search_tasks
   if len(search_tasks) == 0:
     # utils.p('end search timer')
     props = utils.get_search_props()
@@ -364,11 +340,6 @@ def handle_search_task(task: tasks.Task) -> bool:
   if bpy.app.version < (3, 3, 0):
     sys_prefs = bpy.context.preferences.system
     sys_prefs.gl_texture_limit = 'CLAMP_OFF'
-
-  global first_search_parsing
-  if first_search_parsing:
-    comments_utils.check_notifications()
-    first_search_parsing = False
 
   ###################
 
@@ -607,10 +578,9 @@ def generate_author_textblock(adata):
 
 
 def write_gravatar(a_id, gravatar_path):
-  '''
-  Write down gravatar path, as a result of thread-based gravatar image download.
+  """Write down gravatar path, as a result of thread-based gravatar image download.
   This should happen on timer in queue.
-  '''
+  """
   # print('write author', a_id, type(a_id))
   authors = global_vars.DATA['bkit authors']
   if authors.get(a_id) is not None:
@@ -619,13 +589,11 @@ def write_gravatar(a_id, gravatar_path):
 
 
 def fetch_gravatar(adata=None):
-  '''
-  Gets avatars from blenderkit server
+  """Get avatars from blenderkit server
   Parameters
   ----------
   adata - author data from elastic search result
-
-  '''
+  """
 
   # fetch new avatars if available already
   if adata.get('avatar128') is not None:
@@ -671,13 +639,12 @@ fetching_gravatars = {}
 
 
 def get_author(r):
-  ''' Writes author info (now from search results) and fetches gravatar if needed.
+  """Write author info (now from search results) and fetches gravatar if needed.
   this is now tweaked to be able to get authors from
-  '''
+  """
   global fetching_gravatars
 
   a_id = str(r['author']['id'])
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
   authors = global_vars.DATA.get('bkit authors', {})
   if authors == {}:
     global_vars.DATA['bkit authors'] = authors
@@ -735,6 +702,7 @@ def fetch_profile(api_key):
     bk_logger.error(e)
 
 
+#TODO: migrate -> daemon new addon subscribed
 def get_profile():
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
   profile = global_vars.DATA.get('bkit profile')
@@ -795,14 +763,8 @@ def query_to_url(query={}, params={}):
   return urlquery
 
 
-def parse_html_formated_error(text):
-  report = text[text.find('<title>') + 7: text.find('</title>')]
-
-  return report
-
-
 def build_query_common(query, props):
-  '''add shared parameters to query'''
+  """Add shared parameters to query."""
   query_common = {}
   if props.search_keywords != '':
     # keywords = urllib.parse.urlencode(props.search_keywords)
@@ -826,8 +788,7 @@ def build_query_common(query, props):
 
 
 def build_query_model():
-  '''use all search input to request results from server'''
-
+  """Use all search input to request results from server."""
   props = bpy.context.window_manager.blenderkit_models
   query = {
     "asset_type": 'model',
@@ -864,8 +825,7 @@ def build_query_model():
 
 
 def build_query_scene():
-  '''use all search input to request results from server'''
-
+  """Use all search input to request results from server."""
   props = bpy.context.window_manager.blenderkit_scene
   query = {
     "asset_type": 'scene',
@@ -877,12 +837,10 @@ def build_query_scene():
 
 
 def build_query_HDR():
-  '''use all search input to request results from server'''
-
+  """Use all search input to request results from server."""
   props = bpy.context.window_manager.blenderkit_HDR
   query = {
     "asset_type": 'hdr',
-
     # "engine": props.search_engine,
     # "adult": props.search_adult,
   }
@@ -894,10 +852,7 @@ def build_query_HDR():
 
 def build_query_material():
   props = bpy.context.window_manager.blenderkit_mat
-  query = {
-    "asset_type": 'material',
-
-  }
+  query = {"asset_type": 'material'}
   # if props.search_engine == 'NONE':
   #     query["engine"] = ''
   # if props.search_engine != 'OTHER':
@@ -916,25 +871,18 @@ def build_query_material():
     if props.search_texture_resolution:
       query["textureResolutionMax_gte"] = props.search_texture_resolution_min
       query["textureResolutionMax_lte"] = props.search_texture_resolution_max
-
-
-
   elif props.search_procedural == "PROCEDURAL":
     # todo this procedural hack should be replaced with the parameter
     query["files_size_lte"] = 1024 * 1024
     # query["procedural"] = True
 
   build_query_common(query, props)
-
   return query
 
 
 def build_query_texture():
   props = bpy.context.scene.blenderkit_tex
-  query = {
-    "asset_type": 'texture',
-
-  }
+  query = {"asset_type": 'texture'}
 
   if props.search_style != 'ANY':
     if props.search_style != 'OTHER':
@@ -943,13 +891,11 @@ def build_query_texture():
       query["search_style"] = props.search_style_other
 
   build_query_common(query, props)
-
   return query
 
 
 def build_query_brush():
   props = bpy.context.window_manager.blenderkit_brush
-
   brush_type = ''
   if bpy.context.sculpt_object is not None:
     brush_type = 'sculpt'
@@ -959,18 +905,15 @@ def build_query_brush():
 
   query = {
     "asset_type": 'brush',
-
     "mode": brush_type
   }
 
   build_query_common(query, props)
-
   return query
 
 
 def add_search_process(query, params):
   global search_tasks
-
   if len(search_tasks) > 0:
     # just remove all running search tasks.
     # we can also kill them in daemon, but not so urgent now
@@ -979,8 +922,6 @@ def add_search_process(query, params):
     search_tasks = dict()
 
   tempdir = paths.get_temp_dir('%s_search' % query['asset_type'])
-  headers = utils.get_headers(params['api_key'])
-
   if params.get('get_next'):
     urlquery = params['next']
   else:
@@ -998,9 +939,7 @@ def add_search_process(query, params):
 
 
 def get_search_simple(parameters, filepath=None, page_size=100, max_results=100000000, api_key=''):
-  '''
-  Searches and returns the
-
+  """Searches and returns the search results.
 
   Parameters
   ----------
@@ -1013,8 +952,7 @@ def get_search_simple(parameters, filepath=None, page_size=100, max_results=1000
   Returns
   -------
   Returns search results as a list, and optionally saves to filepath
-
-  '''
+  """
   headers = utils.get_headers(api_key)
   url = f'{paths.BLENDERKIT_API}/search/'
   requeststring = url + '?query='
@@ -1062,10 +1000,9 @@ def get_single_asset(asset_base_id):
 
 
 def search(category='', get_next=False, query = None, author_id=''):
-  ''' initialize searching
+  """Initialize searching
   query : submit an already built query from search history
-  '''
-
+  """
   if global_vars.DAEMON_ACCESSIBLE != True:
     reports.add_report('Cannot search, daemon is not accessible.', timeout = 2, type='ERROR')
     return
@@ -1073,7 +1010,6 @@ def search(category='', get_next=False, query = None, author_id=''):
   # print(category,get_next,author_id)
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-  scene = bpy.context.scene
   wm = bpy.context.window_manager
   ui_props = bpy.context.window_manager.blenderkitUI
 
@@ -1081,39 +1017,38 @@ def search(category='', get_next=False, query = None, author_id=''):
   # it's possible get_next was requested more than once.
   if props.is_searching and get_next == True:
     # print('return because of get next and searching is happening')
-    return;
+    return
 
   if not query:
     if ui_props.asset_type == 'MODEL':
       if not hasattr(wm, 'blenderkit_models'):
-        return;
+        return
       query = build_query_model()
 
     if ui_props.asset_type == 'SCENE':
       if not hasattr(wm, 'blenderkit_scene'):
-        return;
+        return
       query = build_query_scene()
 
     if ui_props.asset_type == 'HDR':
       if not hasattr(wm, 'blenderkit_HDR'):
-        return;
+        return
       query = build_query_HDR()
 
     if ui_props.asset_type == 'MATERIAL':
       if not hasattr(wm, 'blenderkit_mat'):
-        return;
-
+        return
       query = build_query_material()
 
     if ui_props.asset_type == 'TEXTURE':
       if not hasattr(wm, 'blenderkit_tex'):
-        return;
+        return
       # props = scene.blenderkit_tex
       # query = build_query_texture()
 
     if ui_props.asset_type == 'BRUSH':
       if not hasattr(wm, 'blenderkit_brush'):
-        return;
+        return
       query = build_query_brush()
 
     # crop long searches
@@ -1165,11 +1100,10 @@ def search(category='', get_next=False, query = None, author_id=''):
   if orig_results is not None and get_next:
     params['next'] = orig_results['next']
   add_search_process(query, params)
-
   props.report = 'BlenderKit searching....'
 
 def clean_filters():
-  '''cleanup filters in case search needs to be reset, typicaly when asset id is copy pasted'''
+  """Cleanup filters in case search needs to be reset, typicaly when asset id is copy pasted."""
   sprops = utils.get_search_props()
   ui_props = bpy.context.window_manager.blenderkitUI
   sprops.property_unset('own_only')
@@ -1274,7 +1208,7 @@ def strip_accents(s):
   return ''.join(c for c in unicodedata.normalize('NFD', s)
                  if unicodedata.category(c) != 'Mn')
 
-
+#TODO: fix the tooltip?
 class SearchOperator(Operator):
   """Tooltip"""
   bl_idname = "view3d.blenderkit_search"

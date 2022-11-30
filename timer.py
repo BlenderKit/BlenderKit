@@ -12,6 +12,7 @@ from . import (
     bg_blender,
     bkit_oauth,
     categories,
+    comments_utils,
     daemon_lib,
     disclaimer_op,
     download,
@@ -28,7 +29,6 @@ from .daemon import tasks
 bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
 pending_tasks = list() # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
-ENABLE_ASYNC_LOOP = False
 retried = 0
 
 @bpy.app.handlers.persistent
@@ -36,53 +36,41 @@ def daemon_communication_timer():
   """Recieve all responses from daemon and run according followup commands.
   This function is the only one responsible for keeping the daemon up and running.
   """
-
   global retried
   global pending_tasks
   bk_logger.debug('Getting tasks from daemon')
   search.check_clipboard()
-
   app_id = os.getpid()
   results = list()
 
-  if ENABLE_ASYNC_LOOP:
-    global reports_queue
-    # print('checking queue', daemon_lib.reports_queue.empty())
-    while not reports_queue.empty():
-      queue_result = reports_queue.get()
-      # print('from queue', queue_result)
-      results.extend(queue_result)
-    kick_async_loop()
-    asyncio.ensure_future(daemon_lib.get_reports_async(app_id, reports_queue))
-  else:
-    wm = bpy.context.window_manager
-    try:
-      results = daemon_lib.get_reports(app_id)
-      retried = 0
-    except Exception as e:
-      global_vars.DAEMON_ACCESSIBLE = False
-      
-      if retried <= 11:
-        if retried in (0,7):
-          daemon_lib.start_daemon_server()
-        retried = retried + 1
-        return 0.1*retried
+  wm = bpy.context.window_manager
+  try:
+    api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
+    results = daemon_lib.get_reports(app_id, api_key)
+    retried = 0
+  except Exception as e:
+    global_vars.DAEMON_ACCESSIBLE = False
+    if retried <= 11:
+      if retried in (0,7):
+        daemon_lib.start_daemon_server()
+      retried = retried + 1
+      return 0.1*retried
 
-      return_code, meaning = daemon_lib.check_daemon_exit_code()
-      if return_code == None:
-        reports.add_report(f'Daemon is not responding, add-on will not work.', 10, 'ERROR')
-      else:
-        reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, 'ERROR')
+    return_code, meaning = daemon_lib.check_daemon_exit_code()
+    if return_code == None:
+      reports.add_report(f'Daemon is not responding, add-on will not work.', 10, 'ERROR')
+    else:
+      reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, 'ERROR')
 
-      bk_logger.warning(f'Could not get reports: {e}')
-      wm.blenderkitUI.logo_status = "logo_offline"
-      daemon_lib.start_daemon_server()
-      return 30
+    bk_logger.warning(f'Could not get reports: {e}')
+    wm.blenderkitUI.logo_status = "logo_offline"
+    daemon_lib.start_daemon_server()
+    return 30
 
-    if global_vars.DAEMON_ACCESSIBLE != True:
-      reports.add_report("Daemon is running!")
-      global_vars.DAEMON_ACCESSIBLE = True
-      wm.blenderkitUI.logo_status = "logo"
+  if global_vars.DAEMON_ACCESSIBLE == False:
+    reports.add_report("Daemon is running!")
+    global_vars.DAEMON_ACCESSIBLE = True
+    wm.blenderkitUI.logo_status = "logo"
 
   results.extend(pending_tasks)
   bk_logger.debug('Handling tasks')
@@ -130,16 +118,15 @@ def save_prefs_cancel_all_tasks_and_restart_daemon(self, context):
 
 def cancel_all_tasks(self, context):
   """Cancel all tasks."""
-
   global pending_tasks
   pending_tasks.clear()
   download.clear_downloads()
   search.clear_searches()
+  #TODO: should add uploads
 
 
 def handle_task(task: tasks.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""
-  
   #HANDLE ASSET DOWNLOAD
   if task.task_type == 'asset_download':
     return download.handle_download_task(task)
@@ -177,10 +164,13 @@ def handle_task(task: tasks.Task):
   if task.task_type == "disclaimer":
     return disclaimer_op.handle_disclaimer_task(task)
 
-
   #HANDLE CATEGORIES FETCH
   if task.task_type == "categories_update":
-    categories.handle_categories_task(task)
+    return categories.handle_categories_task(task)
+
+  #HANDLE NOTIFICATIONS FETCH
+  if task.task_type == "notifications":
+    return comments_utils.handle_notifications_task(task)
 
 def setup_asyncio_executor():
   """Set up AsyncIO to run properly on each platform."""
@@ -212,11 +202,7 @@ def kick_async_loop(*args) -> bool:
 
 @bpy.app.handlers.persistent
 def check_timers_timer():
-  """Checks if all timers are registered regularly. Prevents possible bugs from stopping the addon."""
-
-  if ENABLE_ASYNC_LOOP:
-    setup_asyncio_executor()
-  
+  """Checks if all timers are registered regularly. Prevents possible bugs from stopping the addon."""  
   if not bpy.app.timers.is_registered(download.download_timer):
     bpy.app.timers.register(download.download_timer)
   if not bpy.app.timers.is_registered(tasks_queue.queue_worker):

@@ -19,11 +19,9 @@
 import logging
 import threading
 
-# mainly update functions and callbacks for ratings properties, here to avoid circular imports.
-import bpy
 
-from . import global_vars, paths, rerequests, search, tasks_queue, utils
-
+from . import global_vars, paths, rerequests, tasks_queue, utils
+from .daemon import tasks
 
 bk_logger = logging.getLogger(__name__)
 
@@ -130,14 +128,12 @@ def send_comment_to_thread(asset_id, comment_id, comment, api_key):
 #   thread.start()
 
 def store_comments_local(asset_id, comments):
-  context = bpy.context
   ac = global_vars.DATA.get('asset comments', {})
   ac[asset_id] = comments
   global_vars.DATA['asset comments'] = ac
 
 
 def get_comments_local(asset_id):
-  context = bpy.context
   global_vars.DATA['asset comments'] = global_vars.DATA.get('asset comments', {})
   comments = global_vars.DATA['asset comments'].get(asset_id)
   if comments:
@@ -179,100 +175,39 @@ def get_comments(asset_id, api_key):
     #     tasks_queue.add_task((store_rating_local_empty,(asset_id,)))
     # return ratings
 
-def check_notifications():
- # check for notifications only for users that actually use the add-on
-  # TODO move notifications elsewhere?
-  
-  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  all_notifications_count = count_all_notifications()
-  get_notifications_thread(user_preferences.api_key, all_count=all_notifications_count)
-  if utils.experimental_enabled() and not bpy.app.timers.is_registered(
-          refresh_notifications_timer) and not bpy.app.background:
-    bpy.app.timers.register(refresh_notifications_timer, persistent=True, first_interval=5)
-
-def refresh_notifications_timer():
-  ''' this timer gets notifications.'''
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  search.fetch_server_data()
-  all_notifications_count = count_all_notifications()
-  get_notifications_thread(preferences.api_key, all_count=all_notifications_count)
-  return 7200
-
-def store_notifications_count_local(all_count):
-  '''Store total count of notifications on server in preferences'''
-  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  user_preferences.notifications_counter = all_count
-
-
-def store_notifications_local(notifications):
-  '''Store notifications in Blender'''
-  global_vars.DATA['bkit notifications'] = notifications
-
-
-def count_all_notifications():
-  '''Return count of all notifications on server'''
-  user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  return user_preferences.notifications_counter
-
 
 def check_notifications_read():
-  '''checks if all notifications were already read, and removes them if so'''
+  """Check if all notifications were already read, and remove them if so."""
   notifications = global_vars.DATA.get('bkit notifications')
-  if notifications is None or notifications.get('count') == 0:
+  if notifications is None:
     return True
-  for n in notifications['results']:
-    if n['unread'] == 1:
+  if notifications.get('count') == 0:
+    return True
+
+  for notification in notifications['results']:
+    if notification['unread'] == 1:
       return False
+
   global_vars.DATA['bkit notifications'] = None
   return True
 
 
-def get_notifications_thread(api_key, all_count=1000):
-  if api_key!='':
-    thread = threading.Thread(target=get_notifications, args=([api_key, all_count]), daemon=True)
-    thread.start()
-
-
-def get_notifications(api_key, all_count=1000):
-  '''
-  Retrieve notifications from BlenderKit server. Can be run from a thread.
-
-  Parameters
-  ----------
-  api_key
-  all_count
-
-  Returns
-  -------
-  '''
-  headers = utils.get_headers(api_key)
-
-  params = {}
-
-  url = paths.BLENDERKIT_API + '/notifications/all_count/'
-  r = rerequests.get(url, params=params, verify=True, headers=headers)
-  if r.status_code == 200:
-    rj = r.json()
-    # no new notifications?
-    if all_count >= rj['allCount']:
-      tasks_queue.add_task((store_notifications_count_local, ([rj['allCount']])))
-
-      return
-  url = paths.BLENDERKIT_API + '/notifications/unread/'
-  r = rerequests.get(url, params=params, verify=True, headers=headers)
-  if r is None:
+def handle_notifications_task(task: tasks.Task):
+  if task.status == 'finished':
+    global_vars.DATA['bkit notifications'] = task.result
     return
-  if r.status_code == 200:
-    rj = r.json()
-    # store notifications - send them to task queue
-    tasks_queue.add_task((store_notifications_local, ([rj])))
+
+  if task.status == 'error':
+    return bk_logger.warning(f'Notifications fetching failed: {task.message}')
 
 
+#TODO: MIGRATE
 def mark_notification_read_thread(api_key, notification_id):
   thread = threading.Thread(target=mark_notification_read, args=([api_key, notification_id]), daemon=True)
   thread.start()
 
 
+#TODO: MIGRATE
 def mark_notification_read(api_key, notification_id):
   '''
   mark notification as read
