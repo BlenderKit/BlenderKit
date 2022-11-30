@@ -1,4 +1,4 @@
-"""Holds functionality for getting disclaimers."""
+"""Holds functionality for getting disclaimers and notifications."""
 
 
 import logging
@@ -32,3 +32,23 @@ async def get_disclaimer(request: web.Request):
 
   task.result = None
   task.finished('Disclaimer not retrieved, serve a tip to user')
+
+
+async def get_notifications(request: web.Request):
+  """Retrieve unread notifications from the server."""
+  data = await request.json()
+  task = tasks.Task(data, data['app_id'], 'notifications', str(uuid.uuid4()), message='Getting notifications')
+  globals.tasks.append(task)
+
+  headers = utils.get_headers(data['api_key'])
+  session = request.app['SESSION_API_REQUESTS']
+  try:
+    async with session.get(f'{globals.SERVER}/api/v1/notifications/unread/', headers=headers) as resp:
+      await resp.text()
+      response = await resp.json()
+      task.result = response  
+      task.finished('Notifications retrieved')
+      return
+  except Exception as e:
+    logging.error(str(e))
+

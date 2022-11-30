@@ -26,7 +26,6 @@ def report_image_finished(data, filepath, done=True):
 
 async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
   """Download a single image and report to addon."""
-
   image_url = task.data["image_url"]
   image_path = task.data["image_path"]
   try:
@@ -43,7 +42,6 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
 
 async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.Task], block: bool = False):
   """Download batch of images. images are tuples of file path and url."""
-  
   coroutines = []
   for task in tsks:
     coroutine = asyncio.ensure_future(download_image(session, task))
@@ -153,21 +151,18 @@ async def do_search(request: web.Request, task: tasks.Task):
 
 async def fetch_categories(request: web.Request):
   data = await request.json()
-  app_id = data['app_id']
-  prefs = data.get('PREFS', {})
-  api_key = prefs.get('api_key', '')
-  task = tasks.Task(data, app_id, 'categories_update', str(uuid.uuid4()), message='Getting updated categories')
+  task = tasks.Task(data, data['app_id'], 'categories_update', str(uuid.uuid4()), message='Getting updated categories')
   globals.tasks.append(task)
 
-  url = f'{globals.SERVER}/api/v1/categories/'
-  headers = utils.get_headers(api_key)
+  headers = utils.get_headers(data['api_key'])
   session = request.app['SESSION_API_REQUESTS']
   try:
-    async with session.get(url, headers=headers) as resp:
+    async with session.get(f'{globals.SERVER}/api/v1/categories/', headers=headers) as resp:
       data = await resp.json()
       categories = data['results']
       fix_category_counts(categories)           # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
       task.result = categories
+      print(f'categories fetched {categories}')
       task.finished('Categories fetched')
 
   except Exception as e:

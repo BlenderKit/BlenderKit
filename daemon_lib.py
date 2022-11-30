@@ -17,18 +17,12 @@ TIMEOUT = (0.1, 0.5)
 
 def get_address() -> str:
   """Get address of the daemon."""
-
   return 'http://127.0.0.1:' + get_port()
 
 
 def get_port() -> str:
   """Get port of the daemon."""
-  
-  if __name__ == "__main__":
-    port = 10753
-  else:
-    port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
-
+  port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
   return str(port)
 
 
@@ -39,13 +33,16 @@ def get_daemon_directory_path() -> str:
   return path.abspath(directory)
 
 
-def get_reports(app_id: str):
+def get_reports(app_id: str, api_key=''):
   """Get reports for all tasks of app_id Blender instance at once."""
   bk_logger.debug('Getting reports')
   address = get_address()
   with requests.Session() as session:
     url = address + "/report"
-    data = {'app_id': app_id}
+    data = {
+      'app_id': app_id,
+      'api_key': api_key,
+      }
     try:
       resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
       bk_logger.debug('Got reports')
@@ -56,7 +53,6 @@ def get_reports(app_id: str):
 
 def search_asset(data):
   """Search for specified asset."""
-
   bk_logger.debug('Starting search request')
   address = get_address()
   data['app_id'] = os.getpid()
@@ -69,7 +65,6 @@ def search_asset(data):
 
 def download_asset(data):
   """Download specified asset."""
-
   address = get_address()
   data['app_id'] = os.getpid()
   with requests.Session() as session:
@@ -79,8 +74,7 @@ def download_asset(data):
 
 
 def upload_asset(upload_data, export_data, upload_set):
-  """Upload specified asset.
-  WIP: Only a sketch, needs to be further implemented."""
+  """Upload specified asset."""
   data = {
     'app_id': os.getpid(),
     'upload_data': upload_data,
@@ -89,7 +83,7 @@ def upload_asset(upload_data, export_data, upload_set):
   }
   with requests.Session() as session:
     url = get_address() + "/upload_asset"
-    bk_logger.info(f"making a request to: {url}")
+    bk_logger.debug(f"making a request to: {url}")
     resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
     return resp.json()
 
@@ -112,7 +106,6 @@ def send_code_verifier(code_verifier: str):
 
 def refresh_token(refresh_token):
   """Refresh authentication token."""
-  
   with requests.Session() as session:
     url = get_address() + "/refresh_token"
     resp = session.get(url, json={'refresh_token': refresh_token}, timeout=TIMEOUT, proxies={})
@@ -121,7 +114,6 @@ def refresh_token(refresh_token):
 
 def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   """Check whether daemon is responding."""
-
   address = get_address()
   try:
     with session.get(address, timeout=TIMEOUT, proxies={}) as resp:
@@ -142,7 +134,7 @@ def report_blender_quit():
 
 
 def kill_daemon_server():
-  '''Request to restart the daemon server.'''
+  """Request to restart the daemon server."""
   address = get_address()
   with requests.Session() as session:
     url = address + "/shutdown"
@@ -204,7 +196,6 @@ def check_daemon_exit_code() -> tuple[int, str]:
 
 def start_daemon_server():
   """Start daemon server in separate process."""
-
   daemon_dir = get_daemon_directory_path()
   log_path = f'{daemon_dir}/daemon-{get_port()}.log'
   blenderkit_path = path.dirname(__file__)

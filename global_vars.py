@@ -8,6 +8,7 @@ DAEMON_ONLINE = False
 DATA = {
   'images available': {},
   'search history': collections.deque(maxlen=20),
+  'bkit notifications': None,
 }
 LOGGING_LEVEL_BLENDERKIT = logging.INFO
 LOGGING_LEVEL_IMPORTED = logging.WARN
