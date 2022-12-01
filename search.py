@@ -1202,8 +1202,16 @@ def update_filters():
   elif ui_props.asset_type == 'HDR':
     sprops.use_filters = sprops.true_hdr
 
+def search_update_delayed(self,context):
+  '''run search after user changes a search parameter,
+  but with a delay.
+  This reduces number of calls during slider UI interaction (like texture resolution, polycount)
+  '''
+  tasks_queue.add_task((search_update, (None, None)), wait=0.5, only_last=True)
 
 def search_update(self, context):
+  '''run search after user changes a search parameter'''
+
   # if self.search_keywords != '':
   update_filters()
   ui_props = bpy.context.window_manager.blenderkitUI
