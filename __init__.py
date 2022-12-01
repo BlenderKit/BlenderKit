@@ -452,7 +452,7 @@ class BlenderKitUIProps(PropertyGroup):
 def search_procedural_update(self, context):
     if self.search_procedural in ('PROCEDURAL', 'BOTH'):
         self.search_texture_resolution = False
-    search.search_update(self, context)
+    search.search_update_delayed(self, context)
 
 
 class BlenderKitCommonSearchProps:
@@ -482,7 +482,7 @@ class BlenderKitCommonSearchProps:
                                                default=256,
                                                min=0,
                                                max=32768,
-                                               update=search.search_update,
+                                               update=search.search_update_delayed,
                                                )
 
     search_texture_resolution_max: IntProperty(name="Max Texture Resolution",
@@ -490,7 +490,7 @@ class BlenderKitCommonSearchProps:
                                                default=4096,
                                                min=0,
                                                max=32768,
-                                               update=search.search_update,
+                                               update=search.search_update_delayed,
                                                )
 
     # file_size
@@ -504,7 +504,7 @@ class BlenderKitCommonSearchProps:
                                       default=0,
                                       min=0,
                                       max=2000,
-                                      update=search.search_update,
+                                      update=search.search_update_delayed,
                                       )
 
     search_file_size_max: IntProperty(name="Max File Size",
@@ -512,7 +512,7 @@ class BlenderKitCommonSearchProps:
                                       default=500,
                                       min=0,
                                       max=2000,
-                                      update=search.search_update,
+                                      update=search.search_update_delayed,
                                       )
 
     search_procedural: EnumProperty(
@@ -552,7 +552,7 @@ class BlenderKitCommonSearchProps:
                                default=False, update=search.search_update)
     quality_limit: IntProperty(name="Quality limit",
                                description='Only show assets with a higher quality',
-                               default=0, min=0, max=10, update=search.search_update)
+                               default=0, min=0, max=10, update=search.search_update_delayed)
 
 
 def update_free(self, context):
@@ -1344,7 +1344,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     search_design_year_min: IntProperty(name="Minimum Design Year",
                                         description="Minimum design year",
                                         default=1950, min=-100000000, max=1000000000,
-                                        update=search.search_update,
+                                        update=search.search_update_delayed,
                                         )
 
     search_design_year_max: IntProperty(name="Maximum Design Year",
@@ -1352,7 +1352,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
                                         default=2017,
                                         min=0,
                                         max=10000000,
-                                        update=search.search_update,
+                                        update=search.search_update_delayed,
                                         )
 
     # POLYCOUNT
@@ -1366,14 +1366,14 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
                                       default=0,
                                       min=0,
                                       max=100000000,
-                                      update=search.search_update, )
+                                      update=search.search_update_delayed, )
 
     search_polycount_max: IntProperty(name="Max Polycount",
                                       description="Maximum poly count",
                                       default=100000000,
                                       min=0,
                                       max=100000000,
-                                      update=search.search_update,
+                                      update=search.search_update_delayed,
                                       )
     search_animated: BoolProperty(
         name='Animated',
