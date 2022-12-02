@@ -32,6 +32,7 @@ from . import (
     autothumb,
     categories,
     comments_utils,
+    daemon_lib,
     download,
     global_vars,
     icons,
@@ -701,9 +702,7 @@ class UpvoteComment(bpy.types.Operator):
                         if flag['id'] == profile['user']['id'] and flag['flag'] != self.flag:
                             comment['flags'].remove(flag)
                             break
-
-        comments_utils.send_comment_flag_to_thread(asset_id=self.asset_id, comment_id=self.comment_id, flag=self.flag,
-                                                   api_key=api_key)
+        daemon_lib.feedback_comment(self.asset_id, self.comment_id, api_key, self.flag)
         return {'FINISHED'}
 
 class SetPrivateComment(bpy.types.Operator):
@@ -740,9 +739,7 @@ class SetPrivateComment(bpy.types.Operator):
             for comment in comments:
                 if comment['id'] == self.comment_id:
                     comment['isPrivate'] = self.is_private
-
-        comments_utils.send_comment_is_private_to_thread(asset_id=self.asset_id, comment_id=self.comment_id, is_private=self.is_private,
-                                                   api_key=api_key)
+        daemon_lib.mark_comment_private(self.asset_id, self.comment_id, api_key, self.is_private)
         return {'FINISHED'}
 
 # class DeleteComment(bpy.types.Operator):
@@ -809,8 +806,8 @@ class PostComment(bpy.types.Operator):
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         ui_props = bpy.context.window_manager.blenderkitUI
         api_key = user_preferences.api_key
-        comments_utils.send_comment_to_thread(self.asset_id, self.comment_id, ui_props.new_comment, api_key)
-        ui_props.new_comment =''
+        daemon_lib.create_comment(self.asset_id, ui_props.new_comment, api_key, self.comment_id)
+        ui_props.new_comment = ''
         return {'FINISHED'}
 
 def draw_notification(self, notification, width=600):
@@ -2312,7 +2309,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
     def draw_comment(self, context, layout, comment, width=330):
         row = layout.row()
-        # print(comment)
         if comment['level'] > 0:
             split = row.split(factor=0.05 * comment['level'])
             split.label(text='')
@@ -2332,7 +2328,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         row = split.row()
         row.enabled = False
         row.label(text=f"{comment['submitDate']} - {comment['userName']}{role_text}")
-
 
         if comment['canChangeIsPrivate']:
             if comment['isPrivate']:
@@ -2497,7 +2492,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         api_key = user_preferences.api_key
         comments = comments_utils.get_comments_local(asset_data['assetBaseId'])
         # if comments is None:
-        comments_utils.get_comments_thread(asset_data['assetBaseId'], api_key)
+        daemon_lib.get_comments(asset_data['assetBaseId'], api_key)
+
+        #TODO: SHOULD BE DONE ONCE COMMENTS TASK IS RETURNED - HOW TO INVOKE REFRESH FROM HANDLE_GET_COMMENTS_TASK
         comments = global_vars.DATA.get('asset comments', {})
         self.comments = comments.get(asset_data['assetBaseId'], [])
 

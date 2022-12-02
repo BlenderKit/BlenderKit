@@ -97,6 +97,55 @@ def kill_download(task_id):
     return resp
 
 
+### COMMENTS
+def get_comments(asset_id, api_key=''):
+  """Get all comments on the asset."""
+  data = {
+    'asset_id': asset_id,
+    'api_key': api_key,
+    'app_id': os.getpid(),
+    }
+  with requests.Session() as session:
+    return session.post(f'{get_address()}/comments/get_comments', json=data)
+
+def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
+  """Create a new comment."""
+  data = {
+    'asset_id': asset_id,
+    'comment_text': comment_text,
+    'api_key': api_key,
+    'reply_to_id': reply_to_id,
+    'app_id': os.getpid(),
+    }
+  with requests.Session() as session:
+    return session.post(f'{get_address()}/comments/create_comment', json=data)
+
+def feedback_comment(asset_id, comment_id, api_key, flag='like'):
+  """Feedback the comment - by default with like. Other flags can be used also."""
+  data = {
+    'asset_id': asset_id,
+    'comment_id': comment_id,
+    'api_key': api_key,
+    'flag': flag,
+    'app_id': os.getpid(),
+    }
+  with requests.Session() as session:
+    return session.post(f'{get_address()}/comments/feedback_comment', json=data)
+
+def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
+  """Mark the comment as private or public."""
+  data = {
+    'asset_id': asset_id,
+    'comment_id': comment_id,
+    'api_key': api_key,
+    'is_private': is_private,
+    'app_id': os.getpid(),
+    }
+  with requests.Session() as session:
+    return session.post(f'{get_address()}/comments/mark_comment_private', json=data)
+
+
+### AUTHORIZATION
 def send_code_verifier(code_verifier: str):
   data = {'code_verifier': code_verifier}
   with requests.Session() as session:

@@ -20,160 +20,52 @@ import logging
 import threading
 
 
-from . import global_vars, paths, rerequests, tasks_queue, utils
+from . import global_vars, paths, rerequests, utils, ratings_utils
 from .daemon import tasks
 
 bk_logger = logging.getLogger(__name__)
 
+def handle_get_comments_task(task: tasks.Task):
+  """Handle incomming task which downloads comments on asset."""
+  if task.status == 'error':
+    return bk_logger.warning(f'failed to get comments: {task.message}')
 
-def upload_comment_thread(asset_id, comment_id=0, comment='', api_key=None):
-  ''' Upload comment thread function / disconnected from blender data.'''
-  headers = utils.get_headers(api_key)
-  url = f'{paths.BLENDERKIT_API}/comments/asset-comment/{asset_id}/'
-  r = rerequests.get(url, headers=headers)
-  comment_data = r.json()
-  url = f'{paths.BLENDERKIT_API}/comments/comment/'
-  data = {
-    "name": "",
-    "email": "",
-    "url": "",
-    "followup": comment_id > 0,
-    "reply_to": comment_id,
-    "honeypot": "",
-    "content_type": "assets.uuidasset",
-    "object_pk": asset_id,
-    "timestamp": comment_data['form']['timestamp'],
-    "security_hash": comment_data['form']['securityHash'],
-    "comment": comment,
-  }
-
-  r = rerequests.post(url, data=data, verify=True, headers=headers)
-
-  get_comments(asset_id, api_key)
-
-
-def upload_comment_flag_thread(asset_id='', comment_id='', flag='like', api_key=None):
-  ''' Upload rating thread function / disconnected from blender data.'''
-  headers = utils.get_headers(api_key)
-
-  bk_logger.debug('upload comment flag' + str(comment_id))
-
-  # rating_url = url + rating_name + '/'
-  data = {
-    "comment": comment_id,
-    "flag": flag,
-  }
-  url = paths.BLENDERKIT_API + '/comments/feedback/'
-  r = rerequests.post(url, data=data, verify=True, headers=headers)
-  bk_logger.info(f'{r.text}')
-  # here it's important we read back, so likes are updated accordingly:
-  get_comments(asset_id, api_key)
-
-def upload_comment_is_private_thread(asset_id='', comment_id='', is_private=False, api_key=None):
-  ''' Upload rating thread function / disconnected from blender data.'''
-  headers = utils.get_headers(api_key)
-
-  bk_logger.debug('upload comment is private' + str(comment_id))
-
-  # rating_url = url + rating_name + '/'
-  data = {
-    "is_private": is_private,
-  }
-  url = f"{paths.BLENDERKIT_API}/comments/is_private/{comment_id}/"
-  r = rerequests.post(url, data=data, verify=True, headers=headers)
-  bk_logger.debug(r.text)
-  
-  # here it's important we read back, so likes are updated accordingly:
-  get_comments(asset_id, api_key)
-
-# def comment_delete_thread(asset_id='', comment_id='', api_key=None):
-#   ''' Upload rating thread function / disconnected from blender data.'''
-#   headers = utils.get_headers(api_key)
-#   bk_logger.debug('delete comment ' + str(comment_id))
-# 
-#   # rating_url = url + rating_name + '/'
-#   data = {
-#     "comment": comment_id,
-#   }
-#   url = paths.BLENDERKIT_API + '/comments/delete/0/'
-#   r = rerequests.post(url, data=data, verify=True, headers=headers)
-#   if len(r.text)<1000:
-#   # here it's important we read back, so likes are updated accordingly:
-#   get_comments(asset_id, api_key)
-
-def send_comment_flag_to_thread(asset_id='', comment_id='', flag='like', api_key=None):
-  '''Sens rating into thread rating, main purpose is for tasks_queue.
-  One function per property to avoid lost data due to stashing.'''
-  thread = threading.Thread(target=upload_comment_flag_thread, args=(asset_id, comment_id, flag, api_key))
-  thread.start()
-
-
-def send_comment_is_private_to_thread(asset_id='', comment_id='', is_private=False, api_key=None):
-  '''Sens rating into thread rating, main purpose is for tasks_queue.
-  One function per property to avoid lost data due to stashing.'''
-  thread = threading.Thread(target=upload_comment_is_private_thread, args=(asset_id, comment_id, is_private, api_key))
-  thread.start()
-
-def send_comment_to_thread(asset_id, comment_id, comment, api_key):
-  '''Sens rating into thread rating, main purpose is for tasks_queue.
-  One function per property to avoid lost data due to stashing.'''
-  thread = threading.Thread(target=upload_comment_thread, args=(asset_id, comment_id, comment, api_key))
-  thread.start()
-
-# def send_comment_delete_to_thread(asset_id='', comment_id='', flag='like', api_key=None):
-#   '''Sens rating into thread rating, main purpose is for tasks_queue.
-#   One function per property to avoid lost data due to stashing.'''
-#   # thread = threading.Thread(target=comment_delete_thread, args=(asset_id, comment_id,  api_key))
-#   thread = threading.Thread(target=comment_delete_thread, args=(asset_id, comment_id,  api_key))
-#   thread.start()
-
-def store_comments_local(asset_id, comments):
-  ac = global_vars.DATA.get('asset comments', {})
-  ac[asset_id] = comments
-  global_vars.DATA['asset comments'] = ac
-
-
-def get_comments_local(asset_id):
-  global_vars.DATA['asset comments'] = global_vars.DATA.get('asset comments', {})
-  comments = global_vars.DATA['asset comments'].get(asset_id)
-  if comments:
-    return comments
-  return None
-
-
-def get_comments_thread(asset_id, api_key):
-  thread = threading.Thread(target=get_comments, args=([asset_id, api_key]), daemon=True)
-  thread.start()
-
-
-def get_comments(asset_id, api_key):
-  '''
-  Retrieve comments  from BlenderKit server. Can be run from a thread
-  Parameters
-  ----------
-  asset_id
-  headers
-
-  Returns
-  -------
-  ratings - dict of type:value ratings
-  '''
-  headers = utils.get_headers(api_key)
-
-  url = paths.BLENDERKIT_API + '/comments/assets-uuidasset/' + asset_id + '/'
-  params = {}
-  r = rerequests.get(url, params=params, verify=True, headers=headers)
-  if r is None:
+  if task.status == 'finished':
+    comments = task.result['results']
+    store_comments_local(task.data['asset_id'], comments)
+    if len(comments) == 0: #TODO: is this correct? how from comments we know there are 0 ratings? Is this like rating of comments - likes?
+      ratings_utils.store_rating_local_empty # store empty ratings too, so that server isn't checked repeatedly
     return
-  if r.status_code == 200:
-    rj = r.json()
-    # store comments - send them to task queue
-    tasks_queue.add_task((store_comments_local, (asset_id, rj['results'])))
 
-    # if len(rj['results'])==0:
-    #     # store empty ratings too, so that server isn't checked repeatedly
-    #     tasks_queue.add_task((store_rating_local_empty,(asset_id,)))
-    # return ratings
+def handle_create_comment_task(task: tasks.Task):
+  #TODO: refresh comments so the comment is shown asap
+  if task.status == 'finished':
+    return bk_logger.debug(f'Creating comment finished - {task.message}')
+  if task.status == 'error':
+    return bk_logger.warning(f'Creating comment failed - {task.message}')
+
+def handle_feedback_comment_task(task: tasks.Task):
+  """Handle incomming task for update of feedback on comment."""
+  if task.status == 'finished': #action not needed
+    return bk_logger.debug(f'Comment feedback finished - {task.message}')
+  if task.status == 'error':
+    return bk_logger.warning(f'Comment feedback failed - {task.message}')
+
+def handle_mark_comment_private_task(task: tasks.Task):
+  """Handle incomming task for marking the comment as private/public."""
+  if task.status == 'finished': #action not needed
+    return bk_logger.debug(f'Marking comment visibility finished - {task.message}')
+  if task.status == 'error':
+    return bk_logger.warning(f'Marking comment visibility failed - {task.message}')
+
+
+def handle_notifications_task(task: tasks.Task):
+  if task.status == 'finished':
+    global_vars.DATA['bkit notifications'] = task.result
+    return
+
+  if task.status == 'error':
+    return bk_logger.warning(f'Notifications fetching failed: {task.message}')
 
 
 def check_notifications_read():
@@ -192,13 +84,12 @@ def check_notifications_read():
   return True
 
 
-def handle_notifications_task(task: tasks.Task):
-  if task.status == 'finished':
-    global_vars.DATA['bkit notifications'] = task.result
-    return
+def store_comments_local(asset_id, comments):
+  global_vars.DATA['asset comments'][asset_id] = comments
 
-  if task.status == 'error':
-    return bk_logger.warning(f'Notifications fetching failed: {task.message}')
+
+def get_comments_local(asset_id):
+  return global_vars.DATA['asset comments'].get(asset_id)
 
 
 #TODO: MIGRATE
@@ -209,11 +100,8 @@ def mark_notification_read_thread(api_key, notification_id):
 
 #TODO: MIGRATE
 def mark_notification_read(api_key, notification_id):
-  '''
-  mark notification as read
-  '''
+  """Mark notification as read."""
   headers = utils.get_headers(api_key)
-
   url = f'{paths.BLENDERKIT_API}/notifications/mark-as-read/{notification_id}/'
   params = {}
   r = rerequests.get(url, params=params, verify=True, headers=headers)

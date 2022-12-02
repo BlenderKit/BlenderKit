@@ -172,6 +172,17 @@ def handle_task(task: tasks.Task):
   if task.task_type == "notifications":
     return comments_utils.handle_notifications_task(task)
 
+  #HANDLE VARIOUS COMMENTS TASKS
+  if task.task_type == "comments/get_comments":
+    return comments_utils.handle_get_comments_task(task)
+  if task.task_type == "comments/create_comment":
+    return comments_utils.handle_create_comment_task(task)
+  if task.task_type == "comments/feedback_comment":
+    return comments_utils.handle_feedback_comment_task(task)
+  if task.task_type == "comments/mark_comment_private":
+    return comments_utils.handle_mark_comment_private_task(task)
+
+
 def setup_asyncio_executor():
   """Set up AsyncIO to run properly on each platform."""
 

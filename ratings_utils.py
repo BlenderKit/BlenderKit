@@ -69,13 +69,11 @@ def send_rating_to_thread_work_hours(url, ratings, headers):
 
 
 def store_rating_local_empty(asset_id):
-    context = bpy.context
     ar = global_vars.DATA['asset ratings']
     ar[asset_id] = ar.get(asset_id, {})
 
 
 def store_rating_local(asset_id, type='quality', value=0):
-    context = bpy.context
     ar   = global_vars.DATA['asset ratings']
     ar[asset_id] = ar.get(asset_id, {})
     ar[asset_id][type] = value
