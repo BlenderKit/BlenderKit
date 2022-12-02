@@ -162,7 +162,6 @@ async def fetch_categories(request: web.Request):
       categories = data['results']
       fix_category_counts(categories)           # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
       task.result = categories
-      print(f'categories fetched {categories}')
       task.finished('Categories fetched')
 
   except Exception as e:
