@@ -1,8 +1,10 @@
 import logging
 
+import globals
+import tasks
 from aiohttp import web
 
-import utils, globals, tasks
+import utils
 
 
 async def get_comments(request: web.Request, task: tasks.Task):

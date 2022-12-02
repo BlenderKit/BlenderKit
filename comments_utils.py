@@ -19,9 +19,9 @@
 import logging
 import threading
 
-
-from . import global_vars, paths, rerequests, utils, ratings_utils
+from . import global_vars, paths, ratings_utils, rerequests, utils
 from .daemon import tasks
+
 
 bk_logger = logging.getLogger(__name__)
 
