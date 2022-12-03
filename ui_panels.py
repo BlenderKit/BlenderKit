@@ -1696,6 +1696,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             op = row.operator('object.blenderkit_change_status', text='Delete')
             op.asset_id = asset_data['id']
             op.state = 'deleted'
+            op.original_state = asset_data['verificationStatus']
 
         if utils.profile_is_validator():
             layout.label(text='Dev Tools:')
