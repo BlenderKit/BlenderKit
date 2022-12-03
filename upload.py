@@ -1209,6 +1209,11 @@ class AssetVerificationStatusChange(Operator):
         default='uploaded'
     )
 
+    original_state: StringProperty(
+        name="verification_status",
+        default='uploaded'
+    )
+
     @classmethod
     def poll(cls, context):
         return True
@@ -1216,7 +1221,14 @@ class AssetVerificationStatusChange(Operator):
     def draw(self, context):
         layout = self.layout
         # if self.state == 'deleted':
-        layout.label(text='Really delete asset from BlenderKit online storage?')
+        message = "Really delete asset from BlenderKit online storage?"
+        if self.original_state == 'on_hold':
+            message += "\n\nThis asset is on hold. If you want to upload it again," \
+                  " please reupload the asset instead of deleting it and " \
+                  "uploading it as a new one. " \
+                  "This will preserve the validation history in the comments and avoid any misunderstandings."
+        utils.label_multiline(layout, text=message, width = 300)
+
         # layout.prop(self, 'state')
 
     def execute(self, context):
