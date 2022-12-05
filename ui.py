@@ -939,7 +939,7 @@ class AssetBarModalStarter(bpy.types.Operator):
     bl_idname = "view3d.run_assetbar_start_modal"
     bl_label = "BlenderKit assetbar modal starter"
     bl_description = "Assetbar modal starter"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_options = {'INTERNAL'}
 
     keep_running: BoolProperty(name="Keep Running", description='', default=True, options={'SKIP_SAVE'})
     do_search: BoolProperty(name="Run Search", description='', default=False, options={'SKIP_SAVE'})
