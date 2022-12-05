@@ -1,4 +1,5 @@
 import random
+import time
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
@@ -122,7 +123,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
     self.panel.add_widgets(widgets_panel)
 
-    self.counter = 0
+    self.start_time = time.time()
 
   def modal(self, context, event):
     if self._finished:
@@ -132,7 +133,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
       context.area.tag_redraw()
 
     if self.handle_widget_events(event):
-      self.counter = 0
+      self.start_time = time.time()
       self.reset_colours()
       return {'RUNNING_MODAL'}
 
@@ -140,8 +141,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
       self.finish()
 
     if event.type == 'TIMER':
-      self.counter += 1
-      if self.counter > self.fadeout_time * 10:
+      run_time = time.time()-self.start_time
+      if run_time > self.fadeout_time:
         self.fadeout()
 
     return {"PASS_THROUGH"}
