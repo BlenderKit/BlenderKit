@@ -18,12 +18,10 @@
 
 import json
 import os
-import threading
 
 import bpy
-import requests
 
-from . import global_vars, paths, utils
+from . import paths
 
 
 def get_blender_version():
@@ -31,43 +29,15 @@ def get_blender_version():
     ver = bpy.app.version
     return '%i.%i.%i' % (ver[0], ver[1], ver[2])
 
+
 def get_addon_version():
     # should return addon version, but since Blender 3.0 this is synced with Blender version
     # ver = bpy.app.version
     # return '%i.%i.%i' % (ver[0], ver[1], ver[2])
 
-
     import blenderkit
     ver = blenderkit.bl_info['version']
     return '%i.%i.%i' % (ver[0], ver[1], ver[2])
-
-
-def check_version(url, api_key, module):
-    headers = utils.get_headers(api_key=api_key)
-    print('checking online version of module %s' % str(module.bl_info['name']))
-    try:
-        session = requests.Session()
-        proxy_which = global_vars.PREFS.get('proxy_which')
-        proxy_address = global_vars.PREFS.get('proxy_address')
-        if proxy_which == 'NONE':
-            session.trust_env = False
-        elif proxy_which == 'CUSTOM':
-            session.trust_env = False
-            session.proxies = {'https': proxy_address}
-        else:
-            session.trust_env = True
-        r = session.get(url, headers=headers)
-        data = r.json()
-        ver_online = {
-            'addonVersion2.8': data['addonVersion']
-        }
-        tempdir = paths.get_temp_dir()
-
-        ver_filepath = os.path.join(tempdir, 'addon_version.json')
-        with open(ver_filepath, 'w', encoding = 'utf-8') as s:
-            json.dump(ver_online, s,  ensure_ascii=False, indent=4)
-    except:
-        print("couldn't check online for version updates")
 
 
 def compare_versions(module):
@@ -90,7 +60,3 @@ def compare_versions(module):
         print("couldn't compare addon versions")
     return False
 
-
-def check_version_thread(url, API_key, module):
-    thread = threading.Thread(target=check_version, args=([url, API_key, module]), daemon=True)
-    thread.start()

@@ -23,7 +23,6 @@ import threading
 import bpy
 import requests
 from bpy.props import (
-    CollectionProperty,
     EnumProperty,
     FloatProperty,
     IntProperty,
