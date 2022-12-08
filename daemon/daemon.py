@@ -150,7 +150,7 @@ async def subscribe_new_addon(request: web.Request, data: dict):
 
   categories_task = asyncio.ensure_future(search.fetch_categories(request))
   categories_task.add_done_callback(tasks.handle_async_errors)
-  if data['app_id'] == '':
+  if data['api_key'] == '':
     return #everything done, if not logged in
 
   notifications_task = asyncio.ensure_future(disclaimer.get_notifications(request))

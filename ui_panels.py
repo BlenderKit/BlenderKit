@@ -2781,10 +2781,9 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
 
 
 def header_search_draw(self, context):
-    '''Top bar menu in 3D view'''
-
+    """Top bar menu in 3D view"""
     if not utils.guard_from_crash():
-        return;
+        return
 
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if not preferences.search_in_header:
@@ -2793,7 +2792,6 @@ def header_search_draw(self, context):
         return
 
     layout = self.layout
-    s = bpy.context.scene
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type == 'MODEL':
@@ -2851,7 +2849,7 @@ def header_search_draw(self, context):
         row.label(text='', icon_value=icon_id)
 
     notifications = global_vars.DATA.get('bkit notifications')
-    if notifications is not None and notifications['count'] > 0:
+    if notifications is not None and notifications.get('count', 0) > 0:
         layout.operator('wm.show_notifications', text="", icon_value=pcoll['bell'].icon_id)
         # layout.popover(panel="VIEW3D_PT_blenderkit_notifications", text="", icon_value=pcoll['bell'].icon_id)
 
