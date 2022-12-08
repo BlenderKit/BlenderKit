@@ -39,16 +39,18 @@ async def get_notifications(request: web.Request):
   data = await request.json()
   task = tasks.Task(data, data['app_id'], 'notifications', str(uuid.uuid4()), message='Getting notifications')
   globals.tasks.append(task)
-
   headers = utils.get_headers(data['api_key'])
   session = request.app['SESSION_API_REQUESTS']
   try:
     async with session.get(f'{globals.SERVER}/api/v1/notifications/unread/', headers=headers) as resp:
       await resp.text()
-      response = await resp.json()
-      task.result = response  
-      task.finished('Notifications retrieved')
-      return
+      task.result = await resp.json()
   except Exception as e:
     logging.error(str(e))
+    return task.error(str(e))
+
+  if resp.status == 200:
+    return task.finished('Notifications retrieved')
+    
+  return task.error(f'GET notifications status code: {resp.status_code}')
 
