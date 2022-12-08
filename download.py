@@ -20,11 +20,8 @@ import copy
 import logging
 import os
 import shutil
-import threading
 import time
 import traceback
-
-import requests
 
 from . import (
     append_link,
@@ -121,16 +118,18 @@ def check_unused():
 def scene_save(context):
     """Do cleanup of blenderkit props and send a message to the server about assets used."""
     # TODO this can be optimized by merging these 2 functions, since both iterate over all objects.
-    if not bpy.app.background:
-        check_unused()
-        report_usages()
+    if bpy.app.background:
+      return
+    check_unused()
+    report_data = get_asset_usages()
+    if report_data != {}:
+      daemon_lib.report_usages(report_data)
 
 
 @persistent
 def scene_load(context):
-    '''restart broken downloads on scene load'''
-    t = time.time()
-    s = bpy.context.scene
+    """Restart broken downloads on scene load."""
+    check_missing()
     # global download_threads
     # download_threads = []
 
@@ -169,18 +168,11 @@ def scene_load(context):
     # check for group users that have been deleted, remove the groups /files from the file...
     # TODO scenes fixing part... download the assets not present on drive,
     # and erase from scene linked files that aren't used in the scene.
-    check_missing()
 
 
-def report_usages():
-    '''report the usage of assets to the server.'''
-    mt = time.time()
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    api_key = user_preferences.api_key
+def get_asset_usages():
+    """Report the usage of assets to the server."""
     sid = utils.get_scene_id()
-    headers = utils.get_headers(api_key)
-    url = paths.BLENDERKIT_REPORT_URL
-
     assets = {}
     asset_obs = []
     scene = bpy.context.scene
@@ -241,7 +233,7 @@ def report_usages():
 
     if new_assets_count == 0:
         bk_logger.debug('no new assets were added')
-        return;
+        return {}
     usage_report = {
         'scene': sid,
         'reportType': 'save',
@@ -263,13 +255,11 @@ def report_usages():
     for k in ak:  # rewrite assets used.
         scene['assets used'][k] = assets[k]
 
-    ###########check ratings herer too:
+    ###########check ratings here too:
     for k in assets.keys():
         ratings_utils.store_rating_local_empty(k)
 
-    thread = threading.Thread(target=utils.requests_post_thread, args=(url, usage_report, headers))
-    thread.start()
-    mt = time.time() - mt
+    return usage_report
 
 
 def udpate_asset_data_in_dicts(asset_data):
@@ -823,68 +813,6 @@ def delete_unfinished_file(file_name):
     if len(os.listdir(asset_dir)) == 0:
         os.rmdir(asset_dir)
     return
-
-
-def download_asset_file(asset_data, resolution='blend', api_key=''):
-    # this is a simple non-threaded way to download files for background resolution genenration tool
-    file_names = paths.get_download_filepaths(asset_data, resolution)  # prefer global dir if possible.
-    if len(file_names) == 0:
-        return None
-
-    file_name = file_names[0]
-
-    if check_existing(asset_data, resolution=resolution):
-        # this sends the thread for processing, where another check should occur, since the file might be corrupted.
-        bk_logger.debug('not downloading, already in db')
-        return file_name
-
-    download_canceled = False
-
-    with open(file_name, "wb") as f:
-        bk_logger.info(f"Downloading {file_name}")
-        res_file_info, resolution = paths.get_res_file(asset_data, resolution)
-        session = requests.Session()
-        proxy_which = global_vars.PREFS.get('proxy_which')
-        proxy_address = global_vars.PREFS.get('proxy_address')
-        if proxy_which == 'NONE':
-            session.trust_env = False
-        elif proxy_which == 'CUSTOM':
-            session.trust_env = False
-            session.proxies = {'https': proxy_address}
-        else:
-            session.trust_env = True
-
-        response = session.get(res_file_info['url'], stream=True, headers=utils.get_headers())
-        total_length = response.headers.get('Content-Length')
-
-        if total_length is None or int(total_length) < 1000:  # no content length header
-            download_canceled = True
-            bk_logger.info(f'{response.content}')
-        else:
-            total_length = int(total_length)
-            dl = 0
-            last_percent = 0
-            percent = 0
-            for data in response.iter_content(chunk_size=4096 * 10):
-                dl += len(data)
-
-                # the exact output you're looking for:
-                fs_str = utils.files_size_to_text(total_length)
-
-                percent = int(dl * 100 / total_length)
-                if percent > last_percent:
-                    last_percent = percent
-                    # sys.stdout.write('\r')
-                    # sys.stdout.write(f'Downloading {asset_data['name']} {fs_str} {percent}% ')  # + int(dl * 50 / total_length) * 'x')
-                    bk_logger.info(f'Downloading {asset_data["name"]} {fs_str} {percent}%')  # + int(dl * 50 / total_length) * 'x')
-                    # sys.stdout.flush()
-
-                f.write(data)
-    if download_canceled:
-        delete_unfinished_file(file_name)
-        return None
-
-    return file_name
 
 
 def download(asset_data, **kwargs):

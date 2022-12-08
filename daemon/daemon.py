@@ -353,7 +353,7 @@ if __name__ == '__main__':
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
     web.post('/code_verifier', code_verifier),
-
+    web.post('/report_usages', assets.report_usages_handler),
     web.post('/comments/{func}', comments_handler),
   ])
 

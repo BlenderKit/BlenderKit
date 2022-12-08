@@ -563,80 +563,6 @@ def check_needs_resolutions(a):
     return False
 
 
-def download_asset(asset_data, resolution='blend', unpack=False, api_key=''):
-    '''
-    Download an asset non-threaded way.
-    Parameters
-    ----------
-    asset_data - search result from elastic or assets endpoints from API
-
-    Returns
-    -------
-    path to the resulting asset file or None if asset isn't accessible
-    '''
-
-    has_url = download.get_download_url(asset_data, utils.get_scene_id(), api_key, tcom=None,
-                                        resolution='blend')
-    if has_url:
-        fpath = download.download_asset_file(asset_data, api_key = api_key)
-        if fpath and unpack and asset_data['assetType'] != 'hdr':
-            send_to_bg(asset_data, fpath, command='unpack', wait=True)
-        return fpath
-
-    return None
-
-
-def generate_resolution_thread(asset_data, api_key):
-    '''
-    A thread that downloads file and only then starts an instance of Blender that generates the resolution
-    Parameters
-    ----------
-    asset_data
-
-    Returns
-    -------
-
-    '''
-
-    fpath = download_asset(asset_data, unpack=True, api_key=api_key)
-    bk_logger("GENERATE RESOLUTIONS THREAD")
-    if fpath:
-        if asset_data['assetType'] != 'hdr':
-            print('send to bg ', fpath)
-            proc = send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True);
-        # send_to_bg by now waits for end of the process.
-        # time.sleep((5))
-
-
-def iterate_for_resolutions(filepath, process_count=12, api_key='', do_checks = True):
-    ''' iterate through all assigned assets, check for those which need generation and send them to res gen'''
-    assets = load_assets_list(filepath)
-    print(len(assets))
-    threads = []
-    for asset_data in assets:
-        asset_data = search.parse_result(asset_data)
-        if asset_data is not None:
-
-            if not do_checks or check_needs_resolutions(asset_data):
-                bk_logger.info('downloading and generating resolution for  %s' % asset_data['name'])
-                # this is just a quick hack for not using original dirs in blendrkit...
-                # generate_resolution_thread(asset_data, api_key)
-                thread = threading.Thread(target=generate_resolution_thread, args=(asset_data, api_key))
-                thread.start()
-                #
-                threads.append(thread)
-                # print('processes ', len(threads))
-                while len(threads) > process_count - 1:
-                    for t in threads:
-                        if not t.is_alive():
-                            threads.remove(t)
-                        break;
-                # else:
-                #     print(f'Failed to generate resolution:{asset_data["name"]}')
-            else:
-                print('not generated resolutions:', asset_data['name'])
-
-
 def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
     '''
     Send varioust task to a new blender instance that runs and closes after finishing the task.
@@ -668,7 +594,6 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
     bk_logger.info('opening Blender instance to do processing - ', command)
 
     if wait:
-        print(">>>>>>>>> RUNNING RESOLUTIONS_BG WITHOUT WAIT")
         proc = subprocess.run([
             binary_path,
             "--background",
@@ -681,7 +606,6 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
 
     else:
         # TODO this should be fixed to allow multithreading.
-        print(">>>>>>>>> RUNNING RESOLUTIONS_BG WITHOUT WAIT")
         proc = subprocess.Popen([
             binary_path,
             "--background",
@@ -694,17 +618,11 @@ def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
         return proc
 
 
-def write_data_back(asset_data):
-    '''ensures that the data in the resolution file is the same as in the database.'''
-    pass
-
-
 def run_bg(datafile):
     print('background file operation')
     with open(datafile, 'r',encoding='utf-8') as f:
         data = json.load(f)
     bpy.app.debug_value = data['debug_value']
-    write_data_back(data['asset_data'])
     if data['command'] == 'generate_resolutions':
         print('asset type is ', data['asset_data']['assetType'])
 

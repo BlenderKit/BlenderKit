@@ -24,7 +24,7 @@ import tempfile
 
 import bpy
 
-from . import colors, global_vars, reports, tasks_queue, utils
+from . import global_vars, reports, tasks_queue, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -175,7 +175,6 @@ def slugify(slug):
     and converts spaces to hyphens.
     """
     import re
-    import unicodedata
     slug = slug.lower()
 
     characters = '<>:"/\\|?\*., ()#'

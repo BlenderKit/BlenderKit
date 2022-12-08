@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import os
 import shutil
 import sys
@@ -138,7 +139,6 @@ async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.T
 
 def report_download_finished(data):
   """Return download finished results."""
-
   globals.tasks[data['task_id']] = data
   globals.tasks[data['task_id']].update({
     "app_id": data['PREFS']['app_id'],
@@ -345,7 +345,6 @@ async def check_existing(task) -> bool:
 
 def delete_unfinished_file(file_path: str) -> None:
   """Delete downloaded file if it wasn't finished. If the folder it's containing is empty, it also removes the directory."""
-
   try:
     os.remove(file_path)
   except Exception as e:
@@ -353,3 +352,29 @@ def delete_unfinished_file(file_path: str) -> None:
   asset_dir = os.path.dirname(file_path)
   if len(os.listdir(asset_dir)) == 0:
     os.rmdir(asset_dir)
+
+
+async def report_usages_handler(request: web.Request):
+  """Handle order to report asset usages."""
+  data = await request.json()
+  task = tasks.Task(data, data['app_id'], 'report_usages', message='Uploading the usage report data.')
+  globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(report_usages(request, task))
+  task.async_task.add_done_callback(tasks.handle_async_errors)
+  return web.Response(text="ok")
+
+async def report_usages(request: web.Request, task: tasks.Task):
+  """Upload the usage report to the server. Result of the task is not handled in add-on as we do not care so much..."""
+  url = f'{globals.SERVER}/api/v1/usage_report'
+  headers = utils.get_headers(task.data['api_key'])
+  session = request.app['SESSION_API_REQUESTS']
+  try:
+    async with session.post(url, headers=headers, data=task.data) as resp:
+      await resp.text()
+  except Exception as e:
+    logging.error(f'Error reporting the usage: {e}')
+    task.error(f'Error reporting the usage: {e}')
+  if resp.status not in [200, 201]:
+    logging.error(f'Error reporting the usage ({resp.status})')
+    task.error(f'Error reporting the usage ({resp.status})')
+  task.finished('Usage successfully reported')

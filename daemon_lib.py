@@ -145,6 +145,16 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
     return session.post(f'{get_address()}/comments/mark_comment_private', json=data)
 
 
+### REPORTS
+def report_usages(report: dict):
+  """Report usages of assets in current scene via daemon to the server."""
+  report['api_key'] = bpy.context.preferences.addons['blenderkit'].preferences.api_key
+  report['app_id'] = os.getpid()
+  with requests.Session() as session:
+    resp = session.post(f'{get_address()}/report_usages', json=report)
+    return resp
+
+
 ### AUTHORIZATION
 def send_code_verifier(code_verifier: str):
   data = {'code_verifier': code_verifier}

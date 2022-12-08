@@ -25,13 +25,12 @@ import platform
 import re
 import shutil
 import sys
-import traceback
 import uuid
 
 import bpy
 from mathutils import Vector
 
-from . import global_vars, image_utils, paths, rerequests
+from . import global_vars, image_utils, paths
 
 
 bk_logger = logging.getLogger(__name__)
@@ -722,10 +721,6 @@ def get_dimensions(obs):
     return dim, bbmin, bbmax
 
 
-def requests_post_thread(url, json, headers):
-    r = rerequests.post(url, json=json, verify=True, headers=headers)
-
-
 def get_headers(api_key: str = '') -> dict[str, str]:
     headers = {
         'accept': 'application/json',
@@ -1139,7 +1134,3 @@ def is_upload_old(asset_data):
     if age > old:
         return (age.days - old.days)
     return 0
-
-def trace():
-    traceback.print_stack()
-
