@@ -95,8 +95,6 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     self.button_close.set_mouse_down(self.cancel_press)
 
   def on_invoke(self, context, event):
-
-
     # Add new widgets here (TODO: perhaps a better, more automated solution?)
     widgets_panel = [self.label, self.button_close, self.logo]
     widgets = [self.panel]
@@ -118,11 +116,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     self.logo.set_image_position((img_pos, img_pos))
 
     # self.logo.set_image_position(0,0)
-
     self.init_widgets(context, widgets)
-
     self.panel.add_widgets(widgets_panel)
-
     self.start_time = time.time()
 
   def modal(self, context, event):

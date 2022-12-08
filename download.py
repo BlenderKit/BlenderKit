@@ -62,8 +62,7 @@ download_tasks = {}
 
 
 def check_missing():
-    '''checks for missing files, and possibly starts re-download of these into the scene'''
-    s = bpy.context.scene
+    """Checks for missing files, and possibly starts re-download of these into the scene"""
     # missing libs:
     # TODO: put these into a panel and let the user decide if these should be downloaded.
     missing = []
@@ -88,13 +87,13 @@ def check_missing():
 
 
 def check_unused():
-    '''find assets that have been deleted from scene but their library is still present.'''
+    """Find assets that have been deleted from scene but their library is still present."""
     # this is obviously broken. Blender should take care of the extra data automaticlaly
     # first clean up collections
     for c in bpy.data.collections:
         if len(c.all_objects) == 0 and c.get('is_blenderkit_asset'):
             bpy.data.collections.remove(c)
-    return;
+    return
     used_libs = []
     for ob in bpy.data.objects:
         if ob.instance_collection is not None and ob.instance_collection.library is not None:
@@ -121,7 +120,7 @@ def check_unused():
 
 @persistent
 def scene_save(context):
-    ''' does cleanup of blenderkit props and sends a message to the server about assets used.'''
+    """Do cleanup of blenderkit props and send a message to the server about assets used."""
     # TODO this can be optimized by merging these 2 functions, since both iterate over all objects.
     if not bpy.app.background:
         check_unused()

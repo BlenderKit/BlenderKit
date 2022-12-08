@@ -135,7 +135,7 @@ async def consumer_exchange(request: web.Request):
 
 
 async def refresh_token(request: web.Request):
-  atask = asyncio.ensure_future(oauth.refresh_tokens(request)) #TODO: Await errors here
+  atask = asyncio.ensure_future(oauth.refresh_tokens(request))
   atask.add_done_callback(tasks.handle_async_errors)
   return web.Response(text="ok")
 
