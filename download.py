@@ -28,7 +28,6 @@ import requests
 
 from . import (
     append_link,
-    colors,
     daemon_lib,
     global_vars,
     paths,

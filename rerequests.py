@@ -19,10 +19,9 @@
 
 import logging
 
-import bpy
 import requests
 
-from . import global_vars, reports, tasks_queue, utils
+from . import global_vars, reports, tasks_queue
 
 
 bk_logger = logging.getLogger(__name__)
