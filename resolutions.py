@@ -20,9 +20,7 @@
 import json
 import logging
 import os
-import subprocess
 import sys
-import tempfile
 import time
 
 import bpy
@@ -30,8 +28,6 @@ import requests
 
 from . import (
     bg_blender,
-    download,
-    global_vars,
     image_utils,
     paths,
     rerequests,
@@ -53,7 +49,6 @@ resolutions = {
 rkeys = list(resolutions.keys())
 
 resolution_props_to_server = {
-
     '512': 'resolution_0_5K',
     '1024': 'resolution_1K',
     '2048': 'resolution_2K',
@@ -69,58 +64,6 @@ def get_current_resolution():
         if i.name != 'Render Result':
             actres = max(actres, i.size[0], i.size[1])
     return actres
-
-
-def save_image_safely(teximage, filepath):
-    '''
-    Blender makes it really hard to save images...
-    Would be worth investigating PIL or similar instead
-    Parameters
-    ----------
-    teximage
-
-    Returns
-    -------
-
-    '''
-    JPEG_QUALITY = 98
-
-    rs = bpy.context.scene.render
-    ims = rs.image_settings
-
-    orig_file_format = ims.file_format
-    orig_quality = ims.quality
-    orig_color_mode = ims.color_mode
-    orig_compression = ims.compression
-
-    ims.file_format = teximage.file_format
-    if teximage.file_format == 'PNG':
-        ims.color_mode = 'RGBA'
-    elif teximage.channels == 3:
-        ims.color_mode = 'RGB'
-    else:
-        ims.color_mode = 'BW'
-
-    # all pngs with max compression
-    if ims.file_format == 'PNG':
-        ims.compression = 100
-    # all jpgs brought to reasonable quality
-    if ims.file_format == 'JPG':
-        ims.quality = JPEG_QUALITY
-    # it's actually very important not to try to change the image filepath and packed file filepath before saving,
-    # blender tries to re-pack the image after writing to image.packed_image.filepath and reverts any changes.
-    teximage.save_render(filepath=bpy.path.abspath(filepath), scene=bpy.context.scene)
-
-    teximage.filepath = filepath
-    for packed_file in teximage.packed_files:
-        packed_file.filepath = filepath
-    teximage.filepath_raw = filepath
-    teximage.reload()
-
-    ims.file_format = orig_file_format
-    ims.quality = orig_quality
-    ims.color_mode = orig_color_mode
-    ims.compression = orig_compression
 
 
 def upload_resolutions(files, asset_data, api_key = ''):
@@ -222,15 +165,11 @@ def unpack_asset(data):
 
 
 def patch_asset_empty(asset_id, api_key):
-    '''
-        This function patches the asset for the purpose of it getting a reindex.
-        Should be removed once this is fixed on the server and
-        the server is able to reindex after uploads of resolutions
-        Returns
-        -------
-    '''
-    upload_data = {
-    }
+    """Patch the asset for the purpose of it getting a reindex.
+    Should be removed once this is fixed on the server and
+    the server is able to reindex after uploads of resolutions.
+    """
+    upload_data = {}
     url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/'
     headers = utils.get_headers(api_key)
     try:
@@ -239,30 +178,6 @@ def patch_asset_empty(asset_id, api_key):
         print(e)
         return {'CANCELLED'}
     return {'FINISHED'}
-
-
-def reduce_all_images(target_scale=1024):
-    for img in bpy.data.images:
-        if img.name != 'Render Result':
-            print('scaling ', img.name, img.size[0], img.size[1])
-            # make_possible_reductions_on_image(i)
-            if max(img.size) > target_scale:
-                ratio = float(target_scale) / float(max(img.size))
-                print(ratio)
-                # i.save()
-                fp = '//tempimagestorage'
-                # print('generated filename',fp)
-                # for pf in img.packed_files:
-                #     pf.filepath = fp  # bpy.path.abspath(fp)
-
-                img.filepath = fp
-                img.filepath_raw = fp
-                print(int(img.size[0] * ratio), int(img.size[1] * ratio))
-                img.scale(int(img.size[0] * ratio), int(img.size[1] * ratio))
-                img.update()
-                # img.save()
-                # img.reload()
-                img.pack()
 
 
 def get_texture_filepath(tex_dir_path, image, resolution='blend'):
@@ -472,61 +387,6 @@ def regenerate_thumbnail_material(data):
     return
 
 
-def assets_db_path():
-    dpath = os.path.dirname(bpy.data.filepath)
-    fpath = os.path.join(dpath, 'all_assets.json')
-    return fpath
-
-
-def get_assets_search():
-    results = []
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    url = f'{paths.BLENDERKIT_API}/search/all'
-    i = 0
-    while url is not None:
-        headers = utils.get_headers(preferences.api_key)
-        print('fetching assets from assets endpoint')
-        print(url)
-        retries = 0
-        while retries < 3:
-            r = rerequests.get(url, headers=headers)
-
-            try:
-                adata = r.json()
-                url = adata.get('next')
-                print(i)
-                i += 1
-            except Exception as e:
-                print(e)
-                print('failed to get next')
-                if retries == 2:
-                    url = None
-            if adata.get('results') != None:
-                results.extend(adata['results'])
-                retries = 3
-            print(f'fetched page {i}')
-            retries += 1
-
-    fpath = assets_db_path()
-    with open(fpath, 'w', encoding = 'utf-8') as s:
-        json.dump(results, s, ensure_ascii=False, indent=4)
-
-
-def get_assets_for_resolutions(page_size=100, max_results=100000000):
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-
-    dpath = os.path.dirname(bpy.data.filepath)
-    filepath = os.path.join(dpath, 'assets_for_resolutions.json')
-    params = {
-        'order': '-created',
-        'textureResolutionMax_gte': '100',
-        #    'last_resolution_upload_lt':'2020-9-01'
-    }
-    search.get_search_simple(params, filepath=filepath, page_size=page_size, max_results=max_results,
-                             api_key=preferences.api_key)
-    return filepath
-
-
 def get_materials_for_validation(page_size=100, max_results=100000000):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
     dpath = os.path.dirname(bpy.data.filepath)
@@ -539,82 +399,6 @@ def get_materials_for_validation(page_size=100, max_results=100000000):
     search.get_search_simple(params, filepath=filepath, page_size=page_size, max_results=max_results,
                              api_key=preferences.api_key)
     return filepath
-
-
-
-
-def load_assets_list(filepath):
-    if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as s:
-            assets = json.load(s)
-    return assets
-
-
-def check_needs_resolutions(a):
-    if a['verificationStatus'] == 'validated' and a['assetType'] in ('material', 'model', 'scene', 'hdr'):
-        # the search itself now picks the right assets so there's no need to filter more than asset types.
-        # TODO needs to check first if the upload date is older than resolution upload date, for that we need resolution upload date.
-        for f in a['files']:
-            if f['fileType'].find('resolution') > -1:
-                return False
-
-        return True
-    return False
-
-
-def send_to_bg(asset_data, fpath, command='generate_resolutions', wait=True):
-    '''
-    Send varioust task to a new blender instance that runs and closes after finishing the task.
-    This function waits until the process finishes.
-    The function tries to set the same bpy.app.debug_value in the instance of Blender that is run.
-    Parameters
-    ----------
-    asset_data
-    fpath - file that will be processed
-    command - command which should be run in background.
-
-    Returns
-    -------
-    None
-    '''
-    data = {
-        'fpath': fpath,
-        'debug_value': global_vars.PREFS['debug_value'],
-        'asset_data': asset_data,
-        'command': command,
-    }
-    binary_path = global_vars.PREFS['binary_path']
-    tempdir = tempfile.mkdtemp()
-    datafile = os.path.join(tempdir + 'resdata.json')
-    script_path = os.path.dirname(os.path.realpath(__file__))
-    with open(datafile, 'w', encoding = 'utf-8') as s:
-        json.dump(data, s,  ensure_ascii=False, indent=4)
-
-    bk_logger.info('opening Blender instance to do processing - ', command)
-
-    if wait:
-        proc = subprocess.run([
-            binary_path,
-            "--background",
-            "--factory-startup",
-            "-noaudio",
-            fpath,
-            "--python", os.path.join(script_path, "resolutions_bg.py"),
-            "--", datafile
-        ], bufsize=1, stdout=sys.stdout, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
-
-    else:
-        # TODO this should be fixed to allow multithreading.
-        proc = subprocess.Popen([
-            binary_path,
-            "--background",
-            "--factory-startup",
-            "-noaudio",
-            fpath,
-            "--python", os.path.join(script_path, "resolutions_bg.py"),
-            "--", datafile
-        ], bufsize=1, stdout=subprocess.PIPE, stdin=subprocess.PIPE, creationflags=utils.get_process_flags())
-        return proc
 
 
 def run_bg(datafile):
