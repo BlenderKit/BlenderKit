@@ -589,6 +589,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
             layout.operator("wm.url_open", text="See my uploads", icon='URL').url = paths.BLENDERKIT_USER_ASSETS_URL
         addon_updater_ops.update_notice_box_ui(self,context)
 
+
 class MarkNotificationRead(bpy.types.Operator):
     """Mark notification as read here and also on BlenderKit server"""
     bl_idname = "wm.blenderkit_mark_notification_read"
@@ -610,37 +611,33 @@ class MarkNotificationRead(bpy.types.Operator):
             if n['id'] == self.notification_id:
                 n['unread'] = 0
         comments_utils.check_notifications_read()
-        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        api_key = user_preferences.api_key
-        comments_utils.mark_notification_read_thread(api_key, self.notification_id)
-
+        daemon_lib.mark_notification_read(self.notification_id)
         return {'FINISHED'}
 
+
 class MarkAllNotificationsRead(bpy.types.Operator):
-    """Mark notification as read here and also on BlenderKit server"""
+    """Mark all notifications as read here and also on BlenderKit server"""
     bl_idname = "wm.blenderkit_mark_notifications_read_all"
     bl_label = "Mark all notifications as read"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
 
     @classmethod
     def poll(cls, context):
         return True
 
     def execute(self, context):
-        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        api_key = user_preferences.api_key
         notifications = global_vars.DATA['bkit notifications']
         for n in notifications.get('results'):
             if n['unread'] == 1:
                 n['unread'] = 0
-                comments_utils.mark_notification_read_thread(api_key, n['id'])
+                daemon_lib.mark_notification_read(n['id'])
 
         comments_utils.check_notifications_read()
         return {'FINISHED'}
 
+
 class NotificationOpenTarget(bpy.types.Operator):
-    """"""
+    """Open notification target and mark notification as read"""
     bl_idname = "wm.blenderkit_open_notification_target"
     bl_label = ""
     bl_description = "Open notification target and mark notification as read"

@@ -1,3 +1,5 @@
+"""Module which contains code for comments and notifications."""
+
 import asyncio
 import logging
 
@@ -6,6 +8,25 @@ import tasks
 from aiohttp import web
 
 import utils
+
+
+### COMMENTS
+async def comments_handler(request: web.Request):
+  data = await request.json()
+  func  = request.match_info['func']
+  task = tasks.Task(data, data['app_id'], f'comments/{func}')
+  globals.tasks.append(task)
+  if func == 'get_comments':
+    task.async_task = asyncio.ensure_future(get_comments(request, task))
+  elif func == 'create_comment':
+    task.async_task = asyncio.ensure_future(create_comment(request, task))  
+  elif func == 'feedback_comment':
+    task.async_task = asyncio.ensure_future(feedback_comment(request, task))
+  elif func == 'mark_comment_private':
+    task.async_task = asyncio.ensure_future(mark_comment_private(request, task))
+
+  task.async_task.add_done_callback(tasks.handle_async_errors)
+  return web.json_response({'task_id': task.task_id})
 
 
 async def get_comments(request: web.Request, task: tasks.Task):
@@ -19,7 +40,7 @@ async def get_comments(request: web.Request, task: tasks.Task):
       task.result = await resp.json()
   except Exception as e:
     logging.warning(str(e))
-    task.error(f'{e}')
+    return task.error(f'{e}')
   task.finished('comments downloaded')
 
 
@@ -34,8 +55,7 @@ async def create_comment(request: web.Request, task: tasks.Task):
       comment_data = await resp.json()
   except Exception as e:
     logging.error(str(e))
-    task.error(f'{e}')
-
+    return task.error(f'{e}')
   if resp.status != 200:
     return task.error(f'GET request status code: {resp.status}')
 
@@ -58,8 +78,7 @@ async def create_comment(request: web.Request, task: tasks.Task):
       task.result = await resp.json()
   except Exception as e:
     logging.error(str(e))
-    task.error(f'{e}')
-
+    return task.error(f'{e}')
   if resp.status != 201:
     return task.error(f'POST request status code: {resp.status}')
 
@@ -84,8 +103,7 @@ async def feedback_comment(request: web.Request, task: tasks.Task):
       task.result = await resp.json()
   except Exception as e:
     logging.warning(str(e))
-    task.error(f'{e}')
-
+    return task.error(f'{e}')
   if resp.status not in [200,201]:
     return task.error(f'POST request failed ({resp.status})')
 
@@ -107,7 +125,7 @@ async def mark_comment_private(request: web.Request, task: tasks.Task):
       task.result = await resp.json()
   except Exception as e:
     logging.error(f'{e}')
-    task.error(f'{e}')
+    return task.error(f'{e}')
 
   if resp.status not in [200,201]:
     return task.error(f'POST request failed ({resp.status})')
@@ -117,3 +135,30 @@ async def mark_comment_private(request: web.Request, task: tasks.Task):
   globals.tasks.append(followup_task)
   get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
   get_comments_task.add_done_callback(tasks.handle_async_errors)
+
+
+### NOTIFICATIONS
+async def mark_notification_read_handler(request: web.Request):
+  data = await request.json()
+  task = tasks.Task(data, data['app_id'], f'notifications/mark_notification_read')
+  globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(mark_notification_read(request, task))
+  task.async_task.add_done_callback(tasks.handle_async_errors)
+  return web.json_response({'task_id': task.task_id})
+
+async def mark_notification_read(request: web.Request, task: tasks.Task):
+  """Mark notification as read."""
+  headers = utils.get_headers(task.data['api_key'])
+  session = request.app['SESSION_API_REQUESTS']
+  url = f'{globals.SERVER}/api/v1/notifications/mark-as-read/{task.data["notification_id"]}/'
+  try:
+    async with session.get(url, headers=headers) as resp:
+      task.result = await resp.json()
+  except Exception as e:
+    logging.error(f'{e}')
+    return task.error(f'{e}')
+  if resp.status != 200:
+    return task.error(f'GET request failed ({resp.status})')
+
+  return task.finished('notification marked as read')
+

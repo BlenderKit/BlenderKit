@@ -144,6 +144,16 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
   with requests.Session() as session:
     return session.post(f'{get_address()}/comments/mark_comment_private', json=data)
 
+### NOTIFICATIONS
+def mark_notification_read(notification_id):
+  """Mark the notification as read on the server."""
+  data = {
+    'notification_id': notification_id,
+    'api_key': bpy.context.preferences.addons['blenderkit'].preferences.api_key,
+    'app_id': os.getpid(),
+    }
+  with requests.Session() as session:
+    return session.post(f'{get_address()}/notifications/mark_notification_read', json=data)
 
 ### REPORTS
 def report_usages(report: dict):

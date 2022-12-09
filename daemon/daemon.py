@@ -88,24 +88,6 @@ async def upload_asset(request: web.Request):
   return web.json_response({'task_id': task_id})
 
 
-async def comments_handler(request: web.Request):
-  data = await request.json()
-  func  = request.match_info['func']
-  task = tasks.Task(data, data['app_id'], f'comments/{func}')
-  globals.tasks.append(task)
-  if func == 'get_comments':
-    task.async_task = asyncio.ensure_future(comments.get_comments(request, task))
-  elif func == 'create_comment':
-    task.async_task = asyncio.ensure_future(comments.create_comment(request, task))  
-  elif func == 'feedback_comment':
-    task.async_task = asyncio.ensure_future(comments.feedback_comment(request, task))
-  elif func == 'mark_comment_private':
-    task.async_task = asyncio.ensure_future(comments.mark_comment_private(request, task))
-
-  task.async_task.add_done_callback(tasks.handle_async_errors)
-  return web.json_response({'task_id': task.task_id})
-
-
 async def index(request: web.Request):
   """Report PID of server as Index page, can be used as is-alive endpoint."""
   pid = str(os.getpid())
@@ -354,7 +336,8 @@ if __name__ == '__main__':
     web.get('/refresh_token', refresh_token),
     web.post('/code_verifier', code_verifier),
     web.post('/report_usages', assets.report_usages_handler),
-    web.post('/comments/{func}', comments_handler),
+    web.post('/comments/{func}', comments.comments_handler),
+    web.post('/notifications/mark_notification_read', comments.mark_notification_read_handler),
   ])
 
   server.on_startup.append(start_background_tasks)
