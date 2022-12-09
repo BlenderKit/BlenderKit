@@ -17,19 +17,19 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
-import threading
 
-from . import global_vars, paths, ratings_utils, rerequests, utils
+from . import global_vars, ratings_utils
 from .daemon import tasks
 
 
 bk_logger = logging.getLogger(__name__)
 
+
+### COMMENTS
 def handle_get_comments_task(task: tasks.Task):
   """Handle incomming task which downloads comments on asset."""
   if task.status == 'error':
     return bk_logger.warning(f'failed to get comments: {task.message}')
-
   if task.status == 'finished':
     comments = task.result['results']
     store_comments_local(task.data['asset_id'], comments)
@@ -58,15 +58,21 @@ def handle_mark_comment_private_task(task: tasks.Task):
   if task.status == 'error':
     return bk_logger.warning(f'Marking comment visibility failed - {task.message}')
 
+def store_comments_local(asset_id, comments):
+  global_vars.DATA['asset comments'][asset_id] = comments
 
+def get_comments_local(asset_id):
+  return global_vars.DATA['asset comments'].get(asset_id)
+
+
+### NOTIFICATIONS
 def handle_notifications_task(task: tasks.Task):
+  """Handle incomming task with notifications data."""
   if task.status == 'finished':
     global_vars.DATA['bkit notifications'] = task.result
     return
-
   if task.status == 'error':
     return bk_logger.warning(f'Notifications fetching failed: {task.message}')
-
 
 def check_notifications_read():
   """Check if all notifications were already read, and remove them if so."""
@@ -82,32 +88,3 @@ def check_notifications_read():
 
   global_vars.DATA['bkit notifications'] = None
   return True
-
-
-def store_comments_local(asset_id, comments):
-  global_vars.DATA['asset comments'][asset_id] = comments
-
-
-def get_comments_local(asset_id):
-  return global_vars.DATA['asset comments'].get(asset_id)
-
-
-#TODO: MIGRATE
-def mark_notification_read_thread(api_key, notification_id):
-  thread = threading.Thread(target=mark_notification_read, args=([api_key, notification_id]), daemon=True)
-  thread.start()
-
-
-#TODO: MIGRATE
-def mark_notification_read(api_key, notification_id):
-  """Mark notification as read."""
-  headers = utils.get_headers(api_key)
-  url = f'{paths.BLENDERKIT_API}/notifications/mark-as-read/{notification_id}/'
-  params = {}
-  r = rerequests.get(url, params=params, verify=True, headers=headers)
-  if r is None:
-    return
-  # if r.status_code == 200:
-  #     rj = r.json()
-  #     # store notifications - send them to task queue
-  #     tasks_queue.add_task((mark_notification_read_local, ([notification_id])))
