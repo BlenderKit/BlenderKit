@@ -25,7 +25,7 @@ import sys
 
 import bpy
 
-from blenderkit import append_link, bg_blender, download, upload, upload_bg, utils
+from blenderkit import append_link, bg_blender, daemon_lib, download, upload, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
@@ -101,13 +101,12 @@ if __name__ == "__main__":
 
             bg_blender.progress('Downloading asset')
             asset_data = data['asset_data']
-            has_url = download.get_download_url(asset_data, utils.get_scene_id(), user_preferences.api_key, tcom=None,
-                                                resolution='blend')
+            has_url, asset_data = daemon_lib.get_download_url(asset_data, utils.get_scene_id(), user_preferences.api_key)
             if not has_url == True:
                 bg_blender.progress("couldn't download asset for thumnbail re-rendering")
             # download first, or rather make sure if it's already downloaded
             bg_blender.progress('downloading asset')
-            fpath = download.download_asset_file(asset_data)
+            fpath = download.download_asset_file(asset_data) #TODO: this got lost
             data['filepath'] = fpath
             main_object, allobs = append_link.link_collection(fpath,
                                                           location=(0,0,0),

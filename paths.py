@@ -24,7 +24,7 @@ import tempfile
 
 import bpy
 
-from . import global_vars, reports, tasks_queue, utils
+from . import daemon_lib, global_vars, reports, tasks_queue, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -345,11 +345,10 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
 
 def delete_asset_debug(asset_data):
     '''TODO fix this for resolutions - should get ALL files from ALL resolutions.'''
-    from . import download
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     api_key = user_preferences.api_key
 
-    download.get_download_url(asset_data, utils.get_scene_id(), api_key)
+    _, asset_data = daemon_lib.get_download_url(asset_data, utils.get_scene_id(), api_key)
 
     file_names = get_download_filepaths(asset_data)
     for f in file_names:

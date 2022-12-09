@@ -146,12 +146,20 @@ def report_download_finished(data):
   })
 
 
+async def get_download_url_wrapper(request: web.Request):
+  """Handle get_download_url request. This serves as a wrapper around get_download_url so this can be called from addon.
+  Returns the results directly so it is a blocking on add-on side (as add-on uses blocking Requests for this)."""
+  data = await request.json()
+  task = tasks.Task(data, data['app_id'], f'wrappers/get_download_url')
+  has_url = await get_download_url(request.app['SESSION_API_REQUESTS'], task)
+  return web.json_response({'has_url': has_url, 'asset_data': task.data['asset_data']})
+
+
 async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):
   """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
-
   headers = utils.get_headers(task.data['PREFS']['api_key'])
   req_data = {'scene_uuid': task.data['PREFS']['scene_id']}
-  res_file_info, resolution = get_res_file(task.data)
+  res_file_info, _ = get_res_file(task.data)
 
   async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
     await resp.text()

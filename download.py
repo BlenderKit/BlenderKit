@@ -20,7 +20,6 @@ import copy
 import logging
 import os
 import shutil
-import time
 import traceback
 
 from . import (
@@ -30,10 +29,8 @@ from . import (
     paths,
     ratings_utils,
     reports,
-    rerequests,
     resolutions,
     search,
-    tasks_queue,
     ui_panels,
     utils,
 )
@@ -1032,68 +1029,6 @@ def asset_in_scene(asset_data):
                             bk_logger.info('asset appended')
                             return 'APPENDED', ad.get('resolution')
     return False, None
-
-
-def get_download_url(asset_data, scene_id, api_key, tcom=None, resolution='blend'):
-    ''''retrieves the download url. The server checks if user can download the item.'''
-    mt = time.time()
-    bk_logger.info('getting download url')
-
-    headers = utils.get_headers(api_key)
-
-    data = {
-        'scene_uuid': scene_id
-    }
-    r = None
-
-    res_file_info, resolution = paths.get_res_file(asset_data, resolution)
-
-    try:
-        r = rerequests.get(res_file_info['downloadUrl'], params=data, headers=headers)
-    except Exception as e:
-        bk_logger.error(f'{e}')
-        if tcom is not None:
-            tcom.error = True
-    if r == None:
-        if tcom is not None:
-            tcom.report = 'Connection Error'
-            tcom.error = True
-        return 'Connection Error'
-
-    if r.status_code < 400:
-        data = r.json()
-        url = data['filePath']
-
-        res_file_info['url'] = url
-        res_file_info['file_name'] = paths.extract_filename_from_url(url)
-
-        bk_logger.info(f'URL: {url}')
-        return True
-
-    # let's print it into UI
-    tasks_queue.add_task((reports.add_report, (str(r), 10, 'ERROR')))
-
-    if r.status_code == 403:
-        report = 'You need Full plan to get this item.'
-        # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
-        # tasks_queue.add_task((reports.add_report, (r1, 5, 'ERROR')))
-        if tcom is not None:
-            tcom.report = report
-            tcom.error = True
-
-    if r.status_code == 404:
-        report = 'Url not found - 404.'
-        # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
-        if tcom is not None:
-            tcom.report = report
-            tcom.error = True
-
-    elif r.status_code >= 500:
-        # bk_logger.debug(r.text)
-        if tcom is not None:
-            tcom.report = 'Server error'
-            tcom.error = True
-    return False
 
 
 def start_download(asset_data, **kwargs) -> bool:

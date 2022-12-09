@@ -21,9 +21,7 @@ import logging
 import math
 import os
 import platform
-import random
 import threading
-import time
 import unicodedata
 
 import bpy
@@ -35,12 +33,8 @@ from bpy.props import (  # TODO only keep the ones actually used when cleaning
 from bpy.types import Operator
 
 from . import (
-    addon_updater_ops,
     asset_bar_op,
     bkit_oauth,
-    categories,
-    colors,
-    comments_utils,
     daemon_lib,
     global_vars,
     image_utils,
@@ -50,7 +44,6 @@ from . import (
     rerequests,
     resolutions,
     tasks_queue,
-    ui,
     utils,
     version_checker,
 )
@@ -74,7 +67,6 @@ def check_errors(rdata):
 
 
 search_tasks = {}
-
 
 
 def update_ad(ad):
