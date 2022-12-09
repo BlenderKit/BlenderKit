@@ -26,15 +26,7 @@ import time
 import bpy
 import requests
 
-from . import (
-    bg_blender,
-    image_utils,
-    paths,
-    rerequests,
-    search,
-    upload,
-    utils,
-)
+from . import bg_blender, image_utils, paths, rerequests, search, upload, utils
 
 
 bk_logger = logging.getLogger(__name__)

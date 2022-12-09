@@ -22,12 +22,7 @@ import threading
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
 import requests
-from bpy.props import (
-    EnumProperty,
-    FloatProperty,
-    IntProperty,
-    StringProperty,
-)
+from bpy.props import EnumProperty, FloatProperty, IntProperty, StringProperty
 from bpy.types import PropertyGroup
 
 from . import global_vars, paths, rerequests, tasks_queue, utils
