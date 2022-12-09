@@ -338,6 +338,7 @@ if __name__ == '__main__':
     web.post('/report_usages', assets.report_usages_handler),
     web.post('/comments/{func}', comments.comments_handler),
     web.post('/notifications/mark_notification_read', comments.mark_notification_read_handler),
+    web.get('/wrappers/get_download_url', assets.get_download_url_wrapper),
   ])
 
   server.on_startup.append(start_background_tasks)

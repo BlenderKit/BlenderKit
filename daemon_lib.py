@@ -173,6 +173,24 @@ def send_code_verifier(code_verifier: str):
     return resp
 
 
+### WRAPPERS
+def get_download_url(asset_data, scene_id, api_key):
+  data = {
+    'app_id': os.getpid(),
+    'resolution': 'blend',
+    'asset_data': asset_data,
+    'PREFS': {
+      'api_key': api_key,
+      'scene_id': scene_id,
+    },
+  }
+  with requests.Session() as session:
+    url = get_address() + "/wrappers/get_download_url"
+    resp = session.get(url, json=data)
+    resp = resp.json()
+    return (resp['has_url'], resp['asset_data'])
+
+
 def refresh_token(refresh_token):
   """Refresh authentication token."""
   with requests.Session() as session:
