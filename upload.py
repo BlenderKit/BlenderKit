@@ -97,8 +97,7 @@ def write_to_report(props, text):
 def check_missing_data_model(props):
     autothumb.update_upload_model_preview(None, None)
     if not props.has_thumbnail:
-        write_to_report(props, 'Add thumbnail:')
-        props.report += props.thumbnail_generating_state + '\n'
+        write_to_report(props, 'Add thumbnail: \n (jpg or png, at least 1024x1024)')
     if props.engine == 'NONE':
         write_to_report(props, 'Set at least one rendering/output engine')
 
@@ -109,8 +108,7 @@ def check_missing_data_model(props):
 def check_missing_data_scene(props):
     autothumb.update_upload_model_preview(None, None)
     if not props.has_thumbnail:
-        write_to_report(props, 'Add thumbnail:')
-        props.report += props.thumbnail_generating_state + '\n'
+        write_to_report(props, 'Add thumbnail: \n (jpg or png, at least 1024x1024)')
     if props.engine == 'NONE':
         write_to_report(props, 'Set at least one rendering/output engine')
 
@@ -118,8 +116,7 @@ def check_missing_data_scene(props):
 def check_missing_data_material(props):
     autothumb.update_upload_material_preview(None, None)
     if not props.has_thumbnail:
-        write_to_report(props, 'Add thumbnail:')
-        props.report += props.thumbnail_generating_state
+        write_to_report(props, 'Add thumbnail: \n (jpg or png, at least 1024x1024)')
     if props.engine == 'NONE':
         write_to_report(props, 'Set rendering/output engine')
 
@@ -127,8 +124,7 @@ def check_missing_data_material(props):
 def check_missing_data_brush(props):
     autothumb.update_upload_brush_preview(None, None)
     if not props.has_thumbnail:
-        write_to_report(props, 'Add thumbnail:')
-        props.report += props.thumbnail_generating_state
+        write_to_report(props, 'Add thumbnail \n - (jpg or png, at least 1024x1024)')
 
 
 def check_missing_data(asset_type, props):
@@ -152,6 +148,11 @@ def check_missing_data(asset_type, props):
     if len(props.name) > 40:
         write_to_report(props, f'The name is too long. maximum is 40 letters')
 
+    if props.category == 'NONE' or \
+        props.subcategory != 'EMPTY' and props.subcategory =='NONE' or \
+        props.subcategory1 != 'EMPTY' and props.subcategory1 == 'NONE':
+            write_to_report(props, "fill in the category, including subcategories. \n"
+                                   "Category can't be 'None'.")
     if props.is_private == 'PUBLIC':
 
         if len(props.description) < 20:
@@ -162,6 +163,7 @@ def check_missing_data(asset_type, props):
         if props.tags == '':
             write_to_report(props, 'Write at least 3 tags.\n'
                                    'Tags help to bring your asset up in relevant search results.')
+
 
     if asset_type == 'MODEL':
         check_missing_data_model(props)
@@ -520,9 +522,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         upload_data["category"] = asset_type.lower()
     else:
         upload_data["category"] = props.category
-    if props.subcategory != 'NONE':
+    if props.subcategory not in ('NONE', 'EMPTY'):
         upload_data["category"] = props.subcategory
-    if props.subcategory1 != 'NONE':
+    if props.subcategory1 not in ('NONE', 'EMPTY'):
         upload_data["category"] = props.subcategory1
 
     upload_data["license"] = props.license
@@ -552,26 +554,6 @@ def patch_individual_metadata(asset_id, metadata_dict, api_key):
         bk_logger.error(e)
         return {'CANCELLED'}
     return {'FINISHED'}
-
-
-# class OBJECT_MT_blenderkit_fast_metadata_menu(bpy.types.Menu):
-#     bl_label = "Fast category change"
-#     bl_idname = "OBJECT_MT_blenderkit_fast_metadata_menu"
-#
-#     def draw(self, context):
-#         layout = self.layout
-#         ui_props = context.window_manager.blenderkitUI
-#
-#         # sr =global_vars.DATA['search results']
-#         sr =global_vars.DATA['search results']
-#         asset_data = sr[ui_props.active_index]
-#         categories =global_vars.DATA['bkit_categories']
-#         wm = bpy.context.win
-#         for c in categories:
-#             if c['name'].lower() == asset_data['assetType']:
-#                 for ch in c['children']:
-#                     op = layout.operator('wm.blenderkit_fast_metadata', text = ch['name'])
-#                     op = layout.operator('wm.blenderkit_fast_metadata', text = ch['name'])
 
 
 def update_free_full(self, context):
@@ -938,7 +920,6 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     ###### end of TODO
 
     location = get_upload_location(props)
-    props.upload_state = '0% - preparing upload'
 
     auto_fix(asset_type=asset_type)
 
@@ -969,7 +950,6 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
             props.uploading = False
             return False, None, None
 
-    props.uploading = True
     # save a copy of the file for processing. Only for blend files
     basename, ext = os.path.splitext(bpy.data.filepath)
     if not ext:
@@ -1049,14 +1029,6 @@ class UploadOperator(Operator):
         bpy.ops.object.blenderkit_auto_tags()
         props = utils.get_upload_props()
 
-        # in case of name change, we have to reupload everything, since the name is stored in blender file,
-        # and is used for linking to scene
-        # if props.name_changed:
-        #     # TODO: this needs to be replaced with new double naming scheme (metadata vs blend data)
-        #     # print('has to reupload whole data, name has changed.')
-        #     self.main_file = True
-        #     props.name_changed = False
-
         upload_set = []
         if not self.reupload:
             upload_set = ['METADATA', 'THUMBNAIL', 'MAINFILE']
@@ -1075,7 +1047,12 @@ class UploadOperator(Operator):
 
         ok, upload_data, export_data = prepare_asset_data(self, context, self.asset_type, self.reupload, upload_set=upload_set)
         if not ok:
-          return {'CANCELLED'}
+            self.report({'ERROR_INVALID_INPUT'}, props.report)
+            props.upload_state = ''
+            return {'CANCELLED'}
+
+        props.upload_state = '0% - preparing upload'
+        props.uploading = True
 
         daemon_lib.upload_asset(upload_data, export_data, upload_set)        
         return {'FINISHED'}
@@ -1264,8 +1241,8 @@ def handle_asset_upload(task: tasks.Task):
 
     if asset_type == 'MODEL': asset = bpy.data.objects[name].blenderkit
     elif asset_type == 'MATERIAL': asset = bpy.data.materials[name].blenderkit
-    elif asset_type == 'SCENE': asset = bpy.data.scenes.blenderkit
-    elif asset_type == 'HDR': asset = bpy.data.images[name].blenderkit
+    elif asset_type == 'SCENE': asset = bpy.data.scenes[name].blenderkit
+    elif asset_type == 'HDR': asset = bpy.data.images[task.data['export_data']['hdr']].blenderkit
     elif asset_type == 'BRUSH': asset = bpy.data.brushes[name].blenderkit
 
     asset.upload_state = f'{task.progress}% - {task.message}'

@@ -70,6 +70,9 @@ def get_texture_ui(tpath, iname):
 
 
 def check_thumbnail(props, imgpath):
+    if imgpath =='':
+        props.has_thumbnail = False
+        return None
     img = utils.get_hidden_image(imgpath, 'upload_preview', force_reload=True)
     if img is not None:  # and img.size[0] == img.size[1] and img.size[0] >= 512 and (
         # img.file_format == 'JPEG' or img.file_format == 'PNG'):
