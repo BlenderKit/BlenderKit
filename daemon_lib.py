@@ -97,6 +97,20 @@ def kill_download(task_id):
     return resp
 
 
+### PROFILES
+def fetch_gravatar_image(author_data):
+  """Fetch gravatar image for specified user. Find it on disk or download it from server."""
+  author_data['app_id'] = os.getpid()
+  with requests.Session() as session:
+    return session.get(f'{get_address()}/profiles/fetch_gravatar_image', json=author_data)
+
+def get_user_profile(api_key):
+  """Get profile of currently logged-in user. This creates task to daemon to fetch data which are later handled once available."""
+  data = {'api_key': api_key, 'app_id': os.getpid()}
+  with requests.Session() as session:
+    return session.get(f'{get_address()}/profiles/get_user_profile', json=data)
+
+
 ### COMMENTS
 def get_comments(asset_id, api_key=''):
   """Get all comments on the asset."""

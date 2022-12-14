@@ -925,10 +925,11 @@ def user_logged_in():
 
 
 def profile_is_validator():
-    a = global_vars.DATA.get('bkit profile')
-    if a is not None and a['user'].get('exmenu'):
-        return True
-    return False
+    profile = global_vars.DATA.get('bkit profile')
+    if profile is None:
+      return False
+    result = profile.get('canEditAllAssets', False)
+    return result
 
 
 def user_is_owner(asset_data=None):
