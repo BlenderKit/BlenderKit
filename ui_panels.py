@@ -38,6 +38,7 @@ from . import (
     paths,
     ratings,
     ratings_utils,
+    search,
     ui,
     upload,
     utils,
@@ -1478,38 +1479,11 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
 
     def execute(self, context):
         if self.step == 0:
-            # move mouse:
-            # bpy.context.window_manager.windows[0].cursor_warp(1000, 1000)
-            # show n-key sidebar (spaces[index] has to be found for view3d too:
-            # bpy.context.window_manager.windows[0].screen.areas[5].spaces[0].show_region_ui = False
             ui_props = bpy.context.window_manager.blenderkitUI
-            # random_searches = [
-            #     ('MATERIAL', 'ice'),
-            #     ('MODEL', 'car'),
-            #     ('MODEL', 'vase'),
-            #     ('MODEL', 'grass'),
-            #     ('MODEL', 'plant'),
-            #     ('MODEL', 'man'),
-            #     ('MATERIAL', 'metal'),
-            #     ('MATERIAL', 'wood'),
-            #     ('MATERIAL', 'floor'),
-            #     ('MATERIAL', 'bricks'),
-            # ]
-            # random_search = random.choice(random_searches)
-            # ui_props.asset_type = random_search[0]
+
             ui_props.asset_type = 'MODEL'
 
-            score_limit = 450
-            if ui_props.asset_type == 'MATERIAL':
-                props = bpy.context.window_manager.blenderkit_mat
-
-            elif ui_props.asset_type == 'MODEL':
-                props = bpy.context.window_manager.blenderkit_models
-                score_limit = 1000
-
-            props.search_keywords = ''  # random_search[1]
-            props.search_keywords += f'+is_free:true+score_gte:{score_limit}+order:-created'  # random_search[1]
-            # search.search()
+            search.search(query = {'asset_type': 'model', 'query': f'+is_free:true+score_gte:1000+order:-created'})
         return {'FINISHED'}
 
     def invoke(self, context, event):

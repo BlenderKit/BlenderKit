@@ -421,7 +421,7 @@ def handle_search_task(task: tasks.Task) -> bool:
       tasks_queue.add_task((reports.add_report, (f"Found {global_vars.DATA['search results orig']['count']} results.",)))
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get('get_next'):
-      bpy.ops.view3d.run_assetbar_fix_context()
+      bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
 
   else:
     props.report = error
