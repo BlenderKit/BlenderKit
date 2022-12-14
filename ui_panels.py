@@ -2799,7 +2799,11 @@ def header_search_draw(self, context):
     layout.label(text='',icon_value=pcoll[ui_props.logo_status].icon_id)
     # layout.separator()
     layout.prop(ui_props, "asset_type", expand=True, icon_only=True, text='', icon=asset_type_icon)
-    layout.prop(props, "search_keywords", text="", icon='VIEWZOOM')
+    row = layout.row()
+    if (context.region.width)>700:
+        row.ui_units_x = 5+int(context.region.width/200)
+    row.prop(props, "search_keywords", text="", icon='VIEWZOOM')
+
     draw_assetbar_show_hide(layout, props)
     layout.popover(panel="VIEW3D_PT_blenderkit_categories", text="", icon='OUTLINER')
 
