@@ -133,14 +133,14 @@ def get_category(categories, cat_path=()):
 def update_category_enums(self, context):
     '''Fixes if lower level is empty - sets it to None, because enum value can be higher.'''
     enums = get_subcategory_enums(self, context)
-    if enums[0][0] == 'NONE' and self.subcategory != 'NONE':
+    if enums[0][0] == 'NONE' and (self.subcategory != 'NONE' and self.subcategory != 'EMPTY'):
         self.subcategory = 'NONE'
 
 
 def update_subcategory_enums(self, context):
     '''Fixes if lower level is empty - sets it to None, because enum value can be higher.'''
     enums = get_subcategory1_enums(self, context)
-    if enums[0][0] == 'NONE' and self.subcategory1 != 'NONE':
+    if enums[0][0] == 'NONE' and (self.subcategory1 != 'NONE' and self.subcategory1 != 'EMPTY'):
         self.subcategory1 = 'NONE'
 
 
@@ -148,39 +148,55 @@ def get_category_enums(self, context):
     props = bpy.context.window_manager.blenderkitUI
     asset_type = props.asset_type.lower()
     # asset_type = self.asset_type#get_upload_asset_type(self)
+    if global_vars.DATA.get('bkit_categories') is None:
+        return [('EMPTY', 'Empty', 'no categories on this level defined'),]
+
     asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type,))
     items = []
     for c in asset_categories['children']:
         items.append((c['slug'], c['name'], c['description']))
     if len(items) == 0:
-        items.append(('NONE', '', 'no categories on this level defined'))
+        items.append(('EMPTY', 'Empty', 'no categories on this level defined'))
+    else:
+        items.insert(0,('NONE', 'None', 'Default state, category not defined by user'),)
     return items
-
 
 def get_subcategory_enums(self, context):
-    props = bpy.context.window_manager.blenderkitUI
-    asset_type = props.asset_type.lower()
-    items = []
-    if self.category != '':
-        asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type, self.category,))
-        for c in asset_categories['children']:
-            items.append((c['slug'], c['name'], c['description']))
-    if len(items) == 0:
-        items.append(('NONE', '', 'no categories on this level defined'))
-    return items
+     props = bpy.context.window_manager.blenderkitUI
+     asset_type = props.asset_type.lower()
+     if global_vars.DATA.get('bkit_categories') is None:
+         return [('EMPTY', 'Empty', 'no categories on this level defined'), ]
+
+     items = []
+     if self.category != 'None':
+         asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type, self.category,))
+         if asset_categories is not None:
+             for c in asset_categories['children']:
+                 items.append((c['slug'], c['name'], c['description']))
+     if len(items) == 0:
+         items.append(('EMPTY', 'Empty', 'no categories on this level defined'))
+     else:
+         items.insert(0, ('NONE', 'None', 'Default state, category not defined by user'), )
+     return items
 
 
 def get_subcategory1_enums(self, context):
     props = bpy.context.window_manager.blenderkitUI
     asset_type = props.asset_type.lower()
+    if global_vars.DATA.get('bkit_categories') is None:
+        return [('EMPTY', 'Empty', 'no categories on this level defined'),]
+
     items = []
-    if self.category != '' and self.subcategory != '':
+    if self.category != 'None' and self.subcategory != 'Empty':
         asset_categories = get_category(global_vars.DATA['bkit_categories'], cat_path=(asset_type, self.category, self.subcategory,))
-        if asset_categories:
+        if asset_categories is not None:
             for c in asset_categories['children']:
                 items.append((c['slug'], c['name'], c['description']))
     if len(items) == 0:
-        items.append(('NONE', '', 'no categories on this level defined'))
+        items.append(('EMPTY', 'Empty', 'no categories on this level defined'))
+    else:
+        items.insert(0, ('NONE', 'None', 'Default state, category not defined by user'), )
+
     return items
 
 

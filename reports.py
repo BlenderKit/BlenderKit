@@ -58,12 +58,13 @@ class Report():
         self.color = color
         self.draw_color = color
         self.age = 0
+
+        self.active_area_pointer = asset_bar_op.active_area_pointer
         if asset_bar_op.active_area_pointer == 0:
             w, a, r = utils.get_largest_area(area_type='VIEW_3D')
+            if a is not None:
+                self.active_area_pointer = a.as_pointer()
 
-            self.active_area_pointer = a.as_pointer()
-        else:
-            self.active_area_pointer = asset_bar_op.active_area_pointer
 
     def fade(self):
         fade_time = 1

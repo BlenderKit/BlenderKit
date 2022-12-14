@@ -267,7 +267,7 @@ def report_usages():
 
     ###########check ratings herer too:
     for k in assets.keys():
-        ratings_utils.store_rating_local_empty()
+        ratings_utils.store_rating_local_empty(k)
 
     thread = threading.Thread(target=utils.requests_post_thread, args=(url, usage_report, headers))
     thread.start()
