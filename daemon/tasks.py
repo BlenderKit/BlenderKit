@@ -12,7 +12,7 @@ class Task():
     
     self.data = data
     self.task_id = task_id
-    self.app_id = app_id
+    self.app_id = app_id #TODO: implement solution for report to "all" Blenders
     self.task_type = task_type
     
     self.message = message

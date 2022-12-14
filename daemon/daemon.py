@@ -35,6 +35,7 @@ import comments
 import disclaimer
 import globals
 import oauth
+import profiles
 import tasks
 import uploads
 
@@ -339,11 +340,13 @@ if __name__ == '__main__':
     web.post('/comments/{func}', comments.comments_handler),
     web.post('/notifications/mark_notification_read', comments.mark_notification_read_handler),
     web.get('/wrappers/get_download_url', assets.get_download_url_wrapper),
+    web.get('/profiles/fetch_gravatar_image', profiles.fetch_gravatar_image_handler),
+    web.get('/profiles/get_user_profile', profiles.get_user_profile_handler),
   ])
 
   server.on_startup.append(start_background_tasks)
   server.on_cleanup.append(cleanup_background_tasks)
-  
+
   try:
     logging.info(f'Starting with {args}')
     web.run_app(server, host='127.0.0.1', port=args.port)

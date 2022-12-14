@@ -180,7 +180,8 @@ def parse_result(r):
   asset_type = r['assetType']
   #TODO: REVERSE THIS CONDITION AND RETURN
   if len(r['files']) > 0:  # TODO remove this condition so all assets are parsed.
-    get_author(r)
+    generate_author_profile(r['author'])
+
     r['available_resolutions'] = []
     use_webp = True
     if bpy.app.version < (3,4,0) or r.get('webpGeneratedTimestamp') == None:
@@ -558,7 +559,6 @@ def generate_tooltip(mdata):
 
 def generate_author_textblock(adata):
   t = ''
-
   if adata not in (None, ''):
     col_w = 2000
     if len(adata['firstName'] + adata['lastName']) > 0:
@@ -569,139 +569,31 @@ def generate_author_textblock(adata):
   return t
 
 
-def write_gravatar(a_id, gravatar_path):
-  """Write down gravatar path, as a result of thread-based gravatar image download.
-  This should happen on timer in queue.
-  """
-  # print('write author', a_id, type(a_id))
-  authors = global_vars.DATA['bkit authors']
-  if authors.get(a_id) is not None:
-    adata = authors.get(a_id)
-    adata['gravatarImg'] = gravatar_path
+def handle_fetch_gravatar_task(task: tasks.Task):
+  """Handle incomming fetch_gravatar_task which contains path to author's image on the disk."""
+  if task.status == 'finished':
+    author_id = str(task.data['id'])
+    gravatar_path = task.result['gravatar_path']
+    global_vars.DATA['bkit authors'][author_id]['gravatarImg'] = gravatar_path
 
 
-def fetch_gravatar(adata=None):
-  """Get avatars from blenderkit server
-  Parameters
-  ----------
-  adata - author data from elastic search result
-  """
-
-  # fetch new avatars if available already
-  if adata.get('avatar128') is not None:
-    avatar_path = paths.get_temp_dir(subdir='bkit_g/') + adata['id'] + '.jpg'
-    if os.path.exists(avatar_path):
-      tasks_queue.add_task((write_gravatar, (adata['id'], avatar_path)))
-      return
-
-    url = global_vars.SERVER + adata['avatar128']
-    r = rerequests.get(url, stream=False, headers=utils.get_headers())
-    # print(r.body)
-    if r.status_code == 200:
-      # print(url)
-      # print(r.headers['content-disposition'])
-      with open(avatar_path, 'wb') as f:
-        f.write(r.content)
-      tasks_queue.add_task((write_gravatar, (adata['id'], avatar_path)))
-    elif r.status_code == '404':
-      adata['avatar128'] = None
-      utils.p('avatar for author not available.')
+def generate_author_profile(author_data):
+  """Generate author profile by creating author textblock and fetching gravatar image if needed.
+  Gravatar dokkjjwnload is started in daemon and handled later."""
+  author_id = str(author_data['id'])
+  if author_id in global_vars.DATA['bkit authors']:
     return
-
-  # older gravatar code
-  if adata.get('gravatarHash') is not None:
-    gravatar_path = paths.get_temp_dir(subdir='bkit_g/') + adata['gravatarHash'] + '.jpg'
-
-    if os.path.exists(gravatar_path):
-      tasks_queue.add_task((write_gravatar, (adata['id'], gravatar_path)))
-      return;
-
-    url = "https://www.gravatar.com/avatar/" + adata['gravatarHash'] + '?d=404'
-    r = rerequests.get(url, stream=False, headers=utils.get_headers())
-    if r.status_code == 200:
-      with open(gravatar_path, 'wb') as f:
-        f.write(r.content)
-      tasks_queue.add_task((write_gravatar, (adata['id'], gravatar_path)))
-    elif r.status_code == '404':
-      adata['gravatarHash'] = None
-      utils.p('gravatar for author not available.')
+  daemon_lib.fetch_gravatar_image(author_data)
+  author_data['tooltip'] = generate_author_textblock(author_data)
+  global_vars.DATA['bkit authors'][author_id] = author_data
+  return
 
 
-fetching_gravatars = {}
-
-
-def get_author(r):
-  """Write author info (now from search results) and fetches gravatar if needed.
-  this is now tweaked to be able to get authors from
-  """
-  global fetching_gravatars
-
-  a_id = str(r['author']['id'])
-  authors = global_vars.DATA.get('bkit authors', {})
-  if authors == {}:
-    global_vars.DATA['bkit authors'] = authors
-  a = authors.get(a_id)
-  if a is None:  # or a is '' or (a.get('gravatarHash') is not None and a.get('gravatarImg') is None):
-    a = r['author']
-    a['id'] = a_id
-    a['tooltip'] = generate_author_textblock(a)
-
-    authors[a_id] = a
-    if fetching_gravatars.get(a['id']) is None:
-      fetching_gravatars[a['id']] = True
-
-    thread = threading.Thread(target=fetch_gravatar, args=(a.copy(),), daemon=True)
-    thread.start()
-  return a
-
-
-def write_profile(adata):
-  user = adata['user']
-  # we have to convert to MiB here, numbers too big for python int type
-  if user.get('sumAssetFilesSize') is not None:
-    user['sumAssetFilesSize'] /= (1024 * 1024)
-  if user.get('sumPrivateAssetFilesSize') is not None:
-    user['sumPrivateAssetFilesSize'] /= (1024 * 1024)
-  if user.get('remainingPrivateQuota') is not None:
-    user['remainingPrivateQuota'] /= (1024 * 1024)
-
-  if adata.get('canEditAllAssets') is True:
-    user['exmenu'] = True
-  else:
-    user['exmenu'] = False
-
-  global_vars.DATA['bkit profile'] = adata
-
-
-def request_profile(api_key):
-  a_url = f'{paths.BLENDERKIT_API}/me/'
-  headers = utils.get_headers(api_key)
-  r = rerequests.get(a_url, headers=headers)
-  adata = r.json()
-  if adata.get('user') is None:
-    utils.p(adata)
-    utils.p('getting profile failed')
-    return None
-  return adata
-
-
-def fetch_profile(api_key):
-  try:
-    adata = request_profile(api_key)
-    if adata is not None:
-      tasks_queue.add_task((write_profile, (adata,)))
-  except Exception as e:
-    bk_logger.error(e)
-
-
-#TODO: migrate -> daemon new addon subscribed
-def get_profile():
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  profile = global_vars.DATA.get('bkit profile')
-  thread = threading.Thread(target=fetch_profile, args=(preferences.api_key,), daemon=True)
-  thread.start()
-
-  return profile
+def handle_get_user_profile(task: tasks.Task):
+  """Handle incomming get_user_profile task which contains data about current logged-in user."""
+  if task.status == 'finished':
+    user_data = task.result
+    global_vars.DATA['bkit profile'] = user_data
 
 
 def query_to_url(query={}, params={}):

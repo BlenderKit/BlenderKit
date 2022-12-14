@@ -9,6 +9,7 @@ DATA = {
   'images available': {},
   'search history': collections.deque(maxlen=20),
   'bkit notifications': None,
+  'bkit authors': {},
   'asset comments': {},
 }
 LOGGING_LEVEL_BLENDERKIT = logging.INFO

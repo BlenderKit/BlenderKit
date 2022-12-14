@@ -804,14 +804,14 @@ def get_upload_location(props):
     return None
 
 
-def check_storage_quota(props):
+def check_storage_quota(props): #TODO: fix this function
     if props.is_private == 'PUBLIC':
         return True
 
     profile = bpy.context.window_manager.get('bkit profile')
     if profile is None or profile.get('remainingPrivateQuota') is None:
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        adata = search.request_profile(preferences.api_key)
+        adata = daemon_lib.get_user_profile(preferences.api_key) #TODO: here it needs a fix
         if adata is None:
             props.report = 'Please log-in first.'
             return False
@@ -906,7 +906,6 @@ def upload_files(upload_data, files):
 
 def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     """Process asset and its data for upload."""
-
     # fix the name first
     props = utils.get_upload_props()
     utils.name_update(props)

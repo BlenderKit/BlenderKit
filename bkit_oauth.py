@@ -106,12 +106,12 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     props = utils.get_search_props()
     if props is not None:
         props.report = ''
-    search.get_profile()
+    daemon_lib.get_user_profile(preferences.api_key)
     # ui_props = bpy.context.window_manager.blenderkitUI
     # if ui_props.assetbar_on:
     #     ui_props.turn_off = True
     #     ui_props.assetbar_on = False
-    search.cleanup_search_results()
+    search.cleanup_search_results() #TODO: is it possible to start this from daemon automatically? probably YEA
     history = global_vars.DATA['search history']
     if len(history)>0:
         search.search(query = history[-1])

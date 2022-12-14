@@ -182,33 +182,11 @@ def handle_task(task: tasks.Task):
   if task.task_type == "comments/mark_comment_private":
     return comments_utils.handle_mark_comment_private_task(task)
 
-
-def setup_asyncio_executor():
-  """Set up AsyncIO to run properly on each platform."""
-
-  if sys.platform == 'win32':
-    asyncio.get_event_loop().close()
-    # On Windows, the default event loop is SelectorEventLoop, which does
-    # not support subprocesses. ProactorEventLoop should be used instead.
-    # Source: https://docs.python.org/3/library/asyncio-subprocess.html
-    loop = asyncio.ProactorEventLoop()
-    asyncio.set_event_loop(loop)
-  else:
-    loop = asyncio.get_event_loop()
-
-  executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
-  loop.set_default_executor(executor)
-  # loop.set_debug(True)
-
-
-def kick_async_loop(*args) -> bool:
-  """Perform a single iteration of the asyncio event loop."""
-
-  loop = asyncio.get_event_loop()
-  loop.stop()
-  loop.run_forever()
-
-  return True#stop_after_this_kick
+  #HANDLE PROFILE
+  if task.task_type == 'profiles/fetch_gravatar_image':
+    return search.handle_fetch_gravatar_task(task) 
+  if task.task_type == 'profiles/get_user_profile':
+    return search.handle_get_user_profile(task)
 
 
 @bpy.app.handlers.persistent
@@ -231,10 +209,6 @@ def on_startup_timer():
   addon_updater_ops.check_for_update_background()
   utils.ensure_system_ID()
 
-  api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
-  if api_key != '':
-    search.get_profile()
-
 
 def on_startup_daemon_online_timer():
   """Run once when daemon is online after startup."""
@@ -244,6 +218,8 @@ def on_startup_daemon_online_timer():
   preferences = bpy.context.preferences.addons['blenderkit'].preferences
   if preferences.show_on_start:
     search.search()
+  if preferences.api_key != '': #TODO: this could be started from daemon automatically?
+    daemon_lib.get_user_profile(preferences.api_key)
   return
 
 
