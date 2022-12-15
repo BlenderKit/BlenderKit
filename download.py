@@ -1214,36 +1214,26 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return properties.tooltip
 
     def get_asset_data(self, context):
-        # get asset data - it can come from scene, or from search results.
-        s = bpy.context.scene
-
-        if self.asset_index > -1:
-            # either get the data from search results
+        """Get asset data - it can come from scene, or from search results."""
+        scene = bpy.context.scene
+        if self.asset_index > -1: # Getting the data from search results
             sr = global_vars.DATA['search results']
-            asset_data = sr[
-                self.asset_index]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
+            asset_data = sr[self.asset_index]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
             asset_base_id = asset_data['assetBaseId']
-        else:
-            # or from the scene.
-            asset_base_id = self.asset_base_id
+            return asset_data
 
-            au = s.get('assets used')
-            if au == None:
-                s['assets used'] = {}
-            if asset_base_id in s.get('assets used'):
-                # already used assets have already download link and especially file link.
-                asset_data = s['assets used'][asset_base_id].to_dict()
-            else:
-                # when not in scene nor in search results, we need to get it from the server
-                params = {
-                    'asset_base_id': self.asset_base_id
-                }
-                preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        # Getting the data from scene
+        asset_base_id = self.asset_base_id
+        assets_used = scene.get('assets used', {})
+        if asset_base_id in assets_used: # already used assets have already download link and especially file link.
+            asset_data = scene['assets used'][asset_base_id].to_dict()
+            return asset_data
 
-                results = search.get_search_simple(params, page_size=1, max_results=1,
-                                                   api_key=preferences.api_key)
-                asset_data = search.parse_result(results[0])
-
+        # when not in scene nor in search results, we need to get it from the server
+        params = {'asset_base_id': self.asset_base_id}
+        preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        results = search.get_search_simple(params, page_size=1, max_results=1, api_key=preferences.api_key)
+        asset_data = search.parse_result(results[0])
         return asset_data
 
     def execute(self, context):

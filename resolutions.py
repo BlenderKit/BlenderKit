@@ -379,20 +379,6 @@ def regenerate_thumbnail_material(data):
     return
 
 
-def get_materials_for_validation(page_size=100, max_results=100000000):
-    preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    dpath = os.path.dirname(bpy.data.filepath)
-    filepath = os.path.join(dpath, 'materials_for_validation.json')
-    params = {
-        'order': '-created',
-        'asset_type': 'material',
-        'verification_status': 'uploaded'
-    }
-    search.get_search_simple(params, filepath=filepath, page_size=page_size, max_results=max_results,
-                             api_key=preferences.api_key)
-    return filepath
-
-
 def run_bg(datafile):
     print('background file operation')
     with open(datafile, 'r',encoding='utf-8') as f:
