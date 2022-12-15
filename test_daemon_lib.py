@@ -83,6 +83,7 @@ class Test04GetReportsDaemonRunning(unittest.TestCase):
     self.assertEqual(reports[0]['app_id'], app_id)
     self.assertEqual(reports[0]['task_type'], 'daemon_status')
 
+
 class Test05SearchAndDownloadAsset(unittest.TestCase):
   assets_to_download = []
   def _search_asset(self, search_word, asset_type):
@@ -95,6 +96,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
       'tempdir': tempdir,
       'urlquery': urlquery,
       'asset_type': asset_type,
+      'blender_version': f'{blender_version[0]}.{blender_version[1]}.{blender_version[2]}',
     }
     response = daemon_lib.search_asset(data)
     search_task_id = response['task_id']
@@ -105,6 +107,8 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
       for task in reports:
         if search_task_id != task['task_id']:
           continue
+        if task['status'] == 'error':
+          self.fail(f'Search task failed {task["message"]}')
         if task['status'] != 'finished':
           continue
         if task['result'] != {}:
