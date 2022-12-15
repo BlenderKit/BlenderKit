@@ -51,60 +51,68 @@ async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.
     await asyncio.gather(*coroutines)
 
 async def parse_thumbnails(task: tasks.Task):
-  """Go through results and extract correct filenames."""
-
+  """Go through results and extract correct filenames and URLs. Use webp versions if available.
+  Check if file is on disk, if not start a download.
+  """
   small_thumbs_tasks = []
   full_thumbs_tasks = []
-  # END OF PARSING
-  # get thumbnails that need downloading
-
+  blender_version = task.data['blender_version'].split('.')
+  blender_version = (int(blender_version[0]), int(blender_version[1]), (int(blender_version[2])))
   for i, search_result in enumerate(task.result.get('results', [])):
-    # Find out if the asset is older than 1 hour, so we can use .webp images
-    webp_ext = '.webp'
+    use_webp = True
+    if blender_version < (3,4,0) or search_result.get('webpGeneratedTimestamp') == None:
+      use_webp = False #WEBP was optimized in Blender 3.4.0
 
     # SMALL THUMBNAIL
-    imgname = assets.extract_filename_from_url(search_result['thumbnailSmallUrl'])+webp_ext
-    imgpath = os.path.join(task.data['tempdir'], imgname)
+    if use_webp: 
+      image_url = search_result.get('thumbnailSmallUrlWebp')
+    else:
+      image_url = search_result.get('thumbnailSmallUrl')
 
+    imgname = assets.extract_filename_from_url(image_url)
+    image_path = os.path.join(task.data['tempdir'], imgname)
     data = {
-      "image_path": imgpath,
-      "image_url": search_result["thumbnailSmallUrl"],
+      "image_path": image_path,
+      "image_url": image_url,
       "assetBaseId": search_result['assetBaseId'],
       "thumbnail_type": "small",
-      "index": i
+      "index": i,
     }
-
     small_thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
     globals.tasks.append(small_thumb_task)
-
     if os.path.exists(small_thumb_task.data['image_path']):
       small_thumb_task.finished("thumbnail on disk")
     else:
       small_thumbs_tasks.append(small_thumb_task)
-
     # FULL THUMBNAIL
+    # HDR CASE
     if search_result["assetType"] == 'hdr':
-      large_thumb_url = search_result['thumbnailLargeUrlNonsquared']
+      if use_webp:
+        image_url = search_result.get('thumbnailLargeUrlNonsquaredWebp')
+      else:
+        image_url = search_result.get('thumbnailLargeUrlNonsquared')
+    #NON-HDR CASE
     else:
-      large_thumb_url = search_result['thumbnailMiddleUrl']
+      if use_webp:
+        image_url = search_result.get('thumbnailMiddleUrlWebp')
+      else:
+        image_url = search_result.get('thumbnailMiddleUrl')
 
-    imgname = assets.extract_filename_from_url(large_thumb_url)+webp_ext
-    imgpath = os.path.join(task.data['tempdir'], imgname)
+    imgname = assets.extract_filename_from_url(image_url)
+    image_path = os.path.join(task.data['tempdir'], imgname)
     data = {
-      "image_path": imgpath,
-      "image_url": large_thumb_url+webp_ext,
+      "image_path": image_path,
+      "image_url": image_url,
       "assetBaseId": search_result['assetBaseId'],
       "thumbnail_type": "full",
-      "index": i
+      "index": i,
     }
-
     full_thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
     globals.tasks.append(full_thumb_task)
     if os.path.exists(full_thumb_task.data['image_path']):
       full_thumb_task.finished("thumbnail on disk")
     else:
       full_thumbs_tasks.append(full_thumb_task)
-
   return small_thumbs_tasks, full_thumbs_tasks
 
 

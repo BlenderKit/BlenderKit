@@ -195,14 +195,12 @@ def check_clipboard():
 
 
 def parse_result(r):
-  '''
-  needed to generate some extra data in the result(by now)
+  """Needed to generate some extra data in the result(by now)
   Parameters
   ----------
   r - search result, also called asset_data
-  '''
+  """
   scene = bpy.context.scene
-
   # TODO remove this fix when filesSize is fixed.
   # this is a temporary fix for too big numbers from the server.
   # try:
@@ -210,21 +208,35 @@ def parse_result(r):
   # except:
   #     utils.p('asset with no files-size')
   asset_type = r['assetType']
+  #TODO: REVERSE THIS CONDITION AND RETURN
   if len(r['files']) > 0:  # TODO remove this condition so all assets are parsed.
     get_author(r)
-
     r['available_resolutions'] = []
-    durl, tname, small_tname = '', '', ''
+    use_webp = True
+    if bpy.app.version < (3,4,0) or r.get('webpGeneratedTimestamp') == None:
+      use_webp = False #WEBP was optimized in Blender 3.4.0
 
-    # Find out if the asset is older than 1 hour, so we can use .webp images
-    webp_ext = '.webp'
-
+    # BIG THUMB - HDR CASE
     if r['assetType'] == 'hdr':
-      tname = paths.extract_filename_from_url(r['thumbnailLargeUrlNonsquared'])+webp_ext
+      if use_webp:
+        thumb_url = r.get('thumbnailLargeUrlNonsquaredWebp')
+      else:
+        thumb_url = r.get('thumbnailLargeUrlNonsquared')
+    # BIG THUMB - NON HDR CASE
     else:
-      tname = paths.extract_filename_from_url(r['thumbnailMiddleUrl'])+webp_ext
-    small_tname = paths.extract_filename_from_url(r['thumbnailSmallUrl'])+webp_ext
+      if use_webp:
+        thumb_url = r.get('thumbnailMiddleUrlWebp')
+      else:
+        thumb_url = r.get('thumbnailMiddleUrl')
+    
+    # SMALL THUMB
+    if use_webp:
+      small_thumb_url = r.get('thumbnailSmallUrlWebp')
+    else:
+      small_thumb_url = r.get('thumbnailSmallUrl')
 
+    tname = paths.extract_filename_from_url(thumb_url)
+    small_tname = paths.extract_filename_from_url(small_thumb_url)
     for f in r['files']:
       # if f['fileType'] == 'thumbnail':
       #     tname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
@@ -256,7 +268,6 @@ def parse_result(r):
     asset_data = {'thumbnail': tname,
                   'thumbnail_small': small_tname,
                   # 'tooltip': tooltip,
-
                   }
     asset_data['downloaded'] = 0
 
