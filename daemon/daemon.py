@@ -6,6 +6,8 @@ import argparse
 import asyncio
 import logging
 import os
+import platform
+import signal
 import socket
 import ssl
 import time
@@ -158,7 +160,7 @@ async def report(request: web_request.Request):
 async def shutdown(request: web_request.Request):
   """Shedules shutdown of the server."""
   logging.warning('Shutdown requested, exiting Daemon')
-  asyncio.ensure_future(shutdown_daemon(request.app))
+  signal.raise_signal(signal.SIGINT)
   return web.Response(text='Going to shutdown.')
 
 
@@ -169,7 +171,7 @@ async def report_blender_quit(request: web_request.Request):
     globals.active_apps.remove(data['app_id'])
   if len(globals.active_apps)==0:
     logging.warning('No more apps to serve, exiting Daemon')
-    asyncio.ensure_future(shutdown_daemon(request.app))
+    signal.raise_signal(signal.SIGINT)
 
   return web.Response(text="ok") 
 
@@ -180,7 +182,7 @@ async def life_check(app: web.Application):
   while True:
     since_report = time.time() - globals.last_report_time
     if since_report > globals.TIMEOUT:
-      asyncio.ensure_future(shutdown_daemon(app))
+      signal.raise_signal(signal.SIGINT)
     await asyncio.sleep(10)
 
 
@@ -188,15 +190,13 @@ async def online_status_check(app: web.Application):
   while True:
     try:
       url = f'{globals.SERVER}/-/alive/'
-      resp = await app['SESSION_API_REQUESTS'].head(url, timeout=3)
-      globals.online_status = resp.status
-      if resp.status != 200:
-        logging.warning(f'{url}: status code {resp.status}')
+      async with app['SESSION_API_REQUESTS'].head(url, timeout=3) as resp:
+        globals.online_status = resp.status
+        if resp.status != 200:
+          logging.warning(f'{url}: status code {resp.status}')
     except Exception as e:
       logging.warning(f'{url}: request failed')
       globals.online_status = f'{e}'
-    finally:
-      resp.close()
 
     if globals.online_status == 200:
       await asyncio.sleep(300)
@@ -206,21 +206,15 @@ async def online_status_check(app: web.Application):
 
 async def start_background_tasks(app: web.Application):
   app['life_check'] = asyncio.create_task(life_check(app))
-  app[f'online_status_check'] = asyncio.create_task(online_status_check(app))
+  app['online_status_check'] = asyncio.create_task(online_status_check(app))
 
 
 async def cleanup_background_tasks(app: web.Application):
   try:
     app['life_check'].cancel()
-    app[f'online_status_check'].cancel()
+    app['online_status_check'].cancel()
   except:
     logging.warning(f'BG tasks canceling failed: {e}')
-  exit(0)
-
-
-async def shutdown_daemon(app: web.Application):
-  await app.shutdown()
-  await app.cleanup()
 
 
 ## CONFIGURATION
@@ -277,7 +271,7 @@ async def persistent_sessions(app):
   )
 
 
-## MAIN 
+## MAIN
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -320,16 +314,14 @@ if __name__ == '__main__':
   server.on_cleanup.append(cleanup_background_tasks)
   
   try:
-    print(f'Starting with {args}')
+    logging.info(f'Starting with {args}')
     web.run_app(server, host='127.0.0.1', port=args.port)
   except OSError as e:
-    # [Errno 10013] error while attempting to bind on address ('[host IP]', [port?]): An attempt was made to access a socket in a way forbidden by its access permissions
-    if e.errno == 10013:
-      logging.error(f'Antivirus blocked Daemon: {e}')
-      exit(113)
-    else:
-      logging.error(f'Daemon start blocked by error: {e}')
-      exit(100)
-  except Exception as e:
-    logging.error(f'Daemon start blocked by error: {e}')
-    exit(100)
+    if platform.system() == "Windows":
+      if e.winerror == 121: exit(121)
+    if e.errno == 10013: exit(113)
+    if e.errno == 10014: exit(114)
+    if e.errno == 48: exit(148)
+    if e.errno == 10048: exit(149)
+    exit(110)
+  except Exception as e: exit(100)

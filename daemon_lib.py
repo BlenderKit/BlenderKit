@@ -171,21 +171,30 @@ def check_daemon_exit_code() -> tuple[int, str]:
   """Checks the exit code of daemon process. Returns exit_code and its message.
   Function polls the process which should not block, but better run only when daemon misbehaves and is expected that it already exited.
   """
-
   exit_code = global_vars.daemon_process.poll()
   if exit_code == None:
     return exit_code, "Daemon process is running."
   
   #exit_code = global_vars.daemon_process.returncode
+  log_path = f'{get_daemon_directory_path()}/daemon-{get_port()}.log'
   if exit_code == 101:
-    message = f'Failed to import AIOHTTP. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
+    message = f'failed to import AIOHTTP. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
   elif exit_code == 102:
-    message = f'Failed to import CERTIFI. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
+    message = f'failed to import CERTIFI. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
+  elif exit_code == 100:
+    message = f'unexpected OSError. Please report a bug and paste content of log {log_path}'
   elif exit_code == 113:
-    message = 'OSError: [Errno 10013] - cannot open port. Please check your antivirus or firewall and unblock blenderkit and/or daemon.py script.'
+    message = 'cannot open port. Check your antivirus/firewall and unblock BlenderKit.'
+  elif exit_code == 114:
+    message = f'invalid pointer address. Please report a bug and paste content of log {log_path}'
+  elif exit_code == 121:
+    message = f'semaphore timeout exceeded. In preferences set IP version to "Use only IPv4".'
+  elif exit_code == 148:
+    message = 'address already in use. Select different daemon port in preferences.'
+  elif exit_code == 149:
+    message = 'address already in use. Select different daemon port in preferences.'
   else:
-    log_path = f'{get_daemon_directory_path()}/daemon-{get_port()}.log'
-    message = f'Unknown problem. Please report a bug and paste content of log {log_path}'
+    message = f'unexpected Exception. Please report a bug and paste content of log {log_path}'
 
   return exit_code, message
 
