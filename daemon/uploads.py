@@ -26,6 +26,15 @@ async def do_upload(request: web.Request, task: tasks.Task):
     task.error(f'Metadata upload failed: {error}')
     return
 
+  data_asset_data = {
+    "asset_data": metadata_response,
+  }
+  task.data.update(data_asset_data)
+
+  metadata_upload_task = tasks.Task(task.data, task.app_id, "asset_metadata_upload")
+  metadata_upload_task.finished('Metadata successfully uploaded')
+  globals.tasks.append(metadata_upload_task)
+
   task.change_progress(5, 'packing files')  
   error, files = await pack_blend_file(task, metadata_response)
   if error != '':
