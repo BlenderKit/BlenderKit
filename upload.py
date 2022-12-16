@@ -1236,14 +1236,7 @@ class AssetVerificationStatusChange(Operator):
 
 
 def handle_asset_upload(task: tasks.Task):
-    name = task.data['upload_data']['name']
-    asset_type = task.data['upload_data']['assetType'].upper()
-
-    if asset_type == 'MODEL': asset = bpy.data.objects[name].blenderkit
-    elif asset_type == 'MATERIAL': asset = bpy.data.materials[name].blenderkit
-    elif asset_type == 'SCENE': asset = bpy.data.scenes[name].blenderkit
-    elif asset_type == 'HDR': asset = bpy.data.images[task.data['export_data']['hdr']].blenderkit
-    elif asset_type == 'BRUSH': asset = bpy.data.brushes[name].blenderkit
+    asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
 
     asset.upload_state = f'{task.progress}% - {task.message}'
 
@@ -1255,6 +1248,15 @@ def handle_asset_upload(task: tasks.Task):
       asset.uploading = False
       return reports.add_report(f'Upload successfull')
 
+def handle_asset_metadata_upload(task: tasks.Task):
+    asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
+
+    if task.status == 'finished':
+        asset.asset_base_id = task.data['asset_data']['assetBaseId']
+        asset.id = task.data['asset_data']['id']
+
+    return reports.add_report(f'Metadata upload successfull')
+        
 
 def register_upload():
     bpy.utils.register_class(UploadOperator)

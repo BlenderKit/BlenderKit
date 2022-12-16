@@ -147,7 +147,10 @@ def handle_task(task: tasks.Task):
   #HANDLE ASSET UPLOAD
   if task.task_type == 'asset_upload':
     return upload.handle_asset_upload(task)
-    
+
+  if task.task_type == 'asset_metadata_upload':
+    return upload.handle_asset_metadata_upload(task)
+
   #HANDLE SEARCH (candidate to be a function)
   if task.task_type == 'search':
     if task.status == 'finished':
