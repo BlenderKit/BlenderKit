@@ -26,6 +26,18 @@ To build and copy to Blender 3.2.x addons directory run:
 python dev.py build --install-at /path/to/blender/3.2/scripts/addons
 ```
 
+### Updating dependencies
+
+1. create a virtual environment: `python3 -m venv .venv`
+2. activate the environment: `source .venv/bin/activate`
+3. change symbols in requirements.txt from `==` to `>=`
+4. install the dependencies: `pip3 install -r requirements.txt`
+5. save the installed latest versions into requirements.txt: `pip3 freeze > requirements.txt` 
+
+6. copy the versions into: constant `PACKAGES` in `dev.py` 
+
+7. bundle the dependencies: `python3 dev.py bundle`
+
 ## Releasing
 
 To release do:

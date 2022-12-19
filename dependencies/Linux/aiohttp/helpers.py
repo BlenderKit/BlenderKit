@@ -3,7 +3,6 @@
 import asyncio
 import base64
 import binascii
-import cgi
 import datetime
 import functools
 import inspect
@@ -17,6 +16,7 @@ import warnings
 import weakref
 from collections import namedtuple
 from contextlib import suppress
+from email.parser import HeaderParser
 from email.utils import parsedate
 from math import ceil
 from pathlib import Path
@@ -74,7 +74,6 @@ if sys.version_info < (3, 7):
         tasks = list(asyncio.Task.all_tasks(loop))
         return {t for t in tasks if not t.done()}
 
-
 else:
     all_tasks = asyncio.all_tasks
 
@@ -83,14 +82,14 @@ _T = TypeVar("_T")
 _S = TypeVar("_S")
 
 
-sentinel = object()  # type: Any
-NO_EXTENSIONS = bool(os.environ.get("AIOHTTP_NO_EXTENSIONS"))  # type: bool
+sentinel: Any = object()
+NO_EXTENSIONS: bool = bool(os.environ.get("AIOHTTP_NO_EXTENSIONS"))
 
 # N.B. sys.flags.dev_mode is available on Python 3.7+, use getattr
 # for compatibility with older versions
-DEBUG = getattr(sys.flags, "dev_mode", False) or (
+DEBUG: bool = getattr(sys.flags, "dev_mode", False) or (
     not sys.flags.ignore_environment and bool(os.environ.get("PYTHONASYNCIODEBUG"))
-)  # type: bool
+)
 
 
 CHAR = {chr(i) for i in range(0, 128)}
@@ -350,7 +349,7 @@ def parse_mimetype(mimetype: str) -> MimeType:
         )
 
     parts = mimetype.split(";")
-    params = MultiDict()  # type: MultiDict[str]
+    params: MultiDict[str] = MultiDict()
     for item in parts[1:]:
         if not item:
             continue
@@ -548,7 +547,7 @@ def next_whole_second() -> datetime.datetime:
     ) + datetime.timedelta(seconds=0)
 
 
-_cached_current_datetime = None  # type: Optional[int]
+_cached_current_datetime: Optional[int] = None
 _cached_formatted_datetime = ""
 
 
@@ -631,9 +630,9 @@ class TimeoutHandle:
     ) -> None:
         self._timeout = timeout
         self._loop = loop
-        self._callbacks = (
-            []
-        )  # type: List[Tuple[Callable[..., None], Tuple[Any, ...], Dict[str, Any]]]
+        self._callbacks: List[
+            Tuple[Callable[..., None], Tuple[Any, ...], Dict[str, Any]]
+        ] = []
 
     def register(
         self, callback: Callable[..., None], *args: Any, **kwargs: Any
@@ -691,7 +690,7 @@ class TimerContext(BaseTimerContext):
 
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
-        self._tasks = []  # type: List[asyncio.Task[Any]]
+        self._tasks: List[asyncio.Task[Any]] = []
         self._cancelled = False
 
     def __enter__(self) -> BaseTimerContext:
@@ -745,8 +744,8 @@ class HeadersMixin:
 
     ATTRS = frozenset(["_content_type", "_content_dict", "_stored_content_type"])
 
-    _content_type = None  # type: Optional[str]
-    _content_dict = None  # type: Optional[Dict[str, str]]
+    _content_type: Optional[str] = None
+    _content_dict: Optional[Dict[str, str]] = None
     _stored_content_type = sentinel
 
     def _parse_content_type(self, raw: str) -> None:
@@ -756,7 +755,10 @@ class HeadersMixin:
             self._content_type = "application/octet-stream"
             self._content_dict = {}
         else:
-            self._content_type, self._content_dict = cgi.parse_header(raw)
+            msg = HeaderParser().parsestr("Content-Type: " + raw)
+            self._content_type = msg.get_content_type()
+            params = msg.get_params()
+            self._content_dict = dict(params[1:])  # First element is content type again
 
     @property
     def content_type(self) -> str:
@@ -825,7 +827,7 @@ class ChainMapProxy(Mapping[str, Any]):
         return len(set().union(*self._maps))  # type: ignore[arg-type]
 
     def __iter__(self) -> Iterator[str]:
-        d = {}  # type: Dict[str, Any]
+        d: Dict[str, Any] = {}
         for mapping in reversed(self._maps):
             # reuses stored hash values if possible
             d.update(mapping)
@@ -845,9 +847,9 @@ class ChainMapProxy(Mapping[str, Any]):
 # https://tools.ietf.org/html/rfc7232#section-2.3
 _ETAGC = r"[!#-}\x80-\xff]+"
 _ETAGC_RE = re.compile(_ETAGC)
-_QUOTED_ETAG = fr'(W/)?"({_ETAGC})"'
+_QUOTED_ETAG = rf'(W/)?"({_ETAGC})"'
 QUOTED_ETAG_RE = re.compile(_QUOTED_ETAG)
-LIST_QUOTED_ETAG_RE = re.compile(fr"({_QUOTED_ETAG})(?:\s*,\s*|$)|(.)")
+LIST_QUOTED_ETAG_RE = re.compile(rf"({_QUOTED_ETAG})(?:\s*,\s*|$)|(.)")
 
 ETAG_ANY = "*"
 

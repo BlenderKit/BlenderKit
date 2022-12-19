@@ -7,16 +7,16 @@ import sys
 
 PYTHON_VERSION = "3.10"
 PACKAGES = [
-  "multidict==6.0.2",
-  "yarl==1.8.1",
-  "aiohttp==3.8.1",
-  "aiosignal==1.2.0",
+  "multidict==6.0.3",
+  "yarl==1.8.2",
+  "aiohttp==3.8.3",
+  "aiosignal==1.3.1",
   "async-timeout==4.0.2",
   "attrs==22.1.0",
-  "certifi==2022.6.15",
+  "certifi==2022.12.7",
   "charset-normalizer==2.1.1",
-  "frozenlist==1.3.1",
-  "idna==3.3",
+  "frozenlist==1.3.3",
+  "idna==3.4",
 ]
 
 
@@ -90,8 +90,8 @@ def bundle_dependencies():
   LINUX = {
     'name': 'Linux',
     'platforms' : {
-      'manylinux_2_17_x86_64': PACKAGES[0:2],
-      'manylinux1_x86_64': PACKAGES[2:],
+      'manylinux_2_17_x86_64': PACKAGES[0:3],
+      'manylinux1_x86_64': PACKAGES[3:],
     }
   }
 

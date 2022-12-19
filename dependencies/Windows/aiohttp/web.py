@@ -136,6 +136,7 @@ from .web_urldispatcher import (
     AbstractRoute as AbstractRoute,
     DynamicResource as DynamicResource,
     PlainResource as PlainResource,
+    PrefixedSubAppResource as PrefixedSubAppResource,
     Resource as Resource,
     ResourceRoute as ResourceRoute,
     StaticResource as StaticResource,
@@ -261,6 +262,7 @@ __all__ = (
     "AbstractRoute",
     "DynamicResource",
     "PlainResource",
+    "PrefixedSubAppResource",
     "Resource",
     "ResourceRoute",
     "StaticResource",
@@ -290,7 +292,7 @@ async def _run_app(
     host: Optional[Union[str, HostSequence]] = None,
     port: Optional[int] = None,
     path: Optional[str] = None,
-    sock: Optional[socket.socket] = None,
+    sock: Optional[Union[socket.socket, TypingIterable[socket.socket]]] = None,
     shutdown_timeout: float = 60.0,
     keepalive_timeout: float = 75.0,
     ssl_context: Optional[SSLContext] = None,
@@ -320,7 +322,7 @@ async def _run_app(
 
     await runner.setup()
 
-    sites = []  # type: List[BaseSite]
+    sites: List[BaseSite] = []
 
     try:
         if host is not None:
@@ -463,7 +465,7 @@ def run_app(
     host: Optional[Union[str, HostSequence]] = None,
     port: Optional[int] = None,
     path: Optional[str] = None,
-    sock: Optional[socket.socket] = None,
+    sock: Optional[Union[socket.socket, TypingIterable[socket.socket]]] = None,
     shutdown_timeout: float = 60.0,
     keepalive_timeout: float = 75.0,
     ssl_context: Optional[SSLContext] = None,
