@@ -13,7 +13,7 @@ from . import dependencies, global_vars, reports
 
 
 bk_logger = logging.getLogger(__name__)
-
+TIMEOUT = (0.1, 0.5) 
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -41,14 +41,13 @@ def get_daemon_directory_path() -> str:
 
 def get_reports(app_id: str):
   """Get reports for all tasks of app_id Blender instance at once."""
-
   bk_logger.debug('Getting reports')
   address = get_address()
   with requests.Session() as session:
     url = address + "/report"
     data = {'app_id': app_id}
     try:
-      resp = session.get(url, json=data)
+      resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
       bk_logger.debug('Got reports')
       return resp.json()
     except Exception as e:
@@ -63,7 +62,7 @@ def search_asset(data):
   data['app_id'] = os.getpid()
   with requests.Session() as session:
     url = address + "/search_asset"
-    resp = session.post(url, json=data)
+    resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
     bk_logger.debug('Got search response')
     return resp.json()
 
@@ -75,7 +74,7 @@ def download_asset(data):
   data['app_id'] = os.getpid()
   with requests.Session() as session:
     url = address + "/download_asset"
-    resp = session.post(url, json=data)
+    resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
     return resp.json()
 
 
@@ -85,7 +84,7 @@ def kill_download(task_id):
   address = get_address()
   with requests.Session() as session:
     url = address + "/kill_download"
-    resp = session.get(url, json={'task_id':task_id})
+    resp = session.get(url, json={'task_id': task_id}, timeout=TIMEOUT, proxies={})
     return resp
 
 
@@ -96,14 +95,14 @@ def get_disclaimer():
   with requests.Session() as session:
     url = address + "/get_disclaimer"
     data = {'app_id': os.getpid()}
-    resp = session.get(url, json=data)
+    resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
     return resp
 
 
 def send_code_verifier(code_verifier: str):
   data = {'code_verifier': code_verifier}
   with requests.Session() as session:
-    resp = session.post(f'{get_address()}/code_verifier', json=data)
+    resp = session.post(f'{get_address()}/code_verifier', json=data, timeout=TIMEOUT, proxies={})
     return resp
 
 
@@ -112,7 +111,7 @@ def refresh_token(refresh_token):
   
   with requests.Session() as session:
     url = get_address() + "/refresh_token"
-    resp = session.get(url, json={'refresh_token': refresh_token})
+    resp = session.get(url, json={'refresh_token': refresh_token}, timeout=TIMEOUT, proxies={})
     return resp
 
 
@@ -121,7 +120,7 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
 
   address = get_address()
   try:
-    with session.get(address) as resp:
+    with session.get(address, timeout=TIMEOUT, proxies={}) as resp:
       if resp.status_code != 200:
         return False, f'Server response not 200: {resp.status_code}'
       return True, f'Server alive, PID: {resp.text}'
@@ -134,7 +133,7 @@ def report_blender_quit():
   address = get_address()
   with requests.Session() as session:
     url = address + "/report_blender_quit"
-    resp = session.get(url, json={'app_id':os.getpid()})
+    resp = session.get(url, json={'app_id':os.getpid()}, timeout=TIMEOUT, proxies={})
     return resp
 
 
@@ -143,7 +142,7 @@ def kill_daemon_server():
   address = get_address()
   with requests.Session() as session:
     url = address + "/shutdown"
-    resp = session.get(url)
+    resp = session.get(url, timeout=TIMEOUT, proxies={})
     return resp
 
 
