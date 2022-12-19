@@ -191,7 +191,8 @@ class ClientSession:
         ]
     )
 
-    _source_traceback = None
+    _source_traceback = None  # type: Optional[traceback.StackSummary]
+    _connector = None  # type: Optional[BaseConnector]
 
     def __init__(
         self,
@@ -218,7 +219,7 @@ class ClientSession:
         trust_env: bool = False,
         requote_redirect_url: bool = True,
         trace_configs: Optional[List[TraceConfig]] = None,
-        read_bufsize: int = 2 ** 16,
+        read_bufsize: int = 2**16,
     ) -> None:
         if loop is None:
             if connector is not None:
@@ -252,7 +253,7 @@ class ClientSession:
         if cookies is not None:
             self._cookie_jar.update_cookies(cookies)
 
-        self._connector = connector  # type: Optional[BaseConnector]
+        self._connector = connector
         self._connector_owner = connector_owner
         self._default_auth = auth
         self._version = version
@@ -295,10 +296,10 @@ class ClientSession:
 
         # Convert to list of tuples
         if headers:
-            real_headers = CIMultiDict(headers)  # type: CIMultiDict[str]
+            real_headers: CIMultiDict[str] = CIMultiDict(headers)
         else:
             real_headers = CIMultiDict()
-        self._default_headers = real_headers  # type: CIMultiDict[str]
+        self._default_headers: CIMultiDict[str] = real_headers
         if skip_auto_headers is not None:
             self._skip_auto_headers = frozenset(istr(i) for i in skip_auto_headers)
         else:
@@ -435,7 +436,7 @@ class ClientSession:
                 raise InvalidURL(proxy) from e
 
         if timeout is sentinel:
-            real_timeout = self._timeout  # type: ClientTimeout
+            real_timeout: ClientTimeout = self._timeout
         else:
             if not isinstance(timeout, ClientTimeout):
                 real_timeout = ClientTimeout(total=timeout)  # type: ignore[arg-type]
@@ -566,6 +567,8 @@ class ClientSession:
                     except ClientError:
                         raise
                     except OSError as exc:
+                        if exc.errno is None and isinstance(exc, asyncio.TimeoutError):
+                            raise
                         raise ClientOSError(*exc.args) from exc
 
                     self._cookie_jar.update_cookies(resp.cookies, resp.url)
@@ -746,7 +749,7 @@ class ClientSession:
     ) -> ClientWebSocketResponse:
 
         if headers is None:
-            real_headers = CIMultiDict()  # type: CIMultiDict[str]
+            real_headers: CIMultiDict[str] = CIMultiDict()
         else:
             real_headers = CIMultiDict(headers)
 
@@ -865,9 +868,9 @@ class ClientSession:
             assert conn_proto is not None
             transport = conn.transport
             assert transport is not None
-            reader = FlowControlDataQueue(
-                conn_proto, 2 ** 16, loop=self._loop
-            )  # type: FlowControlDataQueue[WSMessage]
+            reader: FlowControlDataQueue[WSMessage] = FlowControlDataQueue(
+                conn_proto, 2**16, loop=self._loop
+            )
             conn_proto.set_parser(WebSocketReader(reader, max_msg_size), reader)
             writer = WebSocketWriter(
                 conn_proto,
@@ -902,7 +905,7 @@ class ClientSession:
         if headers:
             if not isinstance(headers, (MultiDictProxy, MultiDict)):
                 headers = CIMultiDict(headers)
-            added_names = set()  # type: Set[str]
+            added_names: Set[str] = set()
             for key, value in headers.items():
                 if key in added_names:
                     result.add(key, value)
@@ -1024,7 +1027,7 @@ class ClientSession:
         return self._loop
 
     @property
-    def timeout(self) -> Union[object, ClientTimeout]:
+    def timeout(self) -> ClientTimeout:
         """Timeout for the session."""
         return self._timeout
 
@@ -1178,7 +1181,7 @@ class _SessionRequestContextManager:
         session: ClientSession,
     ) -> None:
         self._coro = coro
-        self._resp = None  # type: Optional[ClientResponse]
+        self._resp: Optional[ClientResponse] = None
         self._session = session
 
     async def __aenter__(self) -> ClientResponse:

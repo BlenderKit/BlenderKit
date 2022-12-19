@@ -105,8 +105,8 @@ class BaseTestServer(ABC):
         **kwargs: Any,
     ) -> None:
         self._loop = loop
-        self.runner = None  # type: Optional[BaseRunner]
-        self._root = None  # type: Optional[URL]
+        self.runner: Optional[BaseRunner] = None
+        self._root: Optional[URL] = None
         self.host = host
         self.port = port
         self._closed = False
@@ -284,8 +284,8 @@ class TestClient:
             cookie_jar = aiohttp.CookieJar(unsafe=True, loop=loop)
         self._session = ClientSession(loop=loop, cookie_jar=cookie_jar, **kwargs)
         self._closed = False
-        self._responses = []  # type: List[ClientResponse]
-        self._websockets = []  # type: List[ClientWebSocketResponse]
+        self._responses: List[ClientResponse] = []
+        self._websockets: List[ClientWebSocketResponse] = []
 
     async def start_server(self) -> None:
         await self._server.start_server(loop=self._loop)
@@ -455,12 +455,16 @@ class AioHTTPTestCase(TestCase):
         raise RuntimeError("Did you forget to define get_application()?")
 
     def setUp(self) -> None:
+        if not PY_38:
+            asyncio.get_event_loop().run_until_complete(self.asyncSetUp())
+
+    async def asyncSetUp(self) -> None:
         try:
             self.loop = asyncio.get_running_loop()
         except (AttributeError, RuntimeError):  # AttributeError->py36
             self.loop = asyncio.get_event_loop_policy().get_event_loop()
 
-        self.loop.run_until_complete(self.setUpAsync())
+        return await self.setUpAsync()
 
     async def setUpAsync(self) -> None:
         self.app = await self.get_application()
@@ -470,7 +474,11 @@ class AioHTTPTestCase(TestCase):
         await self.client.start_server()
 
     def tearDown(self) -> None:
-        self.loop.run_until_complete(self.tearDownAsync())
+        if not PY_38:
+            self.loop.run_until_complete(self.asyncTearDown())
+
+    async def asyncTearDown(self) -> None:
+        return await self.tearDownAsync()
 
     async def tearDownAsync(self) -> None:
         await self.client.close()
@@ -569,7 +577,7 @@ def _create_app_mock() -> mock.MagicMock:
     def set_dict(app: Any, key: str, value: Any) -> None:
         app.__app_dict[key] = value
 
-    app = mock.MagicMock()
+    app = mock.MagicMock(spec=Application)
     app.__app_dict = {}
     app.__getitem__ = get_dict
     app.__setitem__ = set_dict
@@ -607,7 +615,7 @@ def make_mocked_request(
     transport: Any = sentinel,
     payload: Any = sentinel,
     sslcontext: Optional[SSLContext] = None,
-    client_max_size: int = 1024 ** 2,
+    client_max_size: int = 1024**2,
     loop: Any = ...,
 ) -> Request:
     """Creates mocked web.Request testing purposes.

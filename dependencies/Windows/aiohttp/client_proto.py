@@ -31,10 +31,10 @@ class ResponseHandler(BaseProtocol, DataQueue[Tuple[RawResponseMessage, StreamRe
 
         self._tail = b""
         self._upgraded = False
-        self._parser = None  # type: Optional[HttpResponseParser]
+        self._parser: Optional[HttpResponseParser] = None
 
-        self._read_timeout = None  # type: Optional[float]
-        self._read_timeout_handle = None  # type: Optional[asyncio.TimerHandle]
+        self._read_timeout: Optional[float] = None
+        self._read_timeout_handle: Optional[asyncio.TimerHandle] = None
 
     @property
     def upgraded(self) -> bool:
@@ -142,7 +142,7 @@ class ResponseHandler(BaseProtocol, DataQueue[Tuple[RawResponseMessage, StreamRe
         read_until_eof: bool = False,
         auto_decompress: bool = True,
         read_timeout: Optional[float] = None,
-        read_bufsize: int = 2 ** 16,
+        read_bufsize: int = 2**16,
     ) -> None:
         self._skip_payload = skip_payload
 
