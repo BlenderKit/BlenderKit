@@ -29,7 +29,7 @@ bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
 pending_tasks = list() # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
 ENABLE_ASYNC_LOOP = False
-start_count = 0
+retried = 0
 
 @bpy.app.handlers.persistent
 def daemon_communication_timer():
@@ -37,7 +37,7 @@ def daemon_communication_timer():
   This function is the only one responsible for keeping the daemon up and running.
   """
 
-  global start_count
+  global retried
   global pending_tasks
   bk_logger.debug('Getting tasks from daemon')
   search.check_clipboard()
@@ -58,14 +58,15 @@ def daemon_communication_timer():
     wm = bpy.context.window_manager
     try:
       results = daemon_lib.get_reports(app_id)
-      start_count = 0
+      retried = 0
     except Exception as e:
       global_vars.DAEMON_ACCESSIBLE = False
       
-      if start_count < 3:
-        start_count = start_count + 1
-        daemon_lib.start_daemon_server()
-        return start_count
+      if retried <= 11:
+        if retried in (0,7):
+          daemon_lib.start_daemon_server()
+        retried = retried + 1
+        return 0.1*retried
 
       return_code, meaning = daemon_lib.check_daemon_exit_code()
       if return_code == None:
