@@ -3,6 +3,7 @@ from urllib import request
 
 
 jobs = [
+  {'version': '3.3.1-LTS', 'version_x_y': '3.3', 'download_url': 'https://download.blender.org/release/Blender3.3/blender-3.3.1-linux-x64.tar.xz'},
   {'version': '3.0.0', 'version_x_y': '3.0', 'download_url': 'https://download.blender.org/release/Blender3.0/blender-3.0.0-linux-x64.tar.xz'},
   {'version': '3.0.1', 'version_x_y': '3.0', 'download_url': 'https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz'},
   {'version': '3.1.0', 'version_x_y': '3.1', 'download_url': 'https://download.blender.org/release/Blender3.1/blender-3.1.0-linux-x64.tar.xz'},
@@ -10,7 +11,8 @@ jobs = [
   {'version': '3.2.0', 'version_x_y': '3.2', 'download_url': 'https://download.blender.org/release/Blender3.2/blender-3.2.0-linux-x64.tar.xz'},
   {'version': '3.2.2', 'version_x_y': '3.2', 'download_url': 'https://download.blender.org/release/Blender3.2/blender-3.2.2-linux-x64.tar.xz'},
   {'version': '3.3.0', 'version_x_y': '3.3', 'download_url': 'https://download.blender.org/release/Blender3.3/blender-3.3.0-linux-x64.tar.xz'},
-  {'version': '3.3.1-LTS', 'version_x_y': '3.3', 'download_url': 'https://download.blender.org/release/Blender3.3/blender-3.3.1-linux-x64.tar.xz'},
+  {'version': '3.3.2', 'version_x_y': '3.3', 'download_url': 'https://download.blender.org/release/Blender3.3/blender-3.3.2-linux-x64.tar.xz'},
+  {'version': '3.4.0', 'version_x_y': '3.4', 'download_url': 'https://download.blender.org/release/Blender3.4/blender-3.4.0-linux-x64.tar.xz'},
   #{'version': '', 'version_x_y': '', 'download_url': ''},
 ]
 
