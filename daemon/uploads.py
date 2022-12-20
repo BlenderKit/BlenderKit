@@ -72,7 +72,7 @@ async def upload_metadata(session: ClientSession, task: tasks.Task):
     return '', metadata_response
 
   try:
-    url = f'{url}/{export_data["id"]}/'
+    url = f'{url}{export_data["id"]}/'
     if 'MAINFILE' in upload_set:
         json_metadata['verificationStatus'] = 'uploading'
     response = await session.patch(url, json=json_metadata, headers=headers)
