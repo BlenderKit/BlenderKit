@@ -97,6 +97,10 @@ def draw_upload_common(layout, props, asset_type, context):
         op.thumbnail = True
 
     if props.asset_base_id != '':
+
+        op = layout.operator('wm.blenderkit_url', text='Edit Details', icon='GREASEPENCIL')
+        op.url = f'{paths.BLENDERKIT_USER_ASSETS_URL}/{props.asset_base_id}/?edit#'
+
         op = layout.operator("object.blenderkit_upload", text='Reupload asset', icon='EXPORT')
         op.asset_type = asset_type
         op.reupload = True
