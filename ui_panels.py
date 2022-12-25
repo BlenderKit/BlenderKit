@@ -2821,6 +2821,13 @@ def header_search_draw(self, context):
     elif ui_props.asset_type == 'HDR':
         layout.popover(panel="VIEW3D_PT_blenderkit_advanced_HDR_search", text="", icon_value=icon_id)
 
+    elif ui_props.asset_type in ('BRUSH', 'SCENE'):
+        # this is just a placeholder so that the UI doesn't get out of alignment
+        row = layout.column()
+        row.enabled = False
+        row.ui_units_x = 1.5
+        row.label(text='', icon_value=icon_id)
+
     notifications = global_vars.DATA.get('bkit notifications')
     if notifications is not None and notifications['count'] > 0:
         layout.operator('wm.show_notifications', text="", icon_value=pcoll['bell'].icon_id)
