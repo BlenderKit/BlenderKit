@@ -25,7 +25,7 @@ import random
 
 import bpy
 from bpy.props import IntProperty, StringProperty
-from bpy.types import Panel
+from bpy.types import Panel, Menu
 
 from . import (
     addon_updater_ops,
@@ -361,6 +361,36 @@ def draw_panel_scene_search(self, context):
     # draw_panel_categories(self, context)
 
 
+def draw_model_context_menu(self, context):
+    # draw asset properties here
+    layout = self.layout
+
+    o = utils.get_active_model()
+    # o = bpy.context.active_object
+    if o.get('asset_data') is None:
+        utils.label_multiline(layout,
+                              text='To upload this asset to BlenderKit, go to the Find and Upload Assets panel.')
+        layout.prop(o, 'name')
+
+    if o.get('asset_data') is not None:
+        ad = o['asset_data']
+        layout.label(text=str(ad['name']))
+        if o.instance_type == 'COLLECTION' and o.instance_collection is not None:
+            layout.operator('object.blenderkit_bring_to_scene', text='Bring to scene')
+
+        layout.label(text='Asset tools:')
+        draw_asset_context_menu(self.layout, context, ad, from_panel=True)
+        # if 'rig' in ad['tags']:
+        #     # layout.label(text = 'can make proxy')
+        #     layout.operator('object.blenderkit_make_proxy', text = 'Make Armature proxy')
+    # fast upload, blocked by now
+    # else:
+    #     op = layout.operator("object.blenderkit_upload", text='Store as private', icon='EXPORT')
+    #     op.asset_type = 'MODEL'
+    #     op.fast = True
+    # fun override project, not finished
+    # layout.operator('object.blenderkit_color_corrector')
+
 class VIEW3D_PT_blenderkit_model_properties(Panel):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_model_properties"
@@ -371,39 +401,21 @@ class VIEW3D_PT_blenderkit_model_properties(Panel):
 
     @classmethod
     def poll(cls, context):
-        p = bpy.context.view_layer.objects.active is not None
-        return p
+        if bpy.context.view_layer.objects.active is None:
+            return False
+        # if bpy.context.view_layer.objects.get('asset_data') is None:
+        #     return False
+        return True
 
     def draw(self, context):
-        # draw asset properties here
-        layout = self.layout
+        draw_model_context_menu(self, context)
 
-        o = utils.get_active_model()
-        # o = bpy.context.active_object
-        if o.get('asset_data') is None:
-            utils.label_multiline(layout,
-                                  text='To upload this asset to BlenderKit, go to the Find and Upload Assets panel.')
-            layout.prop(o, 'name')
+class VIEW3D_MT_blenderkit_model_properties(Menu):
+    bl_idname = "VIEW3D_MT_blenderkit_model_properties"
+    bl_label = "Selected Model"
 
-        if o.get('asset_data') is not None:
-            ad = o['asset_data']
-            layout.label(text=str(ad['name']))
-            if o.instance_type == 'COLLECTION' and o.instance_collection is not None:
-                layout.operator('object.blenderkit_bring_to_scene', text='Bring to scene')
-
-            layout.label(text='Asset tools:')
-            draw_asset_context_menu(self.layout, context, ad, from_panel=True)
-            # if 'rig' in ad['tags']:
-            #     # layout.label(text = 'can make proxy')
-            #     layout.operator('object.blenderkit_make_proxy', text = 'Make Armature proxy')
-        # fast upload, blocked by now
-        # else:
-        #     op = layout.operator("object.blenderkit_upload", text='Store as private', icon='EXPORT')
-        #     op.asset_type = 'MODEL'
-        #     op.fast = True
-        # fun override project, not finished
-        # layout.operator('object.blenderkit_color_corrector')
-
+    def draw(self, context):
+        draw_model_context_menu(self, context)
 
 class NODE_PT_blenderkit_material_properties(Panel):
     bl_category = "BlenderKit"
@@ -1509,7 +1521,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
     layout.operator_context = 'INVOKE_DEFAULT'
 
     if from_panel:
-        op = layout.operator('wm.blenderkit_menu_rating_upload', text='Add Rating')
+        op = layout.operator('wm.blenderkit_menu_rating_upload', text='Add Rating', icon= 'SOLO_ON')
         op.asset_name = asset_data['name']
         op.asset_id = asset_data['id']
         op.asset_type = asset_data['assetType']
@@ -2856,6 +2868,7 @@ classes = (
     VIEW3D_PT_blenderkit_categories,
     VIEW3D_PT_blenderkit_import_settings,
     VIEW3D_PT_blenderkit_model_properties,
+    VIEW3D_MT_blenderkit_model_properties,
     NODE_PT_blenderkit_material_properties,
     # VIEW3D_PT_blenderkit_ratings,
     VIEW3D_PT_blenderkit_downloads,
@@ -2901,6 +2914,10 @@ def header_draw(self, context):
 
     self.draw_mode_settings(context)
 
+def object_context_draw(self, context):
+    layout = self.layout
+    pcoll = icons.icon_collections["main"]
+    layout.menu(VIEW3D_MT_blenderkit_model_properties.bl_idname, icon_value=pcoll['logo'].icon_id)
 
 def register_ui_panels():
     for c in classes:
@@ -2909,14 +2926,14 @@ def register_ui_panels():
     bpy.types.VIEW3D_HT_tool_header.draw = header_draw
     # bpy.types.VIEW3D_HT_tool_header.append(header_search_draw)
     bpy.types.VIEW3D_MT_editor_menus.append(header_search_draw_others)
-    # bpy.types.VIEW3D_HT_header.append(header_search_draw_others)
+    bpy.types.VIEW3D_MT_object_context_menu.append(object_context_draw)
     # bpy.types.VIEW3D_PT_tools_active.prepend(header_search_draw_new)
 
 
 def unregister_ui_panels():
     # bpy.types.VIEW3D_HT_tool_header.remove(header_search_draw)
     bpy.types.VIEW3D_MT_editor_menus.remove(header_search_draw_others)
-    # bpy.types.VIEW3D_HT_header.remove(header_search_draw_others)
+    bpy.types.VIEW3D_MT_object_context_menu.remove(object_context_draw)
     # bpy.types.VIEW3D_PT_tools_active.remove(header_search_draw_new)
     for c in classes:
         # print('unregister', c)
