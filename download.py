@@ -1248,6 +1248,12 @@ def available_resolutions_callback(self, context):
     items.append(('ORIGINAL', 'Original', '', 6))
     return items
 
+def has_asset_files(asset_data):
+  '''Check if asset has files.'''
+  for f in asset_data['files']:
+    if f['fileType'] == 'blend':
+      return True
+  return False
 
 class BlenderkitDownloadOperator(bpy.types.Operator):
     """Download and link asset to scene. Only link if asset already available locally"""
@@ -1382,6 +1388,11 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     def execute(self, context):
         preferences = bpy.context.preferences.addons['blenderkit'].preferences
         self.asset_data = self.get_asset_data(context)
+
+        if not has_asset_files(self.asset_data):
+            reports.add_report('Asset has no files. Author should reupload the asset.', 15, 'ERROR')
+            return {'CANCELLED'}
+
         asset_type = self.asset_data['assetType']
         if (asset_type == 'model' or asset_type == 'material') and (bpy.context.mode != 'OBJECT') and (bpy.context.view_layer.objects.active is not None):
             bpy.ops.object.mode_set(mode='OBJECT')
