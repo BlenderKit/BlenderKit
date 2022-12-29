@@ -25,7 +25,7 @@ import random
 
 import bpy
 from bpy.props import IntProperty, StringProperty
-from bpy.types import Panel, Menu
+from bpy.types import Menu, Panel
 
 from . import (
     addon_updater_ops,
