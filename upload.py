@@ -805,6 +805,11 @@ def get_upload_location(props):
 
 
 def check_storage_quota(props): #TODO: fix this function
+    #TODO: do we really need to fetch the data?
+    # we have a user profile data loaded when user logged-in (and on start?) ((If not, we should fetch fresh data on start))
+    # is to soooo needed to fetch here? can't we just check available quotas and start upload?
+    # if rare edge case happened and quota got full between last check and update
+    # we can handle the error.
     if props.is_private == 'PUBLIC':
         return True
 
@@ -815,7 +820,6 @@ def check_storage_quota(props): #TODO: fix this function
         if adata is None:
             props.report = 'Please log-in first.'
             return False
-        search.write_profile(adata)
         profile = adata
     quota = profile['user'].get('remainingPrivateQuota')
     if quota is None or quota > 0:
