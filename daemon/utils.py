@@ -3,6 +3,7 @@
 import platform
 import re
 import sys
+from pathlib import Path
 
 import aiohttp
 import globals
@@ -80,7 +81,10 @@ def get_process_flags():
 
 
 async def download_file(url: str, destination: str, session: aiohttp.ClientSession, api_key: str=''):
-  """Download a file from url into destination on the disk. With api_key the request will be authorized for BlenderKit server."""
+  """Download a file from url into destination on the disk, creates directory structure if needed.
+  With api_key the request will be authorized for BlenderKit server.
+  """
+  parent_dir = Path(destination).parent.mkdir(parents=True, exist_ok=True)
   headers = get_headers(api_key)
   async with session.get(url, headers=headers) as resp:
     if resp.status != 200:
