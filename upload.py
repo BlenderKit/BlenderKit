@@ -42,7 +42,6 @@ from . import (
     paths,
     reports,
     rerequests,
-    search,
     tasks_queue,
     ui_panels,
     utils,
@@ -786,7 +785,6 @@ def get_upload_location(props):
     -------
 
     '''
-    scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type == 'MODEL':
         if bpy.context.view_layer.objects.active is not None:
@@ -804,26 +802,20 @@ def get_upload_location(props):
     return None
 
 
-def check_storage_quota(props): #TODO: fix this function
-    #TODO: do we really need to fetch the data?
-    # we have a user profile data loaded when user logged-in (and on start?) ((If not, we should fetch fresh data on start))
-    # is to soooo needed to fetch here? can't we just check available quotas and start upload?
-    # if rare edge case happened and quota got full between last check and update
-    # we can handle the error.
+def storage_quota_available(props) -> bool:
+    """Check the storage quota if there is available space to upload."""
+    profile = global_vars.DATA.get('bkit profile')
+    if profile is None:
+        props.report = 'Please log-in first.'
+        return False
+
     if props.is_private == 'PUBLIC':
         return True
 
-    profile = bpy.context.window_manager.get('bkit profile')
-    if profile is None or profile.get('remainingPrivateQuota') is None:
-        preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        adata = daemon_lib.get_user_profile(preferences.api_key) #TODO: here it needs a fix
-        if adata is None:
-            props.report = 'Please log-in first.'
-            return False
-        profile = adata
-    quota = profile['user'].get('remainingPrivateQuota')
-    if quota is None or quota > 0:
+    quota = profile['user'].get('remainingPrivateQuota', 0)
+    if quota > 0:
         return True
+
     props.report = 'Private storage quota exceeded.'
     return False
 
@@ -910,19 +902,12 @@ def upload_files(upload_data, files):
 
 def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     """Process asset and its data for upload."""
-    # fix the name first
     props = utils.get_upload_props()
-    utils.name_update(props)
+    utils.name_update(props) # fix the name first
 
-    #TODO: remove check should be outside this function
-    ###### this goes to Daemon
-    storage_quota_ok = check_storage_quota(props)
-    if not storage_quota_ok:
+    if storage_quota_available(props) is False:
         self.report({'ERROR_INVALID_INPUT'}, props.report)
         return False, None, None
-    ###### end of TODO
-
-    location = get_upload_location(props)
 
     auto_fix(asset_type=asset_type)
 
@@ -954,7 +939,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
             return False, None, None
 
     # save a copy of the file for processing. Only for blend files
-    basename, ext = os.path.splitext(bpy.data.filepath)
+    _, ext = os.path.splitext(bpy.data.filepath)
     if not ext:
         ext = ".blend"
     export_data['temp_dir'] = tempfile.mkdtemp()
