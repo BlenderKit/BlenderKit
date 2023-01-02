@@ -864,7 +864,8 @@ def upload_file(upload_data, f):
             else:
                 session.trust_env = True
             upload_response = session.put(upload['s3UploadUrl'],
-                                            data=upload_in_chunks(f['file_path'], chunk_size, f['type']),
+                                            data=upload_in_chunks(f['file_path'], #BUG: upload_in_chunks is not defined
+                                            chunk_size, f['type']), #TODO: is this needed with new resolutions generation?
                                             stream=True, verify=True)
 
             if 250 > upload_response.status_code > 199:
