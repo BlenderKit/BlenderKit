@@ -607,14 +607,14 @@ def query_to_url(query={}, params={}):
   if query.get('query') not in ('', None):
     requeststring += query['query'].lower()
   for i, q in enumerate(query):
-    if q != 'query':
+    if q != 'query' and q!='free_first':
       requeststring += '+'
       requeststring += q + ':' + str(query[q]).lower()
 
   # add dict_parameters to make results smaller
   # result ordering: _score - relevance, score - BlenderKit score
   order = []
-  if params['free_first']:
+  if query['free_first']:
     order = ['-is_free', ]
   if query.get('query') is None and query.get('category_subtree') == None:
     # assumes no keywords and no category, thus an empty search that is triggered on start.
@@ -642,7 +642,6 @@ def query_to_url(query={}, params={}):
     requeststring += '&blender_version=%s' % params['blender_version']
   if params.get('scene_uuid') is not None:
     requeststring += '&scene_uuid=%s' % params['scene_uuid']
-  # print('params', params)
   urlquery = url + requeststring
   return urlquery
 
@@ -848,7 +847,6 @@ def get_search_simple(parameters, filepath=None, page_size=100, max_results=1000
 
   bk_logger.debug(requeststring)
   response = rerequests.get(requeststring, headers=headers)  # , params = rparameters)
-  # print(response.json())
   search_results = response.json()
 
   results = []
@@ -859,7 +857,6 @@ def get_search_simple(parameters, filepath=None, page_size=100, max_results=1000
     bk_logger.info(f'getting page {page_index} , total pages {page_count}')
     response = rerequests.get(search_results['next'], headers=headers)  # , params = rparameters)
     search_results = response.json()
-    # print(search_results)
     results.extend(search_results['results'])
     page_index += 1
 
@@ -880,7 +877,6 @@ def search(category='', get_next=False, query = None, author_id=''):
     reports.add_report('Cannot search, daemon is not accessible.', timeout = 2, type='ERROR')
     return
 
-  # print(category,get_next,author_id)
   user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
   wm = bpy.context.window_manager
@@ -889,7 +885,7 @@ def search(category='', get_next=False, query = None, author_id=''):
   props = utils.get_search_props()
   # it's possible get_next was requested more than once.
   if props.is_searching and get_next == True:
-    # print('return because of get next and searching is happening')
+    # search already running, skipping
     return
 
   if not query:
@@ -948,6 +944,9 @@ def search(category='', get_next=False, query = None, author_id=''):
       if profile is not None:
         query['author_id'] = str(profile['user']['id'])
 
+    # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
+    query['free_first'] = props.free_only
+
     if not get_next:
       #write to search history and check history length
       if len(global_vars.DATA['search history'])>0 and global_vars.DATA['search history'][-1] == query:
@@ -965,7 +964,6 @@ def search(category='', get_next=False, query = None, author_id=''):
     'blender_version': version_checker.get_blender_version(),
     'api_key': user_preferences.api_key,
     'get_next': get_next,
-    'free_first': props.free_only,
     'page_size': page_size,
   }
 
@@ -1026,7 +1024,6 @@ def search_update_delayed(self,context):
 
 def search_update(self, context):
   '''run search after user changes a search parameter'''
-
   # if self.search_keywords != '':
   update_filters()
   ui_props = bpy.context.window_manager.blenderkitUI
