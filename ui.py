@@ -271,17 +271,21 @@ def object_in_particle_collection(o):
     return False
 
 
-def deep_ray_cast(depsgraph, ray_origin, vec):
+def deep_ray_cast(context, ray_origin, vec):
     # this allows to ignore some objects, like objects with bounding box draw style or particle objects
     object = None
     # while object is None or object.draw
+    depsgraph = context.view_layer.depsgraph
     has_hit, snapped_location, snapped_normal, face_index, object, matrix = bpy.context.scene.ray_cast(
         depsgraph, ray_origin, vec)
     empty_set = False, Vector((0, 0, 0)), Vector((0, 0, 1)), None, None, None
     if not object:
         return empty_set
     try_object = object
-    while try_object and (try_object.display_type == 'BOUNDS' or object_in_particle_collection(try_object)):
+    while try_object and \
+            (try_object.display_type == 'BOUNDS' or
+             object_in_particle_collection(try_object) or
+            not try_object.visible_get(viewport=context.space_data)):
         ray_origin = snapped_location + vec.normalized() * 0.0003
         try_has_hit, try_snapped_location, try_snapped_normal, try_face_index, try_object, try_matrix = bpy.context.scene.ray_cast(
             depsgraph, ray_origin, vec)
@@ -312,7 +316,7 @@ def mouse_raycast(context, mx, my):
     vec = ray_target - ray_origin
 
     has_hit, snapped_location, snapped_normal, face_index, object, matrix = deep_ray_cast(
-        bpy.context.view_layer.depsgraph, ray_origin, vec)
+        context, ray_origin, vec)
 
     # backface snapping inversion
     if view_vector.angle(snapped_normal) < math.pi / 2:
