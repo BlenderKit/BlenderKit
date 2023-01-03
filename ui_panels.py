@@ -2787,6 +2787,9 @@ def header_search_draw(self, context):
         return
     if context.mode not in ('PAINT_TEXTURE', 'OBJECT', 'SCULPT'):
         return
+    #hide search bar if overlays are hidden
+    if context.area.spaces[0].overlay.show_overlays == False:
+        return
 
     layout = self.layout
     wm = bpy.context.window_manager
