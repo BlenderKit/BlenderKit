@@ -173,10 +173,12 @@ def parse_result(r):
   scene = bpy.context.scene
   # TODO remove this fix when filesSize is fixed.
   # this is a temporary fix for too big numbers from the server.
-  # try:
-  #     r['filesSize'] = int(r['filesSize'] / 1024)
-  # except:
-  #     utils.p('asset with no files-size')
+  # can otherwise get the Python int too large to convert to C int
+  try:
+      r['filesSize'] = int(r['filesSize'] / 1024)
+  except:
+      utils.p('asset with no files-size')
+
   asset_type = r['assetType']
   #TODO: REVERSE THIS CONDITION AND RETURN
   if len(r['files']) > 0:  # TODO remove this condition so all assets are parsed.
