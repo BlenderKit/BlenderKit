@@ -2003,7 +2003,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             t = utils.fmt_dimensions(mparams)
             self.draw_property(box, 'Size', t)
         if self.asset_data.get('filesSize'):
-            fs = self.asset_data['filesSize']
+            fs = self.asset_data['filesSize'] * 1024
+            #multiply because the number is reduced when search is done to avoind C intiger limit with large files
             fsmb = fs // (1024 * 1024)
             fskb = fs % 1024
             if fsmb == 0:
