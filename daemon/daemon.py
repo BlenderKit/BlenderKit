@@ -41,6 +41,7 @@ import profiles
 import tasks
 import uploads
 
+import ratings
 import search
 
 
@@ -102,15 +103,17 @@ async def index(request: web.Request):
 async def consumer_exchange(request: web.Request):
   auth_code = request.rel_url.query.get('code', None)
   redirect_url = f'{globals.SERVER}/oauth-landing/'
-  if auth_code == None:
+  if auth_code is None:
     return web.Response(text="Authorization Failed. Authorization code was not provided.")
 
   response_json, status, error = await oauth.get_tokens(request, auth_code=auth_code)
   if status == -1:
-    return web.Response(text=f"Authorization Failed. Server is not reachable. Response: {error}")
+    text=f"Authorization Failed. Server is not reachable. Response: {error}"
+    return web.Response(text=text)
   
   if status != 200:
-    return web.Response(text=f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}")
+    text = f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}"
+    return web.Response(text=text)
 
   for app_id in globals.active_apps:
     task = tasks.Task(None, app_id, 'login', message='Getting authorization code')
@@ -368,6 +371,8 @@ if __name__ == '__main__':
     web.get('/wrappers/get_download_url', assets.get_download_url_wrapper),
     web.get('/profiles/fetch_gravatar_image', profiles.fetch_gravatar_image_handler),
     web.get('/profiles/get_user_profile', profiles.get_user_profile_handler),
+    web.get('/ratings/get_rating', ratings.get_rating_handler),
+    web.post('/ratings/send_rating', ratings.send_rating_handler),
   ])
 
   server.on_startup.append(start_background_tasks)

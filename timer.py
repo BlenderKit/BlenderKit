@@ -14,6 +14,7 @@ from . import (
     disclaimer_op,
     download,
     global_vars,
+    ratings_utils,
     reports,
     search,
     tasks_queue,
@@ -190,6 +191,12 @@ def handle_task(task: tasks.Task):
     return search.handle_fetch_gravatar_task(task) 
   if task.task_type == 'profiles/get_user_profile':
     return search.handle_get_user_profile(task)
+
+  #HANDLE RATINGS
+  if task.task_type == 'ratings/get_rating':
+    return ratings_utils.handle_get_rating_task(task)
+  if task.task_type == 'ratings/send_rating':
+    return
 
 
 @bpy.app.handlers.persistent

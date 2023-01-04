@@ -16,6 +16,7 @@ DATA = {
   'bkit notifications': None,
   'bkit authors': {},
   'asset comments': {},
+  'asset ratings': {},
 }
 LOGGING_LEVEL_BLENDERKIT = INFO
 LOGGING_LEVEL_IMPORTED = WARN
