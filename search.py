@@ -352,26 +352,19 @@ def handle_search_task(task: tasks.Task) -> bool:
   ok, error = check_errors(task.result)
   if ok:
     ui_props = bpy.context.window_manager.blenderkitUI
-    orig_len = len(result_field)
 
     for ri, r in enumerate(task.result['results']):
       asset_data = parse_result(r)
-      if asset_data != None:
+      if asset_data is not None:
         result_field.append(asset_data)
 
-    # Get ratings from BlenderKit server
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    api_key = user_preferences.api_key
-    headers = utils.get_headers(api_key)
+    # Get ratings from BlenderKit server TODO: do this in daemon
     if utils.profile_is_validator():
-      for r in task.result['results']:
-        if ratings_utils.get_rating_local(r['id']) is None:
-          rating_thread = threading.Thread(target=ratings_utils.get_rating, args=([r['id'], headers]),
-                                           daemon=True)
-          rating_thread.start()
+      for result in task.result['results']:
+        ratings_utils.ensure_rating(result['id'])
 
     global_vars.DATA[search_name] = result_field
-    global_vars.DATA[search_name + ' orig'] = task.result
+    global_vars.DATA[f'{search_name} orig'] = task.result
 
     if result_field and result_field[0]['assetType'] == ui_props.asset_type.lower():
       global_vars.DATA['search results'] = result_field

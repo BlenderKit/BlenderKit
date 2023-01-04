@@ -15,18 +15,17 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
+
 import logging
-import threading
 
 import bpy
+from bpy.types import Gizmo, GizmoGroup, Operator
+from mathutils import Matrix
 
-from . import global_vars, icons, paths, ratings_utils, rerequests, ui, ui_panels, utils
+from . import global_vars, icons, ratings_utils, rerequests, ui, ui_panels, utils
 
 
 bk_logger = logging.getLogger(__name__)
-
-from bpy.types import Gizmo, GizmoGroup, Operator
-from mathutils import Matrix
 
 
 def pretty_print_POST(req):

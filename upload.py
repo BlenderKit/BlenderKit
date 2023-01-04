@@ -26,9 +26,12 @@ import threading
 
 import bpy
 import requests
-
-
-bk_logger = logging.getLogger(__name__)
+from bpy.props import (  # TODO only keep the ones actually used when cleaning
+    BoolProperty,
+    EnumProperty,
+    StringProperty,
+)
+from bpy.types import Operator
 
 from . import (
     asset_bar_op,
@@ -51,15 +54,7 @@ from .daemon import tasks
 
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
-
-from bpy.props import (  # TODO only keep the ones actually used when cleaning
-    BoolProperty,
-    EnumProperty,
-    StringProperty,
-)
-from bpy.types import Operator
-
-
+bk_logger = logging.getLogger(__name__)
 licenses = (
     ('royalty_free', 'Royalty Free', 'royalty free commercial license'),
     ('cc_zero', 'Creative Commons Zero', 'Creative Commons Zero'),

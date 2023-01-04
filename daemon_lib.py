@@ -122,13 +122,15 @@ def fetch_gravatar_image(author_data):
   """Fetch gravatar image for specified user. Find it on disk or download it from server."""
   author_data['app_id'] = os.getpid()
   with requests.Session() as session:
-    return session.get(f'{get_address()}/profiles/fetch_gravatar_image', json=author_data)
+    return session.get(f'{get_address()}/profiles/fetch_gravatar_image', json=author_data, timeout=TIMEOUT, proxies={})
 
 def get_user_profile(api_key):
-  """Get profile of currently logged-in user. This creates task to daemon to fetch data which are later handled once available."""
+  """Get profile of currently logged-in user.
+  This creates task to daemon to fetch data which are later handled once available.
+  """
   data = {'api_key': api_key, 'app_id': os.getpid()}
   with requests.Session() as session:
-    return session.get(f'{get_address()}/profiles/get_user_profile', json=data)
+    return session.get(f'{get_address()}/profiles/get_user_profile', json=data, timeout=TIMEOUT, proxies={})
 
 
 ### COMMENTS
@@ -140,7 +142,7 @@ def get_comments(asset_id, api_key=''):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/get_comments', json=data)
+    return session.post(f'{get_address()}/comments/get_comments', json=data, timeout=TIMEOUT, proxies={})
 
 def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
   """Create a new comment."""
@@ -152,7 +154,7 @@ def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/create_comment', json=data)
+    return session.post(f'{get_address()}/comments/create_comment', json=data, timeout=TIMEOUT, proxies={})
 
 def feedback_comment(asset_id, comment_id, api_key, flag='like'):
   """Feedback the comment - by default with like. Other flags can be used also."""
@@ -164,7 +166,7 @@ def feedback_comment(asset_id, comment_id, api_key, flag='like'):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/feedback_comment', json=data)
+    return session.post(f'{get_address()}/comments/feedback_comment', json=data, timeout=TIMEOUT, proxies={})
 
 def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
   """Mark the comment as private or public."""
@@ -176,7 +178,7 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/mark_comment_private', json=data)
+    return session.post(f'{get_address()}/comments/mark_comment_private', json=data, timeout=TIMEOUT, proxies={})
 
 ### NOTIFICATIONS
 def mark_notification_read(notification_id):
@@ -187,7 +189,7 @@ def mark_notification_read(notification_id):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/notifications/mark_notification_read', json=data)
+    return session.post(f'{get_address()}/notifications/mark_notification_read', json=data, timeout=TIMEOUT, proxies={})
 
 ### REPORTS
 def report_usages(report: dict):
@@ -195,8 +197,29 @@ def report_usages(report: dict):
   report['api_key'] = bpy.context.preferences.addons['blenderkit'].preferences.api_key
   report['app_id'] = os.getpid()
   with requests.Session() as session:
-    resp = session.post(f'{get_address()}/report_usages', json=report)
+    resp = session.post(f'{get_address()}/report_usages', json=report, timeout=TIMEOUT, proxies={})
     return resp
+
+#RATINGS
+def get_rating(asset_id: str):
+    data = {
+        'api_key': bpy.context.preferences.addons['blenderkit'].preferences.api_key,
+        'app_id': os.getpid(),
+        'asset_id': asset_id,
+        }
+    with requests.Session() as session:
+        return session.get(f'{get_address()}/ratings/get_rating', json=data, timeout=TIMEOUT, proxies={})
+
+def send_rating(asset_id: str, rating_type: str, rating_value: str):
+    data = {
+        'api_key': bpy.context.preferences.addons['blenderkit'].preferences.api_key,
+        'app_id': os.getpid(),
+        'asset_id': asset_id,
+        'rating_type': rating_type,
+        'rating_value': rating_value,
+    }
+    with requests.Session() as session:
+        return session.post(f'{get_address()}/ratings/send_rating', json=data, timeout=TIMEOUT, proxies={})
 
 
 ### AUTHORIZATION
@@ -219,8 +242,7 @@ def get_download_url(asset_data, scene_id, api_key):
     },
   }
   with requests.Session() as session:
-    url = get_address() + "/wrappers/get_download_url"
-    resp = session.get(url, json=data)
+    resp = session.get(f'{get_address()}/wrappers/get_download_url', json=data, timeout=TIMEOUT, proxies={})
     resp = resp.json()
     return (resp['has_url'], resp['asset_data'])
 
@@ -266,14 +288,14 @@ def kill_daemon_server():
 def handle_daemon_status_task(task):
   bk_server_status = task.result['online_status']
   if bk_server_status == 200:
-    if global_vars.DAEMON_ONLINE == False:
+    if global_vars.DAEMON_ONLINE is False:
       reports.add_report(f'Connected to {urlparse(global_vars.SERVER).netloc}')
       wm = bpy.context.window_manager
       wm.blenderkitUI.logo_status = "logo"
       global_vars.DAEMON_ONLINE = True
     return
 
-  if global_vars.DAEMON_ONLINE == True:
+  if global_vars.DAEMON_ONLINE is True:
     if bk_server_status == 429:
       reports.add_report(f'API limit exceeded for {urlparse(global_vars.SERVER).netloc}', timeout=10, type='ERROR')
     else:
@@ -285,8 +307,8 @@ def handle_daemon_status_task(task):
 
 def check_daemon_exit_code() -> tuple[int, str]:
   """Checks the exit code of daemon process. Returns exit_code and its message.
-  Function polls the process which should not block,
-  but better run only when daemon misbehaves and is expected that it already exited.
+  Function polls the process which should not block.
+  But better run only when daemon misbehaves and is expected that it already exited.
   """
   exit_code = global_vars.daemon_process.poll()
   if exit_code is None:
@@ -376,7 +398,7 @@ def start_daemon_server():
       reports.add_report(str(e), 10, 'ERROR')
       raise(e)
     if e.winerror == 87: # parameter is incorrect, issue #100
-      error_message = f"FATAL ERROR: Daemon server blocked from starting. Please check your antivirus or firewall. Error: {e}"
+      error_message = f"FATAL ERROR: Daemon server blocked from starting. Check your antivirus or firewall. Error: {e}"
       reports.add_report(error_message, 10, 'ERROR')
       raise(e)
     else:
@@ -389,6 +411,6 @@ def start_daemon_server():
   if python_check.returncode == 0:
     bk_logger.info(f'Daemon server starting on address {get_address()}, log file for errors located at: {log_path}')
   else:
-    bk_logger.warning(f'Tried to start daemon server on address {get_address()}, PID: {global_vars.daemon_process.pid},\nlog file located at: {log_path}')
-    reports.add_report(f'Due to unsuccessful Python check the daemon server will probably fail to run. Please report a bug at BlenderKit.', 5, 'ERROR')
-
+    pid = global_vars.daemon_process.pid
+    bk_logger.warning(f'Tried to start daemon server on address {get_address()}, PID: {pid},\nlog file: {log_path}')
+    reports.add_report('Unsuccessful Python check. Daemon will probably fail to run.', 5, 'ERROR')
