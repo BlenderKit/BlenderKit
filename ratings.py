@@ -22,34 +22,14 @@ import bpy
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
 
-from . import global_vars, icons, ratings_utils, rerequests, ui, ui_panels, utils
+from . import global_vars, icons, ratings_utils, ui, ui_panels, utils
 
 
 bk_logger = logging.getLogger(__name__)
 
 
-def pretty_print_POST(req):
-    """
-    pretty print a request
-    """
-    print('{}\n{}\n{}\n\n{}'.format(
-        '-----------START-----------',
-        req.method + ' ' + req.url,
-        '\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
-        req.body,
-    ))
-
-
-def upload_review_thread(url, reviews, headers):
-    r = rerequests.put(url, data=reviews, verify=True, headers=headers)
-
-
 def get_assets_for_rating():
-    '''
-    gets assets from scene that could/should be rated by the user.
-    TODO this is only a draft.
-
-    '''
+    """Get assets from scene that could/should be rated by the user. TODO: this is only a draft"""
     assets = []
     for ob in bpy.context.scene.objects:
         if should_be_rated(ob):
@@ -74,26 +54,6 @@ asset_types = (
 )
 
 
-def draw_ratings(layout, context, asset):
-    # layout.operator("wm.url_open", text="Read rating instructions", icon='QUESTION').url = 'https://support.google.com/?hl=en'
-    # the following shouldn't happen at all in an optimal case,
-    # this function should run only when asset was already checked to be existing
-    if asset == None:
-        return;
-
-
-    col = layout.column()
-    bkit_ratings = asset.bkit_ratings
-
-    # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
-
-    row = col.row()
-    row.prop(bkit_ratings, 'rating_quality_ui', expand=True, icon_only=True, emboss=False)
-    if bkit_ratings.rating_quality > 0:
-        col.separator()
-        col.prop(bkit_ratings, 'rating_work_hours')
-
-
 def draw_ratings_menu(self, context, layout):
     pcoll = icons.icon_collections["main"]
 
@@ -111,7 +71,7 @@ def draw_ratings_menu(self, context, layout):
     # layout.template_icon_view(bkit_ratings, property, show_labels=False, scale=6.0, scale_popup=5.0)
     row = col.row()
 
-    if self.asset_data.get('canDownload') != True:
+    if self.asset_data.get('canDownload') is not True:
         row.label(text='Asset in Full Plan. Subscribe to rate it.', icon='SOLO_ON')
         return
 
@@ -148,15 +108,18 @@ def draw_ratings_menu(self, context, layout):
 
         row.prop(self, 'rating_work_hours_ui', expand=True, icon_only=False, emboss=True)
         if float(self.rating_work_hours_ui) > 100:
-            utils.label_multiline(col,
-                                  text=f"\nThat's huge! please be sure to give such rating only to godly {self.asset_type}s.\n",
-                                  width=500)
+            utils.label_multiline(
+                col,
+                text=f"\nThat's huge! please be sure to give such rating only to godly {self.asset_type}s.\n",
+                width=500
+                )
         elif float(self.rating_work_hours_ui) > 18:
             col.separator()
-
-            utils.label_multiline(col,
-                                  text=f"\nThat's a lot! please be sure to give such rating only to amazing {self.asset_type}s.\n",
-                                  width=500)
+            utils.label_multiline(
+                col,
+                text=f"\nThat's a lot! please be sure to give such rating only to amazing {self.asset_type}s.\n",
+                width=500
+                )
 
 
     elif self.asset_type == 'hdr':
@@ -179,9 +142,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
 
     @classmethod
     def poll(cls, context):
-        scene = bpy.context.scene
-        ui_props = bpy.context.window_manager.blenderkitUI
-        return True;
+        return True
 
     def draw(self, context):
         #when rating gets recieved while the window is already open, we need to prefill.
@@ -194,7 +155,6 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
 
 
     def execute(self, context):
-        scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         #get asset id
         if ui_props.active_index > -1:
@@ -205,7 +165,6 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         else:
             if bpy.context.view_layer.objects.active is not None:
                 ob = utils.get_active_model()
-                s = bpy.context.scene
                 ad = ob.get('asset_data')
                 if ad:
                     self.asset_data = ad
@@ -268,8 +227,6 @@ custom_shape_verts = ((0.1896940916776657, 0.2608509361743927, 0.0), (0.24383765
 
 class RatingStarWidget(Gizmo):
     bl_idname = "VIEW3D_GT_custom_shape_widget"
-
-
     __slots__ = (
         "custom_shape",
         "init_mouse_y",
@@ -315,7 +272,7 @@ def should_be_rated(ob):
         return False
     r = ratings_utils.get_rating_local(ad['id'])
     ratings_utils.ensure_rating(ad['id'])
-    if r == {}: #is None would work too, but would show rating possibility and then hide it when the assets are already rated.
+    if r == {}: #is None would work too, but would show rating option and then hide it when the assets are already rated
         return True
 
 class RatingStarWidgetGroup(GizmoGroup):
@@ -375,16 +332,10 @@ classes = (
     # ratings_utils.RatingPropsCollection,
 )
 
-
-
-
 def register_ratings():
     for cls in classes:
         bpy.utils.register_class(cls)
-    # bpy.types.OBJECT_MT_blenderkit_asset_menu.append(rating_menu_draw)
-
 
 def unregister_ratings():
-    pass;
     for cls in classes:
         bpy.utils.unregister_class(cls)
