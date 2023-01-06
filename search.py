@@ -21,7 +21,6 @@ import logging
 import math
 import os
 import platform
-import threading
 import unicodedata
 
 import bpy
@@ -41,7 +40,6 @@ from . import (
     paths,
     ratings_utils,
     reports,
-    rerequests,
     resolutions,
     tasks_queue,
     utils,
@@ -88,8 +86,6 @@ def update_assets_data():  # updates assets data on scene load.
   '''updates some properties that were changed on scenes with older assets.
   The properties were mainly changed from snake_case to CamelCase to fit the data that is coming from the server.
   '''
-  data = bpy.data
-
   datablocks = [
     bpy.data.objects,
     bpy.data.materials,
@@ -97,7 +93,7 @@ def update_assets_data():  # updates assets data on scene load.
   ]
   for dtype in datablocks:
     for block in dtype:
-      if block.get('asset_data') != None:
+      if block.get('asset_data') is not None:
         update_ad(block['asset_data'])
 
   dicts = [
@@ -108,7 +104,7 @@ def update_assets_data():  # updates assets data on scene load.
 
       d = s.get(bkdict)
       if not d:
-        continue;
+        continue
 
       for asset_id in d.keys():
         update_ad(d[asset_id])
@@ -841,7 +837,9 @@ def get_search_simple(parameters, filepath=None, page_size=100, max_results=1000
   requeststring += '&dict_parameters=1'
 
   bk_logger.debug(requeststring)
-  response = rerequests.get(requeststring, headers=headers)  # , params = rparameters)
+  response = daemon_lib.blocking_request(requeststring, 'GET', headers)
+
+  # print(response.json())
   search_results = response.json()
 
   results = []
@@ -850,7 +848,7 @@ def get_search_simple(parameters, filepath=None, page_size=100, max_results=1000
   page_count = math.ceil(search_results['count'] / page_size)
   while search_results.get('next') and len(results) < max_results:
     bk_logger.info(f'getting page {page_index} , total pages {page_count}')
-    response = rerequests.get(search_results['next'], headers=headers)  # , params = rparameters)
+    response = daemon_lib.blocking_request(search_results['next'], 'GET', headers)
     search_results = response.json()
     results.extend(search_results['results'])
     page_index += 1

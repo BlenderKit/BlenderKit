@@ -1,5 +1,6 @@
 """Contains utility functions for daemon server. Mix of everything."""
 
+import logging
 import platform
 import re
 import sys
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import aiohttp
 import globals
+from aiohttp import web
 
 
 def get_headers(api_key: str = '') -> dict[str, str]:
@@ -84,7 +86,7 @@ async def download_file(url: str, destination: str, session: aiohttp.ClientSessi
   """Download a file from url into destination on the disk, creates directory structure if needed.
   With api_key the request will be authorized for BlenderKit server.
   """
-  parent_dir = Path(destination).parent.mkdir(parents=True, exist_ok=True)
+  Path(destination).parent.mkdir(parents=True, exist_ok=True)
   headers = get_headers(api_key)
   async with session.get(url, headers=headers) as resp:
     if resp.status != 200:
@@ -92,3 +94,18 @@ async def download_file(url: str, destination: str, session: aiohttp.ClientSessi
     with open(destination, 'wb') as file:
       async for chunk in resp.content.iter_chunked(4096 * 32):
         file.write(chunk)
+
+
+async def blocking_request_handler(request: web.Request):
+  """Handle request for blocking HTTP request.
+  Function do not return until results are available. No task is created.
+  """
+  data = await request.json()
+  session = request.app['SESSION_API_REQUESTS']
+  try:
+    async with session.request(data['method'], data['url'], headers=data['headers']) as resp:
+        data = await resp.json()
+        return web.json_response(data)
+  except Exception as e:
+    logging.error(f'{e}')
+    return web.Response(status=resp.status, text=str(e))
