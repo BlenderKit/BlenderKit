@@ -222,8 +222,9 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
         return session.post(f'{get_address()}/ratings/send_rating', json=data, timeout=TIMEOUT, proxies={})
 
 
-### WRAPPERS
+### BLOCKING WRAPPERS
 def get_download_url(asset_data, scene_id, api_key):
+  """Get download url from server. This is a blocking wrapper, will not return until results are available."""
   data = {
     'app_id': os.getpid(),
     'resolution': 'blend',
@@ -237,6 +238,17 @@ def get_download_url(asset_data, scene_id, api_key):
     resp = session.get(f'{get_address()}/wrappers/get_download_url', json=data, timeout=TIMEOUT, proxies={})
     resp = resp.json()
     return (resp['has_url'], resp['asset_data'])
+
+def blocking_request(url: str, method: str='GET', headers: dict={}):
+    """Make blocking HTTP request through daemon's AIOHTTP library.
+    Will not return until results are available."""
+    data = {
+        'url': url,
+        'method': method,
+        'headers': headers,
+    }
+    with requests.Session() as session:
+        return session.get(f'{get_address()}/wrappers/blocking_request', json=data, timeout=TIMEOUT, proxies={})
 
 
 ### AUTHORIZATION
