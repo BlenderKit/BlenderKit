@@ -222,14 +222,6 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
         return session.post(f'{get_address()}/ratings/send_rating', json=data, timeout=TIMEOUT, proxies={})
 
 
-### AUTHORIZATION
-def send_code_verifier(code_verifier: str):
-  data = {'code_verifier': code_verifier}
-  with requests.Session() as session:
-    resp = session.post(f'{get_address()}/code_verifier', json=data, timeout=TIMEOUT, proxies={})
-    return resp
-
-
 ### WRAPPERS
 def get_download_url(asset_data, scene_id, api_key):
   data = {
@@ -239,12 +231,20 @@ def get_download_url(asset_data, scene_id, api_key):
     'PREFS': {
       'api_key': api_key,
       'scene_id': scene_id,
-    },
-  }
+      },
+    }
   with requests.Session() as session:
     resp = session.get(f'{get_address()}/wrappers/get_download_url', json=data, timeout=TIMEOUT, proxies={})
     resp = resp.json()
     return (resp['has_url'], resp['asset_data'])
+
+
+### AUTHORIZATION
+def send_code_verifier(code_verifier: str):
+  data = {'code_verifier': code_verifier}
+  with requests.Session() as session:
+    resp = session.post(f'{get_address()}/code_verifier', json=data, timeout=TIMEOUT, proxies={})
+    return resp
 
 
 def refresh_token(refresh_token):
