@@ -972,7 +972,7 @@ class RunAssetBarWithContext(bpy.types.Operator):
     bl_idname = "view3d.run_assetbar_fix_context"
     bl_label = "BlenderKit assetbar with fixed context"
     bl_description = "Run assetbar with fixed context"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_options = {'INTERNAL'}
 
     keep_running: BoolProperty(name="Keep Running", description='', default=True, options={'SKIP_SAVE'})
     do_search: BoolProperty(name="Run Search", description='', default=False, options={'SKIP_SAVE'})
