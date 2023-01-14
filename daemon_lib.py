@@ -15,15 +15,23 @@ from . import dependencies, global_vars, reports
 bk_logger = logging.getLogger(__name__)
 TIMEOUT = (0.1, 0.5) 
 
+
 def get_address() -> str:
   """Get address of the daemon."""
-  return 'http://127.0.0.1:' + get_port()
+  return f'http://127.0.0.1:{get_port()}'
 
 
 def get_port() -> str:
-  """Get port of the daemon."""
-  port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
-  return str(port)
+  """Get the most probable port of currently running daemon.
+  After add-on registration and if all goes well, the port is the same as 
+  """
+  return global_vars.DAEMON_PORTS[0]
+
+
+def reorder_ports(port: str):
+    """Reorder DAEMON_PORTS so the specified port is first."""
+    i = global_vars.DAEMON_PORTS.index(port)
+    global_vars.DAEMON_PORTS = global_vars.DAEMON_PORTS[i:] + global_vars.DAEMON_PORTS[:i]
 
 
 def get_daemon_directory_path() -> str:
@@ -34,21 +42,33 @@ def get_daemon_directory_path() -> str:
 
 
 def get_reports(app_id: str, api_key=''):
-  """Get reports for all tasks of app_id Blender instance at once."""
-  bk_logger.debug('Getting reports')
-  address = get_address()
-  with requests.Session() as session:
-    url = address + "/report"
-    data = {
-      'app_id': app_id,
-      'api_key': api_key,
-      }
-    try:
-      resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
-      bk_logger.debug('Got reports')
-      return resp.json()
-    except Exception as e:
-      raise(e)
+    """Get reports for all tasks of app_id Blender instance at once.
+    If few last calls failed, then try to get reports also from other than default ports.
+    """
+    data = {'app_id': app_id, 'api_key': api_key}
+    if global_vars.DAEMON_FAILED_REPORTS < 8:
+        url = f'{get_address()}/report'
+        report = request_report(url, data)
+        return report
+
+    last_exception = None
+    for port in global_vars.DAEMON_PORTS:
+        url =  f'http://127.0.0.1:{port}/report'
+        try:
+            report = request_report(url, data)
+            bk_logger.warning(f'Got reports port {port}, setting it as default for this instance')
+            reorder_ports(port)
+            return report
+        except Exception as e:
+            print(f'Failed to get reports on: {e}')
+            last_exception = e
+    raise last_exception
+
+
+def request_report(url: str, data: dict):
+    with requests.Session() as session:
+        resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
+        return resp.json()
 
 
 def search_asset(data):
@@ -265,10 +285,11 @@ def handle_daemon_status_task(task):
 
 def check_daemon_exit_code() -> tuple[int, str]:
   """Checks the exit code of daemon process. Returns exit_code and its message.
-  Function polls the process which should not block, but better run only when daemon misbehaves and is expected that it already exited.
+  Function polls the process which should not block,
+  but better run only when daemon misbehaves and is expected that it already exited.
   """
   exit_code = global_vars.daemon_process.poll()
-  if exit_code == None:
+  if exit_code is None:
     return exit_code, "Daemon process is running."
   
   #exit_code = global_vars.daemon_process.returncode
@@ -279,12 +300,14 @@ def check_daemon_exit_code() -> tuple[int, str]:
     message = f'failed to import CERTIFI. Try to delete {dependencies.get_dependencies_path()} and restart Blender.'
   elif exit_code == 100:
     message = f'unexpected OSError. Please report a bug and paste content of log {log_path}'
+  elif exit_code == 111:
+    message = 'unable to bind any socket. Check your antivirus/firewall and unblock BlenderKit.'
   elif exit_code == 113:
     message = 'cannot open port. Check your antivirus/firewall and unblock BlenderKit.'
   elif exit_code == 114:
     message = f'invalid pointer address. Please report a bug and paste content of log {log_path}'
   elif exit_code == 121:
-    message = f'semaphore timeout exceeded. In preferences set IP version to "Use only IPv4".'
+    message = 'semaphore timeout exceeded. In preferences set IP version to "Use only IPv4".'
   elif exit_code == 148:
     message = 'address already in use. Select different daemon port in preferences.'
   elif exit_code == 149:

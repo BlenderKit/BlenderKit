@@ -67,10 +67,9 @@ def login(signup):
   """Logs user into the addon.
   Opens a browser with login page. Once user is logged it redirects to daemon handling access code via URL querry parameter.
   Using the access_code daemon then requests api_token and handles the results as a task with status finished/error.
-  This is handled by function handle_login_task which saves tokens, or shows error message."""
-
-  daemon_port = bpy.context.preferences.addons['blenderkit'].preferences.daemon_port
-  local_landing_URL = f"http://localhost:{daemon_port}/consumer/exchange/"
+  This is handled by function handle_login_task which saves tokens, or shows error message.
+  """
+  local_landing_URL = f"http://localhost:{daemon_lib.get_port()}/consumer/exchange/"
   code_verifier, code_challenge = generate_pkce_pair()
   daemon_lib.send_code_verifier(code_verifier)
   authorize_url = f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state=random_state_string&redirect_uri={local_landing_URL}&code_challenge={code_challenge}&code_challenge_method=S256"
