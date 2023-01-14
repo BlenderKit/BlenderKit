@@ -1993,6 +1993,7 @@ def register():
 
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     global_vars.PREFS = utils.get_prefs_dir()
+    daemon_lib.reorder_ports(user_preferences.daemon_port)
     utils.set_proxy()
 
     search.register_search()

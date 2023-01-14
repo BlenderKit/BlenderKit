@@ -42,6 +42,8 @@ import uploads
 import search
 
 
+PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
+
 async def download_asset(request: web.Request):
   """Handle request for download of asset."""
   data = await request.json()
@@ -246,6 +248,24 @@ async def cleanup_background_tasks(app: web.Application):
 
 
 ## CONFIGURATION
+def find_and_bind_socket(port: str) -> socket.socket:
+    """Try to bind a socket on defined port. If that fails, repeat on different
+    ports until a bindable socket is found, binded and returned.
+    If all possibilities fail, then exit the program.
+    """
+    i = PORTS.index(port)
+    ports = PORTS[i:] + PORTS[:i]
+    addrs = ['127.0.0.1', 'localhost', '0.0.0.0']
+    for addr in addrs:
+        for port in ports:
+            try:
+                sock = socket.socket()
+                sock.bind((addr, int(port)))
+                return sock
+            except Exception as e:
+                logging.warning(f'error binding socket {addr}:{port}: {e}')
+    logging.error('Unable to bind any socket')
+    exit(111)
 
 async def persistent_sessions(app):
   sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
@@ -303,7 +323,7 @@ async def persistent_sessions(app):
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('--port', type=str, default='10753')
+  parser.add_argument('--port', type=str, default=PORTS[0])
   parser.add_argument('--server', type=str, default='https://www.blenderkit.com')
   parser.add_argument('--proxy_which', type=str, default='SYSTEM')
   parser.add_argument('--proxy_address', type=str, default='')
@@ -347,9 +367,10 @@ if __name__ == '__main__':
   server.on_startup.append(start_background_tasks)
   server.on_cleanup.append(cleanup_background_tasks)
 
+  sock = find_and_bind_socket(args.port)
   try:
     logging.info(f'Starting with {args}')
-    web.run_app(server, host='127.0.0.1', port=args.port)
+    web.run_app(server, sock=sock)
   except OSError as e:
     if platform.system() == "Windows":
       if e.winerror == 121: exit(121)

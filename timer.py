@@ -1,9 +1,6 @@
-import asyncio
-import concurrent.futures
 import logging
 import os
 import queue
-import sys
 
 import bpy
 
@@ -29,47 +26,50 @@ from .daemon import tasks
 bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
 pending_tasks = list() # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
-retried = 0
+
+
+def handle_failed_reports(exception: Exception) -> float:
+    global_vars.DAEMON_FAILED_REPORTS += 1
+    global_vars.DAEMON_ACCESSIBLE = False
+    if global_vars.DAEMON_FAILED_REPORTS in (1,8):
+        daemon_lib.start_daemon_server()
+    if global_vars.DAEMON_FAILED_REPORTS < 12:
+        return 0.1*global_vars.DAEMON_FAILED_REPORTS
+
+    return_code, meaning = daemon_lib.check_daemon_exit_code()
+    if return_code is None and global_vars.DAEMON_FAILED_REPORTS==12:
+        reports.add_report('Daemon is not responding, add-on will not work.', 10, 'ERROR')
+    if return_code is not None and global_vars.DAEMON_FAILED_REPORTS==12:
+        reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, 'ERROR')
+
+    bk_logger.warning(f'Could not get reports: {exception}')
+    wm = bpy.context.window_manager
+    wm.blenderkitUI.logo_status = "logo_offline"
+    daemon_lib.start_daemon_server()
+    return 30.0
 
 @bpy.app.handlers.persistent
 def daemon_communication_timer():
   """Recieve all responses from daemon and run according followup commands.
   This function is the only one responsible for keeping the daemon up and running.
   """
-  global retried
   global pending_tasks
   bk_logger.debug('Getting tasks from daemon')
   search.check_clipboard()
   app_id = os.getpid()
   results = list()
 
-  wm = bpy.context.window_manager
   try:
     api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
     results = daemon_lib.get_reports(app_id, api_key)
-    retried = 0
+    global_vars.DAEMON_FAILED_REPORTS = 0
   except Exception as e:
-    global_vars.DAEMON_ACCESSIBLE = False
-    if retried <= 11:
-      if retried in (0,7):
-        daemon_lib.start_daemon_server()
-      retried = retried + 1
-      return 0.1*retried
+    return handle_failed_reports(e)
 
-    return_code, meaning = daemon_lib.check_daemon_exit_code()
-    if return_code == None:
-      reports.add_report(f'Daemon is not responding, add-on will not work.', 10, 'ERROR')
-    else:
-      reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, 'ERROR')
-
-    bk_logger.warning(f'Could not get reports: {e}')
-    wm.blenderkitUI.logo_status = "logo_offline"
-    daemon_lib.start_daemon_server()
-    return 30
-
-  if global_vars.DAEMON_ACCESSIBLE == False:
+  if global_vars.DAEMON_ACCESSIBLE is False:
     reports.add_report("Daemon is running!")
     global_vars.DAEMON_ACCESSIBLE = True
+    wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo"
 
   results.extend(pending_tasks)
@@ -109,6 +109,7 @@ def save_prefs_cancel_all_tasks_and_restart_daemon(self, context):
   """
   utils.save_prefs(self, context)
   reports.add_report("Restarting daemon server", 5, "INFO")
+  daemon_lib.reorder_ports(bpy.context.preferences.addons['blenderkit'].preferences.daemon_port)
   try:
     cancel_all_tasks(self, context)
     daemon_lib.kill_daemon_server()
