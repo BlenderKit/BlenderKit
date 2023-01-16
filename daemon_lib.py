@@ -46,7 +46,7 @@ def get_reports(app_id: str, api_key=''):
     If few last calls failed, then try to get reports also from other than default ports.
     """
     data = {'app_id': app_id, 'api_key': api_key}
-    if global_vars.DAEMON_FAILED_REPORTS < 8:
+    if global_vars.DAEMON_FAILED_REPORTS < 10: #on 10, there is second daemon start
         url = f'{get_address()}/report'
         report = request_report(url, data)
         return report

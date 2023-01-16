@@ -29,24 +29,26 @@ pending_tasks = list() # pending tasks are tasks that were not parsed correclty 
 
 
 def handle_failed_reports(exception: Exception) -> float:
-    global_vars.DAEMON_FAILED_REPORTS += 1
     global_vars.DAEMON_ACCESSIBLE = False
-    if global_vars.DAEMON_FAILED_REPORTS in (1,8):
+    if global_vars.DAEMON_FAILED_REPORTS in (0,10):
         daemon_lib.start_daemon_server()
-    if global_vars.DAEMON_FAILED_REPORTS < 12:
+
+    global_vars.DAEMON_FAILED_REPORTS += 1
+    if global_vars.DAEMON_FAILED_REPORTS < 15:
         return 0.1*global_vars.DAEMON_FAILED_REPORTS
 
+    bk_logger.warning(f'Could not get reports: {exception}')
     return_code, meaning = daemon_lib.check_daemon_exit_code()
-    if return_code is None and global_vars.DAEMON_FAILED_REPORTS==12:
+    if return_code is None and global_vars.DAEMON_FAILED_REPORTS==15:
         reports.add_report('Daemon is not responding, add-on will not work.', 10, 'ERROR')
-    if return_code is not None and global_vars.DAEMON_FAILED_REPORTS==12:
+    if return_code is not None and global_vars.DAEMON_FAILED_REPORTS==15:
         reports.add_report(f'Daemon is not running, add-on will not work. Error({return_code}): {meaning}', 10, 'ERROR')
 
-    bk_logger.warning(f'Could not get reports: {exception}')
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
     daemon_lib.start_daemon_server()
     return 30.0
+
 
 @bpy.app.handlers.persistent
 def daemon_communication_timer():

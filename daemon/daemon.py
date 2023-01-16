@@ -243,7 +243,7 @@ async def cleanup_background_tasks(app: web.Application):
   try:
     app['life_check'].cancel()
     app['online_status_check'].cancel()
-  except:
+  except Exception as e:
     logging.warning(f'BG tasks canceling failed: {e}')
 
 
@@ -261,9 +261,10 @@ def find_and_bind_socket(port: str) -> socket.socket:
             try:
                 sock = socket.socket()
                 sock.bind((addr, int(port)))
+                globals.PORT = int(port)
                 return sock
             except Exception as e:
-                logging.warning(f'error binding socket {addr}:{port}: {e}')
+                logging.warning(f'error binding socket {addr}:{port} - {e}')
     logging.error('Unable to bind any socket')
     exit(111)
 
