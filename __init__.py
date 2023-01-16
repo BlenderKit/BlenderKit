@@ -19,11 +19,11 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
-    "version": (3, 4, 0, 221124), #X.Y.Z.yymmdd
+    "version": (3, 4, 0, 230116), #X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
-    "doc_url": "https://docs.blender.org/manual/en/3.1/addons/3d_view/blenderkit.html",
+    "doc_url": "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation",
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
