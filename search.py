@@ -616,7 +616,7 @@ def query_to_url(query={}, params={}):
   # add dict_parameters to make results smaller
   # result ordering: _score - relevance, score - BlenderKit score
   order = []
-  if query['free_first']:
+  if query.get('free_first', False):
     order = ['-is_free', ]
   if query.get('query') is None and query.get('category_subtree') == None:
     # assumes no keywords and no category, thus an empty search that is triggered on start.
