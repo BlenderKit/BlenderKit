@@ -30,8 +30,8 @@ bl_info = {
 
 import logging
 import sys
-from os import path
 from importlib import reload
+from os import path
 
 
 bk_logger = logging.getLogger(__name__)
