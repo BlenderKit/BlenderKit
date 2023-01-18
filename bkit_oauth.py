@@ -48,7 +48,7 @@ def handle_login_task(task: tasks.Task):
         tasks_queue.add_task((write_tokens, (access_token, refresh_token, oauth_response)))
     elif task.status == "error":
         logout()
-        tasks_queue.add_task((reports.add_report, (task.message, 5, 'ERROR')))
+        reports.add_report(task.message, 5, 'ERROR')
 
 
 def logout():

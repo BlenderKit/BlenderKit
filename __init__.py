@@ -31,6 +31,7 @@ bl_info = {
 import logging
 import sys
 from os import path
+from importlib import reload
 
 
 bk_logger = logging.getLogger(__name__)
@@ -48,8 +49,6 @@ bk_logger = logging.getLogger(__name__)
 # )
 
 if "bpy" in locals():
-    from importlib import reload
-
     global_vars = reload(global_vars)
     dependencies = reload(dependencies)
     try:
@@ -1944,6 +1943,7 @@ classes = (
 
 
 def register():
+    reload(global_vars)
     global_vars.VERSION = bl_info['version']
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
