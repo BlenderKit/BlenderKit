@@ -1,6 +1,6 @@
-import collections
-import logging
-import os
+from collections import deque
+from logging import INFO, WARN
+from os import environ
 
 
 DAEMON_ACCESSIBLE = False
@@ -12,16 +12,16 @@ DAEMON_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1
 DAEMON_ONLINE = False
 DATA = {
   'images available': {},
-  'search history': collections.deque(maxlen=20),
+  'search history': deque(maxlen=20),
   'bkit notifications': None,
   'bkit authors': {},
   'asset comments': {},
 }
-LOGGING_LEVEL_BLENDERKIT = logging.INFO
-LOGGING_LEVEL_IMPORTED = logging.WARN
+LOGGING_LEVEL_BLENDERKIT = INFO
+LOGGING_LEVEL_IMPORTED = WARN
 PREFS = {}
 
-SERVER = os.environ.get('BLENDERKIT_SERVER', 'https://www.blenderkit.com')
+SERVER = environ.get('BLENDERKIT_SERVER', 'https://www.blenderkit.com')
 
 TIPS = [
   ('You can disable tips in the add-on preferences.', 'https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#preferences'),

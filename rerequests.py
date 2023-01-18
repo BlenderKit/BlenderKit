@@ -54,9 +54,7 @@ def rerequest(method, url, recursion=0, **kwargs):
             session.trust_env = True
         response = session.request(method, url, **kwargs)
     except Exception as e:
-        print(e)
-        tasks_queue.add_task((reports.add_report, (
-            'Connection error.', 10)))
+        reports.add_report(f'Connection error: {e}', 10)
         return FakeResponse()
 
     bk_logger.debug(url + str(kwargs))
@@ -67,8 +65,7 @@ def rerequest(method, url, recursion=0, **kwargs):
             rdata = response.json()
         except:
             rdata = {}
-
-        tasks_queue.add_task((reports.add_report, (method + ' request Failed.' + str(rdata.get('detail')),)))
+        reports.add_report(f'{method} request failed: {rdata.get("detail")}')
 
     return response
 

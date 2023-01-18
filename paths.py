@@ -120,13 +120,14 @@ def get_temp_dir(subdir=None):
             dirs_exist_dict[subdir] = tempdir
 
         cleanup_old_folders()
-    except:
-        tasks_queue.add_task((reports.add_report, ('Cache directory not found. Resetting Cache folder path.',)))
+    except Exception as e:
+        reports.add_report('Cache directory not found. Resetting Cache folder path.')
+        bk_logger.warn(f'due to exception: {e}')
 
         p = default_global_dict()
         if p == user_preferences.global_dir:
             message = 'Global dir was already default, plese set a global directory in addon preferences to a dir where you have write permissions.'
-            tasks_queue.add_task((reports.add_report, (message,)))
+            reports.add_report(message)
             return None
         user_preferences.global_dir = p
         tempdir = get_temp_dir(subdir=subdir)
@@ -314,13 +315,13 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
         for d in dirs:
             asset_folder_path = os.path.join(d, asset_folder_name)
             if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
-                tasks_queue.add_task((reports.add_report, (
+                reports.add_report(
                 'The path to assets is too long, '
                 'only Global folder can be used. '
                 'Move your .blend file to another '
                 'folder with shorter path to '
                 'store assets in a subfolder of your project.',
-                60, 'ERROR')))
+                60, 'ERROR')
                 continue
             if not os.path.exists(asset_folder_path):
                 os.makedirs(asset_folder_path)
@@ -331,14 +332,13 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
     utils.p('file paths', file_names)
     for f in file_names:
         if len(f) > windows_path_limit:
-            tasks_queue.add_task(
-                (reports.add_report, (
+            reports.add_report(
                 'The path to assets is too long, '
                 'only Global folder can be used. '
                 'Move your .blend file to another '
                 'folder with shorter path to '
                 'store assets in a subfolder of your project.',
-                60, 'ERROR')))
+                60, 'ERROR')
             file_names.remove(f)
     return file_names
 
