@@ -2,32 +2,34 @@
 Uses exit codes to signal different error types. Their meaning is defined and handled at daemon_lib.check_daemon_exit_code().
 """
 
-import argparse
+
+
+
 import asyncio
-import logging
-import os
-import platform
-import signal
-import socket
-import ssl
-import time
-import uuid
-from ssl import Purpose
+from argparse import ArgumentParser
+from logging import basicConfig, error, warning
+from os import environ, getpid
+from platform import system
+from signal import SIGINT, raise_signal
+from socket import AF_INET, socket
+from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext
+from time import time
+from uuid import uuid4
 
 
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [%(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
+basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [%(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
 
 try:
   import aiohttp
   from aiohttp import web
 except Exception as e:
-  logging.error(f'{e}')
+  error(f'{e}')
   exit(101)
 
 try:
   import certifi
 except Exception as e:
-  logging.error(f'{e}')
+  error(f'{e}')
   exit(102)
 
 import assets
@@ -47,7 +49,7 @@ PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
 async def download_asset(request: web.Request):
   """Handle request for download of asset."""
   data = await request.json()
-  task_id = str(uuid.uuid4())
+  task_id = str(uuid4())
   data['task_id'] = task_id #mozna k nicemu
 
   app_id = data['app_id']
@@ -64,7 +66,7 @@ async def download_asset(request: web.Request):
 async def search_assets(request: web.Request):
   """Handle request for download of asset."""
   data = await request.json()
-  task_id = str(uuid.uuid4())
+  task_id = str(uuid4())
   data['task_id'] = task_id #mozna k nicemu
   app_id = data['app_id']
   del data['app_id']
@@ -80,7 +82,7 @@ async def search_assets(request: web.Request):
 async def upload_asset(request: web.Request):
   """Handle request for upload of asset."""
   data = await request.json()  
-  task_id = str(uuid.uuid4())
+  task_id = str(uuid4())
   app_id = data.pop('app_id')
 
   task = tasks.Task(data, app_id, 'asset_upload', task_id, message='Asset upload has started')
@@ -93,7 +95,7 @@ async def upload_asset(request: web.Request):
 
 async def index(request: web.Request):
   """Report PID of server as Index page, can be used as is-alive endpoint."""
-  pid = str(os.getpid())
+  pid = str(getpid())
   return web.Response(text=pid)
 
 
@@ -163,7 +165,7 @@ async def code_verifier(request: web.Request):
 
 async def report(request: web.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
-  globals.last_report_time = time.time()
+  globals.last_report_time = time()
   data = await request.json()
   #check if the app was already active
   if data['app_id'] not in globals.active_apps:
@@ -189,19 +191,19 @@ async def report(request: web.Request):
 
 async def shutdown(request: web.Request):
   """Shedules shutdown of the server."""
-  logging.warning('Shutdown requested, exiting Daemon')
-  signal.raise_signal(signal.SIGINT)
+  warning('Shutdown requested, exiting Daemon')
+  raise_signal(SIGINT)
   return web.Response(text='Going to shutdown.')
 
 
 async def report_blender_quit(request: web.Request):
   data = await request.json()
-  logging.warning(f"Blender quit (ID {data['app_id']}) was reported")
+  warning(f"Blender quit (ID {data['app_id']}) was reported")
   if data['app_id'] in globals.active_apps:
     globals.active_apps.remove(data['app_id'])
   if len(globals.active_apps)==0:
-    logging.warning('No more apps to serve, exiting Daemon')
-    signal.raise_signal(signal.SIGINT)
+    warning('No more apps to serve, exiting Daemon')
+    raise_signal(SIGINT)
 
   return web.Response(text="ok") 
 
@@ -210,9 +212,9 @@ async def report_blender_quit(request: web.Request):
 
 async def life_check(app: web.Application):
   while True:
-    since_report = time.time() - globals.last_report_time
+    since_report = time() - globals.last_report_time
     if since_report > globals.TIMEOUT:
-      signal.raise_signal(signal.SIGINT)
+      raise_signal(SIGINT)
     await asyncio.sleep(10)
 
 
@@ -223,9 +225,9 @@ async def online_status_check(app: web.Application):
       async with app['SESSION_API_REQUESTS'].head(url, timeout=3) as resp:
         globals.online_status = resp.status
         if resp.status != 200:
-          logging.warning(f'{url}: status code {resp.status}')
+          warning(f'{url}: status code {resp.status}')
     except Exception as e:
-      logging.warning(f'{url}: request failed')
+      warning(f'{url}: request failed')
       globals.online_status = f'{e}'
 
     if globals.online_status == 200:
@@ -244,11 +246,11 @@ async def cleanup_background_tasks(app: web.Application):
     app['life_check'].cancel()
     app['online_status_check'].cancel()
   except Exception as e:
-    logging.warning(f'BG tasks canceling failed: {e}')
+    warning(f'BG tasks canceling failed: {e}')
 
 
 ## CONFIGURATION
-def find_and_bind_socket(port: str) -> socket.socket:
+def find_and_bind_socket(port: str) -> socket:
     """Try to bind a socket on defined port. If that fails, repeat on different
     ports until a bindable socket is found, binded and returned.
     If all possibilities fail, then exit the program.
@@ -259,17 +261,17 @@ def find_and_bind_socket(port: str) -> socket.socket:
     for addr in addrs:
         for port in ports:
             try:
-                sock = socket.socket()
+                sock = socket()
                 sock.bind((addr, int(port)))
                 globals.PORT = int(port)
                 return sock
             except Exception as e:
-                logging.warning(f'error binding socket {addr}:{port} - {e}')
-    logging.error('Unable to bind any socket')
+                warning(f'error binding socket {addr}:{port} - {e}')
+    error('Unable to bind any socket')
     exit(111)
 
 async def persistent_sessions(app):
-  sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+  sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
   
   if app['PROXY_CA_CERTS'] != '':
     sslcontext.load_verify_locations(app['PROXY_CA_CERTS'])
@@ -277,18 +279,18 @@ async def persistent_sessions(app):
   try:
     sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
   except Exception as e:
-    logging.warning('failed to load default certs:', e)
+    warning('failed to load default certs:', e)
 
   if app['PROXY_WHICH'] == 'SYSTEM':
     trust_env = True
   elif app['PROXY_WHICH'] == 'CUSTOM':
     trust_env = True
-    os.environ["HTTPS_PROXY"] = app['PROXY_ADDRESS']
+    environ["HTTPS_PROXY"] = app['PROXY_ADDRESS']
   else:
     trust_env = False
 
   if globals.IP_VERSION == 'IPv4':
-    family = socket.AF_INET
+    family = AF_INET
   else: # default value
     family = 0
 
@@ -323,7 +325,7 @@ async def persistent_sessions(app):
 ## MAIN
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
+  parser = ArgumentParser()
   parser.add_argument('--port', type=str, default=PORTS[0])
   parser.add_argument('--server', type=str, default='https://www.blenderkit.com')
   parser.add_argument('--proxy_which', type=str, default='SYSTEM')
@@ -333,6 +335,8 @@ if __name__ == '__main__':
   parser.add_argument('--system_id', type=str, default='')
   parser.add_argument('--version', type=str, default='')
   args = parser.parse_args()
+
+  warning(f'Daemon (PID {getpid()}) initiated with {args}')
 
   globals.PORT = args.port
   globals.SERVER = args.server
@@ -370,10 +374,9 @@ if __name__ == '__main__':
 
   sock = find_and_bind_socket(args.port)
   try:
-    logging.info(f'Starting with {args}')
     web.run_app(server, sock=sock)
   except OSError as e:
-    if platform.system() == "Windows":
+    if system() == "Windows":
       if e.winerror == 121: exit(121)
     if e.errno == 10013: exit(113)
     if e.errno == 10014: exit(114)
