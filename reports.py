@@ -16,29 +16,39 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import logging
-import time
+from inspect import getframeinfo, stack
+from logging import getLogger
+from os.path import basename
+from time import time
 
 import bpy
 
 from . import asset_bar_op, colors, ui_bgl, utils
 
 
-bk_logger = logging.getLogger(__name__)
+bk_logger = getLogger(__name__)
 reports = []
 
+
 # check for same reports and just make them longer by the timeout.
-def add_report(text='', timeout=5, type='INFO'):
-    """Add report to GUI. Function checks for same reports and make them longer by the timeout.
-    It also logs the message into the console with levels: Red=Error, other=info.
+def add_report(text='', timeout=5, type='INFO', details=''):
+    """Add text report to GUI. Function checks for same reports and make them longer by the timeout.
+    Also log the text and details into the console with levels: ERROR=RED, INFO=GREEN.
     """
     global reports
+    text = text.strip()
+    full_message = text
+    details = details.strip()
+    if details != '': 
+        full_message = f'{text} {details}'
 
     if type == 'ERROR':
-        bk_logger.error(text, stacklevel=2)
+        caller = getframeinfo(stack()[1][0])
+        text = f'{text} [{basename(caller.filename)}:{caller.lineno}]'
+        bk_logger.error(full_message, stacklevel=2)
         color = colors.RED
     elif type == 'INFO':
-        bk_logger.info(text, stacklevel=2)
+        bk_logger.info(full_message, stacklevel=2)
         color = colors.GREEN
 
     # check for same reports and just make them longer by the timeout.
@@ -54,7 +64,7 @@ class Report():
     def __init__(self, text='', timeout=5, color=(.5, 1, .5, 1)):
         self.text = text
         self.timeout = timeout
-        self.start_time = time.time()
+        self.start_time = time()
         self.color = color
         self.draw_color = color
         self.age = 0
@@ -65,10 +75,9 @@ class Report():
             if a is not None:
                 self.active_area_pointer = a.as_pointer()
 
-
     def fade(self):
         fade_time = 1
-        self.age = time.time() - self.start_time
+        self.age = time() - self.start_time
         if self.age + fade_time > self.timeout:
             alpha_multiplier = (self.timeout - self.age) / fade_time
             self.draw_color = (self.color[0], self.color[1], self.color[2], self.color[3] * alpha_multiplier)
@@ -77,7 +86,7 @@ class Report():
                 try:
                     reports.remove(self)
                 except Exception as e:
-                    pass;
+                    bk_logger.warning(f'exception in fading: {e}')
 
     def draw(self, x, y):
         if (bpy.context.area is not None and bpy.context.area.as_pointer() == self.active_area_pointer):
