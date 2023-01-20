@@ -79,7 +79,9 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   6. unpacks the file
   """
 
-  await get_download_url(request.app["SESSION_API_REQUESTS"], task)
+  can_download = await get_download_url(request.app["SESSION_API_REQUESTS"], task)
+  if can_download is False:
+    return
 
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
   if await check_existing(task):
@@ -155,34 +157,35 @@ async def get_download_url_wrapper(request: web.Request):
   return web.json_response({'has_url': has_url, 'asset_data': task.data['asset_data']})
 
 
-async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task):
-  """Retrieves the download url. The server checks if user can download the item and returns url with a key."""
+async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task) -> bool:
+  """Retrieve the download url. The server checks if user can download the item and returns url with a key."""
   headers = utils.get_headers(task.data['PREFS']['api_key'])
   req_data = {'scene_uuid': task.data['PREFS']['scene_id']}
   res_file_info, _ = get_res_file(task.data)
+  try:
+    async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
+      resp_data = await resp.json()
+  except aiohttp.ClientConnectorError as e:
+    task.error(f'Could not get download URL: {e}')
+    return False
+  except aiohttp.ContentTypeError as e:
+    task.error(f'Get download URL error: {e}')
+    return False
 
-  async with session.get(res_file_info['downloadUrl'], params=req_data, headers=headers) as resp:
-    await resp.text()
-    if resp == None:
-      task.error('Connection error')
-      return False
+  if resp.status >= 400:
+    error_message = resp_data.get('detail', f'Get download URL status code: {resp.status}')
+    task.error(error_message)
+    return False
 
-    if resp.status < 400:
-      rdata = await resp.json()
-      url = rdata['filePath']
-      res_file_info['url'] = url
-      res_file_info['file_name'] = extract_filename_from_url(url)
-      return True
+  url = resp_data.get('filePath')
+  if url is None:
+    task.error('filePath is None')
+    return False
 
-    if resp.status == 403:
-      task.error('You need Full plan to get this item.')
-    elif resp.status == 404:
-      task.error('Url not found - 404.')
-      # r1 = 'All materials and brushes are available for free. Only users registered to Standard plan can use all models.'
-    elif resp.status >= 500:
-      task.error('Server error')
+  res_file_info['url'] = url
+  res_file_info['file_name'] = extract_filename_from_url(url)
+  return True
 
-  return False
 
 
 def extract_filename_from_url(url: str) -> str:
