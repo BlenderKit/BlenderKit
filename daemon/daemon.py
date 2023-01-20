@@ -11,7 +11,7 @@ from logging import basicConfig, error, warning
 from os import environ, getpid
 from platform import system
 from signal import SIGINT, raise_signal
-from socket import AF_INET, socket
+from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, socket
 from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext
 from time import time
 from uuid import uuid4
@@ -262,6 +262,7 @@ def find_and_bind_socket(port: str) -> socket:
         for port in ports:
             try:
                 sock = socket()
+                sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
                 sock.bind((addr, int(port)))
                 globals.PORT = int(port)
                 return sock
@@ -384,3 +385,6 @@ if __name__ == '__main__':
     if e.errno == 10048: exit(149)
     exit(110)
   except Exception as e: exit(100)
+
+  sock.close()
+  warning('Daemon script has ended.')
