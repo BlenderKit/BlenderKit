@@ -7,12 +7,12 @@ import sys
 
 PYTHON_VERSION = "3.10"
 PACKAGES = [
-  "multidict==6.0.3",
+  "multidict==6.0.4",
   "yarl==1.8.2",
   "aiohttp==3.8.3",
   "aiosignal==1.3.1",
   "async-timeout==4.0.2",
-  "attrs==22.1.0",
+  "attrs==22.2.0",
   "certifi==2022.12.7",
   "charset-normalizer==2.1.1",
   "frozenlist==1.3.3",
