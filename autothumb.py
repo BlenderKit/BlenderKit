@@ -333,7 +333,7 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         #
         #     return {'FINISHED'}
 
-        return wm.invoke_props_dialog(self)
+        return wm.invoke_props_dialog(self, width=400)
 
 
 class ReGenerateThumbnailOperator(bpy.types.Operator):
@@ -348,7 +348,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
     asset_index: IntProperty(name="Asset Index", description='asset index in search results', default=-1)
 
     thumbnail_background_lightness: FloatProperty(name="Thumbnail Background Lightness",
-                                                  description="set to make your material stand out", default=1.0,
+                                                  description="Set to make your asset stand out", default=1.0,
                                                   min=0.01, max=10)
 
     thumbnail_angle: EnumProperty(
@@ -359,10 +359,10 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
     )
 
     thumbnail_snap_to: EnumProperty(
-        name='Model Snaps To:',
+        name='Model Snaps To',
         items=thumbnail_snap,
         default='GROUND',
-        description='typical placing of the interior. Leave on ground for most objects that respect gravity :)',
+        description='typical placing of the interior. Leave on ground for most objects that respect gravity',
     )
 
     thumbnail_resolution: EnumProperty(
@@ -445,7 +445,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         #
         #     return {'FINISHED'}
 
-        return wm.invoke_props_dialog(self)
+        return wm.invoke_props_dialog(self, width=400)
 
 
 class GenerateMaterialThumbnailOperator(bpy.types.Operator):
@@ -539,7 +539,7 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        return wm.invoke_props_dialog(self)
+        return wm.invoke_props_dialog(self, width=400)
 
 
 class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
@@ -669,7 +669,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         #     self.asset_data = active_asset.get('asset_data')
 
         wm = context.window_manager
-        return wm.invoke_props_dialog(self)
+        return wm.invoke_props_dialog(self, width=400)
 
 
 def register_thumbnailer():

@@ -1015,21 +1015,21 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         update=autothumb.update_upload_model_preview)
 
     thumbnail_background_lightness: FloatProperty(name="Thumbnail Background Lightness",
-                                                  description="set to make your material stand out", default=1.0,
+                                                  description="Set to make your Model stand out", default=1.0,
                                                   min=0.01, max=10)
 
     thumbnail_angle: EnumProperty(
         name='Thumbnail Angle',
         items=autothumb.thumbnail_angles,
         default='DEFAULT',
-        description='thumbnailer angle',
+        description='Thumbnailer angle',
     )
 
     thumbnail_snap_to: EnumProperty(
-        name='Model Snaps To:',
+        name='Model Snaps To',
         items=autothumb.thumbnail_snap,
         default='GROUND',
-        description='typical placing of the interior. Leave on ground for most objects that respect gravity :)',
+        description='Typical placing of the interior. Leave on ground for most objects that respect gravity',
     )
 
     thumbnail_resolution: EnumProperty(
@@ -1530,7 +1530,7 @@ def update_unpack(self, context):
                                  " and resolution swapping of assets is possible.\n\n" \
                                  " - With unpack off, you can avoid some issues that " \
                                  "are caused by other addons like e.g. Megascans. "
-                                 "Switch unpack off if you encounter problems like stuck downloads.")
+                                 "Switch unpack off if you encounter problems like stuck downloads")
 
 
 class BlenderKitAddonPreferences(AddonPreferences):
@@ -1642,7 +1642,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
                                  " and resolution swapping of assets is possible.\n\n" \
                                  " - With unpack off, you can avoid some issues that " \
                                  "are caused by other addons like e.g. Megascans. "
-                                 "Switch unpack off if you encounter problems like stuck downloads.",
+                                 "Switch unpack off if you encounter problems like stuck downloads",
                                default=False,
                                update = update_unpack
                                )
@@ -1682,13 +1682,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Proxy",
         items=(
             ('SYSTEM', 'SYSTEM: use system proxy settings',
-             'Addon will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored'),
+             'Add-on will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored'),
             ('NONE', 'NONE: ignore system and custom proxy setting',
-             'Addon will ignore both system-wide proxy settings and custom proxy settings defined in addon preferences.'
+             'Add-on will ignore both system-wide proxy settings and custom proxy settings defined in addon preferences. '
              'All addon HTTP requests will not go through any proxy server'),
             ('CUSTOM', 'CUSTOM: use custom proxy settings (experimental)',
-             'Addon will use custom proxy settings, system proxy settings will be ignored.'
-             'Please set the address in the addon preferences bellow in the field "Custom proxy address".'
+             'Add-on will use custom proxy settings, system proxy settings will be ignored.'
+             'Please set the address in the addon preferences below in the field "Custom proxy address". '
              'This is an experimental feature, might not work on some systems'),
         ),
         description="Which directories will be used for storing downloaded data",
@@ -1723,16 +1723,16 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
     directory_behaviour: EnumProperty(
         name="Use Directories",
         items=(
-            ('BOTH', 'Global and subdir',
-             'store files both in global lib and subdirectory of current project. '
-             'Warning - each file can be many times on your harddrive, but helps you keep your projects in one piece'),
+            ('BOTH', 'Global and Subdir',
+             'Store files both in global lib and subdirectory of current project. '
+             'Warning - each file can be many times on your harddrive, but helps you keep your projects in one piece.'),
             ('GLOBAL', 'Global',
              "store downloaded files only in global directory. \n "
              "This can bring problems when moving your projects, \n"
-             "since assets won't be in subdirectory of current project"),
+             "since assets won't be in subdirectory of current project."),
             ('LOCAL', 'Local',
              'store downloaded files only in local directory.\n'
-             ' This can use more bandwidth when you reuse assets in different projects. ')
+             ' This can use more bandwidth when you reuse assets in different projects.')
 
         ),
         description="Which directories will be used for storing downloaded data",
@@ -1771,7 +1771,8 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
                                    update=utils.save_prefs
                                    )
 
-    thumb_size: IntProperty(name="Assetbar thumbnail Size", default=96, min=-1, max=256, update=utils.save_prefs
+    thumb_size: IntProperty(name="Assetbar Thumbnail Size", default=96, min=-1, max=256, update=utils.save_prefs,
+                            description="Size of thumbnails of the assetbar in 3D view"
                             )
 
     # counts usages so it can encourage user after some time to do things.

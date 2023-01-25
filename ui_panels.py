@@ -62,18 +62,22 @@ def draw_not_logged_in(source, message='Please Login/Signup to use this feature'
 
 
 def draw_upload_common(layout, props, asset_type, context):
-    op = layout.operator("wm.url_open", text=f"Read {asset_type.lower()} upload instructions",
-                         icon='QUESTION')
+
+    asset_type_text = asset_type.lower()
     if asset_type == 'MODEL':
-        op.url = paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
     if asset_type == 'MATERIAL':
-        op.url = paths.BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL
     if asset_type == 'BRUSH':
-        op.url = paths.BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL
     if asset_type == 'SCENE':
-        op.url = paths.BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL
     if asset_type == 'HDR':
-        op.url = paths.BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL
+        asset_type_text = asset_type
+        url = paths.BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL
+    op = layout.operator("wm.url_open", text=f"Read {asset_type} upload instructions",
+                         icon='QUESTION')
+    op.url = url
 
     row = layout.row(align=True)
     if props.upload_state != '':
@@ -1569,7 +1573,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             if aob is None:
                 aob = bpy.context.selected_objects[0]
             op = layout.operator('scene.blenderkit_download', text='Replace Active Models')
-            op.tooltip = "Replace all selected models with this one."
+            op.tooltip = "Replace all selected models with this one"
 
             # this checks if the menu got called from right-click in assetbar(then index is 0 - x) or
             # from a panel(then replacement happens from the active model)
