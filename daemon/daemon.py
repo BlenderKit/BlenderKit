@@ -371,6 +371,7 @@ if __name__ == '__main__':
     web.post('/notifications/mark_notification_read', comments.mark_notification_read_handler),
     web.get('/wrappers/get_download_url', assets.get_download_url_wrapper),
     web.get('/wrappers/blocking_request', utils.blocking_request_handler),
+    web.get('/wrappers/nonblocking_request', utils.nonblocking_request_handler),
     web.get('/profiles/fetch_gravatar_image', profiles.fetch_gravatar_image_handler),
     web.get('/profiles/get_user_profile', profiles.get_user_profile_handler),
     web.get('/ratings/get_rating', ratings.get_rating_handler),

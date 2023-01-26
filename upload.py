@@ -538,16 +538,6 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     return export_data, upload_data
 
 
-def patch_individual_metadata(asset_id, metadata_dict, api_key):
-    upload_data = metadata_dict
-    url = f'{paths.BLENDERKIT_API}/assets/{asset_id}/'
-    headers = utils.get_headers(api_key)
-    try:
-        r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
-    except requests.exceptions.RequestException as e:
-        bk_logger.error(e)
-        return {'CANCELLED'}
-    return {'FINISHED'}
 
 
 def update_free_full(self, context):
@@ -681,8 +671,6 @@ class FastMetadata(bpy.types.Operator):
             layout.prop(self, 'license')
 
     def execute(self, context):
-        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-        props = bpy.context.window_manager.blenderkitUI
         if self.subcategory1 != 'NONE':
             category = self.subcategory1
         elif self.subcategory != 'NONE':
@@ -690,8 +678,7 @@ class FastMetadata(bpy.types.Operator):
         else:
             category = self.category
         utils.update_tags(self, context)
-
-        mdict = {
+        metadata = {
             'category': category,
             'displayName': self.name,
             'description': self.description,
@@ -700,18 +687,14 @@ class FastMetadata(bpy.types.Operator):
             'isFree': self.free_full == 'FREE',
             'license': self.license,
         }
-
-        thread = threading.Thread(target=patch_individual_metadata,
-                                  args=(self.asset_id, mdict, user_preferences.api_key))
-        thread.start()
-        tasks_queue.add_task((reports.add_report, (f'Uploading metadata for {self.name}. '
-                                                   f'Refresh search results to see that changes applied correctly.',
-                                                   8,)))
-
+        url = f'{paths.BLENDERKIT_API}/assets/{self.asset_id}/'
+        api_key = bpy.context.preferences.addons['blenderkit'].preferences.api_key
+        headers = utils.get_headers(api_key)
+        messages = {'success': 'Metadata upload succeded', 'error': 'Metadata upload failed'}
+        daemon_lib.nonblocking_request(url, 'PATCH', headers, metadata, messages)
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         if ui_props.active_index > -1:
             sr =global_vars.DATA['search results']

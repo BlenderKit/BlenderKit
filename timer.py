@@ -196,7 +196,11 @@ def handle_task(task: tasks.Task):
   if task.task_type == 'ratings/get_rating':
     return ratings_utils.handle_get_rating_task(task)
   if task.task_type == 'ratings/send_rating':
-    return
+    return #TODO: at least on error we should show error message
+
+  #HANDLE NONBLOCKING_REQUEST
+  if task.task_type == 'wrappers/nonblocking_request':
+    return utils.handle_nonblocking_request_task(task)
 
 
 @bpy.app.handlers.persistent
