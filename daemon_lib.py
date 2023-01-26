@@ -70,7 +70,8 @@ def request_report(url: str, data: dict):
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
         return resp.json()
 
-
+### ASSETS
+# SEARCH
 def search_asset(data):
   """Search for specified asset."""
   bk_logger.debug('Starting search request')
@@ -82,7 +83,7 @@ def search_asset(data):
     bk_logger.debug('Got search response')
     return resp.json()
 
-
+# DOWNLOAD
 def download_asset(data):
   """Download specified asset."""
   address = get_address()
@@ -92,7 +93,15 @@ def download_asset(data):
     resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
     return resp.json()
 
+def kill_download(task_id):
+  """Kill the specified task with ID on the daemon."""
+  address = get_address()
+  with requests.Session() as session:
+    url = address + "/kill_download"
+    resp = session.get(url, json={'task_id': task_id}, timeout=TIMEOUT, proxies={})
+    return resp
 
+# UPLOAD
 def upload_asset(upload_data, export_data, upload_set):
   """Upload specified asset."""
   data = {
@@ -106,15 +115,6 @@ def upload_asset(upload_data, export_data, upload_set):
     bk_logger.debug(f"making a request to: {url}")
     resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
     return resp.json()
-
-
-def kill_download(task_id):
-  """Kill the specified task with ID on the daemon."""
-  address = get_address()
-  with requests.Session() as session:
-    url = address + "/kill_download"
-    resp = session.get(url, json={'task_id': task_id}, timeout=TIMEOUT, proxies={})
-    return resp
 
 
 ### PROFILES
@@ -249,6 +249,23 @@ def blocking_request(url: str, method: str='GET', headers: dict={}):
     }
     with requests.Session() as session:
         return session.get(f'{get_address()}/wrappers/blocking_request', json=data, timeout=TIMEOUT, proxies={})
+
+
+### REQUEST WRAPPERS
+def nonblocking_request( url: str, method: str, headers: dict, json_data: dict={}, messages: dict={}):
+    """Make non-blocking HTTP request through daemon's AIOHTTP library.
+    This function will return ASAP, not returning any actual data.
+    """
+    data = {
+        'url': url,
+        'method': method,
+        'headers': headers,
+        'json': json_data,
+        'messages': messages,
+        'app_id': os.getpid(),
+    }
+    with requests.Session() as session:
+        return session.get(f'{get_address()}/wrappers/nonblocking_request', json=data, timeout=TIMEOUT, proxies={})
 
 
 ### AUTHORIZATION

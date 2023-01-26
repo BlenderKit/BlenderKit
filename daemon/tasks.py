@@ -5,7 +5,6 @@ import uuid
 
 class Task():
   """Holds all information needed for a task."""
-
   def __init__(self, data: dict, app_id: str, task_type: str, task_id: str = "", message: str = "", progress: int = 0, status: str = "created", result: dict = {}):
     if task_id == "":
       task_id = str(uuid.uuid4())
@@ -63,7 +62,7 @@ class Task():
 def handle_async_errors(atask: asyncio.Task):
   stack = atask.get_stack()
   exception = atask.exception()
-  if exception == None and stack == []:
+  if exception is None and stack == []:
     return
 
   atask.print_stack()

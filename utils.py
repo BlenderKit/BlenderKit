@@ -30,7 +30,8 @@ import uuid
 import bpy
 from mathutils import Vector
 
-from . import global_vars, image_utils, paths
+from . import global_vars, image_utils, paths, reports
+from .daemon import tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -92,7 +93,6 @@ def get_active_model():
 
 
 def get_active_HDR():
-    scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     image = ui_props.hdr_upload_image
     return image
@@ -1135,3 +1135,10 @@ def is_upload_old(asset_data):
     if age > old:
         return (age.days - old.days)
     return 0
+
+
+def handle_nonblocking_request_task(task: tasks.Task):
+    if task.status == 'finished':
+        reports.add_report(task.message)
+    if task.status == 'error':
+        reports.add_report(task.message, type='ERROR')

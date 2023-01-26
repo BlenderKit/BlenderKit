@@ -1,5 +1,6 @@
 """Contains utility functions for daemon server. Mix of everything."""
 
+import asyncio
 import logging
 import platform
 import re
@@ -8,6 +9,7 @@ from pathlib import Path
 
 import aiohttp
 import globals
+import tasks
 from aiohttp import web
 
 
@@ -21,7 +23,7 @@ def get_headers(api_key: str = '') -> dict[str, str]:
   }
   if api_key == '':
     return headers
-  if api_key == None:
+  if api_key is None:
     return headers
 
   headers['Authorization'] = f'Bearer {api_key}'
@@ -29,7 +31,7 @@ def get_headers(api_key: str = '') -> dict[str, str]:
 
 
 def dict_to_params(inputs, parameters=None):
-  if parameters == None:
+  if parameters is None:
     parameters = []
   for k in inputs.keys():
     if type(inputs[k]) == list:
@@ -109,3 +111,35 @@ async def blocking_request_handler(request: web.Request):
   except Exception as e:
     logging.error(f'{e}')
     return web.Response(status=resp.status, text=str(e))
+
+
+async def nonblocking_request_handler(request: web.Request):
+    """Handle request for nonblocking HTTP request."""
+    data = await request.json()
+    task = tasks.Task(data, data['app_id'], 'wrappers/nonblocking_request')
+    globals.tasks.append(task)
+    task.async_task = asyncio.ensure_future(make_request(request, task))
+    task.async_task.add_done_callback(tasks.handle_async_errors)
+    return web.json_response({'task_id': task.task_id})
+
+
+async def make_request(request: web.Request, task: tasks.Task):
+    session = request.app['SESSION_API_REQUESTS']
+    url = task.data.get('url')
+    method = task.data.get('method')
+    headers = task.data.get('headers')
+    json_data = task.data.get('json')
+    messages = task.data.get('messages', {})
+    error_message = messages.get("error", "Request failed")
+    success_message = messages.get("success", "Request succeeded")
+    try:
+        async with session.request(method, url, headers=headers, json=json_data, raise_for_status=True) as resp:
+            if resp.content_type == 'application/json':
+                task.result = await resp.json()
+            else:
+                task.result = await resp.text()
+            return task.finished(success_message)
+    except aiohttp.ClientResponseError as e:
+        return task.error(f'{error_message}: {e.message} ({e.code})')
+    except Exception as e:
+        return task.error(f'{error_message}: {e}')
