@@ -24,7 +24,7 @@ import time
 
 import bpy
 
-from . import bg_blender, paths, upload, utils
+from . import paths, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -54,21 +54,6 @@ def get_current_resolution():
         if i.name != 'Render Result':
             actres = max(actres, i.size[0], i.size[1])
     return actres
-
-
-def upload_resolutions(files, asset_data, api_key = ''):
-    upload_data = {
-        "name": asset_data['name'],
-        "displayName": asset_data['displayName'],
-        "token": api_key,
-        "id": asset_data['id']
-    }
-
-    uploaded = upload.upload_files(upload_data, files)
-    if uploaded:
-        bg_blender.progress('upload finished successfully')
-    else:
-        bg_blender.progress('upload failed.')
 
 
 def unpack_asset(data):

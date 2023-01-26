@@ -853,17 +853,6 @@ def upload_file(upload_data, f):
     return False
 
 
-def upload_files(upload_data, files):
-    '''uploads several files in one run'''
-    uploaded_all = True
-    for f in files:
-        uploaded = upload_file(upload_data, f)
-        if not uploaded:
-            uploaded_all = False
-        tasks_queue.add_task((reports.add_report, (f"Uploaded all files for asset {upload_data['displayName']}",)))
-    return uploaded_all
-
-
 def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     """Process asset and its data for upload."""
     props = utils.get_upload_props()
