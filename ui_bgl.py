@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bgl
 import blf
 import gpu
 from gpu_extras.batch import batch_for_shader
@@ -37,7 +36,7 @@ def draw_rect(x, y, width, height, color):
 
     shader.bind()
     shader.uniform_float("color", color)
-    bgl.glEnable(bgl.GL_BLEND)
+    gpu.state.blend_set('ALPHA')
     batch.draw(shader)
 
 
@@ -47,7 +46,6 @@ def draw_line2d(x1, y1, x2, y2, width, color):
 
     indices = (
         (0, 1),)
-    bgl.glEnable(bgl.GL_BLEND)
 
     shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'LINES', {"pos": coords}, indices=indices)
@@ -57,7 +55,6 @@ def draw_line2d(x1, y1, x2, y2, width, color):
 
 
 def draw_lines(vertices, indices, color):
-    bgl.glEnable(bgl.GL_BLEND)
 
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'LINES', {"pos": vertices}, indices=indices)
@@ -83,6 +80,7 @@ def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batc
         if ci['x'] == x and ci['y'] ==y:
             batch = ci['batch']
             image_shader = ci['image_shader']
+            texture = ci['texture']
     if not batch:
 
         coords = [
@@ -97,40 +95,30 @@ def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batc
 
         indices = [(0, 1, 2), (2, 1, 3)]
 
-        image_shader = shader = gpu.shader.from_builtin('2D_IMAGE')
+        image_shader  = gpu.shader.from_builtin('2D_IMAGE')
         batch = batch_for_shader(image_shader, 'TRIS',
                                  {"pos": coords,
                                   "texCoord": uvs},
                                  indices=indices)
-
-
+        texture = gpu.texture.from_image(image)
         # tell shader to use the image that is bound to image unit 0
-        image_shader.uniform_int("image", 0)
         cached_images[image.filepath] = {
             'x': x,
             'y': y,
             'batch': batch,
-            'image_shader': image_shader
+            'image_shader': image_shader,
+            'texture': texture
         }
     # send image to gpu if it isn't there already
     if image.gl_load():
         raise Exception()
 
-    # texture identifier on gpu
-    texture_id = image.bindcode
-
-    # in case someone disabled it before
-    bgl.glEnable(bgl.GL_BLEND)
-
-    # bind texture to image unit 0
-    bgl.glActiveTexture(bgl.GL_TEXTURE0)
-    bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture_id)
-
+    texture = gpu.texture.from_image(image)
+    gpu.state.blend_set('ALPHA')
     image_shader.bind()
-
+    image_shader.uniform_sampler("image", texture)
     batch.draw(image_shader)
 
-    # bgl.glDisable(bgl.GL_TEXTURE_2D)
     return batch
 
 def get_text_size(font_id = 0,text='',text_size = 16, dpi = 72):
@@ -139,7 +127,6 @@ def get_text_size(font_id = 0,text='',text_size = 16, dpi = 72):
 
 def draw_text(text, x, y, size, color=(1, 1, 1, 0.5), halign = 'LEFT', valign = 'TOP'):
     font_id = 1
-    # bgl.glColor4f(*color)
     if type(text) != str:
         text = str(text)
     blf.color(font_id, color[0], color[1], color[2], color[3])

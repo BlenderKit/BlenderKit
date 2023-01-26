@@ -1,4 +1,3 @@
-import bgl
 import gpu
 from gpu_extras.batch import batch_for_shader
 
@@ -58,9 +57,7 @@ class BL_UI_Widget:
         self.shader.bind()
         self.shader.uniform_float("color", self._bg_color)
 
-        bgl.glEnable(bgl.GL_BLEND)
         self.batch_panel.draw(self.shader)
-        bgl.glDisable(bgl.GL_BLEND)
 
     def init(self, context):
         self.context = context
