@@ -22,7 +22,6 @@ import logging
 import os
 import re
 import tempfile
-import threading
 
 import bpy
 import requests
@@ -738,20 +737,6 @@ class FastMetadata(bpy.types.Operator):
         return wm.invoke_props_dialog(self, width=600)
 
 
-def verification_status_change_thread(asset_id, state, api_key):
-    upload_data = {
-        "verificationStatus": state
-    }
-    url = paths.BLENDERKIT_API + '/assets/' + str(asset_id) + '/'
-    headers = utils.get_headers(api_key)
-    try:
-        r = rerequests.patch(url, json=upload_data, headers=headers, verify=True)  # files = files,
-    except requests.exceptions.RequestException as e:
-        bk_logger.error(e)
-        return {'CANCELLED'}
-    return {'FINISHED'}
-
-
 def get_upload_location(props):
     '''
     not used by now, gets location of uploaded asset - potentially usefull if we draw a nice upload gizmo in viewport.
@@ -1176,20 +1161,20 @@ class AssetVerificationStatusChange(Operator):
         # layout.prop(self, 'state')
 
     def execute(self, context):
-        preferences = bpy.context.preferences.addons['blenderkit'].preferences
-
         if not global_vars.DATA['search results']:
             return {'CANCELLED'}
         # update status in search results for validator's clarity
-        sr =global_vars.DATA['search results']
+        search_results = global_vars.DATA['search results']
+        for result in search_results:
+            if result['id'] == self.asset_id:
+                result['verificationStatus'] = self.state
 
-        for r in sr:
-            if r['id'] == self.asset_id:
-                r['verificationStatus'] = self.state
+        url = paths.BLENDERKIT_API + '/assets/' + str(self.asset_id) + '/'
+        headers = utils.get_headers(bpy.context.preferences.addons['blenderkit'].preferences.api_key)
+        upload_data = {"verificationStatus": self.state}
+        messages = {'success': 'Verification status changed', 'error': 'Verification status change failed'}
+        daemon_lib.nonblocking_request(url, 'PATCH', headers, upload_data, messages)
 
-        thread = threading.Thread(target=verification_status_change_thread,
-                                  args=(self.asset_id, self.state, preferences.api_key))
-        thread.start()
         if asset_bar_op.asset_bar_operator is not None:
             asset_bar_op.asset_bar_operator.update_layout(context, None)
         return {'FINISHED'}
