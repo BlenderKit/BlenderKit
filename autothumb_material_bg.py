@@ -26,7 +26,7 @@ from pathlib import Path
 
 import bpy
 
-from blenderkit import append_link, bg_blender, daemon_lib, download, upload, utils
+from blenderkit import append_link, bg_blender, bg_utils, daemon_lib, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 exit()
             # download first, or rather make sure if it's already downloaded
             bg_blender.progress('downloading asset')
-            fpath = download.download_asset_file(asset_data) #TODO: this got lost
+            fpath = bg_utils.download_asset_file(asset_data)
             data['filepath'] = fpath
 
         mat = append_link.append_material(file_name=data['filepath'], matname=data["asset_name"], link=True,
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 "token": preferences.api_key,
                 "id": data['asset_data']['id']
             }
-            upload.upload_file(upload_data, file)
+            bg_utils.upload_file(upload_data, file)
         bg_blender.progress('background autothumbnailer finished successfully')
 
 

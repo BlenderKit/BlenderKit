@@ -791,26 +791,6 @@ def download_post(task: tasks.Task):
         download_tasks.pop(key)
     return True
 
-def delete_unfinished_file(file_name):
-    '''
-    Deletes download if it wasn't finished. If the folder it's containing is empty, it also removes the directory
-    Parameters
-    ----------
-    file_name
-
-    Returns
-    -------
-    None
-    '''
-    try:
-        os.remove(file_name)
-    except Exception as e:
-        bk_logger.error(f'{e}')
-    asset_dir = os.path.dirname(file_name)
-    if len(os.listdir(asset_dir)) == 0:
-        os.rmdir(asset_dir)
-    return
-
 
 def download(asset_data, **kwargs):
     '''Init download data and request task from daemon'''

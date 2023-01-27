@@ -24,7 +24,6 @@ import re
 import tempfile
 
 import bpy
-import requests
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
     BoolProperty,
     EnumProperty,
@@ -43,8 +42,6 @@ from . import (
     overrides,
     paths,
     reports,
-    rerequests,
-    tasks_queue,
     ui_panels,
     utils,
     version_checker,
@@ -790,67 +787,6 @@ def auto_fix(asset_type=''):
     if asset_type == 'MATERIAL':
         overrides.ensure_eevee_transparency(asset)
         asset.name = props.name
-
-
-def upload_file(upload_data, f):
-    headers = utils.get_headers(upload_data['token'])
-    version_id = upload_data['id']
-
-    message = f"uploading {f['type']} {os.path.basename(f['file_path'])}"
-    bk_logger.info(message)
-
-    upload_info = {
-        'assetId': version_id,
-        'fileType': f['type'],
-        'fileIndex': f['index'],
-        'originalFilename': os.path.basename(f['file_path'])
-    }
-
-    upload_create_url = paths.BLENDERKIT_API + '/uploads/'
-    upload = rerequests.post(upload_create_url, json=upload_info, headers=headers, verify=True)
-    upload = upload.json()
-
-    chunk_size = 1024 * 1024 * 2
-    # utils.pprint(upload)
-    # file gets uploaded here:
-    # s3 upload is now the only option
-    for a in range(0, 5):
-        try:
-            session = requests.Session()
-            proxy_which = global_vars.PREFS.get('proxy_which')
-            proxy_address = global_vars.PREFS.get('proxy_address')
-            if proxy_which == 'NONE':
-                session.trust_env = False
-            elif proxy_which == 'CUSTOM':
-                session.trust_env = False
-                session.proxies = {'https': proxy_address}
-            else:
-                session.trust_env = True
-            upload_response = session.put(upload['s3UploadUrl'],
-                                            data=upload_in_chunks(f['file_path'], #BUG: upload_in_chunks is not defined
-                                            chunk_size, f['type']), #TODO: is this needed with new resolutions generation?
-                                            stream=True, verify=True)
-
-            if 250 > upload_response.status_code > 199:
-                upload_done_url = paths.BLENDERKIT_API + '/uploads_s3/' + upload['id'] + '/upload-file/'
-                upload_response = rerequests.post(upload_done_url, headers=headers, verify=True)
-                # print(upload_response)
-                # print(upload_response.text)
-                tasks_queue.add_task((reports.add_report, (f"Finished file upload: {os.path.basename(f['file_path'])}",)))
-                return True
-            else:
-                message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
-                tasks_queue.add_task((reports.add_report, (message,)))
-
-        except Exception as e:
-            print(e)
-            message = f"Upload failed, retry. File : {f['type']} {os.path.basename(f['file_path'])}"
-            tasks_queue.add_task((reports.add_report, (message,)))
-            import time
-            time.sleep(1)
-
-            # confirm single file upload to bkit server
-    return False
 
 
 def prepare_asset_data(self, context, asset_type, reupload, upload_set):

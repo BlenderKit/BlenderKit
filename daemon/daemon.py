@@ -370,6 +370,7 @@ if __name__ == '__main__':
     web.post('/comments/{func}', comments.comments_handler),
     web.post('/notifications/mark_notification_read', comments.mark_notification_read_handler),
     web.get('/wrappers/get_download_url', assets.get_download_url_wrapper),
+    web.get('/wrappers/blocking_file_upload', assets.blocking_file_upload_handler),
     web.get('/wrappers/blocking_request', utils.blocking_request_handler),
     web.get('/wrappers/nonblocking_request', utils.nonblocking_request_handler),
     web.get('/profiles/fetch_gravatar_image', profiles.fetch_gravatar_image_handler),

@@ -136,11 +136,8 @@ def update_upload_brush_preview(self, context):
 
 def start_thumbnailer(self=None, json_args=None, props=None, wait=False, add_bg_process=True):
     # Prepare to save the file
-
     binary_path = bpy.app.binary_path
     script_path = os.path.dirname(os.path.realpath(__file__))
-
-    ext = '.blend'
 
     tfpath = paths.get_thumbnailer_filepath()
     datafile = os.path.join(json_args['tempdir'], BLENDERKIT_EXPORT_DATA_FILE)
@@ -159,10 +156,10 @@ def start_thumbnailer(self=None, json_args=None, props=None, wait=False, add_bg_
         eval_path_computing = "bpy.data.objects['%s'].blenderkit.is_generating_thumbnail" % json_args['asset_name']
         eval_path_state = "bpy.data.objects['%s'].blenderkit.thumbnail_generating_state" % json_args['asset_name']
         eval_path = "bpy.data.objects['%s']" % json_args['asset_name']
+        name = f"{json_args['asset_name']} thumbnailer"
 
-        bg_blender.add_bg_process(name = f"{json_args['asset_name']} thumbnailer" ,eval_path_computing=eval_path_computing, eval_path_state=eval_path_state,
+        bg_blender.add_bg_process(name=name, eval_path_computing=eval_path_computing, eval_path_state=eval_path_state,
                                   eval_path=eval_path, process_type='THUMBNAILER', process=proc)
-
 
     except Exception as e:
         self.report({'WARNING'}, "Error while exporting file: %s" % str(e))
@@ -197,6 +194,7 @@ def start_material_thumbnailer(self=None, json_args=None, props=None, wait=False
         with open(datafile, 'w', encoding='utf-8') as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
 
+        print("POPEN autothumb_material_bg.py")
         proc = subprocess.Popen([
             binary_path,
             "--background",

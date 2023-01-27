@@ -22,10 +22,11 @@ import json
 import math
 import os
 import sys
+from traceback import print_exc
 
 import bpy
 
-from blenderkit import append_link, bg_blender, daemon_lib, download, upload, utils
+from blenderkit import append_link, bg_blender, bg_utils, daemon_lib, utils
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
@@ -45,7 +46,7 @@ def center_obs_for_thumbnail(obs):
     if parent.type == 'EMPTY' and parent.instance_collection is not None:
         obs = parent.instance_collection.objects[:]
 
-    while parent.parent != None:
+    while parent.parent is not None:
         parent = parent.parent
     # reset parent rotation, so we see how it really snaps.
     parent.rotation_euler = (0, 0, 0)
@@ -89,7 +90,6 @@ if __name__ == "__main__":
 
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
-
         if data.get('do_download'):
             # if this isn't here, blender crashes.
             if bpy.app.version >= (3, 0, 0):
@@ -102,11 +102,10 @@ if __name__ == "__main__":
             bg_blender.progress('Downloading asset')
             asset_data = data['asset_data']
             has_url, asset_data = daemon_lib.get_download_url(asset_data, utils.get_scene_id(), user_preferences.api_key)
-            if not has_url == True:
+            if has_url is not True:
                 bg_blender.progress("couldn't download asset for thumnbail re-rendering")
-            # download first, or rather make sure if it's already downloaded
             bg_blender.progress('downloading asset')
-            fpath = download.download_asset_file(asset_data) #TODO: this got lost
+            fpath = bg_utils.download_asset_file(asset_data, api_key=user_preferences.api_key)
             data['filepath'] = fpath
             main_object, allobs = append_link.link_collection(fpath,
                                                           location=(0,0,0),
@@ -117,7 +116,6 @@ if __name__ == "__main__":
             allobs = [main_object]
         else:
             bg_blender.progress('preparing thumbnail scene')
-
             obnames = get_obnames()
             main_object, allobs = append_link.append_objects(file_name=data['filepath'],
                                                          obnames=obnames,
@@ -202,13 +200,11 @@ if __name__ == "__main__":
                 "token": user_preferences.api_key,
                 "id": data['asset_data']['id']
             }
-
-            upload.upload_file(upload_data, file)
+            bg_utils.upload_file(upload_data, file)
 
         bg_blender.progress('background autothumbnailer finished successfully')
 
-    except:
-        import traceback
-
-        traceback.print_exc()
+    except Exception as e:
+        print(f'background autothumbnailer failed: {e}')
+        print_exc()
         sys.exit(1)
