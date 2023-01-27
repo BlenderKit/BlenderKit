@@ -239,7 +239,18 @@ def get_download_url(asset_data, scene_id, api_key):
     resp = resp.json()
     return (resp['has_url'], resp['asset_data'])
 
-def blocking_request(url: str, method: str='GET', headers: dict={}):
+def blocking_file_upload(url: str, filepath: str) -> requests.Response:
+  """Upload file to server. This is a blocking wrapper, will not return until results are available."""
+  data = {
+    'url': url,
+    'filepath': filepath,
+    'app_id': os.getpid(),
+    }
+  with requests.Session() as session:
+    resp = session.get(f'{get_address()}/wrappers/blocking_file_upload', json=data, timeout=(1, 180), proxies={})
+    return resp
+
+def blocking_request(url: str, method: str='GET', headers: dict={}, json_data: dict={}, timeout:tuple=TIMEOUT) -> requests.Response:
     """Make blocking HTTP request through daemon's AIOHTTP library.
     Will not return until results are available."""
     data = {
@@ -247,12 +258,14 @@ def blocking_request(url: str, method: str='GET', headers: dict={}):
         'method': method,
         'headers': headers,
     }
+    if json_data != {}:
+        data['json'] = json_data
     with requests.Session() as session:
-        return session.get(f'{get_address()}/wrappers/blocking_request', json=data, timeout=TIMEOUT, proxies={})
+        return session.get(f'{get_address()}/wrappers/blocking_request', json=data, timeout=timeout, proxies={})
 
 
 ### REQUEST WRAPPERS
-def nonblocking_request( url: str, method: str, headers: dict, json_data: dict={}, messages: dict={}):
+def nonblocking_request(url:str, method:str, headers:dict, json_data:dict={}, messages:dict={}) -> requests.Response:
     """Make non-blocking HTTP request through daemon's AIOHTTP library.
     This function will return ASAP, not returning any actual data.
     """
@@ -260,10 +273,11 @@ def nonblocking_request( url: str, method: str, headers: dict, json_data: dict={
         'url': url,
         'method': method,
         'headers': headers,
-        'json': json_data,
         'messages': messages,
         'app_id': os.getpid(),
     }
+    if json_data != {}:
+        data['json'] = json_data
     with requests.Session() as session:
         return session.get(f'{get_address()}/wrappers/nonblocking_request', json=data, timeout=TIMEOUT, proxies={})
 

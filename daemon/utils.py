@@ -105,7 +105,7 @@ async def blocking_request_handler(request: web.Request):
   data = await request.json()
   session = request.app['SESSION_API_REQUESTS']
   try:
-    async with session.request(data['method'], data['url'], headers=data['headers']) as resp:
+    async with session.request(data['method'], data['url'], headers=data['headers'], json=data.get('json')) as resp:
         data = await resp.json()
         return web.json_response(data)
   except Exception as e:

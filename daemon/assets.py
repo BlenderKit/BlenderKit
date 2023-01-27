@@ -389,3 +389,18 @@ async def report_usages(request: web.Request, task: tasks.Task):
     logging.error(f'Error reporting the usage ({resp.status})')
     task.error(f'Error reporting the usage ({resp.status})')
   task.finished('Usage successfully reported')
+
+
+async def blocking_file_upload_handler(request: web.Request):
+    """Handle request for blocking file upload. Will not return until the file is uploaded."""
+    session = request.app['SESSION_API_REQUESTS']
+    data = await request.json()
+    try:
+        with open(data['filepath'], 'rb') as file:
+            resp = await session.put(data['url'], data=file)
+            text = await resp.text()
+            return web.Response(status=resp.status, text=text)
+    except Exception as e:
+        logging.error(f'Error in blocking file upload: {e}')
+        return web.Response(status=500, text=f'Error in blocking file upload: {e}')
+  
