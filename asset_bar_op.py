@@ -890,7 +890,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             set_thumb_check(self.tooltip_image,asset_data,thumb_type='thumbnail')
             get_tooltip_data(asset_data)
-            an = asset_data['name']
+            an = asset_data['displayName']
             max_name_length = 30
             if len(an) > max_name_length + 3:
                 an = an[:30] + '...'
