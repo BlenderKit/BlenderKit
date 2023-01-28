@@ -34,9 +34,9 @@ def draw_rect(x, y, width, height, color):
     shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'TRIS', {"pos": points}, indices=indices)
 
+    gpu.state.blend_set('ALPHA')
     shader.bind()
     shader.uniform_float("color", color)
-    gpu.state.blend_set('ALPHA')
     batch.draw(shader)
 
 
@@ -49,6 +49,7 @@ def draw_line2d(x1, y1, x2, y2, width, color):
 
     shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'LINES', {"pos": coords}, indices=indices)
+    gpu.state.blend_set('ALPHA')
     shader.bind()
     shader.uniform_float("color", color)
     batch.draw(shader)
@@ -58,6 +59,7 @@ def draw_lines(vertices, indices, color):
 
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'LINES', {"pos": vertices}, indices=indices)
+    gpu.state.blend_set('ALPHA')
     shader.bind()
     shader.uniform_float("color", color)
     batch.draw(shader)
@@ -68,6 +70,7 @@ def draw_rect_3d(coords, color):
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'TRIS', {"pos": coords}, indices=indices)
     shader.uniform_float("color", color)
+    gpu.state.blend_set('ALPHA')
     batch.draw(shader)
 
 cached_images = {}
@@ -113,7 +116,7 @@ def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batc
     if image.gl_load():
         raise Exception()
 
-    texture = gpu.texture.from_image(image)
+    # texture = gpu.texture.from_image(image)
     gpu.state.blend_set('ALPHA')
     image_shader.bind()
     image_shader.uniform_sampler("image", texture)
