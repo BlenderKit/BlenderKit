@@ -89,6 +89,7 @@ class SingletonUpdater:
         self._auto_reload_post_update = False
 
         # Settings for the frequency of automated background checks.
+        self._enable_prereleases = False
         self._check_interval_enabled = False
         self._check_interval_months = 0
         self._check_interval_days = 7
@@ -204,7 +205,8 @@ class SingletonUpdater:
 
     @property
     def check_interval(self):
-        return (self._check_interval_enabled,
+        return (self._enable_prereleases,
+                self._check_interval_enabled,
                 self._check_interval_months,
                 self._check_interval_days,
                 self._check_interval_hours,
@@ -548,7 +550,7 @@ class SingletonUpdater:
             tag_names.append(tag["name"])
         return tag_names
 
-    def set_check_interval(self, enabled=False,
+    def set_check_interval(self, enable_prereleases=False, enabled=False,
                            months=0, days=14, hours=0, minutes=0):
         """Set the time interval between automated checks, and if enabled.
 
@@ -572,6 +574,7 @@ class SingletonUpdater:
         else:
             self._check_interval_enabled = True
 
+        self._prereleases_enabled = enable_prereleases
         self._check_interval_months = months
         self._check_interval_days = days
         self._check_interval_hours = hours
@@ -1463,6 +1466,10 @@ class SingletonUpdater:
         return 0
 
     def past_interval_timestamp(self):
+        if self._prereleases_enabled:
+            self.print_verbose("Prereleases enabled. Checking for updates now!")
+            return True
+
         if not self._check_interval_enabled:
             return True  # ie this exact feature is disabled
 
