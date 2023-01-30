@@ -4,8 +4,9 @@ import shutil
 import subprocess
 import sys
 
+import global_vars
 
-PYTHON_VERSION = "3.10"
+
 PACKAGES = [
   "multidict==6.0.4",
   "yarl==1.8.2",
@@ -21,10 +22,10 @@ PACKAGES = [
 
 
 def do_build(install_at=None, include_tests=False):
-  """Build addon by copying relevant addon directories and files to ./out/blenderkit directory. Create zip in ./out/blenderkit.zip."""
-
+  """Build addon by copying relevant addon directories and files to ./out/blenderkit directory.
+  Create zip in ./out/blenderkit.zip.
+  """
   shutil.rmtree('out', True)
-
   target_dir = "out/blenderkit"
   ignore_files = [
     '.gitignore',
@@ -46,16 +47,16 @@ def do_build(install_at=None, include_tests=False):
       continue # we copied directories above
     if item in ignore_files:
       continue
-    if include_tests == False and item == "test.py":
+    if include_tests is False and item == "test.py":
       continue
-    if include_tests == False and item.startswith('test_'):
+    if include_tests is False and item.startswith('test_'):
       continue # we do not include test files
     shutil.copy(item, f'{target_dir}/{item}')
 
   #CREATE ZIP
   shutil.make_archive('out/blenderkit', 'zip', 'out', 'blenderkit')
 
-  if install_at != None:
+  if install_at is not None:
     shutil.rmtree(f'{install_at}/blenderkit', ignore_errors=True)
     shutil.copytree('out/blenderkit', f'{install_at}/blenderkit')
 
@@ -78,7 +79,6 @@ def run_tests():
 
 def bundle_dependencies():
   """Bundle dependencies specified in PACKAGES variable into ./dependencies directory."""
-
   MACOS = {
     'name': 'Darwin',
     'platforms': {
@@ -113,7 +113,7 @@ def bundle_dependencies():
           'install',
           '--only-binary=:all:',
           f'--platform={platform}',
-          f'--python-version={PYTHON_VERSION}',
+          f'--python-version={global_vars.BUNDLED_FOR_PYTHON}',
           f'--target=dependencies/{OS["name"]}',
           '--no-deps',
           module,
