@@ -1844,7 +1844,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
 
     enable_prereleases: bpy.props.BoolProperty(
         name="Enable prereleases",
-        description="If enabled, updater will include also experimental prerelease versions",
+        description="If enabled, updater will also include prerelease versions and check for them on every start",
         default=False)
 
     updater_interval_months: bpy.props.IntProperty(

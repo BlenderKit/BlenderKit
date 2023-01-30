@@ -258,6 +258,7 @@ class AddonUpdaterCheckNow(bpy.types.Operator):
             return {'CANCELLED'}
 
         updater.set_check_interval(
+            enable_prereleases=settings.enable_prereleases,
             enabled=settings.auto_check_update,
             months=settings.updater_interval_months,
             days=settings.updater_interval_days,
@@ -799,7 +800,8 @@ def check_for_update_background():
     settings = get_user_preferences(bpy.context)
     if not settings:
         return
-    updater.set_check_interval(enabled=settings.auto_check_update,
+    updater.set_check_interval(enable_prereleases=settings.enable_prereleases,
+                               enabled=settings.auto_check_update,
                                months=settings.updater_interval_months,
                                days=settings.updater_interval_days,
                                hours=settings.updater_interval_hours,
@@ -824,7 +826,8 @@ def check_for_update_nonthreaded(self, context):
             print("Could not get {} preferences, update check skipped".format(
                 __package__))
         return
-    updater.set_check_interval(enabled=settings.auto_check_update,
+    updater.set_check_interval(enable_prereleases=settings.enable_prereleases,
+                               enabled=settings.auto_check_update,
                                months=settings.updater_interval_months,
                                days=settings.updater_interval_days,
                                hours=settings.updater_interval_hours,
@@ -1264,8 +1267,12 @@ def skip_tag_function(self, tag):
     # ---- write any custom code here, return true to disallow version ---- #
     #
     # # Filter out e.g. if 'beta' is in name of release
-    if get_user_preferences().enable_prereleases == False:
-        if 'alpha' in tag['name'].lower() or 'beta' in tag['name'].lower() or 'rc' in tag['name'].lower():
+    if get_user_preferences().enable_prereleases is False:
+        if 'alpha' in tag['name'].lower():
+            return True
+        if 'beta' in tag['name'].lower():
+            return True
+        if 'rc' in tag['name'].lower():
             return True
     # ---- write any custom code above, return true to disallow version --- #
 
