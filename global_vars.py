@@ -45,5 +45,6 @@ TIPS = [
   ('Get latest experimental versions of add-on by enabling prerelases in preferences.', ''),
 ]
 VERSION = None  # filled in register()
+BUNDLED_FOR_PYTHON = "3.10"
 
 daemon_process = None
