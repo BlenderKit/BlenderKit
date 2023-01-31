@@ -1112,6 +1112,8 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         layout.prop(props, "free_only")
         layout.prop(props, "search_style")
 
+        layout.prop(props, "search_geometry_nodes", text='Geometry Nodes')
+
         # DESIGN YEAR
         layout.prop(props, "search_design_year", text='Designed in Year')
         if props.search_design_year:

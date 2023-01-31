@@ -1381,6 +1381,13 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         update=search.search_update
     )
 
+    search_geometry_nodes: BoolProperty(
+        name='Geometry Nodes',
+        default=False,
+        description='Show only assets that use Geometry Nodes.',
+        update=search.search_update
+    )
+
     append_method: EnumProperty(
         name="Import Method",
         items=(
