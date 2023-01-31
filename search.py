@@ -693,6 +693,9 @@ def build_query_model():
     query["textureResolutionMax_lte"] = props.search_texture_resolution_max
   if props.search_animated:
     query["animated"] = True
+  if props.search_geometry_nodes:
+    query["modifiers"] = 'nodes'
+
   build_query_common(query, props)
 
   return query
@@ -982,6 +985,7 @@ def clean_filters():
     sprops.property_unset('search_design_year')
     sprops.property_unset('search_polycount')
     sprops.property_unset('search_animated')
+    sprops.property_unset('search_geometry_nodes')
   if ui_props.asset_type == 'HDR':
     sprops.true_hdr = False
 
@@ -1002,7 +1006,8 @@ def update_filters():
                          sprops.search_condition != 'UNSPECIFIED' or \
                          sprops.search_design_year or \
                          sprops.search_polycount or \
-                         sprops.search_animated
+                         sprops.search_animated or \
+                         sprops.search_geometry_nodes
   elif ui_props.asset_type == 'MATERIAL':
     sprops.use_filters = fcommon
   elif ui_props.asset_type == 'HDR':
