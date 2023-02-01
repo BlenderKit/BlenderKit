@@ -1384,7 +1384,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     search_geometry_nodes: BoolProperty(
         name='Geometry Nodes',
         default=False,
-        description='Show only assets that use Geometry Nodes.',
+        description='Show only assets that use Geometry Nodes',
         update=search.search_update
     )
 
