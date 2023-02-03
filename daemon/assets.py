@@ -16,16 +16,8 @@ from aiohttp import web
 import utils
 
 
-def get_res_file(data, find_closest_with_url: bool = False):
+def get_res_file(data):
   """Returns closest resolution that current asset can offer.
-  
-  If there are no resolutions, return orig file.
-  If orig file is requested, return it.
-  params
-  asset_data
-  resolution - ideal resolution
-  find_closest_with_url:
-      returns only resolutions that already containt url in the asset data, used in scenes where asset is/was already present.
   Returns:
       resolution file
       resolution, so that other processess can pass correctly which resolution is downloaded.
@@ -39,7 +31,6 @@ def get_res_file(data, find_closest_with_url: bool = False):
     'resolution_8K': 8192,
   }
   orig = None
-  res = None
   closest = None
   target_resolution = resolutions.get(data['resolution'])
   mindist = 100000000
@@ -48,13 +39,12 @@ def get_res_file(data, find_closest_with_url: bool = False):
     if f['fileType'] == 'blend':
       orig = f
       if data['resolution'] == 'blend':
-        # orig file found, return.
-        return orig, 'blend'
+        return orig, 'blend' # orig file found, return.
 
     if f['fileType'] == data['resolution']:
-      # exact match found, return.
-      return f, data['resolution']
-    # find closest resolution if the exact match won't be found.
+      return f, data['resolution'] # exact match found, return
+
+    # find closest resolution if the exact match won't be found
     rval = resolutions.get(f['fileType'])
     if rval and target_resolution:
       rdiff = abs(target_resolution - rval)
@@ -62,10 +52,12 @@ def get_res_file(data, find_closest_with_url: bool = False):
         closest = f
         mindist = rdiff
 
-  if not res and not closest:
-    return orig, 'blend'
+  if closest:
+    return closest, closest['fileType']
+  
+  return orig, 'blend'
 
-  return closest, closest['fileType']
+  
 
 
 async def do_asset_download(request: web.Request, task: tasks.Task):
@@ -88,7 +80,12 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
     task.finished('Asset found on hard drive')
     return
 
-  file_path = get_download_filepaths(task)[0]
+  file_paths = await get_download_filepaths(task)
+  if file_paths == []:
+    print('No file paths found, aborting download.')
+    return
+
+  file_path = file_paths[0]
   task.change_progress(0, "Waiting in queue")
   await download_file(request.app["SESSION_ASSETS"], file_path, task)
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
@@ -152,7 +149,7 @@ async def get_download_url_wrapper(request: web.Request):
   """Handle get_download_url request. This serves as a wrapper around get_download_url so this can be called from addon.
   Returns the results directly so it is a blocking on add-on side (as add-on uses blocking Requests for this)."""
   data = await request.json()
-  task = tasks.Task(data, data['app_id'], f'wrappers/get_download_url')
+  task = tasks.Task(data, data['app_id'], 'wrappers/get_download_url')
   has_url = await get_download_url(request.app['SESSION_API_REQUESTS'], task)
   return web.json_response({'has_url': has_url, 'asset_data': task.data['asset_data']})
 
@@ -207,25 +204,23 @@ def server_2_local_filename(asset_data, filename):
   return n
 
 
-def get_download_filepaths(task):
+async def get_download_filepaths(task) -> list:
   """Get all possible paths of the asset and resolution. Usually global and local directory."""
+  file_names = []
   data = task.data
-  can_return_others = False  # TODO find out what this was and check if it's still needed
   windows_path_limit = 250
   asset_data = data['asset_data']
-  resolution = data['resolution']
-  dirs = data['download_dirs']
-  res_file, resolution = get_res_file(data, find_closest_with_url=can_return_others)
+  
+  res_file, _ = get_res_file(data)
+  if not res_file:
+    task.error('No resolution file found')
+    return []
+  
   name_slug = utils.slugify(asset_data['name'])
   if len(name_slug) > 16:
     name_slug = name_slug[:16]
   asset_folder_name = f"{name_slug}_{asset_data['id']}"
 
-  # utils.pprint('get download filenames ', dict(res_file))
-  file_names = []
-
-  if not res_file:
-    return file_names
   error_message = 'The path to assets is too long, ' \
                   'only Global folder can be used. ' \
                   'Move your .blend file to another ' \
@@ -233,14 +228,14 @@ def get_download_filepaths(task):
                   'store assets in a subfolder of your project.'
   # fn = asset_data['file_name'].replace('blend_', '')
   if res_file.get('url') is not None:
-    # Tweak the names a bit:
-    # remove resolution and blend words in names
+    # Tweak the names a bit: remove resolution and blend words in names
     fn = extract_filename_from_url(res_file['url'])
     n = server_2_local_filename(asset_data, fn)
-    for d in dirs:
-      asset_folder_path = os.path.join(d, asset_folder_name)
+    for dir in data['download_dirs']:
+      asset_folder_path = os.path.join(dir, asset_folder_name)
       if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
-        task.error(error_message)
+        message = f"Path too long for directory: {asset_folder_path}"
+        await utils.message_to_addon(task.app_id, message=message, level='ERROR', destination='GUI', duration=5)
         continue
       if not os.path.exists(asset_folder_path):
         os.makedirs(asset_folder_path)
@@ -248,11 +243,14 @@ def get_download_filepaths(task):
       file_name = os.path.join(asset_folder_path, n)
       file_names.append(file_name)
 
-  for f in file_names:
-    if len(f) > windows_path_limit:
-      task.error(error_message)
+  for file_name in file_names:
+    if sys.platform != 'win32':
+        break
+    if len(file_name) > windows_path_limit:
+      message = f"Path too long for file: {file_name}"
+      await utils.message_to_addon(task.app_id, message=message, level='ERROR', destination='GUI', duration=5)
+      file_names.remove(file_name)
 
-      file_names.remove(f)
   return file_names
 
 
@@ -332,10 +330,10 @@ async def copy_asset(fp1, fp2):
 async def check_existing(task) -> bool:
   """Check if the object exists on the hard drive."""
   data = task.data
-  if data['asset_data'].get('files') == None:
+  if data['asset_data'].get('files') is None:
     return False  # this is because of some very old files where asset data had no files structure.
 
-  file_paths = get_download_filepaths(task)
+  file_paths = await get_download_filepaths(task)
 
   # bk_logger.debug('check if file already exists' + str(file_names))
   if len(file_paths) == 2:
@@ -355,7 +353,9 @@ async def check_existing(task) -> bool:
 
 
 def delete_unfinished_file(file_path: str) -> None:
-  """Delete downloaded file if it wasn't finished. If the folder it's containing is empty, it also removes the directory."""
+  """Delete downloaded file if it wasn't finished.
+  If the folder it's containing is empty, it also removes the directory.
+  """
   try:
     os.remove(file_path)
   except Exception as e:

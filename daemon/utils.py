@@ -84,6 +84,30 @@ def get_process_flags():
   return flags
 
 
+async def message_to_addon(app_id:str, message:str, destination:str='GUI', level:str='INFO', duration:int=5):
+  """Send message to addon's GUI or to its console.
+  level can be INFO, WARNING, ERROR.
+  destination can be GUI or CONSOLE.
+  duration is in seconds, only for GUI messages.
+  """
+  print(f'{destination} {level}: {message} (PID{app_id})')
+  result = {
+    'destination': destination,
+    'level': level,
+    'duration': duration,
+  }
+  message_task = tasks.Task(
+    app_id=app_id,
+    message = message,
+    task_type='message_from_daemon',
+    result=result,
+    status='finished',
+    progress=100,
+    data={},
+    )
+  globals.tasks.append(message_task)
+
+
 async def download_file(url: str, destination: str, session: aiohttp.ClientSession, api_key: str=''):
   """Download a file from url into destination on the disk, creates directory structure if needed.
   With api_key the request will be authorized for BlenderKit server.

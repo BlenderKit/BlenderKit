@@ -202,6 +202,20 @@ def handle_task(task: tasks.Task):
   if task.task_type == 'wrappers/nonblocking_request':
     return utils.handle_nonblocking_request_task(task)
 
+  #HANDLE MESSAGE FROM DAEMON
+  if task.task_type == 'message_from_daemon':
+    level = task.result.get('level', 'INFO').upper()
+    duration = task.result.get('duration', 5)
+    destination = task.result.get('destination', 'GUI')
+    if destination == 'GUI':
+        return reports.add_report(task.message, duration, level)
+    if level == 'INFO':
+        return bk_logger.info(task.message)
+    if level == 'WARNING':
+        return bk_logger.warning(task.message)
+    if level == 'ERROR':
+        return bk_logger.error(task.message)
+
 
 @bpy.app.handlers.persistent
 def check_timers_timer():
