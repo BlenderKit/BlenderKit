@@ -90,7 +90,7 @@ async def message_to_addon(app_id:str, message:str, destination:str='GUI', level
   destination can be GUI or CONSOLE.
   duration is in seconds, only for GUI messages.
   """
-  print(f'{destination} {level}: {message} (PID{app_id})')
+  print(f'Sending {level} message to add-on {destination}: {message} (PID{app_id})')
   result = {
     'destination': destination,
     'level': level,

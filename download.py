@@ -272,7 +272,7 @@ def udpate_asset_data_in_dicts(asset_data):
     scene['assets used'][asset_data['assetBaseId']] = asset_data.copy()
     sr = global_vars.DATA['search results']
     if not sr:
-        return;
+        return
     for i, r in enumerate(sr):
         if r['assetBaseId'] == asset_data['assetBaseId']:
             for f in asset_data['files']:
@@ -284,10 +284,9 @@ def udpate_asset_data_in_dicts(asset_data):
 
 def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     """Link asset to the scene."""
-
-    # asset_data = data['asset_data']
-    # kwargs = data
-    file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
+    file_names = kwargs.get('file_paths')
+    if file_names is None:
+        file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
     props = None
     #####
     # how to do particle  drop:
@@ -430,7 +429,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             if b.blenderkit.id == asset_data['id']:
                 inscene = True
                 brush = b
-                break;
+                break
         if not inscene:
             brush = append_link.append_brush(file_names[-1], link=False, fake_user=False)
 
@@ -460,7 +459,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             if m.blenderkit.id == asset_data['id']:
                 inscene = True
                 material = m
-                break;
+                break
         if not inscene:
             link = sprops.append_method == 'LINK'
             material = append_link.append_material(file_names[-1], link=link, fake_user=False)
@@ -494,15 +493,15 @@ def replace_resolution_linked(file_paths, asset_data):
 
     for l in bpy.data.libraries:
         if not l.get('asset_data'):
-            continue;
+            continue
         if not l['asset_data']['assetBaseId'] == asset_data['assetBaseId']:
-            continue;
+            continue
 
         bk_logger.debug('try to re-link library')
 
         if not os.path.isfile(file_paths[-1]):
             bk_logger.debug('library file doesnt exist')
-            break;
+            break
         l.filepath = os.path.join(os.path.dirname(l.filepath), file_name)
         l.name = file_name
         udpate_asset_data_in_dicts(asset_data)
@@ -584,14 +583,13 @@ def download_timer():
                 sprops.report = tcom.report
                 download_threads.remove(threaddata)
                 # utils.p('end download timer')
-
                 return
-            file_paths = paths.get_download_filepaths(asset_data, tcom.passargs['resolution'])
 
+            file_paths = paths.get_download_filepaths(asset_data, tcom.passargs['resolution'])
             if len(file_paths) == 0:
                 bk_logger.debug('library names not found in asset data after download')
                 download_threads.remove(threaddata)
-                break;
+                break
 
             wm = bpy.context.window_manager
 
@@ -659,7 +657,6 @@ def handle_download_task(task: tasks.Task):
   Update progress. Print messages. Fire post-download functions.
   """
   global download_tasks
-
   if task.status == "finished":
     download_post(task)
   elif task.status == "error":
@@ -670,7 +667,6 @@ def handle_download_task(task: tasks.Task):
 
 def clear_downloads():
     """Cancel all downloads."""
-
     global download_tasks
     download_tasks.clear()
 
@@ -689,11 +685,8 @@ def download_post(task: tasks.Task):
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.
     """
-
     global download_tasks
-
     orig_task = download_tasks.get(task.task_id)
-
     if orig_task is None:
         return
 
@@ -715,16 +708,13 @@ def download_post(task: tasks.Task):
     #     download_threads.remove(threaddata)
     #     # utils.p('end download timer')
         # return
-
-    file_paths = paths.get_download_filepaths(task.data['asset_data'], task.data['resolution'])
-
-    if len(file_paths) == 0:
+    file_paths = task.result.get('file_paths', [])
+    if file_paths == []:
         bk_logger.debug('library names not found in asset data after download')
         remove_keys.append(task.task_id)
         done = True
 
     wm = bpy.context.window_manager
-
     at = task.data['asset_data']['assetType']
     if not (((bpy.context.mode == 'OBJECT' and \
          (at == 'model' or at == 'material'))) \
@@ -761,25 +751,19 @@ def download_post(task: tasks.Task):
         if task.data.get('replace_resolution'):
             # try to relink
             # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-            ain, resolution = asset_in_scene(task.data['asset_data'])
-
+            ain, _ = asset_in_scene(task.data['asset_data'])
             if ain == 'LINKED':
                 replace_resolution_linked(file_paths, task.data['asset_data'])
-
-
             elif ain == 'APPENDED':
                 replace_resolution_appended(file_paths, task.data['asset_data'], task.data['resolution'])
-
             done = True
-
         else:
             orig_task.update(task.data)
-            done = try_finished_append( **task.data)
+            done = try_finished_append(file_paths=file_paths, **task.data)
             # if not done:
                 # TODO add back re-download capability for deamon - used for lost libraries
                 # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
                 # download(asset_data, **tcom.passargs)
-
             if global_vars.DATA['search results'] is not None and done:
                 for sres in global_vars.DATA['search results']:
                     if task.data['asset_data']['id'] == sres['id']:
@@ -849,16 +833,14 @@ def check_downloading(asset_data, **kwargs) -> bool:
 
 
 def check_existing(asset_data, resolution='blend', can_return_others=False):
-    ''' check if the object exists on the hard drive'''
-    fexists = False
-
+    """Check if the object exists on the hard drive."""
     if asset_data.get('files') == None:
-        # this is because of some very odl files where asset data had no files structure.
-        return False
+        return False # this is because of some very odl files where asset data had no files structure.
 
     file_names = paths.get_download_filepaths(asset_data, resolution, can_return_others=can_return_others)
+    if len(file_names) == 0:
+        return False
 
-    bk_logger.debug('check if file already exists' + str(file_names))
     if len(file_names) == 2:
         # TODO this should check also for failed or running downloads.
         # If download is running, assign just the running thread. if download isn't running but the file is wrong size,
@@ -869,16 +851,20 @@ def check_existing(asset_data, resolution='blend', can_return_others=False):
                 file_names[1]):  # only in case of changed settings or deleted/moved global dict.
             utils.copy_asset(file_names[1], file_names[0])
 
-    if len(file_names) > 0 and os.path.isfile(file_names[0]):
-        fexists = True
-    return fexists
+    if os.path.isfile(file_names[0]):
+        return True
+
+    return False
 
 
 def try_finished_append(asset_data, **kwargs):  # location=None, material_target=None):
     """Try to append asset, if not successfully delete source files.
     This means probably wrong download, so download should restart
     """
-    file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
+    file_names = kwargs.get('file_paths')
+    if file_names is None:
+        file_names = paths.get_download_filepaths(asset_data, kwargs['resolution'])
+
     bk_logger.debug('try to append already existing asset')
     if len(file_names) == 0:
       return False
@@ -1025,10 +1011,6 @@ def start_download(asset_data, **kwargs) -> bool:
     if check_downloading(asset_data, **kwargs):
       return False
 
-    # check if there are files already. This check happens 2x once here(for free assets), once in thread(for non-free)
-    fexists = check_existing(asset_data, resolution=kwargs['resolution'])
-    bk_logger.debug('does file exist?' + str(fexists))
-    bk_logger.debug('asset is in scene' + str(ain))
     if ain and not kwargs.get('replace_resolution'):
         # this goes to appending asset - where it should duplicate the original asset already in scene.
         append_ok = try_finished_append(asset_data, **kwargs)

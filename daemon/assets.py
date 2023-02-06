@@ -62,7 +62,6 @@ def get_res_file(data):
 
 async def do_asset_download(request: web.Request, task: tasks.Task):
   """Download an asset from BlenderKit.
-
   1. creates a Connector and Session for download, handles SSL configuration
   2. gets download URL for an asset
   3. checks whether asset exists locally
@@ -70,9 +69,13 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   5. downloads the file
   6. unpacks the file
   """
-
   can_download = await get_download_url(request.app["SESSION_API_REQUESTS"], task)
   if can_download is False:
+    return
+
+  task.result['file_paths'] = await get_download_filepaths(task)
+  if task.result['file_paths'] == []:
+    task.error('Download aborted: filepaths are empty.')
     return
 
   # This check happens only after get_download_url becase we need it to know what is the file name on hard drive.
@@ -80,13 +83,8 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
     task.finished('Asset found on hard drive')
     return
 
-  file_paths = await get_download_filepaths(task)
-  if file_paths == []:
-    print('No file paths found, aborting download.')
-    return
-
-  file_path = file_paths[0]
   task.change_progress(0, "Waiting in queue")
+  file_path = task.result['file_paths'][0]
   await download_file(request.app["SESSION_ASSETS"], file_path, task)
   # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
 
@@ -221,11 +219,7 @@ async def get_download_filepaths(task) -> list:
     name_slug = name_slug[:16]
   asset_folder_name = f"{name_slug}_{asset_data['id']}"
 
-  error_message = 'The path to assets is too long, ' \
-                  'only Global folder can be used. ' \
-                  'Move your .blend file to another ' \
-                  'folder with shorter path to ' \
-                  'store assets in a subfolder of your project.'
+  error_message = "Project path is too long, will save the asset in global directory only. Move your .blend file to store assets locally in the project directory."
   # fn = asset_data['file_name'].replace('blend_', '')
   if res_file.get('url') is not None:
     # Tweak the names a bit: remove resolution and blend words in names
@@ -234,8 +228,7 @@ async def get_download_filepaths(task) -> list:
     for dir in data['download_dirs']:
       asset_folder_path = os.path.join(dir, asset_folder_name)
       if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
-        message = f"Path too long for directory: {asset_folder_path}"
-        await utils.message_to_addon(task.app_id, message=message, level='ERROR', destination='GUI', duration=5)
+        await utils.message_to_addon(task.app_id, message=error_message, level='ERROR', destination='GUI', duration=5)
         continue
       if not os.path.exists(asset_folder_path):
         os.makedirs(asset_folder_path)
@@ -245,10 +238,9 @@ async def get_download_filepaths(task) -> list:
 
   for file_name in file_names:
     if sys.platform != 'win32':
-        break
+      break
     if len(file_name) > windows_path_limit:
-      message = f"Path too long for file: {file_name}"
-      await utils.message_to_addon(task.app_id, message=message, level='ERROR', destination='GUI', duration=5)
+      await utils.message_to_addon(task.app_id, message=error_message, level='ERROR', destination='GUI', duration=5)
       file_names.remove(file_name)
 
   return file_names
@@ -330,12 +322,10 @@ async def copy_asset(fp1, fp2):
 async def check_existing(task) -> bool:
   """Check if the object exists on the hard drive."""
   data = task.data
+  file_paths = task.result.get('file_paths', [])
   if data['asset_data'].get('files') is None:
     return False  # this is because of some very old files where asset data had no files structure.
 
-  file_paths = await get_download_filepaths(task)
-
-  # bk_logger.debug('check if file already exists' + str(file_names))
   if len(file_paths) == 2:
     # TODO this should check also for failed or running downloads.
     # If download is running, assign just the running thread. if download isn't running but the file is wrong size,
