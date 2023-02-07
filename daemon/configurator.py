@@ -1,7 +1,7 @@
 import asyncio
+import os
 import socket
 import ssl
-import os
 
 import aiohttp
 import certifi
