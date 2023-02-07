@@ -34,6 +34,7 @@ except Exception as e:
 
 import assets
 import comments
+import configurator
 import disclaimer
 import globals
 import oauth
@@ -277,7 +278,6 @@ def find_and_bind_socket(port: str) -> socket:
 
 async def persistent_sessions(app):
   sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
-  
   if app['PROXY_CA_CERTS'] != '':
     sslcontext.load_verify_locations(app['PROXY_CA_CERTS'])
   sslcontext.load_verify_locations(certifi.where())
@@ -377,6 +377,7 @@ if __name__ == '__main__':
     web.get('/profiles/get_user_profile', profiles.get_user_profile_handler),
     web.get('/ratings/get_rating', ratings.get_rating_handler),
     web.post('/ratings/send_rating', ratings.send_rating_handler),
+    web.get('/debug', configurator.debug_handler),
   ])
 
   server.on_startup.append(start_background_tasks)
