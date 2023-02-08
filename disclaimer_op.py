@@ -49,7 +49,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     if self.url == '':
       return
     server_url = global_vars.SERVER
-    if self.url[:len(server_url)] != server_url:
+    if self.url[:4] != 'http':
       self.url = server_url + self.url
 
     bpy.ops.wm.url_open(url=self.url)
