@@ -48,6 +48,10 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
   def open_link(self, widget):
     if self.url == '':
       return
+    server_url = global_vars.SERVER
+    if self.url[:len(server_url)] != server_url:
+      self.url = server_url + self.url
+
     bpy.ops.wm.url_open(url=self.url)
 
   def __init__(self):
