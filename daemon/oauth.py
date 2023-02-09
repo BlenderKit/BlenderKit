@@ -1,7 +1,7 @@
 """OAuth for login."""
 
-from logging import getLogger
 import typing
+from logging import getLogger
 
 import globals
 import tasks
