@@ -2,12 +2,9 @@
 Uses exit codes to signal different error types. Their meaning is defined and handled at daemon_lib.check_daemon_exit_code().
 """
 
-
-
-
 import asyncio
 from argparse import ArgumentParser
-from logging import basicConfig, error, warning
+from logging import getLogger
 from os import environ, getpid
 from platform import system
 from signal import SIGINT, raise_signal
@@ -17,19 +14,19 @@ from time import time
 from uuid import uuid4
 
 
-basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s [%(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
+logger = getLogger('bk_daemon')
 
 try:
   import aiohttp
   from aiohttp import web
 except Exception as e:
-  error(f'{e}')
+  logger.error(f'{e}')
   exit(101)
 
 try:
   import certifi
 except Exception as e:
-  error(f'{e}')
+  logger.error(f'{e}')
   exit(102)
 
 import assets
@@ -48,6 +45,7 @@ import utils
 
 
 PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
+
 
 async def download_asset(request: web.Request):
   """Handle request for download of asset."""
@@ -196,18 +194,18 @@ async def report(request: web.Request):
 
 async def shutdown(request: web.Request):
   """Shedules shutdown of the server."""
-  warning('Shutdown requested, exiting Daemon')
+  logger.info('Shutdown requested, exiting Daemon')
   raise_signal(SIGINT)
   return web.Response(text='Going to shutdown.')
 
 
 async def report_blender_quit(request: web.Request):
   data = await request.json()
-  warning(f"Blender quit (ID {data['app_id']}) was reported")
+  logger.info(f"Blender quit (ID {data['app_id']}) was reported")
   if data['app_id'] in globals.active_apps:
     globals.active_apps.remove(data['app_id'])
   if len(globals.active_apps)==0:
-    warning('No more apps to serve, exiting Daemon')
+    logger.info('No more apps to serve, exiting Daemon')
     raise_signal(SIGINT)
 
   return web.Response(text="ok") 
@@ -230,9 +228,9 @@ async def online_status_check(app: web.Application):
       async with app['SESSION_API_REQUESTS'].head(url, timeout=3) as resp:
         globals.online_status = resp.status
         if resp.status != 200:
-          warning(f'{url}: status code {resp.status}')
+          logger.warning(f'{url}: status code {resp.status}')
     except Exception as e:
-      warning(f'{url}: request failed')
+      logger.warning(f'{url}: request failed')
       globals.online_status = f'{e}'
 
     if globals.online_status == 200:
@@ -251,7 +249,7 @@ async def cleanup_background_tasks(app: web.Application):
     app['life_check'].cancel()
     app['online_status_check'].cancel()
   except Exception as e:
-    warning(f'BG tasks canceling failed: {e}')
+    logger.warning(f'BG tasks canceling failed: {e}')
 
 
 ## CONFIGURATION
@@ -272,8 +270,8 @@ def find_and_bind_socket(port: str) -> socket:
                 globals.PORT = int(port)
                 return sock
             except Exception as e:
-                warning(f'error binding socket {addr}:{port} - {e}')
-    error('Unable to bind any socket')
+                logger.warning(f'error binding socket {addr}:{port} - {e}')
+    logger.error('Unable to bind any socket')
     exit(111)
 
 async def persistent_sessions(app):
@@ -284,7 +282,7 @@ async def persistent_sessions(app):
   try:
     sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
   except Exception as e:
-    warning('failed to load default certs:', e)
+    logger.warning('failed to load default certs:', e)
 
   if app['PROXY_WHICH'] == 'SYSTEM':
     trust_env = True
@@ -330,6 +328,7 @@ async def persistent_sessions(app):
 ## MAIN
 
 if __name__ == '__main__':
+  utils.configure_loggers()
   parser = ArgumentParser()
   parser.add_argument('--port', type=str, default=PORTS[0])
   parser.add_argument('--server', type=str, default='https://www.blenderkit.com')
@@ -340,8 +339,7 @@ if __name__ == '__main__':
   parser.add_argument('--system_id', type=str, default='')
   parser.add_argument('--version', type=str, default='')
   args = parser.parse_args()
-
-  warning(f'Daemon (PID {getpid()}) initiated with {args}')
+  logger.info(f'Daemon (PID {getpid()}) initiated with {args}')
 
   globals.PORT = args.port
   globals.SERVER = args.server
@@ -397,4 +395,4 @@ if __name__ == '__main__':
   except Exception as e: exit(100)
 
   sock.close()
-  warning('Daemon script has ended.')
+  logger.info('Daemon script has ended.')

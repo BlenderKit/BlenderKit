@@ -1,7 +1,7 @@
 """Module which contains code for comments and notifications."""
 
 import asyncio
-import logging
+from logging import getLogger
 
 import globals
 import tasks
@@ -9,6 +9,8 @@ from aiohttp import web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 ### COMMENTS
 async def comments_handler(request: web.Request):
@@ -39,7 +41,7 @@ async def get_comments(request: web.Request, task: tasks.Task):
     async with session.get(url, headers=headers) as resp:
       task.result = await resp.json()
   except Exception as e:
-    logging.warning(str(e))
+    logger.warning(str(e))
     return task.error(f'{e}')
   task.finished('comments downloaded')
 
@@ -54,7 +56,7 @@ async def create_comment(request: web.Request, task: tasks.Task):
     async with session.get(url, headers=headers) as resp:
       comment_data = await resp.json()
   except Exception as e:
-    logging.error(str(e))
+    logger.error(str(e))
     return task.error(f'{e}')
   if resp.status != 200:
     return task.error(f'GET request status code: {resp.status}')
@@ -77,7 +79,7 @@ async def create_comment(request: web.Request, task: tasks.Task):
     async with session.post(url, headers=headers, data=post_data) as resp:
       task.result = await resp.json()
   except Exception as e:
-    logging.error(str(e))
+    logger.error(str(e))
     return task.error(f'{e}')
   if resp.status != 201:
     return task.error(f'POST request status code: {resp.status}')
@@ -102,7 +104,7 @@ async def feedback_comment(request: web.Request, task: tasks.Task):
     async with session.post(url, data=data, headers=headers) as resp:
       task.result = await resp.json()
   except Exception as e:
-    logging.warning(str(e))
+    logger.warning(str(e))
     return task.error(f'{e}')
   if resp.status not in [200,201]:
     return task.error(f'POST request failed ({resp.status})')
@@ -124,7 +126,7 @@ async def mark_comment_private(request: web.Request, task: tasks.Task):
     async with session.post(url, data=data, headers=headers) as resp:
       task.result = await resp.json()
   except Exception as e:
-    logging.error(f'{e}')
+    logger.error(f'{e}')
     return task.error(f'{e}')
 
   if resp.status not in [200,201]:
@@ -155,7 +157,7 @@ async def mark_notification_read(request: web.Request, task: tasks.Task):
     async with session.get(url, headers=headers) as resp:
       task.result = await resp.json()
   except Exception as e:
-    logging.error(f'{e}')
+    logger.error(f'{e}')
     return task.error(f'{e}')
   if resp.status != 200:
     return task.error(f'GET request failed ({resp.status})')

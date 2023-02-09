@@ -1,5 +1,5 @@
 import asyncio
-import logging
+from logging import getLogger
 
 import globals
 import tasks
@@ -7,6 +7,8 @@ from aiohttp import web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 async def get_rating_handler(request: web.Request):
     data = await request.json()
@@ -24,7 +26,7 @@ async def get_rating(task: tasks.Task, request: web.Request):
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()
     except Exception as e:
-        logging.warning(str(e))
+        logger.warning(str(e))
         return task.error(f'{e}')
     task.finished('Rating data obtained')
 
@@ -46,6 +48,6 @@ async def send_rating(task: tasks.Task, request: web.Request):
         async with session.put(url, data=data, headers=headers) as resp:
             task.result = await resp.json()
     except Exception as e:
-        logging.warning(str(e))
+        logger.warning(str(e))
         return task.error(f'{e}')
     task.finished('Rating uploaded')

@@ -2,18 +2,21 @@ import asyncio
 import os
 import socket
 import ssl
+from logging import getLogger
 
 import aiohttp
 import certifi
 from aiohttp import web
 
 
+logger = getLogger(__name__)
+
 URL = "https://www.blenderkit.com"
 CA_FILE = os.path.join(os.path.dirname( __file__ ), "certs/blenderkit-com-chain.pem")
 
 
 async def debug_handler(request: web.Request):
-    print(CA_FILE)
+    logger.info(CA_FILE)
     results = await debug_connection()
     text = f"Results for connection to {URL} are:\n\n"
     for configuration, result in results.items():
@@ -28,10 +31,10 @@ async def debug_and_print():
 
 async def debug_connection():
     connectors = await get_connectors()
-    print(f'connectors: {len(connectors)}')
+    logger.info(f'connectors: {len(connectors)}')
 
     sessions = await get_sessions(connectors)
-    print(f'sessions: {len(sessions)}')
+    logger.info(f'sessions: {len(sessions)}')
     results = {}
     for key, session in sessions.items():
         try:

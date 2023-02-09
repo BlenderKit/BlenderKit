@@ -3,8 +3,8 @@ Extends upload.py on addon side."""
 
 import asyncio
 import json
-import logging
 import os
+from logging import getLogger
 from pathlib import Path
 
 import globals
@@ -14,6 +14,7 @@ from aiohttp import ClientSession, web
 import utils
 
 
+logger = getLogger(__name__)
 BLENDERKIT_EXPORT_DATA_FILE = 'data.json'
 
 
@@ -64,10 +65,10 @@ async def upload_metadata(session: ClientSession, task: tasks.Task):
   if export_data['assetBaseId'] == '':
     try:
       response = await session.post(url, json=json_metadata, headers=headers)
-      logging.info(f'Got response ({response.status}) for {url}')
+      logger.info(f'Got response ({response.status}) for {url}')
       metadata_response = await response.json()
     except Exception as e:
-      logging.error(str(e))
+      logger.error(str(e))
       return str(e), None
     return '', metadata_response
 
@@ -76,10 +77,10 @@ async def upload_metadata(session: ClientSession, task: tasks.Task):
     if 'MAINFILE' in upload_set:
         json_metadata['verificationStatus'] = 'uploading'
     response = await session.patch(url, json=json_metadata, headers=headers)
-    logging.info(f'Got response ({response.status}) for {url}')
+    logger.info(f'Got response ({response.status}) for {url}')
     metadata_response = await response.json()
   except Exception as e:
-    logging.error(str(e))
+    logger.error(str(e))
     return str(e), None
 
   return '', metadata_response
@@ -185,9 +186,9 @@ async def upload_asset_data(session: ClientSession, task: tasks.Task, files: lis
         response = await session.post(upload_done_url, headers=headers) #TODO: we should check this return value also?
         task.change_progress(task.progress + 15)
       else:
-        logging.warning(f'file upload failed, status={response.status}')
+        logger.warning(f'file upload failed, status={response.status}')
         text = await response.text()
-        logging.warning(f'response={text}')
+        logger.warning(f'response={text}')
         uploaded = False
     
 

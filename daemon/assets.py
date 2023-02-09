@@ -2,11 +2,11 @@
 
 import asyncio
 import json
-import logging
 import os
 import shutil
 import sys
 import tempfile
+from logging import getLogger
 
 import aiohttp
 import globals
@@ -15,6 +15,8 @@ from aiohttp import web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 def get_res_file(data):
   """Returns closest resolution that current asset can offer.
@@ -103,7 +105,7 @@ async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.T
     async with session.get(res_file_info['url'], headers=utils.get_headers()) as resp:
       total_length = resp.headers.get('Content-Length')
       if total_length is None:  # no content length header
-        print('no content length: ', resp.content)
+        logger.info('no content length: ', resp.content)
         task.error('no content length')
         delete_unfinished_file(file_path)
         return
@@ -349,7 +351,7 @@ def delete_unfinished_file(file_path: str) -> None:
   try:
     os.remove(file_path)
   except Exception as e:
-    print(e)
+    logger.error(str(e))
   asset_dir = os.path.dirname(file_path)
   if len(os.listdir(asset_dir)) == 0:
     os.rmdir(asset_dir)
@@ -373,10 +375,10 @@ async def report_usages(request: web.Request, task: tasks.Task):
     async with session.post(url, headers=headers, data=task.data) as resp:
       await resp.text()
   except Exception as e:
-    logging.error(f'Error reporting the usage: {e}')
+    logger.error(f'Error reporting the usage: {e}')
     task.error(f'Error reporting the usage: {e}')
   if resp.status not in [200, 201]:
-    logging.error(f'Error reporting the usage ({resp.status})')
+    logger.error(f'Error reporting the usage ({resp.status})')
     task.error(f'Error reporting the usage ({resp.status})')
   task.finished('Usage successfully reported')
 
@@ -391,6 +393,6 @@ async def blocking_file_upload_handler(request: web.Request):
             text = await resp.text()
             return web.Response(status=resp.status, text=text)
     except Exception as e:
-        logging.error(f'Error in blocking file upload: {e}')
+        logger.error(f'Error in blocking file upload: {e}')
         return web.Response(status=500, text=f'Error in blocking file upload: {e}')
   
