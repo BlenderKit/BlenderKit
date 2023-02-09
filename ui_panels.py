@@ -886,16 +886,6 @@ class LogoStatus(bpy.types.Operator):
         default="logo_offline"
         )
 
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def draw(self, context):
-        pcoll = icons.icon_collections["main"]
-        self.icon_value = pcoll[self.logo].icon_id
-        #layout = self.layout
-        #layout.label(text='',icon_value=pcoll[self.logo].icon_id)
-
 
 class ShowNotifications(bpy.types.Operator):
     """Show notifications"""
