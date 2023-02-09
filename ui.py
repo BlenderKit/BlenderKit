@@ -890,6 +890,14 @@ class AssetDragOperator(bpy.types.Operator):
             bpy.ops.wm.blenderkit_url_dialog('INVOKE_REGION_WIN', url=url, message=message, link_text=link_text)
             return {'CANCELLED'}
 
+        dir_behaviour = bpy.context.preferences.addons['blenderkit'].preferences.directory_behaviour
+        if dir_behaviour == 'LOCAL' and bpy.data.filepath == '':
+            message = "Save the project to download in local directory mode."
+            link_text = 'See documentation'
+            url = 'https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#use-directories'
+            bpy.ops.wm.blenderkit_url_dialog('INVOKE_REGION_WIN', url=url, message=message, link_text=link_text)
+            return {'CANCELLED'}
+
         if self.asset_data.get('assetType') == 'brush':
           if not (context.sculpt_object or context.image_paint_object):
             message = "Please switch to sculpt or image paint modes."
