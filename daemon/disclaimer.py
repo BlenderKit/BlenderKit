@@ -1,8 +1,8 @@
 """Holds functionality for getting disclaimers and notifications."""
 
 
-import logging
 import uuid
+from logging import getLogger
 
 import globals
 import tasks
@@ -10,6 +10,8 @@ from aiohttp import web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 async def get_disclaimer(request: web.Request):
   """Get disclaimer from the server."""
@@ -28,7 +30,7 @@ async def get_disclaimer(request: web.Request):
         task.finished('Disclaimer retrieved')
         return
   except Exception as e:
-    logging.error(str(e))
+    logger.error(str(e))
 
   task.result = None
   task.finished('Disclaimer not retrieved, serve a tip to user')
@@ -46,7 +48,7 @@ async def get_notifications(request: web.Request):
       await resp.text()
       task.result = await resp.json()
   except Exception as e:
-    logging.error(str(e))
+    logger.error(str(e))
     return task.error(str(e))
 
   if resp.status == 200:

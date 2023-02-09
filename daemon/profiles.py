@@ -5,6 +5,7 @@ TODO: We should find a better vocabulary for this.
 import asyncio
 import os
 import tempfile
+from logging import getLogger
 from urllib.parse import urljoin
 
 import globals
@@ -13,6 +14,8 @@ from aiohttp import web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 async def fetch_gravatar_image_handler(request: web.Request):
   data = await request.json()

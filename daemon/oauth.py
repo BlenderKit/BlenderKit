@@ -1,6 +1,6 @@
 """OAuth for login."""
 
-import logging
+from logging import getLogger
 import typing
 
 import globals
@@ -9,6 +9,8 @@ from aiohttp import client_exceptions, web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str]:
   data = {
@@ -35,7 +37,7 @@ async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, g
         return [], response.status, text
 
       response_json = await response.json()
-      logging.info("Token retrieval OK.")
+      logger.info("Token retrieval OK.")
 
       return response_json, 200, ""
 

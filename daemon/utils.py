@@ -1,10 +1,10 @@
 """Contains utility functions for daemon server. Mix of everything."""
 
 import asyncio
-import logging
 import platform
 import re
 import sys
+from logging import Formatter, StreamHandler, basicConfig, getLogger
 from pathlib import Path
 
 import aiohttp
@@ -12,6 +12,8 @@ import globals
 import tasks
 from aiohttp import web
 
+
+logger = getLogger(__name__)
 
 def get_headers(api_key: str = '') -> dict[str, str]:
   """Get headers with or without authorization."""
@@ -133,7 +135,7 @@ async def blocking_request_handler(request: web.Request):
         data = await resp.json()
         return web.json_response(data)
   except Exception as e:
-    logging.error(f'{e}')
+    logger.error(f'{e}')
     return web.Response(status=resp.status, text=str(e))
 
 
@@ -167,3 +169,40 @@ async def make_request(request: web.Request, task: tasks.Task):
         return task.error(f'{error_message}: {e.message} ({e.code})')
     except Exception as e:
         return task.error(f'{error_message}: {e}')
+
+
+def get_formatter():
+  """Get default formatter for daemon loggers."""
+  return Formatter(fmt='%(levelname)s: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]', datefmt='%H:%M:%S')
+
+
+def configure_logger():
+  """Configure 'bk_daemon' logger to which all other logs defined as `logger = logging.getLogger(__name__)` writes.
+  Sets it logging level to `globals.LOGGING_LEVEL_DAEMON`.
+  """
+  basicConfig(level=globals.LOGGING_LEVEL_DAEMON)
+  logger = getLogger("bk_daemon")
+  logger.propagate = False
+  logger.handlers = []
+  handler = StreamHandler()
+  handler.setFormatter(get_formatter())
+  logger.addHandler(handler)
+
+
+def configure_imported_loggers():
+  """Configure loggers for imported modules so they can have different logging level `globals.LOGGING_LEVEL_IMPORTED`
+  than main bk_daemon logger."""
+  aiohttp_logger = getLogger("aiohttp")
+  aiohttp_logger.propagate = False
+  aiohttp_logger.handlers = []
+  aiohttp_handler = StreamHandler()
+  aiohttp_handler.setLevel(globals.LOGGING_LEVEL_IMPORTED)
+  aiohttp_handler.setFormatter(get_formatter())
+  aiohttp_logger.addHandler(aiohttp_handler)
+
+
+def configure_loggers():
+  """Configure all loggers for BlenderKit addon. See called functions for details."""
+  configure_logger()
+  configure_imported_loggers()
+

@@ -1,9 +1,9 @@
 """Holds functionality for search and thumbnail fetching."""
 
 import asyncio
-import logging
 import os
 import uuid
+from logging import getLogger
 
 import aiohttp
 import assets
@@ -13,6 +13,8 @@ from aiohttp import web
 
 import utils
 
+
+logger = getLogger(__name__)
 
 def report_image_finished(data, filepath, done=True):
   """Report a thumbnail is downloaded and available. Not used by now."""
@@ -165,7 +167,7 @@ async def fetch_categories(request: web.Request):
       task.finished('Categories fetched')
 
   except Exception as e:
-    logging.error(e)
+    logger.error(e)
     task.error('Failed to download categories: {e}')
 
 
