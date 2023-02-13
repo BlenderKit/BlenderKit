@@ -34,6 +34,7 @@ from importlib import reload
 from os import path
 
 
+sys.stdout.reconfigure(encoding='utf-8')
 bk_logger = logging.getLogger(__name__)
 
 # lib = path.join(path.dirname(__file__), 'lib')
