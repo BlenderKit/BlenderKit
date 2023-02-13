@@ -24,6 +24,7 @@ def configure_bk_logger():
   bk_logger.handlers = []
 
   stream_handler = logging.StreamHandler()
+  stream_handler.stream = sys.stdout #517
   stream_handler.setFormatter(get_formatter())
   bk_logger.addHandler(stream_handler)
 
@@ -35,6 +36,7 @@ def configure_imported_loggers():
   urllib3_logger.handlers = []
 
   urllib3_handler = logging.StreamHandler()
+  urllib3_handler.stream = sys.stdout #517
   urllib3_handler.setLevel(global_vars.LOGGING_LEVEL_IMPORTED)
   urllib3_handler.setFormatter(get_formatter())
   urllib3_logger.addHandler(urllib3_handler)

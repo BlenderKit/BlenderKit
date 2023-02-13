@@ -185,6 +185,7 @@ def configure_logger():
   logger.propagate = False
   logger.handlers = []
   handler = StreamHandler()
+  handler.stream = sys.stdout #517
   handler.setFormatter(get_formatter())
   logger.addHandler(handler)
 
@@ -196,6 +197,7 @@ def configure_imported_loggers():
   aiohttp_logger.propagate = False
   aiohttp_logger.handlers = []
   aiohttp_handler = StreamHandler()
+  aiohttp_handler.stream = sys.stdout #517
   aiohttp_handler.setLevel(globals.LOGGING_LEVEL_IMPORTED)
   aiohttp_handler.setFormatter(get_formatter())
   aiohttp_logger.addHandler(aiohttp_handler)
