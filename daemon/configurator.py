@@ -11,7 +11,7 @@ from aiohttp import web
 
 logger = getLogger(__name__)
 
-URL = "https://www.blenderkit.com"
+URL = "https://www.blenderkit.com/-/alive/"
 CA_FILE = os.path.join(os.path.dirname( __file__ ), "certs/blenderkit-com-chain.pem")
 
 
