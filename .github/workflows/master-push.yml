@@ -9,7 +9,7 @@ jobs:
   Checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install
         run: pip install isort
       - name: Running isort
@@ -20,7 +20,7 @@ jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build add-on
         run: python dev.py build
       - name: Get current date and time
@@ -39,7 +39,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - id: set-matrix
         run: python .github/make-tests-matrix.py >> $GITHUB_OUTPUT
  
@@ -50,13 +50,21 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Cache Blender
+        id: blenderBinaryCache
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/blender
+          key: blender-${{matrix.version}}-${{matrix.sha}}
       - name: Download Blender
+        if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
         run: curl ${{ matrix.download_url }} -o /home/runner/blender.tar.xz
+      - name: Extract Blender
+        if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
+        run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
       - name: Mkdir
         run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
-      - name: Extract Blender
-        run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
       - name: Add Blender to PATH
         run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
       - name: TEST
