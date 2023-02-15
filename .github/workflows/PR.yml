@@ -60,11 +60,11 @@ jobs:
       - name: Download Blender
         if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
         run: curl ${{ matrix.download_url }} -o /home/runner/blender.tar.xz
+      - name: Mkdir
+        run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
       - name: Extract Blender
         if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
         run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
-      - name: Mkdir
-        run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
       - name: Add Blender to PATH
         run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
       - name: TEST
