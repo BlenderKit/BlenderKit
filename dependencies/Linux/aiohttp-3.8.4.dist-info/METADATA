@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aiohttp
-Version: 3.8.3
+Version: 3.8.4
 Summary: Async http client/server framework (asyncio)
 Home-page: https://github.com/aio-libs/aiohttp
 Maintainer: aiohttp team <team@aiohttp.org>
@@ -32,7 +32,7 @@ Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: attrs (>=17.3.0)
-Requires-Dist: charset-normalizer (<3.0,>=2.0)
+Requires-Dist: charset-normalizer (<4.0,>=2.0)
 Requires-Dist: multidict (<7.0,>=4.5)
 Requires-Dist: async-timeout (<5.0,>=4.0.0a3)
 Requires-Dist: yarl (<2.0,>=1.0)
