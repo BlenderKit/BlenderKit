@@ -104,7 +104,7 @@ def update_ratings_work_hours(self, context):
         return
 
     store_rating_local(asset_id, type='working_hours', value=bkit_ratings.rating_work_hours)
-    daemon_lib.send_rating(asset_id, 'working_hours', bkit_ratings.rating_quality)
+    daemon_lib.send_rating(asset_id, 'working_hours', bkit_ratings.rating_work_hours)
 
 
 def update_quality_ui(self, context):
