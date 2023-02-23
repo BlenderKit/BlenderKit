@@ -170,10 +170,12 @@ async def code_verifier(request: web.Request):
 
 async def report(request: web.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
+  logger.info(f"Report request from {request.remote}")
   globals.last_report_time = time()
   data = await request.json()
   #check if the app was already active
   if data['app_id'] not in globals.active_apps:
+    logger.info("subscribing new addon")
     await subscribe_new_addon(request, data)
 
   reports = list()
@@ -191,6 +193,7 @@ async def report(request: web.Request):
   status_report = tasks.Task({}, data['app_id'], 'daemon_status', result={'online_status': globals.online_status})
   reports.append(status_report.to_seriazable_object())
   reports.reverse()
+  logger.info(f"Responding with reports: {reports}")
   return web.json_response(reports)
 
 

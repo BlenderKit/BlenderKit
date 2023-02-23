@@ -14,7 +14,7 @@ from . import dependencies, global_vars, reports
 
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "","https": ""}
-TIMEOUT = (0.1, 0.5) 
+TIMEOUT = (0.1, 10) 
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -66,8 +66,10 @@ def get_reports(app_id: str, api_key=''):
 
 
 def request_report(url: str, data: dict):
+    bk_logger.info(f'Getting reports from {url}')
     with requests.Session() as session:
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        bk_logger.info(f"Got the report response: {resp}")
         return resp.json()
 
 ### ASSETS
