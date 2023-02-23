@@ -13,8 +13,8 @@ from . import dependencies, global_vars, reports
 
 
 bk_logger = logging.getLogger(__name__)
+NO_PROXIES = {"http": "","https": ""}
 TIMEOUT = (0.1, 0.5) 
-
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -67,7 +67,7 @@ def get_reports(app_id: str, api_key=''):
 
 def request_report(url: str, data: dict):
     with requests.Session() as session:
-        resp = session.get(url, json=data, timeout=TIMEOUT, proxies={})
+        resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp.json()
 
 ### ASSETS
@@ -79,7 +79,7 @@ def search_asset(data):
   data['app_id'] = os.getpid()
   with requests.Session() as session:
     url = address + "/search_asset"
-    resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
+    resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
     bk_logger.debug('Got search response')
     return resp.json()
 
@@ -90,7 +90,7 @@ def download_asset(data):
   data['app_id'] = os.getpid()
   with requests.Session() as session:
     url = address + "/download_asset"
-    resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
+    resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp.json()
 
 def kill_download(task_id):
@@ -98,7 +98,7 @@ def kill_download(task_id):
   address = get_address()
   with requests.Session() as session:
     url = address + "/kill_download"
-    resp = session.get(url, json={'task_id': task_id}, timeout=TIMEOUT, proxies={})
+    resp = session.get(url, json={'task_id': task_id}, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp
 
 # UPLOAD
@@ -113,7 +113,7 @@ def upload_asset(upload_data, export_data, upload_set):
   with requests.Session() as session:
     url = get_address() + "/upload_asset"
     bk_logger.debug(f"making a request to: {url}")
-    resp = session.post(url, json=data, timeout=TIMEOUT, proxies={})
+    resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp.json()
 
 
@@ -122,7 +122,7 @@ def fetch_gravatar_image(author_data):
   """Fetch gravatar image for specified user. Find it on disk or download it from server."""
   author_data['app_id'] = os.getpid()
   with requests.Session() as session:
-    return session.get(f'{get_address()}/profiles/fetch_gravatar_image', json=author_data, timeout=TIMEOUT, proxies={})
+    return session.get(f'{get_address()}/profiles/fetch_gravatar_image', json=author_data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 def get_user_profile(api_key):
   """Get profile of currently logged-in user.
@@ -130,7 +130,7 @@ def get_user_profile(api_key):
   """
   data = {'api_key': api_key, 'app_id': os.getpid()}
   with requests.Session() as session:
-    return session.get(f'{get_address()}/profiles/get_user_profile', json=data, timeout=TIMEOUT, proxies={})
+    return session.get(f'{get_address()}/profiles/get_user_profile', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 
 ### COMMENTS
@@ -142,7 +142,7 @@ def get_comments(asset_id, api_key=''):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/get_comments', json=data, timeout=TIMEOUT, proxies={})
+    return session.post(f'{get_address()}/comments/get_comments', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
   """Create a new comment."""
@@ -154,7 +154,7 @@ def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/create_comment', json=data, timeout=TIMEOUT, proxies={})
+    return session.post(f'{get_address()}/comments/create_comment', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 def feedback_comment(asset_id, comment_id, api_key, flag='like'):
   """Feedback the comment - by default with like. Other flags can be used also."""
@@ -166,7 +166,7 @@ def feedback_comment(asset_id, comment_id, api_key, flag='like'):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/feedback_comment', json=data, timeout=TIMEOUT, proxies={})
+    return session.post(f'{get_address()}/comments/feedback_comment', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
   """Mark the comment as private or public."""
@@ -178,7 +178,7 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/comments/mark_comment_private', json=data, timeout=TIMEOUT, proxies={})
+    return session.post(f'{get_address()}/comments/mark_comment_private', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 ### NOTIFICATIONS
 def mark_notification_read(notification_id):
@@ -189,7 +189,7 @@ def mark_notification_read(notification_id):
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    return session.post(f'{get_address()}/notifications/mark_notification_read', json=data, timeout=TIMEOUT, proxies={})
+    return session.post(f'{get_address()}/notifications/mark_notification_read', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 ### REPORTS
 def report_usages(report: dict):
@@ -197,7 +197,7 @@ def report_usages(report: dict):
   report['api_key'] = bpy.context.preferences.addons['blenderkit'].preferences.api_key
   report['app_id'] = os.getpid()
   with requests.Session() as session:
-    resp = session.post(f'{get_address()}/report_usages', json=report, timeout=TIMEOUT, proxies={})
+    resp = session.post(f'{get_address()}/report_usages', json=report, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp
 
 #RATINGS
@@ -208,7 +208,7 @@ def get_rating(asset_id: str):
         'asset_id': asset_id,
         }
     with requests.Session() as session:
-        return session.get(f'{get_address()}/ratings/get_rating', json=data, timeout=TIMEOUT, proxies={})
+        return session.get(f'{get_address()}/ratings/get_rating', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 def send_rating(asset_id: str, rating_type: str, rating_value: str):
     data = {
@@ -219,7 +219,7 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
         'rating_value': rating_value,
     }
     with requests.Session() as session:
-        return session.post(f'{get_address()}/ratings/send_rating', json=data, timeout=TIMEOUT, proxies={})
+        return session.post(f'{get_address()}/ratings/send_rating', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 
 ### BLOCKING WRAPPERS
@@ -235,7 +235,7 @@ def get_download_url(asset_data, scene_id, api_key):
       },
     }
   with requests.Session() as session:
-    resp = session.get(f'{get_address()}/wrappers/get_download_url', json=data, timeout=TIMEOUT, proxies={})
+    resp = session.get(f'{get_address()}/wrappers/get_download_url', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
     resp = resp.json()
     return (resp['has_url'], resp['asset_data'])
 
@@ -247,7 +247,7 @@ def blocking_file_upload(url: str, filepath: str) -> requests.Response:
     'app_id': os.getpid(),
     }
   with requests.Session() as session:
-    resp = session.get(f'{get_address()}/wrappers/blocking_file_upload', json=data, timeout=(1, 180), proxies={})
+    resp = session.get(f'{get_address()}/wrappers/blocking_file_upload', json=data, timeout=(1, 180), proxies=NO_PROXIES)
     return resp
 
 def blocking_request(url: str, method: str='GET', headers: dict={}, json_data: dict={}, timeout:tuple=TIMEOUT) -> requests.Response:
@@ -261,7 +261,7 @@ def blocking_request(url: str, method: str='GET', headers: dict={}, json_data: d
     if json_data != {}:
         data['json'] = json_data
     with requests.Session() as session:
-        return session.get(f'{get_address()}/wrappers/blocking_request', json=data, timeout=timeout, proxies={})
+        return session.get(f'{get_address()}/wrappers/blocking_request', json=data, timeout=timeout, proxies=NO_PROXIES)
 
 
 ### REQUEST WRAPPERS
@@ -279,14 +279,14 @@ def nonblocking_request(url:str, method:str, headers:dict, json_data:dict={}, me
     if json_data != {}:
         data['json'] = json_data
     with requests.Session() as session:
-        return session.get(f'{get_address()}/wrappers/nonblocking_request', json=data, timeout=TIMEOUT, proxies={})
+        return session.get(f'{get_address()}/wrappers/nonblocking_request', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 
 ### AUTHORIZATION
 def send_code_verifier(code_verifier: str):
   data = {'code_verifier': code_verifier}
   with requests.Session() as session:
-    resp = session.post(f'{get_address()}/code_verifier', json=data, timeout=TIMEOUT, proxies={})
+    resp = session.post(f'{get_address()}/code_verifier', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp
 
 
@@ -294,7 +294,7 @@ def refresh_token(refresh_token):
   """Refresh authentication token."""
   with requests.Session() as session:
     url = get_address() + "/refresh_token"
-    resp = session.get(url, json={'refresh_token': refresh_token}, timeout=TIMEOUT, proxies={})
+    resp = session.get(url, json={'refresh_token': refresh_token}, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp
 
 
@@ -302,7 +302,7 @@ def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
   """Check whether daemon is responding."""
   address = get_address()
   try:
-    with session.get(address, timeout=TIMEOUT, proxies={}) as resp:
+    with session.get(address, timeout=TIMEOUT, proxies=NO_PROXIES) as resp:
       if resp.status_code != 200:
         return False, f'Server response not 200: {resp.status_code}'
       return True, f'Server alive, PID: {resp.text}'
@@ -315,7 +315,7 @@ def report_blender_quit():
   address = get_address()
   with requests.Session() as session:
     url = address + "/report_blender_quit"
-    resp = session.get(url, json={'app_id':os.getpid()}, timeout=TIMEOUT, proxies={})
+    resp = session.get(url, json={'app_id':os.getpid()}, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp
 
 
@@ -324,7 +324,7 @@ def kill_daemon_server():
   address = get_address()
   with requests.Session() as session:
     url = address + "/shutdown"
-    resp = session.get(url, timeout=TIMEOUT, proxies={})
+    resp = session.get(url, timeout=TIMEOUT, proxies=NO_PROXIES)
     return resp
 
 
