@@ -46,6 +46,20 @@ def handle_get_rating_task(task: tasks.Task):
         store_rating_local(asset_id, rating['ratingType'], rating['score'])
 
 
+def handle_get_bookmarks_task(task: tasks.Task):
+    """Handle incomming get_bookmarks task by saving the results into global_vars.
+    This is different from standard ratings - the results come from elastic search API instead of ratings API."""
+    print('handling bookmarks task')
+    if task.status == 'created':
+        return
+    if task.status == 'error':
+        return bk_logger.warning(f'{task.task_type} task failed: {task.message}')
+
+    ratings = task.result['results']
+    for asset_data in ratings:
+        store_rating_local(asset_data["id"], 'bookmarks', 1)
+
+
 def store_rating_local_empty(asset_id):
     """Store the empty rating results to the global_vars so add-on does not search it again."""
     ratings = global_vars.DATA['asset ratings']

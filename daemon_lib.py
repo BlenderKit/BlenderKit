@@ -221,6 +221,15 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
     with requests.Session() as session:
         return session.post(f'{get_address()}/ratings/send_rating', json=data, timeout=TIMEOUT, proxies={})
 
+#BOOKMARKS
+def get_bookmarks():
+    data = {
+        'api_key': bpy.context.preferences.addons['blenderkit'].preferences.api_key,
+        'app_id': os.getpid(),
+        }
+    with requests.Session() as session:
+        return session.get(f'{get_address()}/ratings/get_bookmarks', json=data, timeout=TIMEOUT, proxies={})
+
 
 ### BLOCKING WRAPPERS
 def get_download_url(asset_data, scene_id, api_key):

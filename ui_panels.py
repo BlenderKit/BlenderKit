@@ -1097,8 +1097,11 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         # layout.prop(props, "search_modifier_keywords")
         # if props.search_engine == 'OTHER':
         #     layout.prop(props, "search_engine_keyword")
-
-        layout.prop(props, "own_only")
+        row = layout.row()
+        if utils.experimental_enabled():
+            row.prop(props, "search_bookmarks", text='Bookmarks', icon='BOOKMARKS')
+        row.prop(props, "own_only", icon = 'USER')
+        row=layout.row()
         layout.prop(props, "free_only")
         layout.prop(props, "search_style")
 
@@ -1522,6 +1525,19 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
     wm = bpy.context.window_manager
 
     layout.operator_context = 'INVOKE_DEFAULT'
+
+    if utils.experimental_enabled():
+        r = ratings_utils.get_rating_local(asset_data['id'])
+        if r and r.get('bookmarks') and r.get('bookmarks') ==1:
+            text = 'Delete Bookmark'
+            icon = 'bookmark_full'
+        else:
+            text = 'Bookmark'
+            icon = 'bookmark_empty'
+
+        pcoll = icons.icon_collections["main"]
+        op = layout.operator("wm.blenderkit_bookmark_asset", text=text, icon_value=pcoll[icon].icon_id)
+        op.asset_id=asset_data['id']
 
     if from_panel:
         op = layout.operator('wm.blenderkit_menu_rating_upload', text='Add Rating', icon= 'SOLO_ON')
@@ -2670,18 +2686,23 @@ class LoginPopupDialog(bpy.types.Operator):
         description="",
         default="Your were logged out from . Please login again. ")
 
+    link_text: bpy.props.StringProperty(
+        name="Url",
+        description="url",
+        default="Login to BlenderKit")
+
     # @classmethod
     # def poll(cls, context):
     #     return bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):
         layout = self.layout
-        utils.label_multiline(layout, text=self.message)
+        utils.label_multiline(layout, text=self.message, width = 300)
 
         layout.active_default = True
-        op = layout.operator
-        op = layout.operator("wm.url_open", text=self.link_text, icon='QUESTION')
-        op.url = self.url
+        layout.operator_context = 'EXEC_DEFAULT'
+        layout.operator("wm.blenderkit_login", text=self.link_text,
+                        icon='URL').signup = False
 
     def execute(self, context):
         # start_thumbnailer(self, context)
@@ -2689,8 +2710,7 @@ class LoginPopupDialog(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-
-        return wm.invoke_props_dialog(self)
+        return wm.invoke_props_dialog(self, width = 300)
 
 
 def draw_panel_categories(layout, context):
@@ -2822,6 +2842,9 @@ def header_search_draw(self, context):
     row.prop(props, "search_keywords", text="", icon='VIEWZOOM')
 
     draw_assetbar_show_hide(layout, props)
+    if utils.experimental_enabled():
+        layout.prop(props, "search_bookmarks", text='', icon='BOOKMARKS')
+
     layout.popover(panel="VIEW3D_PT_blenderkit_categories", text="", icon='OUTLINER')
 
 
@@ -2901,6 +2924,7 @@ classes = (
     LogoStatus,
     NotificationOpenTarget,
     MarkAllNotificationsRead,
+    LoginPopupDialog,
 )
 
 def header_search_draw_tools(self, context):

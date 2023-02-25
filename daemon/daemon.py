@@ -377,6 +377,7 @@ if __name__ == '__main__':
     web.get('/profiles/get_user_profile', profiles.get_user_profile_handler),
     web.get('/ratings/get_rating', ratings.get_rating_handler),
     web.post('/ratings/send_rating', ratings.send_rating_handler),
+    web.get('/ratings/get_bookmarks', ratings.get_bookmarks_handler),
     web.get('/debug', configurator.debug_handler),
   ])
 

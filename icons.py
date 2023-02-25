@@ -39,6 +39,8 @@ icons_read = {
     'post_comment.png': 'post_comment',
     'blenderkit_logo.png': 'logo',
     'blenderkit_logo_offline.png': 'logo_offline',
+    'bookmark_full.png': 'bookmark_full',
+    'bookmark_empty.png': 'bookmark_empty',
 }
 
 verification_icons = {

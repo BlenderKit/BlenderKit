@@ -198,6 +198,10 @@ def handle_task(task: tasks.Task):
   if task.task_type == 'ratings/send_rating':
     return #TODO: at least on error we should show error message
 
+  #HANDLE BOOKMARKS
+  if task.task_type == 'ratings/get_bookmarks':
+    return ratings_utils.handle_get_bookmarks_task(task)
+
   #HANDLE NONBLOCKING_REQUEST
   if task.task_type == 'wrappers/nonblocking_request':
     return utils.handle_nonblocking_request_task(task)
@@ -248,6 +252,7 @@ def on_startup_daemon_online_timer():
     search.search()
   if preferences.api_key != '': #TODO: this could be started from daemon automatically?
     daemon_lib.get_user_profile(preferences.api_key)
+    daemon_lib.get_bookmarks()
   return
 
 

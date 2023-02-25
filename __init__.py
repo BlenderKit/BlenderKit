@@ -555,7 +555,12 @@ class BlenderKitCommonSearchProps:
     quality_limit: IntProperty(name="Quality limit",
                                description='Only show assets with a higher quality',
                                default=0, min=0, max=10, update=search.search_update_delayed)
-
+    search_bookmarks: BoolProperty(
+        name='My Bookmarks',
+        default=False,
+        description='Filter my bookmarked assets only',
+        update=search.search_update
+    )
 
 def update_free(self, context):
     if self.is_free == 'FULL':
@@ -1811,12 +1816,6 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
     #     update=utils.save_prefs
     # )
 
-    use_timers: BoolProperty(
-        name="Use timers",
-        description="Use timers for BlenderKit. Usefull for debugging since timers seem to be unstable",
-        default=True,
-        update=utils.save_prefs
-    )
 
     # single_timer: BoolProperty(
     #     name="Use timers",
@@ -1923,8 +1922,8 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
             layout.prop(self, "proxy_ca_certs")
 
         if bpy.context.preferences.view.show_developer_ui:
-            layout.prop(self, "use_timers")
             layout.prop(self, "experimental_features")
+        if utils.profile_is_validator():
             layout.prop(self, "categories_fix")
 
         addon_updater_ops.update_settings_ui(self, context)
@@ -2023,8 +2022,7 @@ def register():
     asset_bar_op.register()
     disclaimer_op.register()
 
-    if user_preferences.use_timers:
-        timer.register_timers()
+    timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
     # detect if the user just enabled the addon in preferences, thus enable to run

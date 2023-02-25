@@ -51,3 +51,30 @@ async def send_rating(task: tasks.Task, request: web.Request):
         logger.warning(str(e))
         return task.error(f'{e}')
     task.finished('Rating uploaded')
+
+
+async def get_bookmarks_handler(request: web.Request):
+    logger.error('getting bookmarks 1')
+
+    data = await request.json()
+
+    task = tasks.Task(data, data['app_id'], 'ratings/get_bookmarks', message='Getting bookmarks data')
+    globals.tasks.append(task)
+    logger.error('getting bookmarks')
+    task.async_task = asyncio.ensure_future(get_bookmarks(task, request))
+    task.async_task.add_done_callback(tasks.handle_async_errors)
+    return web.Response(text='ok')
+
+async def get_bookmarks(task: tasks.Task, request: web.Request):
+    session = request.app['SESSION_API_REQUESTS']
+    headers = utils.get_headers(task.data.get('api_key',''))
+    url=f"{globals.SERVER}/api/v1/search/?query=bookmarks_rating:1"
+
+    try:
+        async with session.get(url, headers=headers) as resp:
+            task.result = await resp.json()
+        logger.error('requested bookmarks')
+    except Exception as e:
+        logger.warning(str(e))
+        return task.error(f'{e}')
+    task.finished('Bookmarks data obtained')
