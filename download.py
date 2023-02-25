@@ -1308,7 +1308,7 @@ def register_download():
     bpy.app.handlers.load_post.append(scene_load)
     bpy.app.handlers.save_pre.append(scene_save)
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.use_timers and not bpy.app.background:
+    if not bpy.app.background:
         bpy.app.timers.register(download_timer)
 
 

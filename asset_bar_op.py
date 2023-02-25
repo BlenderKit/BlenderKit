@@ -5,7 +5,7 @@ import os
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from . import comments_utils, global_vars, paths, search, ui, utils
+from . import comments_utils, global_vars, paths, search, ui, utils, ratings_utils
 from .bl_ui_widgets.bl_ui_button import *
 
 # from .bl_ui_widgets.bl_ui_checkbox import *
@@ -94,6 +94,7 @@ def modal_inside(self, context, event):
                     else:
                         asset_button.progress_bar.visible = False
 
+        #ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
         if self.handle_widget_events(event):
             return {'RUNNING_MODAL'}
 
@@ -102,6 +103,22 @@ def modal_inside(self, context, event):
 
         self.mouse_x = event.mouse_region_x
         self.mouse_y = event.mouse_region_y
+
+        #TRACKPAD SCROLL
+        if event.type == 'TRACKPADPAN' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
+            dir_x = event.mouse_x - event.mouse_prev_x
+            dir_y = event.mouse_y - event.mouse_prev_y
+            step=0
+            if abs(dir_x)>abs(dir_y) or self.hcount <2:
+                step = - max(-3,min(int(dir_x/10),3))#max 3 in both + and -
+            if abs(dir_y)>0:
+                step = self.wcount * max(-1,min(int(dir_y/10),1))#max 1 in both + and -
+            if step!=0:
+                self.scroll_offset += step
+                self.scroll_update()
+            return {'RUNNING_MODAL'}
+
+        #MOUSEWHEEL SCROLL
         if event.type == 'WHEELUPMOUSE' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
             if self.hcount>1:
                 self.scroll_offset -= self.wcount
@@ -383,6 +400,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def show_tooltip(self):
         self.tooltip_panel.visible = True
+        self.tooltip_panel.active = False
         for w in self.tooltip_widgets:
             w.visible = True
 
@@ -543,7 +561,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         button_bg_color = (0.2, 0.2, 0.2, .1)
         button_hover_color = (0.8, 0.8, 0.8, .2)
-
+        fully_transparent_color = (0.2,0.2,0.2,0.0)
         new_button = BL_UI_Button(asset_x, asset_y, self.button_size, self.button_size)
 
         # asset_data = sr[asset_idx]
@@ -571,22 +589,37 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             asset_x + self.button_size - self.icon_size - self.button_margin - self.validation_icon_margin,
             asset_y + self.button_size - self.icon_size - self.button_margin - self.validation_icon_margin, 0, 0)
 
-        # v_icon = ui.verification_icons[asset_data.get('verificationStatus', 'validated')]
-        # if v_icon is not None:
-        #     img_fp = paths.get_addon_thumbnail_path(v_icon)
-        #     validation_icon.set_image(img_fp)
         validation_icon.set_image_size((self.icon_size, self.icon_size))
         validation_icon.set_image_position((0, 0))
         self.validation_icons.append(validation_icon)
         new_button.validation_icon = validation_icon
 
+        bookmark_button =  BL_UI_Button(
+            asset_x + self.button_size - self.icon_size - self.button_margin - self.validation_icon_margin,
+            asset_y  + self.button_margin + self.validation_icon_margin, self.icon_size, self.icon_size)
+        bookmark_button.set_image_size((self.icon_size, self.icon_size))
+        bookmark_button.set_image_position((0, 0))
+        new_button.button_index = button_idx
+        new_button.search_index = button_idx
+        bookmark_button.text=""
+        bookmark_button.set_mouse_down(self.bookmark_asset)
+
+        img_fp = paths.get_addon_thumbnail_path("bookmark_full.png")
+        bookmark_button.set_image(img_fp)
+        bookmark_button.bg_color = fully_transparent_color
+        bookmark_button.hover_bg_color = fully_transparent_color
+        bookmark_button.select_bg_color = fully_transparent_color
+        new_button.bookmark_button = bookmark_button
+        self.bookmark_buttons.append(bookmark_button
+                                     )
         progress_bar = BL_UI_Widget(asset_x, asset_y + self.button_size - 3, self.button_size, 3)
         progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
         new_button.progress_bar = progress_bar
         self.progress_bars.append(progress_bar)
 
         if utils.profile_is_validator():
-            red_alert = BL_UI_Widget(asset_x, asset_y, self.button_size, self.button_size)
+            red_alert = BL_UI_Widget(asset_x-self.validation_icon_margin, asset_y-self.validation_icon_margin,
+                                     self.button_size+2*self.validation_icon_margin, self.button_size+2*self.validation_icon_margin)
             red_alert.bg_color = (1.0, 0.0, 0.0, 0.0)
             red_alert.visible = False
             new_button.red_alert = red_alert
@@ -605,6 +638,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.buttons = []
         self.asset_buttons = []
         self.validation_icons = []
+        self.bookmark_buttons = []
         self.progress_bars = []
         self.red_alerts = []
         self.widgets_panel = []
@@ -707,23 +741,29 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 button.validation_icon.set_location(
                     asset_x + self.button_size - self.icon_size - self.button_margin - self.validation_icon_margin,
                     asset_y + self.button_size - self.icon_size - self.button_margin - self.validation_icon_margin)
+                button.bookmark_button.set_location(
+                    asset_x + self.button_size - self.icon_size - self.button_margin - self.validation_icon_margin,
+                    asset_y + self.button_margin + self.validation_icon_margin)
                 button.progress_bar.set_location(asset_x, asset_y + self.button_size - 3)
                 if asset_idx < len(sr):
                     button.visible = True
                     button.validation_icon.visible = True
+                    button.bookmark_button.visible = True
                     # button.progress_bar.visible = True
                 else:
                     button.visible = False
                     button.validation_icon.visible = False
+                    button.bookmark_button.visible = False
                     button.progress_bar.visible = False
                 if utils.profile_is_validator():
-                    button.red_alert.set_location(asset_x, asset_y)
+                    button.red_alert.set_location(asset_x- self.validation_icon_margin, asset_y- self.validation_icon_margin)
                 i += 1
 
         for a in range(i, len(self.asset_buttons)):
             button = self.asset_buttons[a]
             button.visible = False
             button.validation_icon.visible = False
+            button.bookmark_button.visible = False
             button.progress_bar.visible = False
 
         self.button_scroll_down.height = self.bar_height
@@ -756,10 +796,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         widgets_panel = []
         widgets_panel.extend(self.widgets_panel)
         widgets_panel.extend(self.buttons)
+        widgets_panel.extend(self.red_alerts)
+
         widgets_panel.extend(self.asset_buttons)
+        widgets_panel.extend(self.bookmark_buttons)#we try to put bookmark_buttons before others, because they're on top
         widgets_panel.extend(self.validation_icons)
         widgets_panel.extend(self.progress_bars)
-        widgets_panel.extend(self.red_alerts)
 
         widgets = [self.panel]
 
@@ -820,6 +862,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.set_element_images()
         self.position_and_hide_buttons()
         self.hide_tooltip()
+        # for b in self.buttons:
+        #     b.bookmark_button.visible=False
 
         self.panel.set_location(self.bar_x,
                                 self.bar_y)
@@ -928,6 +972,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # self.init_tooltip()
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
+            #show bookmark button - always on mouse enter
+            if utils.experimental_enabled():
+                widget.bookmark_button.visible = True
 
             # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
@@ -943,6 +990,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = self.active_index
             bpy.context.window.cursor_set("DEFAULT")
+        # hide bookmark button - only when Not bookmarked
+        self.update_bookmark_icon(widget.bookmark_button)
         # popup asset card on mouse down
         # if utils.experimental_enabled():
         #     h = widget.get_area_height()
@@ -950,8 +999,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         #     self.active_index = widget.button_index + self.scroll_offset
         # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
+    def bookmark_asset(self, widget):
+        #bookmark the asset linked to this button
+        if not utils.user_logged_in():
+            bpy.ops.wm.blenderkit_login_dialog("INVOKE_DEFAULT", message="Please login to bookmark your favourite assets.")
+            return
+
+        sr = global_vars.DATA['search results']
+        asset_data = sr[widget.asset_index]  # + self.scroll_offset]
+
+        bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data['id'])
+        self.update_bookmark_icon(widget)
+
     def drag_drop_asset(self, widget):
-        bpy.ops.view3d.asset_drag_drop('INVOKE_DEFAULT', asset_search_index=widget.search_index + self.scroll_offset)
+        bpy.ops.view3d.asset_drag_drop("INVOKE_DEFAULT", asset_search_index=widget.search_index + self.scroll_offset)
 
     def cancel_press(self, widget):
         self.finish()
@@ -972,6 +1033,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         search.search(get_next=True)
+
+    def update_bookmark_icon(self, bookmark_button):
+        if not utils.experimental_enabled():
+            bookmark_button.visible=False
+            return
+        asset_data = global_vars.DATA['search results'][bookmark_button.asset_index]
+        r = ratings_utils.get_rating_local(asset_data['id'])
+        if r and r.get('bookmarks') == 1:
+            icon = "bookmark_full.png"
+            visible=True
+        else:
+            icon = "bookmark_empty.png"
+            if self.active_index == bookmark_button.asset_index:
+                visible=True
+            else:
+                visible=False
+        bookmark_button.visible=visible
+        img_fp = paths.get_addon_thumbnail_path(icon)
+        bookmark_button.set_image(img_fp)
 
     def update_validation_icon(self, asset_button, asset_data):
         if utils.profile_is_validator():
@@ -1035,6 +1115,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     # asset_button.set_image(img_filepath)
                     self.update_validation_icon(asset_button, asset_data)
 
+                    #update bookmark buttons
+                    asset_button.bookmark_button.asset_index = asset_button.asset_index
+
+                    self.update_bookmark_icon(asset_button.bookmark_button)
+
+
                     if utils.profile_is_validator() and asset_data['verificationStatus'] == 'uploaded':
                         over_limit = utils.is_upload_old(asset_data)
                         if over_limit:
@@ -1048,6 +1134,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             else:
                 asset_button.visible = False
                 asset_button.validation_icon.visible = False
+                asset_button.bookmark_button.visible = False
                 if utils.profile_is_validator():
                     asset_button.red_alert.visible = False
 

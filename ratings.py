@@ -21,8 +21,9 @@ import logging
 import bpy
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
+from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from . import global_vars, icons, ratings_utils, ui, ui_panels, utils
+from . import daemon_lib, global_vars, icons, ratings_utils, ui, ui_panels, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -189,6 +190,38 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
             return wm.invoke_popup(self)
 
 
+class SetBookmark(bpy.types.Operator):
+    """Up or downvote comment"""
+    bl_idname = "wm.blenderkit_bookmark_asset"
+    bl_label = "BlenderKit bookmark assest"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    asset_id: StringProperty(
+        name="Asset Base Id",
+        description="Unique id of the asset (hidden)",
+        default="",
+        options={'SKIP_SAVE'})
+
+
+    # bookmark: bpy.props.BoolProperty(
+    #     name="bookmark",
+    #     description="Pass current state of bookmark, gets inverted",
+    #     default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        r = ratings_utils.get_rating_local(self.asset_id)
+        if r and r.get('bookmarks') == 1:
+            bookmark_value = 0
+        else:
+            bookmark_value = 1
+        ratings_utils.store_rating_local(self.asset_id, type='bookmarks', value=bookmark_value)
+        daemon_lib.send_rating(self.asset_id, 'bookmarks',bookmark_value)
+        return {'FINISHED'}
+
 def rating_menu_draw(self, context):
     layout = self.layout
 
@@ -326,6 +359,7 @@ class RatingStarWidgetGroup(GizmoGroup):
 
 classes = (
     FastRateMenu,
+    SetBookmark,
     RatingStarWidget,
     RatingStarWidgetGroup,
     ratings_utils.RatingProperties,

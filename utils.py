@@ -51,8 +51,9 @@ supported_material_drag = ('MESH', 'CURVE', 'META', 'FONT', 'SURFACE', 'VOLUME',
 
 
 def experimental_enabled():
+    '''experimental features will always be enabled for staff and validators'''
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    return preferences.experimental_features
+    return preferences.experimental_features or profile_is_validator()
 
 
 def get_process_flags():
@@ -916,6 +917,7 @@ def update_tags(self, context):
 
 
 def user_logged_in():
+    '''User is currently logged in successfully'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     a = global_vars.DATA.get('bkit profile')
     # Check both profile and token, profile sometimes isn't cleaned up after logout
@@ -925,8 +927,10 @@ def user_logged_in():
 
 
 def profile_is_validator():
+    '''currently logged in profile is validator'''
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     profile = global_vars.DATA.get('bkit profile')
-    if profile is None:
+    if profile is None or user_preferences.api_key == '':
       return False
     result = profile.get('canEditAllAssets', False)
     return result
@@ -934,8 +938,9 @@ def profile_is_validator():
 
 def user_is_owner(asset_data=None):
     '''Checks if the current logged in user is owner of the asset'''
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     profile = global_vars.DATA.get('bkit profile')
-    if profile is None:
+    if profile is None or user_preferences.api_key == '':
         return False
     if int(asset_data['author']['id']) == int(profile['user']['id']):
         return True

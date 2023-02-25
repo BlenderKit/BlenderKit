@@ -18,6 +18,7 @@ class BL_UI_Widget:
         self._mouse_down = False
         self._mouse_down_right = False
         self._is_visible = True
+        self._is_active = True #if the widget needs to be disabled
 
     def set_location(self, x, y):
         self.x = x
@@ -41,6 +42,14 @@ class BL_UI_Widget:
     @visible.setter
     def visible(self, value):
         self._is_visible = value
+
+    @property
+    def active(self):
+        return self._is_active
+
+    @visible.setter
+    def active(self, value):
+        self._is_active = value
 
     @property
     def tag(self):
@@ -86,6 +95,9 @@ class BL_UI_Widget:
     def handle_event(self, event):
         if not self._is_visible:
             return False
+        if not self._is_active:
+            return False
+
         x = event.mouse_region_x
         y = event.mouse_region_y
 
@@ -120,7 +132,8 @@ class BL_UI_Widget:
                 self.__inrect = False
                 self.mouse_exit(event, x, y)
 
-            return self.__inrect
+            #return always false to enable mouse exit events on other buttons.
+            return False # self.__inrect
 
         elif event.value == 'PRESS' and self.__inrect and (event.ascii != '' or event.type in self.get_input_keys()):
 

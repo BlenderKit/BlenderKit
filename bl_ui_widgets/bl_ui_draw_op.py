@@ -56,9 +56,11 @@ class BL_UI_OT_draw_operator(Operator):
 
     def handle_widget_events(self, event):
         result = False
-        for widget in self.widgets:
+        #we iterate widgets reversed, so top buttons can get processed first if buttons overlap.
+        for widget in reversed(self.widgets):
             if widget.handle_event(event):
                 result = True
+                return True #return prematurely to avoid conflicts.
         return result
 
     def modal(self, context, event):

@@ -2,6 +2,7 @@ import os
 
 import blf
 import bpy
+import gpu
 
 from .. import ui_bgl
 from .bl_ui_widget import *
@@ -116,6 +117,8 @@ class BL_UI_Button(BL_UI_Widget):
         if not self._is_visible:
             return
         area_height = self.get_area_height()
+
+        gpu.state.blend_set('ALPHA')
 
         self.shader.bind()
 

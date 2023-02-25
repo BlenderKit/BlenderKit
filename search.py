@@ -355,9 +355,9 @@ def handle_search_task(task: tasks.Task) -> bool:
         result_field.append(asset_data)
 
     # Get ratings from BlenderKit server TODO: do this in daemon
-    if utils.profile_is_validator():
-      for result in task.result['results']:
-        ratings_utils.ensure_rating(result['id'])
+    # if utils.profile_is_validator():
+    #   for result in task.result['results']:
+    #     ratings_utils.ensure_rating(result['id'])
 
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f'{search_name} orig'] = task.result
@@ -693,6 +693,8 @@ def build_query_model():
     query["textureResolutionMax_lte"] = props.search_texture_resolution_max
   if props.search_animated:
     query["animated"] = True
+  if props.search_bookmarks:
+    query["bookmarks_rating"] = 1
   if props.search_geometry_nodes:
     query["modifiers"] = 'nodes'
 
@@ -979,6 +981,7 @@ def clean_filters():
   sprops.property_unset('search_procedural')
   sprops.property_unset('free_only')
   sprops.property_unset('quality_limit')
+  sprops.property_unset('search_bookmarks')
   if ui_props.asset_type == 'MODEL':
     sprops.property_unset('search_style')
     sprops.property_unset('search_condition')
@@ -991,14 +994,27 @@ def clean_filters():
 
 
 def update_filters():
+  # update filters for 2 reasons
+  # - first to show if filters are active
+  # - second to show login popup if user needs to log in
+
   sprops = utils.get_search_props()
   ui_props = bpy.context.window_manager.blenderkitUI
+
+  if sprops.search_bookmarks and not utils.user_logged_in():
+    sprops.search_bookmarks = False
+    bpy.ops.wm.blenderkit_login_dialog("INVOKE_DEFAULT", message="Please login to use bookmarks.")
+  if sprops.own_only and not utils.user_logged_in():
+    sprops.own_only = False
+    bpy.ops.wm.blenderkit_login_dialog("INVOKE_DEFAULT", message="Please login to upload and filter your own assets.")
+
   fcommon = sprops.own_only or \
             sprops.search_texture_resolution or \
             sprops.search_file_size or \
             sprops.search_procedural != 'BOTH' or \
             sprops.free_only or \
-            sprops.quality_limit > 0
+            sprops.quality_limit > 0 or \
+            sprops.search_bookmarks
 
   if ui_props.asset_type == 'MODEL':
     sprops.use_filters = fcommon or \
