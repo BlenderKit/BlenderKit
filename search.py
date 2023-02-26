@@ -362,7 +362,7 @@ def handle_search_task(task: tasks.Task) -> bool:
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f'{search_name} orig'] = task.result
 
-    if result_field and result_field[0]['assetType'] == ui_props.asset_type.lower():
+    if asset_type == ui_props.asset_type.lower():
       global_vars.DATA['search results'] = result_field
       global_vars.DATA['search results orig'] = task.result
 
