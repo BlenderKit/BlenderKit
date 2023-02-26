@@ -5,7 +5,7 @@ import os
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from . import comments_utils, global_vars, paths, search, ui, utils, ratings_utils
+from . import comments_utils, global_vars, paths, search, ratings_utils, ui, utils
 from .bl_ui_widgets.bl_ui_button import *
 
 # from .bl_ui_widgets.bl_ui_checkbox import *
