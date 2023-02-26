@@ -252,10 +252,6 @@ def get_asset_usages():
     for k in ak:  # rewrite assets used.
         scene['assets used'][k] = assets[k]
 
-    ###########check ratings here too:
-    for k in assets.keys():
-        ratings_utils.store_rating_local_empty(k)
-
     return usage_report
 
 

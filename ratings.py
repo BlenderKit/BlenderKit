@@ -213,8 +213,8 @@ class SetBookmark(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        r = ratings_utils.get_rating_local(self.asset_id)
-        if r and r.get('bookmarks') == 1:
+        r = ratings_utils.get_rating_local(self.asset_id,"bookmarks")
+        if r == 1:
             bookmark_value = 0
         else:
             bookmark_value = 1
@@ -303,7 +303,7 @@ def should_be_rated(ob):
     ad = ob.get('asset_data')
     if ad is None:
         return False
-    r = ratings_utils.get_rating_local(ad['id'])
+    r = ratings_utils.get_rating_local(ad['id'], "quality")
     ratings_utils.ensure_rating(ad['id'])
     if r == {}: #is None would work too, but would show rating option and then hide it when the assets are already rated
         return True

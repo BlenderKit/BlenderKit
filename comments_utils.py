@@ -33,8 +33,6 @@ def handle_get_comments_task(task: tasks.Task):
   if task.status == 'finished':
     comments = task.result['results']
     store_comments_local(task.data['asset_id'], comments)
-    if len(comments) == 0: #TODO: is this correct? how from comments we know there are 0 ratings? Is this like rating of comments - likes?
-      ratings_utils.store_rating_local_empty # store empty ratings too, so that server isn't checked repeatedly
     return
 
 def handle_create_comment_task(task: tasks.Task):

@@ -40,8 +40,9 @@ def handle_get_rating_task(task: tasks.Task):
     asset_id = task.data['asset_id']
     ratings = task.result['results']
     if len(ratings) == 0:
-        return store_rating_local_empty(asset_id)
-        
+        return store_rating_local_empty(asset_id, 'quality')
+        return store_rating_local_empty(asset_id, 'working_hours')
+
     for rating in ratings:
         store_rating_local(asset_id, rating['ratingType'], rating['score'])
 
@@ -60,10 +61,14 @@ def handle_get_bookmarks_task(task: tasks.Task):
         store_rating_local(asset_data["id"], 'bookmarks', 1)
 
 
-def store_rating_local_empty(asset_id):
-    """Store the empty rating results to the global_vars so add-on does not search it again."""
+def store_rating_local_empty(asset_id, rating_type):
+    """Store the empty rating results to the global_vars so add-on does not search it again.
+    This function could be replaced with store_rating_local(asset_id, rating_type, None)
+    but it is more readable this way."""
     ratings = global_vars.DATA['asset ratings']
     ratings[asset_id] = ratings.get(asset_id, {})
+    if rating_type not in ratings[asset_id].keys():
+        ratings[asset_id][rating_type] = None
 
 
 def store_rating_local(asset_id, type='quality', value=0):
@@ -73,15 +78,17 @@ def store_rating_local(asset_id, type='quality', value=0):
     ratings[asset_id][type] = value
 
 
-def get_rating_local(asset_id):
-    """Get the rating locally from global_vars."""
-    return global_vars.DATA['asset ratings'].get(asset_id)
+def get_rating_local(asset_id, rating_type):
+    """Get the rating locally from global_vars.
+    """
+    r = global_vars.DATA['asset ratings'].get(asset_id,{})
+    return r.get(rating_type)
 
 
 def ensure_rating(asset_id):
     """Ensure rating is available. First check locally, if not available then download from server."""
-    rating = get_rating_local(asset_id)
-    if rating is None:
+    r = global_vars.DATA['asset ratings'].get(asset_id,{})
+    if 'quality' not in r.keys() or 'working_hours ' not in r.keys():
         daemon_lib.get_rating(asset_id)
 
 
@@ -302,16 +309,17 @@ class RatingProperties(PropertyGroup):
         # pre-fill ratings
         if not utils.user_logged_in():
           return
-        ratings = get_rating_local(self.asset_id)
-        if ratings in (None, {}):
+        rating_quality = get_rating_local(self.asset_id,"quality")
+        rating_work_hours = get_rating_local(self.asset_id,"working_hours")
+        if rating_quality is None and rating_work_hours is None:
           return
         if not self.rating_quality ==0:
           #return if the rating was already filled
           return
-        if ratings and ratings.get('quality'):
-            self.rating_quality = int(ratings['quality'])
-        if ratings and ratings.get('working_hours'):
-            wh = int(ratings['working_hours'])
+        if rating_quality is not None:
+            self.rating_quality = int(rating_quality)
+        if rating_work_hours is not None:
+            wh = int(rating_work_hours)
             whs = str(wh)
             if wh in self.possible_wh_values:
                 self.rating_work_hours_ui = whs

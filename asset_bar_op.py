@@ -803,6 +803,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.init_tooltip()
         self.hide_tooltip()
 
+        self.trackpad_x_accum=0
+        self.trackpad_y_accum=0
+
     def setup_widgets(self, context, event):
         widgets_panel = []
         widgets_panel.extend(self.widgets_panel)
@@ -1050,8 +1053,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             bookmark_button.visible=False
             return
         asset_data = global_vars.DATA['search results'][bookmark_button.asset_index]
-        r = ratings_utils.get_rating_local(asset_data['id'])
-        if r and r.get('bookmarks') == 1:
+        r = ratings_utils.get_rating_local(asset_data['id'],"bookmarks")
+        if r == 1:
             icon = "bookmark_full.png"
             visible=True
         else:
@@ -1077,7 +1080,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 img_fp = paths.get_addon_thumbnail_path(v_icon)
                 asset_button.validation_icon.set_image(img_fp)
                 asset_button.validation_icon.visible = True
-            elif rating in (None, {}):
+            elif rating is None or rating.get('quality') is None:
                 v_icon = 'star_grey.png'
                 img_fp = paths.get_addon_thumbnail_path(v_icon)
                 asset_button.validation_icon.set_image(img_fp)
