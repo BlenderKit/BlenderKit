@@ -630,6 +630,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                                      self.button_size+2*self.validation_icon_margin, self.button_size+2*self.validation_icon_margin)
             red_alert.bg_color = (1.0, 0.0, 0.0, 0.0)
             red_alert.visible = False
+            red_alert.active = False
             new_button.red_alert = red_alert
             self.red_alerts.append(red_alert)
         # if result['downloaded'] > 0:
@@ -807,9 +808,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         widgets_panel = []
         widgets_panel.extend(self.widgets_panel)
         widgets_panel.extend(self.buttons)
-        widgets_panel.extend(self.red_alerts)
 
         widgets_panel.extend(self.asset_buttons)
+        widgets_panel.extend(self.red_alerts)
         widgets_panel.extend(self.bookmark_buttons)#we try to put bookmark_buttons before others, because they're on top
         widgets_panel.extend(self.validation_icons)
         widgets_panel.extend(self.progress_bars)
