@@ -355,9 +355,9 @@ def handle_search_task(task: tasks.Task) -> bool:
         result_field.append(asset_data)
 
     # Get ratings from BlenderKit server TODO: do this in daemon
-    # if utils.profile_is_validator():
-    #   for result in task.result['results']:
-    #     ratings_utils.ensure_rating(result['id'])
+    if utils.profile_is_validator():
+      for result in task.result['results']:
+        ratings_utils.ensure_rating(result['id'])
 
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f'{search_name} orig'] = task.result
