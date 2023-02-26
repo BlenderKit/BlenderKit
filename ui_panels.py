@@ -1084,7 +1084,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
     def poll(cls, context):
         s = context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
-        return ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'MODEL'
+        return global_vars.DAEMON_ONLINE and ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'MODEL'
 
     def draw_layout(self,layout):
         wm = bpy.context.window_manager
@@ -1157,7 +1157,7 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
     def poll(cls, context):
         s = context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
-        return ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'MATERIAL'
+        return global_vars.DAEMON_ONLINE and ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'MATERIAL'
 
     def draw_layout(self,layout):
         wm = bpy.context.window_manager
@@ -1203,7 +1203,7 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
     def poll(cls, context):
         s = context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
-        return ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'HDR'
+        return global_vars.DAEMON_ONLINE and ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'HDR'
 
     def draw(self, context):
         wm = context.window_manager
@@ -1231,7 +1231,7 @@ class VIEW3D_PT_blenderkit_categories(Panel):
         mode = True
         if ui_props.asset_type == 'BRUSH' and not (context.sculpt_object or context.image_paint_object):
             mode = False
-        return ui_props.down_up == 'SEARCH' and mode
+        return ui_props.down_up == 'SEARCH' and mode and global_vars.DAEMON_ONLINE
 
     def draw(self, context):
         draw_panel_categories(self.layout, context)
@@ -1260,7 +1260,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
     def poll(cls, context):
         s = context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
-        return ui_props.down_up == 'SEARCH' and ui_props.asset_type in ['MATERIAL', 'MODEL', 'SCENE', 'HDR']
+        return global_vars.DAEMON_ONLINE and ui_props.down_up == 'SEARCH' and ui_props.asset_type in ['MATERIAL', 'MODEL', 'SCENE', 'HDR']
 
     def draw(self, context):
         layout = self.layout
@@ -1318,14 +1318,19 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
     def draw_header(self, context):
         layout = self.layout
+        ui_props = bpy.context.window_manager.blenderkitUI
         pcoll = icons.icon_collections["main"]
-        layout.label(text ='Find and Upload Assets', icon_value=pcoll['logo'].icon_id)
+        layout.label(text ='Find and Upload Assets', icon_value=pcoll[ui_props.logo_status].icon_id)
 
     def draw(self, context):
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+
         layout = self.layout
         # layout.prop_tabs_enum(ui_props, "asset_type", icon_only = True)
+        if not global_vars.DAEMON_ONLINE:
+            layout.label(text="Daemon offline")
+            return
 
         row = layout.row()
         # row.scale_x = 1.6
@@ -2815,6 +2820,9 @@ def header_search_draw(self, context):
     layout = layout.row(align=True)
     layout.label(text='',icon_value=pcoll[ui_props.logo_status].icon_id)
     # layout.separator()
+    if not global_vars.DAEMON_ONLINE:
+        layout.label(text='Offline')
+        return;
     layout.prop(ui_props, "asset_type", expand=True, icon_only=True, text='', icon=asset_type_icon)
     row = layout.row()
     if (context.region.width)>700:
