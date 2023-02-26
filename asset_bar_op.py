@@ -106,13 +106,24 @@ def modal_inside(self, context, event):
 
         #TRACKPAD SCROLL
         if event.type == 'TRACKPADPAN' and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
-            dir_x = event.mouse_x - event.mouse_prev_x
-            dir_y = event.mouse_y - event.mouse_prev_y
+            # accumulate trackpad inputs
+            self.trackpad_x_accum -= event.mouse_x - event.mouse_prev_x
+            self.trackpad_y_accum += event.mouse_y - event.mouse_prev_y
+
             step=0
-            if abs(dir_x)>abs(dir_y) or self.hcount <2:
-                step = - max(-3,min(int(dir_x/10),3))#max 3 in both + and -
-            if abs(dir_y)>0:
-                step = self.wcount * max(-1,min(int(dir_y/10),1))#max 1 in both + and -
+            multiplier = 30
+            if abs(self.trackpad_x_accum)>abs(self.trackpad_y_accum) or self.hcount <2:
+                step = math.floor(self.trackpad_x_accum/multiplier)
+                self.trackpad_x_accum -= step*multiplier
+                # reset the other axis not to accidentally scroll it
+                if step!=0:
+                    self.trackpad_y_accum = 0
+            if abs(self.trackpad_y_accum)>0 and self.hcount >1:
+                step = self.wcount * math.floor(self.trackpad_x_accum/multiplier)
+                self.trackpad_y_accum -= step * multiplier
+                # reset the other axis not to accidentally scroll it
+                if step!=0:
+                    self.trackpad_x_accum = 0
             if step!=0:
                 self.scroll_offset += step
                 self.scroll_update()
