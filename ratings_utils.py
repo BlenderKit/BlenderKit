@@ -26,7 +26,6 @@ from bpy.types import PropertyGroup
 from . import daemon_lib, global_vars, utils
 from .daemon import tasks
 
-
 bk_logger = logging.getLogger(__name__)
 
 
