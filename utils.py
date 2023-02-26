@@ -33,7 +33,6 @@ from mathutils import Vector
 from . import global_vars, image_utils, paths, reports
 from .daemon import tasks
 
-
 bk_logger = logging.getLogger(__name__)
 
 ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000

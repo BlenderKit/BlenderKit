@@ -11,7 +11,6 @@ import requests
 
 from . import dependencies, global_vars, reports
 
-
 bk_logger = logging.getLogger(__name__)
 TIMEOUT = (0.1, 0.5) 
 

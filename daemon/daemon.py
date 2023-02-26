@@ -8,12 +8,11 @@ from logging import getLogger
 from os import environ, getpid
 from platform import system
 from signal import SIGINT, raise_signal
-from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, socket
+from socket import AF_INET, SOL_SOCKET, SO_REUSEADDR, socket
 from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext
 from sys import stdout
 from time import time
 from uuid import uuid4
-
 
 stdout.reconfigure(encoding='utf-8')
 logger = getLogger('bk_daemon')

@@ -19,12 +19,11 @@
 import logging
 
 import bpy
+from bpy.props import StringProperty
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
-from bpy.props import BoolProperty, IntProperty, StringProperty
 
 from . import daemon_lib, global_vars, icons, ratings_utils, ui, ui_panels, utils
-
 
 bk_logger = logging.getLogger(__name__)
 
