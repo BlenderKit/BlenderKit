@@ -224,21 +224,24 @@ async def life_check(app: web.Application):
 
 
 async def online_status_check(app: web.Application):
+  """
+  Host: 8.8.8.8 (google-public-dns-a.google.com)
+  OpenPort: 53/tcp
+  Service: domain (DNS/TCP)
+  """
+  HOST = "8.8.8.8"
+  PORT = 53
+  TIMEOUT = 3
   while True:
     try:
-      url = f'{globals.SERVER}/-/alive/'
-      async with app['SESSION_API_REQUESTS'].head(url, timeout=3) as resp:
-        globals.online_status = resp.status
-        if resp.status != 200:
-          logger.warning(f'{url}: status code {resp.status}')
+      s = socket(AF_INET, SOCK_STREAM)
+      s.settimeout(TIMEOUT)
+      s.connect((HOST, PORT))
+      globals.online_status = 200
     except Exception as e:
-      logger.warning(f'{url}: request failed')
-      globals.online_status = f'{e}'
+      globals.online_status = str(e)
 
-    if globals.online_status == 200:
-      await asyncio.sleep(300)
-    else:
-      await asyncio.sleep(60)
+    await asyncio.sleep(1)
 
 
 async def start_background_tasks(app: web.Application):
