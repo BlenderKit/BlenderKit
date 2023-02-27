@@ -1167,7 +1167,10 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         props = wm.blenderkit_mat
         layout.separator()
 
-        layout.prop(props, "own_only")
+        row = layout.row()
+        if utils.experimental_enabled():
+            row.prop(props, "search_bookmarks", text='Bookmarks', icon='BOOKMARKS')
+        row.prop(props, "own_only", icon='USER')
 
         layout.label(text='Texture:')
         col = layout.column()
@@ -1192,6 +1195,35 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         self.draw_layout(self.layout)
 
 
+class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_scene_search"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Search filters"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        s = context.scene
+        ui_props = bpy.context.window_manager.blenderkitUI
+        return ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'SCENE'
+
+    def draw_layout(self,layout):
+        wm = bpy.context.window_manager
+        props = wm.blenderkit_scene
+        layout.separator()
+
+        row = layout.row()
+        if utils.experimental_enabled():
+            row.prop(props, "search_bookmarks", text='Bookmarks', icon='BOOKMARKS')
+        row.prop(props, "own_only", icon='USER')
+        layout.prop(props, "free_only")
+
+
+    def draw(self, context):
+        self.draw_layout(self.layout)
 
 class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
     bl_category = "BlenderKit"
@@ -1214,10 +1246,42 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         layout = self.layout
         layout.separator()
 
-        layout.prop(props, "own_only")
+        row = layout.row()
+        if utils.experimental_enabled():
+            row.prop(props, "search_bookmarks", text='Bookmarks', icon='BOOKMARKS')
+        row.prop(props, "own_only", icon='USER')
         layout.prop(props, "true_hdr")
 
 
+class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_brush_search"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Search filters"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        s = context.scene
+        ui_props = bpy.context.window_manager.blenderkitUI
+        return ui_props.down_up == 'SEARCH' and ui_props.asset_type == 'BRUSH'
+
+    def draw_layout(self,layout):
+        wm = bpy.context.window_manager
+        props = wm.blenderkit_brush
+        layout.separator()
+
+        row = layout.row()
+        if utils.experimental_enabled():
+            row.prop(props, "search_bookmarks", text='Bookmarks', icon='BOOKMARKS')
+        row.prop(props, "own_only", icon='USER')
+        layout.prop(props, "free_only")
+
+
+    def draw(self, context):
+        self.draw_layout(self.layout)
 class VIEW3D_PT_blenderkit_categories(Panel):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_categories"
@@ -2866,15 +2930,19 @@ def header_search_draw(self, context):
 
     elif ui_props.asset_type == 'MATERIAL':
         layout.popover(panel="VIEW3D_PT_blenderkit_advanced_material_search", text="", icon_value=icon_id)
+    elif ui_props.asset_type == 'SCENE':
+        layout.popover(panel="VIEW3D_PT_blenderkit_advanced_scene_search", text="", icon_value=icon_id)
     elif ui_props.asset_type == 'HDR':
         layout.popover(panel="VIEW3D_PT_blenderkit_advanced_HDR_search", text="", icon_value=icon_id)
+    elif ui_props.asset_type == 'BRUSH':
+        layout.popover(panel="VIEW3D_PT_blenderkit_advanced_brush_search", text="", icon_value=icon_id)
 
-    elif ui_props.asset_type in ('BRUSH', 'SCENE'):
-        # this is just a placeholder so that the UI doesn't get out of alignment
-        row = layout.column()
-        row.enabled = False
-        row.ui_units_x = 1.5
-        row.label(text='', icon_value=icon_id)
+    # elif ui_props.asset_type in ('BRUSH', 'SCENE'):
+    #     # this is just a placeholder so that the UI doesn't get out of alignment
+    #     row = layout.column()
+    #     row.enabled = False
+    #     row.ui_units_x = 1.5
+    #     row.label(text='', icon_value=icon_id)
 
     notifications = global_vars.DATA.get('bkit notifications')
     if notifications is not None and notifications.get('count', 0) > 0:
@@ -2907,7 +2975,9 @@ classes = (
     VIEW3D_PT_blenderkit_unified,
     VIEW3D_PT_blenderkit_advanced_model_search,
     VIEW3D_PT_blenderkit_advanced_material_search,
+    VIEW3D_PT_blenderkit_advanced_scene_search,
     VIEW3D_PT_blenderkit_advanced_HDR_search,
+    VIEW3D_PT_blenderkit_advanced_brush_search,
     VIEW3D_PT_blenderkit_categories,
     VIEW3D_PT_blenderkit_import_settings,
     VIEW3D_PT_blenderkit_model_properties,

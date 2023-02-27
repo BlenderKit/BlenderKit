@@ -656,8 +656,11 @@ def build_query_common(query, props):
 
   if props.quality_limit > 0:
     query["quality_gte"] = props.quality_limit
-
+    
+  if props.search_bookmarks:
+    query["bookmarks_rating"] = 1
   query.update(query_common)
+
 
 
 def build_query_model():
@@ -692,8 +695,6 @@ def build_query_model():
     query["textureResolutionMax_lte"] = props.search_texture_resolution_max
   if props.search_animated:
     query["animated"] = True
-  if props.search_bookmarks:
-    query["bookmarks_rating"] = 1
   if props.search_geometry_nodes:
     query["modifiers"] = 'nodes'
 
