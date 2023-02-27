@@ -341,17 +341,15 @@ def handle_daemon_status_task(task):
   bk_server_status = task.result['online_status']
   if bk_server_status == 200:
     if global_vars.DAEMON_ONLINE is False:
-      reports.add_report(f'Connected to {urlparse(global_vars.SERVER).netloc}')
+      reports.add_report('Connected to the Internet')
       wm = bpy.context.window_manager
       wm.blenderkitUI.logo_status = "logo"
       global_vars.DAEMON_ONLINE = True
     return
 
   if global_vars.DAEMON_ONLINE is True:
-    if bk_server_status == 429:
-      reports.add_report(f'API limit exceeded for {urlparse(global_vars.SERVER).netloc}', timeout=10, type='ERROR')
-    else:
-      reports.add_report(f'Disconnected from {urlparse(global_vars.SERVER).netloc}', timeout=10, type='ERROR')
+    reports.add_report('Disconnected from the Internet', timeout=10, type='ERROR')
+    bk_logger.info(bk_server_status)
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
     global_vars.DAEMON_ONLINE = False
