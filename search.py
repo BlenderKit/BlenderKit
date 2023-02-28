@@ -26,26 +26,27 @@ import unicodedata
 import bpy
 from bpy.app.handlers import persistent
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
-  BoolProperty,
-  StringProperty,
+    BoolProperty,
+    StringProperty,
 )
 from bpy.types import Operator
 
 from . import (
-  asset_bar_op,
-  bkit_oauth,
-  daemon_lib,
-  global_vars,
-  image_utils,
-  paths,
-  ratings_utils,
-  reports,
-  resolutions,
-  tasks_queue,
-  utils,
-  version_checker,
+    asset_bar_op,
+    bkit_oauth,
+    daemon_lib,
+    global_vars,
+    image_utils,
+    paths,
+    ratings_utils,
+    reports,
+    resolutions,
+    tasks_queue,
+    utils,
+    version_checker,
 )
 from .daemon import tasks
+
 
 bk_logger = logging.getLogger(__name__)
 

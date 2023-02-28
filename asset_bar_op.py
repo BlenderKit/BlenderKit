@@ -6,14 +6,15 @@ from bpy.props import BoolProperty, StringProperty
 
 from . import comments_utils, global_vars, paths, ratings_utils, search, ui, utils
 from .bl_ui_widgets.bl_ui_button import *
-# from .bl_ui_widgets.bl_ui_checkbox import *
-# from .bl_ui_widgets.bl_ui_slider import *
-# from .bl_ui_widgets.bl_ui_up_down import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 from .bl_ui_widgets.bl_ui_label import *
 
+
+# from .bl_ui_widgets.bl_ui_checkbox import *
+# from .bl_ui_widgets.bl_ui_slider import *
+# from .bl_ui_widgets.bl_ui_up_down import *
 # from .bl_ui_widgets.bl_ui_textbox import *
 
 

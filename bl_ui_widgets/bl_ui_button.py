@@ -4,8 +4,8 @@ import blf
 import bpy
 import gpu
 
-from .bl_ui_widget import *
 from .. import ui_bgl
+from .bl_ui_widget import *
 
 
 class BL_UI_Button(BL_UI_Widget):

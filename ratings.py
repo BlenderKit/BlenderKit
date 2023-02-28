@@ -25,6 +25,7 @@ from mathutils import Matrix
 
 from . import daemon_lib, global_vars, icons, ratings_utils, ui, ui_panels, utils
 
+
 bk_logger = logging.getLogger(__name__)
 
 

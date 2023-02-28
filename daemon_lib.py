@@ -11,6 +11,7 @@ import requests
 
 from . import dependencies, global_vars, reports
 
+
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "","https": ""}
 TIMEOUT = (0.1, 0.5) 
@@ -227,7 +228,7 @@ def get_bookmarks():
         'app_id': os.getpid(),
         }
     with requests.Session() as session:
-        return session.get(f'{get_address()}/ratings/get_bookmarks', json=data, timeout=TIMEOUT, proxies={})
+        return session.get(f'{get_address()}/ratings/get_bookmarks', json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
 
 
 ### BLOCKING WRAPPERS
