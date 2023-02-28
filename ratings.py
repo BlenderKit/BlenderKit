@@ -191,7 +191,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
 
 
 class SetBookmark(bpy.types.Operator):
-    """Up or downvote comment"""
+    """Add or remove bookmarking of the asset"""
     bl_idname = "wm.blenderkit_bookmark_asset"
     bl_label = "BlenderKit bookmark assest"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -201,7 +201,6 @@ class SetBookmark(bpy.types.Operator):
         description="Unique id of the asset (hidden)",
         default="",
         options={'SKIP_SAVE'})
-
 
     # bookmark: bpy.props.BoolProperty(
     #     name="bookmark",
@@ -213,13 +212,13 @@ class SetBookmark(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        r = ratings_utils.get_rating_local(self.asset_id,"bookmarks")
+        r = ratings_utils.get_rating_local(self.asset_id, "bookmarks")
         if r == 1:
             bookmark_value = 0
         else:
             bookmark_value = 1
         ratings_utils.store_rating_local(self.asset_id, type='bookmarks', value=bookmark_value)
-        daemon_lib.send_rating(self.asset_id, 'bookmarks',bookmark_value)
+        daemon_lib.send_rating(self.asset_id, 'bookmarks', bookmark_value)
         return {'FINISHED'}
 
 def rating_menu_draw(self, context):
