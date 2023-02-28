@@ -6,6 +6,7 @@ import re
 import sys
 from logging import Formatter, StreamHandler, basicConfig, getLogger
 from pathlib import Path
+from socket import AF_INET, SOCK_STREAM, socket
 
 import aiohttp
 import globals
@@ -207,4 +208,20 @@ def configure_loggers():
   """Configure all loggers for BlenderKit addon. See called functions for details."""
   configure_logger()
   configure_imported_loggers()
+
+
+def any_DNS_available():
+    """Check if any DNS server is available."""
+    PORT = 53
+    TIMEOUT = 3
+    error = ""
+    for HOST in globals.DNS_HOSTS:
+        try:
+            s = socket(AF_INET, SOCK_STREAM)
+            s.settimeout(TIMEOUT)
+            s.connect((HOST, PORT))
+            return 200
+        except Exception as e:
+            error = str(e)
+    return error
 
