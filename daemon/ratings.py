@@ -1,11 +1,12 @@
 import asyncio
 from logging import getLogger
 
-from aiohttp import web
-
 import globals
 import tasks
+from aiohttp import web
+
 import utils
+
 
 logger = getLogger(__name__)
 

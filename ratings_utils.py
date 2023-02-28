@@ -26,6 +26,7 @@ from bpy.types import PropertyGroup
 from . import daemon_lib, global_vars, utils
 from .daemon import tasks
 
+
 bk_logger = logging.getLogger(__name__)
 
 
@@ -48,8 +49,9 @@ def handle_get_rating_task(task: tasks.Task):
 
 def handle_get_bookmarks_task(task: tasks.Task):
     """Handle incomming get_bookmarks task by saving the results into global_vars.
-    This is different from standard ratings - the results come from elastic search API instead of ratings API."""
-    print('handling bookmarks task')
+    This is different from standard ratings - the results come from elastic search API
+    instead of ratings API.
+    """
     if task.status == 'created':
         return
     if task.status == 'error':
@@ -85,7 +87,9 @@ def get_rating_local(asset_id, rating_type):
 
 
 def ensure_rating(asset_id):
-    """Ensure rating is available. First check locally, if not available then download from server."""
+    """Ensure rating is available. First check locally.
+    If not available then download from server.
+    """
     r = global_vars.DATA['asset ratings'].get(asset_id,{})
     if 'quality' not in r.keys() or 'working_hours ' not in r.keys():
         daemon_lib.get_rating(asset_id)

@@ -5,23 +5,24 @@ import queue
 import bpy
 
 from . import (
-  addon_updater_ops,
-  bg_blender,
-  bkit_oauth,
-  categories,
-  comments_utils,
-  daemon_lib,
-  disclaimer_op,
-  download,
-  global_vars,
-  ratings_utils,
-  reports,
-  search,
-  tasks_queue,
-  upload,
-  utils,
+    addon_updater_ops,
+    bg_blender,
+    bkit_oauth,
+    categories,
+    comments_utils,
+    daemon_lib,
+    disclaimer_op,
+    download,
+    global_vars,
+    ratings_utils,
+    reports,
+    search,
+    tasks_queue,
+    upload,
+    utils,
 )
 from .daemon import tasks
+
 
 bk_logger = logging.getLogger(__name__)
 reports_queue = queue.Queue()
