@@ -470,14 +470,21 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
 
     asset_data['resolution'] = kwargs['resolution']
     udpate_asset_data_in_dicts(asset_data)
-
-    asset_main['asset_data'] = asset_data  # TODO remove this??? should write to blenderkit Props?
-    asset_main.blenderkit.asset_base_id = asset_data['assetBaseId']
-    asset_main.blenderkit.id = asset_data['id']
+    update_asset_metadata(asset_main, asset_data)
 
     bpy.ops.ed.undo_push('INVOKE_REGION_WIN', message='add %s to scene' % asset_data['name'])
     # moving reporting to on save.
     # report_use_success(asset_data['id'])
+
+
+def update_asset_metadata(asset_main, asset_data):
+    """Update downloaded asset_data on the asset_main placed in the scene."""
+    asset_main.blenderkit.asset_base_id = asset_data['assetBaseId']
+    asset_main.blenderkit.id = asset_data['id']
+    asset_main.blenderkit.description = asset_data['description']
+    asset_main.blenderkit.tags = utils.list2string(asset_data['tags'])
+    #BUG #554: categories needs update, but are not in asset_data
+    asset_main['asset_data'] = asset_data  # TODO remove this??? should write to blenderkit Props?
 
 
 def replace_resolution_linked(file_paths, asset_data):

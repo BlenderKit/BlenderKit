@@ -1147,3 +1147,23 @@ def handle_nonblocking_request_task(task: tasks.Task):
         reports.add_report(task.message)
     if task.status == 'error':
         reports.add_report(task.message, type='ERROR')
+
+
+def string2list(text: str) -> list:
+    """Convert a comma separated string to a list of strings."""
+    items = text.split(',')
+    lst = []
+    for item in items:
+        item = item.strip()
+        if item != '':
+            lst.append(item)
+    return lst
+
+
+def list2string(lst: list) -> str:
+    """Convert a list of strings to a comma separated string."""
+    text = ""
+    for item in lst:
+        text += item + ", "
+    return text[:-2]
+

@@ -24,17 +24,14 @@ import bpy
 from . import paths
 
 
-def get_blender_version():
-    # should return addon version, but since Blender 3.0 this is synced with Blender version
+def get_blender_version() -> str:
+    """Get Blender version as string."""
     ver = bpy.app.version
     return '%i.%i.%i' % (ver[0], ver[1], ver[2])
 
 
-def get_addon_version():
-    # should return addon version, but since Blender 3.0 this is synced with Blender version
-    # ver = bpy.app.version
-    # return '%i.%i.%i' % (ver[0], ver[1], ver[2])
-
+def get_addon_version() -> str:
+    """Get BlenderKit addon version as string."""
     import blenderkit
     ver = blenderkit.bl_info['version']
     return '%i.%i.%i' % (ver[0], ver[1], ver[2])

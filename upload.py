@@ -57,27 +57,10 @@ licenses = (
 )
 
 
-def comma2array(text):
-    commasep = text.split(',')
-    ar = []
-    for i, s in enumerate(commasep):
-        s = s.strip()
-        if s != '':
-            ar.append(s)
-    return ar
-
-
-def get_app_version():
-    ver = bpy.app.version
-    return '%i.%i.%i' % (ver[0], ver[1], ver[2])
-
-
 def add_version(data):
-    app_version = get_app_version()
-    addon_version = version_checker.get_addon_version()
     data["sourceAppName"] = "blender"
-    data["sourceAppVersion"] = app_version
-    data["addonVersion"] = addon_version
+    data["sourceAppVersion"] = version_checker.get_blender_version()
+    data["addonVersion"] = version_checker.get_addon_version()
 
 
 def write_to_report(props, text):
@@ -243,9 +226,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "productionLevel": props.production_level.lower(),
             "model_style": style,
             "engines": engines,
-            "modifiers": comma2array(props.modifiers),
-            "materials": comma2array(props.materials),
-            "shaders": comma2array(props.shaders),
+            "modifiers": utils.string2list(props.modifiers),
+            "materials": utils.string2list(props.materials),
+            "shaders": utils.string2list(props.shaders),
             "uv": props.uv,
             "dimensionX": round(props.dimensions[0], 4),
             "dimensionY": round(props.dimensions[1], 4),
@@ -331,9 +314,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "productionLevel": props.production_level.lower(),
             "model_style": style,
             "engines": engines,
-            "modifiers": comma2array(props.modifiers),
-            "materials": comma2array(props.materials),
-            "shaders": comma2array(props.shaders),
+            "modifiers": utils.string2list(props.modifiers),
+            "materials": utils.string2list(props.materials),
+            "shaders": utils.string2list(props.shaders),
             "uv": props.uv,
 
             "animated": props.animated,
@@ -391,7 +374,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         upload_params = {
             "material_style": style,
             "engine": engine,
-            "shaders": comma2array(props.shaders),
+            "shaders": utils.string2list(props.shaders),
             "uv": props.uv,
             "animated": props.animated,
             "purePbr": props.pbr,
@@ -506,7 +489,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         upload_data["displayName"] = props.name
 
     upload_data["description"] = props.description
-    upload_data["tags"] = comma2array(props.tags)
+    upload_data["tags"] = utils.string2list(props.tags)
     # category is always only one value by a slug, that's why we go down to the lowest level and overwrite.
     if props.category == '':
         upload_data["category"] = asset_type.lower()
@@ -678,7 +661,7 @@ class FastMetadata(bpy.types.Operator):
             'category': category,
             'displayName': self.name,
             'description': self.description,
-            'tags': comma2array(self.tags),
+            'tags': utils.string2list(self.tags),
             'isPrivate': self.is_private == 'PRIVATE',
             'isFree': self.free_full == 'FREE',
             'license': self.license,
