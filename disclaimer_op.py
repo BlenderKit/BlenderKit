@@ -1,16 +1,19 @@
+import logging
 import random
 import time
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from . import colors, daemon_lib, global_vars, paths, reports, tasks_queue, utils
+from . import global_vars, paths, reports, tasks_queue, utils
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
 from .daemon import tasks
 
+
+bk_logger = logging.getLogger('blenderkit')
 
 disclaimer_counter = 0
 
@@ -192,20 +195,23 @@ def handle_disclaimer_task(task: tasks.Task):
   global disclaimer_counter
   disclaimer_counter = -1
   if task.status == 'finished':
-    if task.result == None:
-      show_random_tip()
-      return
+    if task.result is None:
+      return show_random_tip()
+    
     disclaimer = task.result['results'][0]
     tasks_queue.add_task((run_disclaimer_task, (disclaimer['message'], disclaimer['url'], False)), wait=0)
     return
 
   if task.status == 'error':
     reports.add_report(f'Error downloading disclaimer info: {task.message}', 2, 'ERROR')
-    show_random_tip()
+    return show_random_tip()
 
 
 def show_random_tip():
-  """Shows random tip in the disclaimer popup."""
+  """Shows random tip in the disclaimer popup if tips_on_start are enabled."""
+  preferences = bpy.context.preferences.addons['blenderkit'].preferences
+  if preferences.tips_on_start is False:
+    return
   tip = random.choice(global_vars.TIPS)
   tasks_queue.add_task((run_disclaimer_task, (tip[0], tip[1],True)), wait=0)
 
@@ -224,12 +230,7 @@ def show_disclaimer_timer():
   It waits for daemon to be online, then prompts daemon to get the disclaimers and ends.
   If daemon does not go online in few seconds, it shows the tips instead and ends.
   """
-
   global disclaimer_counter
-  preferences = bpy.context.preferences.addons['blenderkit'].preferences
-  if preferences.tips_on_start == False:
-    return
-
   if disclaimer_counter == -1:
     return
 
