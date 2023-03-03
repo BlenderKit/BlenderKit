@@ -76,6 +76,17 @@ def run_tests():
   if test.returncode == 1:
     exit(1)
 
+def format_code():
+    """Sort, format and lint the code."""
+    print("***** SORTING IMPORTS on ALL files *****")
+    subprocess.call(['isort', '.'])
+
+    print("\n***** FORMATTING CODE in ./daemon *****")
+    subprocess.call(['black', 'daemon'])
+
+    print("\n***** LINTING with RUFF in ./daemon *****")
+    subprocess.call(['ruff', 'daemon'])
+    print()
 
 def bundle_dependencies():
   """Bundle dependencies specified in PACKAGES variable into ./dependencies directory."""
@@ -129,12 +140,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
   "command",
   default='build',
-  choices=['build', 'bundle', 'test'],
+  choices=['format', 'build', 'bundle', 'test'],
   help=
   """
+  FORMAT = isort imports, format code with Black and lint it with Ruff.
+  TEST = build with test files and run tests
   BUILD = copy relevant files into ./out/blenderkit.
   BUNDLE = bundle dependencies into ./dependencies
-  TEST = build with test files and run tests
   """
   )
 parser.add_argument('--install-at', type=str, default=None, help='If path is specified, then builded addon will be copied to that location.')
@@ -147,5 +159,7 @@ elif args.command == "test":
   run_tests()
 elif args.command == "bundle":
   bundle_dependencies()
+elif args.command == "format":
+  format_code()
 else:
   parser.print_help()

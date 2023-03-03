@@ -2,6 +2,25 @@
 
 ## Development
 
+### Codestyle
+
+We use `isort` for imports sorting.
+We use `black` for codestyle.
+We use `ruff` for linting.
+
+To install them all run: `pip3 install --user isort, black, ruff`.
+
+Before committing your changes, please run:
+```
+isort .
+black daemon
+ruff daemon
+```
+
+or just run `python3 dev.py format` to run all of them automatically.
+
+Right now we black & ruff only `daemon` directory, but we plan to extend it to the whole add-on...
+
 ### Building the add-on
 
 Use `dev.py` script to build the add-on.

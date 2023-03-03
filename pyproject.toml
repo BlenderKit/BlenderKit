@@ -7,3 +7,4 @@ profile = "black"
 [tool.ruff]
 exclude = ["lib", "dependencies"]
 ignore = ["E501"]
+target-version = "py310"
