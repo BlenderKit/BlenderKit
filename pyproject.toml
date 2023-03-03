@@ -1,0 +1,9 @@
+[tool.isort]
+multi_line_output = 3
+lines_after_imports = 2
+skip = ["lib", "dependencies"]
+profile = "black"
+
+[tool.ruff]
+exclude = ["lib", "dependencies"]
+ignore = ["E501"]
