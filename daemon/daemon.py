@@ -1,6 +1,7 @@
 """Main module (starting point) for daemon server. From here all other modules are imported.
 Uses exit codes to signal different error types. Their meaning is defined and handled at daemon_lib.check_daemon_exit_code().
 """
+# ruff: noqa: E402
 
 import asyncio
 from argparse import ArgumentParser
