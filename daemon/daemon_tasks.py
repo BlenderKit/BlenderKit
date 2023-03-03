@@ -66,8 +66,8 @@ def handle_async_errors(atask: asyncio.Task):
     return
 
   atask.print_stack()
-  import globals  # ugly but we cannot import on start as this is also imported from add-on directly
-  for task in globals.tasks:
+  import daemon_globals  # ugly but we cannot import on start as this is also imported from add-on directly
+  for task in daemon_globals.tasks:
     if atask is not task.async_task:
       continue    
     task.error(str(exception))

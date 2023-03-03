@@ -35,7 +35,7 @@ from . import (
     ui_panels,
     utils,
 )
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -654,7 +654,7 @@ def replace_resolution_appended(file_paths, asset_data, resolution):
 #
 #     return .5
 
-def handle_download_task(task: tasks.Task):
+def handle_download_task(task: daemon_tasks.Task):
   """Handle incoming task information.
   Update progress. Print messages. Fire post-download functions.
   """
@@ -696,7 +696,7 @@ def download_write_progress(task_id, task):
 
 
 # TODO might get moved to handle all blenderkit stuff, not to slow down.
-def download_post(task: tasks.Task):
+def download_post(task: daemon_tasks.Task):
     """
     Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.

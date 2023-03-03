@@ -46,7 +46,7 @@ from . import (
     utils,
     version_checker,
 )
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
@@ -1095,7 +1095,7 @@ class AssetVerificationStatusChange(Operator):
         return {'RUNNING_MODAL'}
 
 
-def handle_asset_upload(task: tasks.Task):
+def handle_asset_upload(task: daemon_tasks.Task):
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
 
     asset.upload_state = f'{task.progress}% - {task.message}'
@@ -1108,7 +1108,7 @@ def handle_asset_upload(task: tasks.Task):
       asset.uploading = False
       return reports.add_report(f'Upload successfull')
 
-def handle_asset_metadata_upload(task: tasks.Task):
+def handle_asset_metadata_upload(task: daemon_tasks.Task):
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
 
     if task.status != 'finished':

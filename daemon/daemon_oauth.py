@@ -3,11 +3,10 @@
 import typing
 from logging import getLogger
 
-import globals
-import tasks
+import daemon_globals
+import daemon_tasks
+import daemon_utils
 from aiohttp import client_exceptions, web
-
-import utils
 
 
 logger = getLogger(__name__)
@@ -15,22 +14,22 @@ logger = getLogger(__name__)
 async def get_tokens(request: web.Request, auth_code=None, refresh_token=None, grant_type="authorization_code") -> typing.Tuple[dict, int, str]:
   data = {
     "grant_type": grant_type,
-    "client_id": globals.OAUTH_CLIENT_ID,
+    "client_id": daemon_globals.OAUTH_CLIENT_ID,
     "scopes": "read write",
-    "redirect_uri" : f"http://localhost:{globals.PORT}/consumer/exchange/",
+    "redirect_uri" : f"http://localhost:{daemon_globals.PORT}/consumer/exchange/",
   }
 
-  if globals.code_verifier:
-    data['code_verifier'] = globals.code_verifier
+  if daemon_globals.code_verifier:
+    data['code_verifier'] = daemon_globals.code_verifier
   if auth_code:
     data['code'] = auth_code
   if refresh_token:
     data['refresh_token'] = refresh_token
 
   session = request.app['SESSION_API_REQUESTS']
-  headers = utils.get_headers()
+  headers = daemon_utils.get_headers()
   try:
-    async with session.post(f"{globals.SERVER}/o/token/", data=data, headers=headers) as response:
+    async with session.post(f"{daemon_globals.SERVER}/o/token/", data=data, headers=headers) as response:
       text = await response.text()
 
       if response.status != 200:
@@ -50,9 +49,9 @@ async def refresh_tokens(request: web.Request):
   refresh_token = data["refresh_token"]
   response_json, status, error = await get_tokens(request, refresh_token=refresh_token, grant_type="refresh_token")
   
-  for app_id in globals.active_apps:
-    task = tasks.Task(None, app_id, 'login', message='Refreshing tokens')
-    globals.tasks.append(task)
+  for app_id in daemon_globals.active_apps:
+    task = daemon_tasks.Task(None, app_id, 'login', message='Refreshing tokens')
+    daemon_globals.tasks.append(task)
     task.result = response_json
     if status == 200:
       return task.finished("Refreshed tokens obtained")

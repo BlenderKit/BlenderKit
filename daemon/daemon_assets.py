@@ -9,11 +9,11 @@ import tempfile
 from logging import getLogger
 
 import aiohttp
-import globals
-import tasks
 from aiohttp import web
 
-import utils
+import daemon_tasks
+import daemon_globals
+import daemon_utils
 
 
 logger = getLogger(__name__)
@@ -62,7 +62,7 @@ def get_res_file(data):
   
 
 
-async def do_asset_download(request: web.Request, task: tasks.Task):
+async def do_asset_download(request: web.Request, task: daemon_tasks.Task):
   """Download an asset from BlenderKit.
   1. creates a Connector and Session for download, handles SSL configuration
   2. gets download URL for an asset
@@ -98,10 +98,10 @@ async def do_asset_download(request: web.Request, task: tasks.Task):
   task.finished('Asset downloaded and ready')
 
 
-async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.Task):
+async def download_file(session: aiohttp.ClientSession, file_path, task: daemon_tasks.Task):
   with open(file_path, "wb") as file:
     res_file_info, task.data['resolution'] = get_res_file(task.data)
-    async with session.get(res_file_info['url'], headers=utils.get_headers()) as resp:
+    async with session.get(res_file_info['url'], headers=daemon_utils.get_headers()) as resp:
       total_length = resp.headers.get('Content-Length')
       if total_length is None:  # no content length header
         logger.info('no content length: ', resp.content)
@@ -139,14 +139,14 @@ async def get_download_url_wrapper(request: web.Request):
   """Handle get_download_url request. This serves as a wrapper around get_download_url so this can be called from addon.
   Returns the results directly so it is a blocking on add-on side (as add-on uses blocking Requests for this)."""
   data = await request.json()
-  task = tasks.Task(data, data['app_id'], 'wrappers/get_download_url')
+  task = daemon_tasks.Task(data, data['app_id'], 'wrappers/get_download_url')
   has_url = await get_download_url(request.app['SESSION_API_REQUESTS'], task)
   return web.json_response({'has_url': has_url, 'asset_data': task.data['asset_data']})
 
 
-async def get_download_url(session: aiohttp.ClientSession, task: tasks.Task) -> bool:
+async def get_download_url(session: aiohttp.ClientSession, task: daemon_tasks.Task) -> bool:
   """Retrieve the download url. The server checks if user can download the item and returns url with a key."""
-  headers = utils.get_headers(task.data['PREFS']['api_key'])
+  headers = daemon_utils.get_headers(task.data['PREFS']['api_key'])
   req_data = {'scene_uuid': task.data['PREFS']['scene_id']}
   res_file_info, _ = get_res_file(task.data)
   try:
@@ -190,7 +190,7 @@ def server_2_local_filename(asset_data, filename):
 
   fn = filename.replace('blend_', '')
   fn = fn.replace('resolution_', '')
-  n = utils.slugify(asset_data['name']) + '_' + fn
+  n = daemon_utils.slugify(asset_data['name']) + '_' + fn
   return n
 
 
@@ -206,7 +206,7 @@ async def get_download_filepaths(task) -> list:
     task.error('No resolution file found')
     return []
   
-  name_slug = utils.slugify(asset_data['name'])
+  name_slug = daemon_utils.slugify(asset_data['name'])
   if len(name_slug) > 16:
     name_slug = name_slug[:16]
   asset_folder_name = f"{name_slug}_{asset_data['id']}"
@@ -220,7 +220,7 @@ async def get_download_filepaths(task) -> list:
     for dir in data['download_dirs']:
       asset_folder_path = os.path.join(dir, asset_folder_name)
       if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
-        await utils.message_to_addon(task.app_id, message=error_message, level='ERROR', destination='GUI', duration=5)
+        await daemon_utils.message_to_addon(task.app_id, message=error_message, level='ERROR', destination='GUI', duration=5)
         continue
       if not os.path.exists(asset_folder_path):
         os.makedirs(asset_folder_path)
@@ -232,7 +232,7 @@ async def get_download_filepaths(task) -> list:
     if sys.platform != 'win32':
       break
     if len(file_name) > windows_path_limit:
-      await utils.message_to_addon(task.app_id, message=error_message, level='ERROR', destination='GUI', duration=5)
+      await daemon_utils.message_to_addon(task.app_id, message=error_message, level='ERROR', destination='GUI', duration=5)
       file_names.remove(file_name)
 
   return file_names
@@ -280,7 +280,7 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
   proc = await asyncio.create_subprocess_exec(
     binary_path,
     *args,
-    creationflags=utils.get_process_flags(),
+    creationflags=daemon_utils.get_process_flags(),
     stdout=asyncio.subprocess.PIPE,
     stderr=asyncio.subprocess.STDOUT,
     )
@@ -358,16 +358,16 @@ def delete_unfinished_file(file_path: str) -> None:
 async def report_usages_handler(request: web.Request):
   """Handle order to report asset usages."""
   data = await request.json()
-  task = tasks.Task(data, data['app_id'], 'report_usages', message='Uploading the usage report data.')
-  globals.tasks.append(task)
+  task = daemon_tasks.Task(data, data['app_id'], 'report_usages', message='Uploading the usage report data.')
+  daemon_globals.tasks.append(task)
   task.async_task = asyncio.ensure_future(report_usages(request, task))
-  task.async_task.add_done_callback(tasks.handle_async_errors)
+  task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
   return web.Response(text="ok")
 
-async def report_usages(request: web.Request, task: tasks.Task):
+async def report_usages(request: web.Request, task: daemon_tasks.Task):
   """Upload the usage report to the server. Result of the task is not handled in add-on as we do not care so much..."""
-  url = f'{globals.SERVER}/api/v1/usage_report'
-  headers = utils.get_headers(task.data['api_key'])
+  url = f'{daemon_globals.SERVER}/api/v1/usage_report'
+  headers = daemon_utils.get_headers(task.data['api_key'])
   session = request.app['SESSION_API_REQUESTS']
   try:
     async with session.post(url, headers=headers, data=task.data) as resp:

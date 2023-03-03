@@ -10,7 +10,7 @@ from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
 from .bl_ui_widgets.bl_ui_image import *
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 bk_logger = logging.getLogger('blenderkit')
@@ -190,7 +190,7 @@ def run_disclaimer_task(message: str, url: str, tip: bool):
   bpy.ops.view3d.blenderkit_disclaimer_widget(fake_context, 'INVOKE_DEFAULT', message=message, url=url, fadeout_time=8, tip = tip)
 
 
-def handle_disclaimer_task(task: tasks.Task):
+def handle_disclaimer_task(task: daemon_tasks.Task):
   """Handles incoming disclaimer task. If there are any results, it shows them in disclaimer popup.
   If the results are empty, it shows random tip in the disclaimer popup.
   """

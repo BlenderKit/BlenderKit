@@ -30,7 +30,7 @@ import bpy
 from bpy.props import BoolProperty
 
 from . import daemon_lib, global_vars, reports, search, tasks_queue, utils
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
@@ -38,7 +38,7 @@ active_authenticator = None
 bk_logger = logging.getLogger(__name__)
 
 
-def handle_login_task(task: tasks.Task):
+def handle_login_task(task: daemon_tasks.Task):
     """Handles incoming task of type Login. Writes tokens if it finished successfully, logouts the user on error."""
 
     if task.status == "finished":
