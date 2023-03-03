@@ -1,27 +1,26 @@
 import asyncio
 from logging import getLogger
 
-import globals
-import tasks
+import daemon_globals
+import daemon_tasks
+import daemon_utils
 from aiohttp import web
-
-import utils
 
 
 logger = getLogger(__name__)
 
 async def get_rating_handler(request: web.Request):
     data = await request.json()
-    task = tasks.Task(data, data['app_id'], 'ratings/get_rating', message='Getting rating data')
-    globals.tasks.append(task)
+    task = daemon_tasks.Task(data, data['app_id'], 'ratings/get_rating', message='Getting rating data')
+    daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(get_rating(task, request))
-    task.async_task.add_done_callback(tasks.handle_async_errors)
+    task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text='ok')
 
-async def get_rating(task: tasks.Task, request: web.Request):
+async def get_rating(task: daemon_tasks.Task, request: web.Request):
     session = request.app['SESSION_API_REQUESTS']
-    headers = utils.get_headers(task.data.get('api_key',''))
-    url = f'{globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/'
+    headers = daemon_utils.get_headers(task.data.get('api_key',''))
+    url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/'
     try:
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()
@@ -34,16 +33,16 @@ async def get_rating(task: tasks.Task, request: web.Request):
 async def send_rating_handler(request: web.Request):
     """Handle incomming rating request (quality, work hours, bookmark, etc)."""
     data = await request.json()
-    task = tasks.Task(data, data['app_id'], 'ratings/send_rating', message=f'Sending {data["rating_type"]} rating')
-    globals.tasks.append(task)
+    task = daemon_tasks.Task(data, data['app_id'], 'ratings/send_rating', message=f'Sending {data["rating_type"]} rating')
+    daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(send_rating(task, request))
-    task.async_task.add_done_callback(tasks.handle_async_errors)
+    task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text='ok')
 
-async def send_rating(task: tasks.Task, request: web.Request):
+async def send_rating(task: daemon_tasks.Task, request: web.Request):
     session = request.app['SESSION_API_REQUESTS']
-    headers = utils.get_headers(task.data.get('api_key',''))
-    url = f'{globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
+    headers = daemon_utils.get_headers(task.data.get('api_key',''))
+    url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
     data = {"score": task.data['rating_value']}
 
     try:
@@ -69,16 +68,16 @@ async def send_rating(task: tasks.Task, request: web.Request):
 
 async def get_bookmarks_handler(request: web.Request):
     data = await request.json()
-    task = tasks.Task(data, data['app_id'], 'ratings/get_bookmarks', message='Getting bookmarks data')
-    globals.tasks.append(task)
+    task = daemon_tasks.Task(data, data['app_id'], 'ratings/get_bookmarks', message='Getting bookmarks data')
+    daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(get_bookmarks(task, request))
-    task.async_task.add_done_callback(tasks.handle_async_errors)
+    task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text='ok')
 
-async def get_bookmarks(task: tasks.Task, request: web.Request):
+async def get_bookmarks(task: daemon_tasks.Task, request: web.Request):
     session = request.app['SESSION_API_REQUESTS']
-    headers = utils.get_headers(task.data.get('api_key',''))
-    url=f"{globals.SERVER}/api/v1/search/?query=bookmarks_rating:1"
+    headers = daemon_utils.get_headers(task.data.get('api_key',''))
+    url=f"{daemon_globals.SERVER}/api/v1/search/?query=bookmarks_rating:1"
     try:
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()

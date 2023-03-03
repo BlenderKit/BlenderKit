@@ -3,10 +3,10 @@
 from logging import INFO, WARN
 from time import time
 
-import tasks as tsks
+import daemon_tasks
 
 
-tasks: list[tsks.Task] = []
+tasks: list[daemon_tasks.Task] = []
 """Server-wide variable holding all running tasks on the daemon-server."""
 
 

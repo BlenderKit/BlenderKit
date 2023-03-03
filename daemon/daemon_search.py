@@ -6,19 +6,18 @@ import uuid
 from logging import getLogger
 
 import aiohttp
-import assets
-import globals
-import tasks
+import daemon_assets
+import daemon_globals
+import daemon_tasks
+import daemon_utils
 from aiohttp import web
-
-import utils
 
 
 logger = getLogger(__name__)
 
 def report_image_finished(data, filepath, done=True):
   """Report a thumbnail is downloaded and available. Not used by now."""
-  globals.tasks[filepath] = {
+  daemon_globals.tasks[filepath] = {
     'app_id': data['PREFS']['app_id'],
     'type': 'thumbnail-available',
     'task_id': filepath,
@@ -26,12 +25,12 @@ def report_image_finished(data, filepath, done=True):
   }
 
 
-async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
+async def download_image(session: aiohttp.ClientSession, task: daemon_tasks.Task):
   """Download a single image and report to addon."""
   image_url = task.data["image_url"]
   image_path = task.data["image_path"]
   try:
-    async with session.get(image_url, headers=utils.get_headers()) as resp:
+    async with session.get(image_url, headers=daemon_utils.get_headers()) as resp:
       if resp and resp.status != 200:
         task.error(f"thumbnail download error: {resp.status}")
       elif resp and resp.status == 200:
@@ -43,19 +42,19 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
     task.error(f"thumbnail download error: {e}")
 
 
-async def download_image_batch(session: aiohttp.ClientSession, tsks: list[tasks.Task], block: bool = False):
+async def download_image_batch(session: aiohttp.ClientSession, tsks: list[daemon_tasks.Task], block: bool = False):
   """Download batch of images. images are tuples of file path and url."""
   coroutines = []
   for task in tsks:
     coroutine = asyncio.ensure_future(download_image(session, task))
-    coroutine.add_done_callback(tasks.handle_async_errors)
+    coroutine.add_done_callback(daemon_tasks.handle_async_errors)
     coroutines.append(coroutine)
   
   if block == True:
     await asyncio.gather(*coroutines)
 
 
-async def parse_thumbnails(task: tasks.Task):
+async def parse_thumbnails(task: daemon_tasks.Task):
   """Go through results and extract correct filenames and URLs. Use webp versions if available.
   Check if file is on disk, if not start a download.
   """
@@ -74,7 +73,7 @@ async def parse_thumbnails(task: tasks.Task):
     else:
       image_url = search_result.get('thumbnailSmallUrl')
 
-    imgname = assets.extract_filename_from_url(image_url)
+    imgname = daemon_assets.extract_filename_from_url(image_url)
     image_path = os.path.join(task.data['tempdir'], imgname)
     data = {
       "image_path": image_path,
@@ -83,8 +82,8 @@ async def parse_thumbnails(task: tasks.Task):
       "thumbnail_type": "small",
       "index": i,
     }
-    small_thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
-    globals.tasks.append(small_thumb_task)
+    small_thumb_task = daemon_tasks.Task(data, task.app_id, "thumbnail_download")
+    daemon_globals.tasks.append(small_thumb_task)
     if os.path.exists(small_thumb_task.data['image_path']):
       small_thumb_task.finished("thumbnail on disk")
     else:
@@ -103,7 +102,7 @@ async def parse_thumbnails(task: tasks.Task):
       else:
         image_url = search_result.get('thumbnailMiddleUrl')
 
-    imgname = assets.extract_filename_from_url(image_url)
+    imgname = daemon_assets.extract_filename_from_url(image_url)
     image_path = os.path.join(task.data['tempdir'], imgname)
     data = {
       "image_path": image_path,
@@ -112,8 +111,8 @@ async def parse_thumbnails(task: tasks.Task):
       "thumbnail_type": "full",
       "index": i,
     }
-    full_thumb_task = tasks.Task(data, task.app_id, "thumbnail_download")
-    globals.tasks.append(full_thumb_task)
+    full_thumb_task = daemon_tasks.Task(data, task.app_id, "thumbnail_download")
+    daemon_globals.tasks.append(full_thumb_task)
     if os.path.exists(full_thumb_task.data['image_path']):
       full_thumb_task.finished("thumbnail on disk")
     else:
@@ -121,7 +120,7 @@ async def parse_thumbnails(task: tasks.Task):
   return small_thumbs_tasks, full_thumbs_tasks
 
 
-async def do_search(request: web.Request, task: tasks.Task):
+async def do_search(request: web.Request, task: daemon_tasks.Task):
   """Searches for results and download thumbnails.
   1. Sends search request to BlenderKit server. (Creates search task.)
   2. Reports the result to the addon. (Search task finished.)
@@ -130,7 +129,7 @@ async def do_search(request: web.Request, task: tasks.Task):
   """
   rdata = {}
   rdata['results'] = []
-  headers = utils.get_headers(task.data['PREFS']['api_key'])
+  headers = daemon_utils.get_headers(task.data['PREFS']['api_key'])
   session = request.app['SESSION_API_REQUESTS']
   try:
     async with session.get(task.data['urlquery'], headers=headers) as resp:
@@ -154,13 +153,13 @@ async def do_search(request: web.Request, task: tasks.Task):
 
 async def fetch_categories(request: web.Request):
   data = await request.json()
-  task = tasks.Task(data, data['app_id'], 'categories_update', str(uuid.uuid4()), message='Getting updated categories')
-  globals.tasks.append(task)
+  task = daemon_tasks.Task(data, data['app_id'], 'categories_update', str(uuid.uuid4()), message='Getting updated categories')
+  daemon_globals.tasks.append(task)
 
-  headers = utils.get_headers(data['api_key'])
+  headers = daemon_utils.get_headers(data['api_key'])
   session = request.app['SESSION_API_REQUESTS']
   try:
-    async with session.get(f'{globals.SERVER}/api/v1/categories/', headers=headers) as resp:
+    async with session.get(f'{daemon_globals.SERVER}/api/v1/categories/', headers=headers) as resp:
       data = await resp.json()
       categories = data['results']
       fix_category_counts(categories)           # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.

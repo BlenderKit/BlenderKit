@@ -9,8 +9,8 @@ from pathlib import Path
 from socket import AF_INET
 
 import aiohttp
-import globals
-import tasks
+import daemon_globals
+import daemon_tasks
 from aiohttp import web
 
 
@@ -21,8 +21,8 @@ def get_headers(api_key: str = '') -> dict[str, str]:
   headers = {
     'accept': 'application/json',
     'Platform-Version': platform.platform(),
-    'system-id': globals.SYSTEM_ID,
-    'addon-version': globals.VERSION,
+    'system-id': daemon_globals.SYSTEM_ID,
+    'addon-version': daemon_globals.VERSION,
   }
   if api_key == '':
     return headers
@@ -99,7 +99,7 @@ async def message_to_addon(app_id:str, message:str, destination:str='GUI', level
     'level': level,
     'duration': duration,
   }
-  message_task = tasks.Task(
+  message_task = daemon_tasks.Task(
     app_id=app_id,
     message = message,
     task_type='message_from_daemon',
@@ -108,7 +108,7 @@ async def message_to_addon(app_id:str, message:str, destination:str='GUI', level
     progress=100,
     data={},
     )
-  globals.tasks.append(message_task)
+  daemon_globals.tasks.append(message_task)
 
 
 async def download_file(url: str, destination: str, session: aiohttp.ClientSession, api_key: str=''):
@@ -143,14 +143,14 @@ async def blocking_request_handler(request: web.Request):
 async def nonblocking_request_handler(request: web.Request):
     """Handle request for nonblocking HTTP request."""
     data = await request.json()
-    task = tasks.Task(data, data['app_id'], 'wrappers/nonblocking_request')
-    globals.tasks.append(task)
+    task = daemon_tasks.Task(data, data['app_id'], 'wrappers/nonblocking_request')
+    daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(make_request(request, task))
-    task.async_task.add_done_callback(tasks.handle_async_errors)
+    task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.json_response({'task_id': task.task_id})
 
 
-async def make_request(request: web.Request, task: tasks.Task):
+async def make_request(request: web.Request, task: daemon_tasks.Task):
     session = request.app['SESSION_API_REQUESTS']
     url = task.data.get('url')
     method = task.data.get('method')
@@ -179,9 +179,9 @@ def get_formatter():
 
 def configure_logger():
   """Configure 'bk_daemon' logger to which all other logs defined as `logger = logging.getLogger(__name__)` writes.
-  Sets it logging level to `globals.LOGGING_LEVEL_DAEMON`.
+  Sets it logging level to `daemon_globals.LOGGING_LEVEL_DAEMON`.
   """
-  basicConfig(level=globals.LOGGING_LEVEL_DAEMON)
+  basicConfig(level=daemon_globals.LOGGING_LEVEL_DAEMON)
   logger = getLogger("bk_daemon")
   logger.propagate = False
   logger.handlers = []
@@ -199,7 +199,7 @@ def configure_imported_loggers():
   aiohttp_logger.handlers = []
   aiohttp_handler = StreamHandler()
   aiohttp_handler.stream = sys.stdout #517
-  aiohttp_handler.setLevel(globals.LOGGING_LEVEL_IMPORTED)
+  aiohttp_handler.setLevel(daemon_globals.LOGGING_LEVEL_IMPORTED)
   aiohttp_handler.setFormatter(get_formatter())
   aiohttp_logger.addHandler(aiohttp_handler)
 
@@ -214,7 +214,7 @@ async def any_DNS_available():
     """Check if any DNS server is available."""
     PORT = 53
     TIMEOUT = 1
-    for i, HOST in enumerate(globals.DNS_HOSTS):
+    for i, HOST in enumerate(daemon_globals.DNS_HOSTS):
         try:         
             _, writer = await asyncio.wait_for(
                 asyncio.open_connection(HOST, PORT, family=AF_INET),
@@ -222,10 +222,10 @@ async def any_DNS_available():
             writer.close()
             await writer.wait_closed()
             if i > 0:
-               globals.DNS_HOSTS = [globals.DNS_HOSTS[i],] + globals.DNS_HOSTS[:i] + globals.DNS_HOSTS[i+1:]  
+               daemon_globals.DNS_HOSTS = [daemon_globals.DNS_HOSTS[i],] + daemon_globals.DNS_HOSTS[:i] + daemon_globals.DNS_HOSTS[i+1:]  
             return 200
         except Exception as e:
             if i >= 2:
-                globals.DNS_HOSTS = globals.DNS_HOSTS[i:] + globals.DNS_HOSTS[:i]
+                daemon_globals.DNS_HOSTS = daemon_globals.DNS_HOSTS[i:] + daemon_globals.DNS_HOSTS[:i]
                 logger.warning(f"DNS check failed: {e}")
                 return str(e)

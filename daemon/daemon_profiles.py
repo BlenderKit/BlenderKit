@@ -8,33 +8,32 @@ import tempfile
 from logging import getLogger
 from urllib.parse import urljoin
 
-import globals
-import tasks
+import daemon_globals
+import daemon_tasks
+import daemon_utils
 from aiohttp import web
-
-import utils
 
 
 logger = getLogger(__name__)
 
 async def fetch_gravatar_image_handler(request: web.Request):
   data = await request.json()
-  task = tasks.Task(data, data['app_id'], 'profiles/fetch_gravatar_image', message='Fetching gravatar image')
-  globals.tasks.append(task)
+  task = daemon_tasks.Task(data, data['app_id'], 'profiles/fetch_gravatar_image', message='Fetching gravatar image')
+  daemon_globals.tasks.append(task)
   task.async_task = asyncio.ensure_future(fetch_gravatar_image(task, request))
-  task.async_task.add_done_callback(tasks.handle_async_errors)
+  task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
   return web.Response(text='ok')
 
 async def get_user_profile_handler(request: web.Request):
   data = await request.json()
-  task = tasks.Task(data, data['app_id'], 'profiles/get_user_profile', message='Getting user profile')
-  globals.tasks.append(task)
+  task = daemon_tasks.Task(data, data['app_id'], 'profiles/get_user_profile', message='Getting user profile')
+  daemon_globals.tasks.append(task)
   task.async_task = asyncio.ensure_future(get_user_profile(task, request))
-  task.async_task.add_done_callback(tasks.handle_async_errors)
+  task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
   return web.Response(text='ok')
 
 
-async def fetch_gravatar_image(task: tasks.Task, request: web.Request):
+async def fetch_gravatar_image(task: daemon_tasks.Task, request: web.Request):
   """Get gravatar image from blenderkit server.
   - task.data - author data from elastic search result + task.data['app_id']
   """
@@ -46,10 +45,10 @@ async def fetch_gravatar_image(task: tasks.Task, request: web.Request):
     task.result = {'gravatar_path': gravatar_path}
     return task.finished('Found on disk')
 
-  url = urljoin(globals.SERVER, task.data["avatar128"])
+  url = urljoin(daemon_globals.SERVER, task.data["avatar128"])
   session = request.app['SESSION_SMALL_THUMBS']
   try:
-    await utils.download_file(url, gravatar_path, session)
+    await daemon_utils.download_file(url, gravatar_path, session)
   except Exception as e:
     return task.error(f'Download error: {e}')
 
@@ -57,7 +56,7 @@ async def fetch_gravatar_image(task: tasks.Task, request: web.Request):
   return task.finished('Downloaded')
 
 
-async def fetch_gravatar_image_old(task: tasks.Task, request: web.Request):
+async def fetch_gravatar_image_old(task: daemon_tasks.Task, request: web.Request):
   """Older way of getting gravatar image. May be needed for some users with old gravatars.""" #TODO: is this still in use?
   if task.data.get('gravatarHash') is None:
     return
@@ -69,7 +68,7 @@ async def fetch_gravatar_image_old(task: tasks.Task, request: web.Request):
   url = urljoin('https://www.gravatar.com/avatar', f'{task.data["gravatarHash"]}?d=404')
   session = request.app['SESSION_SMALL_THUMBS']
   try:
-    await utils.download_file(url, gravatar_path, session)
+    await daemon_utils.download_file(url, gravatar_path, session)
   except Exception as e:
     return task.error(f'Download error: {e}')
 
@@ -77,11 +76,11 @@ async def fetch_gravatar_image_old(task: tasks.Task, request: web.Request):
   return task.finished('Downloaded')
 
 
-async def get_user_profile(task: tasks.Task, request: web.Request):
+async def get_user_profile(task: daemon_tasks.Task, request: web.Request):
   """Get profile data for currently logged-in user. Data are cleaned a little bit and then reported to the add-on."""
   api_key = task.data['api_key']
-  headers = utils.get_headers(api_key)
-  url = f'{globals.SERVER}/api/v1/me/'
+  headers = daemon_utils.get_headers(api_key)
+  url = f'{daemon_globals.SERVER}/api/v1/me/'
   session = request.app['SESSION_API_REQUESTS']
   try:
     async with session.get(url, headers=headers) as resp:

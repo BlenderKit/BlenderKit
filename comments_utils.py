@@ -19,14 +19,14 @@
 import logging
 
 from . import global_vars, ratings_utils
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
 
 
 ### COMMENTS
-def handle_get_comments_task(task: tasks.Task):
+def handle_get_comments_task(task: daemon_tasks.Task):
   """Handle incomming task which downloads comments on asset."""
   if task.status == 'error':
     return bk_logger.warning(f'failed to get comments: {task.message}')
@@ -35,21 +35,21 @@ def handle_get_comments_task(task: tasks.Task):
     store_comments_local(task.data['asset_id'], comments)
     return
 
-def handle_create_comment_task(task: tasks.Task):
+def handle_create_comment_task(task: daemon_tasks.Task):
   #TODO: refresh comments so the comment is shown asap
   if task.status == 'finished':
     return bk_logger.debug(f'Creating comment finished - {task.message}')
   if task.status == 'error':
     return bk_logger.warning(f'Creating comment failed - {task.message}')
 
-def handle_feedback_comment_task(task: tasks.Task):
+def handle_feedback_comment_task(task: daemon_tasks.Task):
   """Handle incomming task for update of feedback on comment."""
   if task.status == 'finished': #action not needed
     return bk_logger.debug(f'Comment feedback finished - {task.message}')
   if task.status == 'error':
     return bk_logger.warning(f'Comment feedback failed - {task.message}')
 
-def handle_mark_comment_private_task(task: tasks.Task):
+def handle_mark_comment_private_task(task: daemon_tasks.Task):
   """Handle incomming task for marking the comment as private/public."""
   if task.status == 'finished': #action not needed
     return bk_logger.debug(f'Marking comment visibility finished - {task.message}')
@@ -64,7 +64,7 @@ def get_comments_local(asset_id):
 
 
 ### NOTIFICATIONS
-def handle_notifications_task(task: tasks.Task):
+def handle_notifications_task(task: daemon_tasks.Task):
   """Handle incomming task with notifications data."""
   if task.status == 'finished':
     global_vars.DATA['bkit notifications'] = task.result

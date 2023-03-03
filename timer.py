@@ -22,7 +22,7 @@ from . import (
     upload,
     utils,
 )
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ def daemon_communication_timer():
 
   # convert to task type
   for task in results:
-      task = tasks.Task(
+      task = daemon_tasks.Task(
         data = task['data'],
         task_id = task['task_id'],
         app_id = task['app_id'],
@@ -139,7 +139,7 @@ def cancel_all_tasks(self, context):
   #TODO: should add uploads
 
 
-def handle_task(task: tasks.Task):
+def handle_task(task: daemon_tasks.Task):
   """Handle incomming task information. Sort tasks by type and call apropriate functions."""
   #HANDLE ASSET DOWNLOAD
   if task.task_type == 'asset_download':

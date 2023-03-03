@@ -45,7 +45,7 @@ from . import (
     utils,
     version_checker,
 )
-from .daemon import tasks
+from .daemon import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -307,7 +307,7 @@ def cleanup_search_results():
     global_vars.DATA.pop(f'{sr} orig', None)
   clear_searches()
 
-def handle_search_task(task: tasks.Task) -> bool:
+def handle_search_task(task: daemon_tasks.Task) -> bool:
   """Parse search results, try to load all available previews."""
   global search_tasks
   if len(search_tasks) == 0:
@@ -390,7 +390,7 @@ def handle_search_task(task: tasks.Task) -> bool:
   return True
 
 
-def handle_preview_task(task: tasks.Task) -> bool:
+def handle_preview_task(task: daemon_tasks.Task) -> bool:
   """Parse search results, try to load all available previews."""
 
   global_vars.DATA['images available'][task.data['image_path']] = True
@@ -563,7 +563,7 @@ def generate_author_textblock(adata):
   return t
 
 
-def handle_fetch_gravatar_task(task: tasks.Task):
+def handle_fetch_gravatar_task(task: daemon_tasks.Task):
   """Handle incomming fetch_gravatar_task which contains path to author's image on the disk."""
   if task.status == 'finished':
     author_id = str(task.data['id'])
@@ -583,7 +583,7 @@ def generate_author_profile(author_data):
   return
 
 
-def handle_get_user_profile(task: tasks.Task):
+def handle_get_user_profile(task: daemon_tasks.Task):
   """Handle incomming get_user_profile task which contains data about current logged-in user."""
   if task.status == 'finished':
     user_data = task.result

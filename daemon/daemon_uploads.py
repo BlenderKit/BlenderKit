@@ -7,18 +7,17 @@ import os
 from logging import getLogger
 from pathlib import Path
 
-import globals
-import tasks
+import daemon_globals
+import daemon_tasks
+import daemon_utils
 from aiohttp import ClientSession, web
-
-import utils
 
 
 logger = getLogger(__name__)
 BLENDERKIT_EXPORT_DATA_FILE = 'data.json'
 
 
-async def do_upload(request: web.Request, task: tasks.Task):
+async def do_upload(request: web.Request, task: daemon_tasks.Task):
   task.change_progress(1, 'posting metadata')  
   error, metadata_response = await upload_metadata(request.app['SESSION_API_REQUESTS'], task)
   if error != '':
@@ -30,9 +29,9 @@ async def do_upload(request: web.Request, task: tasks.Task):
   }
   task.data.update(data_asset_data)
 
-  metadata_upload_task = tasks.Task(task.data, task.app_id, "asset_metadata_upload")
+  metadata_upload_task = daemon_tasks.Task(task.data, task.app_id, "asset_metadata_upload")
   metadata_upload_task.finished('Metadata successfully uploaded')
-  globals.tasks.append(metadata_upload_task)
+  daemon_globals.tasks.append(metadata_upload_task)
 
   task.change_progress(5, 'packing files')  
   error, files = await pack_blend_file(task, metadata_response)
@@ -48,15 +47,15 @@ async def do_upload(request: web.Request, task: tasks.Task):
   task.finished('Asset successfully uploaded.')
 
 
-async def upload_metadata(session: ClientSession, task: tasks.Task):
+async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
   """Upload metadata to server, so it can be saved inside the current file."""
-  url = f'{globals.SERVER}/api/v1/assets/'
+  url = f'{daemon_globals.SERVER}/api/v1/assets/'
   upload_data = task.data['upload_data']
   export_data = task.data['export_data']
   upload_set = task.data['upload_set']
 
-  upload_data['parameters'] = utils.dict_to_params(upload_data['parameters'])  # weird array conversion only for upload, not for tooltips.  
-  headers = utils.get_headers(upload_data['token'])
+  upload_data['parameters'] = daemon_utils.dict_to_params(upload_data['parameters'])  # weird array conversion only for upload, not for tooltips.  
+  headers = daemon_utils.get_headers(upload_data['token'])
   json_metadata = upload_data
 
   if export_data['assetBaseId'] == '':
@@ -83,7 +82,7 @@ async def upload_metadata(session: ClientSession, task: tasks.Task):
   return '', metadata_response
 
 
-async def pack_blend_file(task: tasks.Task, metadata_response):
+async def pack_blend_file(task: daemon_tasks.Task, metadata_response):
   """Pack the asset data into a separate clean blend file.
   This runs a script inside Blender in separate process.
   """
@@ -153,12 +152,12 @@ async def pack_blend_file(task: tasks.Task, metadata_response):
   return '', files
 
 
-async def upload_asset_data(session: ClientSession, task: tasks.Task, files: list, metadata_response: dict) -> str:
+async def upload_asset_data(session: ClientSession, task: daemon_tasks.Task, files: list, metadata_response: dict) -> str:
   """Upload .blend file and/or thumbnail to the server."""
-  api_url = f'{globals.SERVER}/api/v1'
+  api_url = f'{daemon_globals.SERVER}/api/v1'
   upload_data = task.data['upload_data']
   upload_set = task.data['upload_set']
-  headers = utils.get_headers(upload_data['token'])
+  headers = daemon_utils.get_headers(upload_data['token'])
   uploaded = True
   for file in files:
     upload_info = {
@@ -208,8 +207,8 @@ async def upload_asset_data(session: ClientSession, task: tasks.Task, files: lis
     confirm_data = {
       'verificationStatus': 'uploaded'
     }
-    url = f'{globals.SERVER}/api/v1/assets/'
-    headers = utils.get_headers(upload_data['token'])
+    url = f'{daemon_globals.SERVER}/api/v1/assets/'
+    headers = daemon_utils.get_headers(upload_data['token'])
 
     url += upload_data['id'] + '/'
     response = await session.patch(url, json=confirm_data, headers=headers)

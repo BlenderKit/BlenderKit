@@ -31,19 +31,18 @@ except Exception as e:
   logger.error(f'{e}')
   exit(102)
 
-import assets
-import comments
-import configurator
-import disclaimer
-import globals
-import oauth
-import profiles
-import tasks
-import uploads
-
-import ratings
-import search
-import utils
+import daemon_assets
+import daemon_comments
+import daemon_configurator
+import daemon_disclaimer
+import daemon_globals
+import daemon_oauth
+import daemon_profiles
+import daemon_ratings
+import daemon_search
+import daemon_tasks
+import daemon_uploads
+import daemon_utils
 
 
 PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
@@ -58,10 +57,10 @@ async def download_asset(request: web.Request):
   app_id = data['app_id']
   del data['app_id']
   
-  task = tasks.Task(data, app_id, 'asset_download', task_id, message='Looking for asset')
-  globals.tasks.append(task)
-  task.async_task = asyncio.ensure_future(assets.do_asset_download(request, task))
-  task.async_task.add_done_callback(tasks.handle_async_errors)
+  task = daemon_tasks.Task(data, app_id, 'asset_download', task_id, message='Looking for asset')
+  daemon_globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(daemon_assets.do_asset_download(request, task))
+  task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
   
   return web.json_response({'task_id': task_id})
 
@@ -74,10 +73,10 @@ async def search_assets(request: web.Request):
   app_id = data['app_id']
   del data['app_id']
 
-  task = tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
-  globals.tasks.append(task)
-  task.async_task = asyncio.ensure_future(search.do_search(request, task))
-  task.async_task.add_done_callback(tasks.handle_async_errors)
+  task = daemon_tasks.Task(data, app_id, 'search', task_id, message='Searching assets')
+  daemon_globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(daemon_search.do_search(request, task))
+  task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
   return web.json_response({'task_id': task_id})
 
@@ -88,10 +87,10 @@ async def upload_asset(request: web.Request):
   task_id = str(uuid4())
   app_id = data.pop('app_id')
 
-  task = tasks.Task(data, app_id, 'asset_upload', task_id, message='Asset upload has started')
-  globals.tasks.append(task)
-  task.async_task = asyncio.ensure_future(uploads.do_upload(request, task))
-  task.async_task.add_done_callback(tasks.handle_async_errors)
+  task = daemon_tasks.Task(data, app_id, 'asset_upload', task_id, message='Asset upload has started')
+  daemon_globals.tasks.append(task)
+  task.async_task = asyncio.ensure_future(daemon_uploads.do_upload(request, task))
+  task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
   return web.json_response({'task_id': task_id})
 
@@ -104,11 +103,11 @@ async def index(request: web.Request):
 
 async def consumer_exchange(request: web.Request):
   auth_code = request.rel_url.query.get('code', None)
-  redirect_url = f'{globals.SERVER}/oauth-landing/'
+  redirect_url = f'{daemon_globals.SERVER}/oauth-landing/'
   if auth_code is None:
     return web.Response(text="Authorization Failed. Authorization code was not provided.")
 
-  response_json, status, error = await oauth.get_tokens(request, auth_code=auth_code)
+  response_json, status, error = await daemon_oauth.get_tokens(request, auth_code=auth_code)
   if status == -1:
     text=f"Authorization Failed. Server is not reachable. Response: {error}"
     return web.Response(text=text)
@@ -117,9 +116,9 @@ async def consumer_exchange(request: web.Request):
     text = f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}"
     return web.Response(text=text)
 
-  for app_id in globals.active_apps:
-    task = tasks.Task(None, app_id, 'login', message='Getting authorization code')
-    globals.tasks.append(task)
+  for app_id in daemon_globals.active_apps:
+    task = daemon_tasks.Task(None, app_id, 'login', message='Getting authorization code')
+    daemon_globals.tasks.append(task)
     task.result = response_json
     task.finished("Tokens obtained")
 
@@ -127,8 +126,8 @@ async def consumer_exchange(request: web.Request):
 
 
 async def refresh_token(request: web.Request):
-  atask = asyncio.ensure_future(oauth.refresh_tokens(request))
-  atask.add_done_callback(tasks.handle_async_errors)
+  atask = asyncio.ensure_future(daemon_oauth.refresh_tokens(request))
+  atask.add_done_callback(daemon_tasks.handle_async_errors)
   return web.Response(text="ok")
 
 
@@ -136,26 +135,26 @@ async def subscribe_new_addon(request: web.Request, data: dict):
   """Subscribe new add-on into list of active applications.
   Also run all tasks which are needed on add-on startup - will be reported back to add-on once finished.
   """
-  globals.active_apps.append(data['app_id'])
-  disclaimer_task = asyncio.ensure_future(disclaimer.get_disclaimer(request))
-  disclaimer_task.add_done_callback(tasks.handle_async_errors)
+  daemon_globals.active_apps.append(data['app_id'])
+  disclaimer_task = asyncio.ensure_future(daemon_disclaimer.get_disclaimer(request))
+  disclaimer_task.add_done_callback(daemon_tasks.handle_async_errors)
 
-  categories_task = asyncio.ensure_future(search.fetch_categories(request))
-  categories_task.add_done_callback(tasks.handle_async_errors)
+  categories_task = asyncio.ensure_future(daemon_search.fetch_categories(request))
+  categories_task.add_done_callback(daemon_tasks.handle_async_errors)
   if data['api_key'] == '':
     return #everything done, if not logged in
 
-  notifications_task = asyncio.ensure_future(disclaimer.get_notifications(request))
-  notifications_task.add_done_callback(tasks.handle_async_errors)
+  notifications_task = asyncio.ensure_future(daemon_disclaimer.get_notifications(request))
+  notifications_task.add_done_callback(daemon_tasks.handle_async_errors)
 
 
 async def kill_download(request: web.Request):
   """Handle request for kill of task with the task_id."""
   data = await request.json()
-  for i, task in enumerate(globals.tasks):
+  for i, task in enumerate(daemon_globals.tasks):
     if data['task_id'] == task.task_id:
       #globals.tasks[i].cancel() #needs to handle cleaning when download is cancelled
-      del globals.tasks[i]
+      del daemon_globals.tasks[i]
       break
 
   return web.Response(text="ok")
@@ -164,31 +163,31 @@ async def kill_download(request: web.Request):
 async def code_verifier(request: web.Request):
   """Gets code_verifier for OAuth login."""
   data = await request.json()
-  globals.code_verifier = data['code_verifier']
+  daemon_globals.code_verifier = data['code_verifier']
   return web.Response(text="ok")
 
 
 async def report(request: web.Request):
   """Report progress of all tasks for a given app_id. Clears list of tasks."""
-  globals.last_report_time = time()
+  daemon_globals.last_report_time = time()
   data = await request.json()
   #check if the app was already active
-  if data['app_id'] not in globals.active_apps:
+  if data['app_id'] not in daemon_globals.active_apps:
     await subscribe_new_addon(request, data)
 
   reports = list()
-  for task in reversed(globals.tasks): #reversed so removal doesn't skip items
+  for task in reversed(daemon_globals.tasks): #reversed so removal doesn't skip items
     if task.app_id != data['app_id']:
       continue
 
     reports.append(task.to_seriazable_object())
     if task.status == "finished":
-      globals.tasks.remove(task)
+      daemon_globals.tasks.remove(task)
     if task.status == "error":
       print(f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}")
-      globals.tasks.remove(task)
+      daemon_globals.tasks.remove(task)
 
-  status_report = tasks.Task({}, data['app_id'], 'daemon_status', result={'online_status': globals.online_status})
+  status_report = daemon_tasks.Task({}, data['app_id'], 'daemon_status', result={'online_status': daemon_globals.online_status})
   reports.append(status_report.to_seriazable_object())
   reports.reverse()
   resp = web.json_response(reports)
@@ -205,9 +204,9 @@ async def shutdown(request: web.Request):
 async def report_blender_quit(request: web.Request):
   data = await request.json()
   logger.info(f"Blender quit (ID {data['app_id']}) was reported")
-  if data['app_id'] in globals.active_apps:
-    globals.active_apps.remove(data['app_id'])
-  if len(globals.active_apps)==0:
+  if data['app_id'] in daemon_globals.active_apps:
+    daemon_globals.active_apps.remove(data['app_id'])
+  if len(daemon_globals.active_apps)==0:
     logger.info('No more apps to serve, exiting Daemon')
     raise_signal(SIGINT)
 
@@ -218,16 +217,16 @@ async def report_blender_quit(request: web.Request):
 
 async def life_check(app: web.Application):
   while True:
-    since_report = time() - globals.last_report_time
-    if since_report > globals.TIMEOUT:
+    since_report = time() - daemon_globals.last_report_time
+    if since_report > daemon_globals.TIMEOUT:
       raise_signal(SIGINT)
     await asyncio.sleep(10)
 
 
 async def online_status_check(app: web.Application):
   while True:
-    globals.online_status = await utils.any_DNS_available()
-    if globals.online_status == 200:
+    daemon_globals.online_status = await daemon_utils.any_DNS_available()
+    if daemon_globals.online_status == 200:
       await asyncio.sleep(3)
     else:
       await asyncio.sleep(1)
@@ -261,7 +260,7 @@ def find_and_bind_socket(port: str) -> socket:
                 sock = socket()
                 sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
                 sock.bind((addr, int(port)))
-                globals.PORT = int(port)
+                daemon_globals.PORT = int(port)
                 return sock
             except Exception as e:
                 logger.warning(f'error binding socket {addr}:{port} - {e}')
@@ -269,7 +268,7 @@ def find_and_bind_socket(port: str) -> socket:
     exit(111)
 
 async def persistent_sessions(app):
-  if globals.SSL_CONTEXT == "PRECONFIGURED":
+  if daemon_globals.SSL_CONTEXT == "PRECONFIGURED":
     sslcontext = create_default_context()
   else:
     sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
@@ -290,7 +289,7 @@ async def persistent_sessions(app):
   else:
     trust_env = False
 
-  if globals.IP_VERSION == 'IPv4':
+  if daemon_globals.IP_VERSION == 'IPv4':
     family = AF_INET
   else: # default value
     family = 0
@@ -333,7 +332,7 @@ async def persistent_sessions(app):
 ## MAIN
 
 if __name__ == '__main__':
-  utils.configure_loggers()
+  daemon_utils.configure_loggers()
   parser = ArgumentParser()
   parser.add_argument('--port', type=str, default=PORTS[0])
   parser.add_argument('--server', type=str, default='https://www.blenderkit.com')
@@ -347,12 +346,12 @@ if __name__ == '__main__':
   args = parser.parse_args()
   logger.info(f'Daemon (PID {getpid()}) initiated with {args}')
 
-  globals.PORT = args.port
-  globals.SERVER = args.server
-  globals.IP_VERSION = args.ip_version
-  globals.SSL_CONTEXT = args.ssl_context
-  globals.SYSTEM_ID = args.system_id
-  globals.VERSION = args.version
+  daemon_globals.PORT = args.port
+  daemon_globals.SERVER = args.server
+  daemon_globals.IP_VERSION = args.ip_version
+  daemon_globals.SSL_CONTEXT = args.ssl_context
+  daemon_globals.SYSTEM_ID = args.system_id
+  daemon_globals.VERSION = args.version
   server = web.Application()
   server['PROXY_WHICH'] = args.proxy_which
   server['PROXY_ADDRESS'] = args.proxy_address
@@ -371,19 +370,19 @@ if __name__ == '__main__':
     web.get('/consumer/exchange/', consumer_exchange),
     web.get('/refresh_token', refresh_token),
     web.post('/code_verifier', code_verifier),
-    web.post('/report_usages', assets.report_usages_handler),
-    web.post('/comments/{func}', comments.comments_handler),
-    web.post('/notifications/mark_notification_read', comments.mark_notification_read_handler),
-    web.get('/wrappers/get_download_url', assets.get_download_url_wrapper),
-    web.get('/wrappers/blocking_file_upload', assets.blocking_file_upload_handler),
-    web.get('/wrappers/blocking_request', utils.blocking_request_handler),
-    web.get('/wrappers/nonblocking_request', utils.nonblocking_request_handler),
-    web.get('/profiles/fetch_gravatar_image', profiles.fetch_gravatar_image_handler),
-    web.get('/profiles/get_user_profile', profiles.get_user_profile_handler),
-    web.get('/ratings/get_rating', ratings.get_rating_handler),
-    web.post('/ratings/send_rating', ratings.send_rating_handler),
-    web.get('/ratings/get_bookmarks', ratings.get_bookmarks_handler),
-    web.get('/debug', configurator.debug_handler),
+    web.post('/report_usages', daemon_assets.report_usages_handler),
+    web.post('/comments/{func}', daemon_comments.comments_handler),
+    web.post('/notifications/mark_notification_read', daemon_comments.mark_notification_read_handler),
+    web.get('/wrappers/get_download_url', daemon_assets.get_download_url_wrapper),
+    web.get('/wrappers/blocking_file_upload', daemon_assets.blocking_file_upload_handler),
+    web.get('/wrappers/blocking_request', daemon_utils.blocking_request_handler),
+    web.get('/wrappers/nonblocking_request', daemon_utils.nonblocking_request_handler),
+    web.get('/profiles/fetch_gravatar_image', daemon_profiles.fetch_gravatar_image_handler),
+    web.get('/profiles/get_user_profile', daemon_profiles.get_user_profile_handler),
+    web.get('/ratings/get_rating', daemon_ratings.get_rating_handler),
+    web.post('/ratings/send_rating', daemon_ratings.send_rating_handler),
+    web.get('/ratings/get_bookmarks', daemon_ratings.get_bookmarks_handler),
+    web.get('/debug', daemon_configurator.debug_handler),
   ])
 
   server.on_startup.append(start_background_tasks)
