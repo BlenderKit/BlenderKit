@@ -998,6 +998,7 @@ def update_filters():
   # update filters for 2 reasons
   # - first to show if filters are active
   # - second to show login popup if user needs to log in
+  # returns True if search should proceed, False to bounce search(like in the case of bookmarks)
 
   sprops = utils.get_search_props()
   ui_props = bpy.context.window_manager.blenderkitUI
@@ -1005,9 +1006,11 @@ def update_filters():
   if sprops.search_bookmarks and not utils.user_logged_in():
     sprops.search_bookmarks = False
     bpy.ops.wm.blenderkit_login_dialog("INVOKE_DEFAULT", message="Please login to use bookmarks.")
+    return False
   if sprops.own_only and not utils.user_logged_in():
     sprops.own_only = False
     bpy.ops.wm.blenderkit_login_dialog("INVOKE_DEFAULT", message="Please login to upload and filter your own assets.")
+    return False
 
   fcommon = sprops.own_only or \
             sprops.search_texture_resolution or \
@@ -1029,6 +1032,7 @@ def update_filters():
     sprops.use_filters = fcommon
   elif ui_props.asset_type == 'HDR':
     sprops.use_filters = sprops.true_hdr
+  return True
 
 def search_update_delayed(self,context):
   '''run search after user changes a search parameter,
@@ -1040,7 +1044,9 @@ def search_update_delayed(self,context):
 def search_update(self, context):
   '''run search after user changes a search parameter'''
   # if self.search_keywords != '':
-  update_filters()
+  go_on = update_filters()
+  if not go_on:
+    return;
   ui_props = bpy.context.window_manager.blenderkitUI
   if ui_props.down_up != 'SEARCH':
     ui_props.down_up = 'SEARCH'
