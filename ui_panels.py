@@ -538,17 +538,30 @@ class VIEW3D_PT_blenderkit_profile(Panel):
     bl_idname = "VIEW3D_PT_blenderkit_profile"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_label = "BlenderKit Profile"
+    bl_label = ""
     bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
 
         return True
+    def draw_header(self, context):
+        layout = self.layout
+        layout.emboss= 'NORMAL'
+        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        if user_preferences.api_key != '':
+            layout.label(text ='BlenderKit Profile', icon="USER")
+        else:
+            layout.label(text ='BlenderKit Login', icon="USER")
 
     def draw(self, context):
-        # draw asset properties here
         layout = self.layout
+        # don't draw when not online
+
+        if not global_vars.DAEMON_ONLINE:
+            layout.label(text="Daemon offline")
+            return
+
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
         if user_preferences.login_attempt:
@@ -559,6 +572,17 @@ class VIEW3D_PT_blenderkit_profile(Panel):
             me = global_vars.DATA.get('bkit profile')
             if me is not None:
                 me = me['user']
+
+                # profile picture is retrieved from author's list, for coherency we store the profile images there.
+                authors = global_vars.DATA['bkit authors']
+                a_id = str(me["id"])
+                if authors.get(a_id) is not None and authors[a_id].get('gravatarImg') is not None:
+                    profile_img = autothumb.get_texture_ui(authors[a_id].get('gravatarImg'), '.blenderkit_profile_picture')
+                    if  profile_img and profile_img.image:
+                        # draw the profile picture
+                        box = layout.box()
+                        box.template_icon(icon_value=profile_img.image.preview.icon_id, scale=6.0)
+
                 # user name
                 if len(me['firstName']) > 0 or len(me['lastName']) > 0:
                     layout.label(text=f"Me: {me['firstName']} {me['lastName']}")
@@ -591,7 +615,12 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                     layout.label(text='My free storage: %i MiB' % (me['remainingPrivateQuota']))
 
             layout.operator("wm.url_open", text="See my uploads", icon='URL').url = paths.BLENDERKIT_USER_ASSETS_URL
+
+        if user_preferences.enable_oauth:
+            draw_login_buttons(layout)
+
         addon_updater_ops.update_notice_box_ui(self,context)
+
 
 
 class MarkNotificationRead(bpy.types.Operator):
@@ -942,6 +971,11 @@ class VIEW3D_PT_blenderkit_login(Panel):
 
     def draw(self, context):
         layout = self.layout
+        # don't draw when not online
+        if not global_vars.DAEMON_ONLINE:
+            layout.label(text="Daemon offline")
+            return
+
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
 
         if user_preferences.login_attempt:
@@ -1065,8 +1099,8 @@ def draw_login_buttons(layout, invoke=False):
                             icon='URL').signup = True
 
         else:
-            layout.operator("wm.blenderkit_login", text="Login as someone else",
-                            icon='URL').signup = False
+            # layout.operator("wm.blenderkit_login", text="Login as someone else",
+            #                 icon='URL').signup = False
             layout.operator("wm.blenderkit_logout", text="Logout",
                             icon='URL')
 
@@ -2977,7 +3011,7 @@ classes = (
     SetCategoryOperator,
     SetCommentReplyId,
     VIEW3D_PT_blenderkit_profile,
-    VIEW3D_PT_blenderkit_login,
+    # VIEW3D_PT_blenderkit_login,
     # VIEW3D_PT_blenderkit_notifications,
     VIEW3D_PT_blenderkit_unified,
     VIEW3D_PT_blenderkit_advanced_model_search,

@@ -585,6 +585,11 @@ def handle_get_user_profile(task: tasks.Task):
   if task.status == 'finished':
     user_data = task.result
     global_vars.DATA['bkit profile'] = user_data
+    global_vars.DATA['bkit authors'][str(user_data['user']['id'])] = user_data['user']
+
+    #after profile arrives, we can check for gravatar image
+    daemon_lib.fetch_gravatar_image(user_data['user'])
+
 
 
 def query_to_url(query={}, params={}):
