@@ -81,16 +81,11 @@ def modal_inside(self, context, event):
             # self.update_images()
 
             # progress bar
-            ui_scale = bpy.context.preferences.view.ui_scale
             for asset_button in self.asset_buttons:
                 if sr is not None and len(sr) > asset_button.asset_index:
                     asset_data = sr[asset_button.asset_index]
+                    self.update_progress_bar(asset_button, asset_data)
 
-                    if asset_data['downloaded'] > 0:
-                        asset_button.progress_bar.width = int(self.button_size * ui_scale * asset_data['downloaded'] / 100)
-                        asset_button.progress_bar.visible = True
-                    else:
-                        asset_button.progress_bar.visible = False
 
         #ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
         if self.handle_widget_events(event):
@@ -1066,6 +1061,18 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         img_fp = paths.get_addon_thumbnail_path(icon)
         bookmark_button.set_image(img_fp)
 
+    def update_progress_bar(self, asset_button, asset_data):
+        if asset_data['downloaded'] > 0:
+            pb = asset_button.progress_bar
+            ui_scale = bpy.context.preferences.view.ui_scale
+            w = int(self.button_size * ui_scale * asset_data['downloaded'] / 100.0)
+            asset_button.progress_bar.width = w
+            asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
+            asset_button.progress_bar.visible = True
+        else:
+            asset_button.progress_bar.visible = False
+
+
     def update_validation_icon(self, asset_button, asset_data):
         if utils.profile_is_validator():
             ar = global_vars.DATA.get('asset ratings', {})
@@ -1133,6 +1140,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
                     self.update_bookmark_icon(asset_button.bookmark_button)
 
+                    self.update_progress_bar(asset_button, asset_data)
 
                     if utils.profile_is_validator() and asset_data['verificationStatus'] == 'uploaded':
                         over_limit = utils.is_upload_old(asset_data)

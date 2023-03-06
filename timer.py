@@ -224,8 +224,6 @@ def handle_task(task: tasks.Task):
 @bpy.app.handlers.persistent
 def check_timers_timer():
   """Checks if all timers are registered regularly. Prevents possible bugs from stopping the addon."""  
-  if not bpy.app.timers.is_registered(download.download_timer):
-    bpy.app.timers.register(download.download_timer)
   if not bpy.app.timers.is_registered(tasks_queue.queue_worker):
     bpy.app.timers.register(tasks_queue.queue_worker)
   if not bpy.app.timers.is_registered(bg_blender.bg_update):
@@ -285,8 +283,6 @@ def unregister_timers():
 
   if bpy.app.timers.is_registered(check_timers_timer):
     bpy.app.timers.unregister(check_timers_timer)
-  if bpy.app.timers.is_registered(download.download_timer):
-    bpy.app.timers.unregister(download.download_timer)
   if bpy.app.timers.is_registered(tasks_queue.queue_worker):
     bpy.app.timers.unregister(tasks_queue.queue_worker)
   if bpy.app.timers.is_registered(bg_blender.bg_update):
