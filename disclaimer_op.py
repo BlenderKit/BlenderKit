@@ -195,7 +195,7 @@ def handle_disclaimer_task(task: tasks.Task):
   global disclaimer_counter
   disclaimer_counter = -1
   if task.status == 'finished':
-    if task.result is None:
+    if task.result == {}:
       return show_random_tip()
     
     disclaimer = task.result['results'][0]
