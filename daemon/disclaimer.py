@@ -32,7 +32,6 @@ async def get_disclaimer(request: web.Request):
   except Exception as e:
     logger.error(str(e))
 
-  task.result = None
   task.finished('Disclaimer not retrieved, serve a tip to user')
 
 
