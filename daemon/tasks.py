@@ -17,7 +17,7 @@ class Task():
     self.message = message
     self.progress = progress
     self.status = status # created / finished / error
-    self.result = result
+    self.result = result.copy()
 
     self.async_task: asyncio.Task | None = None
 
