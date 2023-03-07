@@ -31,6 +31,7 @@ from . import (
     reports,
     resolutions,
     search,
+    timer,
     ui_panels,
     utils,
 )
@@ -50,9 +51,7 @@ from bpy.props import (
 )
 
 
-download_threads = []
 download_tasks = {}
-
 
 def check_missing():
     """Checks for missing files, and possibly starts re-download of these into the scene"""
@@ -458,7 +457,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 break
         if not inscene:
             link = sprops.append_method == 'LINK'
-            material = append_link.append_material(file_names[-1], link=link, fake_user=False)
+            material = append_link.append_material(file_names[-1], matname = asset_data['name'], link=link, fake_user=False)
         target_object = bpy.data.objects[kwargs['target_object']]
 
         if len(target_object.material_slots) == 0:
@@ -661,9 +660,12 @@ def handle_download_task(task: tasks.Task):
   """
   global download_tasks
   if task.status == "finished":
-    from . import tasks_queue
-    # tasks_queue.add_task((download_post, (task,)), wait=2)
-    download_post(task)
+    #we still write progress since sometimes the progress bars wouldn't end on 100%
+    download_write_progress(task.task_id, task)
+    #try to parse, in some states task gets returned to be pending (e.g. in editmode)
+    done = download_post(task)
+    if not done:
+      timer.pending_tasks.append(task)
   elif task.status == "error":
     reports.add_report(task.message, 15, 'ERROR')
     download_tasks.pop(task.task_id)
@@ -680,6 +682,7 @@ def download_write_progress(task_id, task):
     global download_tasks
     task_addon = download_tasks.get(task.task_id)
     if task_addon is None:
+        print("couldnt write progress", task.progress)
         return
     task_addon['progress'] = task.progress
     task_addon['text'] = task.message
@@ -694,22 +697,23 @@ def download_write_progress(task_id, task):
 
 # TODO might get moved to handle all blenderkit stuff, not to slow down.
 def download_post(task: tasks.Task):
-    """Check for running and finished downloads.
+    """
+    Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.
     Finished downloads are processed and linked/appended to scene.
+    Finished downloads can become pending tasks, if Blender isn't ready to append the files.
     """
     global download_tasks
+
     orig_task = download_tasks.get(task.task_id)
     if orig_task is None:
         return
 
-    remove_keys = []
     done = False
 
     file_paths = task.result.get('file_paths', [])
     if file_paths == []:
         bk_logger.debug('library names not found in asset data after download')
-        remove_keys.append(task.task_id)
         done = True
 
     wm = bpy.context.window_manager
@@ -725,7 +729,6 @@ def download_post(task: tasks.Task):
                 and wm.get('appendable') == True) or at == 'scene' or at == 'hdr':
         # don't do this stuff in editmode and other modes, just wait...
         # we don't remove the task before it's actually possible to remove it.
-        remove_keys.append(task.task_id)
 
         # duplicate file if the global and subdir are used in prefs
         if len(file_paths) == 2:  # todo this should try to check if both files exist and are ok.
@@ -762,16 +765,13 @@ def download_post(task: tasks.Task):
                 # TODO add back re-download capability for deamon - used for lost libraries
                 # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
                 # download(asset_data, **tcom.passargs)
-            if global_vars.DATA['search results'] is not None and done:
-                for sres in global_vars.DATA['search results']:
-                    if task.data['asset_data']['id'] == sres['id']:
-                        sres['downloaded'] = 100
+            #
 
         bk_logger.debug('finished download thread')
     # utils.p('end download timer')
-    for key in remove_keys:
-        download_tasks.pop(key)
-    return True
+    if done:
+        download_tasks.pop(task.task_id)
+    return done
 
 
 def download(asset_data, **kwargs):

@@ -335,7 +335,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 else:
                     to_hidden_collection.append(ob)
 
-        assert main_object != None, 'asset not found in scene after appending'
+        assert main_object != None, f"asset {kwargs['name']} not found in scene after appending"
         if kwargs.get('rotation'):
             main_object.rotation_euler = kwargs['rotation']
 

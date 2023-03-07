@@ -135,15 +135,6 @@ async def download_file(session: aiohttp.ClientSession, file_path, task: tasks.T
         #   return
 
 
-def report_download_finished(data):
-  """Return download finished results."""
-  globals.tasks[data['task_id']] = data
-  globals.tasks[data['task_id']].update({
-    "app_id": data['PREFS']['app_id'],
-    'type': 'download-finished',
-  })
-
-
 async def get_download_url_wrapper(request: web.Request):
   """Handle get_download_url request. This serves as a wrapper around get_download_url so this can be called from addon.
   Returns the results directly so it is a blocking on add-on side (as add-on uses blocking Requests for this)."""
