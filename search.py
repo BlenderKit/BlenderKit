@@ -782,11 +782,14 @@ def build_query_texture():
 def build_query_brush():
   props = bpy.context.window_manager.blenderkit_brush
   brush_type = ''
-  if bpy.context.sculpt_object is not None:
+
+
+  if bpy.context.image_paint_object:  # could be just else, but for future p
+    brush_type = 'texture_paint'
+  # automatically fallback to sculpt since most brushes are sculpt anyway.
+  else:#if bpy.context.sculpt_object is not None:
     brush_type = 'sculpt'
 
-  elif bpy.context.image_paint_object:  # could be just else, but for future p
-    brush_type = 'texture_paint'
 
   query = {
     "asset_type": 'brush',

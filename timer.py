@@ -75,20 +75,28 @@ def daemon_communication_timer():
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo"
 
-  results.extend(pending_tasks)
   bk_logger.debug('Handling tasks')
-  pending_tasks.clear()
+  results_converted_tasks = []
+
+  # convert to task type
   for task in results:
-    task = tasks.Task(
-      data = task['data'],
-      task_id = task['task_id'],
-      app_id = task['app_id'],
-      task_type = task['task_type'],
-      message = task['message'],
-      progress = task['progress'],
-      status = task['status'],
-      result = task['result'],
-      )
+      task = tasks.Task(
+        data = task['data'],
+        task_id = task['task_id'],
+        app_id = task['app_id'],
+        task_type = task['task_type'],
+        message = task['message'],
+        progress = task['progress'],
+        status = task['status'],
+        result = task['result'],
+        )
+      results_converted_tasks.append(task)
+
+  #add pending tasks which were already parsed but not handled
+  results_converted_tasks.extend(pending_tasks)
+  pending_tasks.clear()
+
+  for task in results_converted_tasks:
     handle_task(task)
 
   bk_logger.debug('Task handling finished')

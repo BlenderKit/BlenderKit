@@ -54,13 +54,9 @@ async def send_rating(task: tasks.Task, request: web.Request):
 
 
 async def get_bookmarks_handler(request: web.Request):
-    logger.error('getting bookmarks 1')
-
     data = await request.json()
-
     task = tasks.Task(data, data['app_id'], 'ratings/get_bookmarks', message='Getting bookmarks data')
     globals.tasks.append(task)
-    logger.error('getting bookmarks')
     task.async_task = asyncio.ensure_future(get_bookmarks(task, request))
     task.async_task.add_done_callback(tasks.handle_async_errors)
     return web.Response(text='ok')
@@ -73,7 +69,6 @@ async def get_bookmarks(task: tasks.Task, request: web.Request):
     try:
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()
-        logger.error('requested bookmarks')
     except Exception as e:
         logger.warning(str(e))
         return task.error(f'{e}')

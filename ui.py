@@ -900,8 +900,13 @@ class AssetDragOperator(bpy.types.Operator):
 
         if self.asset_data.get('assetType') == 'brush':
           if not (context.sculpt_object or context.image_paint_object):
-            message = "Please switch to sculpt or image paint modes."
-            bpy.ops.wm.blenderkit_popup_dialog('INVOKE_REGION_WIN', message=message)
+            #either switch to sculpt automatically or show a popup message
+            if context.active_object and context.active_object.type =='MESH':
+                bpy.ops.object.mode_set(mode='SCULPT')
+                reports.add_report('Automatically switched to sculpt mode to use brushes.')
+            else:
+                message = "Select a mesh and switch to sculpt or image paint modes to use the brushes."
+                bpy.ops.wm.blenderkit_popup_dialog('INVOKE_REGION_WIN', message=message, width=500)
             return {'CANCELLED'}
 
         self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_dragging, args, 'WINDOW', 'POST_PIXEL')

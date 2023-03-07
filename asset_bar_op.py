@@ -4,7 +4,7 @@ import math
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from . import comments_utils, global_vars, paths, ratings_utils, search, ui, utils
+from . import comments_utils, download, global_vars, paths, ratings_utils, search, ui, utils
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
@@ -78,10 +78,13 @@ def modal_inside(self, context, event):
 
         if self.update_timer > self.update_timer_limit:
             self.update_timer = 0
-            # self.update_images()
+            # self.update_buttons()
 
-            # progress bar
+            # progress bars - when downloading only. Could be uptimized and check if downloads are actually running.
+            # if len(download.download_tasks)>0: # this is not working, because the last update after download is finished is not called.
             for asset_button in self.asset_buttons:
+                if not asset_button.visible:
+                    continue
                 if sr is not None and len(sr) > asset_button.asset_index:
                     asset_data = sr[asset_button.asset_index]
                     self.update_progress_bar(asset_button, asset_data)
@@ -714,7 +717,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         #     self.button_notifications.set_mouse_down(self.show_notifications)
         #     self.widgets_panel.append(self.button_notifications)
 
-        # self.update_images()
+        # self.update_buttons()
 
     def set_element_images(self):
         '''set ui elements images, has to be done after init of UI.'''
@@ -1112,7 +1115,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 if asset_data['assetBaseId'] == asset_id:
                     set_thumb_check(asset_button, asset_data, thumb_type = 'thumbnail_small')
 
-    def update_images(self):
+    def update_buttons(self):
         sr = global_vars.DATA.get('search results')
         if not sr:
             return
@@ -1156,6 +1159,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.visible = False
                 asset_button.validation_icon.visible = False
                 asset_button.bookmark_button.visible = False
+                asset_button.progress_bar.visible = False
                 if utils.profile_is_validator():
                     asset_button.red_alert.visible = False
 
@@ -1174,7 +1178,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         #only update if scroll offset actually changed, otherwise this is unnecessary
         # this was pretty stupid, since offset changes BEFORE entering the function.
         # if always  or orig_offset != self.scroll_offset:
-        self.update_images()
+        self.update_buttons()
 
         if sro['count'] > len(sr) and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15:
             self.search_more()
