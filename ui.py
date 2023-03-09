@@ -900,9 +900,11 @@ class AssetDragOperator(bpy.types.Operator):
 
         if self.asset_data.get('assetType') == 'brush':
           if not (context.sculpt_object or context.image_paint_object):
-            #either switch to sculpt automatically or show a popup message
+            #either switch to sculpt mode and layout automatically or show a popup message
             if context.active_object and context.active_object.type =='MESH':
                 bpy.ops.object.mode_set(mode='SCULPT')
+                if bpy.data.workspaces.get('Sculpting') is not None:
+                    bpy.context.window.workspace = bpy.data.workspaces['Sculpting']
                 reports.add_report('Automatically switched to sculpt mode to use brushes.')
             else:
                 message = "Select a mesh and switch to sculpt or image paint modes to use the brushes."
