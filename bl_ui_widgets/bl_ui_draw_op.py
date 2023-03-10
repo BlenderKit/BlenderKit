@@ -83,7 +83,9 @@ class BL_UI_OT_draw_operator(Operator):
 
     def finish(self):
         self.unregister_handlers(bpy.context)
-        bpy.context.region.tag_redraw()
+        # it is possible that the area has been closed, so we check if it is still available
+        if bpy.context.region is not None:
+            bpy.context.region.tag_redraw()
         self.on_finish(bpy.context)
 
 	# Draw handler to paint onto the screen

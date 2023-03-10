@@ -1,4 +1,5 @@
 import blf
+import bpy
 
 from .bl_ui_widget import *
 
@@ -20,6 +21,8 @@ class BL_UI_Label(BL_UI_Widget):
 
     @text_color.setter
     def text_color(self, value):
+        if value != self._text_color:
+            bpy.context.region.tag_redraw()
         self._text_color = value
 
     @property
@@ -28,6 +31,8 @@ class BL_UI_Label(BL_UI_Widget):
 
     @text.setter
     def text(self, value):
+        if value != self._text:
+            bpy.context.region.tag_redraw()
         self._text = value
 
     @property
@@ -36,6 +41,8 @@ class BL_UI_Label(BL_UI_Widget):
 
     @text_size.setter
     def text_size(self, value):
+        if value != self._text_size:
+            bpy.context.region.tag_redraw()
         self._text_size = value
 
     def is_in_rect(self, x, y):
