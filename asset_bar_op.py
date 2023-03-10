@@ -4,7 +4,7 @@ import math
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from . import comments_utils, download, global_vars, paths, ratings_utils, search, ui, utils
+from . import comments_utils, global_vars, paths, ratings_utils, search, ui, utils
 from .bl_ui_widgets.bl_ui_button import *
 from .bl_ui_widgets.bl_ui_drag_panel import *
 from .bl_ui_widgets.bl_ui_draw_op import *
