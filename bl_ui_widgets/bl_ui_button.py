@@ -31,6 +31,8 @@ class BL_UI_Button(BL_UI_Widget):
 
     @text_color.setter
     def text_color(self, value):
+        if value != self._text_color:
+            bpy.context.region.tag_redraw()
         self._text_color = value
 
     @property
@@ -39,6 +41,8 @@ class BL_UI_Button(BL_UI_Widget):
 
     @text.setter
     def text(self, value):
+        if value != self._text:
+            bpy.context.region.tag_redraw()
         self._text = value
 
     @property
@@ -47,6 +51,8 @@ class BL_UI_Button(BL_UI_Widget):
 
     @text_size.setter
     def text_size(self, value):
+        if value != self._text_size:
+            bpy.context.region.tag_redraw()
         self._text_size = value
 
     @property
@@ -55,6 +61,8 @@ class BL_UI_Button(BL_UI_Widget):
 
     @hover_bg_color.setter
     def hover_bg_color(self, value):
+        if value != self._hover_bg_color:
+            bpy.context.region.tag_redraw()
         self._hover_bg_color = value
 
     @property
@@ -63,6 +71,8 @@ class BL_UI_Button(BL_UI_Widget):
 
     @select_bg_color.setter
     def select_bg_color(self, value):
+        if value != self._select_bg_color:
+            bpy.context.region.tag_redraw()
         self._select_bg_color = value
 
     def set_image_size(self, imgage_size):
@@ -98,7 +108,6 @@ class BL_UI_Button(BL_UI_Widget):
             if self.__image and len(self.__image.pixels) == 0:
                 self.__image.reload()
                 self.__image.gl_load()
-            bpy.context.region.tag_redraw()
         except Exception as e:
             print(e)
             self.__image = None

@@ -21,12 +21,14 @@ class BL_UI_Widget:
         self._is_active = True #if the widget needs to be disabled
 
     def set_location(self, x, y):
+        # if self.x != x or self.y != y or self.x_screen != x or self.y_screen != y:
+        #     bpy.context.region.tag_redraw()
         self.x = x
         self.y = y
         self.x_screen = x
         self.y_screen = y
         self.update(x,y)
-        bpy.context.region.tag_redraw()
+
 
     @property
     def bg_color(self):
@@ -34,8 +36,9 @@ class BL_UI_Widget:
 
     @bg_color.setter
     def bg_color(self, value):
+        if value != self._bg_color:
+            bpy.context.region.tag_redraw()
         self._bg_color = value
-        bpy.context.region.tag_redraw()
 
     @property
     def visible(self):
@@ -43,8 +46,9 @@ class BL_UI_Widget:
 
     @visible.setter
     def visible(self, value):
+        if value != self._is_visible:
+            bpy.context.region.tag_redraw()
         self._is_visible = value
-        bpy.context.region.tag_redraw()
 
     @property
     def active(self):
@@ -52,8 +56,9 @@ class BL_UI_Widget:
 
     @visible.setter
     def active(self, value):
+        if value != self._is_active:
+            bpy.context.region.tag_redraw()
         self._is_active = value
-        bpy.context.region.tag_redraw()
 
     @property
     def tag(self):

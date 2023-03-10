@@ -802,6 +802,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.draw_tooltip = False
         # let's take saved scroll offset and use it to keep scroll between operator runs
+
+        self.last_scroll_offset = -10 #set to -10 so it updates on first run
         self.scroll_offset = ui_props.scroll_offset
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
@@ -890,6 +892,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.panel.set_location(self.bar_x,
                                 self.bar_y)
         # to hide arrows accordingly
+
         self.scroll_update(always = True)
 
         self.window = context.window
@@ -1187,8 +1190,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = min(self.scroll_offset, len(sr) - (self.wcount * self.hcount))
         self.scroll_offset = max(self.scroll_offset, 0)
         #only update if scroll offset actually changed, otherwise this is unnecessary
-        # this was pretty stupid, since offset changes BEFORE entering the function.
-        # if always  or orig_offset != self.scroll_offset:
+
+        if self.last_scroll_offset == self.scroll_offset:
+            return
+        self.last_scroll_offset = self.scroll_offset
+
         self.update_buttons()
 
         if sro['count'] > len(sr) and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15:
