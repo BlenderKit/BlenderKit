@@ -94,6 +94,9 @@ class BL_UI_OT_draw_operator(Operator):
 def draw_callback_px_separated(self, op, context):
     #separated only for puprpose of profiling
     try:
+        # hide during animation playback, to improve performance
+        if context.screen.is_animation_playing:
+            return
         if context.area.as_pointer() == self.active_area_pointer:
             for widget in self.widgets:
                 widget.draw()
