@@ -787,8 +787,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.button_scroll_down.height = self.bar_height
         self.button_scroll_down.set_image_position((0, int((self.bar_height - self.button_size) / 2)))
-        self.button_scroll_down.height = self.bar_height
-        self.button_scroll_down.set_image_position((0, int((self.bar_height - self.button_size) / 2)))
+        self.button_scroll_up.height = self.bar_height
+        self.button_scroll_up.set_image_position((0, int((self.bar_height - self.button_size) / 2)))
 
     def __init__(self):
         super().__init__()
@@ -1209,6 +1209,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_scroll_up.visible = False
         else:
             self.button_scroll_up.visible = True
+
+        # here we save some time by only updating the images if the scroll offset actually changed
+        if self.last_scroll_offset == self.scroll_offset:
+            return
+        self.last_scroll_offset = self.scroll_offset
+
+        self.update_images()
 
     def search_by_author(self, asset_index):
         sr = global_vars.DATA['search results']
