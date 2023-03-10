@@ -1,6 +1,7 @@
+import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
-import bpy
+
 
 class BL_UI_Widget:
 
