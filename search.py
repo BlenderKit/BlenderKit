@@ -1182,14 +1182,6 @@ class SearchOperator(Operator):
 
     return {'FINISHED'}
 
-  # def invoke(self, context, event):
-  #     if self.close_window:
-  #         context.window.cursor_warp(event.mouse_x, event.mouse_y - 100);
-  #         context.area.tag_redraw()
-  #
-  #         context.window.cursor_warp(event.mouse_x, event.mouse_y);
-  #     return self. execute(context)
-
 
 class UrlOperator(Operator):
   """"""

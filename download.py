@@ -1292,7 +1292,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             return wm.invoke_props_dialog(self)
         # if self.close_window:
         #     time.sleep(0.1)
-        #     context.area.tag_redraw()
+        #     context.region.tag_redraw()
         #     time.sleep(0.1)
         #
         #     context.window.cursor_warp(event.mouse_x, event.mouse_y);

@@ -35,10 +35,12 @@ class BL_UI_OT_draw_operator(Operator):
 
         context.window_manager.modal_handler_add(self)
 
-        #first set pointers to keep track if the area is still available
+        # first set pointers to keep track if the area is still available
         self.active_window_pointer = context.window.as_pointer()
         self.active_area_pointer = context.area.as_pointer()
         self.active_region_pointer = context.region.as_pointer()
+
+        context.region.tag_redraw()
         return {"RUNNING_MODAL"}
 
     def register_handlers(self, args, context):
@@ -69,7 +71,7 @@ class BL_UI_OT_draw_operator(Operator):
             return {'FINISHED'}
 
         if context.area:
-            context.area.tag_redraw()
+            context.region.tag_redraw()
 
         if self.handle_widget_events(event):
             return {'RUNNING_MODAL'}
@@ -81,6 +83,7 @@ class BL_UI_OT_draw_operator(Operator):
 
     def finish(self):
         self.unregister_handlers(bpy.context)
+        bpy.context.region.tag_redraw()
         self.on_finish(bpy.context)
 
 	# Draw handler to paint onto the screen

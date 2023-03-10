@@ -98,7 +98,7 @@ class BL_UI_Button(BL_UI_Widget):
             if self.__image and len(self.__image.pixels) == 0:
                 self.__image.reload()
                 self.__image.gl_load()
-            
+            bpy.context.region.tag_redraw()
         except Exception as e:
             print(e)
             self.__image = None

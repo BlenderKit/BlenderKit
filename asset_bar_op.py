@@ -56,16 +56,12 @@ def modal_inside(self, context, event):
         if self._finished:
             return {'FINISHED'}
 
-        if context.area:
-            context.area.tag_redraw()
-        else:
+        if not context.area:
             self.finish()
             w,a,r = utils.get_largest_area(area_type='VIEW_3D')
             if a is not None:
                 bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
-
             return {'FINISHED'}
-
 
         # sr = bpy.context.window_manager.get('search results')
         sr = global_vars.DATA.get('search results')
@@ -80,8 +76,10 @@ def modal_inside(self, context, event):
             self.update_timer = 0
             # self.update_buttons()
 
-            # progress bars - when downloading only. Could be uptimized and check if downloads are actually running.
-            # if len(download.download_tasks)>0: # this is not working, because the last update after download is finished is not called.
+            # progress bar
+            # change - let's try to optimize and redraw only when needed
+            change = False
+            ui_scale = bpy.context.preferences.view.ui_scale
             for asset_button in self.asset_buttons:
                 if not asset_button.visible:
                     continue
@@ -89,6 +87,18 @@ def modal_inside(self, context, event):
                     asset_data = sr[asset_button.asset_index]
                     self.update_progress_bar(asset_button, asset_data)
 
+                    if asset_data['downloaded'] > 0:
+                        nwidth = int(self.button_size * ui_scale * asset_data['downloaded'] / 100)
+                        if nwidth != asset_button.progress_bar.width:
+                            change = True
+                            asset_button.progress_bar.width = nwidth
+                            asset_button.progress_bar.visible = True
+                    else:
+                        if asset_button.progress_bar.visible:
+                            change = True
+                            asset_button.progress_bar.visible = False
+            if change:
+                context.region.tag_redraw()
 
         #ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
         if self.handle_widget_events(event):
@@ -139,6 +149,7 @@ def modal_inside(self, context, event):
                 self.scroll_offset += self.wcount
             else:
                 self.scroll_offset += 2
+
             self.scroll_update()
             return {'RUNNING_MODAL'}
         if self.check_ui_resized(context) or self.check_new_search_results(context):
@@ -902,9 +913,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         wm = bpy.data.window_managers[0]
 
-        for w in wm.windows:
-            for a in w.screen.areas:
-                a.tag_redraw()
+        # for w in wm.windows:
+        #     for a in w.screen.areas:
+        #         a.tag_redraw()
         self._finished = True
 
     def update_tooltip_image(self, asset_id):

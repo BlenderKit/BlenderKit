@@ -131,8 +131,9 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     if self._finished:
       return {'FINISHED'}
 
-    if context.area:
-      context.area.tag_redraw()
+    if not context.area:
+      #end if area disappears
+      self.finish()
 
     if self.handle_widget_events(event):
       self.start_time = time.time()
@@ -155,6 +156,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
       widget.hover_bg_color = self.hover_bg_color
       if hasattr(widget, 'text_color'):
         widget.text_color = self.text_color
+
 
   def fadeout(self):
     """ Fade out widget after some time"""
