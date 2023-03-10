@@ -1,6 +1,6 @@
 import gpu
 from gpu_extras.batch import batch_for_shader
-
+import bpy
 
 class BL_UI_Widget:
 
@@ -26,6 +26,7 @@ class BL_UI_Widget:
         self.x_screen = x
         self.y_screen = y
         self.update(x,y)
+        bpy.context.region.tag_redraw()
 
     @property
     def bg_color(self):
@@ -34,6 +35,7 @@ class BL_UI_Widget:
     @bg_color.setter
     def bg_color(self, value):
         self._bg_color = value
+        bpy.context.region.tag_redraw()
 
     @property
     def visible(self):
@@ -42,6 +44,7 @@ class BL_UI_Widget:
     @visible.setter
     def visible(self, value):
         self._is_visible = value
+        bpy.context.region.tag_redraw()
 
     @property
     def active(self):
@@ -50,6 +53,7 @@ class BL_UI_Widget:
     @visible.setter
     def active(self, value):
         self._is_active = value
+        bpy.context.region.tag_redraw()
 
     @property
     def tag(self):
@@ -91,8 +95,15 @@ class BL_UI_Widget:
 
         self.shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
         self.batch_panel = batch_for_shader(self.shader, 'TRIS', {"pos" : vertices}, indices=indices)
+        bpy.context.region.tag_redraw()
 
     def handle_event(self, event):
+        '''
+        returns True if the event was handled by the widget
+        # 'handled_pass', if the event was handled but the event should be passed to other widgets
+        False if the event was not handled by the widget
+        '''
+
         if not self._is_visible:
             return False
         if not self._is_active:
@@ -104,18 +115,23 @@ class BL_UI_Widget:
         if (event.type == 'LEFTMOUSE'):
             if (event.value == 'PRESS'):
                 self._mouse_down = True
+                bpy.context.region.tag_redraw()
                 return self.mouse_down(x, y)
             else:
                 self._mouse_down = False
+                bpy.context.region.tag_redraw()
                 self.mouse_up(x, y)
+                return False
 
         elif (event.type == 'RIGHTMOUSE'):
 
             if (event.value == 'PRESS'):
                 self._mouse_down_right = True
+                bpy.context.region.tag_redraw()
                 return self.mouse_down_right(x, y)
             else:
                 self._mouse_down_right = False
+                bpy.context.region.tag_redraw()
                 self.mouse_up(x, y)
 
         elif (event.type == 'MOUSEMOVE'):
@@ -126,13 +142,16 @@ class BL_UI_Widget:
             if not self.__inrect and inrect:
                 self.__inrect = True
                 self.mouse_enter(event, x, y)
+                # we tag redraw since the hover colors are picked in the draw function
+                bpy.context.region.tag_redraw()
 
             # we are leaving the rect
             elif self.__inrect and not inrect:
                 self.__inrect = False
                 self.mouse_exit(event, x, y)
+                bpy.context.region.tag_redraw()
 
-            #return always false to enable mouse exit events on other buttons.
+            #return always false to enable mouse exit events on other buttons.(would sometimes not hide the tooltip)
             return False # self.__inrect
 
         elif event.value == 'PRESS' and self.__inrect and (event.ascii != '' or event.type in self.get_input_keys()):
