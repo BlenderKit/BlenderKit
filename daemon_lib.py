@@ -4,7 +4,6 @@ import platform
 import subprocess
 import sys
 from os import environ, path
-from urllib.parse import urlparse
 
 import bpy
 import requests
@@ -14,7 +13,7 @@ from . import dependencies, global_vars, reports
 
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "","https": ""}
-TIMEOUT = (0.1, 0.5) 
+TIMEOUT = (0.1, 1)
 
 def get_address() -> str:
   """Get address of the daemon."""
@@ -60,7 +59,7 @@ def get_reports(app_id: str, api_key=''):
             reorder_ports(port)
             return report
         except Exception as e:
-            print(f'Failed to get reports on: {e}')
+            bk_logger.info(f'Failed to get daemon reports: {e}')
             last_exception = e
     raise last_exception
 

@@ -114,12 +114,12 @@ async def pack_blend_file(task: tasks.Task, metadata_response):
         'upload_set': upload_set,
       }
       datafile = os.path.join(export_data['temp_dir'], BLENDERKIT_EXPORT_DATA_FILE)
-
+      logger.info('opening file @ pack_blend_file()')
       with open(datafile, 'w', encoding='utf-8') as s:
         json.dump(data, s, ensure_ascii=False, indent=4)
 
       task.change_progress(10, 'preparing scene - running blender instance')
-
+      logger.info("creating subprocess @ pack_blend_file()")
       process = await asyncio.create_subprocess_exec(
         export_data['binary_path'],
         '--background',
@@ -131,7 +131,7 @@ async def pack_blend_file(task: tasks.Task, metadata_response):
         stderr=None,
         stdin=None,
         )
-
+      logger.info("processs.communicate @ pack_blend_file()")
       await process.communicate()
       if process.returncode != 0:
         return f'file packing script failed with non zero return code ({process.returncode})', None
@@ -174,7 +174,7 @@ async def upload_asset_data(session: ClientSession, task: tasks.Task, files: lis
     url = f'{api_url}/uploads/' 
     response = await session.post(url, json=upload_info, headers=headers)
     upload_info_json = await response.json()
-
+    logger.info('opening file @ upload_asset_data()')
     with open(file['file_path'], 'rb') as binary_file:
       response = await session.put(
         upload_info_json['s3UploadUrl'],

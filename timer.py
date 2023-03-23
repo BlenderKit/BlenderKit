@@ -30,6 +30,7 @@ pending_tasks = list() # pending tasks are tasks that were not parsed correclty 
 
 
 def handle_failed_reports(exception: Exception) -> float:
+    bk_logger.warning(f"Request for daemon reports failed: {type(exception)} {exception}")
     global_vars.DAEMON_ACCESSIBLE = False
     if global_vars.DAEMON_FAILED_REPORTS in (0,10):
         daemon_lib.start_daemon_server()
@@ -70,7 +71,7 @@ def daemon_communication_timer():
     return handle_failed_reports(e)
 
   if global_vars.DAEMON_ACCESSIBLE is False:
-    reports.add_report("Daemon is running!")
+    reports.add_report(f"Daemon is running on port {global_vars.DAEMON_PORTS[0]}!")
     global_vars.DAEMON_ACCESSIBLE = True
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo"

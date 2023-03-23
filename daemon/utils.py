@@ -6,7 +6,7 @@ import re
 import sys
 from logging import Formatter, StreamHandler, basicConfig, getLogger
 from pathlib import Path
-from socket import AF_INET, SOCK_STREAM, socket
+from socket import AF_INET
 
 import aiohttp
 import globals
@@ -210,18 +210,22 @@ def configure_loggers():
   configure_imported_loggers()
 
 
-def any_DNS_available():
+async def any_DNS_available():
     """Check if any DNS server is available."""
     PORT = 53
-    TIMEOUT = 3
-    error = ""
-    for HOST in globals.DNS_HOSTS:
-        try:
-            s = socket(AF_INET, SOCK_STREAM)
-            s.settimeout(TIMEOUT)
-            s.connect((HOST, PORT))
+    TIMEOUT = 1
+    for i, HOST in enumerate(globals.DNS_HOSTS):
+        try:         
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(HOST, PORT, family=AF_INET),
+                timeout=TIMEOUT)
+            writer.close()
+            await writer.wait_closed()
+            if i > 0:
+               globals.DNS_HOSTS = [globals.DNS_HOSTS[i],] + globals.DNS_HOSTS[:i] + globals.DNS_HOSTS[i+1:]  
             return 200
         except Exception as e:
-            error = str(e)
-    return error
-
+            if i >= 2:
+                globals.DNS_HOSTS = globals.DNS_HOSTS[i:] + globals.DNS_HOSTS[:i]
+                logger.warning(f"DNS check failed: {e}")
+                return str(e)
