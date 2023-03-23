@@ -1,5 +1,6 @@
 import logging
 import math
+import time
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
@@ -70,10 +71,10 @@ def modal_inside(self, context, event):
             # doesn't run that often.
             if len(sr) - ui_props.scroll_offset < (ui_props.wcount * user_preferences.max_assetbar_rows) + 15:
                 self.search_more()
-        self.update_timer += 1
 
-        if self.update_timer > self.update_timer_limit:
-            self.update_timer = 0
+        time_diff = time.time() - self.update_timer_start
+        if time_diff > self.update_timer_limit:
+            self.update_timer_start = time.time()
             # self.update_buttons()
 
             # progress bar
@@ -86,17 +87,6 @@ def modal_inside(self, context, event):
                 if sr is not None and len(sr) > asset_button.asset_index:
                     asset_data = sr[asset_button.asset_index]
                     self.update_progress_bar(asset_button, asset_data)
-
-                    if asset_data['downloaded'] > 0:
-                        nwidth = int(self.button_size * ui_scale * asset_data['downloaded'] / 100)
-                        if nwidth != asset_button.progress_bar.width:
-                            change = True
-                            asset_button.progress_bar.width = nwidth
-                            asset_button.progress_bar.visible = True
-                    else:
-                        if asset_button.progress_bar.visible:
-                            change = True
-                            asset_button.progress_bar.visible = False
             if change:
                 context.region.tag_redraw()
 
@@ -190,9 +180,9 @@ def asset_bar_invoke(self, context, event):
 
     self.register_handlers(args, context)
 
-    self.update_timer_limit = 30
-    self.update_timer = 0
-    # self._timer = context.window_manager.event_timer_add(10.0, window=context.window)
+    self.update_timer_limit = .5
+    self.update_timer_start = time.time()
+    self._timer = context.window_manager.event_timer_add(0.5, window=context.window)
 
     context.window_manager.modal_handler_add(self)
     global active_area_pointer
@@ -428,14 +418,18 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.visible = False
 
     def check_new_search_results(self, context):
+        '''checks if results were replaced.
+        this can happen from search, but also by switching results.
+        We should rather trigger that update from search. maybe let's add a uuid to the results?'''
         sr = global_vars.DATA.get('search results')
 
         if not hasattr(self, 'search_results_count'):
-            if not sr:
+            if not sr or len(sr)==0:
                 self.search_results_count = 0
+                self.last_asset_type =''
                 return True
-
             self.search_results_count = len(sr)
+            self.last_asset_type = sr[0]['assetType']
         if sr is not None and len(sr) != self.search_results_count:
             self.search_results_count = len(sr)
             return True
@@ -617,16 +611,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             asset_y  + self.button_margin + self.validation_icon_margin, self.icon_size, self.icon_size)
         bookmark_button.set_image_size((self.icon_size, self.icon_size))
         bookmark_button.set_image_position((0, 0))
-        new_button.button_index = button_idx
-        new_button.search_index = button_idx
+        bookmark_button.button_index = button_idx
+        bookmark_button.search_index = button_idx
         bookmark_button.text=""
         bookmark_button.set_mouse_down(self.bookmark_asset)
 
-        img_fp = paths.get_addon_thumbnail_path("bookmark_full.png")
+        img_fp = paths.get_addon_thumbnail_path("bookmark_empty.png")
         bookmark_button.set_image(img_fp)
         bookmark_button.bg_color = fully_transparent_color
         bookmark_button.hover_bg_color = fully_transparent_color
         bookmark_button.select_bg_color = fully_transparent_color
+        bookmark_button.visible = False
         new_button.bookmark_button = bookmark_button
         self.bookmark_buttons.append(bookmark_button
                                      )
@@ -767,7 +762,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 if asset_idx < len(sr):
                     button.visible = True
                     button.validation_icon.visible = True
-                    button.bookmark_button.visible = True
+                    button.bookmark_button.visible = False
                     # button.progress_bar.visible = True
                 else:
                     button.visible = False
@@ -907,7 +902,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         global asset_bar_operator
         asset_bar_operator = None
 
-        # context.window_manager.event_timer_remove(self._timer)
+        context.window_manager.event_timer_remove(self._timer)
 
         scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -1191,12 +1186,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = max(self.scroll_offset, 0)
         #only update if scroll offset actually changed, otherwise this is unnecessary
 
-        if self.last_scroll_offset == self.scroll_offset:
-            return
-        self.last_scroll_offset = self.scroll_offset
-
-        self.update_buttons()
-
         if sro['count'] > len(sr) and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15:
             self.search_more()
 
@@ -1211,11 +1200,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_scroll_up.visible = True
 
         # here we save some time by only updating the images if the scroll offset actually changed
-        if self.last_scroll_offset == self.scroll_offset:
+        if self.last_scroll_offset == self.scroll_offset and not always:
             return
         self.last_scroll_offset = self.scroll_offset
 
-        self.update_images()
+        self.update_buttons()
 
     def search_by_author(self, asset_index):
         sr = global_vars.DATA['search results']
