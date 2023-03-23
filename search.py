@@ -292,6 +292,8 @@ def clear_searches():
 
 
 def cleanup_search_results():
+  '''clear search results and also search tasks - when e.g. profile is fetched so we can have better
+  search results with canDownload flag.'''
   dicts = (
     'search results','bkit model search',
     'bkit scene search',
@@ -303,6 +305,7 @@ def cleanup_search_results():
   for sr in dicts:
     global_vars.DATA.pop(sr, None)
     global_vars.DATA.pop(f'{sr} orig', None)
+  clear_searches()
 
 def handle_search_task(task: tasks.Task) -> bool:
   """Parse search results, try to load all available previews."""
