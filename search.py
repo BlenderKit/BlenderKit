@@ -587,9 +587,9 @@ def handle_get_user_profile(task: tasks.Task):
   """Handle incomming get_user_profile task which contains data about current logged-in user."""
   if task.status == 'finished':
     user_data = task.result
+    user_data['user']['tooltip'] = generate_author_textblock(user_data['user'])
     global_vars.DATA['bkit profile'] = user_data
     global_vars.DATA['bkit authors'][str(user_data['user']['id'])] = user_data['user']
-
     #after profile arrives, we can check for gravatar image
     daemon_lib.fetch_gravatar_image(user_data['user'])
 
