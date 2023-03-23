@@ -191,7 +191,8 @@ async def report(request: web.Request):
   status_report = tasks.Task({}, data['app_id'], 'daemon_status', result={'online_status': globals.online_status})
   reports.append(status_report.to_seriazable_object())
   reports.reverse()
-  return web.json_response(reports)
+  resp = web.json_response(reports)
+  return resp
 
 
 async def shutdown(request: web.Request):
@@ -225,7 +226,7 @@ async def life_check(app: web.Application):
 
 async def online_status_check(app: web.Application):
   while True:
-    globals.online_status = utils.any_DNS_available()
+    globals.online_status = await utils.any_DNS_available()
     if globals.online_status == 200:
       await asyncio.sleep(3)
     else:
@@ -386,7 +387,7 @@ if __name__ == '__main__':
     if e.errno == 48: exit(148)
     if e.errno == 10048: exit(149)
     exit(110)
-  except Exception as e: exit(100)
+  except Exception: exit(100)
 
   sock.close()
   logger.info('Daemon script has ended.')
