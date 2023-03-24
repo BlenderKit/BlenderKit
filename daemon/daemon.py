@@ -300,8 +300,12 @@ async def persistent_sessions(app):
   conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8, family=family)
   app['SESSION_BIG_THUMBS'] = session_big_thumbs = aiohttp.ClientSession(connector=conn_big_thumbs, trust_env=trust_env)
 
+  timeout = aiohttp.ClientTimeout(total=24*60*60) # 1 day
   conn_assets = aiohttp.TCPConnector(ssl=sslcontext, limit=4, family=family)
-  app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets, trust_env=trust_env)
+  app['SESSION_ASSETS'] = session_assets = aiohttp.ClientSession(connector=conn_assets, trust_env=trust_env, timeout=timeout)
+
+  conn_uploads = aiohttp.TCPConnector(ssl=sslcontext, limit=4, family=family)
+  app['SESSION_UPLOADS'] = session_uploads = aiohttp.ClientSession(connector=conn_uploads, trust_env=trust_env, timeout=timeout)
 
   yield
   await asyncio.gather(
@@ -316,6 +320,9 @@ async def persistent_sessions(app):
 
     conn_assets.close(),
     session_assets.close(),
+
+    conn_uploads.close(),
+    session_uploads.close(),
   )
 
 
