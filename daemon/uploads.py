@@ -19,10 +19,8 @@ BLENDERKIT_EXPORT_DATA_FILE = 'data.json'
 
 
 async def do_upload(request: web.Request, task: tasks.Task):
-  session = request.app['SESSION_API_REQUESTS']
-
   task.change_progress(1, 'posting metadata')  
-  error, metadata_response = await upload_metadata(session, task)
+  error, metadata_response = await upload_metadata(request.app['SESSION_API_REQUESTS'], task)
   if error != '':
     task.error(f'Metadata upload failed: {error}')
     return
@@ -43,7 +41,7 @@ async def do_upload(request: web.Request, task: tasks.Task):
     return
 
   task.change_progress(20, 'uploading files')  
-  error = await upload_asset_data(session, task, files, metadata_response)
+  error = await upload_asset_data(request.app['SESSION_UPLOADS'], task, files, metadata_response)
   if error != '':
     task.error(f'Asset upload failed: {error}')
     return
@@ -161,7 +159,6 @@ async def upload_asset_data(session: ClientSession, task: tasks.Task, files: lis
   upload_data = task.data['upload_data']
   upload_set = task.data['upload_set']
   headers = utils.get_headers(upload_data['token'])
-
   uploaded = True
   for file in files:
     upload_info = {
@@ -174,14 +171,14 @@ async def upload_asset_data(session: ClientSession, task: tasks.Task, files: lis
     url = f'{api_url}/uploads/' 
     response = await session.post(url, json=upload_info, headers=headers)
     upload_info_json = await response.json()
-    logger.info('opening file @ upload_asset_data()')
     with open(file['file_path'], 'rb') as binary_file:
+      logger.info(f"Uploading file {file['file_path']} to S3")
       response = await session.put(
         upload_info_json['s3UploadUrl'],
         data = binary_file,
         )
-
       if 250 > response.status > 199: #WHY?
+        logger.info("File upload successful")
         upload_done_url = f'{api_url}/uploads_s3/{upload_info_json["id"]}/upload-file/'
         response = await session.post(upload_done_url, headers=headers) #TODO: we should check this return value also?
         task.change_progress(task.progress + 15)
@@ -190,7 +187,6 @@ async def upload_asset_data(session: ClientSession, task: tasks.Task, files: lis
         text = await response.text()
         logger.warning(f'response={text}')
         uploaded = False
-    
 
   if not uploaded:
     return 'some files not uploaded'
