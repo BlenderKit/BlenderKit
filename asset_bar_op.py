@@ -259,14 +259,23 @@ def get_tooltip_data(asset_data):
 
 
 def set_thumb_check(element, asset, thumb_type = 'thumbnail_small'):
-    '''sets image in case it is loaded in search'''
+    '''sets image in case it is loaded in search results
+     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
+
+    '''
     directory = paths.get_temp_dir('%s_search' % asset['assetType'])
-    tpath = os.path.join(directory, asset[thumb_type])
+    if asset[thumb_type] == '': # for thumbnails not present at all
+        tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
+    else:
+        tpath = os.path.join(directory, asset[thumb_type])
+
     if element.get_image_path() == tpath:
+        # no need to update
         return
-    img_name_datablock = f'.{asset["thumbnail_small"]}'
+    # img_name_datablock = f'.{asset["thumbnail_small"]}'
+
     # if not os.path.exists(tpath):
-    #     global_vars.DATA['images available'][tpath]=None
+    #     del global_vars.DATA['images available'][tpath]
 
     if not global_vars.DATA['images available'].get(tpath):
         tpath = paths.get_addon_thumbnail_path('thumbnail_notready.jpg')
@@ -1115,6 +1124,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.validation_icon.visible = False
 
     def update_image(self, asset_id):
+        '''should be run after thumbs are retrieved so they can be updated '''
         sr = global_vars.DATA.get('search results')
         if not sr:
             return
