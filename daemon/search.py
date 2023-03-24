@@ -34,10 +34,11 @@ async def download_image(session: aiohttp.ClientSession, task: tasks.Task):
     async with session.get(image_url, headers=utils.get_headers()) as resp:
       if resp and resp.status != 200:
         task.error(f"thumbnail download error: {resp.status}")
-      with open(image_path, 'wb') as file:
-        async for chunk in resp.content.iter_chunked(4096 * 32):
-          file.write(chunk)
-      task.finished("thumbnail downloaded")
+      elif resp and resp.status == 200:
+        with open(image_path, 'wb') as file:
+          async for chunk in resp.content.iter_chunked(4096 * 32):
+            file.write(chunk)
+          task.finished("thumbnail downloaded")
   except Exception as e:
     task.error(f"thumbnail download error: {e}")
 
