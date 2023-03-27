@@ -1169,3 +1169,25 @@ def list2string(lst: list) -> str:
         text += item + ", "
     return text[:-2]
 
+
+def check_globaldir_permissions():
+    """Check if the user has the required permissions to upload assets."""
+    global_dir = bpy.context.preferences.addons['blenderkit'].preferences.global_dir
+    if os.path.isfile(global_dir):
+        reports.add_report('Global dir is a file. Please remove it or change global dir path in preferences.', 10, type='ERROR')
+        return False
+    if not os.path.isdir(global_dir):
+        bk_logger.info(f'Global dir does not exist. Creating it at {global_dir}')
+        try:
+            os.mkdir(global_dir)
+        except Exception as e:
+            reports.add_report(f'Cannot create Global dir. Check global dir path in preferences. {e}', 10, type='ERROR')
+            return False
+
+    exists = os.access(global_dir, os.F_OK)
+    can_write = os.access(global_dir, os.W_OK)
+    can_execute = os.access(global_dir, os.X_OK)
+    if exists and can_write and can_execute:
+        bk_logger.info('Global dir permissions are OK.')
+        return True
+    reports.add_report(f'Change path or give permissions to Global dir, wrong permissions now: exists={exists}, write={can_write}, execute={can_execute}.', 15, type='ERROR')

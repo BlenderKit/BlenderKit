@@ -1958,11 +1958,6 @@ def register():
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
     addon_updater_ops.register(bl_info)
-    dependencies.ensure_preinstalled_deps_copied()
-    dependencies.add_installed_deps_path()
-    dependencies.add_preinstalled_deps_path()
-    dependencies.ensure_deps()
-
     for cls in classes:
         bpy.utils.register_class(cls)
 
