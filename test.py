@@ -9,7 +9,10 @@ runner = unittest.TextTestRunner()
 suite = unittest.TestSuite()
 testLoader = unittest.TestLoader()
 
-suite = testLoader.discover('.', 'test_*.py')
+suite.addTests(testLoader.discover('.', 'test_timer.py'))
+suite.addTests(testLoader.discover('.', 'test_paths.py'))
+suite.addTests(testLoader.discover('.', 'test_daemon_lib.py'))
+
 result = runner.run(suite)
 errors = len(result.errors)
 failures = len(result.failures) 
