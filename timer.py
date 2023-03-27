@@ -11,6 +11,7 @@ from . import (
     categories,
     comments_utils,
     daemon_lib,
+    dependencies,
     disclaimer_op,
     download,
     global_vars,
@@ -246,8 +247,14 @@ def check_timers_timer():
 def on_startup_timer():
   """Run once on the startup of add-on."""
   addon_updater_ops.check_for_update_background()
+  utils.check_globaldir_permissions()
   utils.ensure_system_ID()
 
+  dependencies.ensure_preinstalled_deps_copied()
+  dependencies.add_installed_deps_path()
+  dependencies.add_preinstalled_deps_path()
+  dependencies.ensure_deps()
+  return None
 
 def on_startup_daemon_online_timer():
   """Run once when daemon is online after startup."""
@@ -268,7 +275,6 @@ def register_timers():
   It registers check_timers_timer which registers all other periodic non-ending timers.
   And individually it register all timers which are expected to end.
   """
-
   if bpy.app.background:
     return
 

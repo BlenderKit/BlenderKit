@@ -7,7 +7,7 @@ import sys
 import time
 from os import environ, makedirs, path, pathsep
 
-from . import global_vars
+from . import global_vars, reports
 from .daemon_lib import get_daemon_directory_path
 
 
@@ -30,7 +30,10 @@ def ensure_preinstalled_deps_copied():
   
   if not path.isdir(install_into):
     bk_logger.info(f'Copying dependencies from {deps_path} into {install_into}')
-    shutil.copytree(deps_path, install_into)
+    try:
+        shutil.copytree(deps_path, install_into)
+    except Exception as e:
+        reports.add_report(f'Dependencies install failed: {e}', 20, 'ERROR')
 
 def bundled_version_is_correct() -> tuple[bool, str, str]:
     """Check if bundled dependencies are for the python version of currently running Blender."""
