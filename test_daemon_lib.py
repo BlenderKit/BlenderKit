@@ -36,18 +36,20 @@ class Test01DaemonNotRunning(unittest.TestCase):
 
 
 ### DAEMON IS RUNNING ###
-  
-class Test02DaemonRunning(unittest.TestCase):
-  def test01_start_daemon_server(self):
+class DaemonRunningTestCase(unittest.TestCase):
+  def _start_daemon_server(self):
     daemon_lib.start_daemon_server()
     with requests.Session() as session:
       for i in range(10):
         time.sleep(i*0.5)
         alive, _ = daemon_lib.daemon_is_alive(session)
-        if alive == True:
+        if alive is True:
           break
       self.assertTrue(alive)
 
+class Test02DaemonRunning(DaemonRunningTestCase):
+  def test01_start_daemon_server(self): self._start_daemon_server()
+    
 
 class Test03DaemonUtilFunctions(unittest.TestCase):
   def test_get_port(self):
@@ -84,8 +86,7 @@ class Test04GetReportsDaemonRunning(unittest.TestCase):
     self.assertEqual(reports[0]['task_type'], 'daemon_status')
 
 
-class Test05SearchAndDownloadAsset(unittest.TestCase):
-  assets_to_download = []
+class SearchAndDownloadAssetTestCase(unittest.TestCase):
   def _search_asset(self, search_word, asset_type):
     addon_version = f'{global_vars.VERSION[0]}-{global_vars.VERSION[1]}-{global_vars.VERSION[2]}-{global_vars.VERSION[3]}'
     blender_version = bpy.app.version
@@ -113,15 +114,15 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
           continue
         if task['result'] != {}:
           for result in task['result']['results']:
-            if result['canDownload'] == True:
-              if to_download == None:
+            if result['canDownload'] is True:
+              if to_download is None:
                 to_download = result
                 continue
               result_size = result.get('filesSize', 9999999)
-              if result_size == None:
+              if result_size is None:
                 result_size = 9999999
               to_download_size = to_download.get('filesSize', 9999999)
-              if to_download_size == None:
+              if to_download_size is None:
                 to_download_size = 9999999
               if result_size < to_download_size:
                 to_download = result
@@ -131,11 +132,10 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
     self.fail('Error waiting for search task to be reported as finished')
 
   def _download_asset(self, asset_data):
-    if asset_data == None:
+    if asset_data is None:
       self.fail('Asset data from search are None')
 
     download.start_download(asset_data, resolution=512, model_location=(0.0, 0.0, 0.0), model_rotation=(0.0, 0.0, 0.0))
-  
     for _ in range(100):
       reports = daemon_lib.get_reports(os.getpid())
       for task in reports:
@@ -146,6 +146,9 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
         return
       time.sleep(1)
 
+
+class Test05SearchAndDownloadAsset(SearchAndDownloadAssetTestCase):
+  assets_to_download = []
   #small assets are chosen here
   def test00Search(self): self.assets_to_download.append(self._search_asset('Toy train-02', 'model'))
   def test01Search(self): self.assets_to_download.append(self._search_asset('Wooden toy car', 'model'))
@@ -166,13 +169,16 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 
 ### DAEMON IS NOT RUNNING ###
 
-class Test99DaemonStopped(unittest.TestCase):
-  def test_kill_daemon_server(self):
+class DaemonStoppedTestCase(unittest.TestCase):
+  def _kill_daemon_server(self):
     daemon_lib.kill_daemon_server()
     with requests.Session() as session:
       for _ in range(5):
         alive, _ = daemon_lib.daemon_is_alive(session)
-        if alive == False:
+        if alive is False:
           break
         time.sleep(1)
       self.assertFalse(alive)
+
+class Test99DaemonStopped(DaemonStoppedTestCase):
+  def test_kill_daemon_server(self): self._kill_daemon_server()

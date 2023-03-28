@@ -62,19 +62,19 @@ def do_build(install_at=None, include_tests=False):
 
 
 def run_tests():
-  test = subprocess.Popen([
-    'blender',
-    '--background',
-    '-noaudio',
-    '--python-exit-code',
-    '1',
-    '--python',
-    'test.py'
-    ])
-  test.wait()
-  
-  if test.returncode == 1:
-    exit(1)
+    test = subprocess.Popen([
+        'blender',
+        '--background',
+        '-noaudio',
+        '--python-exit-code',
+        '1',
+        '--python',
+        'test.py'
+        ])
+    test.wait()
+
+    if test.returncode == 1:
+        exit(1)
 
 
 def bundle_dependencies():
