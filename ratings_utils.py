@@ -20,10 +20,16 @@ import logging
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
-from bpy.props import EnumProperty, FloatProperty, IntProperty, StringProperty
+from bpy.props import (
+    BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
+    StringProperty,
+)
 from bpy.types import PropertyGroup
 
-from . import daemon_lib, global_vars, utils
+from . import daemon_lib, global_vars, tasks_queue, utils
 from .daemon import tasks
 
 
@@ -40,8 +46,9 @@ def handle_get_rating_task(task: tasks.Task):
     asset_id = task.data['asset_id']
     ratings = task.result['results']
     if len(ratings) == 0:
-        return store_rating_local_empty(asset_id, 'quality')
-        return store_rating_local_empty(asset_id, 'working_hours')
+        store_rating_local_empty(asset_id, 'quality')
+        store_rating_local_empty(asset_id, 'working_hours')
+        return
 
     for rating in ratings:
         store_rating_local(asset_id, rating['ratingType'], rating['score'])
@@ -80,8 +87,7 @@ def store_rating_local(asset_id, type='quality', value=0):
 
 
 def get_rating_local(asset_id, rating_type):
-    """Get the rating locally from global_vars.
-    """
+    """Get the rating locally from global_vars."""
     r = global_vars.DATA['asset ratings'].get(asset_id,{})
     return r.get(rating_type)
 
@@ -110,7 +116,9 @@ def update_ratings_quality(self, context):
         return
 
     store_rating_local(asset_id, type='quality', value=bkit_ratings.rating_quality)
-    daemon_lib.send_rating(asset_id, 'quality', bkit_ratings.rating_quality)
+    if self.rating_quality_lock is False:
+        args = (asset_id, "quality", bkit_ratings.rating_quality)
+        tasks_queue.add_task((daemon_lib.send_rating, args), wait=0.5, only_last=True)
 
 
 def update_ratings_work_hours(self, context):
@@ -128,30 +136,32 @@ def update_ratings_work_hours(self, context):
         return
 
     store_rating_local(asset_id, type='working_hours', value=bkit_ratings.rating_work_hours)
-    daemon_lib.send_rating(asset_id, 'working_hours', bkit_ratings.rating_work_hours)
-
+    if self.rating_work_hours_lock is False:
+        args = (asset_id, "working_hours", bkit_ratings.rating_work_hours)
+        tasks_queue.add_task((daemon_lib.send_rating, args), wait=0.5, only_last=True)
 
 def update_quality_ui(self, context):
     '''Converts the _ui the enum into actual quality number.'''
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     #we need to check for matching value not to update twice/call the popup twice.
     if user_preferences.api_key == '' and self.rating_quality != int(self.rating_quality_ui):
-        # return
         bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
                                     message='Please login/signup to rate assets. Clicking OK takes you to web login.')
-    else:
-      self.rating_quality = int(self.rating_quality_ui)
+        return
+
+    self.rating_quality = int(self.rating_quality_ui)
 
 
 def update_ratings_work_hours_ui(self, context):
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.api_key == ''and self.rating_work_hours != float(self.rating_work_hours_ui):
+    if user_preferences.api_key == '' and self.rating_work_hours != float(self.rating_work_hours_ui):
         # ui_panels.draw_not_logged_in(self, message='Please login/signup to rate assets.')
         # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_login_menu')
         # return
         bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
                                     message='Please login/signup to rate assets. Clicking OK takes you to web login.')
         # self.rating_work_hours_ui = '0'
+        return
     self.rating_work_hours = float(self.rating_work_hours_ui)
 
 
@@ -217,6 +227,12 @@ class RatingProperties(PropertyGroup):
         default="",
         options={'SKIP_SAVE'})
 
+    ### QUALITY RATING
+    rating_quality_lock: BoolProperty(name="Quality Lock",
+                                      description="Quality is locked -> rating is not sent online",
+                                      default=False,
+                                      options={'SKIP_SAVE'})
+
     rating_quality: IntProperty(name="Quality",
                                 description="quality of the material",
                                 default=0,
@@ -232,6 +248,12 @@ class RatingProperties(PropertyGroup):
                                     update=update_quality_ui,
                                     options={'SKIP_SAVE'})
 
+    ### WORK HOURS RATING
+    rating_work_hours_lock: BoolProperty(name="Work Hours Lock",
+                                         description="Work hours are locked -> rating is not sent online",
+                                         default=False,
+                                         options={'SKIP_SAVE'}
+                                         )
     rating_work_hours: FloatProperty(name="Work Hours",
                                      description="How many hours did this work take?",
                                      default=0.00,
@@ -309,27 +331,36 @@ class RatingProperties(PropertyGroup):
                                             )
 
     def prefill_ratings(self):
-        # pre-fill ratings
+        """Pre-fill the quality and work hours ratings if available.
+        Locks the ratings locks so that the update function is not called and ratings are not sent online.
+        """
         if not utils.user_logged_in():
-          return
+            return
         rating_quality = get_rating_local(self.asset_id,"quality")
         rating_work_hours = get_rating_local(self.asset_id,"working_hours")
         if rating_quality is None and rating_work_hours is None:
-          return
-        if not self.rating_quality ==0:
-          #return if the rating was already filled
-          return
+            return
+        if self.rating_quality != 0:
+            return #return if the rating was already filled
+        if self.rating_work_hours != 0:
+            return
+
         if rating_quality is not None:
+            self.rating_quality_lock = True
             self.rating_quality = int(rating_quality)
+            self.rating_quality_lock = False
+        
         if rating_work_hours is not None:
             wh = int(rating_work_hours)
             whs = str(wh)
+            self.rating_work_hours_lock = True
             if wh in self.possible_wh_values:
                 self.rating_work_hours_ui = whs
             if wh < 6 and wh in self.possible_wh_values_1_5:
                 self.rating_work_hours_ui_1_5 = whs
             if wh < 11 and wh in self.possible_wh_values_1_10:
                 self.rating_work_hours_ui_1_10 = whs
+            self.rating_work_hours_lock = False
         bpy.context.area.tag_redraw()
 # class RatingPropsCollection(PropertyGroup):
 #   ratings = CollectionProperty(type = RatingProperties)
