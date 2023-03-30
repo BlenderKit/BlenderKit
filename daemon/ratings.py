@@ -32,8 +32,9 @@ async def get_rating(task: tasks.Task, request: web.Request):
 
 
 async def send_rating_handler(request: web.Request):
+    """Handle incomming rating request (quality, work hours, bookmark, etc)."""
     data = await request.json()
-    task = tasks.Task(data, data['app_id'], 'ratings/send_rating', message=f'Sending {data["rating_type"]}rating')
+    task = tasks.Task(data, data['app_id'], 'ratings/send_rating', message=f'Sending {data["rating_type"]} rating')
     globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(send_rating(task, request))
     task.async_task.add_done_callback(tasks.handle_async_errors)
@@ -45,6 +46,7 @@ async def send_rating(task: tasks.Task, request: web.Request):
     url = f'{globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
     data = {"score": task.data['rating_value']}
     try:
+        logger.info(f'Sending rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}')
         async with session.put(url, data=data, headers=headers) as resp:
             task.result = await resp.json()
     except Exception as e:
@@ -65,7 +67,6 @@ async def get_bookmarks(task: tasks.Task, request: web.Request):
     session = request.app['SESSION_API_REQUESTS']
     headers = utils.get_headers(task.data.get('api_key',''))
     url=f"{globals.SERVER}/api/v1/search/?query=bookmarks_rating:1"
-
     try:
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()
