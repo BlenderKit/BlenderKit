@@ -1597,15 +1597,22 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     show_on_start: BoolProperty(
-        name="Show assetbar when starting blender",
-        description="Show assetbar when starting blender",
+        name="Show assetbar when starting Blender",
+        description="Show assetbar when starting Blender",
         default=False,
         update=utils.save_prefs
     )
 
     tips_on_start: BoolProperty(
-        name="Show tips when starting blender",
-        description="Show tips when starting blender",
+        name="Show tips when starting Blender",
+        description="Show tips when starting Blender",
+        default=True,
+        update=utils.save_prefs
+    )
+
+    announcements_on_start: BoolProperty(
+        name="Receive online announcements when starting Blender",
+        description="Show crucial online announcements from the BlenderKit service. These are official messages from the BlenderKit team regarding maintenance, events, and other relevant information.",
         default=True,
         update=utils.save_prefs
     )
@@ -1912,6 +1919,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "thumb_size")
         layout.prop(self, "max_assetbar_rows")
         layout.prop(self, "tips_on_start")
+        layout.prop(self, "announcements_on_start")
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
         layout.prop(self, "daemon_port")

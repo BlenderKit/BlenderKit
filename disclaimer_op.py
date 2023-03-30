@@ -199,8 +199,13 @@ def handle_disclaimer_task(task: tasks.Task):
   if task.status == 'finished':
     if task.result == {}:
       return show_random_tip()
-    
+
     disclaimer = task.result['results'][0]
+    preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    if preferences.announcements_on_start is False:
+      bk_logger.warning(f"Online announcements are disabled! Message hidden from GUI: {disclaimer['message']}")
+      return show_random_tip()
+    
     tasks_queue.add_task((run_disclaimer_task, (disclaimer['message'], disclaimer['url'], False)), wait=0)
     return
 
