@@ -9,7 +9,7 @@ from os import environ, getpid
 from platform import system
 from signal import SIGINT, raise_signal
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, socket
-from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext
+from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext, create_default_context
 from sys import stdout
 from time import time
 from uuid import uuid4
@@ -269,7 +269,11 @@ def find_and_bind_socket(port: str) -> socket:
     exit(111)
 
 async def persistent_sessions(app):
-  sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
+  if globals.SSL_CONTEXT == "PRECONFIGURED":
+    sslcontext = create_default_context()
+  else:
+    sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
+
   if app['PROXY_CA_CERTS'] != '':
     sslcontext.load_verify_locations(app['PROXY_CA_CERTS'])
   sslcontext.load_verify_locations(certifi.where())
@@ -337,6 +341,7 @@ if __name__ == '__main__':
   parser.add_argument('--proxy_address', type=str, default='')
   parser.add_argument('--proxy_ca_certs', type=str, default='')
   parser.add_argument('--ip_version', type=str, default='BOTH')
+  parser.add_argument('--ssl_context', type=str, default='DEFAULT')
   parser.add_argument('--system_id', type=str, default='')
   parser.add_argument('--version', type=str, default='')
   args = parser.parse_args()
@@ -345,6 +350,7 @@ if __name__ == '__main__':
   globals.PORT = args.port
   globals.SERVER = args.server
   globals.IP_VERSION = args.ip_version
+  globals.SSL_CONTEXT = args.ssl_context
   globals.SYSTEM_ID = args.system_id
   globals.VERSION = args.version
   server = web.Application()
