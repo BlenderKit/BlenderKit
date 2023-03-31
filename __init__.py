@@ -1700,6 +1700,19 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
     )
 
+    ssl_context: EnumProperty(
+        name="SSL Context",
+        items=(
+            ('DEFAULT', 'DEFAULT blank context - ssl.SSLContext()',
+             'Daemon will use blank SSL context and will add settings on top of that. This is independent of SSL module settings and version of Python. This is default option for BlenderKit 3.2 and higher.'),
+            ('PRECONFIGURED', 'PRECONFIGURED by SSL module - ssl.create_default_context()',
+             'Daemon will use SSL context preconfigured by SSL module, and will add more settings on top of that. Try this if you face SSL errors.'),
+           ),
+        description="SSL context to be be used by daemon",
+        default="DEFAULT",
+        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
+    )
+
     proxy_which: EnumProperty(
         name="Proxy",
         items=(
@@ -1922,17 +1935,22 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "announcements_on_start")
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
-        layout.prop(self, "daemon_port")
-        layout.prop(self, "ip_version")
-        layout.prop(self, "proxy_which")
-        if self.proxy_which == 'CUSTOM':
-            layout.prop(self, "proxy_address")
-            layout.prop(self, "proxy_ca_certs")
 
         if bpy.context.preferences.view.show_developer_ui:
             layout.prop(self, "experimental_features")
         if utils.profile_is_validator():
             layout.prop(self, "categories_fix")
+
+        nbox = layout.box()
+        nbox.alignment = 'EXPAND'
+        nbox.label(text='Networking settings')
+        nbox.prop(self, "daemon_port")
+        nbox.prop(self, "ip_version")
+        nbox.prop(self, "ssl_context")
+        nbox.prop(self, "proxy_which")
+        if self.proxy_which == 'CUSTOM':
+            nbox.prop(self, "proxy_address")
+            nbox.prop(self, "proxy_ca_certs")
 
         addon_updater_ops.update_settings_ui(self, context)
 
