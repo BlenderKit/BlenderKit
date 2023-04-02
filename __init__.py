@@ -1936,8 +1936,7 @@ If you use HTTPS proxy, set in format https://ip:port, or https://username:passw
         layout.prop(self, "search_in_header")
         layout.prop(self, "thumbnail_use_gpu")
 
-        if bpy.context.preferences.view.show_developer_ui:
-            layout.prop(self, "experimental_features")
+        layout.prop(self, "experimental_features")
         if utils.profile_is_validator():
             layout.prop(self, "categories_fix")
 
