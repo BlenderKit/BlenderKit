@@ -930,7 +930,7 @@ class UploadOperator(Operator):
             layout.prop(self, 'thumbnail')
 
         if props.asset_base_id != '' and not self.reupload:
-            utils.label_multiline(layout, text="Really upload as new?"
+            utils.label_multiline(layout, text="Really upload as new?\n\n"
                                                "Do this only when you create a new asset from an old one.\n"
                                                "For updates of thumbnail or model use reupload.\n",
                                   width=400, icon='ERROR')

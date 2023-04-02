@@ -145,7 +145,7 @@ def modal_inside(self, context, event):
         if self.check_ui_resized(context) or self.check_new_search_results(context):
             self.update_ui_size(context)
             self.update_layout(context, event)
-            self.scroll_update() # one extra update for scroll for correct redraw, can test if still necessary
+            self.scroll_update(always=True) # one extra update for scroll for correct redraw, updates all buttons
 
 
         # this was here to check if sculpt stroke is running, but obviously that didn't help,
