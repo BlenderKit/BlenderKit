@@ -1111,11 +1111,24 @@ def handle_asset_upload(task: tasks.Task):
 def handle_asset_metadata_upload(task: tasks.Task):
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
 
-    if task.status == 'finished':
-        asset.asset_base_id = task.data['asset_data']['assetBaseId']
-        asset.id = task.data['asset_data']['id']
+    if task.status != 'finished':
+        return
 
-    return reports.add_report(f'Metadata upload successfull')
+    new_asset_base_id = task.data['asset_data'].get('assetBaseId')
+    if new_asset_base_id is not None:
+        asset.asset_base_id = new_asset_base_id
+        bk_logger.info(f'Assigning new asset.asset_base_id: {new_asset_base_id}')
+    else:
+        asset.asset_base_id = task.data['export_data']['assetBaseId']
+
+    new_asset_id = task.data['asset_data'].get('id')
+    if new_asset_id is not None:
+        asset.id = new_asset_id
+        bk_logger.info(f'Assigning new asset.id: {new_asset_id}')
+    else:
+        asset.id = task.data['export_data']['id']
+
+    return reports.add_report('Metadata upload successfull')
         
 
 def register_upload():
