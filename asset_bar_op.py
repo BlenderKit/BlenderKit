@@ -628,7 +628,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         img_fp = paths.get_addon_thumbnail_path("bookmark_empty.png")
         bookmark_button.set_image(img_fp)
         bookmark_button.bg_color = fully_transparent_color
-        bookmark_button.hover_bg_color = fully_transparent_color
+        bookmark_button.hover_bg_color = button_bg_color
         bookmark_button.select_bg_color = fully_transparent_color
         bookmark_button.visible = False
         new_button.bookmark_button = bookmark_button
