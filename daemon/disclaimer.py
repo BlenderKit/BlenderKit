@@ -19,10 +19,10 @@ async def get_disclaimer(request: web.Request):
   app_id = data['app_id']
   task = tasks.Task(data, app_id, 'disclaimer', str(uuid.uuid4()), message='Getting disclaimer')
   globals.tasks.append(task)
-
+  headers = utils.get_headers(data['api_key'])
   session = request.app['SESSION_API_REQUESTS']
   try:
-    async with session.get(f'{globals.SERVER}/api/v1/disclaimer/active/', headers=utils.get_headers()) as resp:
+    async with session.get(f'{globals.SERVER}/api/v1/disclaimer/active/', headers=headers) as resp:
       await resp.text()
       response = await resp.json()
       if len(response["results"])>0:
