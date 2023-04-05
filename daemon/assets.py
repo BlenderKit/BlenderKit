@@ -237,7 +237,7 @@ async def get_download_filepaths(task) -> list:
 
   return file_names
 
-
+#TODO: better naming, is used only in do_asset_download for command "unpack"
 async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
   """Send various tasks to a new blender instance that runs and closes after finishing the task.
 
@@ -276,11 +276,19 @@ async def send_to_bg(data, fpath, command='generate_resolutions', wait=True):
     "--python", os.path.join(script_path, "..", "resolutions_bg.py"),
     "--", datafile
   ]
-  proc = await asyncio.create_subprocess_exec(binary_path, *args, creationflags=utils.get_process_flags())
-  # stdout = asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+  logger.info(f"Running in BG: {command}")
+  proc = await asyncio.create_subprocess_exec(
+    binary_path,
+    *args,
+    creationflags=utils.get_process_flags(),
+    stdout=asyncio.subprocess.PIPE,
+    stderr=asyncio.subprocess.STDOUT,
+    )
   if wait:
-    stdout, stderr = await proc.communicate()
-
+    stdout, _ = await proc.communicate()
+    if proc.returncode != 0:
+        out = stdout.decode()
+        logger.error(f"Command {command} failed ({proc.returncode}) in background:\n{out}")
   return proc
 
 

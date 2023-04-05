@@ -37,8 +37,7 @@ async def do_upload(request: web.Request, task: tasks.Task):
   task.change_progress(5, 'packing files')  
   error, files = await pack_blend_file(task, metadata_response)
   if error != '':
-    task.error(f'Asset packing failed: {error}')
-    return
+    return task.error(error)
 
   task.change_progress(20, 'uploading files')  
   error = await upload_asset_data(request.app['SESSION_UPLOADS'], task, files, metadata_response)
@@ -117,7 +116,7 @@ async def pack_blend_file(task: tasks.Task, metadata_response):
         json.dump(data, s, ensure_ascii=False, indent=4)
 
       task.change_progress(10, 'preparing scene - running blender instance')
-      logger.info("creating subprocess @ pack_blend_file()")
+      logger.info("Running asset packing")
       process = await asyncio.create_subprocess_exec(
         export_data['binary_path'],
         '--background',
@@ -125,14 +124,15 @@ async def pack_blend_file(task: tasks.Task, metadata_response):
         cleanfile_path,
         '--python', script_path,
         '--', datafile,
-        stdout=None,
-        stderr=None,
-        stdin=None,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
         )
-      logger.info("processs.communicate @ pack_blend_file()")
-      await process.communicate()
+      stdout, _ = await process.communicate()
       if process.returncode != 0:
-        return f'file packing script failed with non zero return code ({process.returncode})', None
+        msg = f'Asset packing failed ({process.returncode}) - check daemon log for details.'
+        out = stdout.decode()
+        logger.error(f"Packing failed ({process.returncode}):\n{out}")
+        return msg, None        
 
   files = []
   if 'THUMBNAIL' in upload_set:
