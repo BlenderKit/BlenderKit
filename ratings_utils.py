@@ -265,7 +265,7 @@ class RatingProperties(PropertyGroup):
     high_rating_warning = "This is a high rating, please be sure to give such rating only to amazing assets"
 
     possible_wh_values = [0,.5,1,2,3,4,5,6,8,10,15,20,30,50,100,150,200,250]
-    items_models = [('0', '0', ''),
+    items_models = [('0', '-', ''),
                     ('.5', '0.5', ''),
                     ('1', '1', ''),
                     ('2', '2', ''),
@@ -292,7 +292,7 @@ class RatingProperties(PropertyGroup):
                                        )
     possible_wh_values_1_5 = [0,.2, .5,1,2,3,4,5]
 
-    items_1_5 = [('0', '0', ''),
+    items_1_5 = [('0', '-', ''),
                  ('.2', '0.2', ''),
                  ('.5', '0.5', ''),
                  ('1', '1', ''),
@@ -310,7 +310,7 @@ class RatingProperties(PropertyGroup):
                                            )
     possible_wh_values_1_10 = [0,1,2,3,4,5,6,7,8,9,10]
 
-    items_1_10= [('0', '0', ''),
+    items_1_10= [('0', '-', ''),
        ('1', '1', ''),
        ('2', '2', ''),
        ('3', '3', ''),
