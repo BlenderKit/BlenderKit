@@ -1717,7 +1717,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Proxy",
         items=(
             ('SYSTEM', 'SYSTEM: use system proxy settings',
-             'Add-on will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored'),
+             'Add-on will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored. Please note that the HTTPS proxies are not supported by BlenderKit addon right now.'),
             ('NONE', 'NONE: ignore system and custom proxy setting',
              'Add-on will ignore both system-wide proxy settings and custom proxy settings defined in addon preferences. '
              'All addon HTTP requests will not go through any proxy server'),
@@ -1735,9 +1735,10 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Custom proxy address",
         description="""(experimental) Set custom proxy for HTTP requests of addon. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
         
-If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication.
+If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication. You have to specify the address with https:// prefix.
 
-If you use HTTPS proxy, set in format https://ip:port, or https://username:password@ip:port if your HTTPS proxy requires authentication. For HTTPS proxies you might also need to specify Proxy CA certificates path so the addon can verify the encrypted connection to your HTTPS proxy server""",
+HTTPS proxies are not supported! We wait for support in Python 3.11 and in aiohttp module. You can specify the HTTPS proxy with https:// prefix for hacking around and development purposes, but functionality cannot be guaranteed.
+In this case you should also set path to your system CA bundle containing proxy certs in the field "Custom CA certificates path" below""",
         default="",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon
     )
