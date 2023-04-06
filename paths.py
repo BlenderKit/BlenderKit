@@ -122,7 +122,7 @@ def get_temp_dir(subdir=None):
         cleanup_old_folders()
     except Exception as e:
         reports.add_report('Cache directory not found. Resetting Cache folder path.')
-        bk_logger.warn(f'due to exception: {e}')
+        bk_logger.warning(f'due to exception: {e}')
 
         p = default_global_dict()
         if p == user_preferences.global_dir:

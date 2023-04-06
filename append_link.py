@@ -57,13 +57,13 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
                     data_to.materials = [m]
                     matname = m
                     found = True
-                    break;
+                    break
 
             #not found yet? probably some name inconsistency then.
             if not found and len(data_from.materials)>0:
                 data_to.materials = [data_from.materials[0]]
                 matname = data_from.materials[0]
-                bk_logger.warn(f"the material wasn't found under the exact name, appended another one: {matname}")
+                bk_logger.warning(f"the material wasn't found under the exact name, appended another one: {matname}")
 
     except Exception as e:
         bk_logger.error(f'{e} - failed to open the asset file')

@@ -134,7 +134,7 @@ def handle_categories_task(task: tasks.Task):
     try:
       shutil.copy(source_path, categories_filepath)
     except Exception as e:
-      bk_logger.warn(f'Could not copy categories file: {e}')
+      bk_logger.warning(f'Could not copy categories file: {e}')
       return
 
   try:
