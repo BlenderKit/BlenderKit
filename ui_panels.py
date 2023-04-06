@@ -2324,7 +2324,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             op.tooltip = f"Complexity, median from {rc['workingHours']} rating{'' if rc['workingHours'] == 1 else 's'}" \
                          f"{tooltip_extension if rcount <= show_rating_threshold else ''}"
 
-            if rcount <= show_rating_prompt_threshold:
+            if rcount <= show_rating_prompt_threshold and \
+                    self.rating_quality == 0 and \
+                    self.rating_work_hours ==0:
+                # if the asset has less than 5 ratings, and the user hasn't rated it yet, prompt them to do so
                 box_thumbnail.alert = True
                 box_thumbnail.label(text=f"")
                 box_thumbnail.label(
@@ -2914,8 +2917,10 @@ def header_search_draw(self, context):
     if context.mode not in ('PAINT_TEXTURE', 'OBJECT', 'SCULPT'):
         return
     #hide search bar if overlays are hidden
-    if context.area.spaces[0].overlay.show_overlays == False:
-        return
+    # this was nice, but was then reported as a bug by some users, who didn't understand this behaviour.
+    # users tend to work also with overlays hidden, so this was not a good idea.
+    # if context.area.spaces[0].overlay.show_overlays == False:
+    #     return
 
     layout = self.layout
     wm = bpy.context.window_manager
