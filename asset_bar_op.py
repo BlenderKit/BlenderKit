@@ -159,7 +159,7 @@ def modal_inside(self, context, event):
                     bpy.context.window_manager['appendable'] = False
         return {"PASS_THROUGH"}
     except Exception as e:
-        bk_logger.warn(f'{e}')
+        bk_logger.warning(f'{e}')
         self.finish()
         return {'FINISHED'}
 
@@ -206,7 +206,7 @@ def mouse_down_right(self, x, y):
         try:
             self.mouse_down_right_func(self)
         except Exception as e:
-            bk_logger.warn(f'{e}')
+            bk_logger.warning(f'{e}')
 
         return True
 
