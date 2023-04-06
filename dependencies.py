@@ -75,16 +75,33 @@ def add_preinstalled_deps_path():
 
 def ensure_deps():
   """Make sure that dependencies which need installation are available. Install dependencies if needed."""
-  tried = 0
-  while tried < 2:
-    tried = tried + 1
+  exception = None
+  for x in range(2):
     try:
       import aiohttp
-      import certifi
-      from aiohttp import web, web_request
-      return
-    except:
+    except Exception as e:
+      error = e
+      bk_logger.warn(f"Failed to import aiohttp: {e}")
       install_dependencies()
+      continue
+    try:
+      import certifi
+    except Exception as e:
+      exception = e
+      bk_logger.warn(f"Failed to import certifi: {e}")
+      install_dependencies()
+      continue
+    try:
+      from aiohttp import web, web_request
+    except Exception as e:
+      exception = e
+      bk_logger.warn(f"Failed to import aiohttp.web and aiohttp.web_request: {e}")
+      install_dependencies()
+      continue
+    return bk_logger.info("Dependencies are available")
+  
+  reports.add_report(f"Installation validation failed: {exception}", 20, 'ERROR')
+
 
 def install_dependencies():
   """Install pip and install dependencies."""
@@ -108,7 +125,7 @@ def install_dependencies():
   bk_logger.warn("Install from requirements.txt failed, trying with unconstrained versions...")
   command = [sys.executable, '-m', 'pip', 'install', '--upgrade', '-t', get_installed_deps_path(), 'aiohttp', 'certifi']
   result = subprocess.run(command, env=env, capture_output=True, text=True)
-  bk_logger.info(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
+  bk_logger.warn(f"UNCONSTRAINED INSTALLATION:\ncommand {command} exited: {result.returncode},\nstdout: {result.stdout},\nstderr: {result.stderr}")
   if result.returncode == 0:
     bk_logger.info(f"Install succesfully finished in {time.time()-started}")
     return
