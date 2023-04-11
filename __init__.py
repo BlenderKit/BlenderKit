@@ -34,7 +34,10 @@ from importlib import reload
 from os import path
 
 
-sys.stdout.reconfigure(encoding='utf-8')
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception as e:
+    print(f'stdout reconfigure failed: {e}.\n({type(sys.stdout)}):\n{vars(sys.stdout)}')
 bk_logger = logging.getLogger(__name__)
 
 # lib = path.join(path.dirname(__file__), 'lib')
