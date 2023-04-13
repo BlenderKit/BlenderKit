@@ -29,7 +29,7 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import daemon_lib, global_vars, tasks_queue, utils
+from . import daemon_lib, global_vars, icons, tasks_queue, utils
 from .daemon import tasks
 
 
@@ -112,9 +112,6 @@ def update_ratings_quality(self, context):
         bkit_ratings = self
         asset_id = self.asset_id
 
-    if bkit_ratings.rating_quality <= 0.1:
-        return
-
     store_rating_local(asset_id, type='quality', value=bkit_ratings.rating_quality)
     if self.rating_quality_lock is False:
         args = (asset_id, "quality", bkit_ratings.rating_quality)
@@ -132,8 +129,6 @@ def update_ratings_work_hours(self, context):
         bkit_ratings = self
         asset_id = self.asset_id
 
-    if bkit_ratings.rating_work_hours <= 0.45:
-        return
 
     store_rating_local(asset_id, type='working_hours', value=bkit_ratings.rating_work_hours)
     if self.rating_work_hours_lock is False:
@@ -155,52 +150,57 @@ def update_quality_ui(self, context):
 def update_ratings_work_hours_ui(self, context):
     user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     if user_preferences.api_key == '' and self.rating_work_hours != float(self.rating_work_hours_ui):
-        # ui_panels.draw_not_logged_in(self, message='Please login/signup to rate assets.')
-        # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_login_menu')
-        # return
         bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
                                     message='Please login/signup to rate assets. Clicking OK takes you to web login.')
-        # self.rating_work_hours_ui = '0'
         return
     self.rating_work_hours = float(self.rating_work_hours_ui)
-
-
-def update_ratings_work_hours_ui_1_5(self, context):
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.api_key == '':
-        # ui_panels.draw_not_logged_in(self, message='Please login/signup to rate assets.')
-        # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_login_menu')
-        # return
-        bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
-                                    message='Please login/signup to rate assets. Clicking OK takes you to web login.')
-        # self.rating_work_hours_ui_1_5 = '0'
-    self.rating_work_hours = float(self.rating_work_hours_ui_1_5)
-
-
-def update_ratings_work_hours_ui_1_10(self, context):
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
-    if user_preferences.api_key == '':
-        # ui_panels.draw_not_logged_in(self, message='Please login/signup to rate assets.')
-        # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_login_menu')
-        # return
-        bpy.ops.wm.blenderkit_login('INVOKE_DEFAULT',
-                                    message='Please login/signup to rate assets. Clicking OK takes you to web login.')
-        # self.rating_work_hours_ui_1_5 = '0'
-    self.rating_work_hours = float(self.rating_work_hours_ui_1_10)
 
 
 def stars_enum_callback(self, context):
     '''regenerates the enum property used to display rating stars, so that there are filled/empty stars correctly.'''
     items = []
-    for a in range(0, 10):
-        if self.rating_quality < a + 1:
+    for a in range(0, 11):
+        if a == 0:
+            if self.rating_quality == 0:
+              icon = 'RIGHTARROW_THIN'
+            else:
+              icon = 'REMOVE'
+
+        elif self.rating_quality < a:
             icon = 'SOLO_OFF'
         else:
             icon = 'SOLO_ON'
         # has to have something before the number in the value, otherwise fails on registration.
-        items.append((f'{a + 1}', f'{a + 1}', '', icon, a + 1))
+        
+        items.append((f'{a}', f'  ', '', icon, a))
     return items
 
+
+def wh_enum_callback(self, context):
+  '''Regenerates working hours enum.'''
+  if self.asset_type in ('model', 'scene'):
+    possible_wh_values = [0, .5, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 50, 100, 150, 200, 250]
+  elif self.asset_type == 'hdr':
+    possible_wh_values = [0,1,2,3,4,5,6,7,8,9,10]
+  else:
+    # for material, brush assets
+    possible_wh_values = [0, .2, .5, 1, 2, 3, 4, 5]
+
+  items = []
+  items.append(('0', ' ', '', 'REMOVE', 0))
+  pcoll = icons.icon_collections["main"]
+
+  for w in possible_wh_values:
+    if w>0:
+      if w<1:
+        icon_name = f"BK{int(w*10)/10}"
+      else:
+        icon_name = f"BK{int(w)}"
+      icon = pcoll[icon_name]
+      # index of the item(last value) is multiplied by 10 to get always integer values that aren't zero
+      items.append((f'{w}', f'  ', '', icon.icon_id, int(w*10)))
+
+  return items
 
 class RatingProperties(PropertyGroup):
     message: StringProperty(
@@ -262,74 +262,14 @@ class RatingProperties(PropertyGroup):
                                      options={'SKIP_SAVE'}
                                      )
 
-    high_rating_warning = "This is a high rating, please be sure to give such rating only to amazing assets"
 
-    possible_wh_values = [0,.5,1,2,3,4,5,6,8,10,15,20,30,50,100,150,200,250]
-    items_models = [('0', '-', ''),
-                    ('.5', '0.5', ''),
-                    ('1', '1', ''),
-                    ('2', '2', ''),
-                    ('3', '3', ''),
-                    ('4', '4', ''),
-                    ('5', '5', ''),
-                    ('6', '6', ''),
-                    ('8', '8', ''),
-                    ('10', '10', ''),
-                    ('15', '15', ''),
-                    ('20', '20', ''),
-                    ('30', '30', high_rating_warning),
-                    ('50', '50', high_rating_warning),
-                    ('100', '100', high_rating_warning),
-                    ('150', '150', high_rating_warning),
-                    ('200', '200', high_rating_warning),
-                    ('250', '250', high_rating_warning),
-                    ]
     rating_work_hours_ui: EnumProperty(name="Work Hours",
                                        description="How many hours did this work take?",
-                                       items=items_models,
-                                       default='0', update=update_ratings_work_hours_ui,
+                                       items=wh_enum_callback,
+                                       default=0,
+                                       update=update_ratings_work_hours_ui,
                                        options={'SKIP_SAVE'}
                                        )
-    possible_wh_values_1_5 = [0,.2, .5,1,2,3,4,5]
-
-    items_1_5 = [('0', '-', ''),
-                 ('.2', '0.2', ''),
-                 ('.5', '0.5', ''),
-                 ('1', '1', ''),
-                 ('2', '2', ''),
-                 ('3', '3', ''),
-                 ('4', '4', ''),
-                 ('5', '5', '')
-                 ]
-    rating_work_hours_ui_1_5: EnumProperty(name="Work Hours",
-                                           description="How many hours did this work take?",
-                                           items=items_1_5,
-                                           default='0',
-                                           update=update_ratings_work_hours_ui_1_5,
-                                           options={'SKIP_SAVE'}
-                                           )
-    possible_wh_values_1_10 = [0,1,2,3,4,5,6,7,8,9,10]
-
-    items_1_10= [('0', '-', ''),
-       ('1', '1', ''),
-       ('2', '2', ''),
-       ('3', '3', ''),
-       ('4', '4', ''),
-       ('5', '5', ''),
-       ('6', '6', ''),
-       ('7', '7', ''),
-       ('8', '8', ''),
-       ('9', '9', ''),
-       ('10', '10', '')
-       ]
-    rating_work_hours_ui_1_10: EnumProperty(name="Work Hours",
-                                            description="How many hours did this work take?",
-                                            items= items_1_10,
-                                            default='0',
-                                            update=update_ratings_work_hours_ui_1_10,
-                                            options={'SKIP_SAVE'}
-                                            )
-
     def prefill_ratings(self):
         """Pre-fill the quality and work hours ratings if available.
         Locks the ratings locks so that the update function is not called and ratings are not sent online.
@@ -354,13 +294,9 @@ class RatingProperties(PropertyGroup):
             wh = int(rating_work_hours)
             whs = str(wh)
             self.rating_work_hours_lock = True
-            if wh in self.possible_wh_values:
-                self.rating_work_hours_ui = whs
-            if wh < 6 and wh in self.possible_wh_values_1_5:
-                self.rating_work_hours_ui_1_5 = whs
-            if wh < 11 and wh in self.possible_wh_values_1_10:
-                self.rating_work_hours_ui_1_10 = whs
+            self.rating_work_hours_ui = whs
             self.rating_work_hours_lock = False
+
         bpy.context.area.tag_redraw()
 # class RatingPropsCollection(PropertyGroup):
 #   ratings = CollectionProperty(type = RatingProperties)
