@@ -2547,16 +2547,17 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         split_left = row.split(factor=split_ratio)
         left_column = split_left.column()
         self.draw_thumbnail_box(left_column, width=int(self.width * split_ratio))
+        if not utils.user_is_owner(asset_data=self.asset_data):
+            # Draw ratings, but not for owners of assets - doesn't make sense.
+            ratings_box = left_column.box()
+            self.prefill_ratings()
+            ratings.draw_ratings_menu(self, context, ratings_box)
         # self.draw_description(left_column, width = int(self.width*split_ratio))
         # right split
         split_right = split_left.split()
         self.draw_menu_desc_author(context, split_right, width=int(self.width * (1 - split_ratio)))
 
-        if not utils.user_is_owner(asset_data=self.asset_data):
-            # Draw ratings, but not for owners of assets - doesn't make sense.
-            ratings_box = layout.box()
-            self.prefill_ratings()
-            ratings.draw_ratings_menu(self, context, ratings_box)
+
         # else:
         #     ratings_box.label('Here you should find ratings, but you can not rate your own assets ;)')
 

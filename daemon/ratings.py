@@ -45,10 +45,22 @@ async def send_rating(task: tasks.Task, request: web.Request):
     headers = utils.get_headers(task.data.get('api_key',''))
     url = f'{globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
     data = {"score": task.data['rating_value']}
+
     try:
-        logger.info(f'Sending rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}')
-        async with session.put(url, data=data, headers=headers) as resp:
-            task.result = await resp.json()
+        if float(task.data['rating_value']) == 0:
+            # delete rating
+            logger.info(
+                f'Deleting rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}')
+            async with session.delete(url, headers=headers) as resp:
+                task.result = await resp.json()
+
+        else:
+            # set rating
+            logger.info(
+                f'Sending rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}')
+            async with session.put(url, headers=headers, json=data) as resp:
+                task.result = await resp.json()
+
     except Exception as e:
         logger.warning(str(e))
         return task.error(f'{e}')

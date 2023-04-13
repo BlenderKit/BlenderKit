@@ -88,10 +88,8 @@ def draw_ratings_menu(self, context, layout):
     row = col.row()
     row.prop(self, 'rating_quality_ui', expand=True, icon_only=True, emboss=False)
     if self.rating_quality > 0:
-        # row = col.row()
-
         row.label(text=f'    Thanks{profile_name}!', icon='FUND')
-    # row.label(text=str(self.rating_quality))
+
     col.separator()
     col.separator()
 
@@ -104,31 +102,24 @@ def draw_ratings_menu(self, context, layout):
         row = col.row()
         row.prop(self, 'rating_work_hours')
 
-    if self.asset_type in ('model', 'scene'):
-        row = col.row()
 
-        row.prop(self, 'rating_work_hours_ui', expand=True, icon_only=False, emboss=True)
-        if float(self.rating_work_hours_ui) > 100:
-            utils.label_multiline(
-                col,
-                text=f"\nThat's huge! please be sure to give such rating only to godly {self.asset_type}s.\n",
-                width=500
-                )
-        elif float(self.rating_work_hours_ui) > 18:
-            col.separator()
-            utils.label_multiline(
-                col,
-                text=f"\nThat's a lot! please be sure to give such rating only to amazing {self.asset_type}s.\n",
-                width=500
-                )
+    row = col.row()
 
+    row.prop(self, 'rating_work_hours_ui', expand=True, icon_only=False, emboss=True)
+    if float(self.rating_work_hours_ui) > 100:
+        utils.label_multiline(
+            col,
+            text=f"\nThat's huge! please be sure to give such rating only to godly {self.asset_type}s.\n",
+            width=300
+            )
+    elif float(self.rating_work_hours_ui) > 18:
+        col.separator()
+        utils.label_multiline(
+            col,
+            text=f"\nThat's a lot! please be sure to give such rating only to amazing {self.asset_type}s.\n",
+            width=300
+            )
 
-    elif self.asset_type == 'hdr':
-        row = col.row()
-        row.prop(self, 'rating_work_hours_ui_1_10', expand=True, icon_only=False, emboss=True)
-    else:
-        row = col.row()
-        row.prop(self, 'rating_work_hours_ui_1_5', expand=True, icon_only=False, emboss=True)
 
     if self.rating_work_hours > 0:
         row = col.row()
@@ -150,7 +141,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         self.prefill_ratings()
 
         layout = self.layout
-        layout.label(text = f"Rating of the asset: {self.asset_data['name']}")
+        layout.label(text = f"Rating of the {self.asset_type}: {self.asset_data['name']}")
         draw_ratings_menu(self, context, layout)
         layout.template_icon(icon_value=self.img.preview.icon_id, scale=12)
 
@@ -185,9 +176,9 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
 
         if self.asset_type in ('model', 'scene'):
             # spawn a wider one for validators for the enum buttons
-            return wm.invoke_popup(self, width=600)
+            return wm.invoke_popup(self, width=400)
         else:
-            return wm.invoke_popup(self)
+            return wm.invoke_popup(self,  width=250)
 
 
 class SetBookmark(bpy.types.Operator):

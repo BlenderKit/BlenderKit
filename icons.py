@@ -41,7 +41,16 @@ icons_read = {
     'blenderkit_logo_offline.png': 'logo_offline',
     'bookmark_full.png': 'bookmark_full',
     'bookmark_empty.png': 'bookmark_empty',
+    'bookmark_empty.png': 'bookmark_empty',
 }
+
+# fill the icon_collections["previews"] with icons of numbers for complexity rating
+possible_wh_values = [ .2, .5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 50, 100, 150, 200, 250]
+for w in possible_wh_values:
+    if w < 1:
+        icons_read[f"{w}.png"] = f"BK{w}"
+    else:
+        icons_read[f"{w:04}.png"] = f"BK{w}"
 
 verification_icons = {
     'vs_ready.png':'ready',
