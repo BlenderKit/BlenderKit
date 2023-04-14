@@ -521,7 +521,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.wcount = math.floor((self.bar_width) / (self.button_size))
 
-        self.max_hcount = math.floor(context.window.width / self.button_size)
+        self.max_hcount = math.floor(max(region.width , context.window.width) / self.button_size)
         self.max_wcount = user_preferences.max_assetbar_rows
 
         search_results = global_vars.DATA.get('search results')
