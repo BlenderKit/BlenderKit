@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
-    "version": (3, 6, 0, 230413), #X.Y.Z.yymmdd
+    "version": (3, 6, 0, 230417), #X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
@@ -1849,8 +1849,13 @@ In this case you should also set path to your system CA bundle containing proxy 
     # )
 
     experimental_features: BoolProperty(
-        name="Enable experimental features",
-        description="Enable all experimental features of BlenderKit. Use at your own risk",
+        name="Enable experimental features: Bookmarks",
+        description="""Enable experimental features of BlenderKit:
+
+BOOKMARKS:
+This feature lets logged-in users save their favorite assets and search for them later. To mark or unmark an asset, click on the bookmark icon located in the top right corner of the asset thumbnail. You can filter search results to display only bookmarked assets by clicking on the bookmark icon in the search panel.
+
+We welcome your feedback. If you encounter any issues or have ideas for improvements, please let us know. However, please note that these experimental features may not function as expected""",
         default=False,
         update=utils.save_prefs
     )
