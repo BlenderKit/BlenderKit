@@ -161,10 +161,7 @@ def stars_enum_callback(self, context):
     items = []
     for a in range(0, 11):
         if a == 0:
-            if self.rating_quality == 0:
-              icon = 'RIGHTARROW_THIN'
-            else:
-              icon = 'REMOVE'
+            icon = 'REMOVE'
 
         elif self.rating_quality < a:
             icon = 'SOLO_OFF'
@@ -291,7 +288,10 @@ class RatingProperties(PropertyGroup):
             self.rating_quality_lock = False
         
         if rating_work_hours is not None:
-            wh = int(rating_work_hours)
+            if rating_work_hours>=1:
+              wh = int(rating_work_hours)
+            else:
+              wh = round(rating_work_hours,1)
             whs = str(wh)
             self.rating_work_hours_lock = True
             self.rating_work_hours_ui = whs
