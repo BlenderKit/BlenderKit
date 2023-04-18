@@ -1635,7 +1635,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
 
     layout.operator_context = 'INVOKE_DEFAULT'
 
-    if utils.experimental_enabled():
+    if utils.experimental_enabled() and utils.user_logged_in():
         r = ratings_utils.get_rating_local(asset_data['id'],"bookmarks")
         if r ==1:
             text = 'Delete Bookmark'
