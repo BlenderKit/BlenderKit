@@ -87,8 +87,8 @@ class Test04GetReportsDaemonRunning(unittest.TestCase):
 class Test05SearchAndDownloadAsset(unittest.TestCase):
   assets_to_download = []
   def _search_asset(self, search_word, asset_type):
-    addon_version = f'{global_vars.VERSION[0]}-{global_vars.VERSION[1]}-{global_vars.VERSION[2]}-{global_vars.VERSION[3]}'
-    blender_version = bpy.app.version
+    addon_version = f'{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}'
+    blender_version = f'{bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}'
     urlquery = f'https://www.blenderkit.com/api/v1/search/?query={search_word}+asset_type:{asset_type}+order:_score&dict_parameters=1&page_size=15&addon_version={addon_version}&blender_version={blender_version}'
     tempdir = paths.get_temp_dir(f'{asset_type}_search')
     data = {
@@ -96,7 +96,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
       'tempdir': tempdir,
       'urlquery': urlquery,
       'asset_type': asset_type,
-      'blender_version': f'{blender_version[0]}.{blender_version[1]}.{blender_version[2]}',
+      'blender_version': blender_version,
     }
     response = daemon_lib.search_asset(data)
     search_task_id = response['task_id']
