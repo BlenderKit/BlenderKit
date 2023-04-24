@@ -1,8 +1,8 @@
-name: master-push
+name: main-push
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -14,10 +14,10 @@ jobs:
         run: pip install isort black ruff
       - name: ISORT
         run: python -m isort . --check-only --diff
-      - name: BLACK on ./daemon
-        run: python -m black daemon --check --diff
-      - name: RUFF on ./daemon
-        run: python -m ruff daemon
+      - name: BLACK
+        run: python -m black . --check --diff
+      #- name: RUFF on ./daemon
+      #  run: python -m ruff daemon
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
 

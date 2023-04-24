@@ -70,7 +70,7 @@ class SingletonUpdater:
         self._latest_release = None
         self._use_releases = False
         self._include_branches = False
-        self._include_branch_list = ["master"]
+        self._include_branch_list = ["main"]
         self._include_branch_auto_check = False
         self._manual_only = False
         self._version_min_update = None
@@ -288,7 +288,7 @@ class SingletonUpdater:
     def include_branch_list(self, value):
         try:
             if value is None:
-                self._include_branch_list = ["master"]
+                self._include_branch_list = ["main"]
             elif not isinstance(value, list) or len(value) == 0:
                 raise ValueError(
                     "include_branch_list should be a list of valid branches"

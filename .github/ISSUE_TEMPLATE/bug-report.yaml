@@ -46,7 +46,7 @@ body:
     attributes:
       value: |
         <p align="center">
-          <img width="50%" alt="To enable system console click CTRL+ALT+C or go to menu - Window - Toggle System Console" src="https://raw.githubusercontent.com/BlenderKit/blenderkit/master/.github/ISSUE_TEMPLATE/toggle-system-console.png">
+          <img width="50%" alt="To enable system console click CTRL+ALT+C or go to menu - Window - Toggle System Console" src="https://raw.githubusercontent.com/BlenderKit/blenderkit/main/.github/ISSUE_TEMPLATE/toggle-system-console.png">
         </p>
 
   - type: textarea
