@@ -46,10 +46,10 @@ jobs = [
         "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.0-linux-x64.tar.xz",
     },
     {
-        "version": "3.3.3",
+        "version": "3.3.6",
         "version_x_y": "3.3",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.3-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.6-linux-x64.tar.xz",
     },
     {
         "version": "3.4.0",
@@ -62,6 +62,12 @@ jobs = [
         "version_x_y": "3.4",
         "sha": "released",
         "download_url": "https://download.blender.org/release/Blender3.4/blender-3.4.1-linux-x64.tar.xz",
+    },
+    {
+        "version": "3.5.0",
+        "version_x_y": "3.5",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender3.5/blender-3.5.0-linux-x64.tar.xz",
     },
     # {'version': '', 'version_x_y': '', 'download_url': ''},
 ]
