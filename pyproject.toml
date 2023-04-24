@@ -17,6 +17,8 @@ exclude = '''
 '''
 
 [tool.ruff]
-exclude = ["lib", "dependencies", "out"]
-ignore = ["E501"]
+exclude = ["lib", "dependencies", "out", "addon_updater.py", "addon_updater_ops.py"]
+ignore = [ 
+    "E501", #Line too long
+    ]
 target-version = "py310"

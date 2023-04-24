@@ -6,7 +6,7 @@
 
 We use `isort` for imports sorting.
 We use `black` for codestyle.
-We use `ruff` for linting.
+We will use `ruff` for linting.
 
 To install them all run: `pip3 install --user isort, black, ruff`.
 
@@ -14,12 +14,17 @@ Before committing your changes, please run:
 ```
 isort .
 black .
-ruff daemon
+ruff .
 ```
 
 or just run `python3 dev.py format` to run all of them automatically.
 
-Right now we black & ruff only `daemon` directory, but we plan to extend it to the whole add-on...
+Right now `isort` and `black` are required.
+Pull requests will fail in CI/CD if they are not formatted properly and isort or black throws an error.
+
+We are migrating towards `ruff` as well, but it is not required yet.
+Please run `ruff` on files you have edited and try to fix all the errors.
+Slowly we will add the ruff as a required check in CI/CD.
 
 ### Building the add-on
 
