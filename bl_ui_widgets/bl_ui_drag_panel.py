@@ -2,16 +2,15 @@ from .bl_ui_widget import *
 
 
 class BL_UI_Drag_Panel(BL_UI_Widget):
-
     def __init__(self, x, y, width, height):
-        super().__init__(x,y, width, height)
+        super().__init__(x, y, width, height)
         self.drag_offset_x = 0
         self.drag_offset_y = 0
         self.is_drag = False
         self.widgets = []
 
     def set_location(self, x, y):
-        super().set_location(x,y)
+        super().set_location(x, y)
         self.layout_widgets()
 
     def add_widget(self, widget):
@@ -20,7 +19,6 @@ class BL_UI_Drag_Panel(BL_UI_Widget):
     def add_widgets(self, widgets):
         self.widgets = widgets
         self.layout_widgets()
-
 
     def layout_widgets(self):
         for widget in self.widgets:
@@ -39,7 +37,7 @@ class BL_UI_Drag_Panel(BL_UI_Widget):
         if self.child_widget_focused(x, y):
             return False
 
-        if self.is_in_rect(x,y):
+        if self.is_in_rect(x, y):
             height = self.get_area_height()
             self.is_drag = True
             self.drag_offset_x = x - self.x_screen

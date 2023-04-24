@@ -11,12 +11,12 @@ def get_orig_render_settings():
     vs = bpy.context.scene.view_settings
 
     orig_settings = {
-        'file_format': ims.file_format,
-        'quality': ims.quality,
-        'color_mode': ims.color_mode,
-        'compression': ims.compression,
-        'exr_codec': ims.exr_codec,
-        'view_transform': vs.view_transform
+        "file_format": ims.file_format,
+        "quality": ims.quality,
+        "color_mode": ims.color_mode,
+        "compression": ims.compression,
+        "exr_codec": ims.exr_codec,
+        "view_transform": vs.view_transform,
     }
     return orig_settings
 
@@ -26,18 +26,26 @@ def set_orig_render_settings(orig_settings):
     ims = rs.image_settings
     vs = bpy.context.scene.view_settings
 
-    ims.file_format = orig_settings['file_format']
-    ims.quality = orig_settings['quality']
-    ims.color_mode = orig_settings['color_mode']
-    ims.compression = orig_settings['compression']
-    ims.exr_codec = orig_settings['exr_codec']
+    ims.file_format = orig_settings["file_format"]
+    ims.quality = orig_settings["quality"]
+    ims.color_mode = orig_settings["color_mode"]
+    ims.compression = orig_settings["compression"]
+    ims.exr_codec = orig_settings["exr_codec"]
 
-    vs.view_transform = orig_settings['view_transform']
+    vs.view_transform = orig_settings["view_transform"]
 
 
-def img_save_as(img, filepath='//', file_format='JPEG', quality=90, color_mode='RGB', compression=15,
-                view_transform='Raw', exr_codec='DWAA'):
-    '''Uses Blender 'save render' to save images - BLender isn't really able so save images with other methods correctly.'''
+def img_save_as(
+    img,
+    filepath="//",
+    file_format="JPEG",
+    quality=90,
+    color_mode="RGB",
+    compression=15,
+    view_transform="Raw",
+    exr_codec="DWAA",
+):
+    """Uses Blender 'save render' to save images - BLender isn't really able so save images with other methods correctly."""
 
     ors = get_orig_render_settings()
 
@@ -58,19 +66,21 @@ def img_save_as(img, filepath='//', file_format='JPEG', quality=90, color_mode='
 
 
 def set_colorspace(img, colorspace):
-    '''sets image colorspace, but does so in a try statement, because some people might actually replace the default
+    """sets image colorspace, but does so in a try statement, because some people might actually replace the default
     colorspace settings, and it literally can't be guessed what these people use, even if it will mostly be the filmic addon.
-    '''
+    """
     try:
-        if colorspace == 'Non-Color':
+        if colorspace == "Non-Color":
             img.colorspace_settings.is_data = True
         else:
             img.colorspace_settings.name = colorspace
     except:
-        print(f'Colorspace {colorspace} not found.')
+        print(f"Colorspace {colorspace} not found.")
+
 
 def analyze_image_is_true_hdr(image):
     import numpy
+
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     size = image.size
@@ -80,14 +90,18 @@ def analyze_image_is_true_hdr(image):
     image.pixels.foreach_get(tempBuffer)
     image.blenderkit.true_hdr = numpy.amax(tempBuffer) > 1.05
 
+
 def generate_hdr_thumbnail():
     import numpy
+
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
-    hdr_image = ui_props.hdr_upload_image  # bpy.data.images.get(ui_props.hdr_upload_image)
+    hdr_image = (
+        ui_props.hdr_upload_image
+    )  # bpy.data.images.get(ui_props.hdr_upload_image)
 
     base, ext = os.path.splitext(hdr_image.filepath)
-    thumb_path = base + '.jpg'
+    thumb_path = base + ".jpg"
     thumb_name = os.path.basename(thumb_path)
 
     max_thumbnail_size = 2048
@@ -100,14 +114,16 @@ def generate_hdr_thumbnail():
     thumbnailHeight = min(size[1], int(max_thumbnail_size / ratio))
 
     tempBuffer = numpy.empty(imageWidth * imageHeight * 4, dtype=numpy.float32)
-    inew = bpy.data.images.new(thumb_name, imageWidth, imageHeight, alpha=False, float_buffer=False)
+    inew = bpy.data.images.new(
+        thumb_name, imageWidth, imageHeight, alpha=False, float_buffer=False
+    )
 
     hdr_image.pixels.foreach_get(tempBuffer)
 
     hdr_image.blenderkit.true_hdr = numpy.amax(tempBuffer) > 1.05
 
     inew.filepath = thumb_path
-    set_colorspace(inew, 'Linear')
+    set_colorspace(inew, "Linear")
     inew.pixels.foreach_set(tempBuffer)
 
     bpy.context.view_layer.update()
@@ -122,13 +138,13 @@ def find_color_mode(image):
         raise (TypeError)
     else:
         depth_mapping = {
-            8: 'BW',
-            24: 'RGB',
-            32: 'RGBA',  # can also be bw.. but image.channels doesn't work.
-            96: 'RGB',
-            128: 'RGBA',
+            8: "BW",
+            24: "RGB",
+            32: "RGBA",  # can also be bw.. but image.channels doesn't work.
+            96: "RGB",
+            128: "RGBA",
         }
-        return depth_mapping.get(image.depth, 'RGB')
+        return depth_mapping.get(image.depth, "RGB")
 
 
 def find_image_depth(image):
@@ -136,20 +152,20 @@ def find_image_depth(image):
         raise (TypeError)
     else:
         depth_mapping = {
-            8: '8',
-            24: '8',
-            32: '8',  # can also be bw.. but image.channels doesn't work.
-            96: '16',
-            128: '16',
+            8: "8",
+            24: "8",
+            32: "8",  # can also be bw.. but image.channels doesn't work.
+            96: "16",
+            128: "16",
         }
-        return depth_mapping.get(image.depth, '8')
+        return depth_mapping.get(image.depth, "8")
 
 
 def can_erase_alpha(na):
     alpha = na[3::4]
     alpha_sum = alpha.sum()
     if alpha_sum == alpha.size:
-        print('image can have alpha erased')
+        print("image can have alpha erased")
     # print(alpha_sum, alpha.size)
     return alpha_sum == alpha.size
 
@@ -163,7 +179,7 @@ def is_image_black(na):
 
     # print('rgb sum', rgbsum, r.sum(), g.sum(), b.sum())
     if rgbsum == 0:
-        print('image can have alpha channel dropped')
+        print("image can have alpha channel dropped")
     return rgbsum == 0
 
 
@@ -176,7 +192,7 @@ def is_image_bw(na):
     gb_equal = g == b
     rgbequal = rg_equal.all() and gb_equal.all()
     if rgbequal:
-        print('image is black and white, can have channels reduced')
+        print("image is black and white, can have channels reduced")
 
     return rgbequal
 
@@ -186,27 +202,56 @@ def numpytoimage(a, iname, width=0, height=0, channels=3):
     foundimage = False
 
     for image in bpy.data.images:
-
-        if image.name[:len(iname)] == iname and image.size[0] == a.shape[0] and image.size[1] == a.shape[1]:
+        if (
+            image.name[: len(iname)] == iname
+            and image.size[0] == a.shape[0]
+            and image.size[1] == a.shape[1]
+        ):
             i = image
             foundimage = True
     if not foundimage:
         if channels == 4:
-            bpy.ops.image.new(name=iname, width=width, height=height, color=(0, 0, 0, 1), alpha=True,
-                              generated_type='BLANK', float=True)
+            bpy.ops.image.new(
+                name=iname,
+                width=width,
+                height=height,
+                color=(0, 0, 0, 1),
+                alpha=True,
+                generated_type="BLANK",
+                float=True,
+            )
         if channels == 3:
-            bpy.ops.image.new(name=iname, width=width, height=height, color=(0, 0, 0), alpha=False,
-                              generated_type='BLANK', float=True)
+            bpy.ops.image.new(
+                name=iname,
+                width=width,
+                height=height,
+                color=(0, 0, 0),
+                alpha=False,
+                generated_type="BLANK",
+                float=True,
+            )
 
     i = None
 
     for image in bpy.data.images:
         # print(image.name[:len(iname)],iname, image.size[0],a.shape[0],image.size[1],a.shape[1])
-        if image.name[:len(iname)] == iname and image.size[0] == width and image.size[1] == height:
+        if (
+            image.name[: len(iname)] == iname
+            and image.size[0] == width
+            and image.size[1] == height
+        ):
             i = image
     if i is None:
-        i = bpy.data.images.new(iname, width, height, alpha=False, float_buffer=False, stereo3d=False, is_data=False,
-                                tiled=False)
+        i = bpy.data.images.new(
+            iname,
+            width,
+            height,
+            alpha=False,
+            float_buffer=False,
+            stereo3d=False,
+            is_data=False,
+            tiled=False,
+        )
 
     # dropping this re-shaping code -  just doing flat array for speed and simplicity
     #    d = a.shape[0] * a.shape[1]
@@ -215,7 +260,7 @@ def numpytoimage(a, iname, width=0, height=0, channels=3):
     #    a = a.repeat(channels)
     #    a[3::4] = 1
     i.pixels.foreach_set(a)  # this gives big speedup!
-    print('\ntime ' + str(time.time() - t))
+    print("\ntime " + str(time.time() - t))
     return i
 
 
@@ -274,7 +319,7 @@ def downscale(i):
 
 
 def get_rgb_mean(i):
-    '''checks if normal map values are ok.'''
+    """checks if normal map values are ok."""
     import numpy
 
     na = imagetonumpy_flat(i)
@@ -296,22 +341,23 @@ def get_rgb_mean(i):
 
 
 def check_nmap_mean_ok(i):
-    '''checks if normal map values are in standard range.'''
+    """checks if normal map values are in standard range."""
 
     rmean, gmean, bmean = get_rgb_mean(i)
 
     # we could/should also check blue, but some ogl substance exports have 0-1, while 90% nmaps have 0.5 - 1.
-    nmap_ok = 0.45 < rmean < 0.55 and .45 < gmean < .55
+    nmap_ok = 0.45 < rmean < 0.55 and 0.45 < gmean < 0.55
 
     return nmap_ok
 
 
 def check_nmap_ogl_vs_dx(i, mask=None, generated_test_images=False):
-    '''
+    """
     checks if normal map is directX or OpenGL.
     Returns - String value - DirectX and OpenGL
-    '''
+    """
     import numpy
+
     width = i.size[0]
     height = i.size[1]
 
@@ -326,46 +372,51 @@ def check_nmap_ogl_vs_dx(i, mask=None, generated_test_images=False):
     green_y_comparison = numpy.zeros((width, height), numpy.float32)
 
     if generated_test_images:
-        red_x_comparison_img = numpy.empty((width, height, 4), numpy.float32)  # images for debugging purposes
-        green_y_comparison_img = numpy.empty((width, height, 4), numpy.float32)  # images for debugging purposes
+        red_x_comparison_img = numpy.empty(
+            (width, height, 4), numpy.float32
+        )  # images for debugging purposes
+        green_y_comparison_img = numpy.empty(
+            (width, height, 4), numpy.float32
+        )  # images for debugging purposes
 
     ogl = numpy.zeros((width, height), numpy.float32)
     dx = numpy.zeros((width, height), numpy.float32)
 
     if generated_test_images:
-        ogl_img = numpy.empty((width, height, 4), numpy.float32)  # images for debugging purposes
-        dx_img = numpy.empty((width, height, 4), numpy.float32)  # images for debugging purposes
+        ogl_img = numpy.empty(
+            (width, height, 4), numpy.float32
+        )  # images for debugging purposes
+        dx_img = numpy.empty(
+            (width, height, 4), numpy.float32
+        )  # images for debugging purposes
 
     for y in range(0, height):
         for x in range(0, width):
             # try to mask with UV mask image
             if mask is None or mask[x, y, 3] > 0:
-
                 last_height_x = ogl[max(x - 1, 0), min(y, height - 1)]
                 last_height_y = ogl[max(x, 0), min(y - 1, height - 1)]
 
-                diff_x = ((na[x, y, 0] - rmean) / ((na[x, y, 2] - 0.5)))
-                diff_y = ((na[x, y, 1] - gmean) / ((na[x, y, 2] - 0.5)))
-                calc_height = (last_height_x + last_height_y) \
-                              - diff_x - diff_y
+                diff_x = (na[x, y, 0] - rmean) / ((na[x, y, 2] - 0.5))
+                diff_y = (na[x, y, 1] - gmean) / ((na[x, y, 2] - 0.5))
+                calc_height = (last_height_x + last_height_y) - diff_x - diff_y
                 calc_height = calc_height / 2
                 ogl[x, y] = calc_height
                 if generated_test_images:
-                    rgb = calc_height * .1 + .5
+                    rgb = calc_height * 0.1 + 0.5
                     ogl_img[x, y] = [rgb, rgb, rgb, 1]
 
                 # green channel
                 last_height_x = dx[max(x - 1, 0), min(y, height - 1)]
                 last_height_y = dx[max(x, 0), min(y - 1, height - 1)]
 
-                diff_x = ((na[x, y, 0] - rmean) / ((na[x, y, 2] - 0.5)))
-                diff_y = ((na[x, y, 1] - gmean) / ((na[x, y, 2] - 0.5)))
-                calc_height = (last_height_x + last_height_y) \
-                              - diff_x + diff_y
+                diff_x = (na[x, y, 0] - rmean) / ((na[x, y, 2] - 0.5))
+                diff_y = (na[x, y, 1] - gmean) / ((na[x, y, 2] - 0.5))
+                calc_height = (last_height_x + last_height_y) - diff_x + diff_y
                 calc_height = calc_height / 2
                 dx[x, y] = calc_height
                 if generated_test_images:
-                    rgb = calc_height * .1 + .5
+                    rgb = calc_height * 0.1 + 0.5
                     dx_img[x, y] = [rgb, rgb, rgb, 1]
 
     ogl_std = ogl.std()
@@ -377,9 +428,9 @@ def check_nmap_ogl_vs_dx(i, mask=None, generated_test_images=False):
     print(i.name)
     #    if abs(mean_ogl) > abs(mean_dx):
     if abs(ogl_std) > abs(dx_std):
-        print('this is probably a DirectX texture')
+        print("this is probably a DirectX texture")
     else:
-        print('this is probably an OpenGL texture')
+        print("this is probably an OpenGL texture")
 
     if generated_test_images:
         # red_x_comparison_img = red_x_comparison_img.swapaxes(0,1)
@@ -397,24 +448,26 @@ def check_nmap_ogl_vs_dx(i, mask=None, generated_test_images=False):
         dx_img = dx_img.swapaxes(0, 1)
         dx_img = dx_img.flatten()
 
-        numpytoimage(ogl_img, 'OpenGL', width=width, height=height, channels=1)
-        numpytoimage(dx_img, 'DirectX', width=width, height=height, channels=1)
+        numpytoimage(ogl_img, "OpenGL", width=width, height=height, channels=1)
+        numpytoimage(dx_img, "DirectX", width=width, height=height, channels=1)
 
     if abs(ogl_std) > abs(dx_std):
-        return 'DirectX'
-    return 'OpenGL'
+        return "DirectX"
+    return "OpenGL"
 
 
-def make_possible_reductions_on_image(teximage, input_filepath, do_reductions=False, do_downscale=False):
-    '''checks the image and saves it to drive with possibly reduced channels.
+def make_possible_reductions_on_image(
+    teximage, input_filepath, do_reductions=False, do_downscale=False
+):
+    """checks the image and saves it to drive with possibly reduced channels.
     Also can remove the image from the asset if the image is pure black
     - it finds it's usages and replaces the inputs where the image is used
     with zero/black color.
     currently implemented file type conversions:
     PNG->JPG
-    '''
+    """
     colorspace = teximage.colorspace_settings.name
-    teximage.colorspace_settings.name = 'Non-Color'
+    teximage.colorspace_settings.name = "Non-Color"
     # teximage.colorspace_settings.name = 'sRGB' color correction mambo jambo.
 
     JPEG_QUALITY = 90
@@ -443,13 +496,13 @@ def make_possible_reductions_on_image(teximage, input_filepath, do_reductions=Fa
     print(teximage.depth)
     print(teximage.channels)
 
-    bpy.context.scene.display_settings.display_device = 'None'
+    bpy.context.scene.display_settings.display_device = "None"
 
     image_depth = find_image_depth(teximage)
 
     ims.color_mode = find_color_mode(teximage)
     # image_depth = str(max(min(int(teximage.depth / 3), 16), 8))
-    print('resulting depth set to:', image_depth)
+    print("resulting depth set to:", image_depth)
 
     fp = input_filepath
     if do_reductions:
@@ -457,33 +510,33 @@ def make_possible_reductions_on_image(teximage, input_filepath, do_reductions=Fa
 
         if can_erase_alpha(na):
             print(teximage.file_format)
-            if teximage.file_format == 'PNG':
-                print('changing type of image to JPG')
+            if teximage.file_format == "PNG":
+                print("changing type of image to JPG")
                 base, ext = os.path.splitext(fp)
-                teximage['original_extension'] = ext
+                teximage["original_extension"] = ext
 
-                fp = fp.replace('.png', '.jpg')
-                fp = fp.replace('.PNG', '.jpg')
+                fp = fp.replace(".png", ".jpg")
+                fp = fp.replace(".PNG", ".jpg")
 
-                teximage.name = teximage.name.replace('.png', '.jpg')
-                teximage.name = teximage.name.replace('.PNG', '.jpg')
+                teximage.name = teximage.name.replace(".png", ".jpg")
+                teximage.name = teximage.name.replace(".PNG", ".jpg")
 
-                teximage.file_format = 'JPEG'
+                teximage.file_format = "JPEG"
                 ims.quality = JPEG_QUALITY
-                ims.color_mode = 'RGB'
-                image_depth = '8'
+                ims.color_mode = "RGB"
+                image_depth = "8"
 
             if is_image_bw(na):
-                ims.color_mode = 'BW'
+                ims.color_mode = "BW"
 
     ims.file_format = teximage.file_format
     ims.color_depth = image_depth
 
     # all pngs with max compression
-    if ims.file_format == 'PNG':
+    if ims.file_format == "PNG":
         ims.compression = 100
     # all jpgs brought to reasonable quality
-    if ims.file_format == 'JPG':
+    if ims.file_format == "JPG":
         ims.quality = JPEG_QUALITY
 
     if do_downscale:
@@ -493,7 +546,7 @@ def make_possible_reductions_on_image(teximage, input_filepath, do_reductions=Fa
     # blender tries to re-pack the image after writing to image.packed_image.filepath and reverts any changes.
     teximage.save_render(filepath=bpy.path.abspath(fp), scene=bpy.context.scene)
     if len(teximage.packed_files) > 0:
-        teximage.unpack(method='REMOVE')
+        teximage.unpack(method="REMOVE")
     teximage.filepath = fp
     teximage.filepath_raw = fp
     teximage.reload()

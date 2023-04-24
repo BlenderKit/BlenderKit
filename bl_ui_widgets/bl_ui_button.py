@@ -9,12 +9,11 @@ from .bl_ui_widget import *
 
 
 class BL_UI_Button(BL_UI_Widget):
-
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
-        self._text_color        = (1.0, 1.0, 1.0, 1.0)
-        self._hover_bg_color    = (0.5, 0.5, 0.5, 1.0)
-        self._select_bg_color   = (0.7, 0.7, 0.7, 1.0)
+        self._text_color = (1.0, 1.0, 1.0, 1.0)
+        self._hover_bg_color = (0.5, 0.5, 0.5, 1.0)
+        self._select_bg_color = (0.7, 0.7, 0.7, 1.0)
 
         self._text = "Button"
         self._text_size = 16
@@ -91,7 +90,7 @@ class BL_UI_Button(BL_UI_Widget):
             self.__image = None
 
     def set_image(self, rel_filepath):
-        #first try to access the image, for cases where it can get removed
+        # first try to access the image, for cases where it can get removed
         self.check_image_exists()
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
@@ -100,7 +99,9 @@ class BL_UI_Button(BL_UI_Widget):
                 if img is not None:
                     self.__image = img
                 else:
-                    self.__image = bpy.data.images.load(rel_filepath, check_existing=True)
+                    self.__image = bpy.data.images.load(
+                        rel_filepath, check_existing=True
+                    )
                     self.__image.name = imgname
 
                 self.__image.gl_load()
@@ -127,12 +128,11 @@ class BL_UI_Button(BL_UI_Widget):
             return
         area_height = self.get_area_height()
 
-        gpu.state.blend_set('ALPHA')
+        gpu.state.blend_set("ALPHA")
 
         self.shader.bind()
 
         self.set_colors()
-
 
         self.batch_panel.draw(self.shader)
 
@@ -161,7 +161,9 @@ class BL_UI_Button(BL_UI_Widget):
         size = blf.dimensions(font_id, self._text)
 
         textpos_y = area_height - self._textpos[1] - (self.height + size[1]) / 2.0
-        blf.position(font_id, self._textpos[0] + (self.width - size[0]) / 2.0, textpos_y + 1, 0)
+        blf.position(
+            font_id, self._textpos[0] + (self.width - size[0]) / 2.0, textpos_y + 1, 0
+        )
 
         r, g, b, a = self._text_color
         blf.color(font_id, r, g, b, a)
@@ -173,7 +175,16 @@ class BL_UI_Button(BL_UI_Widget):
             y_screen_flip = self.get_area_height() - self.y_screen
             off_x, off_y = self.__image_position
             sx, sy = self.__image_size
-            ui_bgl.draw_image(self.x_screen + off_x, y_screen_flip - off_y - sy, sx, sy, self.__image, 1.0, crop=(0, 0, 1, 1), batch=None)
+            ui_bgl.draw_image(
+                self.x_screen + off_x,
+                y_screen_flip - off_y - sy,
+                sx,
+                sy,
+                self.__image,
+                1.0,
+                crop=(0, 0, 1, 1),
+                batch=None,
+            )
             return True
         return False
 
@@ -181,7 +192,7 @@ class BL_UI_Button(BL_UI_Widget):
         self.mouse_down_func = mouse_down_func
 
     def mouse_down(self, x, y):
-        if self.is_in_rect(x,y):
+        if self.is_in_rect(x, y):
             self.__state = 1
             try:
                 self.mouse_down_func(self)
@@ -193,16 +204,15 @@ class BL_UI_Button(BL_UI_Widget):
         return False
 
     def mouse_move(self, x, y):
-        if self.is_in_rect(x,y):
-            if(self.__state != 1):
-
+        if self.is_in_rect(x, y):
+            if self.__state != 1:
                 # hover state
                 self.__state = 2
         else:
             self.__state = 0
 
     def mouse_up(self, x, y):
-        if self.is_in_rect(x,y):
+        if self.is_in_rect(x, y):
             self.__state = 2
         else:
             self.__state = 0

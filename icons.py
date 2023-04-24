@@ -27,25 +27,46 @@ import bpy
 icon_collections = {}
 
 icons_read = {
-    'fp.png': 'free',
-    'flp.png': 'full',
-    'trophy.png': 'trophy',
-    'dumbbell.png': 'dumbbell',
-    'cc0.png': 'cc0',
-    'royalty_free.png': 'royalty_free',
-    'filter.png': 'filter',
-    'filter_active.png': 'filter_active',
-    'bell.png': 'bell',
-    'post_comment.png': 'post_comment',
-    'blenderkit_logo.png': 'logo',
-    'blenderkit_logo_offline.png': 'logo_offline',
-    'bookmark_full.png': 'bookmark_full',
-    'bookmark_empty.png': 'bookmark_empty',
-    'bookmark_empty.png': 'bookmark_empty',
+    "fp.png": "free",
+    "flp.png": "full",
+    "trophy.png": "trophy",
+    "dumbbell.png": "dumbbell",
+    "cc0.png": "cc0",
+    "royalty_free.png": "royalty_free",
+    "filter.png": "filter",
+    "filter_active.png": "filter_active",
+    "bell.png": "bell",
+    "post_comment.png": "post_comment",
+    "blenderkit_logo.png": "logo",
+    "blenderkit_logo_offline.png": "logo_offline",
+    "bookmark_full.png": "bookmark_full",
+    "bookmark_empty.png": "bookmark_empty",
+    "bookmark_empty.png": "bookmark_empty",
 }
 
 # fill the icon_collections["previews"] with icons of numbers for complexity rating
-possible_wh_values = [ .2, .5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 50, 100, 150, 200, 250]
+possible_wh_values = [
+    0.2,
+    0.5,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    15,
+    20,
+    30,
+    50,
+    100,
+    150,
+    200,
+    250,
+]
 for w in possible_wh_values:
     if w < 1:
         icons_read[f"{w}.png"] = f"BK{w}"
@@ -53,22 +74,23 @@ for w in possible_wh_values:
         icons_read[f"{w:04}.png"] = f"BK{w}"
 
 verification_icons = {
-    'vs_ready.png':'ready',
-    'vs_deleted.png':'deleted' ,
-    'vs_uploaded.png': 'uploaded',
-    'vs_uploading.png': 'uploading',
-    'vs_on_hold.png': 'on_hold',
-    'vs_validated.png': 'validated',
-    'vs_rejected.png': 'rejected'
-
+    "vs_ready.png": "ready",
+    "vs_deleted.png": "deleted",
+    "vs_uploaded.png": "uploaded",
+    "vs_uploading.png": "uploading",
+    "vs_on_hold.png": "on_hold",
+    "vs_validated.png": "validated",
+    "vs_rejected.png": "rejected",
 }
 
 icons_read.update(verification_icons)
+
 
 def register_icons():
     # Note that preview collections returned by bpy.utils.previews
     # are regular py objects - you can use them to store custom data.
     import bpy.utils.previews
+
     pcoll = bpy.utils.previews.new()
 
     # path to the folder where the icon is
@@ -77,7 +99,7 @@ def register_icons():
 
     # load a preview thumbnail of a file and store in the previews collection
     for ir in icons_read.keys():
-        pcoll.load(icons_read[ir], os.path.join(icons_dir, ir), 'IMAGE')
+        pcoll.load(icons_read[ir], os.path.join(icons_dir, ir), "IMAGE")
 
         # iprev = pcoll.new(icons_read[ir])
         # img = bpy.data.images.load(os.path.join(icons_dir, ir))

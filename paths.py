@@ -29,37 +29,39 @@ from . import daemon_lib, global_vars, reports, tasks_queue, utils
 
 bk_logger = logging.getLogger(__name__)
 
-_presets = os.path.join(bpy.utils.user_resource('SCRIPTS'), 'presets')
-BLENDERKIT_API = f'{global_vars.SERVER}/api/v1'
-BLENDERKIT_OAUTH_LANDING_URL = f'{global_vars.SERVER}/oauth-landing'
-BLENDERKIT_PLANS_URL = f'{global_vars.SERVER}/plans/pricing'
-BLENDERKIT_REPORT_URL = f'{global_vars.SERVER}/usage_report'
-BLENDERKIT_USER_ASSETS_URL = f'{global_vars.SERVER}/my-assets'
-BLENDERKIT_MANUAL_URL = 'https://youtu.be/pSay3yaBWV0'
-BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/upload/'
-BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-material/'
-BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-brush/'
-BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-hdr/'
-BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f'{global_vars.SERVER}/docs/uploading-scene/'
-BLENDERKIT_LOGIN_URL = f'{global_vars.SERVER}/accounts/login'
-BLENDERKIT_SIGNUP_URL = f'{global_vars.SERVER}/accounts/register'
+_presets = os.path.join(bpy.utils.user_resource("SCRIPTS"), "presets")
+BLENDERKIT_API = f"{global_vars.SERVER}/api/v1"
+BLENDERKIT_OAUTH_LANDING_URL = f"{global_vars.SERVER}/oauth-landing"
+BLENDERKIT_PLANS_URL = f"{global_vars.SERVER}/plans/pricing"
+BLENDERKIT_REPORT_URL = f"{global_vars.SERVER}/usage_report"
+BLENDERKIT_USER_ASSETS_URL = f"{global_vars.SERVER}/my-assets"
+BLENDERKIT_MANUAL_URL = "https://youtu.be/pSay3yaBWV0"
+BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/upload/"
+BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
+    f"{global_vars.SERVER}/docs/uploading-material/"
+)
+BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-brush/"
+BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-hdr/"
+BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-scene/"
+BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
+BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
-BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, 'bkit.json')
+BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, "bkit.json")
 
 
 def cleanup_old_folders():
-    '''function to clean up any historical folders for BlenderKit. By now removes the temp folder.'''
-    orig_temp = os.path.join(os.path.expanduser('~'), 'blenderkit_data', 'temp')
+    """function to clean up any historical folders for BlenderKit. By now removes the temp folder."""
+    orig_temp = os.path.join(os.path.expanduser("~"), "blenderkit_data", "temp")
     if os.path.isdir(orig_temp):
         try:
             shutil.rmtree(orig_temp)
         except Exception as e:
-            bk_logger.error(f'could not delete old temp directory: {e}')
+            bk_logger.error(f"could not delete old temp directory: {e}")
 
 
-def find_in_local(text=''):
+def find_in_local(text=""):
     fs = []
-    for p, d, f in os.walk('.'):
+    for p, d, f in os.walk("."):
         for file in f:
             if text in file:
                 fs.append(file)
@@ -67,24 +69,24 @@ def find_in_local(text=''):
 
 
 def get_author_gallery_url(author_id):
-    return f'{global_vars.SERVER}/asset-gallery?query=author_id:{author_id}'
+    return f"{global_vars.SERVER}/asset-gallery?query=author_id:{author_id}"
 
 
 def get_asset_gallery_url(asset_id):
-    return f'{global_vars.SERVER}/asset-gallery-detail/{asset_id}/'
+    return f"{global_vars.SERVER}/asset-gallery-detail/{asset_id}/"
 
 
 def default_global_dict():
     home = os.path.expanduser("~")
-    data_home = os.environ.get('XDG_DATA_HOME')
+    data_home = os.environ.get("XDG_DATA_HOME")
     if data_home != None:
         home = data_home
-    return home + os.sep + 'blenderkit_data'
+    return home + os.sep + "blenderkit_data"
 
 
 def get_categories_filepath():
     tempdir = get_temp_dir()
-    return os.path.join(tempdir, 'categories.json')
+    return os.path.join(tempdir, "categories.json")
 
 
 dirs_exist_dict = {}  # cache these results since this is used very often
@@ -93,25 +95,25 @@ dirs_exist_dict = {}  # cache these results since this is used very often
 # this causes the function to fail if user deletes the directory while blender is running,
 # but comes back when blender is restarted.
 def get_temp_dir(subdir=None):
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     # first try cached results
     if subdir is not None:
         d = dirs_exist_dict.get(subdir)
         if d is not None:
             return d
     else:
-        d = dirs_exist_dict.get('top')
+        d = dirs_exist_dict.get("top")
         if d is not None:
             return d
 
     # tempdir = user_preferences.temp_dir
-    tempdir = os.path.join(tempfile.gettempdir(), 'bkit_temp')
-    if tempdir.startswith('//'):
+    tempdir = os.path.join(tempfile.gettempdir(), "bkit_temp")
+    if tempdir.startswith("//"):
         tempdir = bpy.path.abspath(tempdir)
     try:
         if not os.path.exists(tempdir):
             os.makedirs(tempdir)
-        dirs_exist_dict['top'] = tempdir
+        dirs_exist_dict["top"] = tempdir
 
         if subdir is not None:
             tempdir = os.path.join(tempdir, subdir)
@@ -121,12 +123,12 @@ def get_temp_dir(subdir=None):
 
         cleanup_old_folders()
     except Exception as e:
-        reports.add_report('Cache directory not found. Resetting Cache folder path.')
-        bk_logger.warning(f'due to exception: {e}')
+        reports.add_report("Cache directory not found. Resetting Cache folder path.")
+        bk_logger.warning(f"due to exception: {e}")
 
         p = default_global_dict()
         if p == user_preferences.global_dir:
-            message = 'Global dir was already default, plese set a global directory in addon preferences to a dir where you have write permissions.'
+            message = "Global dir was already default, plese set a global directory in addon preferences to a dir where you have write permissions."
             reports.add_report(message)
             return None
         user_preferences.global_dir = p
@@ -135,14 +137,20 @@ def get_temp_dir(subdir=None):
 
 
 def get_download_dirs(asset_type):
-    ''' get directories where assets will be downloaded'''
-    subdmapping = {'brush': 'brushes', 'texture': 'textures', 'model': 'models', 'scene': 'scenes',
-                   'material': 'materials', 'hdr': 'hdrs'}
+    """get directories where assets will be downloaded"""
+    subdmapping = {
+        "brush": "brushes",
+        "texture": "textures",
+        "model": "models",
+        "scene": "scenes",
+        "material": "materials",
+        "hdr": "hdrs",
+    }
 
     dirs = []
-    if global_vars.PREFS['directory_behaviour'] in ('BOTH', 'GLOBAL'):
-        ddir = global_vars.PREFS['global_dir']
-        if ddir.startswith('//'):
+    if global_vars.PREFS["directory_behaviour"] in ("BOTH", "GLOBAL"):
+        ddir = global_vars.PREFS["global_dir"]
+        if ddir.startswith("//"):
             ddir = bpy.path.abspath(ddir)
         if not os.path.exists(ddir):
             os.makedirs(ddir)
@@ -153,10 +161,11 @@ def get_download_dirs(asset_type):
             os.makedirs(subdir)
         dirs.append(subdir)
     if (
-            global_vars.PREFS['directory_behaviour'] == 'BOTH' or global_vars.PREFS[
-        'directory_behaviour'] == 'LOCAL') and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
-        ddir = global_vars.PREFS['project_subdir']
-        if ddir.startswith('//'):
+        global_vars.PREFS["directory_behaviour"] == "BOTH"
+        or global_vars.PREFS["directory_behaviour"] == "LOCAL"
+    ) and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
+        ddir = global_vars.PREFS["project_subdir"]
+        if ddir.startswith("//"):
             ddir = bpy.path.abspath(ddir)
             if not os.path.exists(ddir):
                 os.makedirs(ddir)
@@ -170,24 +179,26 @@ def get_download_dirs(asset_type):
 
     return dirs
 
+
 def slugify(slug):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
     """
     import re
+
     slug = slug.lower()
 
     characters = '<>:"/\\|?\*., ()#'
     for ch in characters:
-        slug = slug.replace(ch, '_')
+        slug = slug.replace(ch, "_")
     # import re
     # slug = unicodedata.normalize('NFKD', slug)
     # slug = slug.encode('ascii', 'ignore').lower()
-    slug = re.sub(r'[^a-z0-9]+.- ', '-', slug).strip('-')
-    slug = re.sub(r'[-]+', '-', slug)
-    slug = re.sub(r'/', '_', slug)
-    slug = re.sub(r'\\\'\"', '_', slug)
+    slug = re.sub(r"[^a-z0-9]+.- ", "-", slug).strip("-")
+    slug = re.sub(r"[-]+", "-", slug)
+    slug = re.sub(r"/", "_", slug)
+    slug = re.sub(r"\\\'\"", "_", slug)
     if len(slug) > 50:
         slug = slug[:50]
     return slug
@@ -195,26 +206,26 @@ def slugify(slug):
 
 def extract_filename_from_url(url):
     if url is not None:
-        imgname = url.split('/')[-1]
-        imgname = imgname.split('?')[0]
+        imgname = url.split("/")[-1]
+        imgname = imgname.split("?")[0]
         return imgname
-    return ''
+    return ""
 
 
 resolution_suffix = {
-    'blend': '',
-    'resolution_0_5K': '_05k',
-    'resolution_1K': '_1k',
-    'resolution_2K': '_2k',
-    'resolution_4K': '_4k',
-    'resolution_8K': '_8k',
+    "blend": "",
+    "resolution_0_5K": "_05k",
+    "resolution_1K": "_1k",
+    "resolution_2K": "_2k",
+    "resolution_4K": "_4k",
+    "resolution_8K": "_8k",
 }
 resolutions = {
-    'resolution_0_5K': 512,
-    'resolution_1K': 1024,
-    'resolution_2K': 2048,
-    'resolution_4K': 4096,
-    'resolution_8K': 8192,
+    "resolution_0_5K": 512,
+    "resolution_1K": 1024,
+    "resolution_2K": 2048,
+    "resolution_4K": 4096,
+    "resolution_8K": 8192,
 }
 
 
@@ -233,7 +244,7 @@ def round_to_closest_resolution(res):
 
 
 def get_res_file(asset_data, resolution, find_closest_with_url=False):
-    '''
+    """
     Returns closest resolution that current asset can offer.
     If there are no resolutions, return orig file.
     If orig file is requested, return it.
@@ -245,58 +256,60 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
     Returns:
         resolution file
         resolution, so that other processess can pass correctly which resolution is downloaded.
-    '''
+    """
     orig = None
     res = None
     closest = None
     target_resolution = resolutions.get(resolution)
     mindist = 100000000
 
-    for f in asset_data['files']:
-        if f['fileType'] == 'blend':
+    for f in asset_data["files"]:
+        if f["fileType"] == "blend":
             orig = f
-            if resolution == 'blend':
+            if resolution == "blend":
                 # orig file found, return.
-                return orig, 'blend'
+                return orig, "blend"
 
-        if f['fileType'] == resolution:
+        if f["fileType"] == resolution:
             # exact match found, return.
             return f, resolution
         # find closest resolution if the exact match won't be found.
-        rval = resolutions.get(f['fileType'])
+        rval = resolutions.get(f["fileType"])
         if rval and target_resolution:
             rdiff = abs(target_resolution - rval)
             if rdiff < mindist:
                 closest = f
                 mindist = rdiff
     if not res and not closest:
-        return orig, 'blend'
-    return closest, closest['fileType']
+        return orig, "blend"
+    return closest, closest["fileType"]
 
 
 def server_2_local_filename(asset_data, filename):
-    '''
+    """
     Convert file name on server to file name local.
     This should get replaced
-    '''
+    """
 
-    fn = filename.replace('blend_', '')
-    fn = fn.replace('resolution_', '')
-    n = slugify(asset_data['name']) + '_' + fn
+    fn = filename.replace("blend_", "")
+    fn = fn.replace("resolution_", "")
+    n = slugify(asset_data["name"]) + "_" + fn
     return n
 
 
-def get_texture_directory(asset_data, resolution='blend'):
+def get_texture_directory(asset_data, resolution="blend"):
     tex_dir_path = f"//textures{resolution_suffix[resolution]}{os.sep}"
     return tex_dir_path
 
 
-def get_download_filepaths(asset_data, resolution='blend', can_return_others=False):
-    '''Get all possible paths of the asset and resolution. Usually global and local directory.'''
+def get_download_filepaths(asset_data, resolution="blend", can_return_others=False):
+    """Get all possible paths of the asset and resolution. Usually global and local directory."""
     windows_path_limit = 250
-    dirs = get_download_dirs(asset_data['assetType'])
-    res_file, resolution = get_res_file(asset_data, resolution, find_closest_with_url=can_return_others)
-    name_slug = slugify(asset_data['name'])
+    dirs = get_download_dirs(asset_data["assetType"])
+    res_file, resolution = get_res_file(
+        asset_data, resolution, find_closest_with_url=can_return_others
+    )
+    name_slug = slugify(asset_data["name"])
     if len(name_slug) > 16:
         name_slug = name_slug[:16]
     asset_folder_name = f"{name_slug}_{asset_data['id']}"
@@ -306,22 +319,24 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
     if not res_file:
         return file_names
     # fn = asset_data['file_name'].replace('blend_', '')
-    if res_file.get('url') is not None:
+    if res_file.get("url") is not None:
         # Tweak the names a bit:
         # remove resolution and blend words in names
         #
-        fn = extract_filename_from_url(res_file['url'])
+        fn = extract_filename_from_url(res_file["url"])
         n = server_2_local_filename(asset_data, fn)
         for d in dirs:
             asset_folder_path = os.path.join(d, asset_folder_name)
-            if sys.platform == 'win32' and len(asset_folder_path) > windows_path_limit:
+            if sys.platform == "win32" and len(asset_folder_path) > windows_path_limit:
                 reports.add_report(
-                'The path to assets is too long, '
-                'only Global folder can be used. '
-                'Move your .blend file to another '
-                'folder with shorter path to '
-                'store assets in a subfolder of your project.',
-                60, 'ERROR')
+                    "The path to assets is too long, "
+                    "only Global folder can be used. "
+                    "Move your .blend file to another "
+                    "folder with shorter path to "
+                    "store assets in a subfolder of your project.",
+                    60,
+                    "ERROR",
+                )
                 continue
             if not os.path.exists(asset_folder_path):
                 os.makedirs(asset_folder_path)
@@ -329,26 +344,30 @@ def get_download_filepaths(asset_data, resolution='blend', can_return_others=Fal
             file_name = os.path.join(asset_folder_path, n)
             file_names.append(file_name)
 
-    utils.p('file paths', file_names)
+    utils.p("file paths", file_names)
     for f in file_names:
         if len(f) > windows_path_limit:
             reports.add_report(
-                'The path to assets is too long, '
-                'only Global folder can be used. '
-                'Move your .blend file to another '
-                'folder with shorter path to '
-                'store assets in a subfolder of your project.',
-                60, 'ERROR')
+                "The path to assets is too long, "
+                "only Global folder can be used. "
+                "Move your .blend file to another "
+                "folder with shorter path to "
+                "store assets in a subfolder of your project.",
+                60,
+                "ERROR",
+            )
             file_names.remove(f)
     return file_names
 
 
 def delete_asset_debug(asset_data):
-    '''TODO fix this for resolutions - should get ALL files from ALL resolutions.'''
-    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+    """TODO fix this for resolutions - should get ALL files from ALL resolutions."""
+    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     api_key = user_preferences.api_key
 
-    _, asset_data = daemon_lib.get_download_url(asset_data, utils.get_scene_id(), api_key)
+    _, asset_data = daemon_lib.get_download_url(
+        asset_data, utils.get_scene_id(), api_key
+    )
 
     file_names = get_download_filepaths(asset_data)
     for f in file_names:
@@ -356,11 +375,11 @@ def delete_asset_debug(asset_data):
 
         if os.path.isdir(asset_dir):
             try:
-                bk_logger.info(f'{asset_dir}')
+                bk_logger.info(f"{asset_dir}")
                 shutil.rmtree(asset_dir)
             except:
                 e = sys.exc_info()[0]
-                bk_logger.error(f'{e}')
+                bk_logger.error(f"{e}")
 
 
 def get_clean_filepath():
@@ -392,7 +411,7 @@ def get_material_thumbnailer_filepath():
     """
 
 
-def get_addon_file(subpath=''):
+def get_addon_file(subpath=""):
     script_path = os.path.dirname(os.path.realpath(__file__))
     # fpath = os.path.join(p, subpath)
     return os.path.join(script_path, subpath)
@@ -404,9 +423,9 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 def get_addon_thumbnail_path(name):
     global script_path
     # fpath = os.path.join(p, subpath)
-    ext = name.split('.')[-1]
-    next = ''
-    if not (ext == 'jpg' or ext == 'png'):  # already has ext?
-        next = '.jpg'
+    ext = name.split(".")[-1]
+    next = ""
+    if not (ext == "jpg" or ext == "png"):  # already has ext?
+        next = ".jpg"
     subpath = f"thumbnails{os.sep}{name}{next}"
     return os.path.join(script_path, subpath)

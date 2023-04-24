@@ -27,28 +27,31 @@ from . import paths
 def get_blender_version() -> str:
     """Get Blender version as string."""
     ver = bpy.app.version
-    return '%i.%i.%i' % (ver[0], ver[1], ver[2])
+    return "%i.%i.%i" % (ver[0], ver[1], ver[2])
 
 
 def get_addon_version() -> str:
     """Get BlenderKit addon version as string."""
     import blenderkit
-    ver = blenderkit.bl_info['version']
-    return '%i.%i.%i' % (ver[0], ver[1], ver[2])
+
+    ver = blenderkit.bl_info["version"]
+    return "%i.%i.%i" % (ver[0], ver[1], ver[2])
 
 
 def compare_versions(module):
     try:
-        ver_local = module.bl_info['version']
-        ver_local_float = ver_local[0] + .01 * ver_local[1] + .0001 * ver_local[2]
+        ver_local = module.bl_info["version"]
+        ver_local_float = ver_local[0] + 0.01 * ver_local[1] + 0.0001 * ver_local[2]
 
         tempdir = paths.get_temp_dir()
-        ver_filepath = os.path.join(tempdir, 'addon_version.json')
-        with open(ver_filepath, 'r',encoding='utf-8') as s:
+        ver_filepath = os.path.join(tempdir, "addon_version.json")
+        with open(ver_filepath, "r", encoding="utf-8") as s:
             data = json.load(s)
 
-        ver_online = data['addonVersion2.8'].split('.')
-        ver_online_float = int(ver_online[0]) + .01 * int(ver_online[1]) + .0001 * int(ver_online[2])
+        ver_online = data["addonVersion2.8"].split(".")
+        ver_online_float = (
+            int(ver_online[0]) + 0.01 * int(ver_online[1]) + 0.0001 * int(ver_online[2])
+        )
 
         # print('versions: installed-%s, online-%s' % (str(ver_local_float), str(ver_online_float)))
         if ver_online_float > ver_local_float:
@@ -56,4 +59,3 @@ def compare_versions(module):
     except:
         print("couldn't compare addon versions")
     return False
-
