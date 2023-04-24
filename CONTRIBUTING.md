@@ -65,8 +65,8 @@ python dev.py build --install-at /path/to/blender/3.2/scripts/addons
 ## Releasing
 
 To release do:
-1. bump version in `__init__.py` on master to `X.Y.Z.yymmdd`
-2. wait for automated build on master branch to be finished
+1. bump version in `__init__.py` on main branch to `X.Y.Z.yymmdd`
+2. wait for automated build on main branch to be finished
 3. download the ZIP
 4. rename it to `blenderkit-X.Y.Z.yymmdd` (ending `-alpha`, `-beta`, `-rc` for prereleases!) 
 5. create release on Github
