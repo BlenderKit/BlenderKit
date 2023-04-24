@@ -17,7 +17,6 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-
 import json
 import math
 import os
@@ -33,9 +32,9 @@ BLENDERKIT_EXPORT_DATA = sys.argv[-1]
 
 
 def get_obnames():
-    with open(BLENDERKIT_EXPORT_DATA, 'r',encoding='utf-8') as s:
+    with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
         data = json.load(s)
-    obnames = eval(data['models'])
+    obnames = eval(data["models"])
     return obnames
 
 
@@ -43,14 +42,14 @@ def center_obs_for_thumbnail(obs):
     s = bpy.context.scene
     # obs = bpy.context.selected_objects
     parent = obs[0]
-    if parent.type == 'EMPTY' and parent.instance_collection is not None:
+    if parent.type == "EMPTY" and parent.instance_collection is not None:
         obs = parent.instance_collection.objects[:]
 
     while parent.parent is not None:
         parent = parent.parent
     # reset parent rotation, so we see how it really snaps.
     parent.rotation_euler = (0, 0, 0)
-    parent.location = (0,0,0)
+    parent.location = (0, 0, 0)
     bpy.context.view_layer.update()
     minx, miny, minz, maxx, maxy, maxz = utils.get_bounds_worldspace(obs)
 
@@ -61,19 +60,19 @@ def center_obs_for_thumbnail(obs):
 
     bpy.context.view_layer.objects.active = parent
     # parent.location += mathutils.Vector((-cx, -cy, -minz))
-    parent.location = (-cx,-cy,0)
+    parent.location = (-cx, -cy, 0)
 
     camZ = s.camera.parent.parent
     # camZ.location.z = (maxz - minz) / 2
     camZ.location.z = (maxz) / 2
-    dx = (maxx - minx)
-    dy = (maxy - miny)
-    dz = (maxz - minz)
+    dx = maxx - minx
+    dy = maxy - miny
+    dz = maxz - minz
     r = math.sqrt(dx * dx + dy * dy + dz * dz)
 
-    scaler = bpy.context.view_layer.objects['scaler']
+    scaler = bpy.context.view_layer.objects["scaler"]
     scaler.scale = (r, r, r)
-    coef = .7
+    coef = 0.7
     r *= coef
     camZ.scale = (r, r, r)
     bpy.context.view_layer.update()
@@ -85,83 +84,93 @@ def render_thumbnails():
 
 if __name__ == "__main__":
     try:
-        with open(BLENDERKIT_EXPORT_DATA, 'r',encoding='utf-8') as s:
+        with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
 
-        user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
+        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
 
-        if data.get('do_download'):
+        if data.get("do_download"):
             # if this isn't here, blender crashes.
             if bpy.app.version >= (3, 0, 0):
-                bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+                bpy.context.preferences.filepaths.file_preview_type = "NONE"
 
-            #need to save the file, so that asset doesn't get downloaded into addon directory
-            temp_blend_path = os.path.join(data['tempdir'], 'temp.blend')
-            bpy.ops.wm.save_as_mainfile(filepath = temp_blend_path)
+            # need to save the file, so that asset doesn't get downloaded into addon directory
+            temp_blend_path = os.path.join(data["tempdir"], "temp.blend")
+            bpy.ops.wm.save_as_mainfile(filepath=temp_blend_path)
 
-            bg_blender.progress('Downloading asset')
-            asset_data = data['asset_data']
-            has_url, asset_data = daemon_lib.get_download_url(asset_data, utils.get_scene_id(), user_preferences.api_key)
+            bg_blender.progress("Downloading asset")
+            asset_data = data["asset_data"]
+            has_url, asset_data = daemon_lib.get_download_url(
+                asset_data, utils.get_scene_id(), user_preferences.api_key
+            )
             if has_url is not True:
-                bg_blender.progress("couldn't download asset for thumnbail re-rendering")
-            bg_blender.progress('downloading asset')
-            fpath = bg_utils.download_asset_file(asset_data, api_key=user_preferences.api_key)
-            data['filepath'] = fpath
-            main_object, allobs = append_link.link_collection(fpath,
-                                                          location=(0,0,0),
-                                                          rotation=(0,0,0),
-                                                          link=True,
-                                                          name=asset_data['name'],
-                                                          parent=None)
+                bg_blender.progress(
+                    "couldn't download asset for thumnbail re-rendering"
+                )
+            bg_blender.progress("downloading asset")
+            fpath = bg_utils.download_asset_file(
+                asset_data, api_key=user_preferences.api_key
+            )
+            data["filepath"] = fpath
+            main_object, allobs = append_link.link_collection(
+                fpath,
+                location=(0, 0, 0),
+                rotation=(0, 0, 0),
+                link=True,
+                name=asset_data["name"],
+                parent=None,
+            )
             allobs = [main_object]
         else:
-            bg_blender.progress('preparing thumbnail scene')
+            bg_blender.progress("preparing thumbnail scene")
             obnames = get_obnames()
-            main_object, allobs = append_link.append_objects(file_name=data['filepath'],
-                                                         obnames=obnames,
-                                                             link=True)
+            main_object, allobs = append_link.append_objects(
+                file_name=data["filepath"], obnames=obnames, link=True
+            )
         bpy.context.view_layer.update()
 
-
         camdict = {
-            'GROUND': 'camera ground',
-            'WALL': 'camera wall',
-            'CEILING': 'camera ceiling',
-            'FLOAT': 'camera float'
+            "GROUND": "camera ground",
+            "WALL": "camera wall",
+            "CEILING": "camera ceiling",
+            "FLOAT": "camera float",
         }
 
-        bpy.context.scene.camera = bpy.data.objects[camdict[data['thumbnail_snap_to']]]
+        bpy.context.scene.camera = bpy.data.objects[camdict[data["thumbnail_snap_to"]]]
         center_obs_for_thumbnail(allobs)
-        bpy.context.scene.render.filepath = data['thumbnail_path']
+        bpy.context.scene.render.filepath = data["thumbnail_path"]
         if user_preferences.thumbnail_use_gpu:
-            bpy.context.scene.cycles.device = 'GPU'
+            bpy.context.scene.cycles.device = "GPU"
 
         fdict = {
-            'DEFAULT': 1,
-            'FRONT': 2,
-            'SIDE': 3,
-            'TOP': 4,
+            "DEFAULT": 1,
+            "FRONT": 2,
+            "SIDE": 3,
+            "TOP": 4,
         }
         s = bpy.context.scene
-        s.frame_set(fdict[data['thumbnail_angle']])
+        s.frame_set(fdict[data["thumbnail_angle"]])
 
         snapdict = {
-            'GROUND': 'Ground',
-            'WALL': 'Wall',
-            'CEILING': 'Ceiling',
-            'FLOAT': 'Float'
+            "GROUND": "Ground",
+            "WALL": "Wall",
+            "CEILING": "Ceiling",
+            "FLOAT": "Float",
         }
 
-        collection = bpy.context.scene.collection.children[snapdict[data['thumbnail_snap_to']]]
+        collection = bpy.context.scene.collection.children[
+            snapdict[data["thumbnail_snap_to"]]
+        ]
         collection.hide_viewport = False
         collection.hide_render = False
         collection.hide_select = False
 
         main_object.rotation_euler = (0, 0, 0)
-        bpy.data.materials['bkit background'].node_tree.nodes['Value'].outputs['Value'].default_value \
-            = data['thumbnail_background_lightness']
-        s.cycles.samples = data['thumbnail_samples']
-        bpy.context.view_layer.cycles.use_denoising = data['thumbnail_denoising']
+        bpy.data.materials["bkit background"].node_tree.nodes["Value"].outputs[
+            "Value"
+        ].default_value = data["thumbnail_background_lightness"]
+        s.cycles.samples = data["thumbnail_samples"]
+        bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
         bpy.context.view_layer.update()
 
         # import blender's HDR here
@@ -179,32 +188,28 @@ if __name__ == "__main__":
         # img.filepath = ipath
         # img.reload()
 
-        bpy.context.scene.render.resolution_x = int(data['thumbnail_resolution'])
-        bpy.context.scene.render.resolution_y = int(data['thumbnail_resolution'])
+        bpy.context.scene.render.resolution_x = int(data["thumbnail_resolution"])
+        bpy.context.scene.render.resolution_y = int(data["thumbnail_resolution"])
 
-        bg_blender.progress('rendering thumbnail')
+        bg_blender.progress("rendering thumbnail")
         render_thumbnails()
-        fpath = data['thumbnail_path'] + '.jpg'
-        if data.get('upload_after_render') and data.get('asset_data'):
+        fpath = data["thumbnail_path"] + ".jpg"
+        if data.get("upload_after_render") and data.get("asset_data"):
             # try to patch for the sake of older assets where thumbnail update doesn't work for the reasont
             # that original thumbnail files aren't available.
             # upload.patch_individual_metadata(data['asset_data']['id'], {}, user_preferences)
-            bg_blender.progress('uploading thumbnail')
-            file = {
-                "type": "thumbnail",
-                "index": 0,
-                "file_path": fpath
-            }
+            bg_blender.progress("uploading thumbnail")
+            file = {"type": "thumbnail", "index": 0, "file_path": fpath}
             upload_data = {
-                "name": data['asset_data']['name'],
+                "name": data["asset_data"]["name"],
                 "token": user_preferences.api_key,
-                "id": data['asset_data']['id']
+                "id": data["asset_data"]["id"],
             }
             bg_utils.upload_file(upload_data, file)
 
-        bg_blender.progress('background autothumbnailer finished successfully')
+        bg_blender.progress("background autothumbnailer finished successfully")
 
     except Exception as e:
-        print(f'background autothumbnailer failed: {e}')
+        print(f"background autothumbnailer failed: {e}")
         print_exc()
         sys.exit(1)

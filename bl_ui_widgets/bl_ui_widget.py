@@ -4,7 +4,6 @@ from gpu_extras.batch import batch_for_shader
 
 
 class BL_UI_Widget:
-
     def __init__(self, x, y, width, height):
         self.x = x
         self.y = y
@@ -19,7 +18,7 @@ class BL_UI_Widget:
         self._mouse_down = False
         self._mouse_down_right = False
         self._is_visible = True
-        self._is_active = True #if the widget needs to be disabled
+        self._is_active = True  # if the widget needs to be disabled
 
     def set_location(self, x, y):
         # if self.x != x or self.y != y or self.x_screen != x or self.y_screen != y:
@@ -28,8 +27,7 @@ class BL_UI_Widget:
         self.y = y
         self.x_screen = x
         self.y_screen = y
-        self.update(x,y)
-
+        self.update(x, y)
 
     @property
     def bg_color(self):
@@ -83,7 +81,6 @@ class BL_UI_Widget:
         self.update(self.x, self.y)
 
     def update(self, x, y):
-
         area_height = self.get_area_height()
         self.x_screen = x
         self.y_screen = y
@@ -94,21 +91,24 @@ class BL_UI_Widget:
 
         # bottom left, top left, top right, bottom right
         vertices = (
-                    (self.x_screen, y_screen_flip),
-                    (self.x_screen, y_screen_flip - self.height),
-                    (self.x_screen + self.width, y_screen_flip - self.height),
-                    (self.x_screen + self.width, y_screen_flip))
+            (self.x_screen, y_screen_flip),
+            (self.x_screen, y_screen_flip - self.height),
+            (self.x_screen + self.width, y_screen_flip - self.height),
+            (self.x_screen + self.width, y_screen_flip),
+        )
 
-        self.shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-        self.batch_panel = batch_for_shader(self.shader, 'TRIS', {"pos" : vertices}, indices=indices)
+        self.shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+        self.batch_panel = batch_for_shader(
+            self.shader, "TRIS", {"pos": vertices}, indices=indices
+        )
         bpy.context.region.tag_redraw()
 
     def handle_event(self, event):
-        '''
+        """
         returns True if the event was handled by the widget
         # 'handled_pass', if the event was handled but the event should be passed to other widgets
         False if the event was not handled by the widget
-        '''
+        """
 
         if not self._is_visible:
             return False
@@ -118,8 +118,8 @@ class BL_UI_Widget:
         x = event.mouse_region_x
         y = event.mouse_region_y
 
-        if (event.type == 'LEFTMOUSE'):
-            if (event.value == 'PRESS'):
+        if event.type == "LEFTMOUSE":
+            if event.value == "PRESS":
                 self._mouse_down = True
                 bpy.context.region.tag_redraw()
                 return self.mouse_down(x, y)
@@ -129,9 +129,8 @@ class BL_UI_Widget:
                 self.mouse_up(x, y)
                 return False
 
-        elif (event.type == 'RIGHTMOUSE'):
-
-            if (event.value == 'PRESS'):
+        elif event.type == "RIGHTMOUSE":
+            if event.value == "PRESS":
                 self._mouse_down_right = True
                 bpy.context.region.tag_redraw()
                 return self.mouse_down_right(x, y)
@@ -140,7 +139,7 @@ class BL_UI_Widget:
                 bpy.context.region.tag_redraw()
                 self.mouse_up(x, y)
 
-        elif (event.type == 'MOUSEMOVE'):
+        elif event.type == "MOUSEMOVE":
             self.mouse_move(x, y)
             inrect = self.is_in_rect(x, y)
 
@@ -157,16 +156,19 @@ class BL_UI_Widget:
                 self.mouse_exit(event, x, y)
                 bpy.context.region.tag_redraw()
 
-            #return always false to enable mouse exit events on other buttons.(would sometimes not hide the tooltip)
-            return False # self.__inrect
+            # return always false to enable mouse exit events on other buttons.(would sometimes not hide the tooltip)
+            return False  # self.__inrect
 
-        elif event.value == 'PRESS' and self.__inrect and (event.ascii != '' or event.type in self.get_input_keys()):
-
+        elif (
+            event.value == "PRESS"
+            and self.__inrect
+            and (event.ascii != "" or event.type in self.get_input_keys())
+        ):
             return self.text_input(event)
 
         return False
 
-    def get_input_keys(self)                :
+    def get_input_keys(self):
         return []
 
     def get_area_height(self):
@@ -176,10 +178,9 @@ class BL_UI_Widget:
         area_height = self.get_area_height()
 
         widget_y = area_height - self.y_screen
-        if (
-            (self.x_screen <= x <= (self.x_screen + self.width)) and
-            (widget_y >= y >= (widget_y - self.height))
-            ):
+        if (self.x_screen <= x <= (self.x_screen + self.width)) and (
+            widget_y >= y >= (widget_y - self.height)
+        ):
             # print('is in rect!?')
             # print('area height', area_height)
             # print ('x sceen ',self.x_screen,'x ', x, 'width', self.width)
@@ -192,10 +193,10 @@ class BL_UI_Widget:
         return False
 
     def mouse_down(self, x, y):
-        return self.is_in_rect(x,y)
+        return self.is_in_rect(x, y)
 
     def mouse_down_right(self, x, y):
-        return self.is_in_rect(x,y)
+        return self.is_in_rect(x, y)
 
     def mouse_up(self, x, y):
         pass

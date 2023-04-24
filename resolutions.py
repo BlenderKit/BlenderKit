@@ -30,37 +30,37 @@ from . import paths, utils
 bk_logger = logging.getLogger(__name__)
 
 resolutions = {
-    'resolution_0_5K': 512,
-    'resolution_1K': 1024,
-    'resolution_2K': 2048,
-    'resolution_4K': 4096,
-    'resolution_8K': 8192,
+    "resolution_0_5K": 512,
+    "resolution_1K": 1024,
+    "resolution_2K": 2048,
+    "resolution_4K": 4096,
+    "resolution_8K": 8192,
 }
 rkeys = list(resolutions.keys())
 
 resolution_props_to_server = {
-    '512': 'resolution_0_5K',
-    '1024': 'resolution_1K',
-    '2048': 'resolution_2K',
-    '4096': 'resolution_4K',
-    '8192': 'resolution_8K',
-    'ORIGINAL': 'blend',
+    "512": "resolution_0_5K",
+    "1024": "resolution_1K",
+    "2048": "resolution_2K",
+    "4096": "resolution_4K",
+    "8192": "resolution_8K",
+    "ORIGINAL": "blend",
 }
 
 
 def get_current_resolution():
     actres = 0
     for i in bpy.data.images:
-        if i.name != 'Render Result':
+        if i.name != "Render Result":
             actres = max(actres, i.size[0], i.size[1])
     return actres
 
 
 def unpack_asset(data):
-    utils.p('unpacking asset')
-    asset_data = data['asset_data']
+    utils.p("unpacking asset")
+    asset_data = data["asset_data"]
 
-    resolution = asset_data.get('resolution', 'blend')
+    resolution = asset_data.get("resolution", "blend")
     # TODO - passing resolution inside asset data might not be the best solution
     tex_dir_path = paths.get_texture_directory(asset_data, resolution=resolution)
     tex_dir_abs = bpy.path.abspath(tex_dir_path)
@@ -71,10 +71,10 @@ def unpack_asset(data):
             print(e)
     bpy.data.use_autopack = False
     for image in bpy.data.images:
-        if image.name != 'Render Result':
+        if image.name != "Render Result":
             # suffix = paths.resolution_suffix(data['suffix'])
             fp = get_texture_filepath(tex_dir_path, image, resolution=resolution)
-            utils.p('unpacking file', image.name)
+            utils.p("unpacking file", image.name)
             utils.p(image.filepath, fp)
 
             for pf in image.packed_files:
@@ -84,14 +84,14 @@ def unpack_asset(data):
             # image.save()
             if len(image.packed_files) > 0:
                 # image.unpack(method='REMOVE')
-                image.unpack(method='WRITE_ORIGINAL')
+                image.unpack(method="WRITE_ORIGINAL")
 
-    #mark asset browser asset
+    # mark asset browser asset
     data_block = None
-    if asset_data['assetType'] == 'model':
+    if asset_data["assetType"] == "model":
         for ob in bpy.data.objects:
             if ob.parent is None and ob in bpy.context.visible_objects:
-                if bpy.app.version>=(3,0,0):
+                if bpy.app.version >= (3, 0, 0):
                     ob.asset_mark()
         # for c in bpy.data.collections:
         #     if c.get('asset_data') is not None:
@@ -99,17 +99,17 @@ def unpack_asset(data):
 
         #         c.asset_mark()
         #         data_block = c
-    elif asset_data['assetType'] == 'material':
+    elif asset_data["assetType"] == "material":
         for m in bpy.data.materials:
             if bpy.app.version >= (3, 0, 0):
                 m.asset_mark()
             data_block = m
-    elif asset_data['assetType'] == 'scene':
+    elif asset_data["assetType"] == "scene":
         if bpy.app.version >= (3, 0, 0):
             bpy.context.scene.asset_mark()
-    elif asset_data['assetType'] =='brush':
+    elif asset_data["assetType"] == "brush":
         for b in bpy.data.brushes:
-            if b.get('asset_data') is not None:
+            if b.get("asset_data") is not None:
                 if bpy.app.version >= (3, 0, 0):
                     b.asset_mark()
                 data_block = b
@@ -117,31 +117,30 @@ def unpack_asset(data):
         tags = data_block.asset_data.tags
         for t in tags:
             tags.remove(t)
-        tags.new('description: ' + asset_data['description'])
-        tags.new('tags: ' + ','.join(asset_data['tags']))
+        tags.new("description: " + asset_data["description"])
+        tags.new("tags: " + ",".join(asset_data["tags"]))
     #
     # if this isn't here, blender crashes when saving file.
     if bpy.app.version >= (3, 0, 0):
-        bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+        bpy.context.preferences.filepaths.file_preview_type = "NONE"
 
-    bpy.ops.wm.save_as_mainfile(filepath = bpy.data.filepath, compress=False)
+    bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath, compress=False)
     # now try to delete the .blend1 file
     try:
-
-        os.remove(bpy.data.filepath + '1')
+        os.remove(bpy.data.filepath + "1")
     except Exception as e:
         print(e)
     bpy.ops.wm.quit_blender()
     sys.exit()
 
 
-def get_texture_filepath(tex_dir_path, image, resolution='blend'):
+def get_texture_filepath(tex_dir_path, image, resolution="blend"):
     if len(image.packed_files) > 0:
         image_file_name = bpy.path.basename(image.packed_files[0].filepath)
     else:
         image_file_name = bpy.path.basename(image.filepath)
-    if image_file_name == '':
-        image_file_name = image.name.split('.')[0]
+    if image_file_name == "":
+        image_file_name = image.name.split(".")[0]
 
     suffix = paths.resolution_suffix[resolution]
 
@@ -175,9 +174,9 @@ def regenerate_thumbnail_material(data):
     bpy.ops.object.material_slot_add()
     aob.material_slots[0].material = bpy.data.materials[0]
     props = aob.active_material.blenderkit
-    props.thumbnail_generator_type = 'BALL'
+    props.thumbnail_generator_type = "BALL"
     props.thumbnail_background = False
-    props.thumbnail_resolution = '256'
+    props.thumbnail_resolution = "256"
     # layout.prop(props, 'thumbnail_generator_type')
     # layout.prop(props, 'thumbnail_scale')
     # layout.prop(props, 'thumbnail_background')

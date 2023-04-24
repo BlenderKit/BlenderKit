@@ -5,15 +5,14 @@ from .bl_ui_widget import *
 
 
 class BL_UI_Label(BL_UI_Widget):
-
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
 
-        self._text_color        = (1.0, 1.0, 1.0, 1.0)
+        self._text_color = (1.0, 1.0, 1.0, 1.0)
         self._text = "Label"
         self._text_size = 16
-        self._halign = 'LEFT'
-        self._valign = 'TOP'
+        self._halign = "LEFT"
+        self._valign = "TOP"
 
     @property
     def text_color(self):
@@ -52,7 +51,6 @@ class BL_UI_Label(BL_UI_Widget):
         if not self._is_visible:
             return
 
-
         area_height = self.get_area_height()
 
         font_id = 1
@@ -64,13 +62,13 @@ class BL_UI_Label(BL_UI_Widget):
         r, g, b, a = self._text_color
         x = self.x_screen
         y = textpos_y
-        if self._halign != 'LEFT':
+        if self._halign != "LEFT":
             width, height = blf.dimensions(font_id, self._text)
-            if self._halign == 'RIGHT':
+            if self._halign == "RIGHT":
                 x -= width
-            elif self._halign == 'CENTER':
+            elif self._halign == "CENTER":
                 x -= width // 2
-            if self._valign == 'CENTER':
+            if self._valign == "CENTER":
                 y -= height // 2
             # bottom could be here but there's no reason for it
         blf.position(font_id, x, y, 0)

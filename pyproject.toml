@@ -1,10 +1,22 @@
 [tool.isort]
 multi_line_output = 3
 lines_after_imports = 2
-skip = ["lib", "dependencies"]
+skip = ["lib", "dependencies", "out"]
 profile = "black"
 
+[tool.black]
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+  | \.git
+  | lib
+  | dependencies
+  | out
+)/
+'''
+
 [tool.ruff]
-exclude = ["lib", "dependencies"]
+exclude = ["lib", "dependencies", "out"]
 ignore = ["E501"]
 target-version = "py310"

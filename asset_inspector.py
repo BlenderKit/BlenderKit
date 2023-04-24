@@ -23,7 +23,7 @@ from object_print3d_utils import operators as ops
 from . import utils
 
 
-RENDER_OBTYPES = ['MESH', 'CURVE', 'SURFACE', 'METABALL', 'TEXT']
+RENDER_OBTYPES = ["MESH", "CURVE", "SURFACE", "METABALL", "TEXT"]
 
 
 def check_material(props, mat):
@@ -36,42 +36,48 @@ def check_material(props, mat):
     total_pixels = 0
     props.is_procedural = True
 
-    if e == 'CYCLES':
-
+    if e == "CYCLES":
         if mat.node_tree is not None:
             checknodes = mat.node_tree.nodes[:]
             while len(checknodes) > 0:
                 n = checknodes.pop()
                 props.node_count += 1
-                if n.type == 'GROUP':  # dive deeper here.
+                if n.type == "GROUP":  # dive deeper here.
                     checknodes.extend(n.node_tree.nodes)
-                if len(n.outputs) == 1 and n.outputs[0].type == 'SHADER' and n.type != 'GROUP':
+                if (
+                    len(n.outputs) == 1
+                    and n.outputs[0].type == "SHADER"
+                    and n.type != "GROUP"
+                ):
                     if n.type not in shaders:
                         shaders.append(n.type)
-                if n.type == 'TEX_IMAGE':
-
+                if n.type == "TEX_IMAGE":
                     if n.image is not None:
-                        mattype = 'image based'
+                        mattype = "image based"
                         props.is_procedural = False
                         if n.image not in textures:
                             textures.append(n.image)
                             props.texture_count += 1
-                            total_pixels += (n.image.size[0] * n.image.size[1])
+                            total_pixels += n.image.size[0] * n.image.size[1]
 
                             maxres = max(n.image.size[0], n.image.size[1])
-                            props.texture_resolution_max = max(props.texture_resolution_max, maxres)
+                            props.texture_resolution_max = max(
+                                props.texture_resolution_max, maxres
+                            )
                             minres = min(n.image.size[0], n.image.size[1])
                             if props.texture_resolution_min == 0:
                                 props.texture_resolution_min = minres
                             else:
-                                props.texture_resolution_min = min(props.texture_resolution_min, minres)
-    props.total_megapixels = round(total_pixels /(1024*1024))
-    props.shaders = ''
+                                props.texture_resolution_min = min(
+                                    props.texture_resolution_min, minres
+                                )
+    props.total_megapixels = round(total_pixels / (1024 * 1024))
+    props.shaders = ""
     for s in shaders:
-        if s.startswith('BSDF_'):
+        if s.startswith("BSDF_"):
             s = s[5:]
-        s = s.lower().replace('_', ' ')
-        props.shaders += (s + ', ')
+        s = s.lower().replace("_", " ")
+        props.shaders += s + ", "
 
 
 def check_render_engine(props, obs):
@@ -88,20 +94,23 @@ def check_render_engine(props, obs):
     props.total_megapixels = 0
     total_pixels = 0
     props.node_count = 0
-    for ob in obs:  # TODO , this is duplicated here for other engines, otherwise this should be more clever.
+    for (
+        ob
+    ) in (
+        obs
+    ):  # TODO , this is duplicated here for other engines, otherwise this should be more clever.
         for ms in ob.material_slots:
             if ms.material is not None:
                 m = ms.material
                 if m.name not in materials:
                     materials.append(m.name)
-        if ob.type == 'MESH' and len(ob.data.uv_layers) > 0:
+        if ob.type == "MESH" and len(ob.data.uv_layers) > 0:
             props.uv = True
 
-    if e == 'BLENDER_RENDER':
-        props.engine = 'BLENDER_INTERNAL'
-    elif e == 'CYCLES':
-
-        props.engine = 'CYCLES'
+    if e == "BLENDER_RENDER":
+        props.engine = "BLENDER_INTERNAL"
+    elif e == "CYCLES":
+        props.engine = "CYCLES"
 
         for mname in materials:
             m = bpy.data.materials[mname]
@@ -109,50 +118,56 @@ def check_render_engine(props, obs):
                 checknodes = m.node_tree.nodes[:]
                 while len(checknodes) > 0:
                     n = checknodes.pop()
-                    props.node_count +=1
-                    if n.type == 'GROUP':  # dive deeper here.
+                    props.node_count += 1
+                    if n.type == "GROUP":  # dive deeper here.
                         checknodes.extend(n.node_tree.nodes)
-                    if len(n.outputs) == 1 and n.outputs[0].type == 'SHADER' and n.type != 'GROUP':
+                    if (
+                        len(n.outputs) == 1
+                        and n.outputs[0].type == "SHADER"
+                        and n.type != "GROUP"
+                    ):
                         if n.type not in shaders:
                             shaders.append(n.type)
-                    if n.type == 'TEX_IMAGE':
-
-
+                    if n.type == "TEX_IMAGE":
                         if n.image is not None and n.image not in textures:
                             props.is_procedural = False
-                            mattype = 'image based'
+                            mattype = "image based"
 
                             textures.append(n.image)
                             props.texture_count += 1
-                            total_pixels += (n.image.size[0] * n.image.size[1])
+                            total_pixels += n.image.size[0] * n.image.size[1]
 
                             maxres = max(n.image.size[0], n.image.size[1])
-                            props.texture_resolution_max = max(props.texture_resolution_max, maxres)
+                            props.texture_resolution_max = max(
+                                props.texture_resolution_max, maxres
+                            )
                             minres = min(n.image.size[0], n.image.size[1])
                             if props.texture_resolution_min == 0:
                                 props.texture_resolution_min = minres
                             else:
-                                props.texture_resolution_min = min(props.texture_resolution_min, minres)
+                                props.texture_resolution_min = min(
+                                    props.texture_resolution_min, minres
+                                )
 
-        props.total_megapixels =  round(total_pixels/(1024*1024))
+        props.total_megapixels = round(total_pixels / (1024 * 1024))
         # if mattype == None:
         #    mattype = 'procedural'
         # tags['material type'] = mattype
 
-    elif e == 'BLENDER_GAME':
-        props.engine = 'BLENDER_GAME'
+    elif e == "BLENDER_GAME":
+        props.engine = "BLENDER_GAME"
 
     # write to object properties.
-    props.materials = ''
-    props.shaders = ''
+    props.materials = ""
+    props.shaders = ""
     for m in materials:
-        props.materials += (m + ', ')
+        props.materials += m + ", "
     for s in shaders:
-        if s.startswith('BSDF_'):
+        if s.startswith("BSDF_"):
             s = s[5:]
         s = s.lower()
-        s = s.replace('_', ' ')
-        props.shaders += (s + ', ')
+        s = s.replace("_", " ")
+        props.shaders += s + ", "
 
 
 def check_printable(props, obs):
@@ -175,7 +190,7 @@ def check_printable(props, obs):
 
         printable = True
         for item in info:
-            passed = item[0].endswith(' 0')
+            passed = item[0].endswith(" 0")
             if not passed:
                 printable = False
 
@@ -184,7 +199,7 @@ def check_printable(props, obs):
 
 def check_rig(props, obs):
     for ob in obs:
-        if ob.type == 'ARMATURE':
+        if ob.type == "ARMATURE":
             props.rig = True
 
 
@@ -204,7 +219,7 @@ def check_anim(props, obs):
 
 
 def check_meshprops(props, obs):
-    ''' checks polycount, manifold, mesh parts (not implemented)'''
+    """checks polycount, manifold, mesh parts (not implemented)"""
     fc = 0
     fcr = 0
     tris = 0
@@ -216,9 +231,9 @@ def check_meshprops(props, obs):
     manifold = True
 
     for ob in obs:
-        if ob.type == 'MESH' or ob.type == 'CURVE':
+        if ob.type == "MESH" or ob.type == "CURVE":
             ob_eval = None
-            if ob.type == 'CURVE':
+            if ob.type == "CURVE":
                 # depsgraph = bpy.context.evaluated_depsgraph_get()
                 # object_eval = ob.evaluated_get(depsgraph)
                 mesh = ob.to_mesh()
@@ -244,18 +259,22 @@ def check_meshprops(props, obs):
                     edges_counts[e] = edges_counts.get(e, 0) + 1
 
             # all meshes have to be manifold for this to work.
-            manifold = manifold and not any(i in edges_counts.values() for i in [0, 1, 3, 4])
+            manifold = manifold and not any(
+                i in edges_counts.values() for i in [0, 1, 3, 4]
+            )
 
             for m in ob.modifiers:
-                if m.type == 'SUBSURF' or m.type == 'MULTIRES':
-                    fcor *= 4 ** m.render_levels
-                if m.type == 'SOLIDIFY':  # this is rough estimate, not to waste time with evaluating all nonmanifold edges
+                if m.type == "SUBSURF" or m.type == "MULTIRES":
+                    fcor *= 4**m.render_levels
+                if (
+                    m.type == "SOLIDIFY"
+                ):  # this is rough estimate, not to waste time with evaluating all nonmanifold edges
                     fcor *= 2
-                if m.type == 'ARRAY':
+                if m.type == "ARRAY":
                     fcor *= m.count
-                if m.type == 'MIRROR':
+                if m.type == "MIRROR":
                     fcor *= 2
-                if m.type == 'DECIMATE':
+                if m.type == "DECIMATE":
                     fcor *= m.ratio
             fcr += fcor
 
@@ -266,17 +285,17 @@ def check_meshprops(props, obs):
     props.face_count = int(fc)
     props.face_count_render = int(fcr)
     if quads > 0 and tris == 0 and ngons == 0:
-        props.mesh_poly_type = 'QUAD'
+        props.mesh_poly_type = "QUAD"
     elif quads > tris and quads > ngons:
-        props.mesh_poly_type = 'QUAD_DOMINANT'
+        props.mesh_poly_type = "QUAD_DOMINANT"
     elif tris > quads and tris > quads:
-        props.mesh_poly_type = 'TRI_DOMINANT'
+        props.mesh_poly_type = "TRI_DOMINANT"
     elif quads == 0 and tris > 0 and ngons == 0:
-        props.mesh_poly_type = 'TRI'
+        props.mesh_poly_type = "TRI"
     elif ngons > quads and ngons > tris:
-        props.mesh_poly_type = 'NGON'
+        props.mesh_poly_type = "NGON"
     else:
-        props.mesh_poly_type = 'OTHER'
+        props.mesh_poly_type = "OTHER"
 
     props.manifold = manifold
 
@@ -297,37 +316,44 @@ def check_modifiers(props, obs):
     for ob in obs:
         for m in ob.modifiers:
             mtype = m.type
-            mtype = mtype.replace('_', ' ')
+            mtype = mtype.replace("_", " ")
             mtype = mtype.lower()
             # mtype = mtype.capitalize()
             if mtype not in modifiers:
                 modifiers.append(mtype)
-            if m.type == 'SMOKE':
-                if m.smoke_type == 'FLOW':
+            if m.type == "SMOKE":
+                if m.smoke_type == "FLOW":
                     smt = m.flow_settings.smoke_flow_type
-                    if smt == 'BOTH' or smt == 'FIRE':
-                        modifiers.append('fire')
+                    if smt == "BOTH" or smt == "FIRE":
+                        modifiers.append("fire")
 
     # for mt in modifiers:
-    effectmodifiers = ['soft body', 'fluid simulation', 'particle system', 'collision', 'smoke', 'cloth',
-                       'dynamic paint']
+    effectmodifiers = [
+        "soft body",
+        "fluid simulation",
+        "particle system",
+        "collision",
+        "smoke",
+        "cloth",
+        "dynamic paint",
+    ]
     for m in modifiers:
         if m in effectmodifiers:
             props.simulation = True
     if ob.rigid_body is not None:
         props.simulation = True
-        modifiers.append('rigid body')
-    finalstr = ''
+        modifiers.append("rigid body")
+    finalstr = ""
     for m in modifiers:
         finalstr += m
-        finalstr += ','
+        finalstr += ","
     props.modifiers = finalstr
 
 
 def get_autotags():
-    """ call all analysis functions """
+    """call all analysis functions"""
     ui = bpy.context.window_manager.blenderkitUI
-    if ui.asset_type == 'MODEL':
+    if ui.asset_type == "MODEL":
         ob = utils.get_active_model()
         obs = utils.get_hierarchy(ob)
         props = ob.blenderkit
@@ -351,7 +377,7 @@ def get_autotags():
         check_meshprops(props, obs)
         check_modifiers(props, obs)
         countObs(props, obs)
-    elif ui.asset_type == 'MATERIAL':
+    elif ui.asset_type == "MATERIAL":
         # reset some properties here, because they might not get re-filled at all when they aren't needed anymore.
 
         mat = utils.get_active_asset()
@@ -359,19 +385,20 @@ def get_autotags():
         props.texture_resolution_max = 0
         props.texture_resolution_min = 0
         check_material(props, mat)
-    elif ui.asset_type == 'HDR':
+    elif ui.asset_type == "HDR":
         # reset some properties here, because they might not get re-filled at all when they aren't needed anymore.
 
         hdr = utils.get_active_asset()
         props = hdr.blenderkit
-        props.texture_resolution_max = max(hdr.size[0],hdr.size[1])
+        props.texture_resolution_max = max(hdr.size[0], hdr.size[1])
 
 
 class AutoFillTags(bpy.types.Operator):
     """Fill tags for asset. Now run before upload, no need to interact from user side"""
+
     bl_idname = "object.blenderkit_auto_tags"
     bl_label = "Generate Auto Tags for BlenderKit"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     @classmethod
     def poll(cls, context):
@@ -379,7 +406,7 @@ class AutoFillTags(bpy.types.Operator):
 
     def execute(self, context):
         get_autotags()
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 def register_asset_inspector():

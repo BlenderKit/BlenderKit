@@ -17,7 +17,6 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-
 import json
 import os
 import sys
@@ -33,58 +32,66 @@ BLENDERKIT_EXPORT_DATA = sys.argv[-1]
 if __name__ == "__main__":
     try:
         # bg_blender.progress('preparing scene - append data')
-        with open(BLENDERKIT_EXPORT_DATA, 'r',encoding='utf-8') as s:
+        with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
 
-        export_data = data['export_data']
-        upload_data = data['upload_data']
+        export_data = data["export_data"]
+        upload_data = data["upload_data"]
 
-        bpy.data.scenes.new('upload')
+        bpy.data.scenes.new("upload")
         for s in bpy.data.scenes:
-            if s.name != 'upload':
+            if s.name != "upload":
                 bpy.data.scenes.remove(s)
 
-        if upload_data['assetType'] == 'model':
-            obnames = export_data['models']
-            main_source, allobs = append_link.append_objects(file_name=export_data['source_filepath'],
-                                                             obnames=obnames,
-                                                             rotation=(0, 0, 0))
-            g = bpy.data.collections.new(upload_data['name'])
+        if upload_data["assetType"] == "model":
+            obnames = export_data["models"]
+            main_source, allobs = append_link.append_objects(
+                file_name=export_data["source_filepath"],
+                obnames=obnames,
+                rotation=(0, 0, 0),
+            )
+            g = bpy.data.collections.new(upload_data["name"])
             for o in allobs:
                 g.objects.link(o)
             bpy.context.scene.collection.children.link(g)
-        elif upload_data['assetType'] == 'scene':
-            sname = export_data['scene']
-            main_source = append_link.append_scene(file_name=export_data['source_filepath'],
-                                                   scenename=sname)
-            bpy.data.scenes.remove(bpy.data.scenes['upload'])
+        elif upload_data["assetType"] == "scene":
+            sname = export_data["scene"]
+            main_source = append_link.append_scene(
+                file_name=export_data["source_filepath"], scenename=sname
+            )
+            bpy.data.scenes.remove(bpy.data.scenes["upload"])
             main_source.name = sname
-        elif upload_data['assetType'] == 'material':
-            matname = export_data['material']
-            main_source = append_link.append_material(file_name=export_data['source_filepath'], matname=matname)
+        elif upload_data["assetType"] == "material":
+            matname = export_data["material"]
+            main_source = append_link.append_material(
+                file_name=export_data["source_filepath"], matname=matname
+            )
 
-        elif upload_data['assetType'] == 'brush':
-            brushname = export_data['brush']
-            main_source = append_link.append_brush(file_name=export_data['source_filepath'], brushname=brushname)
+        elif upload_data["assetType"] == "brush":
+            brushname = export_data["brush"]
+            main_source = append_link.append_brush(
+                file_name=export_data["source_filepath"], brushname=brushname
+            )
         try:
             bpy.ops.file.pack_all()
         except Exception as e:
             print(e)
 
         main_source.blenderkit.uploading = False
-        #write ID here.
-        main_source.blenderkit.asset_base_id = export_data['assetBaseId']
-        main_source.blenderkit.id = export_data['id']
+        # write ID here.
+        main_source.blenderkit.asset_base_id = export_data["assetBaseId"]
+        main_source.blenderkit.id = export_data["id"]
 
-        fpath = os.path.join(export_data['temp_dir'], upload_data['assetBaseId'] + '.blend')
+        fpath = os.path.join(
+            export_data["temp_dir"], upload_data["assetBaseId"] + ".blend"
+        )
 
-        #if this isn't here, blender crashes.
+        # if this isn't here, blender crashes.
         if bpy.app.version >= (3, 0, 0):
-            bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+            bpy.context.preferences.filepaths.file_preview_type = "NONE"
 
         bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=False)
-        os.remove(export_data['source_filepath'])
-
+        os.remove(export_data["source_filepath"])
 
     except Exception as e:
         print(e)

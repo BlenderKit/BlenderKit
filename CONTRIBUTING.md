@@ -13,7 +13,7 @@ To install them all run: `pip3 install --user isort, black, ruff`.
 Before committing your changes, please run:
 ```
 isort .
-black daemon
+black .
 ruff daemon
 ```
 
