@@ -59,6 +59,7 @@ def handle_failed_reports(exception: Exception) -> float:
 
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
+    global_vars.DAEMON_RUNNING = False
     daemon_lib.start_daemon_server()
     return 30.0
 
@@ -276,7 +277,7 @@ def on_startup_timer():
 
 def on_startup_daemon_online_timer():
     """Run once when daemon is online after startup."""
-    if not global_vars.DAEMON_ONLINE:
+    if not global_vars.DAEMON_RUNNING:
         return 1
 
     preferences = bpy.context.preferences.addons["blenderkit"].preferences

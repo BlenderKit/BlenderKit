@@ -13,6 +13,24 @@ logger = getLogger(__name__)
 
 URL = "https://www.blenderkit.com/-/alive/"
 CA_FILE = os.path.join(os.path.dirname(__file__), "certs/blenderkit-com-chain.pem")
+DNS_HOSTS = [
+    "8.8.8.8",  # Google
+    "8.8.4.4",
+    "76.76.2.0",  # Control D
+    "76.76.10.0",
+    "9.9.9.9",  # Quad9
+    "149.112.112.112",
+    "208.67.222.222",  # OpenDNS Home
+    "208.67.220.220",
+    "1.1.1.1",  # Cloudflare
+    "1.0.0.1",
+    "185.228.168.9",  # CleanBrowsing
+    "185.228.169.9",
+    "76.76.19.19",  # Alternate DNS
+    "76.223.122.150",
+    "94.140.14.14",  # AdGuard DNS
+    "94.140.15.15",
+]
 
 
 async def debug_handler(request: web.Request):
@@ -264,6 +282,34 @@ async def context19():
     """SSLContext"""
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     return ssl_context
+
+
+async def any_DNS_available(DNS_HOSTS: list):
+    """DEPRECATED: Check if any DNS server is available."""
+    PORT = 53
+    TIMEOUT = 1
+    for i, HOST in enumerate(DNS_HOSTS):
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(HOST, PORT, family=socket.AF_INET),
+                timeout=TIMEOUT,
+            )
+            writer.close()
+            await writer.wait_closed()
+            if i > 0:
+                DNS_HOSTS = (
+                    [
+                        DNS_HOSTS[i],
+                    ]
+                    + DNS_HOSTS[:i]
+                    + DNS_HOSTS[i + 1 :]
+                )
+            return 200
+        except Exception as e:
+            if i >= 2:
+                DNS_HOSTS = DNS_HOSTS[i:] + DNS_HOSTS[:i]
+                logger.warning(f"DNS check failed: {e}")
+                return str(e)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ import re
 import sys
 from logging import Formatter, StreamHandler, basicConfig, getLogger
 from pathlib import Path
-from socket import AF_INET
 
 import aiohttp
 import daemon_globals
@@ -72,13 +71,7 @@ def slugify(slug: str) -> str:
 
 def get_process_flags():
     """Get proper priority flags so background processess can run with lower priority."""
-    ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000
-    BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
-    HIGH_PRIORITY_CLASS = 0x00000080
-    IDLE_PRIORITY_CLASS = 0x00000040
-    NORMAL_PRIORITY_CLASS = 0x00000020
-    REALTIME_PRIORITY_CLASS = 0x00000100
-    flags = BELOW_NORMAL_PRIORITY_CLASS
+    flags = 0x00004000  # psutil.BELOW_NORMAL_PRIORITY_CLASS
     if sys.platform != "win32":  # TODO test this on windows
         flags = 0
     return flags
@@ -220,32 +213,3 @@ def configure_loggers():
     """Configure all loggers for BlenderKit addon. See called functions for details."""
     configure_logger()
     configure_imported_loggers()
-
-
-async def any_DNS_available():
-    """Check if any DNS server is available."""
-    PORT = 53
-    TIMEOUT = 1
-    for i, HOST in enumerate(daemon_globals.DNS_HOSTS):
-        try:
-            _, writer = await asyncio.wait_for(
-                asyncio.open_connection(HOST, PORT, family=AF_INET), timeout=TIMEOUT
-            )
-            writer.close()
-            await writer.wait_closed()
-            if i > 0:
-                daemon_globals.DNS_HOSTS = (
-                    [
-                        daemon_globals.DNS_HOSTS[i],
-                    ]
-                    + daemon_globals.DNS_HOSTS[:i]
-                    + daemon_globals.DNS_HOSTS[i + 1 :]
-                )
-            return 200
-        except Exception as e:
-            if i >= 2:
-                daemon_globals.DNS_HOSTS = (
-                    daemon_globals.DNS_HOSTS[i:] + daemon_globals.DNS_HOSTS[:i]
-                )
-                logger.warning(f"DNS check failed: {e}")
-                return str(e)
