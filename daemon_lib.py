@@ -454,21 +454,10 @@ def kill_daemon_server():
 
 
 def handle_daemon_status_task(task):
-    bk_server_status = task.result["online_status"]
-    if bk_server_status == 200:
-        if global_vars.DAEMON_ONLINE is False:
-            reports.add_report("Connected to the Internet")
-            wm = bpy.context.window_manager
-            wm.blenderkitUI.logo_status = "logo"
-            global_vars.DAEMON_ONLINE = True
-        return
-
-    if global_vars.DAEMON_ONLINE is True:
-        reports.add_report("Disconnected from the Internet", timeout=10, type="ERROR")
-        bk_logger.info(bk_server_status)
+    if global_vars.DAEMON_RUNNING is False:
         wm = bpy.context.window_manager
-        wm.blenderkitUI.logo_status = "logo_offline"
-        global_vars.DAEMON_ONLINE = False
+        wm.blenderkitUI.logo_status = "logo"
+    global_vars.DAEMON_RUNNING = True
 
 
 def check_daemon_exit_code() -> tuple[int, str]:

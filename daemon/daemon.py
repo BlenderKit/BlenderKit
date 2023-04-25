@@ -212,7 +212,6 @@ async def report(request: web.Request):
         {},
         data["app_id"],
         "daemon_status",
-        result={"online_status": daemon_globals.online_status},
     )
     reports.append(status_report.to_seriazable_object())
     reports.reverse()
@@ -250,24 +249,13 @@ async def life_check(app: web.Application):
         await asyncio.sleep(10)
 
 
-async def online_status_check(app: web.Application):
-    while True:
-        daemon_globals.online_status = await daemon_utils.any_DNS_available()
-        if daemon_globals.online_status == 200:
-            await asyncio.sleep(3)
-        else:
-            await asyncio.sleep(1)
-
-
 async def start_background_tasks(app: web.Application):
     app["life_check"] = asyncio.create_task(life_check(app))
-    app["online_status_check"] = asyncio.create_task(online_status_check(app))
 
 
 async def cleanup_background_tasks(app: web.Application):
     try:
         app["life_check"].cancel()
-        app["online_status_check"].cancel()
     except Exception as e:
         logger.warning(f"BG tasks canceling failed: {e}")
 
