@@ -7,13 +7,13 @@ from logging import getLogger
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import web
+from aiohttp import ClientResponseError, web
 
 
 logger = getLogger(__name__)
 
 
-async def get_disclaimer(request: web.Request):
+async def get_disclaimer(request: web.Request) -> None:
     """Get disclaimer from the server."""
     data = await request.json()
     app_id = data["app_id"]
@@ -27,16 +27,20 @@ async def get_disclaimer(request: web.Request):
         async with session.get(
             f"{daemon_globals.SERVER}/api/v1/disclaimer/active/", headers=headers
         ) as resp:
-            await resp.text()
             response = await resp.json()
-            if len(response["results"]) > 0:
-                task.result = response
-                task.finished("Disclaimer retrieved")
-                return
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Get disclaimer failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.error(str(e))
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Get disclaimer {type(e)}: {e}")
 
-    task.finished("Disclaimer not retrieved, serve a tip to user")
+    if len(response["results"]) > 0:
+        task.result = response
+        return task.finished("Disclaimer retrieved")
+    return task.finished("Disclaimer not retrieved, serve a tip to user")
 
 
 async def get_notifications(request: web.Request):
@@ -56,13 +60,14 @@ async def get_notifications(request: web.Request):
         async with session.get(
             f"{daemon_globals.SERVER}/api/v1/notifications/unread/", headers=headers
         ) as resp:
-            await resp.text()
             task.result = await resp.json()
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Get notifications failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.error(str(e))
-        return task.error(str(e))
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Get notifications {type(e)}: {e}")
 
-    if resp.status == 200:
-        return task.finished("Notifications retrieved")
-
-    return task.error(f"GET notifications status code: {resp.status_code}")
+    return task.finished("Notifications retrieved")

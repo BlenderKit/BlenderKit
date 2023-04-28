@@ -85,7 +85,9 @@ async def do_asset_download(request: web.Request, task: daemon_tasks.Task):
 
     task.change_progress(0, "Waiting in queue")
     file_path = task.result["file_paths"][0]
-    await download_file(request.app["SESSION_ASSETS"], file_path, task)
+    if await download_asset(request.app["SESSION_ASSETS"], file_path, task) is not True:
+        return
+
     # TODO: check if resolution is written correctly into assetdata hanging on actual appended object in scene and probably remove the following line?
     task.data["asset_data"]["resolution"] = task.data["resolution"]
     if task.data["PREFS"]["unpack_files"]:
@@ -96,50 +98,61 @@ async def do_asset_download(request: web.Request, task: daemon_tasks.Task):
     task.finished("Asset downloaded and ready")
 
 
-async def download_file(
+async def download_asset(
     session: aiohttp.ClientSession, file_path, task: daemon_tasks.Task
-):
-    with open(file_path, "wb") as file:
-        res_file_info, task.data["resolution"] = get_res_file(task.data)
-        async with session.get(
-            res_file_info["url"], headers=daemon_utils.get_headers()
-        ) as resp:
-            total_length = resp.headers.get("Content-Length")
-            if total_length is None:  # no content length header
-                logger.info("no content length: ", resp.content)
-                task.error("no content length")
-                delete_unfinished_file(file_path)
-                return
+) -> bool:
+    res_file_info, task.data["resolution"] = get_res_file(task.data)
+    try:
+        with open(file_path, "wb") as file:
+            async with session.get(
+                res_file_info["url"], headers=daemon_utils.get_headers()
+            ) as resp:
+                total_length = resp.headers.get("Content-Length")
+                if total_length is None:  # no content length header
+                    logger.info("no content length: ", resp.content)
+                    task.error("no content length")
+                    delete_unfinished_file(file_path)
+                    return False
 
-            # bk_logger.debug(total_length)
-            # if int(total_length) < 1000:  # means probably no file returned.
-            # tasks_queue.add_task((reports.add_report, (response.content, 20, 'ERROR')))
-            #
-            #   tcom.report = response.content
-            file_size = int(total_length)
-            fsmb = file_size // (1024 * 1024)
-            fskb = file_size % 1024
-            if fsmb == 0:
-                t = "%iKB" % fskb
-            else:
-                t = " %iMB" % fsmb
-            task.change_progress(
-                progress=0, message=f"Downloading {t} {task.data['resolution']}"
-            )
-            downloaded = 0
-
-            async for chunk in resp.content.iter_chunked(4096 * 32):
-                # for rdata in response.iter_content(chunk_size=4096 * 32):  # crashed here... why? investigate:
-                downloaded += len(chunk)
-                progress = int(100 * downloaded / file_size)
+                # bk_logger.debug(total_length)
+                # if int(total_length) < 1000:  # means probably no file returned.
+                # tasks_queue.add_task((reports.add_report, (response.content, 20, 'ERROR')))
+                #
+                #   tcom.report = response.content
+                file_size = int(total_length)
+                fsmb = file_size // (1024 * 1024)
+                fskb = file_size % 1024
+                if fsmb == 0:
+                    t = "%iKB" % fskb
+                else:
+                    t = " %iMB" % fsmb
                 task.change_progress(
-                    progress=progress,
-                    message=f"Downloading {t} {task.data['resolution']}",
+                    progress=0, message=f"Downloading {t} {task.data['resolution']}"
                 )
-                file.write(chunk)
-                # if globals.tasks[data['task_id']].get('kill'):
-                #   delete_unfinished_file(file_path)
-                #   return
+                downloaded = 0
+                async for chunk in resp.content.iter_chunked(4096 * 32):
+                    downloaded += len(chunk)
+                    progress = int(100 * downloaded / file_size)
+                    task.change_progress(
+                        progress=progress,
+                        message=f"Downloading {t} {task.data['resolution']}",
+                    )
+                    file.write(chunk)
+                    # if globals.tasks[data['task_id']].get('kill'):
+                    #   delete_unfinished_file(file_path)
+                    #   return
+                return True
+
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        task.error(f"Download failed: {e.message} ({e.status})")
+        return False
+    except Exception as e:
+        logger.error(f"{type(e)}: {e}")
+        task.error(f"Download {type(e)}: {e}")
+        return False
 
 
 async def get_download_url_wrapper(request: web.Request):
@@ -166,18 +179,15 @@ async def get_download_url(
             res_file_info["downloadUrl"], params=req_data, headers=headers
         ) as resp:
             resp_data = await resp.json()
-    except aiohttp.ClientConnectorError as e:
-        task.error(f"Could not get download URL: {e}")
-        return False
-    except aiohttp.ContentTypeError as e:
-        task.error(f"Get download URL error: {e}")
-        return False
-
-    if resp.status >= 400:
-        error_message = resp_data.get(
-            "detail", f"Get download URL status code: {resp.status}"
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
         )
-        task.error(error_message)
+        task.error(f"GET download URL failed: {e.message} ({e.status})")
+        return False
+    except Exception as e:
+        logger.error(f"{type(e)}: {e}")
+        task.error(f"GET download URL {type(e)}: {e}")
         return False
 
     url = resp_data.get("filePath")
@@ -192,7 +202,6 @@ async def get_download_url(
 
 def extract_filename_from_url(url: str) -> str:
     """Extract filename from URL."""
-
     if url is not None:
         imgname = url.split("/")[-1]
         imgname = imgname.split("?")[0]
@@ -403,7 +412,7 @@ async def report_usages_handler(request: web.Request):
     return web.Response(text="ok")
 
 
-async def report_usages(request: web.Request, task: daemon_tasks.Task):
+async def report_usages(request: web.Request, task: daemon_tasks.Task) -> bool:
     """Upload the usage report to the server. Result of the task is not handled in add-on as we do not care so much..."""
     url = f"{daemon_globals.SERVER}/api/v1/usage_report"
     headers = daemon_utils.get_headers(task.data["api_key"])
@@ -411,13 +420,19 @@ async def report_usages(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.post(url, headers=headers, data=task.data) as resp:
             await resp.text()
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        task.error(f"Usage report failed: {e.message} ({e.status})")
+        return False
     except Exception as e:
-        logger.error(f"Error reporting the usage: {e}")
-        task.error(f"Error reporting the usage: {e}")
-    if resp.status not in [200, 201]:
-        logger.error(f"Error reporting the usage ({resp.status})")
-        task.error(f"Error reporting the usage ({resp.status})")
+        logger.error(f"{type(e)}: {e}")
+        task.error(f"Usage report {type(e)}: {e}")
+        return False
+
     task.finished("Usage successfully reported")
+    return True
 
 
 async def blocking_file_upload_handler(request: web.Request):
@@ -429,6 +444,14 @@ async def blocking_file_upload_handler(request: web.Request):
             resp = await session.put(data["url"], data=file)
             text = await resp.text()
             return web.Response(status=resp.status, text=text)
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError in blocking file upload: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return web.Response(
+            status=500,
+            text=f"ClientResponseError in blocking file upload: {e.message} ({e.status})",
+        )
     except Exception as e:
-        logger.error(f"Error in blocking file upload: {e}")
-        return web.Response(status=500, text=f"Error in blocking file upload: {e}")
+        logger.error(f"{type(e)} in blocking file upload: {e}")
+        return web.Response(status=500, text=f"{type(e)} in blocking file upload: {e}")

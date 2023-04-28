@@ -10,7 +10,7 @@ import daemon_assets
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import web
+from aiohttp import ClientResponseError, web
 
 
 logger = getLogger(__name__)
@@ -30,17 +30,21 @@ async def download_image(session: aiohttp.ClientSession, task: daemon_tasks.Task
     """Download a single image and report to addon."""
     image_url = task.data["image_url"]
     image_path = task.data["image_path"]
+    headers = daemon_utils.get_headers()
     try:
-        async with session.get(image_url, headers=daemon_utils.get_headers()) as resp:
-            if resp and resp.status != 200:
-                task.error(f"thumbnail download error: {resp.status}")
-            elif resp and resp.status == 200:
-                with open(image_path, "wb") as file:
-                    async for chunk in resp.content.iter_chunked(4096 * 32):
-                        file.write(chunk)
-                    task.finished("thumbnail downloaded")
+        async with session.get(image_url, headers=headers) as resp:
+            with open(image_path, "wb") as file:
+                async for chunk in resp.content.iter_chunked(4096 * 32):
+                    file.write(chunk)
+                task.finished("thumbnail downloaded")
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Thumbnail download failed: {e.message} ({e.status})")
     except Exception as e:
-        task.error(f"thumbnail download error: {e}")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Thumbnail download {type(e)}: {e}")
 
 
 async def download_image_batch(
@@ -53,7 +57,7 @@ async def download_image_batch(
         coroutine.add_done_callback(daemon_tasks.handle_async_errors)
         coroutines.append(coroutine)
 
-    if block == True:
+    if block is True:
         await asyncio.gather(*coroutines)
 
 
@@ -73,7 +77,7 @@ async def parse_thumbnails(task: daemon_tasks.Task):
         use_webp = True
         if (
             blender_version < (3, 4, 0)
-            or search_result.get("webpGeneratedTimestamp") == None
+            or search_result.get("webpGeneratedTimestamp") is None
         ):
             use_webp = False  # WEBP was optimized in Blender 3.4.0
 
@@ -137,38 +141,32 @@ async def do_search(request: web.Request, task: daemon_tasks.Task):
     3. Gets small and large thumbnails. (Thumbnail tasks.)
     4. Reports paths to downloaded thumbnails. (Thumbnail task finished.)
     """
-    rdata = {}
-    rdata["results"] = []
     headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
         async with session.get(task.data["urlquery"], headers=headers) as resp:
-            await resp.text()
-            if resp.status != 429:
-                task.error(
-                    f"Search request failed (429), API limit exceeded, please search again in 10 seconds"
-                )
-            if resp.status != 200:
-                task.error(f"Search request failed, status code:{resp.status}")
-
             response = await resp.json()
-            task.finished("Search results downloaded")
             task.result = response
-
-            small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
-            # thumbnails fetching
-            await download_image_batch(
-                request.app["SESSION_SMALL_THUMBS"], small_thumbs_tasks
-            )
-            await download_image_batch(
-                request.app["SESSION_BIG_THUMBS"], full_thumbs_tasks
-            )
+            task.finished("Search results downloaded")
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Search failed: {e.message} ({e.status})")
     except Exception as e:
-        task.error(f"Search task failed: {str(e)}")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Search {type(e)}: {e}")
+
+    # Post-search tasks
+    small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
+    await download_image_batch(request.app["SESSION_SMALL_THUMBS"], small_thumbs_tasks)
+    await download_image_batch(request.app["SESSION_BIG_THUMBS"], full_thumbs_tasks)
 
 
-async def fetch_categories(request: web.Request):
+async def fetch_categories(request: web.Request) -> None:
     data = await request.json()
+    headers = daemon_utils.get_headers(data["api_key"])
+    session = request.app["SESSION_API_REQUESTS"]
     task = daemon_tasks.Task(
         data,
         data["app_id"],
@@ -178,23 +176,24 @@ async def fetch_categories(request: web.Request):
     )
     daemon_globals.tasks.append(task)
 
-    headers = daemon_utils.get_headers(data["api_key"])
-    session = request.app["SESSION_API_REQUESTS"]
     try:
         async with session.get(
             f"{daemon_globals.SERVER}/api/v1/categories/", headers=headers
         ) as resp:
             data = await resp.json()
             categories = data["results"]
-            fix_category_counts(
-                categories
-            )  # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
+            fix_category_counts(categories)
+            # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
             task.result = categories
-            task.finished("Categories fetched")
-
+            return task.finished("Categories fetched")
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Fetching categories failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.error(e)
-        task.error("Failed to download categories: {e}")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Fetching categories {type(e)}: {e}")
 
 
 def count_to_parent(parent):

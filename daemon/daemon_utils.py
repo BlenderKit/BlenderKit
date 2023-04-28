@@ -10,7 +10,7 @@ from pathlib import Path
 import aiohttp
 import daemon_globals
 import daemon_tasks
-from aiohttp import web
+from aiohttp import ClientResponseError, web
 
 
 logger = getLogger(__name__)
@@ -109,18 +109,26 @@ async def message_to_addon(
 
 async def download_file(
     url: str, destination: str, session: aiohttp.ClientSession, api_key: str = ""
-):
+) -> str:
     """Download a file from url into destination on the disk, creates directory structure if needed.
     With api_key the request will be authorized for BlenderKit server.
     """
     Path(destination).parent.mkdir(parents=True, exist_ok=True)
     headers = get_headers(api_key)
-    async with session.get(url, headers=headers) as resp:
-        if resp.status != 200:
-            raise Exception(f"File download error: {resp.status}")
-        with open(destination, "wb") as file:
-            async for chunk in resp.content.iter_chunked(4096 * 32):
-                file.write(chunk)
+    try:
+        async with session.get(url, headers=headers) as resp:
+            with open(destination, "wb") as file:
+                async for chunk in resp.content.iter_chunked(4096 * 32):
+                    file.write(chunk)
+            return ""
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return f"ClientResponseError: {e.message} ({e.status})"
+    except Exception as e:
+        logger.warning(f"{type(e)}: {e}")
+        return f"{type(e)}: {e}"
 
 
 async def blocking_request_handler(request: web.Request):
@@ -135,9 +143,16 @@ async def blocking_request_handler(request: web.Request):
         ) as resp:
             data = await resp.json()
             return web.json_response(data)
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return web.Response(
+            status=resp.status, text=f"ClientResponseError: {e.message} ({e.status})"
+        )
     except Exception as e:
-        logger.error(f"{e}")
-        return web.Response(status=resp.status, text=str(e))
+        logger.warning(f"{type(e)}: {e}")
+        return web.Response(status=resp.status, text=f"{type(e)}: {e}")
 
 
 async def nonblocking_request_handler(request: web.Request):
@@ -168,9 +183,13 @@ async def make_request(request: web.Request, task: daemon_tasks.Task):
             else:
                 task.result = await resp.text()
             return task.finished(success_message)
-    except aiohttp.ClientResponseError as e:
-        return task.error(f"{error_message}: {e.message} ({e.code})")
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"{error_message}: {e.message} ({e.status})")
     except Exception as e:
+        logger.warning(f"{type(e)}: {e}")
         return task.error(f"{error_message}: {e}")
 
 

@@ -6,7 +6,7 @@ from logging import getLogger
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import client_exceptions, web
+from aiohttp import ClientResponseError, web
 
 
 logger = getLogger(__name__)
@@ -38,21 +38,19 @@ async def get_tokens(
         async with session.post(
             f"{daemon_globals.SERVER}/o/token/", data=data, headers=headers
         ) as response:
-            text = await response.text()
-
-            if response.status != 200:
-                return [], response.status, text
-
             response_json = await response.json()
             logger.info("Token retrieval OK.")
+            return response_json, response.status, ""
+    except ClientResponseError as e:
+        msg = f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        logger.warning(msg)
+        return [], e.status, msg
+    except Exception as e:
+        logger.warning(f"{type(e)}: {e}")
+        return [], -1, str(e)
 
-            return response_json, 200, ""
 
-    except client_exceptions.ClientConnectorError as err:
-        return [], -1, str(err)
-
-
-async def refresh_tokens(request: web.Request):
+async def refresh_tokens(request: web.Request) -> None:
     data = await request.json()
     refresh_token = data["refresh_token"]
     response_json, status, error = await get_tokens(

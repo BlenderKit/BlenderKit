@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import web
+from aiohttp import ClientResponseError, web
 
 
 logger = getLogger(__name__)
@@ -61,10 +61,9 @@ async def fetch_gravatar_image(task: daemon_tasks.Task, request: web.Request):
 
     url = urljoin(daemon_globals.SERVER, task.data["avatar128"])
     session = request.app["SESSION_SMALL_THUMBS"]
-    try:
-        await daemon_utils.download_file(url, gravatar_path, session)
-    except Exception as e:
-        return task.error(f"Download error: {e}")
+    error = await daemon_utils.download_file(url, gravatar_path, session)
+    if error != "":
+        return task.error(f"Gravatar download failed - {error}")
 
     task.result = {"gravatar_path": gravatar_path}
     return task.finished("Downloaded")
@@ -85,16 +84,15 @@ async def fetch_gravatar_image_old(task: daemon_tasks.Task, request: web.Request
         "https://www.gravatar.com/avatar", f'{task.data["gravatarHash"]}?d=404'
     )
     session = request.app["SESSION_SMALL_THUMBS"]
-    try:
-        await daemon_utils.download_file(url, gravatar_path, session)
-    except Exception as e:
-        return task.error(f"Download error: {e}")
+    error = await daemon_utils.download_file(url, gravatar_path, session)
+    if error != "":
+        return task.error(f"Gravatar download failed - {error}")
 
     task.result = {"gravatar_path": gravatar_path}
     return task.finished("Downloaded")
 
 
-async def get_user_profile(task: daemon_tasks.Task, request: web.Request):
+async def get_user_profile(task: daemon_tasks.Task, request: web.Request) -> None:
     """Get profile data for currently logged-in user. Data are cleaned a little bit and then reported to the add-on."""
     api_key = task.data["api_key"]
     headers = daemon_utils.get_headers(api_key)
@@ -103,10 +101,15 @@ async def get_user_profile(task: daemon_tasks.Task, request: web.Request):
     try:
         async with session.get(url, headers=headers) as resp:
             data = await resp.json()
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Get profile failed: {e.message} ({e.status})")
     except Exception as e:
-        return task.error(f"request failed {e}")
-    if resp.status != 200:
-        return task.error(f"request returned code ({resp.status})")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Get profile {type(e)}: {e}")
+
     if data.get("user") is None:
         return task.error("profile is None")
 
