@@ -3,6 +3,7 @@
 import asyncio
 from logging import getLogger
 
+import aiohttp
 import daemon_globals
 import daemon_tasks
 import daemon_utils
@@ -40,13 +41,18 @@ async def get_comments(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()
+            task.finished("comments downloaded")
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Get comments failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(str(e))
-        return task.error(f"{e}")
-    task.finished("comments downloaded")
+        logger.error(f"{type(e)}: {e}")
+        return task.error(f"Get comments {type(e)}: {e}")
 
 
-async def create_comment(request: web.Request, task: daemon_tasks.Task):
+async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
     """Create and upload the comment online."""
     asset_id = task.data["asset_id"]
     headers = daemon_utils.get_headers(task.data["api_key"])
@@ -55,11 +61,16 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.get(url, headers=headers) as resp:
             comment_data = await resp.json()
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        task.error(f"GET in create_comment failed: {e.message} ({e.status})")
+        return False
     except Exception as e:
-        logger.error(str(e))
-        return task.error(f"{e}")
-    if resp.status != 200:
-        return task.error(f"GET request status code: {resp.status}")
+        logger.error(f"{type(e)}: {e}")
+        task.error(f"GET in create_comment {type(e)}: {e}")
+        return False
 
     post_data = {
         "name": "",
@@ -78,15 +89,20 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.post(url, headers=headers, data=post_data) as resp:
             task.result = await resp.json()
+    except aiohttp.ClientResponseError as e:
+        logger.error(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        task.error(f"POST in create_comment failed: {e.message} ({e.status})")
+        return False
     except Exception as e:
-        logger.error(str(e))
-        return task.error(f"{e}")
-    if resp.status != 201:
-        return task.error(f"POST request status code: {resp.status}")
+        logger.error(f"{type(e)}: {e}")
+        task.error(f"POST in create_comment {type(e)}: {e}")
+        return False
 
-    task.finished("comment created")
+    task.finished("Comment created")
     followup_task = daemon_tasks.Task(
-        task.data, task.data["app_id"], f"comments/get_comments"
+        task.data, task.data["app_id"], "comments/get_comments"
     )
     daemon_globals.tasks.append(followup_task)
     get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
@@ -105,22 +121,26 @@ async def feedback_comment(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.post(url, data=data, headers=headers) as resp:
             task.result = await resp.json()
+    except aiohttp.ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        task.error(f"Feedback POST failed: {e.message} ({e.status})")
+        return False
     except Exception as e:
-        logger.warning(str(e))
-        return task.error(f"{e}")
-    if resp.status not in [200, 201]:
-        return task.error(f"POST request failed ({resp.status})")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Feedback POST {type(e)}: {e}")
 
     task.finished("flag uploaded")
     followup_task = daemon_tasks.Task(
-        task.data, task.data["app_id"], f"comments/get_comments"
+        task.data, task.data["app_id"], "comments/get_comments"
     )
     daemon_globals.tasks.append(followup_task)
     get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
     get_comments_task.add_done_callback(daemon_tasks.handle_async_errors)
 
 
-async def mark_comment_private(request: web.Request, task: daemon_tasks.Task):
+async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) -> None:
     """Update visibility of the comment."""
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
@@ -131,27 +151,30 @@ async def mark_comment_private(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.post(url, data=data, headers=headers) as resp:
             task.result = await resp.json()
+    except aiohttp.ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Mark comment failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.error(f"{e}")
-        return task.error(f"{e}")
-
-    if resp.status not in [200, 201]:
-        return task.error(f"POST request failed ({resp.status})")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Mark comment {type(e)}: {e}")
 
     task.finished("comment visibility updated")
     followup_task = daemon_tasks.Task(
-        task.data, task.data["app_id"], f"comments/get_comments"
+        task.data, task.data["app_id"], "comments/get_comments"
     )
     daemon_globals.tasks.append(followup_task)
     get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
     get_comments_task.add_done_callback(daemon_tasks.handle_async_errors)
+    return None
 
 
 ### NOTIFICATIONS
 async def mark_notification_read_handler(request: web.Request):
     data = await request.json()
     task = daemon_tasks.Task(
-        data, data["app_id"], f"notifications/mark_notification_read"
+        data, data["app_id"], "notifications/mark_notification_read"
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(mark_notification_read(request, task))
@@ -159,7 +182,7 @@ async def mark_notification_read_handler(request: web.Request):
     return web.json_response({"task_id": task.task_id})
 
 
-async def mark_notification_read(request: web.Request, task: daemon_tasks.Task):
+async def mark_notification_read(request: web.Request, task: daemon_tasks.Task) -> None:
     """Mark notification as read."""
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
@@ -167,10 +190,13 @@ async def mark_notification_read(request: web.Request, task: daemon_tasks.Task):
     try:
         async with session.get(url, headers=headers) as resp:
             task.result = await resp.json()
+    except aiohttp.ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return task.error(f"Mark notification failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.error(f"{e}")
-        return task.error(f"{e}")
-    if resp.status != 200:
-        return task.error(f"GET request failed ({resp.status})")
+        logger.warning(f"{type(e)}: {e}")
+        return task.error(f"Mark notification {type(e)}: {e}")
 
     return task.finished("notification marked as read")

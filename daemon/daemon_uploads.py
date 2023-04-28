@@ -10,7 +10,7 @@ from pathlib import Path
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import ClientSession, web
+from aiohttp import ClientResponseError, ClientSession, web
 
 
 logger = getLogger(__name__)
@@ -68,29 +68,41 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
 
     if export_data["assetBaseId"] == "":
         try:
-            response = await session.post(url, json=json_metadata, headers=headers)
-            logger.info(f"Got response ({response.status}) for {url}")
-            metadata_response = await response.json()
+            async with session.post(
+                url, json=json_metadata, headers=headers
+            ) as response:
+                metadata_response = await response.json()
+                logger.info(f"Got response ({response.status}) for {url}")
+        except ClientResponseError as e:
+            logger.warning(
+                f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+            )
+            return f"ClientResponseError: {e.message} ({e.status})", None
         except Exception as e:
-            logger.error(str(e))
-            return str(e), None
+            logger.warning(f"{type(e)}: {e}")
+            return f"{type(e)}: {e}", None
         return "", metadata_response
 
+    url = f'{url}{export_data["id"]}/'
+    if "MAINFILE" in upload_set:
+        json_metadata["verificationStatus"] = "uploading"
     try:
-        url = f'{url}{export_data["id"]}/'
-        if "MAINFILE" in upload_set:
-            json_metadata["verificationStatus"] = "uploading"
-        response = await session.patch(url, json=json_metadata, headers=headers)
-        logger.info(f"Got response ({response.status}) for {url}")
-        metadata_response = await response.json()
+        async with session.patch(url, json=json_metadata, headers=headers) as response:
+            metadata_response = await response.json()
+            logger.info(f"Got response ({response.status}) for {url}")
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return f"ClientResponseError: {e.message} ({e.status})", None
     except Exception as e:
-        logger.error(str(e))
-        return str(e), None
+        logger.warning(f"{type(e)}: {e}")
+        return f"{type(e)}: {e}", None
 
     return "", metadata_response
 
 
-async def pack_blend_file(task: daemon_tasks.Task, metadata_response):
+async def pack_blend_file(task: daemon_tasks.Task, metadata_response: dict):
     """Pack the asset data into a separate clean blend file.
     This runs a script inside Blender in separate process.
     """
@@ -171,52 +183,25 @@ async def upload_asset_data(
     metadata_response: dict,
 ) -> str:
     """Upload .blend file and/or thumbnail to the server."""
-    api_url = f"{daemon_globals.SERVER}/api/v1"
-    upload_data = task.data["upload_data"]
-    upload_set = task.data["upload_set"]
-    headers = daemon_utils.get_headers(upload_data["token"])
     uploaded = True
     for file in files:
-        upload_info = {
-            "assetId": upload_data["id"],
-            "fileType": file["type"],
-            "fileIndex": file["index"],
-            "originalFilename": os.path.basename(file["file_path"]),
-        }
+        upload_info_json, ok = await get_S3_upload_JSON(task, session, file)
+        if not ok:
+            uploaded = False
+            continue
 
-        url = f"{api_url}/uploads/"
-        response = await session.post(url, json=upload_info, headers=headers)
-        upload_info_json = await response.json()
-        with open(file["file_path"], "rb") as binary_file:
-            logger.info(f"Uploading file {file['file_path']} to S3")
-            response = await session.put(
-                upload_info_json["s3UploadUrl"],
-                data=binary_file,
-            )
-            if 250 > response.status > 199:  # WHY?
-                logger.info("File upload successful")
-                upload_done_url = (
-                    f'{api_url}/uploads_s3/{upload_info_json["id"]}/upload-file/'
-                )
-                response = await session.post(
-                    upload_done_url, headers=headers
-                )  # TODO: we should check this return value also?
-                task.change_progress(task.progress + 15)
-            else:
-                logger.warning(f"file upload failed, status={response.status}")
-                text = await response.text()
-                logger.warning(f"response={text}")
-                uploaded = False
+        ok = await upload_file_to_S3(session, task, file, upload_info_json)
+        if not ok:
+            uploaded = False
 
     if not uploaded:
         return "some files not uploaded"
 
-    set_uploaded_status = False
-
     # Check the status if only thumbnail or metadata gets reuploaded.
     # the logic is that on hold assets might be switched to uploaded state for validators,
     # if the asset was put on hold because of thumbnail only.
-    if "MAINFILE" not in upload_set:
+    set_uploaded_status = False
+    if "MAINFILE" not in task.data["upload_set"]:
         if metadata_response.get("verificationStatus") in (
             "on_hold",
             "deleted",
@@ -224,17 +209,96 @@ async def upload_asset_data(
         ):
             set_uploaded_status = True
 
-    if "MAINFILE" in upload_set:
+    if "MAINFILE" in task.data["upload_set"]:
         set_uploaded_status = True
 
-    # mark on server as uploaded
-    if set_uploaded_status:
-        confirm_data = {"verificationStatus": "uploaded"}
-        url = f"{daemon_globals.SERVER}/api/v1/assets/"
-        headers = daemon_utils.get_headers(upload_data["token"])
+    if not set_uploaded_status:
+        return ""
 
-        url += upload_data["id"] + "/"
-        response = await session.patch(url, json=confirm_data, headers=headers)
-        if response.status != 200:
-            return "failed to confirm the upload"
-    return ""
+    # mark on server as uploaded
+    confirm_data = {"verificationStatus": "uploaded"}
+    headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
+    url = f"{daemon_globals.SERVER}/api/v1/assets/{task.data['upload_data']['id']}/"
+    try:
+        async with session.patch(url, json=confirm_data, headers=headers) as response:
+            await response.text()
+            if response.status != 200:
+                return "failed to confirm the upload"
+            return ""
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return "failed to confirm the upload"
+    except Exception as e:
+        logger.warning(f"{type(e)}: {e}")
+        return "failed to confirm the upload"
+
+
+async def get_S3_upload_JSON(
+    task: daemon_tasks.Task, session: ClientSession, file: dict
+) -> tuple[dict, bool]:
+    url = f"{daemon_globals.SERVER}/api/v1/uploads/"
+    headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
+    upload_info = {
+        "assetId": task.data["upload_data"]["id"],
+        "fileType": file["type"],
+        "fileIndex": file["index"],
+        "originalFilename": os.path.basename(file["file_path"]),
+    }
+    try:
+        async with session.post(url, json=upload_info, headers=headers) as resp:
+            upload_info_json = await resp.json()
+            return upload_info_json, True
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return None, False
+    except Exception as e:
+        logger.warning(f"{type(e)}: {e}")
+        return None, False
+
+
+async def upload_file_to_S3(
+    session: ClientSession, task: daemon_tasks.Task, file: dict, upload_info_json: dict
+) -> bool:
+    headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
+    with open(file["file_path"], "rb") as binary_file:
+        logger.info(f"Uploading {file['type']} file {file['file_path']} to S3")
+        try:
+            async with session.put(
+                upload_info_json["s3UploadUrl"],
+                data=binary_file,
+            ) as response:
+                text = await response.text()
+                if 250 > response.status > 199:  # WHY?
+                    logger.info("File upload successful")
+                else:
+                    logger.warning(f"file upload failed, status={response.status}")
+                    logger.warning(f"response={text}")
+                    return False
+        except ClientResponseError as e:
+            logger.warning(
+                f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+            )
+            return False
+        except Exception as e:
+            logger.warning(f"{type(e)}: {e}")
+            return False
+
+    upload_done_url = f'{daemon_globals.SERVER}/api/v1/uploads_s3/{upload_info_json["id"]}/upload-file/'
+    try:
+        async with await session.post(upload_done_url, headers=headers) as resp:
+            data = await resp.json()
+            logger.warning(f"UPLOAD CONFIRMATION JSON {data}")
+            task.change_progress(task.progress + 15)
+            return True
+    except ClientResponseError as e:
+        logger.warning(
+            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        )
+        return False
+    except Exception as e:
+        logger.warning(f"{type(e)}: {e}")
+        return False
