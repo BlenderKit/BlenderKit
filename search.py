@@ -428,18 +428,23 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
     return True
 
 
-def handle_preview_task(task: daemon_tasks.Task) -> bool:
-    """Parse search results, try to load all available previews."""
+def handle_thumbnail_download_task(task: daemon_tasks.Task) -> None:
+    if task.status == "finished":
+        global_vars.DATA["images available"][task.data["image_path"]] = True
+    elif task.status == "error":
+        global_vars.DATA["images available"][task.data["image_path"]] = False
+        reports.add_report(task.message, 3, "ERROR")
+    else:
+        return
+    if asset_bar_op.asset_bar_operator is None:
+        return
 
-    global_vars.DATA["images available"][task.data["image_path"]] = True
-    if asset_bar_op.asset_bar_operator is not None:
-        if task.data["thumbnail_type"] == "small":
-            asset_bar_op.asset_bar_operator.update_image(task.data["assetBaseId"])
-        if task.data["thumbnail_type"] == "full":
-            asset_bar_op.asset_bar_operator.update_tooltip_image(
-                task.data["assetBaseId"]
-            )
-    return True
+    if task.data["thumbnail_type"] == "small":
+        asset_bar_op.asset_bar_operator.update_image(task.data["assetBaseId"])
+        return
+
+    if task.data["thumbnail_type"] == "full":
+        asset_bar_op.asset_bar_operator.update_tooltip_image(task.data["assetBaseId"])
 
 
 def load_preview(asset):

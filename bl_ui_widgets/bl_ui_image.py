@@ -3,7 +3,7 @@ import os
 import bpy
 
 from .. import ui_bgl
-from .bl_ui_widget import *
+from .bl_ui_widget import BL_UI_Widget
 
 
 class BL_UI_Image(BL_UI_Widget):
@@ -27,7 +27,7 @@ class BL_UI_Image(BL_UI_Widget):
             self.__image
             self.__image.filepath
             # self.__image.pixels
-        except:
+        except AttributeError:
             self.__image = None
 
     def set_image(self, rel_filepath):
@@ -66,8 +66,6 @@ class BL_UI_Image(BL_UI_Widget):
     def draw(self):
         if not self._is_visible:
             return
-
-        area_height = self.get_area_height()
 
         self.shader.bind()
 

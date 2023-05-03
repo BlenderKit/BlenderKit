@@ -280,15 +280,17 @@ def draw_callback_2d_progress(self, context):
 
 def get_large_thumbnail_image(asset_data):
     """Get thumbnail image from asset data"""
-    scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     iname = utils.previmg_name(ui_props.active_index, fullsize=True)
-    directory = paths.get_temp_dir("%s_search" % mappingdict[ui_props.asset_type])
+    directory = paths.get_temp_dir(f"{mappingdict[ui_props.asset_type]}_search")
     tpath = os.path.join(directory, asset_data["thumbnail"])
     # if asset_data['assetType'] == 'hdr':
     #     tpath = os.path.join(directory, asset_data['thumbnail'])
-    if not asset_data["thumbnail"]:
+    image_ready = global_vars.DATA["images available"].get(tpath)
+    if image_ready is False or not asset_data["thumbnail"]:
         tpath = paths.get_addon_thumbnail_path("thumbnail_not_available.jpg")
+    if image_ready is None:
+        tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
 
     if asset_data["assetType"] == "hdr":
         colorspace = "Non-Color"

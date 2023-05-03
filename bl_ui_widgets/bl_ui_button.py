@@ -5,7 +5,7 @@ import bpy
 import gpu
 
 from .. import ui_bgl
-from .bl_ui_widget import *
+from .bl_ui_widget import BL_UI_Widget
 
 
 class BL_UI_Button(BL_UI_Widget):
@@ -86,7 +86,7 @@ class BL_UI_Button(BL_UI_Widget):
             self.__image
             self.__image.filepath
             # self.__image.pixels
-        except:
+        except AttributeError:
             self.__image = None
 
     def set_image(self, rel_filepath):
@@ -143,7 +143,6 @@ class BL_UI_Button(BL_UI_Widget):
 
     def set_colors(self):
         color = self._bg_color
-        text_color = self._text_color
 
         # pressed
         if self.__state == 1:
