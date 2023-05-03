@@ -178,10 +178,7 @@ def handle_task(task: daemon_tasks.Task):
 
     # HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
     if task.task_type == "thumbnail_download":
-        if task.status == "finished":
-            return search.handle_preview_task(task)
-        elif task.status == "error":
-            return reports.add_report(task.message, 3, "ERROR")
+        return search.handle_thumbnail_download_task(task)
 
     # HANDLE LOGIN
     if task.task_type == "login":

@@ -1,22 +1,18 @@
 import logging
 import math
+import os
 import time
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
 from . import comments_utils, global_vars, paths, ratings_utils, search, ui, utils
-from .bl_ui_widgets.bl_ui_button import *
-from .bl_ui_widgets.bl_ui_drag_panel import *
-from .bl_ui_widgets.bl_ui_draw_op import *
-from .bl_ui_widgets.bl_ui_image import *
-from .bl_ui_widgets.bl_ui_label import *
-
-
-# from .bl_ui_widgets.bl_ui_checkbox import *
-# from .bl_ui_widgets.bl_ui_slider import *
-# from .bl_ui_widgets.bl_ui_up_down import *
-# from .bl_ui_widgets.bl_ui_textbox import *
+from .bl_ui_widgets.bl_ui_button import BL_UI_Button
+from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
+from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
+from .bl_ui_widgets.bl_ui_image import BL_UI_Image
+from .bl_ui_widgets.bl_ui_label import BL_UI_Label
+from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 
 bk_logger = logging.getLogger(__name__)
@@ -86,7 +82,6 @@ def modal_inside(self, context, event):
             # progress bar
             # change - let's try to optimize and redraw only when needed
             change = False
-            ui_scale = bpy.context.preferences.view.ui_scale
             for asset_button in self.asset_buttons:
                 if not asset_button.visible:
                     continue
@@ -233,13 +228,10 @@ BL_UI_Button.mouse_down_right = mouse_down_right
 BL_UI_Button.set_mouse_down_right = set_mouse_down_right
 
 asset_bar_operator = None
-
-
 # BL_UI_Button.handle_event = handle_event
 
 
 def get_tooltip_data(asset_data):
-    gimg = None
     tooltip_data = asset_data.get("tooltip_data")
     if tooltip_data is None:
         author_text = ""
@@ -276,9 +268,9 @@ def get_tooltip_data(asset_data):
 
 
 def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
-    """sets image in case it is loaded in search results
+    """Set image in case it is loaded in search results. Checks global_vars.DATA["images available"].
+    - if image download failed, it will be set to 'thumbnail_not_available.jpg'
     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
-
     """
     directory = paths.get_temp_dir("%s_search" % asset["assetType"])
     if asset[thumb_type] == "":  # for thumbnails not present at all
@@ -294,10 +286,15 @@ def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
     # if not os.path.exists(tpath):
     #     del global_vars.DATA['images available'][tpath]
 
-    if not global_vars.DATA["images available"].get(tpath):
+    image_ready = global_vars.DATA["images available"].get(tpath)
+    if image_ready is None:
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-        if element.get_image_path() == tpath:
-            return
+    if image_ready is False:
+        tpath = paths.get_addon_thumbnail_path("thumbnail_not_available.jpg")
+
+    if element.get_image_path() == tpath:
+        return
+
     element.set_image(tpath)
     # if asset['assetType'] == 'hdr':
     #   # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
@@ -650,8 +647,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # to hide arrows accordingly
 
     def asset_button_init(self, asset_x, asset_y, button_idx):
-        ui_scale = bpy.context.preferences.view.ui_scale
-
         button_bg_color = (0.2, 0.2, 0.2, 0.1)
         button_hover_color = (0.8, 0.8, 0.8, 0.2)
         fully_transparent_color = (0.2, 0.2, 0.2, 0.0)
@@ -748,8 +743,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return new_button
 
     def init_ui(self):
-        ui_scale = bpy.context.preferences.view.ui_scale
-
         button_bg_color = (0.2, 0.2, 0.2, 0.1)
         button_hover_color = (0.8, 0.8, 0.8, 0.2)
 
@@ -1048,12 +1041,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         context.window_manager.event_timer_remove(self._timer)
 
-        scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         ui_props.assetbar_on = False
         ui_props.scroll_offset = self.scroll_offset
-
-        wm = bpy.data.window_managers[0]
 
         # for w in wm.windows:
         #     for a in w.screen.areas:
@@ -1156,7 +1146,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def exit_button(self, widget):
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
         if self.active_index == widget.button_index + self.scroll_offset:
-            scene = bpy.context.scene
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.draw_tooltip = False
             self.draw_tooltip = False

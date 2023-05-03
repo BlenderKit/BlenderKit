@@ -1,7 +1,7 @@
 import blf
 import bpy
 
-from .bl_ui_widget import *
+from .bl_ui_widget import BL_UI_Widget
 
 
 class BL_UI_Label(BL_UI_Widget):
@@ -55,8 +55,6 @@ class BL_UI_Label(BL_UI_Widget):
 
         font_id = 1
         blf.size(font_id, self._text_size, 72)
-        size = blf.dimensions(font_id, self._text)
-
         textpos_y = area_height - self.y_screen - self.height
 
         r, g, b, a = self._text_color

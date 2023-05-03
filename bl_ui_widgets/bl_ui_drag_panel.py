@@ -1,4 +1,4 @@
-from .bl_ui_widget import *
+from .bl_ui_widget import BL_UI_Widget
 
 
 class BL_UI_Drag_Panel(BL_UI_Widget):
