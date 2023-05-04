@@ -104,15 +104,23 @@ async def download_asset(
     res_file_info, task.data["resolution"] = get_res_file(task.data)
     try:
         with open(file_path, "wb") as file:
+            resp_text, resp_json = None, None
             async with session.get(
-                res_file_info["url"], headers=daemon_utils.get_headers()
+                res_file_info["url"],
+                headers=daemon_utils.get_headers(),
+                raise_for_status=False,
             ) as resp:
                 total_length = resp.headers.get("Content-Length")
                 if total_length is None:  # no content length header
-                    logger.info("no content length: ", resp.content)
-                    task.error("no content length")
+                    task.error("Download asset failed: Got no Content-Length")
                     delete_unfinished_file(file_path)
                     return False
+
+                if resp.ok is False:
+                    delete_unfinished_file(file_path)
+                    resp_text = await resp.text()
+                    resp_json = await resp.json()
+                    resp.raise_for_status()
 
                 # bk_logger.debug(total_length)
                 # if int(total_length) < 1000:  # means probably no file returned.
@@ -143,15 +151,11 @@ async def download_asset(
                     #   return
                 return True
 
-    except aiohttp.ClientResponseError as e:
-        logger.error(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        task.error(f"Download failed: {e.message} ({e.status})")
-        return False
     except Exception as e:
-        logger.error(f"{type(e)}: {e}")
-        task.error(f"Download {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get download URL"
+        )
+        task.error(msg, message_detailed=detail)
         return False
 
 
@@ -174,23 +178,28 @@ async def get_download_url(
     headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
     req_data = {"scene_uuid": task.data["PREFS"]["scene_id"]}
     res_file_info, _ = get_res_file(task.data)
-    try:
+
+    # res_file_info["downloadUrl"] = res_file_info["downloadUrl"][:-5]
+
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/downloads_read
+        resp_text, resp_json = None, None
         async with session.get(
-            res_file_info["downloadUrl"], params=req_data, headers=headers
+            res_file_info["downloadUrl"],
+            params=req_data,
+            headers=headers,
+            raise_for_status=False,
         ) as resp:
-            resp_data = await resp.json()
-    except aiohttp.ClientResponseError as e:
-        logger.error(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        task.error(f"GET download URL failed: {e.message} ({e.status})")
-        return False
+            resp_text = await resp.text()
+            resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
-        logger.error(f"{type(e)}: {e}")
-        task.error(f"GET download URL {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get download URL"
+        )
+        task.error(msg, message_detailed=detail)
         return False
 
-    url = resp_data.get("filePath")
+    url = resp_json.get("filePath")
     if url is None:
         task.error("filePath is None")
         return False
@@ -418,17 +427,14 @@ async def report_usages(request: web.Request, task: daemon_tasks.Task) -> bool:
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
+        resp_text = None
         async with session.post(url, headers=headers, data=task.data) as resp:
-            await resp.text()
-    except aiohttp.ClientResponseError as e:
-        logger.error(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        task.error(f"Usage report failed: {e.message} ({e.status})")
-        return False
+            resp_text = await resp.text()
     except Exception as e:
-        logger.error(f"{type(e)}: {e}")
-        task.error(f"Usage report {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, prefix="Usage report failed"
+        )
+        task.error(msg, message_detailed=detail)
         return False
 
     task.finished("Usage successfully reported")
@@ -440,18 +446,14 @@ async def blocking_file_upload_handler(request: web.Request):
     session = request.app["SESSION_API_REQUESTS"]
     data = await request.json()
     try:
+        resp_text = None
         with open(data["filepath"], "rb") as file:
-            resp = await session.put(data["url"], data=file)
-            text = await resp.text()
-            return web.Response(status=resp.status, text=text)
-    except aiohttp.ClientResponseError as e:
-        logger.error(
-            f'ClientResponseError in blocking file upload: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return web.Response(
-            status=500,
-            text=f"ClientResponseError in blocking file upload: {e.message} ({e.status})",
-        )
+            async with session.put(data["url"], data=file) as resp:
+                resp_text = await resp.text()
+                return web.Response(status=resp.status, text=resp_text)
     except Exception as e:
-        logger.error(f"{type(e)} in blocking file upload: {e}")
-        return web.Response(status=500, text=f"{type(e)} in blocking file upload: {e}")
+        _, detail = daemon_utils.extract_error_message(
+            e, resp_text, prefix="Blocking file upload failed"
+        )
+        logger.error(detail)
+        return web.Response(status=500, text=detail)

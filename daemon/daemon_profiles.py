@@ -99,21 +99,20 @@ async def get_user_profile(task: daemon_tasks.Task, request: web.Request) -> Non
     url = f"{daemon_globals.SERVER}/api/v1/me/"
     session = request.app["SESSION_API_REQUESTS"]
     try:
+        resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
-            data = await resp.json()
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Get profile failed: {e.message} ({e.status})")
+            resp_text = await resp.text()
+            resp_json = await resp.json()
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Get profile {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get profile"
+        )
+        return task.error(msg, message_detailed=detail)
 
-    if data.get("user") is None:
+    if resp_json.get("user") is None:
         return task.error("profile is None")
 
-    task.result = convert_user_data(data)
+    task.result = convert_user_data(resp_json)
     return task.finished("data suceessfully fetched")
 
 
