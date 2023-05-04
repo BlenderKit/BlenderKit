@@ -69,9 +69,7 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
     if export_data["assetBaseId"] == "":
         try:
             resp_text, resp_json = None, None
-            async with session.post(
-                url, json=json_metadata, headers=headers
-            ) as resp:
+            async with session.post(url, json=json_metadata, headers=headers) as resp:
                 resp_text = await resp.text()
                 resp_json = await resp.json()
                 logger.info(f"Got response ({resp.status}) for {url}")
