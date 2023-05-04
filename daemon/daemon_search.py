@@ -144,7 +144,7 @@ async def do_search(request: web.Request, task: daemon_tasks.Task):
     headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
-        resp_text, resp_json = None,  None
+        resp_text, resp_json = None, None
         async with session.get(task.data["urlquery"], headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()

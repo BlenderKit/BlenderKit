@@ -65,11 +65,11 @@ async def get_notifications(request: web.Request):
             f"{daemon_globals.SERVER}/api/v1/notifications/unread/", headers=headers
         ) as resp:
             resp_text = await resp.text()
-            task.result = resp_json= await resp.json()
+            task.result = resp_json = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Get notifications failed"
         )
         return task.error(msg, message_detailed=detail)
-        
+
     return task.finished("Notifications retrieved")
