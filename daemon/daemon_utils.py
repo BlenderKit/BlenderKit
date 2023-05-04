@@ -33,6 +33,28 @@ def get_headers(api_key: str = "") -> dict[str, str]:
     return headers
 
 
+def extract_error_message(
+    exception: Exception, resp_text: str, resp_json: dict = {}, prefix: str = ""
+) -> tuple[str, str]:
+    if prefix != "":
+        prefix += ": "
+
+    if type(resp_json) == dict:
+        if resp_json == {}:
+            msg = f"{prefix}{resp_json}"
+            detail = f"{prefix}{exception}: {msg}"
+            return msg, detail
+
+        if resp_json.get("detail") is not None:
+            msg = f"{prefix}{resp_json.get('detail')}"
+            detail = f"{prefix}{exception}: {msg}"
+            return msg, detail
+
+    msg = f"{prefix}{exception}"
+    detail = f"{prefix}{type(exception)}: {exception} {resp_text}"
+    return msg, detail
+
+
 def dict_to_params(inputs, parameters=None):
     if parameters is None:
         parameters = []
@@ -96,13 +118,13 @@ async def message_to_addon(
         "duration": duration,
     }
     message_task = daemon_tasks.Task(
+        data={},
         app_id=app_id,
-        message=message,
         task_type="message_from_daemon",
+        message=message,
         result=result,
         status="finished",
         progress=100,
-        data={},
     )
     daemon_globals.tasks.append(message_task)
 
@@ -116,7 +138,7 @@ async def download_file(
     Path(destination).parent.mkdir(parents=True, exist_ok=True)
     headers = get_headers(api_key)
     try:
-        async with session.get(url, headers=headers) as resp:
+        async with session.get(url, headers=headers, raise_for_status=True) as resp:
             with open(destination, "wb") as file:
                 async for chunk in resp.content.iter_chunked(4096 * 32):
                     file.write(chunk)
@@ -138,11 +160,13 @@ async def blocking_request_handler(request: web.Request):
     data = await request.json()
     session = request.app["SESSION_API_REQUESTS"]
     try:
+        resp_text, resp_json = None, None
         async with session.request(
             data["method"], data["url"], headers=data["headers"], json=data.get("json")
         ) as resp:
-            data = await resp.json()
-            return web.json_response(data)
+            resp_text = await resp.text()
+            resp_json = await resp.json()
+            return web.json_response(resp_json)
     except ClientResponseError as e:
         logger.warning(
             f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
@@ -151,7 +175,7 @@ async def blocking_request_handler(request: web.Request):
             status=resp.status, text=f"ClientResponseError: {e.message} ({e.status})"
         )
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
+        logger.warning(f"{type(e)}: {e}, {resp_text}")
         return web.Response(status=resp.status, text=f"{type(e)}: {e}")
 
 
@@ -175,13 +199,18 @@ async def make_request(request: web.Request, task: daemon_tasks.Task):
     error_message = messages.get("error", "Request failed")
     success_message = messages.get("success", "Request succeeded")
     try:
+        resp_text, resp_json = None, None
         async with session.request(
-            method, url, headers=headers, json=json_data, raise_for_status=True
+            method, url, headers=headers, json=json_data
         ) as resp:
+            resp_text = await resp.text()
             if resp.content_type == "application/json":
-                task.result = await resp.json()
+                resp_json = await resp.json()
+                resp.raise_for_status()
+                task.result = resp_json
             else:
-                task.result = await resp.text()
+                resp.raise_for_status()
+                task.result = resp_text
             return task.finished(success_message)
     except ClientResponseError as e:
         logger.warning(

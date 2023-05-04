@@ -13,6 +13,7 @@ class Task:
         task_type: str,
         task_id: str = "",
         message: str = "",
+        message_detailed: str = "",
         progress: int = 0,
         status: str = "created",
         result: dict = {},
@@ -26,6 +27,7 @@ class Task:
         self.task_type = task_type
 
         self.message = message
+        self.message_detailed = message_detailed
         self.progress = progress
         self.status = status  # created / finished / error
         self.result = result.copy()
@@ -39,10 +41,12 @@ class Task:
         if status != "":
             self.status = status
 
-    def error(self, message: str, progress: int = -1):
+    def error(self, message: str, message_detailed: str = "", progress: int = -1):
         """End the task with error."""
-        self.message = message
         self.status = "error"
+        self.message = message
+        if message_detailed != "":
+            self.message_detailed = message_detailed
         if progress != -1:
             self.progress = progress
 

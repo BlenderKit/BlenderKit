@@ -68,38 +68,37 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
 
     if export_data["assetBaseId"] == "":
         try:
+            resp_text, resp_json = None, None
             async with session.post(
                 url, json=json_metadata, headers=headers
-            ) as response:
-                metadata_response = await response.json()
-                logger.info(f"Got response ({response.status}) for {url}")
-        except ClientResponseError as e:
-            logger.warning(
-                f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-            )
-            return f"ClientResponseError: {e.message} ({e.status})", None
+            ) as resp:
+                resp_text = await resp.text()
+                resp_json = await resp.json()
+                logger.info(f"Got response ({resp.status}) for {url}")
+                return "", resp_json
         except Exception as e:
-            logger.warning(f"{type(e)}: {e}")
-            return f"{type(e)}: {e}", None
-        return "", metadata_response
+            msg, detail = daemon_utils.extract_error_message(
+                e, resp_text, resp_json, "Upload metadata"
+            )
+            logger.error(detail)
+            return msg, None
 
     url = f'{url}{export_data["id"]}/'
     if "MAINFILE" in upload_set:
         json_metadata["verificationStatus"] = "uploading"
     try:
+        resp_text, resp_json = None, None
         async with session.patch(url, json=json_metadata, headers=headers) as response:
-            metadata_response = await response.json()
+            resp_text = await response.text()
+            resp_json = await response.json()
             logger.info(f"Got response ({response.status}) for {url}")
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return f"ClientResponseError: {e.message} ({e.status})", None
+            return "", resp_json
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return f"{type(e)}: {e}", None
-
-    return "", metadata_response
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Metadata upload"
+        )
+        logger.error(detail)
+        return msg, None
 
 
 async def pack_blend_file(task: daemon_tasks.Task, metadata_response: dict):
@@ -220,18 +219,16 @@ async def upload_asset_data(
     headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
     url = f"{daemon_globals.SERVER}/api/v1/assets/{task.data['upload_data']['id']}/"
     try:
-        async with session.patch(url, json=confirm_data, headers=headers) as response:
-            await response.text()
-            if response.status != 200:
-                return "failed to confirm the upload"
+        resp_text = None
+        async with session.patch(url, json=confirm_data, headers=headers) as resp:
+            resp_text = await resp.text()
+            resp.raise_for_status()
             return ""
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return "failed to confirm the upload"
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
+        _, detail = daemon_utils.extract_error_message(
+            e, resp_text, None, "Patch assset failed"
+        )
+        logger.error(detail)
         return "failed to confirm the upload"
 
 
@@ -247,16 +244,13 @@ async def get_S3_upload_JSON(
         "originalFilename": os.path.basename(file["file_path"]),
     }
     try:
+        resp_text, resp_json = None, None
         async with session.post(url, json=upload_info, headers=headers) as resp:
-            upload_info_json = await resp.json()
-            return upload_info_json, True
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return None, False
+            resp_text = await resp.text()
+            resp_json = await resp.json()
+            return resp_json, True
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
+        logger.error(f"{type(e)}: {e}, {resp_text}, {resp_json}")
         return None, False
 
 
@@ -267,38 +261,34 @@ async def upload_file_to_S3(
     with open(file["file_path"], "rb") as binary_file:
         logger.info(f"Uploading {file['type']} file {file['file_path']} to S3")
         try:
+            resp_text, resp_json = None, None
             async with session.put(
                 upload_info_json["s3UploadUrl"],
                 data=binary_file,
-            ) as response:
-                text = await response.text()
-                if 250 > response.status > 199:  # WHY?
+            ) as resp:
+                resp_text = await resp.text()
+                resp_json = await resp.json()
+                resp.raise_for_status()
+                if 250 > resp.status > 199:  # WHY?
                     logger.info("File upload successful")
                 else:
-                    logger.warning(f"file upload failed, status={response.status}")
-                    logger.warning(f"response={text}")
+                    logger.warning(f"file upload failed, status={resp.status}")
+                    logger.warning(f"response={resp_text}")
                     return False
-        except ClientResponseError as e:
-            logger.warning(
-                f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-            )
-            return False
         except Exception as e:
-            logger.warning(f"{type(e)}: {e}")
+            logger.warning(f"PUT to S3: {type(e)}: {e}, {resp_text}, {resp_json}")
             return False
 
     upload_done_url = f'{daemon_globals.SERVER}/api/v1/uploads_s3/{upload_info_json["id"]}/upload-file/'
     try:
+        resp_text, resp_json = None, None
         async with await session.post(upload_done_url, headers=headers) as resp:
-            data = await resp.json()
-            logger.warning(f"UPLOAD CONFIRMATION JSON {data}")
+            resp_text = await resp.text()
+            resp_json = await resp.json()
+            resp.raise_for_status()
             task.change_progress(task.progress + 15)
+            logger.info("File upload confirmed")
             return True
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return False
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
+        logger.warning(f"POST to S3: {type(e)} {e}, {resp_text}, {resp_json}")
         return False

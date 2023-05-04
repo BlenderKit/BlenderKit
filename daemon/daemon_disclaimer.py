@@ -18,27 +18,30 @@ async def get_disclaimer(request: web.Request) -> None:
     data = await request.json()
     app_id = data["app_id"]
     task = daemon_tasks.Task(
-        data, app_id, "disclaimer", str(uuid.uuid4()), message="Getting disclaimer"
+        data,
+        app_id,
+        "disclaimer",
+        task_id=str(uuid.uuid4()),
+        message="Getting disclaimer",
     )
     daemon_globals.tasks.append(task)
     headers = daemon_utils.get_headers(data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
+        resp_text, resp_json = None, None
         async with session.get(
             f"{daemon_globals.SERVER}/api/v1/disclaimer/active/", headers=headers
         ) as resp:
-            response = await resp.json()
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Get disclaimer failed: {e.message} ({e.status})")
+            resp_text = await resp.text()
+            resp_json = await resp.json()
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Get disclaimer {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get disclaimer failed"
+        )
+        return task.error(msg, message_detailed=detail)
 
-    if len(response["results"]) > 0:
-        task.result = response
+    if len(resp_json["results"]) > 0:
+        task.result = resp_json
         return task.finished("Disclaimer retrieved")
     return task.finished("Disclaimer not retrieved, serve a tip to user")
 
@@ -50,24 +53,23 @@ async def get_notifications(request: web.Request):
         data,
         data["app_id"],
         "notifications",
-        str(uuid.uuid4()),
+        task_id=str(uuid.uuid4()),
         message="Getting notifications",
     )
     daemon_globals.tasks.append(task)
     headers = daemon_utils.get_headers(data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
+        resp_text, resp_json = None, None
         async with session.get(
             f"{daemon_globals.SERVER}/api/v1/notifications/unread/", headers=headers
         ) as resp:
-            task.result = await resp.json()
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Get notifications failed: {e.message} ({e.status})")
+            resp_text = await resp.text()
+            task.result = resp_json= await resp.json()
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Get notifications {type(e)}: {e}")
-
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get notifications failed"
+        )
+        return task.error(msg, message_detailed=detail)
+        
     return task.finished("Notifications retrieved")

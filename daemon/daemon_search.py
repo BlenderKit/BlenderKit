@@ -36,15 +36,15 @@ async def download_image(session: aiohttp.ClientSession, task: daemon_tasks.Task
             with open(image_path, "wb") as file:
                 async for chunk in resp.content.iter_chunked(4096 * 32):
                     file.write(chunk)
-                task.finished("thumbnail downloaded")
+                return task.finished("thumbnail downloaded")
     except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Thumbnail download failed: {e.message} ({e.status})")
+        msg = f"Thumbnail download failed: {e.message} ({e.status})"
+        detail = f'Thumbnail download ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
+        return task.error(msg, message_detailed=detail)
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Thumbnail download {type(e)}: {e}")
+        msg = f"Thumbnail download failed: {e}"
+        detail = f"Thumbnail download {type(e)}: {e}"
+        return task.error(msg, message_detailed=detail)
 
 
 async def download_image_batch(
@@ -144,18 +144,16 @@ async def do_search(request: web.Request, task: daemon_tasks.Task):
     headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
+        resp_text, resp_json = None,  None
         async with session.get(task.data["urlquery"], headers=headers) as resp:
-            response = await resp.json()
-            task.result = response
+            resp_text = await resp.text()
+            task.result = resp_json = await resp.json()
             task.finished("Search results downloaded")
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Search failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Search {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Search failed"
+        )
+        return task.error(msg, message_detailed=detail)
 
     # Post-search tasks
     small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
@@ -171,29 +169,28 @@ async def fetch_categories(request: web.Request) -> None:
         data,
         data["app_id"],
         "categories_update",
-        str(uuid.uuid4()),
+        task_id=str(uuid.uuid4()),
         message="Getting updated categories",
     )
     daemon_globals.tasks.append(task)
 
     try:
+        resp_text, resp_json = None, None
         async with session.get(
             f"{daemon_globals.SERVER}/api/v1/categories/", headers=headers
         ) as resp:
-            data = await resp.json()
-            categories = data["results"]
+            resp_text = await resp.text()
+            resp_json = await resp.json()
+            categories = resp_json["results"]
             fix_category_counts(categories)
             # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
             task.result = categories
             return task.finished("Categories fetched")
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Fetching categories failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Fetching categories {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get categories failed"
+        )
+        return task.error(msg, message_detailed=detail)
 
 
 def count_to_parent(parent):

@@ -26,17 +26,16 @@ async def get_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
     url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/'
     try:
+        resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
-            task.result = await resp.json()
+            resp_text = await resp.text()
+            task.result = resp_json = await resp.json()
             return task.finished("Rating data obtained")
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Get rating failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Get rating {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get rating failed"
+        )
+        return task.error(msg, message_detailed=detail)
 
 
 async def send_rating_handler(request: web.Request):
@@ -69,17 +68,16 @@ async def send_rating(task: daemon_tasks.Task, request: web.Request) -> None:
         f'Sending rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}'
     )
     try:
+        resp_text, resp_json = None, None
         async with session.put(url, headers=headers, json=data) as resp:
-            task.result = await resp.json()
+            resp_text = await resp.text()
+            task.result = resp_json = await resp.json()
             return task.finished("Rating uploaded")
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Send rating failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Send rating {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Send rating failed"
+        )
+        return task.error(msg, message_detailed=detail)
 
 
 async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
@@ -91,19 +89,18 @@ async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
         f'Deleting rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}'
     )
     try:
+        resp_text, resp_json = None, None
         async with session.delete(url, headers=headers) as resp:
-            task.result = await resp.json()
+            resp_text = await resp.text()
+            task.result = resp_json = await resp.json()
             return task.finished(
                 "Rating uploaded"
             )  # TODO can we rename to rating deleted?
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Delete rating failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Delete rating {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Delete rating failed"
+        )
+        return task.error(msg, message_detailed=detail)
 
 
 async def get_bookmarks_handler(request: web.Request):
@@ -122,14 +119,13 @@ async def get_bookmarks(task: daemon_tasks.Task, request: web.Request) -> None:
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
     url = f"{daemon_globals.SERVER}/api/v1/search/?query=bookmarks_rating:1"
     try:
+        resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
-            task.result = await resp.json()
+            resp_text = await resp.text()
+            task.result = resp_json = await resp.json()
             return task.finished("Bookmarks data obtained")
-    except ClientResponseError as e:
-        logger.warning(
-            f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        )
-        return task.error(f"Get bookmarks failed: {e.message} ({e.status})")
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return task.error(f"Get bookmarks {type(e)}: {e}")
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get bookmarks failed"
+        )
+        return task.error(msg, message_detailed=detail)

@@ -35,19 +35,21 @@ async def get_tokens(
     session = request.app["SESSION_API_REQUESTS"]
     headers = daemon_utils.get_headers()
     try:
+        resp_text, resp_json, resp_status = None, None, -1
         async with session.post(
             f"{daemon_globals.SERVER}/o/token/", data=data, headers=headers
         ) as response:
-            response_json = await response.json()
+            resp_status = response.status
+            resp_text = await response.text()
+            resp_json = await response.json()
             logger.info("Token retrieval OK.")
-            return response_json, response.status, ""
-    except ClientResponseError as e:
-        msg = f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
-        logger.warning(msg)
-        return [], e.status, msg
+            return resp_json, resp_status, ""
     except Exception as e:
-        logger.warning(f"{type(e)}: {e}")
-        return [], -1, str(e)
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_json, "Get download URL"
+        )
+        logger.warning(detail)
+        return [], resp_status, msg
 
 
 async def refresh_tokens(request: web.Request) -> None:

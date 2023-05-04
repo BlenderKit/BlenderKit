@@ -59,7 +59,7 @@ async def download_asset(request: web.Request):
     del data["app_id"]
 
     task = daemon_tasks.Task(
-        data, app_id, "asset_download", task_id, message="Looking for asset"
+        data, app_id, "asset_download", task_id=task_id, message="Looking for asset"
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(
@@ -79,7 +79,7 @@ async def search_assets(request: web.Request):
     del data["app_id"]
 
     task = daemon_tasks.Task(
-        data, app_id, "search", task_id, message="Searching assets"
+        data, app_id, "search", task_id=task_id, message="Searching assets"
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(daemon_search.do_search(request, task))
@@ -95,7 +95,11 @@ async def upload_asset(request: web.Request):
     app_id = data.pop("app_id")
 
     task = daemon_tasks.Task(
-        data, app_id, "asset_upload", task_id, message="Asset upload has started"
+        data,
+        app_id,
+        "asset_upload",
+        task_id=task_id,
+        message="Asset upload has started",
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(daemon_uploads.do_upload(request, task))
