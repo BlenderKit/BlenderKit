@@ -104,11 +104,12 @@ async def download_asset(
     res_file_info, task.data["resolution"] = get_res_file(task.data)
     try:
         with open(file_path, "wb") as file:
-            resp_text, resp_json = None, None
+            resp_text, resp_status = None, -1
             async with session.get(
                 res_file_info["url"],
                 headers=daemon_utils.get_headers(),
             ) as resp:
+                resp_status = resp.status
                 total_length = resp.headers.get("Content-Length")
                 if total_length is None:  # no content length header
                     task.error("Download asset failed: Got no Content-Length")
@@ -118,7 +119,6 @@ async def download_asset(
                 if resp.ok is False:
                     delete_unfinished_file(file_path)
                     resp_text = await resp.text()
-                    resp_json = await resp.json()
                     resp.raise_for_status()
 
                 # bk_logger.debug(total_length)
@@ -152,7 +152,7 @@ async def download_asset(
 
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get download URL"
+            e, resp_text, resp_status, "Get download URL"
         )
         task.error(msg, message_detailed=detail)
         return False
@@ -180,18 +180,19 @@ async def get_download_url(
     # res_file_info["downloadUrl"] = res_file_info["downloadUrl"][:-5]
 
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/downloads_read
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(
             res_file_info["downloadUrl"],
             params=req_data,
             headers=headers,
         ) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
             resp_json = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get download URL"
+            e, resp_text, resp_status, "Get download URL"
         )
         task.error(msg, message_detailed=detail)
         return False
@@ -424,14 +425,14 @@ async def report_usages(request: web.Request, task: daemon_tasks.Task) -> bool:
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/usage_report_create
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.post(url, headers=headers, data=task.data) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, prefix="Usage report failed"
+            e, resp_text, resp_status, prefix="Usage report failed"
         )
         task.error(msg, message_detailed=detail)
         return False
@@ -445,15 +446,16 @@ async def blocking_file_upload_handler(request: web.Request):
     session = request.app["SESSION_API_REQUESTS"]
     data = await request.json()
     try:
-        resp_text = None
+        resp_text, resp_status = None, -1
         with open(data["filepath"], "rb") as file:
             async with session.put(data["url"], data=file) as resp:
+                resp_status = resp.status
                 resp_text = await resp.text()
                 resp.raise_for_status()
                 return web.Response(status=resp.status, text=resp_text)
     except Exception as e:
         _, detail = daemon_utils.extract_error_message(
-            e, resp_text, prefix="Blocking file upload failed"
+            e, resp_text, resp_status, "Blocking file upload failed"
         )
         logger.error(detail)
-        return web.Response(status=500, text=detail)
+        return web.Response(status=resp_status, text=detail)

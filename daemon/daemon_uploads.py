@@ -4,6 +4,7 @@ Extends upload.py on addon side."""
 import asyncio
 import json
 import os
+import typing
 from logging import getLogger
 from pathlib import Path
 
@@ -68,8 +69,9 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
 
     if export_data["assetBaseId"] == "":
         try:
-            resp_text, resp_json = None, None
+            resp_text, resp_status = None, -1
             async with session.post(url, json=json_metadata, headers=headers) as resp:
+                resp_status = resp.status
                 resp_text = await resp.text()
                 resp_json = await resp.json()
                 logger.info(f"Got response ({resp.status}) for {url}")
@@ -77,7 +79,7 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
                 return "", resp_json
         except Exception as e:
             msg, detail = daemon_utils.extract_error_message(
-                e, resp_text, resp_json, "Upload metadata"
+                e, resp_text, resp_status, "Upload metadata"
             )
             logger.error(detail)
             return msg, None
@@ -86,8 +88,9 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
     if "MAINFILE" in upload_set:
         json_metadata["verificationStatus"] = "uploading"
     try:
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.patch(url, json=json_metadata, headers=headers) as response:
+            resp_status = response.status
             resp_text = await response.text()
             resp_json = await response.json()
             logger.info(f"Got response ({response.status}) for {url}")
@@ -95,7 +98,7 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
             return "", resp_json
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Metadata upload"
+            e, resp_text, resp_status, "Metadata upload"
         )
         logger.error(detail)
         return msg, None
@@ -182,19 +185,14 @@ async def upload_asset_data(
     metadata_response: dict,
 ) -> str:
     """Upload .blend file and/or thumbnail to the server."""
-    uploaded = True
     for file in files:
         upload_info_json, ok = await get_S3_upload_JSON(task, session, file)
         if not ok:
-            uploaded = False
-            continue
+            return "failed to get S3 upload info"
 
-        ok = await upload_file_to_S3(session, task, file, upload_info_json)
+        ok, error = await upload_file_to_S3(session, task, file, upload_info_json)
         if not ok:
-            uploaded = False
-
-    if not uploaded:
-        return "some files not uploaded"
+            return error
 
     # Check the status if only thumbnail or metadata gets reuploaded.
     # the logic is that on hold assets might be switched to uploaded state for validators,
@@ -218,19 +216,19 @@ async def upload_asset_data(
     confirm_data = {"verificationStatus": "uploaded"}
     headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
     url = f"{daemon_globals.SERVER}/api/v1/assets/{task.data['upload_data']['id']}/"
-    try: 
-        resp_text, resp_json = None, None
+    try:
+        resp_text, resp_status = None, -1
         async with session.patch(url, json=confirm_data, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
             return ""
     except Exception as e:
-        _, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Patch assset failed"
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_status, "Patch assset failed"
         )
         logger.error(detail)
-        return "failed to confirm the upload"
+        return msg
 
 
 async def get_S3_upload_JSON(
@@ -258,38 +256,47 @@ async def get_S3_upload_JSON(
 
 async def upload_file_to_S3(
     session: ClientSession, task: daemon_tasks.Task, file: dict, upload_info_json: dict
-) -> bool:
+) -> typing.Tuple[bool, str]:
+    """Uploads file to S3, returns True if successful, error message returned as second value.
+    First try to upload file, then validate the upload on server, server returns error if upload failed (wrong file).
+    """
     headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
+
+    # FILE UPLOAD
     with open(file["file_path"], "rb") as binary_file:
         logger.info(f"Uploading {file['type']} file {file['file_path']} to S3")
         try:
-            resp_text, resp_json = None, None
+            resp_text, resp_status = None, -1
             async with session.put(
                 upload_info_json["s3UploadUrl"],
                 data=binary_file,
             ) as resp:
+                resp_status = resp.status
                 resp_text = await resp.text()
                 resp.raise_for_status()
-                if 250 > resp.status > 199:  # WHY?
-                    logger.info("File upload successful")
-                else:
-                    logger.warning(f"file upload failed, status={resp.status}")
-                    logger.warning(f"response={resp_text}")
-                    return False
         except Exception as e:
-            logger.warning(f"PUT to S3: {type(e)}: {e}, {resp_text}, {resp_json}")
-            return False
+            msg, detail = daemon_utils.extract_error_message(
+                e, resp_text, resp_status, "S3 upload"
+            )
+            logger.warning(detail)
+            return False, msg
+    logger.info("File uploaded to S3")
 
+    # UPLOAD VALIDATION
     upload_done_url = f'{daemon_globals.SERVER}/api/v1/uploads_s3/{upload_info_json["id"]}/upload-file/'
     try:
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with await session.post(upload_done_url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
-            task.change_progress(task.progress + 15)
-            logger.info("File upload confirmed")
-            return True
     except Exception as e:
-        logger.warning(f"POST to S3: {type(e)} {e}, {resp_text}, {resp_json}")
-        return False
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_status, "S3 confirmation"
+        )
+        logger.warning(detail)
+        return False, msg
+
+    task.change_progress(task.progress + 15)
+    logger.info("File upload confirmed with BlenderKit server")
+    return True, ""

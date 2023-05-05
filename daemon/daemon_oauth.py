@@ -36,7 +36,7 @@ async def get_tokens(
     headers = daemon_utils.get_headers()
     url = f"{daemon_globals.SERVER}/o/token/"
     try:
-        resp_text, resp_json, resp_status = None, None, -1
+        resp_text, resp_status = None, -1
         async with session.post(url, data=data, headers=headers) as response:
             resp_status = response.status
             resp_text = await response.text()
@@ -46,7 +46,7 @@ async def get_tokens(
             return resp_json, resp_status, ""
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get download URL"
+            e, resp_text, resp_status, "Get download URL"
         )
         logger.warning(detail)
         return resp_json, resp_status, msg

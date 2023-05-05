@@ -122,7 +122,7 @@ def check_missing_data(asset_type, props):
             f"can not be  longer than 40 letters.\n",
         )
     if len(props.name) > 40:
-        write_to_report(props, f"The name is too long. maximum is 40 letters")
+        write_to_report(props, "The name is too long. maximum is 40 letters")
 
     if (
         props.category == "NONE"
@@ -195,8 +195,6 @@ def get_upload_data(caller=None, context=None, asset_type=None):
 
     """
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    api_key = user_preferences.api_key
-
     export_data = {
         # "type": asset_type,
     }
@@ -235,8 +233,6 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         style = props.style.lower()
         # if style == 'OTHER':
         #     style = props.style_other.lower()
-
-        pl_dict = {"FINISHED": "finished", "TEMPLATE": "template"}
 
         upload_data = {
             "assetType": "model",
@@ -325,8 +321,6 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         style = props.style.lower()
         # if style == 'OTHER':
         #     style = props.style_other.lower()
-
-        pl_dict = {"FINISHED": "finished", "TEMPLATE": "template"}
 
         upload_data = {
             "assetType": "scene",
@@ -500,7 +494,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     add_version(upload_data)
 
     # caller can be upload operator, but also asset bar called from tooltip generator
-    if caller and caller.properties.main_file == True:
+    if caller and caller.properties.main_file is True:
         upload_data["name"] = props.name
         upload_data["displayName"] = props.name
     else:
@@ -650,8 +644,6 @@ class FastMetadata(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        scene = bpy.context.scene
-        ui_props = bpy.context.window_manager.blenderkitUI
         return True
 
     def draw(self, context):
@@ -1029,7 +1021,6 @@ class UploadOperator(Operator):
             return {"CANCELLED"}
 
         if self.asset_type == "HDR":
-            props = utils.get_upload_props()
             # getting upload data for images ensures true_hdr check so users can be informed about their handling
             # simple 360 photos or renders with LDR are hidden by default..
             export_data, upload_data = get_upload_data(asset_type="HDR")
@@ -1058,8 +1049,6 @@ class AssetDebugPrint(Operator):
         return True
 
     def execute(self, context):
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
         if not global_vars.DATA["search results"]:
             print("no search results found")
             return {"CANCELLED"}
@@ -1151,16 +1140,14 @@ class AssetVerificationStatusChange(Operator):
 
 def handle_asset_upload(task: daemon_tasks.Task):
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
-
     asset.upload_state = f"{task.progress}% - {task.message}"
-
     if task.status == "error":
         asset.uploading = False
-        return reports.add_report(f"Upload has failed: {task.message}", type="ERROR")
+        return reports.add_report(task.message, type="ERROR")
 
     if task.status == "finished":
         asset.uploading = False
-        return reports.add_report(f"Upload successfull")
+        return reports.add_report("Upload successfull")
 
 
 def handle_asset_metadata_upload(task: daemon_tasks.Task):

@@ -3,7 +3,6 @@
 import asyncio
 from logging import getLogger
 
-import aiohttp
 import daemon_globals
 import daemon_tasks
 import daemon_utils
@@ -39,15 +38,16 @@ async def get_comments(request: web.Request, task: daemon_tasks.Task):
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/comments/assets-uuidasset/{asset_id}/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_read
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
             return task.finished("comments downloaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get comments failed"
+            e, resp_text, resp_status, "Get comments failed"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -59,14 +59,15 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/comments/asset-comment/{asset_id}/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_get
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            comment_data = resp_json = await resp.json()
+            comment_data = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, comment_data, "GET in create_comment"
+            e, resp_text, resp_status, "GET in create_comment"
         )
         task.error(msg, message_detailed=detail)
         return False
@@ -86,14 +87,15 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
     }
     url = f"{daemon_globals.SERVER}/api/v1/comments/comment/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_comment_create
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.post(url, headers=headers, data=post_data) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "POST in create_comment"
+            e, resp_text, resp_status, "POST in create_comment"
         )
         task.error(msg, message_detailed=detail)
         return False
@@ -117,14 +119,15 @@ async def feedback_comment(request: web.Request, task: daemon_tasks.Task):
     }
     url = f"{daemon_globals.SERVER}/api/v1/comments/feedback/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.post(url, data=data, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "POST comment feedback"
+            e, resp_text, resp_status, "POST comment feedback"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -146,14 +149,15 @@ async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) ->
         f'{daemon_globals.SERVER}/api/v1/comments/is_private/{task.data["comment_id"]}/'
     )
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.post(url, data=data, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Mark comment failed"
+            e, resp_text, resp_status, "Mark comment failed"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -185,14 +189,15 @@ async def mark_notification_read(request: web.Request, task: daemon_tasks.Task) 
     session = request.app["SESSION_API_REQUESTS"]
     url = f'{daemon_globals.SERVER}/api/v1/notifications/mark-as-read/{task.data["notification_id"]}/'
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
             return task.finished("notification marked as read")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Mark notification as read failed"
+            e, resp_text, resp_status, "Mark notification as read failed"
         )
         return task.error(msg, message_detailed=detail)

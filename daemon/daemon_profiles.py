@@ -99,14 +99,15 @@ async def get_user_profile(task: daemon_tasks.Task, request: web.Request) -> Non
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/me/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/me_list
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
             resp_json = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get profile"
+            e, resp_text, resp_status, "Get profile"
         )
         return task.error(msg, message_detailed=detail)
 

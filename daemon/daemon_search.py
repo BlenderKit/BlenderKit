@@ -146,18 +146,19 @@ async def do_search(request: web.Request, task: daemon_tasks.Task):
     headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     try:
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(task.data["urlquery"], headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
-            task.finished("Search results downloaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Search failed"
+            e, resp_text, resp_status, "Search failed"
         )
         return task.error(msg, message_detailed=detail)
 
+    task.finished("Search results downloaded")
     # Post-search tasks
     small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
     await download_image_batch(request.app["SESSION_SMALL_THUMBS"], small_thumbs_tasks)
@@ -177,15 +178,16 @@ async def fetch_categories(request: web.Request) -> None:
     )
     daemon_globals.tasks.append(task)
     url = f"{daemon_globals.SERVER}/api/v1/categories/"
-    try: # https://www.blenderkit.com/api/v1/docs/#operation/categories_list
-        resp_text, resp_json = None, None
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/categories_list
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
             resp_json = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get categories failed"
+            e, resp_text, resp_status, "Get categories failed"
         )
         return task.error(msg, message_detailed=detail)
 
