@@ -108,7 +108,6 @@ async def download_asset(
             async with session.get(
                 res_file_info["url"],
                 headers=daemon_utils.get_headers(),
-                raise_for_status=False,
             ) as resp:
                 total_length = resp.headers.get("Content-Length")
                 if total_length is None:  # no content length header
@@ -178,7 +177,6 @@ async def get_download_url(
     headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
     req_data = {"scene_uuid": task.data["PREFS"]["scene_id"]}
     res_file_info, _ = get_res_file(task.data)
-
     # res_file_info["downloadUrl"] = res_file_info["downloadUrl"][:-5]
 
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/downloads_read
@@ -187,7 +185,6 @@ async def get_download_url(
             res_file_info["downloadUrl"],
             params=req_data,
             headers=headers,
-            raise_for_status=False,
         ) as resp:
             resp_text = await resp.text()
             resp_json = await resp.json()
@@ -426,13 +423,15 @@ async def report_usages(request: web.Request, task: daemon_tasks.Task) -> bool:
     url = f"{daemon_globals.SERVER}/api/v1/usage_report"
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
-    try:
-        resp_text = None
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/usage_report_create
+        resp_text, resp_json = None, None
         async with session.post(url, headers=headers, data=task.data) as resp:
             resp_text = await resp.text()
+            resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, prefix="Usage report failed"
+            e, resp_text, resp_json, prefix="Usage report failed"
         )
         task.error(msg, message_detailed=detail)
         return False
@@ -450,6 +449,7 @@ async def blocking_file_upload_handler(request: web.Request):
         with open(data["filepath"], "rb") as file:
             async with session.put(data["url"], data=file) as resp:
                 resp_text = await resp.text()
+                resp.raise_for_status()
                 return web.Response(status=resp.status, text=resp_text)
     except Exception as e:
         _, detail = daemon_utils.extract_error_message(

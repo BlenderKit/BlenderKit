@@ -4,7 +4,7 @@ from logging import getLogger
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import ClientResponseError, web
+from aiohttp import web
 
 
 logger = getLogger(__name__)
@@ -25,11 +25,12 @@ async def get_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     session = request.app["SESSION_API_REQUESTS"]
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
     url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/'
-    try:
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_list
         resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
             return task.finished("Rating data obtained")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
@@ -61,17 +62,17 @@ async def send_rating_handler(request: web.Request):
 async def send_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     session = request.app["SESSION_API_REQUESTS"]
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
-    url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
     data = {"score": task.data["rating_value"]}
-
     logger.info(
         f'Sending rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}'
     )
-    try:
+    url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_update
         resp_text, resp_json = None, None
         async with session.put(url, headers=headers, json=data) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
             return task.finished("Rating uploaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
@@ -83,19 +84,17 @@ async def send_rating(task: daemon_tasks.Task, request: web.Request) -> None:
 async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     session = request.app["SESSION_API_REQUESTS"]
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
-    url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
-
     logger.info(
         f'Deleting rating {task.data["rating_type"]}={task.data["rating_value"]} for asset {task.data["asset_id"]}'
     )
-    try:
+    url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_delete
         resp_text, resp_json = None, None
         async with session.delete(url, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
-            return task.finished(
-                "Rating uploaded"
-            )  # TODO can we rename to rating deleted?
+            resp.raise_for_status()
+            return task.finished("rating deleted")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Delete rating failed"
@@ -123,6 +122,7 @@ async def get_bookmarks(task: daemon_tasks.Task, request: web.Request) -> None:
         async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
             return task.finished("Bookmarks data obtained")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(

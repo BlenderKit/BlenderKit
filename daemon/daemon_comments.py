@@ -38,12 +38,13 @@ async def get_comments(request: web.Request, task: daemon_tasks.Task):
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/comments/assets-uuidasset/{asset_id}/"
-    try:
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_read
         resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
-            task.finished("comments downloaded")
+            resp.raise_for_status()
+            return task.finished("comments downloaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Get comments failed"
@@ -57,11 +58,12 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/comments/asset-comment/{asset_id}/"
-    try:
-        resp_text, comment_data = None, None
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_get
+        resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
-            comment_data = await resp.json()
+            comment_data = resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, comment_data, "GET in create_comment"
@@ -83,11 +85,12 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
         "comment": task.data["comment_text"],
     }
     url = f"{daemon_globals.SERVER}/api/v1/comments/comment/"
-    try:
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_comment_create
         resp_text, resp_json = None, None
         async with session.post(url, headers=headers, data=post_data) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "POST in create_comment"
@@ -113,11 +116,12 @@ async def feedback_comment(request: web.Request, task: daemon_tasks.Task):
         "flag": task.data["flag"],
     }
     url = f"{daemon_globals.SERVER}/api/v1/comments/feedback/"
-    try:
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
         resp_text, resp_json = None, None
         async with session.post(url, data=data, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "POST comment feedback"
@@ -141,11 +145,12 @@ async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) ->
     url = (
         f'{daemon_globals.SERVER}/api/v1/comments/is_private/{task.data["comment_id"]}/'
     )
-    try:
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
         resp_text, resp_json = None, None
         async with session.post(url, data=data, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Mark comment failed"
@@ -163,7 +168,7 @@ async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) ->
 
 
 ### NOTIFICATIONS
-async def mark_notification_read_handler(request: web.Request):
+async def mark_notification_read_handler(request: web.Request) -> web.Response:
     data = await request.json()
     task = daemon_tasks.Task(
         data, data["app_id"], "notifications/mark_notification_read"
@@ -179,15 +184,15 @@ async def mark_notification_read(request: web.Request, task: daemon_tasks.Task) 
     headers = daemon_utils.get_headers(task.data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
     url = f'{daemon_globals.SERVER}/api/v1/notifications/mark-as-read/{task.data["notification_id"]}/'
-    try:
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
         resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
+            return task.finished("notification marked as read")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get download URL"
+            e, resp_text, resp_json, "Mark notification as read failed"
         )
         return task.error(msg, message_detailed=detail)
-
-    return task.finished("notification marked as read")

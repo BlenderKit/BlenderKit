@@ -316,17 +316,17 @@ async def persistent_sessions(app):
 
     conn_api_requests = aiohttp.TCPConnector(ssl=sslcontext, limit=64, family=family)
     app["SESSION_API_REQUESTS"] = session_api_requests = aiohttp.ClientSession(
-        connector=conn_api_requests, trust_env=trust_env, raise_for_status=True
+        connector=conn_api_requests, trust_env=trust_env
     )
 
     conn_small_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=16, family=family)
     app["SESSION_SMALL_THUMBS"] = session_small_thumbs = aiohttp.ClientSession(
-        connector=conn_small_thumbs, trust_env=trust_env, raise_for_status=True
+        connector=conn_small_thumbs, trust_env=trust_env
     )
 
     conn_big_thumbs = aiohttp.TCPConnector(ssl=sslcontext, limit=8, family=family)
     app["SESSION_BIG_THUMBS"] = session_big_thumbs = aiohttp.ClientSession(
-        connector=conn_big_thumbs, trust_env=trust_env, raise_for_status=True
+        connector=conn_big_thumbs, trust_env=trust_env
     )
 
     timeout = aiohttp.ClientTimeout(total=24 * 60 * 60)  # 1 day
@@ -334,7 +334,6 @@ async def persistent_sessions(app):
     app["SESSION_ASSETS"] = session_assets = aiohttp.ClientSession(
         connector=conn_assets,
         trust_env=trust_env,
-        raise_for_status=True,
         timeout=timeout,
     )
 
@@ -342,7 +341,6 @@ async def persistent_sessions(app):
     app["SESSION_UPLOADS"] = session_uploads = aiohttp.ClientSession(
         connector=conn_uploads,
         trust_env=trust_env,
-        raise_for_status=True,
         timeout=timeout,
     )
 

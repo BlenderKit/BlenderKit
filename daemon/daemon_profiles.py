@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import ClientResponseError, web
+from aiohttp import web
 
 
 logger = getLogger(__name__)
@@ -96,13 +96,14 @@ async def get_user_profile(task: daemon_tasks.Task, request: web.Request) -> Non
     """Get profile data for currently logged-in user. Data are cleaned a little bit and then reported to the add-on."""
     api_key = task.data["api_key"]
     headers = daemon_utils.get_headers(api_key)
-    url = f"{daemon_globals.SERVER}/api/v1/me/"
     session = request.app["SESSION_API_REQUESTS"]
-    try:
+    url = f"{daemon_globals.SERVER}/api/v1/me/"
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/me_list
         resp_text, resp_json = None, None
         async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Get profile"

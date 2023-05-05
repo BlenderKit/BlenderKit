@@ -10,7 +10,7 @@ from pathlib import Path
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import ClientResponseError, ClientSession, web
+from aiohttp import ClientSession, web
 
 
 logger = getLogger(__name__)
@@ -73,6 +73,7 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
                 resp_text = await resp.text()
                 resp_json = await resp.json()
                 logger.info(f"Got response ({resp.status}) for {url}")
+                resp.raise_for_status()
                 return "", resp_json
         except Exception as e:
             msg, detail = daemon_utils.extract_error_message(
@@ -90,6 +91,7 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
             resp_text = await response.text()
             resp_json = await response.json()
             logger.info(f"Got response ({response.status}) for {url}")
+            response.raise_for_status()
             return "", resp_json
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
@@ -216,15 +218,16 @@ async def upload_asset_data(
     confirm_data = {"verificationStatus": "uploaded"}
     headers = daemon_utils.get_headers(task.data["upload_data"]["token"])
     url = f"{daemon_globals.SERVER}/api/v1/assets/{task.data['upload_data']['id']}/"
-    try:
-        resp_text = None
+    try: 
+        resp_text, resp_json = None, None
         async with session.patch(url, json=confirm_data, headers=headers) as resp:
             resp_text = await resp.text()
+            resp_json = await resp.json()
             resp.raise_for_status()
             return ""
     except Exception as e:
         _, detail = daemon_utils.extract_error_message(
-            e, resp_text, None, "Patch assset failed"
+            e, resp_text, resp_json, "Patch assset failed"
         )
         logger.error(detail)
         return "failed to confirm the upload"
@@ -246,6 +249,7 @@ async def get_S3_upload_JSON(
         async with session.post(url, json=upload_info, headers=headers) as resp:
             resp_text = await resp.text()
             resp_json = await resp.json()
+            resp.raise_for_status()
             return resp_json, True
     except Exception as e:
         logger.error(f"{type(e)}: {e}, {resp_text}, {resp_json}")
@@ -265,7 +269,6 @@ async def upload_file_to_S3(
                 data=binary_file,
             ) as resp:
                 resp_text = await resp.text()
-                resp_json = await resp.json()
                 resp.raise_for_status()
                 if 250 > resp.status > 199:  # WHY?
                     logger.info("File upload successful")

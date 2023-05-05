@@ -7,7 +7,7 @@ from logging import getLogger
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import ClientResponseError, web
+from aiohttp import web
 
 
 logger = getLogger(__name__)
@@ -27,13 +27,13 @@ async def get_disclaimer(request: web.Request) -> None:
     daemon_globals.tasks.append(task)
     headers = daemon_utils.get_headers(data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
-    try:
+    url = f"{daemon_globals.SERVER}/api/v1/disclaimer/active/"
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
         resp_text, resp_json = None, None
-        async with session.get(
-            f"{daemon_globals.SERVER}/api/v1/disclaimer/active/", headers=headers
-        ) as resp:
+        async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Get disclaimer failed"
@@ -59,13 +59,13 @@ async def get_notifications(request: web.Request):
     daemon_globals.tasks.append(task)
     headers = daemon_utils.get_headers(data["api_key"])
     session = request.app["SESSION_API_REQUESTS"]
-    try:
+    url = f"{daemon_globals.SERVER}/api/v1/notifications/unread/"
+    try:  # https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
         resp_text, resp_json = None, None
-        async with session.get(
-            f"{daemon_globals.SERVER}/api/v1/notifications/unread/", headers=headers
-        ) as resp:
+        async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Get notifications failed"

@@ -36,6 +36,12 @@ def get_headers(api_key: str = "") -> dict[str, str]:
 def extract_error_message(
     exception: Exception, resp_text: str, resp_json: dict = {}, prefix: str = ""
 ) -> tuple[str, str]:
+    """Extract error message from exception, response text and response json.
+    Returns the best message constructed from these sources:
+    1. prefers "detail" key from JSON response - report from BlenderKit server), or whole JSON,
+    2. response text - usually HTML error page,
+    3. exception message - usually connection error, other errors.
+    """
     if prefix != "":
         prefix += ": "
 
@@ -160,23 +166,25 @@ async def blocking_request_handler(request: web.Request):
     data = await request.json()
     session = request.app["SESSION_API_REQUESTS"]
     try:
-        resp_text, resp_json = None, None
+        resp_text, resp_json, resp_status = None, None, -1
         async with session.request(
             data["method"], data["url"], headers=data["headers"], json=data.get("json")
         ) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
             resp_json = await resp.json()
+            resp.raise_for_status()
             return web.json_response(resp_json)
     except ClientResponseError as e:
         logger.warning(
             f'ClientResponseError: {e.message} ({e.status}) on {e.request_info.method} to "{e.request_info.real_url}", headers:{e.headers}, history:{e.history}'
         )
         return web.Response(
-            status=resp.status, text=f"ClientResponseError: {e.message} ({e.status})"
+            status=resp_status, text=f"ClientResponseError: {e.message} ({e.status})"
         )
     except Exception as e:
         logger.warning(f"{type(e)}: {e}, {resp_text}")
-        return web.Response(status=resp.status, text=f"{type(e)}: {e}")
+        return web.Response(status=resp_status, text=f"{type(e)}: {e}")
 
 
 async def nonblocking_request_handler(request: web.Request):

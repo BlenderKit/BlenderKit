@@ -32,7 +32,9 @@ async def download_image(session: aiohttp.ClientSession, task: daemon_tasks.Task
     image_path = task.data["image_path"]
     headers = daemon_utils.get_headers()
     try:
-        async with session.get(image_url, headers=headers) as resp:
+        async with session.get(
+            image_url, headers=headers, raise_for_status=True
+        ) as resp:
             with open(image_path, "wb") as file:
                 async for chunk in resp.content.iter_chunked(4096 * 32):
                     file.write(chunk)
@@ -148,6 +150,7 @@ async def do_search(request: web.Request, task: daemon_tasks.Task):
         async with session.get(task.data["urlquery"], headers=headers) as resp:
             resp_text = await resp.text()
             task.result = resp_json = await resp.json()
+            resp.raise_for_status()
             task.finished("Search results downloaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
@@ -173,24 +176,24 @@ async def fetch_categories(request: web.Request) -> None:
         message="Getting updated categories",
     )
     daemon_globals.tasks.append(task)
-
-    try:
+    url = f"{daemon_globals.SERVER}/api/v1/categories/"
+    try: # https://www.blenderkit.com/api/v1/docs/#operation/categories_list
         resp_text, resp_json = None, None
-        async with session.get(
-            f"{daemon_globals.SERVER}/api/v1/categories/", headers=headers
-        ) as resp:
+        async with session.get(url, headers=headers) as resp:
             resp_text = await resp.text()
             resp_json = await resp.json()
-            categories = resp_json["results"]
-            fix_category_counts(categories)
-            # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
-            task.result = categories
-            return task.finished("Categories fetched")
+            resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_json, "Get categories failed"
         )
         return task.error(msg, message_detailed=detail)
+
+    categories = resp_json["results"]
+    fix_category_counts(categories)
+    # filter_categories(categories) #TODO this should filter categories for search, but not for upload. by now off.
+    task.result = categories
+    return task.finished("Categories fetched")
 
 
 def count_to_parent(parent):
