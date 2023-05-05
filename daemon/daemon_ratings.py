@@ -26,15 +26,16 @@ async def get_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
     url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/'
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_list
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
             return task.finished("Rating data obtained")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get rating failed"
+            e, resp_text, resp_status, "Get rating failed"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -68,15 +69,16 @@ async def send_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     )
     url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_update
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.put(url, headers=headers, json=data) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
             return task.finished("Rating uploaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Send rating failed"
+            e, resp_text, resp_status, "Send rating failed"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -89,15 +91,16 @@ async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
     )
     url = f'{daemon_globals.SERVER}/api/v1/assets/{task.data["asset_id"]}/rating/{task.data["rating_type"]}/'
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_delete
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.delete(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
             return task.finished("rating deleted")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Delete rating failed"
+            e, resp_text, resp_status, "Delete rating failed"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -118,14 +121,15 @@ async def get_bookmarks(task: daemon_tasks.Task, request: web.Request) -> None:
     headers = daemon_utils.get_headers(task.data.get("api_key", ""))
     url = f"{daemon_globals.SERVER}/api/v1/search/?query=bookmarks_rating:1"
     try:
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
             return task.finished("Bookmarks data obtained")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get bookmarks failed"
+            e, resp_text, resp_status, "Get bookmarks failed"
         )
         return task.error(msg, message_detailed=detail)

@@ -1,6 +1,7 @@
 """Contains utility functions for daemon server. Mix of everything."""
 
 import asyncio
+import json
 import platform
 import re
 import sys
@@ -34,7 +35,10 @@ def get_headers(api_key: str = "") -> dict[str, str]:
 
 
 def extract_error_message(
-    exception: Exception, resp_text: str, resp_json: dict = {}, prefix: str = ""
+    exception: Exception,
+    resp_text: str,
+    resp_status: int = -1,
+    prefix: str = "",
 ) -> tuple[str, str]:
     """Extract error message from exception, response text and response json.
     Returns the best message constructed from these sources:
@@ -45,19 +49,45 @@ def extract_error_message(
     if prefix != "":
         prefix += ": "
 
-    if type(resp_json) == dict:
-        if resp_json == {}:
-            msg = f"{prefix}{resp_json}"
-            detail = f"{prefix}{exception}: {msg}"
-            return msg, detail
+    if resp_status != -1:
+        status_string = f" ({resp_status}) "
+    else:
+        status_string = ""
 
-        if resp_json.get("detail") is not None:
-            msg = f"{prefix}{resp_json.get('detail')}"
-            detail = f"{prefix}{exception}: {msg}"
-            return msg, detail
+    try:
+        resp_json = json.loads(resp_text)
+    except json.decoder.JSONDecodeError:
+        resp_json = {}
 
-    msg = f"{prefix}{exception}"
-    detail = f"{prefix}{type(exception)}: {exception} {resp_text}"
+    # JSON not available
+    if resp_json == {}:
+        msg = f"{prefix}{exception}{status_string}"
+        detail = f"{prefix}{type(exception)}: {exception}{status_string}{resp_text}"
+        return msg, detail
+
+    # JSON available
+    detail = resp_json.get("detail")
+    # detail not present
+    if detail is None:
+        msg = f"{prefix}{resp_json}{status_string}"
+        detail = f"{prefix}{type(exception)}: {exception}{status_string}{resp_text}"
+        return msg, detail
+
+    # detail is not dict, most probably a string
+    if type(detail) != dict:
+        msg = f"{prefix}{detail}{status_string}"
+        detail = f"{prefix}{exception}: {msg}"
+        return msg, detail
+
+    # detail is dict
+    statusCode = detail.pop("statusCode", None)
+    errstring = ""
+    for key in detail:
+        errstring += f"{key}: {detail[key]} "
+    errstring.strip()
+
+    msg = f"{prefix}{errstring}{status_string}"
+    detail = f"{prefix}{exception}: {msg} ({statusCode})"
     return msg, detail
 
 

@@ -29,14 +29,15 @@ async def get_disclaimer(request: web.Request) -> None:
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/disclaimer/active/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
             resp_json = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get disclaimer failed"
+            e, resp_text, resp_status, "Get disclaimer failed"
         )
         return task.error(msg, message_detailed=detail)
 
@@ -61,14 +62,15 @@ async def get_notifications(request: web.Request):
     session = request.app["SESSION_API_REQUESTS"]
     url = f"{daemon_globals.SERVER}/api/v1/notifications/unread/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
-        resp_text, resp_json = None, None
+        resp_text, resp_status = None, -1
         async with session.get(url, headers=headers) as resp:
+            resp_status = resp.status
             resp_text = await resp.text()
-            task.result = resp_json = await resp.json()
+            task.result = await resp.json()
             resp.raise_for_status()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_json, "Get notifications failed"
+            e, resp_text, resp_status, "Get notifications failed"
         )
         return task.error(msg, message_detailed=detail)
 
