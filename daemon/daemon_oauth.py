@@ -6,7 +6,7 @@ from logging import getLogger
 import daemon_globals
 import daemon_tasks
 import daemon_utils
-from aiohttp import ClientResponseError, web
+from aiohttp import web
 
 
 logger = getLogger(__name__)
@@ -34,14 +34,14 @@ async def get_tokens(
 
     session = request.app["SESSION_API_REQUESTS"]
     headers = daemon_utils.get_headers()
+    url = f"{daemon_globals.SERVER}/o/token/"
     try:
         resp_text, resp_json, resp_status = None, None, -1
-        async with session.post(
-            f"{daemon_globals.SERVER}/o/token/", data=data, headers=headers
-        ) as response:
+        async with session.post(url, data=data, headers=headers) as response:
             resp_status = response.status
             resp_text = await response.text()
             resp_json = await response.json()
+            response.raise_for_status()
             logger.info("Token retrieval OK.")
             return resp_json, resp_status, ""
     except Exception as e:
@@ -49,7 +49,7 @@ async def get_tokens(
             e, resp_text, resp_json, "Get download URL"
         )
         logger.warning(detail)
-        return [], resp_status, msg
+        return resp_json, resp_status, msg
 
 
 async def refresh_tokens(request: web.Request) -> None:
@@ -66,7 +66,9 @@ async def refresh_tokens(request: web.Request) -> None:
         if status == 200:
             return task.finished("Refreshed tokens obtained")
         if status == 429:
-            return task.error("Couldn't refresh API tokens, API rate exceeded.")
+            return task.error(
+                f"Couldn't refresh API tokens, API rate exceeded: {error}"
+            )
         if status == -1:
             return task.error(
                 f"Couldn't refresh API tokens, server is not reachable: {error}. Please login again."
