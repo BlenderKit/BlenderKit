@@ -33,8 +33,8 @@ async def get_disclaimer(request: web.Request) -> None:
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
+            resp_json = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get disclaimer failed"
@@ -66,12 +66,11 @@ async def get_notifications(request: web.Request):
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get notifications failed"
         )
         return task.error(msg, message_detailed=detail)
-
     return task.finished("Notifications retrieved")

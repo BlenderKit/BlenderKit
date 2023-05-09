@@ -150,8 +150,8 @@ async def do_search(request: web.Request, task: daemon_tasks.Task):
         async with session.get(task.data["urlquery"], headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Search failed"
@@ -183,8 +183,8 @@ async def fetch_categories(request: web.Request) -> None:
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
+            resp_json = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get categories failed"

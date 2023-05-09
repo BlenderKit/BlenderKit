@@ -73,9 +73,9 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
             async with session.post(url, json=json_metadata, headers=headers) as resp:
                 resp_status = resp.status
                 resp_text = await resp.text()
-                resp_json = await resp.json()
-                logger.info(f"Got response ({resp.status}) for {url}")
                 resp.raise_for_status()
+                logger.info(f"Got response ({resp.status}) for {url}")
+                resp_json = await resp.json()
                 return "", resp_json
         except Exception as e:
             msg, detail = daemon_utils.extract_error_message(
@@ -92,9 +92,9 @@ async def upload_metadata(session: ClientSession, task: daemon_tasks.Task):
         async with session.patch(url, json=json_metadata, headers=headers) as response:
             resp_status = response.status
             resp_text = await response.text()
-            resp_json = await response.json()
-            logger.info(f"Got response ({response.status}) for {url}")
             response.raise_for_status()
+            logger.info(f"Got response ({response.status}) for {url}")
+            resp_json = await response.json()
             return "", resp_json
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
@@ -246,8 +246,8 @@ async def get_S3_upload_JSON(
         resp_text, resp_json = None, None
         async with session.post(url, json=upload_info, headers=headers) as resp:
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
+            resp_json = await resp.json()
             return resp_json, True
     except Exception as e:
         logger.error(f"{type(e)}: {e}, {resp_text}, {resp_json}")

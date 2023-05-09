@@ -42,8 +42,8 @@ async def get_comments(request: web.Request, task: daemon_tasks.Task):
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
+            task.result = await resp.json()
             return task.finished("comments downloaded")
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
@@ -63,8 +63,8 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            comment_data = await resp.json()
             resp.raise_for_status()
+            comment_data = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "GET in create_comment"
@@ -91,8 +91,8 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
         async with session.post(url, headers=headers, data=post_data) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "POST in create_comment"
@@ -123,8 +123,8 @@ async def feedback_comment(request: web.Request, task: daemon_tasks.Task):
         async with session.post(url, data=data, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "POST comment feedback"
@@ -153,8 +153,8 @@ async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) ->
         async with session.post(url, data=data, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Mark comment failed"
@@ -193,11 +193,11 @@ async def mark_notification_read(request: web.Request, task: daemon_tasks.Task) 
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
-            return task.finished("notification marked as read")
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Mark notification as read failed"
         )
         return task.error(msg, message_detailed=detail)
+    return task.finished("notification marked as read")

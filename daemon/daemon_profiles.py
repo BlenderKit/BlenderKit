@@ -103,8 +103,8 @@ async def get_user_profile(task: daemon_tasks.Task, request: web.Request) -> Non
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
+            resp_json = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get profile"
