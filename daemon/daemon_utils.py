@@ -202,8 +202,8 @@ async def blocking_request_handler(request: web.Request):
         ) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            resp_json = await resp.json()
             resp.raise_for_status()
+            resp_json = await resp.json()
             return web.json_response(resp_json)
     except ClientResponseError as e:
         logger.warning(
@@ -243,8 +243,8 @@ async def make_request(request: web.Request, task: daemon_tasks.Task):
         ) as resp:
             resp_text = await resp.text()
             if resp.content_type == "application/json":
-                resp_json = await resp.json()
                 resp.raise_for_status()
+                resp_json = await resp.json()
                 task.result = resp_json
             else:
                 resp.raise_for_status()

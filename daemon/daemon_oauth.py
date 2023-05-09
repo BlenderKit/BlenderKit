@@ -37,11 +37,11 @@ async def get_tokens(
     url = f"{daemon_globals.SERVER}/o/token/"
     try:
         resp_text, resp_status = None, -1
-        async with session.post(url, data=data, headers=headers) as response:
-            resp_status = response.status
-            resp_text = await response.text()
-            resp_json = await response.json()
-            response.raise_for_status()
+        async with session.post(url, data=data, headers=headers) as resp:
+            resp_status = resp.status
+            resp_text = await resp.text()
+            resp.raise_for_status()
+            resp_json = await resp.json()
             logger.info("Token retrieval OK.")
             return resp_json, resp_status, ""
     except Exception as e:

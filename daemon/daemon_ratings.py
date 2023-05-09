@@ -30,14 +30,14 @@ async def get_rating(task: daemon_tasks.Task, request: web.Request) -> None:
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
-            return task.finished("Rating data obtained")
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get rating failed"
         )
         return task.error(msg, message_detailed=detail)
+    return task.finished("Rating data obtained")
 
 
 async def send_rating_handler(request: web.Request):
@@ -73,14 +73,14 @@ async def send_rating(task: daemon_tasks.Task, request: web.Request) -> None:
         async with session.put(url, headers=headers, json=data) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
-            return task.finished("Rating uploaded")
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Send rating failed"
         )
         return task.error(msg, message_detailed=detail)
+    return task.finished("Rating uploaded")
 
 
 async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
@@ -95,14 +95,14 @@ async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
         async with session.delete(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
-            return task.finished("rating deleted")
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Delete rating failed"
         )
         return task.error(msg, message_detailed=detail)
+    return task.finished("rating deleted")
 
 
 async def get_bookmarks_handler(request: web.Request):
@@ -125,11 +125,11 @@ async def get_bookmarks(task: daemon_tasks.Task, request: web.Request) -> None:
         async with session.get(url, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
-            task.result = await resp.json()
             resp.raise_for_status()
-            return task.finished("Bookmarks data obtained")
+            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get bookmarks failed"
         )
         return task.error(msg, message_detailed=detail)
+    return task.finished("Bookmarks data obtained")
