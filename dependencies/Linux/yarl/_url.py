@@ -2,6 +2,7 @@ import functools
 import math
 import warnings
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from ipaddress import ip_address
 from urllib.parse import SplitResult, parse_qsl, quote, urljoin, urlsplit, urlunsplit
 
@@ -49,6 +50,30 @@ class cached_property:
 
     def __set__(self, inst, value):
         raise AttributeError("cached property is read-only")
+
+
+def _normalize_path_segments(segments):
+    """Drop '.' and '..' from a sequence of str segments"""
+
+    resolved_path = []
+
+    for seg in segments:
+        if seg == "..":
+            # ignore any .. segments that would otherwise cause an
+            # IndexError when popped from resolved_path if
+            # resolving for rfc3986
+            with suppress(IndexError):
+                resolved_path.pop()
+        elif seg != ".":
+            resolved_path.append(seg)
+
+    if segments and segments[-1] in (".", ".."):
+        # do some post-processing here.
+        # if the last segment was a relative dir,
+        # then we need to append the trailing '/'
+        resolved_path.append("")
+
+    return resolved_path
 
 
 @rewrite_module
@@ -215,12 +240,13 @@ class URL:
         if (
             scheme is None
             or authority is None
+            or host is None
             or path is None
             or query_string is None
             or fragment is None
         ):
             raise TypeError(
-                'NoneType is illegal for "scheme", "authority", "path", '
+                'NoneType is illegal for "scheme", "authority", "host", "path", '
                 '"query_string", and "fragment" args, use empty string instead.'
             )
 
@@ -315,25 +341,9 @@ class URL:
         return self._val > other._val
 
     def __truediv__(self, name):
-        name = self._PATH_QUOTER(name)
-        if name.startswith("/"):
-            raise ValueError(
-                f"Appending path {name!r} starting from slash is forbidden"
-            )
-        path = self._val.path
-        if path == "/":
-            new_path = "/" + name
-        elif not path and not self.is_absolute():
-            new_path = name
-        else:
-            parts = path.rstrip("/").split("/")
-            parts.append(name)
-            new_path = "/".join(parts)
-        if self.is_absolute():
-            new_path = self._normalize_path(new_path)
-        return URL(
-            self._val._replace(path=new_path, query="", fragment=""), encoded=True
-        )
+        if not type(name) is str:
+            return NotImplemented
+        return self._make_child((name,))
 
     def __mod__(self, query):
         return self.update_query(query)
@@ -701,34 +711,51 @@ class URL:
                 "Path in a URL with authority should start with a slash ('/') if set"
             )
 
+    def _make_child(self, segments, encoded=False):
+        """add segments to self._val.path, accounting for absolute vs relative paths"""
+        parsed = []
+        for seg in reversed(segments):
+            if not seg:
+                continue
+            if seg[0] == "/":
+                raise ValueError(
+                    f"Appending path {seg!r} starting from slash is forbidden"
+                )
+            seg = seg if encoded else self._PATH_QUOTER(seg)
+            if "/" in seg:
+                parsed += (
+                    sub for sub in reversed(seg.split("/")) if sub and sub != "."
+                )
+            elif seg != ".":
+                parsed.append(seg)
+        parsed.reverse()
+        old_path = self._val.path
+        if old_path:
+            parsed = [*old_path.rstrip("/").split("/"), *parsed]
+        if self.is_absolute():
+            parsed = _normalize_path_segments(parsed)
+            if parsed and parsed[0] != "":
+                # inject a leading slash when adding a path to an absolute URL
+                # where there was none before
+                parsed = ["", *parsed]
+        new_path = "/".join(parsed)
+        return URL(
+            self._val._replace(path=new_path, query="", fragment=""), encoded=True
+        )
+
     @classmethod
     def _normalize_path(cls, path):
-        # Drop '.' and '..' from path
+        # Drop '.' and '..' from str path
+
+        prefix = ""
+        if path.startswith("/"):
+            # preserve the "/" root element of absolute paths, copying it to the
+            # normalised output as per sections 5.2.4 and 6.2.2.3 of rfc3986.
+            prefix = "/"
+            path = path[1:]
 
         segments = path.split("/")
-        resolved_path = []
-
-        for seg in segments:
-            if seg == "..":
-                try:
-                    resolved_path.pop()
-                except IndexError:
-                    # ignore any .. segments that would otherwise cause an
-                    # IndexError when popped from resolved_path if
-                    # resolving for rfc3986
-                    pass
-            elif seg == ".":
-                continue
-            else:
-                resolved_path.append(seg)
-
-        if segments[-1] in (".", ".."):
-            # do some post-processing here.
-            # if the last segment was a relative dir,
-            # then we need to append the trailing '/'
-            resolved_path.append("")
-
-        return "/".join(resolved_path)
+        return prefix + "/".join(_normalize_path_segments(segments))
 
     @classmethod
     def _encode_host(cls, host, human=False):
@@ -761,7 +788,7 @@ class URL:
             ret = cls._encode_host(host)
         else:
             ret = host
-        if port:
+        if port is not None:
             ret = ret + ":" + str(port)
         if password is not None:
             if not user:
@@ -869,8 +896,11 @@ class URL:
 
         """
         # N.B. doesn't cleanup query/fragment
-        if port is not None and not isinstance(port, int):
-            raise TypeError(f"port should be int or None, got {type(port)}")
+        if port is not None:
+            if isinstance(port, bool) or not isinstance(port, int):
+                raise TypeError(f"port should be int or None, got {type(port)}")
+            if port < 0 or port > 65535:
+                raise ValueError(f"port must be between 0 and 65535, got {port}")
         if not self.is_absolute():
             raise ValueError("port replacement is not allowed for relative URLs")
         val = self._val
@@ -932,7 +962,7 @@ class URL:
             raise ValueError("Either kwargs or single query parameter must be present")
 
         if query is None:
-            query = ""
+            query = None
         elif isinstance(query, Mapping):
             quoter = self._QUERY_PART_QUOTER
             query = "&".join(self._query_seq_pairs(quoter, query.items()))
@@ -974,7 +1004,7 @@ class URL:
         """
         # N.B. doesn't cleanup query/fragment
 
-        new_query = self._get_str_query(*args, **kwargs)
+        new_query = self._get_str_query(*args, **kwargs) or ""
         return URL(
             self._val._replace(path=self._val.path, query=new_query), encoded=True
         )
@@ -982,11 +1012,15 @@ class URL:
     def update_query(self, *args, **kwargs):
         """Return a new URL with query part updated."""
         s = self._get_str_query(*args, **kwargs)
-        new_query = MultiDict(parse_qsl(s, keep_blank_values=True))
-        query = MultiDict(self.query)
-        query.update(new_query)
+        query = None
+        if s is not None:
+            new_query = MultiDict(parse_qsl(s, keep_blank_values=True))
+            query = MultiDict(self.query)
+            query.update(new_query)
 
-        return URL(self._val._replace(query=self._get_str_query(query)), encoded=True)
+        return URL(
+            self._val._replace(query=self._get_str_query(query) or ""), encoded=True
+        )
 
     def with_fragment(self, fragment):
         """Return a new URL with fragment replaced.
@@ -1076,6 +1110,10 @@ class URL:
         if not isinstance(url, URL):
             raise TypeError("url should be URL")
         return URL(urljoin(str(self), str(url)), encoded=True)
+
+    def joinpath(self, *other, encoded=False):
+        """Return a new URL with the elements in other appended to the path."""
+        return self._make_child(other, encoded=encoded)
 
     def human_repr(self):
         """Return decoded human readable string for URL representation."""
