@@ -336,7 +336,11 @@ class RatingProperties(PropertyGroup):
                 wh = round(rating_work_hours, 1)
             whs = str(wh)
             self.rating_work_hours_lock = True
-            self.rating_work_hours_ui = whs
+            try:
+                #when the value is not in the enum, it throws an error
+                self.rating_work_hours_ui = whs
+            except:
+                pass
             self.rating_work_hours_lock = False
 
         bpy.context.area.tag_redraw()
