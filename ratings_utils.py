@@ -337,7 +337,7 @@ class RatingProperties(PropertyGroup):
             whs = str(wh)
             self.rating_work_hours_lock = True
             try:
-                #when the value is not in the enum, it throws an error
+                # when the value is not in the enum, it throws an error
                 self.rating_work_hours_ui = whs
             except:
                 pass
