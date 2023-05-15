@@ -49,6 +49,11 @@ from . import (
 from .daemon import daemon_tasks
 
 
+NAME_MINIMUM = 3
+NAME_MAXIMUM = 40
+TAGS_MINIMUM = 3
+DESCRIPTION_MINIMUM = 20
+
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
 bk_logger = logging.getLogger(__name__)
 licenses = (
@@ -69,8 +74,6 @@ def write_to_report(props, text):
 
 def check_missing_data_model(props):
     autothumb.update_upload_model_preview(None, None)
-    if not props.has_thumbnail:
-        write_to_report(props, "Add thumbnail: \n (jpg or png, at least 1024x1024)")
     if props.engine == "NONE":
         write_to_report(props, "Set at least one rendering/output engine")
 
@@ -80,29 +83,23 @@ def check_missing_data_model(props):
 
 def check_missing_data_scene(props):
     autothumb.update_upload_model_preview(None, None)
-    if not props.has_thumbnail:
-        write_to_report(props, "Add thumbnail: \n (jpg or png, at least 1024x1024)")
     if props.engine == "NONE":
         write_to_report(props, "Set at least one rendering/output engine")
 
 
 def check_missing_data_material(props):
     autothumb.update_upload_material_preview(None, None)
-    if not props.has_thumbnail:
-        write_to_report(props, "Add thumbnail: \n (jpg or png, at least 1024x1024)")
     if props.engine == "NONE":
         write_to_report(props, "Set rendering/output engine")
 
 
 def check_missing_data_brush(props):
     autothumb.update_upload_brush_preview(None, None)
-    if not props.has_thumbnail:
-        write_to_report(props, "Add thumbnail \n - (jpg or png, at least 1024x1024)")
 
 
 def check_missing_data(asset_type, props):
     """
-    checks if user did everything alright for particular assets and notifies him back if not.
+    Check if user did everything alright for particular assets and notify her back if not.
     Parameters
     ----------
     asset_type
@@ -113,48 +110,43 @@ def check_missing_data(asset_type, props):
 
     """
     props.report = ""
-
-    if props.name == "":
+    if len(props.name) < NAME_MINIMUM:
         write_to_report(
             props,
-            f"Set {asset_type.lower()} name.\n"
-            f"It has to be in English and \n"
-            f"can not be  longer than 40 letters.\n",
+            "The asset name provided is too short.\n"
+            f"   Please ensure your asset name is at least {NAME_MINIMUM} characters long.",
         )
-    if len(props.name) > 40:
-        write_to_report(props, "The name is too long. maximum is 40 letters")
-
-    if (
-        props.category == "NONE"
-        or props.subcategory != "EMPTY"
-        and props.subcategory == "NONE"
-        or props.subcategory1 != "EMPTY"
-        and props.subcategory1 == "NONE"
-    ):
+    if len(props.name) > NAME_MAXIMUM:
         write_to_report(
             props,
-            "fill in the category, including subcategories. \n"
-            "Category can't be 'None'.",
+            "The asset name provided exceeds the character limit.\n"
+            f"   Please ensure your asset name is no more than {NAME_MAXIMUM} characters long.",
         )
+
+    category_ok = props.category == "NONE"
+    subcategory_ok = props.subcategory != "EMPTY" and props.subcategory == "NONE"
+    subcategory1_ok = props.subcategory1 != "EMPTY" and props.subcategory1 == "NONE"
+    if category_ok or subcategory_ok or subcategory1_ok:
+        write_to_report(
+            props,
+            "Category, subcategory, or sub-subcategory has not been selected.\n"
+            "   Please ensure you select appropriate values; 'None' is not a valid selection.\n"
+            "   Proper categorization significantly improves your asset's discoverability.",
+        )
+
+    if props.thumbnail == "" and asset_type != "HDR":
+        write_to_report(
+            props,
+            "A thumbnail image has not been provided.\n"
+            "   Please add a thumbnail in JPG or PNG format, with at least 1024x1024 pixels.",
+        )
+
     if props.is_private == "PUBLIC":
-        if len(props.description) < 20:
-            write_to_report(
-                props,
-                "The description is too short or empty. \n"
-                "Please write a description that describes \n "
-                "your asset as good as possible.\n"
-                "Description helps to bring your asset up\n in relevant search results. ",
-            )
-        if props.tags == "":
-            write_to_report(
-                props,
-                "Write at least 3 tags.\n"
-                "Tags help to bring your asset up in relevant search results.",
-            )
+        check_public_requirements(props)
 
     if asset_type == "MODEL":
         check_missing_data_model(props)
-    if asset_type == "SCENE":
+    elif asset_type == "SCENE":
         check_missing_data_scene(props)
     elif asset_type == "MATERIAL":
         check_missing_data_material(props)
@@ -163,8 +155,42 @@ def check_missing_data(asset_type, props):
 
     if props.report != "":
         props.report = (
-            f"Please fix these issues before {props.is_private.lower()} upload:\n\n"
-            + props.report
+            f"Before {props.is_private.lower()} upload, please fix:\n\n" + props.report
+        )
+
+
+def check_public_requirements(props: str):
+    """Check requirements for public upload. Add error message into props.report if needed."""
+    if props.description == "":
+        write_to_report(
+            props,
+            "No asset description has been provided.\n"
+            f"   Please write a description of at least {DESCRIPTION_MINIMUM} characters.\n"
+            "   A comprehensive description enhances your asset's visibility\n"
+            "   in relevant search results.",
+        )
+    elif len(props.description) < DESCRIPTION_MINIMUM:
+        write_to_report(
+            props,
+            "The asset description provided is too brief.\n"
+            f"   Please ensure your description is at least {DESCRIPTION_MINIMUM} characters long.\n"
+            "   A comprehensive description enhances your asset's visibility\n"
+            "   in relevant search results.",
+        )
+
+    if props.tags == "":
+        write_to_report(
+            props,
+            "No tags have been provided for your asset.\n"
+            f"   Please add at least {TAGS_MINIMUM} tags to improve its discoverability.\n"
+            "   Tags enhance your asset's visibility in relevant search results.",
+        )
+    elif len(props.tags.split(",")) < TAGS_MINIMUM:
+        write_to_report(
+            props,
+            "Not enough tags have been provided for your asset.\n"
+            f"   Please ensure you have at least {TAGS_MINIMUM} tags to improve its discoverability.\n"
+            "   Tags enhance your asset's visibility in relevant search results.",
         )
 
 
@@ -586,19 +612,19 @@ class FastMetadata(bpy.types.Operator):
     )
     category: EnumProperty(
         name="Category",
-        description="main category to put into",
+        description="Select the main category for the uploaded asset",
         items=categories.get_category_enums,
         update=categories.update_category_enums,
     )
     subcategory: EnumProperty(
         name="Subcategory",
-        description="main category to put into",
+        description="Select a subcategory within the chosen main category",
         items=categories.get_subcategory_enums,
         update=categories.update_subcategory_enums,
     )
     subcategory1: EnumProperty(
-        name="Subcategory",
-        description="main category to put into",
+        name="Sub-subcategory",
+        description="Select a further subcategory within the chosen subcategory",
         items=categories.get_subcategory1_enums,
     )
     license: EnumProperty(
@@ -650,8 +676,6 @@ class FastMetadata(bpy.types.Operator):
         layout = self.layout
         # col = layout.column()
         layout.label(text=self.message)
-        row = layout.row()
-
         layout.prop(self, "category")
         if self.category != "NONE" and self.subcategory != "NONE":
             layout.prop(self, "subcategory")
