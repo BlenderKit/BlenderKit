@@ -252,9 +252,8 @@ mesh_poly_types = (
 
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
-    s = context.scene
     props = bpy.context.window_manager.blenderkitUI
-    if global_vars.DATA.get("search results") == None and props.down_up == "SEARCH":
+    if global_vars.DATA.get("search results") is None and props.down_up == "SEARCH":
         search.search()
 
 
@@ -301,7 +300,7 @@ def switch_search_results(self, context):
     if asset_bar_op.asset_bar_operator is not None:
         asset_bar_op.asset_bar_operator.scroll_update(always=True)
 
-    if global_vars.DATA["search results"] == None and props.down_up == "SEARCH":
+    if global_vars.DATA["search results"] is None and props.down_up == "SEARCH":
         search.search()
 
 
@@ -677,7 +676,7 @@ class BlenderKitCommonUploadProps(object):
 
     id: StringProperty(
         name="Asset Version Id",
-        description="Unique name of the asset version(hidden)",
+        description="Unique name of the asset version (hidden)",
         default="",
     )
     asset_base_id: StringProperty(
@@ -728,6 +727,7 @@ class BlenderKitCommonUploadProps(object):
         default="METALLIC",
     )
     license: EnumProperty(
+        name="License",
         items=upload.licenses,
         default="royalty_free",
         description="License. Please read our help for choosing the right licenses",
@@ -796,7 +796,7 @@ class BlenderKitCommonUploadProps(object):
     thumbnail_generating_state: StringProperty(
         name="Thumbnail Generating State",
         description="bg process reports for thumbnail generation",
-        default="Please add thumbnail(jpg or png, at least 512x512)",
+        default="Please add thumbnail (jpg or png, at least 1024x1024)",
     )
 
     report: StringProperty(
@@ -807,19 +807,19 @@ class BlenderKitCommonUploadProps(object):
 
     category: EnumProperty(
         name="Category",
-        description="main category to put into",
+        description="Select the main category for the uploaded asset",
         items=categories.get_category_enums,
         update=categories.update_category_enums,
     )
     subcategory: EnumProperty(
         name="Subcategory",
-        description="Subcategory to put into",
+        description="Select a subcategory within the chosen main category",
         items=categories.get_subcategory_enums,
         update=categories.update_subcategory_enums,
     )
     subcategory1: EnumProperty(
-        name="Subcategory lvl2",
-        description="Subcategory to put into",
+        name="Sub-subcategory",
+        description="Select a further subcategory within the chosen subcategory",
         items=categories.get_subcategory1_enums,
     )
 
@@ -1229,11 +1229,12 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     design_year: IntProperty(
         name="Design Year", description="when was this item designed", default=1960
     )
-    # use_age : BoolProperty( name = "use item age", description = "use item age", default = False)
+
     condition: EnumProperty(
+        name="Condition",
         items=conditions,
         default="UNSPECIFIED",
-        description="age of the object",
+        description="Condition of the object",
     )
 
     adult: BoolProperty(
@@ -1432,11 +1433,12 @@ class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     design_year: IntProperty(
         name="Design Year", description="when was this item designed", default=1960
     )
-    # use_age : BoolProperty( name = "use item age", description = "use item age", default = False)
+
     condition: EnumProperty(
+        name="Condition",
         items=conditions,
         default="UNSPECIFIED",
-        description="age of the object",
+        description="Condition of the object",
     )
 
     adult: BoolProperty(
@@ -1579,23 +1581,19 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         default="",
         update=search.search_update,
     )
-
-    # CONDITION
     search_condition: EnumProperty(
+        name="Condition",
         items=conditions,
         default="UNSPECIFIED",
         description="Condition of the object",
         update=search.search_update,
     )
-
     search_adult: BoolProperty(
         name="Adult Content",
         description="You're adult and agree with searching adult content",
         default=False,
         update=search.search_update,
     )
-
-    # DESIGN YEAR
     search_design_year: BoolProperty(
         name="Sesigned in Year",
         description="When the object was approximately designed. \n"

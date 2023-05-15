@@ -260,14 +260,17 @@ def draw_panel_model_upload(self, context):
 
     layout.prop(props, "condition")
     layout.prop(props, "pbr")
-    layout.label(text="design props:")
-    layout.prop(props, "manufacturer")
-    layout.prop(props, "designer")
-    layout.prop(props, "design_collection")
-    layout.prop(props, "design_variant")
-    layout.prop(props, "use_design_year")
+
+    design_box = layout.box()
+    design_box.alignment = "EXPAND"
+    design_box.label(text="Design properties:")
+    design_box.prop(props, "manufacturer")
+    design_box.prop(props, "designer")
+    design_box.prop(props, "design_collection")
+    design_box.prop(props, "design_variant")
+    design_box.prop(props, "use_design_year")
     if props.use_design_year:
-        layout.prop(props, "design_year")
+        design_box.prop(props, "design_year")
 
     row = layout.row()
     row.prop(props, "work_hours")
