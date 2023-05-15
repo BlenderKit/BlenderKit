@@ -72,10 +72,14 @@ if __name__ == "__main__":
             main_source = append_link.append_brush(
                 file_name=export_data["source_filepath"], brushname=brushname
             )
+        e1=None
         try:
+            # this needs to be in try statement because blender throws an error if not all textures aren't packed,
+            # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed
+            # and are somehow still in the project.
             bpy.ops.file.pack_all()
-        except Exception as e:
-            print(e)
+        except Exception as e1:
+            print(e1)
 
         main_source.blenderkit.uploading = False
         # write ID here.
@@ -90,10 +94,17 @@ if __name__ == "__main__":
         if bpy.app.version >= (3, 0, 0):
             bpy.context.preferences.filepaths.file_preview_type = "NONE"
 
-        bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=False)
+        e2=None
+        try:
+            # this needs to be in try statement because blender throws an error if not all textures aren't packed,
+            # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed
+            # and are somehow still in the project. The problem might be when file isn't saved for reasons like full disk,
+            # but it's much more rare.
+            bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=False)
+        except Exception as e2:
+            print(e2)
         os.remove(export_data["source_filepath"])
 
     except Exception as e:
         print(e)
-        # bg_blender.progress(e)
         sys.exit(1)
