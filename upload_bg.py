@@ -25,9 +25,7 @@ import bpy
 
 from blenderkit import append_link
 
-
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
-
 
 if __name__ == "__main__":
     try:
@@ -72,7 +70,6 @@ if __name__ == "__main__":
             main_source = append_link.append_brush(
                 file_name=export_data["source_filepath"], brushname=brushname
             )
-        e1=None
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,
             # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed
@@ -94,7 +91,6 @@ if __name__ == "__main__":
         if bpy.app.version >= (3, 0, 0):
             bpy.context.preferences.filepaths.file_preview_type = "NONE"
 
-        e2=None
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,
             # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed
