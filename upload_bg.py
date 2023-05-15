@@ -25,6 +25,7 @@ import bpy
 
 from blenderkit import append_link
 
+
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]
 
 if __name__ == "__main__":
@@ -75,8 +76,8 @@ if __name__ == "__main__":
             # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed
             # and are somehow still in the project.
             bpy.ops.file.pack_all()
-        except Exception as e1:
-            print(e1)
+        except Exception as e:
+            print(f"Exception {type(e)} during pack_all(): {e}")
 
         main_source.blenderkit.uploading = False
         # write ID here.
@@ -97,10 +98,9 @@ if __name__ == "__main__":
             # and are somehow still in the project. The problem might be when file isn't saved for reasons like full disk,
             # but it's much more rare.
             bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=False)
-        except Exception as e2:
-            print(e2)
+        except Exception as e:
+            print(f"Exception {type(e)} during save_as_mainfile(): {e}")
         os.remove(export_data["source_filepath"])
-
     except Exception as e:
-        print(e)
+        print(f"Exception {type(e)} in upload_bg.py: {e}")
         sys.exit(1)
