@@ -1,6 +1,8 @@
 import asyncio
 import json
 import uuid
+from inspect import getframeinfo, stack
+from os.path import basename
 
 
 class Task:
@@ -44,7 +46,8 @@ class Task:
     def error(self, message: str, message_detailed: str = "", progress: int = -1):
         """End the task with error."""
         self.status = "error"
-        self.message = message
+        caller = getframeinfo(stack()[1][0])
+        self.message = f"{message} [{basename(caller.filename)}:{caller.lineno}]"
         if message_detailed != "":
             self.message_detailed = message_detailed
         if progress != -1:
