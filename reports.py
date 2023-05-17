@@ -19,6 +19,7 @@
 from inspect import getframeinfo, stack
 from logging import getLogger
 from os.path import basename
+from re import search
 from time import time
 
 import bpy
@@ -43,8 +44,12 @@ def add_report(text="", timeout=5, type="INFO", details=""):
         full_message = f"{text} {details}"
 
     if type == "ERROR":
-        caller = getframeinfo(stack()[1][0])
-        text = f"{text} [{basename(caller.filename)}:{caller.lineno}]"
+        regex = r"\[[^\[\]:]+:\d+\]"
+        if search(regex, text) is None:
+            caller = getframeinfo(stack()[1][0])
+            location = f"[{basename(caller.filename)}:{caller.lineno}]"
+            text = f"{text} {location}"
+            full_message = f"{full_message} {location}"
         bk_logger.error(full_message, stacklevel=2)
         color = colors.RED
     elif type == "INFO":
