@@ -54,6 +54,8 @@ def extract_error_message(
     else:
         status_string = ""
 
+    if resp_text is None:
+        resp_text = ""
     try:
         resp_json = json.loads(resp_text)
     except json.decoder.JSONDecodeError:
