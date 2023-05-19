@@ -29,7 +29,7 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import daemon_lib, global_vars, icons, tasks_queue, utils
+from . import daemon_lib, global_vars, icons, reports, tasks_queue, utils
 from .daemon import daemon_tasks
 
 
@@ -67,6 +67,19 @@ def handle_get_bookmarks_task(task: daemon_tasks.Task):
     ratings = task.result["results"]
     for asset_data in ratings:
         store_rating_local(asset_data["id"], "bookmarks", 1)
+
+
+def handle_send_rating_task(task: daemon_tasks.Task):
+    """Handle send rating task."""
+    if task.status == "created":
+        return
+    if task.status == "error":
+        return reports.add_report(
+            task.message, type="ERROR", details=task.message_detailed
+        )
+    if task.status == "finished":
+        if utils.profile_is_validator():
+            return reports.add_report(task.message, type="INFO", timeout=3)
 
 
 def store_rating_local_empty(asset_id, rating_type):

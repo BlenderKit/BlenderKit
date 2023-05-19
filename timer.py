@@ -220,7 +220,7 @@ def handle_task(task: daemon_tasks.Task):
     if task.task_type == "ratings/get_rating":
         return ratings_utils.handle_get_rating_task(task)
     if task.task_type == "ratings/send_rating":
-        return  # TODO: at least on error we should show error message
+        return ratings_utils.handle_send_rating_task(task)
 
     # HANDLE BOOKMARKS
     if task.task_type == "ratings/get_bookmarks":
