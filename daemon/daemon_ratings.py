@@ -77,10 +77,15 @@ async def send_rating(task: daemon_tasks.Task, request: web.Request) -> None:
             task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_status, "Send rating failed"
+            e,
+            resp_text,
+            resp_status,
+            f"Rating {task.data['rating_type']}={task.data['rating_value']} failed",
         )
         return task.error(msg, message_detailed=detail)
-    return task.finished("Rating uploaded")
+    return task.finished(
+        f"Rated {task.data['rating_type']}={task.data['rating_value']} successfully"
+    )
 
 
 async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
