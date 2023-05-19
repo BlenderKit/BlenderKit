@@ -101,13 +101,17 @@ async def delete_rating(task: daemon_tasks.Task, request: web.Request) -> None:
             resp_status = resp.status
             resp_text = await resp.text()
             resp.raise_for_status()
-            task.result = await resp.json()
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_status, "Delete rating failed"
+            e,
+            resp_text,
+            resp_status,
+            f"Delete rating {task.data['rating_type']} failed",
         )
         return task.error(msg, message_detailed=detail)
-    return task.finished("rating deleted")
+    msg = f"Rating {task.data['rating_type']} deleted"
+    logger.info(msg)
+    return task.finished(msg)
 
 
 async def get_bookmarks_handler(request: web.Request):
