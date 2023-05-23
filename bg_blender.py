@@ -32,7 +32,7 @@ bk_logger = logging.getLogger(__name__)
 bg_processes = []
 
 
-class threadCom:  # object passed to threads to read background process stdout info
+class ThreadCom:  # object passed to threads to read background process stdout info
     """Object to pass data between thread and"""
 
     def __init__(
@@ -61,17 +61,26 @@ class threadCom:  # object passed to threads to read background process stdout i
         self.log = ""
 
 
-def threadread(tcom):
+def threadread(tcom: ThreadCom):
     """reads stdout of background process.
     this threads basically waits for a stdout line to come in,
     fills the data, dies."""
     found = False
     while not found:
         if tcom.proc.poll() is not None:
-            # process terminated
-            return
+            return  # process terminated
         inline = tcom.proc.stdout.readline()
-        inline = str(inline)
+        inline = inline.decode("utf-8")
+        bk_logger.info(inline.strip())
+        progress = re.findall(r"progress\{(.*?)\}", inline)
+        if len(progress) > 0:
+            if type(progress[0]) == int or type(progress[0]) == float:
+                tcom.progress = progress
+                return
+
+            tcom.outtext = f"{progress[0]}"
+            return
+
         s = inline.find("progress{")
         if s > -1:
             e = inline.find("}")
@@ -87,11 +96,6 @@ def threadread(tcom):
                 tcom.outtext = inline[s : s + 18]
                 found = True
                 return
-        if len(inline) > 3:
-            print(inline, len(inline))
-        # if inline.find('Error'):
-        #    tcom.error = True
-        #     tcom.outtext = inline[2:]
 
 
 def progress(text, n=None):
@@ -103,10 +107,10 @@ def progress(text, n=None):
         n = ""
     else:
         n = " " + " " + str(int(n * 1000) / 1000) + "% "
-    spaces = " " * (len(text) + 55)
-    try:
-        sys.stdout.write("progress{%s%s}\n" % (text, n))
 
+    try:
+        output = "progress{%s%s}\n" % (text, n)
+        sys.stdout.write(output)
         sys.stdout.flush()
     except Exception as e:
         print("background progress reporting race condition")
@@ -119,9 +123,6 @@ def bg_update():
     text = ""
     # utils.p('timer search')
     # utils.p('start bg_blender timer bg_update')
-
-    s = bpy.context.scene
-
     global bg_processes
     if len(bg_processes) == 0:
         # utils.p('end bg_blender timer bg_update')
@@ -132,7 +133,14 @@ def bg_update():
     for p in bg_processes:
         if p[1].proc.poll() is not None:
             remove_processes.append(p)
+
     for p in remove_processes:
+        bk_logger.info(str(p[1].outtext))
+        estring = p[1].eval_path_computing + " = False"
+        try:
+            exec(estring)
+        except Exception as e:
+            bk_logger.error(f"Exception executing eval_path_computing: {e}")
         bg_processes.remove(p)
 
     # Parse process output
@@ -149,10 +157,11 @@ def bg_update():
             tcom.lasttext = tcom.outtext
             if tcom.outtext != "":
                 tcom.outtext = ""
-                text = tcom.lasttext.replace("'", "")
+                text = tcom.lasttext.replace("'", "")  # noqa: F841 needed in exec()
                 estring = tcom.eval_path_state + " = text"
             # print(tcom.lasttext)
             if "finished successfully" in tcom.lasttext:
+                bk_logger.info(str(tcom.lasttext))
                 bg_processes.remove(p)
                 estring = tcom.eval_path_computing + " = False"
             else:
@@ -165,8 +174,7 @@ def bg_update():
                 try:
                     exec(estring)
                 except Exception as e:
-                    print("Exception while reading from background process")
-                    print(e)
+                    print(f"Exception while reading from background process: {e}")
 
     # if len(bg_processes) == 0:
     #     bpy.app.timers.unregister(bg_update)
@@ -216,19 +224,16 @@ class KillBgProcess(bpy.types.Operator):
     )
 
     def execute(self, context):
-        s = bpy.context.scene
-
-        cls = bpy.ops.object.convert.__class__
         # first do the easy stuff...TODO all cases.
         props = utils.get_upload_props()
         if self.process_type == "UPLOAD":
             props.uploading = False
         if self.process_type == "THUMBNAILER":
             props.is_generating_thumbnail = False
-        global blenderkit_bg_process
         # print('killing', self.process_source, self.process_type)
         # then go kill the process. this wasn't working for unsetting props and that was the reason for changing to the method above.
 
+        global bg_processes
         processes = bg_processes
         for p in processes:
             tcom = p[1]
@@ -278,7 +283,7 @@ def add_bg_process(
 ):
     """adds process for monitoring"""
     global bg_processes
-    tcom = threadCom(
+    tcom = ThreadCom(
         eval_path_computing,
         eval_path_state,
         eval_path,
@@ -297,7 +302,6 @@ def add_bg_process(
 
 def register():
     bpy.utils.register_class(KillBgProcess)
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     if not bpy.app.background:
         bpy.app.timers.register(bg_update)
 

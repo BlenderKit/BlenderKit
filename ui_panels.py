@@ -211,7 +211,6 @@ def draw_panel_hdr_search(self, context):
 
 
 def draw_thumbnail_upload_panel(layout, props):
-    update = False
     tex = autothumb.get_texture_ui(props.thumbnail, ".upload_preview")
     if not tex or not tex.image:
         return
