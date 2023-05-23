@@ -81,7 +81,7 @@ def check_thumbnail(props, imgpath):
         props.has_thumbnail = True
         props.thumbnail_generating_state = ""
 
-        tex = utils.get_hidden_texture(img.name)
+        utils.get_hidden_texture(img.name)
         # pcoll = icons.icon_collections["previews"]
         # pcoll.load(img.name, img.filepath, 'IMAGE')
 
@@ -112,7 +112,7 @@ def update_upload_model_preview(self, context):
     if ob is not None:
         props = ob.blenderkit
         imgpath = props.thumbnail
-        img = check_thumbnail(props, imgpath)
+        check_thumbnail(props, imgpath)
 
 
 def update_upload_scene_preview(self, context):
@@ -154,45 +154,41 @@ def start_thumbnailer(
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
-
-        proc = subprocess.Popen(
-            [
-                binary_path,
-                "--background",
-                "-noaudio",
-                tfpath,
-                "--python",
-                os.path.join(script_path, "autothumb_model_bg.py"),
-                "--",
-                datafile,
-            ],
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            creationflags=utils.get_process_flags(),
-        )
-        eval_path_computing = (
-            "bpy.data.objects['%s'].blenderkit.is_generating_thumbnail"
-            % json_args["asset_name"]
-        )
-        eval_path_state = (
-            "bpy.data.objects['%s'].blenderkit.thumbnail_generating_state"
-            % json_args["asset_name"]
-        )
-        eval_path = "bpy.data.objects['%s']" % json_args["asset_name"]
-        name = f"{json_args['asset_name']} thumbnailer"
-
-        bg_blender.add_bg_process(
-            name=name,
-            eval_path_computing=eval_path_computing,
-            eval_path_state=eval_path_state,
-            eval_path=eval_path,
-            process_type="THUMBNAILER",
-            process=proc,
-        )
-
     except Exception as e:
-        self.report({"WARNING"}, "Error while exporting file: %s" % str(e))
+        self.report({"WARNING"}, f"Error while exporting file: {e}")
         return {"FINISHED"}
+
+    proc = subprocess.Popen(
+        [
+            binary_path,
+            "--background",
+            "-noaudio",
+            tfpath,
+            "--python",
+            os.path.join(script_path, "autothumb_model_bg.py"),
+            "--",
+            datafile,
+        ],
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        creationflags=utils.get_process_flags(),
+    )
+    bk_logger.info(
+        f"Started Blender executing autothumb_model_bg.py on file {datafile}"
+    )
+    eval_path_computing = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
+    eval_path_state = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.thumbnail_generating_state"
+    eval_path = f"bpy.data.objects['{json_args['asset_name']}']"
+    name = f"{json_args['asset_name']} thumbnailer"
+
+    bg_blender.add_bg_process(
+        name=name,
+        eval_path_computing=eval_path_computing,
+        eval_path_state=eval_path_state,
+        eval_path=eval_path,
+        process_type="THUMBNAILER",
+        process=proc,
+    )
 
 
 def start_material_thumbnailer(
@@ -307,7 +303,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         asset = utils.get_active_model()
         asset.blenderkit.is_generating_thumbnail = True
         asset.blenderkit.thumbnail_generating_state = "starting blender instance"
-
         tempdir = tempfile.mkdtemp()
         ext = ".blend"
         filepath = os.path.join(tempdir, "thumbnailer_blenderkit" + ext)
