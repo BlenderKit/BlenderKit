@@ -3104,7 +3104,6 @@ class LoginPopupDialog(bpy.types.Operator):
         ).signup = False
 
     def execute(self, context):
-        # start_thumbnailer(self, context)
         return {"FINISHED"}
 
     def invoke(self, context, event):
