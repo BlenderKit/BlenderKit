@@ -125,15 +125,20 @@ def update_ratings_quality(self, context):
         bkit_ratings = self
         asset_id = self.asset_id
 
+    local_rating = get_rating_local(self.asset_id, "quality")
+    if local_rating == self.rating_quality:
+        return store_rating_local(
+            asset_id, type="quality", value=bkit_ratings.rating_quality
+        )
+    if local_rating is None and self.rating_quality == 0:
+        return store_rating_local(
+            asset_id, type="quality", value=bkit_ratings.rating_quality
+        )
+
+    store_rating_local(asset_id, type="quality", value=bkit_ratings.rating_quality)
     if self.rating_quality_lock is True:
         return
 
-    if self.rating_quality == 0:
-        local_rating = get_rating_local(self.asset_id, "quality")
-        if local_rating in (None, 0):
-            return
-
-    store_rating_local(asset_id, type="quality", value=bkit_ratings.rating_quality)
     args = (asset_id, "quality", bkit_ratings.rating_quality)
     tasks_queue.add_task((daemon_lib.send_rating, args), wait=0.5, only_last=True)
 
@@ -149,17 +154,23 @@ def update_ratings_work_hours(self, context):
         bkit_ratings = self
         asset_id = self.asset_id
 
-    if self.rating_work_hours_lock is True:
-        return
+    local_rating = get_rating_local(self.asset_id, "working_hours")
+    if local_rating == self.rating_work_hours:
+        return store_rating_local(
+            asset_id, type="working_hours", value=bkit_ratings.rating_work_hours
+        )
 
-    if self.rating_work_hours == 0:
-        local_rating = get_rating_local(self.asset_id, "working_hours")
-        if local_rating in (None, 0):
-            return
+    if local_rating is None and self.rating_work_hours == 0:
+        return store_rating_local(
+            asset_id, type="working_hours", value=bkit_ratings.rating_work_hours
+        )
 
     store_rating_local(
         asset_id, type="working_hours", value=bkit_ratings.rating_work_hours
     )
+    if self.rating_work_hours_lock is True:
+        return
+
     args = (asset_id, "working_hours", bkit_ratings.rating_work_hours)
     tasks_queue.add_task((daemon_lib.send_rating, args), wait=0.5, only_last=True)
 

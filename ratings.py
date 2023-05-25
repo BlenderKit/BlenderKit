@@ -128,7 +128,7 @@ def draw_ratings_menu(self, context, layout):
 
 
 class FastRateMenu(Operator, ratings_utils.RatingProperties):
-    """Rating of the assets , also directly from the asset bar - without need to download assets"""
+    """Rating of the assets, also directly from the asset bar - without need to download assets"""
 
     bl_idname = "wm.blenderkit_menu_rating_upload"
     bl_label = "Ratings"
@@ -302,16 +302,20 @@ class RatingStarWidget(Gizmo):
         return {"FINISHED"}
 
 
-def should_be_rated(ob):
+def should_be_rated(ob) -> bool:
     ad = ob.get("asset_data")
     if ad is None:
         return False
     r = ratings_utils.get_rating_local(ad["id"], "quality")
-    ratings_utils.ensure_rating(ad["id"])
-    if (
-        r == {}
-    ):  # is None would work too, but would show rating option and then hide it when the assets are already rated
+    if r == {}:
+        # is None would work too, but would show rating option and then hide it when the assets are already rated
         return True
+
+    wh = ratings_utils.get_rating_local(ad["id"], "working_hours")
+    if wh == {}:
+        return True
+
+    return False
 
 
 class RatingStarWidgetGroup(GizmoGroup):
