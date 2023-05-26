@@ -41,7 +41,7 @@ icons_read = {
     "blenderkit_logo_offline.png": "logo_offline",
     "bookmark_full.png": "bookmark_full",
     "bookmark_empty.png": "bookmark_empty",
-    "bookmark_empty.png": "bookmark_empty",
+    "bar_slider_up.png": "bar_slider_up",
 }
 
 # fill the icon_collections["previews"] with icons of numbers for complexity rating
