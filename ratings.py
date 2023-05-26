@@ -108,13 +108,13 @@ def draw_ratings_menu(self, context, layout):
     row = col.row()
 
     row.prop(self, "rating_work_hours_ui", expand=True, icon_only=False, emboss=True)
-    if float(self.rating_work_hours_ui) > 100:
+    if self.rating_work_hours > 100:
         utils.label_multiline(
             col,
             text=f"\nThat's huge! please be sure to give such rating only to godly {self.asset_type}s.\n",
             width=300,
         )
-    elif float(self.rating_work_hours_ui) > 18:
+    elif float(self.rating_work_hours) > 18:
         col.separator()
         utils.label_multiline(
             col,

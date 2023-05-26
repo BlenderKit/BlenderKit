@@ -217,7 +217,7 @@ def stars_enum_callback(self, context):
             icon = "SOLO_ON"
         # has to have something before the number in the value, otherwise fails on registration.
 
-        items.append((f"{a}", f"  ", "", icon, a))
+        items.append((f"{a}", "  ", "", icon, a))
     return items
 
 
@@ -246,9 +246,24 @@ def wh_enum_callback(self, context):
         ]
     elif self.asset_type == "hdr":
         possible_wh_values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    else:
-        # for material, brush assets
+    else: # for material, brush assets
         possible_wh_values = [0, 0.2, 0.5, 1, 2, 3, 4, 5]
+
+    work_hours = self.rating_work_hours
+    if work_hours < 1:
+        work_hours = int(work_hours*10)/10
+    else:
+        work_hours = int(work_hours)
+
+    if work_hours not in possible_wh_values:
+        closest_index = 0
+        closest_diff = abs(possible_wh_values[0] - work_hours)
+        for i in range(1, len(possible_wh_values)):
+            diff = abs(possible_wh_values[i] - work_hours)
+            if diff < closest_diff:
+                closest_diff = diff
+                closest_index = i
+        possible_wh_values[closest_index] = work_hours
 
     items = []
     items.append(("0", " ", "", "REMOVE", 0))
@@ -260,9 +275,11 @@ def wh_enum_callback(self, context):
                 icon_name = f"BK{int(w*10)/10}"
             else:
                 icon_name = f"BK{int(w)}"
+            if icon_name not in pcoll:
+                icon_name = "bar_slider_up"
             icon = pcoll[icon_name]
             # index of the item(last value) is multiplied by 10 to get always integer values that aren't zero
-            items.append((f"{w}", f"  ", "", icon.icon_id, int(w * 10)))
+            items.append((f"{w}", "  ", "", icon.icon_id, int(w * 10)))
 
     return items
 
@@ -337,7 +354,6 @@ class RatingProperties(PropertyGroup):
         update=update_ratings_work_hours,
         options={"SKIP_SAVE"},
     )
-
     rating_work_hours_ui: EnumProperty(
         name="Work Hours",
         description="How many hours did this work take?",
@@ -374,11 +390,14 @@ class RatingProperties(PropertyGroup):
                 wh = round(rating_work_hours, 1)
             whs = str(wh)
             self.rating_work_hours_lock = True
+            self.rating_work_hours = round(rating_work_hours, 2)
             try:
                 # when the value is not in the enum, it throws an error
                 self.rating_work_hours_ui = whs
-            except:
-                pass
+            except Exception as e:
+                bk_logger.warn(f"exception setting rating_work_hours_ui: {e}")
+
+            self.rating_work_hours = round(rating_work_hours, 2)
             self.rating_work_hours_lock = False
 
         bpy.context.area.tag_redraw()
