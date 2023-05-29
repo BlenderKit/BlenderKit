@@ -246,12 +246,12 @@ def wh_enum_callback(self, context):
         ]
     elif self.asset_type == "hdr":
         possible_wh_values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    else: # for material, brush assets
+    else:  # for material, brush assets
         possible_wh_values = [0, 0.2, 0.5, 1, 2, 3, 4, 5]
 
     work_hours = self.rating_work_hours
     if work_hours < 1:
-        work_hours = int(work_hours*10)/10
+        work_hours = int(work_hours * 10) / 10
     else:
         work_hours = int(work_hours)
 
