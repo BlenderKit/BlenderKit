@@ -94,11 +94,8 @@ def check_render_engine(props, obs):
     props.total_megapixels = 0
     total_pixels = 0
     props.node_count = 0
-    for (
-        ob
-    ) in (
-        obs
-    ):  # TODO , this is duplicated here for other engines, otherwise this should be more clever.
+    for ob in obs:
+        # TODO , this is duplicated here for other engines, otherwise this should be more clever.
         for ms in ob.material_slots:
             if ms.material is not None:
                 m = ms.material
@@ -112,6 +109,7 @@ def check_render_engine(props, obs):
     elif e == "CYCLES":
         props.engine = "CYCLES"
 
+        #  TODO: Clean this up, it's a mess.
         for mname in materials:
             m = bpy.data.materials[mname]
             if m is not None and m.node_tree is not None:
@@ -120,7 +118,8 @@ def check_render_engine(props, obs):
                     n = checknodes.pop()
                     props.node_count += 1
                     if n.type == "GROUP":  # dive deeper here.
-                        checknodes.extend(n.node_tree.nodes)
+                        if n.node_tree is not None:
+                            checknodes.extend(n.node_tree.nodes)
                     if (
                         len(n.outputs) == 1
                         and n.outputs[0].type == "SHADER"
