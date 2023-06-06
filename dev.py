@@ -15,7 +15,7 @@ PACKAGES = [
     "async-timeout==4.0.2",
     "attrs==23.1.0",
     "certifi==2023.5.7",
-    "charset-normalizer==3.1.0",
+    "charset-normalizer==3.0.1",
     "frozenlist==1.3.3",
     "idna==3.4",
 ]
