@@ -50,6 +50,15 @@ To build and copy to Blender 3.2.x addons directory run:
 python dev.py build --install-at /path/to/blender/3.2/scripts/addons
 ```
 
+### Compiling daemon
+
+Compiled daemon binary is meant as fallback option for situations where the daemon is blocked by antivirus or firewall.
+Daemon is compiled by `nuitka`
+
+1. install `pipenv`: `pip install --user pipenv`
+2. compile for current platform and architecture: `python dev.py compile`
+
+
 ### Updating dependencies
 
 1. create a virtual environment: `python3 -m venv .venv`
@@ -57,9 +66,7 @@ python dev.py build --install-at /path/to/blender/3.2/scripts/addons
 3. change symbols in requirements.txt from `==` to `>=`
 4. install the dependencies: `pip3 install -r requirements.txt`
 5. save the installed latest versions into requirements.txt: `pip3 freeze > requirements.txt` 
-
 6. copy the versions into: constant `PACKAGES` in `dev.py` 
-
 7. bundle the dependencies: `python3 dev.py bundle`
 
 ## Releasing
@@ -73,7 +80,7 @@ To release do:
 6. set tag to `vX.Y.Z.yymmdd` (add ending `-alpha`, `-beta`, `-rc` for prereleases!)
 7. set release name to `BlenderKit vX.Y.Z.yymmdd` (add ending `-alpha`, `-beta`, `-rc` for prereleases!)
 8. if prerelease set `This is a pre-release ` button and double check if tag, zip and release name ends with alpha/beta/rc!
-8. upload file and finish the release!
+9. upload file and finish the release!
 
 Alternatively if automated builds are broken, you can build locally: run `python dev.py build` to build the zip file in `out/blenderkit.zip`
 

@@ -61,6 +61,61 @@ def do_build(install_at=None, include_tests=False):
         shutil.copytree("out/blenderkit", f"{install_at}/blenderkit")
 
 
+def compile_daemon():
+    """Compile daemon for current platform."""
+    subprocess.check_call(["pipenv", "install", "-r", "requirements.txt"])
+    subprocess.check_call(["pipenv", "install", "nuitka"])
+    if sys.platform == "darwin":
+        subprocess.check_call(
+            [
+                "pipenv",
+                "run",
+                "python",
+                "-m",
+                "nuitka",
+                "--macos-create-app-bundle",
+                "--follow-imports",
+                "--output-dir=../out/daemon",
+                "daemon.py",
+            ],
+            cwd="daemon",
+        )
+    if sys.platform == "windows":
+        subprocess.check_call(
+            [
+                "pipenv",
+                "run",
+                "python",
+                "-m",
+                "nuitka",
+                "--onefile",
+                "--follow-imports",
+                "--remove-output",
+                "--output-dir=../out/daemon",
+                "daemon.py",
+            ],
+            cwd="daemon",
+        )
+    if sys.platform == "linux":
+        subprocess.check_call(
+            [
+                "pipenv",
+                "run",
+                "python",
+                "-m",
+                "nuitka",
+                "--onefile",
+                "--follow-imports",
+                "--remove-output",
+                "--output-dir=../out/daemon",
+                "daemon.py",
+            ],
+            cwd="daemon",
+        )
+    os.remove("Pipfile")
+    os.remove("Pipfile.lock")
+
+
 def run_tests():
     test = subprocess.Popen(
         [
@@ -144,12 +199,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "command",
     default="build",
-    choices=["format", "build", "bundle", "test"],
+    choices=["format", "build", "bundle", "compile", "test"],
     help="""
   FORMAT = isort imports, format code with Black and lint it with Ruff.
   TEST = build with test files and run tests
   BUILD = copy relevant files into ./out/blenderkit.
   BUNDLE = bundle dependencies into ./dependencies
+  COMPILE = compile daemon for current platform
   """,
 )
 parser.add_argument(
@@ -167,6 +223,8 @@ elif args.command == "test":
     run_tests()
 elif args.command == "bundle":
     bundle_dependencies()
+elif args.command == "compile":
+    compile_daemon()
 elif args.command == "format":
     format_code()
 else:

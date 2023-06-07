@@ -16,6 +16,7 @@ from time import time
 from uuid import uuid4
 
 
+VERSION = "3.7.0.230601"
 stdout.reconfigure(encoding="utf-8")
 logger = getLogger("bk_daemon")
 
@@ -359,8 +360,22 @@ async def persistent_sessions(app):
     )
 
 
-## MAIN
+def compiled_start(args):
+    from uuid import getnode
 
+    args.system_id = str(getnode())
+    start = input(f"Start with settings: {args}?\nY/N: ")
+    if start.lower() == "y" or start == "":
+        return
+    for arg in vars(args):
+        new_val = input(
+            f"Hit enter to keep {arg}={getattr(args, arg)}, or insert new value:"
+        )
+        if new_val != "":
+            setattr(args, arg, new_val)
+
+
+## MAIN
 if __name__ == "__main__":
     daemon_utils.configure_loggers()
     parser = ArgumentParser()
@@ -372,8 +387,11 @@ if __name__ == "__main__":
     parser.add_argument("--ip_version", type=str, default="BOTH")
     parser.add_argument("--ssl_context", type=str, default="DEFAULT")
     parser.add_argument("--system_id", type=str, default="")
-    parser.add_argument("--version", type=str, default="")
+    parser.add_argument("--version", type=str, default=VERSION)
     args = parser.parse_args()
+    if "__compiled__" in globals():
+        compiled_start(args)
+
     logger.info(f"Daemon (PID {getpid()}) initiated with {args}")
 
     daemon_globals.PORT = args.port
