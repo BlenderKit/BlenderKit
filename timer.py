@@ -156,8 +156,22 @@ def cancel_all_tasks(self, context):
     # TODO: should add uploads
 
 
+def task_error_overdrive(task: daemon_tasks.Task) -> None:
+    """Handle error task - overdrive some error messages, trigger functions common for all errors."""
+    if task.message.count("Invalid token.") > 0 and utils.user_logged_in():
+        bkit_oauth.logout()
+        reports.add_report(
+            "Invalid API key token. Logged out. Please login again.",
+            15,
+            "ERROR",
+        )
+
+
 def handle_task(task: daemon_tasks.Task):
     """Handle incomming task information. Sort tasks by type and call apropriate functions."""
+    if task.status == "error":
+        task_error_overdrive(task)
+
     # HANDLE ASSET DOWNLOAD
     if task.task_type == "asset_download":
         return download.handle_download_task(task)
@@ -174,7 +188,7 @@ def handle_task(task: daemon_tasks.Task):
         if task.status == "finished":
             return search.handle_search_task(task)
         elif task.status == "error":
-            return reports.add_report(task.message, 15, "ERROR")
+            return search.handle_search_task_error(task)
 
     # HANDLE THUMBNAIL DOWNLOAD (candidate to be a function)
     if task.task_type == "thumbnail_download":

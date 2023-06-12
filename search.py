@@ -49,24 +49,6 @@ from .daemon import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
-
-
-def check_errors(rdata):
-    if rdata.get("statusCode") and int(rdata.get("statusCode")) > 299:
-        utils.p(rdata)
-        if rdata.get("detail") == "Invalid token.":
-            bkit_oauth.logout()
-            return (
-                False,
-                "Invalid token. You've been logged out. Use login panel to connect your profile.",
-            )
-        else:
-            return False, rdata.get("detail")
-    if rdata.get("statusCode") is None and rdata.get("results") is None:
-        return False, "Connection error"
-    return True, ""
-
-
 search_tasks = {}
 
 
@@ -329,6 +311,14 @@ def cleanup_search_results():
     clear_searches()
 
 
+def handle_search_task_error(task: daemon_tasks.Task) -> None:
+    """Handle incomming search task error."""
+    if len(search_tasks) == 0:
+        props = utils.get_search_props()
+        props.is_searching = False
+    return reports.add_report(task.message, 15, "ERROR")
+
+
 def handle_search_task(task: daemon_tasks.Task) -> bool:
     """Parse search results, try to load all available previews."""
     global search_tasks
@@ -375,53 +365,40 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
         for r in global_vars.DATA[search_name]:
             result_field.append(r)
 
-    ok, error = check_errors(task.result)
-    if ok:
-        ui_props = bpy.context.window_manager.blenderkitUI
+    ui_props = bpy.context.window_manager.blenderkitUI
+    for ri, r in enumerate(task.result["results"]):
+        asset_data = parse_result(r)
+        if asset_data is not None:
+            result_field.append(asset_data)
 
-        for ri, r in enumerate(task.result["results"]):
-            asset_data = parse_result(r)
-            if asset_data is not None:
-                result_field.append(asset_data)
+    # Get ratings from BlenderKit server TODO: do this in daemon
+    if utils.profile_is_validator():
+        for result in task.result["results"]:
+            ratings_utils.ensure_rating(result["id"])
 
-        # Get ratings from BlenderKit server TODO: do this in daemon
-        if utils.profile_is_validator():
-            for result in task.result["results"]:
-                ratings_utils.ensure_rating(result["id"])
+    global_vars.DATA[search_name] = result_field
+    global_vars.DATA[f"{search_name} orig"] = task.result
 
-        global_vars.DATA[search_name] = result_field
-        global_vars.DATA[f"{search_name} orig"] = task.result
+    if asset_type == ui_props.asset_type.lower():
+        global_vars.DATA["search results"] = result_field
+        global_vars.DATA["search results orig"] = task.result
 
-        if asset_type == ui_props.asset_type.lower():
-            global_vars.DATA["search results"] = result_field
-            global_vars.DATA["search results orig"] = task.result
-
-        if len(result_field) < ui_props.scroll_offset or not (
-            task.data.get("get_next")
-        ):
-            # jump back
-            ui_props.scroll_offset = 0
-        props.report = (
-            f"Found {global_vars.DATA['search results orig']['count']} results."
-        )
-        if len(global_vars.DATA["search results"]) == 0:
-            tasks_queue.add_task((reports.add_report, ("No matching results found.",)))
-        else:
-            tasks_queue.add_task(
-                (
-                    reports.add_report,
-                    (
-                        f"Found {global_vars.DATA['search results orig']['count']} results.",
-                    ),
-                )
-            )
-        # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
-        if not ui_props.assetbar_on and not task.data.get("get_next"):
-            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
-
+    if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
+        # jump back
+        ui_props.scroll_offset = 0
+    props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
+    if len(global_vars.DATA["search results"]) == 0:
+        tasks_queue.add_task((reports.add_report, ("No matching results found.",)))
     else:
-        props.report = error
-        reports.add_report(error, 15, "ERROR")
+        tasks_queue.add_task(
+            (
+                reports.add_report,
+                (f"Found {global_vars.DATA['search results orig']['count']} results.",),
+            )
+        )
+    # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
+    if not ui_props.assetbar_on and not task.data.get("get_next"):
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
 
     if len(search_tasks) == 0:
         props.is_searching = False
