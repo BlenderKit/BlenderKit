@@ -658,11 +658,11 @@ def query_to_url(query={}, params={}):
     requeststring = "?query="
     #
     if query.get("query") not in ("", None):
-        requeststring += query["query"].lower()
+        requeststring += query["query"]#.lower()
     for i, q in enumerate(query):
         if q != "query" and q != "free_first":
             requeststring += "+"
-            requeststring += q + ":" + str(query[q]).lower()
+            requeststring += q + ":" + str(query[q])#.lower()
 
     # add dict_parameters to make results smaller
     # result ordering: _score - relevance, score - BlenderKit score
