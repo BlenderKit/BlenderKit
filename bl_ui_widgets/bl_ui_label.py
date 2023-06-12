@@ -54,7 +54,11 @@ class BL_UI_Label(BL_UI_Widget):
         area_height = self.get_area_height()
 
         font_id = 1
-        blf.size(font_id, self._text_size, 72)
+        if bpy.app.version < (4, 0, 0):
+            blf.size(font_id, self._text_size, 72)
+        else:
+            blf.size(font_id, self._text_size)
+
         textpos_y = area_height - self.y_screen - self.height
 
         r, g, b, a = self._text_color

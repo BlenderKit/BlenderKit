@@ -1150,13 +1150,20 @@ class AssetBarModalStarter(bpy.types.Operator):
     def modal(self, context, event):
         if event.type == "TIMER":
             # change theme color, silly!
-            C_dict = bpy.context.copy()  # let's try to get the right context
-            bpy.ops.view3d.blenderkit_asset_bar_widget(
-                C_dict,
-                "INVOKE_REGION_WIN",
-                keep_running=self.keep_running,
-                do_search=self.do_search,
-            )
+            if bpy.app.version < (4, 0, 0):
+                C_dict = bpy.context.copy()  # let's try to get the right context
+                bpy.ops.view3d.blenderkit_asset_bar_widget(
+                    C_dict,
+                    "INVOKE_REGION_WIN",
+                    keep_running=self.keep_running,
+                    do_search=self.do_search,
+                )
+            else:
+                bpy.ops.view3d.blenderkit_asset_bar_widget(
+                    "INVOKE_REGION_WIN",
+                    keep_running=self.keep_running,
+                    do_search=self.do_search,
+                )
             self.cancel(context)
             return {"FINISHED"}
 
@@ -1198,10 +1205,17 @@ class RunAssetBarWithContext(bpy.types.Operator):
         #                                            do_search=self.do_search)
 
         C_dict = utils.get_fake_context()
-        if C_dict.get("window"):  # no 3d view, no asset bar.
-            bpy.ops.view3d.run_assetbar_start_modal(
-                C_dict, keep_running=self.keep_running, do_search=self.do_search
-            )
+
+        if bpy.app.version < (4, 0, 0):
+            if C_dict.get("window"):  # no 3d view, no asset bar.
+                bpy.ops.view3d.run_assetbar_start_modal(
+                    C_dict, keep_running=self.keep_running, do_search=self.do_search
+                )
+        else:
+            with context.temp_override(**C_dict):
+                bpy.ops.view3d.run_assetbar_start_modal(
+                     keep_running=self.keep_running, do_search=self.do_search
+                )
 
         return {"FINISHED"}
 

@@ -334,6 +334,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         path = file_name + "/Collection"
         collection_name = kwargs.get("name")
         bpy.ops.wm.append(filename=collection_name, directory=path)
+
         # fc = utils.get_fake_context(bpy.context, area_type='VIEW_3D')
         # bpy.ops.wm.append(fc, filename=collection_name, directory=path)
 

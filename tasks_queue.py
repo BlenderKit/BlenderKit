@@ -137,7 +137,11 @@ def queue_worker():
                     fc = utils.get_fake_context(
                         bpy.context, area_type=task.fake_context_area
                     )
-                    task.command(fc, *task.arguments)
+                    if bpy.app.version < (4, 0, 0):
+                        task.command(fc, *task.arguments)
+                    else:
+                        with bpy.context.temp_override(**fc):
+                            task.command(*task.arguments)
                 else:
                     task.command(*task.arguments)
             except Exception as e:

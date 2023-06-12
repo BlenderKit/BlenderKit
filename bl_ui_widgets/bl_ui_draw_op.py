@@ -104,5 +104,5 @@ def draw_callback_px_separated(self, op, context):
         if context.area.as_pointer() == self.active_area_pointer:
             for widget in self.widgets:
                 widget.draw()
-    except:
-        pass
+    except Exception as e:
+        print(e)
