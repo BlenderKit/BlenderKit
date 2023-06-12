@@ -204,15 +204,24 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
 def run_disclaimer_task(message: str, url: str, tip: bool):
     fake_context = utils.get_fake_context(bpy.context)
-    bpy.ops.view3d.blenderkit_disclaimer_widget(
-        fake_context,
-        "INVOKE_DEFAULT",
-        message=message,
-        url=url,
-        fadeout_time=8,
-        tip=tip,
-    )
-
+    if bpy.app.version < (4, 0, 0):
+        bpy.ops.view3d.blenderkit_disclaimer_widget(
+            fake_context,
+            "INVOKE_DEFAULT",
+            message=message,
+            url=url,
+            fadeout_time=8,
+            tip=tip,
+        )
+    else:
+        with bpy.context.temp_override(**fake_context):
+            bpy.ops.view3d.blenderkit_disclaimer_widget(
+                "INVOKE_DEFAULT",
+                message=message,
+                url=url,
+                fadeout_time=8,
+                tip=tip,
+            )
 
 def handle_disclaimer_task(task: daemon_tasks.Task):
     """Handles incoming disclaimer task. If there are any results, it shows them in disclaimer popup.

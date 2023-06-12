@@ -156,7 +156,12 @@ class BL_UI_Button(BL_UI_Widget):
 
     def draw_text(self, area_height):
         font_id = 1
-        blf.size(font_id, self._text_size, 72)
+
+        if bpy.app.version < (4, 0, 0):
+            blf.size(font_id, self._text_size, 72)
+        else:
+            blf.size(font_id, self._text_size)
+
         size = blf.dimensions(font_id, self._text)
 
         textpos_y = area_height - self._textpos[1] - (self.height + size[1]) / 2.0
