@@ -33,6 +33,8 @@ icons_read = {
     "dumbbell.png": "dumbbell",
     "cc0.png": "cc0",
     "royalty_free.png": "royalty_free",
+    "categories.png": "categories",
+    "categories_active.png": "categories_active",
     "filter.png": "filter",
     "filter_active.png": "filter_active",
     "bell.png": "bell",
