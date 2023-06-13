@@ -1214,7 +1214,7 @@ class RunAssetBarWithContext(bpy.types.Operator):
         else:
             with context.temp_override(**C_dict):
                 bpy.ops.view3d.run_assetbar_start_modal(
-                     keep_running=self.keep_running, do_search=self.do_search
+                    keep_running=self.keep_running, do_search=self.do_search
                 )
 
         return {"FINISHED"}

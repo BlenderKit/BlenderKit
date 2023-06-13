@@ -223,6 +223,7 @@ def run_disclaimer_task(message: str, url: str, tip: bool):
                 tip=tip,
             )
 
+
 def handle_disclaimer_task(task: daemon_tasks.Task):
     """Handles incoming disclaimer task. If there are any results, it shows them in disclaimer popup.
     If the results are empty, it shows random tip in the disclaimer popup.
