@@ -383,6 +383,31 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
         global_vars.DATA["search results"] = result_field
         global_vars.DATA["search results orig"] = task.result
 
+    if len(result_field) < ui_props.scroll_offset or not (
+        task.data.get("get_next")
+    ):
+        # jump back
+        if asset_bar_op.asset_bar_operator is not None:
+            asset_bar_op.asset_bar_operator.scroll_offset = 0
+        ui_props.scroll_offset = 0
+    props.report = (
+        f"Found {global_vars.DATA['search results orig']['count']} results."
+    )
+    if len(global_vars.DATA["search results"]) == 0:
+        tasks_queue.add_task((reports.add_report, ("No matching results found.",)))
+    else:
+        tasks_queue.add_task(
+            (
+                reports.add_report,
+                (
+                    f"Found {global_vars.DATA['search results orig']['count']} results.",
+                ),
+            )
+        )
+    # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
+    if not ui_props.assetbar_on and not task.data.get("get_next"):
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+
     if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
         # jump back
         ui_props.scroll_offset = 0
