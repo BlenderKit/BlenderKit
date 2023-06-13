@@ -303,6 +303,9 @@ def switch_search_results(self, context):
     if global_vars.DATA["search results"] is None and props.down_up == "SEARCH":
         search.search()
 
+    #update the filters after asset type switch, would keep the filter icon uncolored otherwise
+    search.update_filters()
+
 
 def asset_type_callback(self, context):
     """
@@ -362,11 +365,34 @@ class BlenderKitUIProps(PropertyGroup):
         default=None,
         update=switch_search_results,
     )
+    #moved from per-asset search properties
+    free_only: BoolProperty(
+        name="Free first",
+        description="Show free models first",
+        default=False,
+        update=search.search_update,
+    )
+    #moved from per-asset search properties
+    own_only: BoolProperty(
+        name="My Assets Only",
+        description="Search only for your assets",
+        default=False,
+        update=search.search_update,
+    )
+    #moved from per-asset search properties
+    search_bookmarks: BoolProperty(
+        name="My Bookmarks",
+        default=False,
+        description="Filter my bookmarked assets only",
+        update=search.search_update,
+    )
+
     logo_status: StringProperty(name="", default="logo_offline")
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
     draw_tooltip: BoolProperty(name="Draw Tooltip", default=False)
     addon_update: BoolProperty(name="Should Update Addon", default=False)
+
     tooltip: StringProperty(
         name="Tooltip", description="asset preview info", default=""
     )
@@ -521,12 +547,7 @@ class BlenderKitCommonSearchProps:
         description="at least one search did run (internal)",
         default=False,
     )
-    own_only: BoolProperty(
-        name="My Assets Only",
-        description="Search only for your assets",
-        default=False,
-        update=search.search_update,
-    )
+
     use_filters: BoolProperty(
         name="Filters are on", description="some filters are used", default=False
     )
@@ -610,12 +631,13 @@ class BlenderKitCommonSearchProps:
         update=search.search_update,
     )
 
-    free_only: BoolProperty(
-        name="Free first",
-        description="Show free models first",
-        default=False,
-        update=search.search_update,
-    )
+    # moved to ui props, more convenient for user when for all assets on
+    # free_only: BoolProperty(
+    #     name="Free first",
+    #     description="Show free models first",
+    #     default=False,
+    #     update=search.search_update,
+    # )
 
     unrated_only: BoolProperty(
         name="Unrated only",
@@ -631,12 +653,7 @@ class BlenderKitCommonSearchProps:
         max=10,
         update=search.search_update_delayed,
     )
-    search_bookmarks: BoolProperty(
-        name="My Bookmarks",
-        default=False,
-        description="Filter my bookmarked assets only",
-        update=search.search_update,
-    )
+
 
 
 def update_free(self, context):

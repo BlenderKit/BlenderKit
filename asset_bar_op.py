@@ -316,9 +316,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     keep_running: BoolProperty(
         name="Keep Running", description="", default=True, options={"SKIP_SAVE"}
     )
-    free_only: BoolProperty(
-        name="Free first", description="", default=False, options={"SKIP_SAVE"}
-    )
 
     category: StringProperty(
         name="Category",

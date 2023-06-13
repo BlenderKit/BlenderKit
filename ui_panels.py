@@ -200,12 +200,12 @@ def draw_panel_hdr_search(self, context):
     s = context.scene
     wm = context.window_manager
     props = wm.blenderkit_HDR
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
     row = layout.row()
     row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
-    layout.prop(props, "own_only")
 
     utils.label_multiline(layout, text=props.report)
 
@@ -363,37 +363,16 @@ def draw_panel_model_search(self, context):
             "wm.url_open", text="Get Full plan", icon="URL"
         ).url = paths.BLENDERKIT_PLANS_URL
 
-    # layout.prop(props, "search_style")
-    # layout.prop(props, "own_only")
-    # layout.prop(props, "free_only")
-
-    # if props.search_style == 'OTHER':
-    #     layout.prop(props, "search_style_other")
-    # layout.prop(props, "search_engine")
-    # col = layout.column()
-    # layout.prop(props, 'append_link', expand=True, icon_only=False)
-    # layout.prop(props, 'import_as', expand=True, icon_only=False)
-
-    # draw_panel_categories(self, context)
-
 
 def draw_panel_scene_search(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_scene
     layout = self.layout
-    # layout.label(text = "common search properties:")
     row = layout.row()
     row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
-    layout.prop(props, "own_only")
     utils.label_multiline(layout, text=props.report)
-
-    # layout.prop(props, "search_style")
-    # if props.search_style == 'OTHER':
-    #     layout.prop(props, "search_style_other")
-    # layout.prop(props, "search_engine")
     layout.separator()
-    # draw_panel_categories(self, context)
 
 
 def draw_model_context_menu(self, context):
@@ -401,7 +380,6 @@ def draw_model_context_menu(self, context):
     layout = self.layout
 
     o = utils.get_active_model()
-    # o = bpy.context.active_object
     if o.get("asset_data") is None:
         utils.label_multiline(
             layout,
@@ -1140,12 +1118,12 @@ def draw_panel_brush_upload(self, context):
 def draw_panel_brush_search(self, context):
     wm = context.window_manager
     props = wm.blenderkit_brush
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
     row = layout.row()
     row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
-    layout.prop(props, "own_only")
 
     utils.label_multiline(layout, text=props.report)
     # draw_panel_categories(self, context)
@@ -1195,6 +1173,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         wm = bpy.context.window_manager
 
         props = wm.blenderkit_models
+        ui_props = wm.blenderkitUI
         layout.separator()
 
         # layout.label(text = "common searches keywords:")
@@ -1204,10 +1183,10 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         #     layout.prop(props, "search_engine_keyword")
         row = layout.row()
         if utils.experimental_enabled():
-            row.prop(props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(props, "own_only", icon="USER")
+            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "own_only", icon="USER")
         row = layout.row()
-        layout.prop(props, "free_only")
+        layout.prop(ui_props, "free_only")
         layout.prop(props, "search_style")
 
         layout.prop(props, "search_geometry_nodes", text="Geometry Nodes")
@@ -1278,12 +1257,14 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
     def draw_layout(self, layout):
         wm = bpy.context.window_manager
         props = wm.blenderkit_mat
+        ui_props = wm.blenderkitUI
+
         layout.separator()
 
         row = layout.row()
         if utils.experimental_enabled():
-            row.prop(props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(props, "own_only", icon="USER")
+            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "own_only", icon="USER")
 
         layout.label(text="Texture:")
         col = layout.column()
@@ -1327,13 +1308,16 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
     def draw_layout(self, layout):
         wm = bpy.context.window_manager
         props = wm.blenderkit_scene
+        ui_props = wm.blenderkitUI
+
         layout.separator()
 
         row = layout.row()
         if utils.experimental_enabled():
-            row.prop(props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(props, "own_only", icon="USER")
-        layout.prop(props, "free_only")
+            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "own_only", icon="USER")
+        
+        layout.prop(ui_props, "free_only")
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1358,13 +1342,16 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
     def draw(self, context):
         wm = context.window_manager
         props = wm.blenderkit_HDR
+        ui_props = wm.blenderkitUI
+
         layout = self.layout
         layout.separator()
 
         row = layout.row()
         if utils.experimental_enabled():
-            row.prop(props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(props, "own_only", icon="USER")
+            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "own_only", icon="USER")
+        layout.prop(ui_props, "free_only")
         layout.prop(props, "true_hdr")
 
 
@@ -1386,13 +1373,15 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
     def draw_layout(self, layout):
         wm = bpy.context.window_manager
         props = wm.blenderkit_brush
+        ui_props = wm.blenderkitUI
+
         layout.separator()
 
         row = layout.row()
         if utils.experimental_enabled():
-            row.prop(props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(props, "own_only", icon="USER")
-        layout.prop(props, "free_only")
+            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "own_only", icon="USER")
+        layout.prop(ui_props, "free_only")
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -3264,7 +3253,7 @@ def header_search_draw(self, context):
 
     draw_assetbar_show_hide(layout, props)
     if utils.experimental_enabled():
-        layout.prop(props, "search_bookmarks", text="", icon="BOOKMARKS")
+        layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
 
     layout.popover(panel="VIEW3D_PT_blenderkit_categories", text="", icon="OUTLINER")
 

@@ -698,7 +698,8 @@ def build_query_common(query, props):
     if props.quality_limit > 0:
         query["quality_gte"] = props.quality_limit
 
-    if props.search_bookmarks:
+    ui_props = bpy.context.scene.blenderkitUI
+    if ui_props.search_bookmarks:
         query["bookmarks_rating"] = 1
     query.update(query_common)
 
@@ -718,7 +719,7 @@ def build_query_model():
             query["model_style"] = props.search_style_other
 
     # the 'free_only' parametr gets moved to the search command and is used for ordering the assets as free first
-    # if props.free_only:
+    # if ui_props.free_only:
     #     query["is_free"] = True
 
     if props.search_condition != "UNSPECIFIED":
@@ -978,14 +979,14 @@ def search(category="", get_next=False, query=None, author_id=""):
         if author_id != "":
             query["author_id"] = author_id
 
-        elif props.own_only:
+        elif ui_props.own_only:
             # if user searches for [another] author, 'only my assets' is invalid. that's why in elif.
             profile = global_vars.DATA.get("bkit profile")
             if profile is not None:
                 query["author_id"] = str(profile["user"]["id"])
 
         # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
-        query["free_first"] = props.free_only
+        query["free_first"] = ui_props.free_only
 
         if not get_next:
             # write to search history and check history length
@@ -1023,13 +1024,13 @@ def clean_filters():
     """Cleanup filters in case search needs to be reset, typicaly when asset id is copy pasted."""
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
-    sprops.property_unset("own_only")
+    ui_props.property_unset("own_only")
     sprops.property_unset("search_texture_resolution")
     sprops.property_unset("search_file_size")
     sprops.property_unset("search_procedural")
-    sprops.property_unset("free_only")
+    ui_props.property_unset("free_only")
     sprops.property_unset("quality_limit")
-    sprops.property_unset("search_bookmarks")
+    ui_props.property_unset("search_bookmarks")
     if ui_props.asset_type == "MODEL":
         sprops.property_unset("search_style")
         sprops.property_unset("search_condition")
@@ -1050,8 +1051,8 @@ def update_filters():
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
 
-    if sprops.search_bookmarks and not utils.user_logged_in():
-        sprops.search_bookmarks = False
+    if ui_props.search_bookmarks and not utils.user_logged_in():
+        ui_props.search_bookmarks = False
         bpy.ops.wm.blenderkit_login_dialog(
             "INVOKE_DEFAULT", message="Please login to use bookmarks."
         )
@@ -1069,9 +1070,9 @@ def update_filters():
         or sprops.search_texture_resolution
         or sprops.search_file_size
         or sprops.search_procedural != "BOTH"
-        or sprops.free_only
+        or ui_props.free_only
         or sprops.quality_limit > 0
-        or sprops.search_bookmarks
+        or ui_props.search_bookmarks
     )
 
     if ui_props.asset_type == "MODEL":
@@ -1084,7 +1085,11 @@ def update_filters():
             or sprops.search_animated
             or sprops.search_geometry_nodes
         )
+    elif ui_props.asset_type == "SCENE":
+        sprops.use_filters = fcommon
     elif ui_props.asset_type == "MATERIAL":
+        sprops.use_filters = fcommon
+    elif ui_props.asset_type == "BRUSH":
         sprops.use_filters = fcommon
     elif ui_props.asset_type == "HDR":
         sprops.use_filters = sprops.true_hdr

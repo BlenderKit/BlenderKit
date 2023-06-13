@@ -235,6 +235,7 @@ def move_collection(child, parent):
 
 
 def get_search_props():
+    # returns saved search properties
     scene = bpy.context.scene
     wm = bpy.context.window_manager
     if scene is None:
