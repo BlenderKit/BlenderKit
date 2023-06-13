@@ -1126,7 +1126,6 @@ def draw_panel_brush_search(self, context):
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
-    # draw_panel_categories(self, context)
 
 
 def draw_login_buttons(layout, invoke=False):
@@ -1265,6 +1264,7 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         if utils.experimental_enabled():
             row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
+
 
         layout.label(text="Texture:")
         col = layout.column()
@@ -2647,15 +2647,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         for i, c in enumerate(cat_path):
             cat_name = cat_path_names[i]
-            op = name_row.operator(
-                "view3d.blenderkit_asset_bar_widget",
-                text=cat_name + "     >",
-                emboss=True,
-            )
-            op.do_search = True
-            op.keep_running = True
-            op.tooltip = f"Browse {cat_name} category"
-            op.category = c
+
+            ui_props = bpy.context.window_manager.blenderkitUI
+            op = name_row.operator("view3d.blenderkit_set_category", text=cat_name + "     >", emboss=True)
+            op.asset_type = ui_props.asset_type
+            #this gets filled not to change anything in browsing categories
+            op.category_browse = global_vars.DATA["active_category_browse"][ui_props.asset_type][-1]
+            #but enables to direclty browse the category clicked.
+            op.category_search = c
             # name_row.label(text='>')
 
         name_row.label(text=aname)
@@ -2938,12 +2937,15 @@ class SetCategoryOperator(bpy.types.Operator):
     bl_label = "BlenderKit Set Active Category"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    category: bpy.props.StringProperty(
-        name="Category", description="set this category active", default=""
+    category_browse: bpy.props.StringProperty(
+        name="Category browse", description="set this category active for browsing", default=""
+    )
+    category_search: bpy.props.StringProperty(
+        name="Category search", description="set this category active for search", default=""
     )
 
     asset_type: bpy.props.StringProperty(
-        name="Asset Type", description="asset type", default=""
+        name="Asset Type", description="asset type", default="MODEL"
     )
 
     @classmethod
@@ -2951,13 +2953,19 @@ class SetCategoryOperator(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        acat = global_vars.DATA["active_category"][self.asset_type]
-        if self.category == "":
+        print(global_vars.DATA["active_category_browse"])
+        acat = global_vars.DATA["active_category_browse"][self.asset_type]
+        if self.category_browse == "":
             acat.remove(acat[-1])
+        elif self.category_browse == acat[-1]:
+            # don't change category if it is the same
+            pass;
         else:
-            acat.append(self.category)
+            acat.append(self.category_browse)
+        search_props = utils.get_search_props()
+        search_props.search_category = self.category_search
         # we have to write back to wm. Thought this should happen with original list.
-        global_vars.DATA["active_category"][self.asset_type] = acat
+        global_vars.DATA["active_category_browse"][self.asset_type] = acat
         return {"FINISHED"}
 
 
@@ -3109,15 +3117,16 @@ def draw_panel_categories(layout, context):
     if global_vars.DATA.get("bkit_categories") == None:
         return
     col = layout.column(align=True)
-    if global_vars.DATA.get("active_category") is not None:
-        acat = global_vars.DATA["active_category"][ui_props.asset_type]
+    if global_vars.DATA.get("active_category_browse") is not None:
+        acat = global_vars.DATA["active_category_browse"][ui_props.asset_type]
         if len(acat) > 1:
             # we are in subcategory, so draw the parent button
             op = col.operator(
-                "view3d.blenderkit_set_category", text="...", icon="FILE_PARENT"
+                "view3d.blenderkit_set_category", text="...", icon="FILE_PARENT",
             )
             op.asset_type = ui_props.asset_type
-            op.category = ""
+            op.category_browse = ""
+            op.category_search = acat[-2]
     cats = categories.get_category(global_vars.DATA["bkit_categories"], cat_path=acat)
     # draw freebies only in models parent category
     # if ui_props.asset_type == 'MODEL' and len(acat) == 1:
@@ -3139,11 +3148,14 @@ def draw_panel_categories(layout, context):
             ctext = "%s (%i)" % (c["name"], c["assetCount"])
 
             preferences = bpy.context.preferences.addons["blenderkit"].preferences
-            op = row.operator("view3d.blenderkit_asset_bar_widget", text=ctext)
-            op.do_search = True
-            op.keep_running = True
-            op.tooltip = f"Browse {c['name']} category"
-            op.category = c["slug"]
+            search_props = utils.get_search_props()
+            acat_search = search_props.search_category
+            emboss = acat_search == c["slug"]
+            op = row.operator("view3d.blenderkit_set_category", text=ctext, depress=emboss)
+            op.asset_type = ui_props.asset_type
+            op.category_browse = acat[-1]
+            op.category_search = c["slug"]
+
             if (
                 len(c["children"]) > 0
                 and c["assetCount"] > 15
@@ -3152,7 +3164,9 @@ def draw_panel_categories(layout, context):
                 # row = row.split()
                 op = row.operator("view3d.blenderkit_set_category", text=">>")
                 op.asset_type = ui_props.asset_type
-                op.category = c["slug"]
+                op.category_browse = c["slug"]
+                op.category_search = c["slug"]
+
                 # for c1 in c['children']:
                 #     if c1['assetCount']>0:
                 #         row = col.row()

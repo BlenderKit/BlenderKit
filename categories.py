@@ -117,12 +117,20 @@ def handle_categories_task(task: daemon_tasks.Task):
         return
     tempdir = paths.get_temp_dir()
     categories_filepath = os.path.join(tempdir, "categories.json")
-    global_vars.DATA["active_category"] = {
+    global_vars.DATA["active_category_browse"] = {
         "MODEL": ["model"],
         "SCENE": ["scene"],
         "HDR": ["hdr"],
         "MATERIAL": ["material"],
         "BRUSH": ["brush"],
+    }
+    #
+    global_vars.DATA["active_category_search"] = {
+        "MODEL": "model",
+        "SCENE": "scene",
+        "HDR": "hdr",
+        "MATERIAL": "material",
+        "BRUSH": "brush",
     }
     if task.status == "finished":
         global_vars.DATA["bkit_categories"] = task.result

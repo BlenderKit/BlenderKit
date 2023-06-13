@@ -974,22 +974,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.on_init(context)
         self.context = context
 
-        if self.do_search or global_vars.DATA.get("search results") is None:
-            # TODO: move the search behaviour to separate operator, since asset bar can be already woken up from a timer.
 
-            # we erase search keywords for cateogry search now, since these combinations usually return nothing now.
-            # when the db gets bigger, this can be deleted.
-            # if self.category != '':
-            #     sprops = utils.get_search_props()
-            #     sprops.search_keywords = ''
-            search.search(category=self.category)
+        # if self.do_search or global_vars.DATA.get("search results") is None:
+        #     search.search(category=self.category)
+        #     if self.category != '':
+        #         global_vars.DATA.get("active_category_search")
+
+        # start search if there isn't a search result yet
+        if global_vars.DATA.get("search results") is None:
+            search.search()
+
 
         ui_props = context.window_manager.blenderkitUI
         if ui_props.assetbar_on:
             # TODO solve this otehrwise to enable more asset bars?
-
             # we don't want to run the assetbar many times, that's why it has a switch on/off behaviour,
-            # unless being called with 'keep_running' prop.
+            # unless being called with 'keep_running'
 
             if not self.keep_running:
                 # this sends message to the originally running operator, so it quits, and then it ends this one too.

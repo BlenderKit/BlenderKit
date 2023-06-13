@@ -531,6 +531,20 @@ def search_procedural_update(self, context):
 
 
 class BlenderKitCommonSearchProps:
+    #main search string
+    search_keywords: StringProperty(
+        name="Search",
+        description="Search for these keywords",
+        default="",
+        update=search.search_update,
+    )
+    #categories
+    search_category: StringProperty(
+        name="Category",
+        description="Active subcategory for search",
+        default="",
+        update=search.search_update,
+    )
     # STATES
     is_searching: BoolProperty(
         name="Searching",
@@ -841,12 +855,6 @@ class BlenderKitCommonUploadProps(object):
 
 
 class BlenderKitMaterialSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
     search_style: EnumProperty(
         name="Style",
         items=search_material_styles,
@@ -1069,12 +1077,7 @@ class BlenderKitTextureUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
 
 
 class BlenderKitBrushSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
+    pass;
 
 
 class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -1566,12 +1569,6 @@ class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
 
 
 class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
     search_style: EnumProperty(
         name="Style",
         items=search_model_styles,
@@ -1749,12 +1746,6 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
 
 
 class BlenderKitHDRSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
 
     true_hdr: BoolProperty(
         name="Real HDRs only",
@@ -1765,12 +1756,6 @@ class BlenderKitHDRSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
 
 
 class BlenderKitSceneSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
     search_style: EnumProperty(
         name="Style",
         items=search_model_styles,
