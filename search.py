@@ -698,7 +698,7 @@ def build_query_common(query, props):
     if props.quality_limit > 0:
         query["quality_gte"] = props.quality_limit
 
-    ui_props = bpy.context.scene.blenderkitUI
+    ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.search_bookmarks:
         query["bookmarks_rating"] = 1
     query.update(query_common)
@@ -908,7 +908,7 @@ def get_search_simple(
     return results
 
 
-def search(category="", get_next=False, query=None, author_id=""):
+def search(get_next=False, query=None, author_id=""):
     """Initialize searching
     query : submit an already built query from search history
     """
@@ -970,11 +970,12 @@ def search(category="", get_next=False, query=None, author_id=""):
                 idx = query["query"].find(" ", 142)
                 query["query"] = query["query"][:idx]
 
-        if category != "":
+        print(props.search_category)
+        if props.search_category != "":
             if utils.profile_is_validator() and user_preferences.categories_fix:
-                query["category"] = category
+                query["category"] = props.search_category
             else:
-                query["category_subtree"] = category
+                query["category_subtree"] = props.search_category
 
         if author_id != "":
             query["author_id"] = author_id
@@ -1057,8 +1058,8 @@ def update_filters():
             "INVOKE_DEFAULT", message="Please login to use bookmarks."
         )
         return False
-    if sprops.own_only and not utils.user_logged_in():
-        sprops.own_only = False
+    if ui_props.own_only and not utils.user_logged_in():
+        ui_props.own_only = False
         bpy.ops.wm.blenderkit_login_dialog(
             "INVOKE_DEFAULT",
             message="Please login to upload and filter your own assets.",
@@ -1066,7 +1067,7 @@ def update_filters():
         return False
 
     fcommon = (
-        sprops.own_only
+        ui_props.own_only
         or sprops.search_texture_resolution
         or sprops.search_file_size
         or sprops.search_procedural != "BOTH"
@@ -1187,12 +1188,12 @@ class SearchOperator(Operator):
         options={"SKIP_SAVE"},
     )
 
-    category: StringProperty(
-        name="category",
-        description="search only subtree of this category",
-        default="",
-        options={"SKIP_SAVE"},
-    )
+    # category: StringProperty(
+    #     name="category",
+    #     description="search only subtree of this category",
+    #     default="",
+    #     options={"SKIP_SAVE"},
+    # )
 
     author_id: StringProperty(
         name="Author ID",
@@ -1238,8 +1239,7 @@ class SearchOperator(Operator):
         if self.keywords != "":
             sprops.search_keywords = self.keywords
 
-        search(category=self.category, get_next=self.get_next, author_id=self.author_id)
-        # bpy.ops.view3d.blenderkit_asset_bar_widget()
+        search(get_next=self.get_next, author_id=self.author_id)
 
         return {"FINISHED"}
 
