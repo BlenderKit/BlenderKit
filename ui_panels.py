@@ -157,14 +157,6 @@ def draw_upload_common(layout, props, asset_type, context):
         layout.prop(props, "tags")
 
 
-def poll_local_panels():
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    return (
-        user_preferences.panel_behaviour == "BOTH"
-        or user_preferences.panel_behaviour == "LOCAL"
-    )
-
-
 def prop_needed(layout, props, name, value="", is_not_filled=""):
     row = layout.row()
     if value == is_not_filled:
@@ -638,8 +630,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                 "wm.url_open", text="See my uploads", icon="URL"
             ).url = paths.BLENDERKIT_USER_ASSETS_URL
 
-        if user_preferences.enable_oauth:
-            draw_login_buttons(layout)
+        draw_login_buttons(layout)
 
         addon_updater_ops.update_notice_box_ui(self, context)
 
@@ -1020,15 +1011,12 @@ class VIEW3D_PT_blenderkit_login(Panel):
         if not global_vars.DAEMON_RUNNING:
             layout.label(text="Daemon not running")
             return
-
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
         if user_preferences.login_attempt:
             draw_login_progress(layout)
             return
 
-        if user_preferences.enable_oauth:
-            draw_login_buttons(layout)
+        draw_login_buttons(layout)
 
 
 def draw_panel_material_upload(self, context):
@@ -1489,14 +1477,6 @@ class VIEW3D_PT_blenderkit_unified(Panel):
     }
     bl_label = ""
 
-    @classmethod
-    def poll(cls, context):
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-        return (
-            user_preferences.panel_behaviour == "BOTH"
-            or user_preferences.panel_behaviour == "UNIFIED"
-        )
-
     def draw_header(self, context):
         layout = self.layout
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -1560,15 +1540,7 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             return
 
         if len(user_preferences.api_key) < 20 and user_preferences.asset_counter > 20:
-            if user_preferences.enable_oauth:
-                draw_login_buttons(layout)
-            else:
-                op = layout.operator(
-                    "wm.url_open", text="Get your API Key", icon="QUESTION"
-                )
-                op.url = paths.BLENDERKIT_SIGNUP_URL
-                layout.label(text="Paste your API Key:")
-                layout.prop(user_preferences, "api_key", text="")
+            draw_login_buttons(layout)
             layout.separator()
         # if bpy.data.filepath == '':
         #     layout.alert = True
@@ -3283,6 +3255,12 @@ def header_search_draw(self, context):
     row = layout.row()
     if (context.region.width) > 700:
         row.ui_units_x = 5 + int(context.region.width / 200)
+    search_field_width = bpy.context.preferences.addons[
+        "blenderkit"
+    ].preferences.search_field_width
+    if search_field_width > 0:
+        row.ui_units_x = search_field_width
+
     row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
 
     draw_assetbar_show_hide(layout, props)

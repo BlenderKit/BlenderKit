@@ -43,6 +43,12 @@ def get_daemon_directory_path() -> str:
     return path.abspath(directory)
 
 
+def get_daemon_log_path() -> str:
+    """Get path to daemon log file in blenderkit_data directory."""
+    log_path = path.join(get_daemon_directory_path(), f"daemon-{get_port()}.log")
+    return path.abspath(log_path)
+
+
 def get_reports(app_id: str, api_key=""):
     """Get reports for all tasks of app_id Blender instance at once.
     If few last calls failed, then try to get reports also from other than default ports.
@@ -500,7 +506,7 @@ def check_daemon_exit_code() -> tuple[int, str]:
 def start_daemon_server():
     """Start daemon server in separate process."""
     daemon_dir = get_daemon_directory_path()
-    log_path = f"{daemon_dir}/daemon-{get_port()}.log"
+    log_path = get_daemon_log_path()
     blenderkit_path = path.dirname(__file__)
     daemon_path = path.join(blenderkit_path, "daemon/daemon.py")
     preinstalled_deps = dependencies.get_preinstalled_deps_path()
