@@ -1830,9 +1830,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
     bl_idname = __name__
 
     default_global_dict = paths.default_global_dict()
-
-    enable_oauth = True
-
     models_resolution: StringProperty(default="1024")
     mat_resolution: StringProperty(default="1024")
     hdr_resolution: StringProperty(default="1024")
@@ -1902,7 +1899,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     global_dir: StringProperty(
         name="Global Files Directory",
-        description="Global storage for your assets, will use subdirectories for the contents",
+        description="Global storage for your assets, will use subdirectories for the contents. Daemon will place its files in subdirectory 'daemon'.",
         subtype="DIR_PATH",
         default=default_global_dict,
         update=utils.save_prefs,
@@ -2077,22 +2074,12 @@ In this case you should also set path to your system CA bundle containing proxy 
         default="BOTH",
         update=utils.save_prefs,
     )
+
     thumbnail_use_gpu: BoolProperty(
         name="Use GPU for Thumbnails Rendering (For assets upload)",
         description="By default this is off so you can continue your work without any lag",
         default=False,
         update=utils.save_prefs,
-    )
-
-    panel_behaviour: EnumProperty(
-        name="Panels Locations",
-        items=(
-            ("BOTH", "Both Types", ""),
-            ("UNIFIED", "Unified 3D View Panel", ""),
-            ("LOCAL", "Relative to project", ""),
-        ),
-        description="Which directories will be used for storing downloaded data",
-        default="UNIFIED",
     )
 
     max_assetbar_rows: IntProperty(
@@ -2111,6 +2098,15 @@ In this case you should also set path to your system CA bundle containing proxy 
         max=256,
         update=utils.save_prefs,
         description="Size of thumbnails of the assetbar in 3D view",
+    )
+
+    search_field_width: IntProperty(
+        name="Search Field Width",
+        default=0,
+        min=0,
+        max=100,
+        update=utils.save_prefs,
+        description="Width of the search field in the assetbar in 3D view. 0 means automatic width.",
     )
 
     # counts usages so it can encourage user after some time to do things.
@@ -2135,20 +2131,6 @@ In this case you should also set path to your system CA bundle containing proxy 
         min=0,
         max=6,
     )
-    # this is now made obsolete by the new popup upon registration -ensures the user knows about the first search.
-    # first_run: BoolProperty(
-    #     name="First run",
-    #     description="Detects if addon was already registered/run.",
-    #     default=True,
-    #     update=utils.save_prefs
-    # )
-
-    # single_timer: BoolProperty(
-    #     name="Use timers",
-    #     description="Use timers for BlenderKit. Usefull for debugging since timers seem to be unstable",
-    #     default=True,
-    #     update=utils.save_prefs
-    # )
 
     experimental_features: BoolProperty(
         name="Enable experimental features: Bookmarks",
@@ -2168,14 +2150,6 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
         default=False,
         update=utils.save_prefs,
     )
-
-    # allow_proximity : BoolProperty(
-    #     name="allow proximity data reports",
-    #     description="This sends anonymized proximity data \n \
-    #             and allows us to make relations between database objects \n \
-    #              without user interaction",
-    #     default=False
-    # )
 
     auto_check_update: bpy.props.BoolProperty(
         name="Auto-check for Update",
@@ -2223,54 +2197,62 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "show_on_start")
-
         if self.api_key.strip() == "":
-            if self.enable_oauth:
-                ui_panels.draw_login_buttons(layout)
-            else:
-                op = layout.operator(
-                    "wm.url_open",
-                    text="Register online and get your API Key",
-                    icon="QUESTION",
-                )
-                op.url = paths.BLENDERKIT_SIGNUP_URL
+            ui_panels.draw_login_buttons(layout)
         else:
-            if self.enable_oauth:
-                layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
-
-        # if not self.enable_oauth:
+            layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
         layout.prop(self, "api_key", text="Your API Key")
-        # layout.label(text='After you paste API Key, categories are downloaded, so blender will freeze for a few seconds.')
-        layout.prop(self, "global_dir")
-        layout.prop(self, "project_subdir")
-        # layout.prop(self, "temp_dir")
-        layout.prop(self, "directory_behaviour")
-        layout.prop(self, "unpack_files")
-        # layout.prop(self, "allow_proximity")
-        # layout.prop(self, "panel_behaviour")
-        layout.prop(self, "thumb_size")
-        layout.prop(self, "max_assetbar_rows")
-        layout.prop(self, "tips_on_start")
-        layout.prop(self, "announcements_on_start")
-        layout.prop(self, "search_in_header")
-        layout.prop(self, "thumbnail_use_gpu")
-
         layout.prop(self, "experimental_features")
         if utils.profile_is_validator():
             layout.prop(self, "categories_fix")
 
-        nbox = layout.box()
-        nbox.alignment = "EXPAND"
-        nbox.label(text="Networking settings")
-        nbox.prop(self, "daemon_port")
-        nbox.prop(self, "ip_version")
-        nbox.prop(self, "ssl_context")
-        nbox.prop(self, "proxy_which")
-        if self.proxy_which == "CUSTOM":
-            nbox.prop(self, "proxy_address")
-            nbox.prop(self, "proxy_ca_certs")
+        # LOCATIONS SETTINGS
+        locations_settings = layout.box()
+        locations_settings.alignment = "EXPAND"
+        locations_settings.label(text="Locations settings")
+        locations_settings.prop(self, "directory_behaviour")
+        locations_settings.prop(self, "global_dir")
+        if self.directory_behaviour in ("BOTH", "LOCAL"):
+            locations_settings.prop(self, "project_subdir")
+        locations_settings.prop(self, "unpack_files")
 
+        # GUI SETTINGS
+        gui_settings = layout.box()
+        gui_settings.alignment = "EXPAND"
+        gui_settings.label(text="GUI settings")
+        gui_settings.prop(self, "thumb_size")
+        gui_settings.prop(self, "max_assetbar_rows")
+        gui_settings.prop(self, "search_field_width")
+        gui_settings.prop(self, "search_in_header")
+        gui_settings.prop(self, "tips_on_start")
+        gui_settings.prop(self, "announcements_on_start")
+
+        # NETWORKING SETINGS
+        network_settings = layout.box()
+        network_settings.alignment = "EXPAND"
+        network_settings.label(text="Networking settings")
+        network_settings.prop(self, "daemon_port")
+        network_settings.prop(self, "ip_version")
+        network_settings.prop(self, "ssl_context")
+        network_settings.prop(self, "proxy_which")
+        if self.proxy_which == "CUSTOM":
+            network_settings.prop(self, "proxy_address")
+            network_settings.prop(self, "proxy_ca_certs")
+
+        # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
+        addondir_row = layout.row()
+        addondir_row.label(text=f"Installed at: {path.dirname(__file__)}")
+        addondir_row.enabled = False
+        globdir_row = layout.row()
+        globdir_row.label(text=f"Global Files Directory: {self.global_dir}")
+        globdir_row.enabled = False
+        dlog_row = layout.row()
+        dlog_row.label(text=f"Daemon log: {daemon_lib.get_daemon_log_path()}")
+        dlog_row.enabled = False
+        tmpdir_row = layout.row()
+        tmpdir_row.label(text=f"Temp directory: {paths.get_temp_dir()}")
+        tmpdir_row.enabled = False
 
 
 # registration

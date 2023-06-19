@@ -83,7 +83,7 @@ def daemon_communication_timer():
         return handle_failed_reports(e)
 
     if global_vars.DAEMON_ACCESSIBLE is False:
-        reports.add_report(f"Daemon is running on port {global_vars.DAEMON_PORTS[0]}!")
+        bk_logger.info(f"Daemon is running on port {global_vars.DAEMON_PORTS[0]}!")
         global_vars.DAEMON_ACCESSIBLE = True
         wm = bpy.context.window_manager
         wm.blenderkitUI.logo_status = "logo"
