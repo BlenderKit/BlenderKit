@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_stage:
+        type: choice
+        description: Release Stage
+        options:
+        - alpha
+        - beta
+        - rc
+        - gold
+      version:
+        default: "3.Y.Z.YYMMDD"
+        required: true
+
+jobs:
+  Checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install
+        run: pip install isort black ruff
+      - name: ISORT
+        run: python -m isort . --check-only --diff
+      - name: BLACK
+        run: python -m black . --check --diff
+      - name: Server set to production
+        run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
+      - name: Version in daemon.py same as in __init__.py
+        run: python3 -c "import re; f = open('daemon/daemon.py'); version_daemon = next(line.split('=')[1].strip().strip('\"') for line in f if line.startswith('VERSION')); f.close(); f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_daemon.split('.'))) == tuple(map(int, version_init.split(', '))), f'Version mismatch of {version_init} and {version_daemon}'"
+
+  Release_checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Version set to ${{inputs.version}}
+        run: python3 -c "import re; f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_init.split(', '))) == tuple(map(int, '${{inputs.version}}'.split('.'))), f'Version mismatch of {version_init} and ${{inputs.version}}'"
+
+  Release:
+    needs: [Checks, Release_checks, TESTS]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build add-on
+        run: python dev.py build
+      - name: Rename add-on
+        run: mv out/blenderkit.zip out/blenderkit-v${{inputs.version}}.zip
+      #- name: Generate Changelog
+      #  run: echo "# Good things have arrived" > ${{ github.workspace }}-CHANGELOG.txt
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true # always draft, we want to check the release notes
+          name: BlenderKit v${{inputs.version}}${{ inputs.release_stage == 'gold' && '' || format('-{0}', inputs.release_stage) }}
+          prerelease: ${{ inputs.release_stage != 'gold' && 'true' || 'false' }}
+          tag_name: v${{inputs.version}}
+          #body_path: ${{ github.workspace }}-CHANGELOG.txt
+          files: out/blenderkit-v${{inputs.version}}.zip
+
+  make-tests-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        run: python .github/make-tests-matrix.py >> $GITHUB_OUTPUT
+
+  TESTS:
+    needs: make-tests-matrix
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache Blender
+        id: blenderBinaryCache
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/blender
+          key: blender-${{matrix.version}}-${{matrix.sha}}
+      - name: Download Blender
+        if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
+        run: curl ${{ matrix.download_url }} -o /home/runner/blender.tar.xz
+      - name: Mkdir
+        run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
+      - name: Extract Blender
+        if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
+        run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
+      - name: Add Blender to PATH
+        run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
+      - name: TEST
+        run: python dev.py test --install-at /home/runner/.config/blender/${{matrix.version_x_y}}/scripts/addons
