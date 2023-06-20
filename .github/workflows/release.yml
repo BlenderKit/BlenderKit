@@ -32,7 +32,7 @@ jobs:
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
       - name: Version in daemon.py same as in __init__.py
-        run: python3 -c 'from daemon import VERSION; from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, VERSION.split(".")))'
+        run: python3 -c 'from daemon.daemon import VERSION; from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, VERSION.split(".")))'
 
   Release_checks:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
       - name: Version set to ${{inputs.version}}
-        run: python3 -c 'from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, "${{inputs.version}}.${{steps.date.outputs.date}}".split(".")))'"'
+        run: python3 -c 'from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, "${{inputs.version}}.${{steps.date.outputs.date}}".split(".")))'
 
   Build:
     runs-on: ubuntu-latest
