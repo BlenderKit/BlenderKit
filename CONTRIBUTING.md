@@ -71,18 +71,12 @@ Daemon is compiled by `nuitka`
 
 ## Releasing
 
-To release do:
-1. bump version in `__init__.py` on main branch to `X.Y.Z.yymmdd`
-2. wait for automated build on main branch to be finished
-3. download the ZIP
-4. rename it to `blenderkit-X.Y.Z.yymmdd` (ending `-alpha`, `-beta`, `-rc` for prereleases!) 
-5. create release on Github
-6. set tag to `vX.Y.Z.yymmdd` (add ending `-alpha`, `-beta`, `-rc` for prereleases!)
-7. set release name to `BlenderKit vX.Y.Z.yymmdd` (add ending `-alpha`, `-beta`, `-rc` for prereleases!)
-8. if prerelease set `This is a pre-release ` button and double check if tag, zip and release name ends with alpha/beta/rc!
-9. upload file and finish the release!
+Before release update the add-on version in `__init__.py` and `daemon/daemon.py`, make sure it is merged in `main` branch.
 
-Alternatively if automated builds are broken, you can build locally: run `python dev.py build` to build the zip file in `out/blenderkit.zip`
+1. go to Github Actions, choose `Release` workflow
+2. insert the version in format `X.Y.Z.YYMMDD` (e.g. `3.8.0.2306220`), this has to be same as in `__init__.py` and `daemon/daemon.py`
+3. set Release Stage to `alpha`, `beta`, `rc` or `gold` for final release
+4. once finished, the release draft is available in Github Releases
 
 ## Testing
 
