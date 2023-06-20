@@ -32,7 +32,7 @@ jobs:
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
       - name: Version in daemon.py same as in __init__.py
-        run: python3 -c 'from daemon.daemon import VERSION; from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, VERSION.split(".")))'
+        run: python3 -c "import re; f = open('daemon/daemon.py'); version_daemon = next(line.split('=')[1].strip().strip('\"') for line in f if line.startswith('VERSION')); f.close(); f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_daemon.split('.'))) == tuple(map(int, version_init.split(', '))), 'Version mismatch'"
 
   Release_checks:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
       - name: Version set to ${{inputs.version}}
-        run: python3 -c 'from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, "${{inputs.version}}.${{steps.date.outputs.date}}".split(".")))'
+        run: python3 -c "import re; f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_init.split(', '))) == tuple(map(int, '${{inputs.version}}.${{steps.date.outputs.date}}'.split('.'))), 'Version mismatch'"
 
   Build:
     runs-on: ubuntu-latest
