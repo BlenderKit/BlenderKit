@@ -41,15 +41,13 @@ jobs:
       - name: Version set to ${{inputs.version}}
         run: python3 -c "import re; f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_init.split(', '))) == tuple(map(int, '${{inputs.version}}'.split('.'))), f'Version mismatch of {version_init} and ${{inputs.version}}'"
 
-  Build:
+  Release:
+    needs: [Checks, Release_checks, TESTS]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Build add-on
         run: python dev.py build
-      - name: Get current date and time
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y%m%d')"
       - name: Store the build
         uses: actions/upload-artifact@v3
         with:
