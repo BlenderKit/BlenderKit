@@ -3,7 +3,7 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      name:
+      release_stage:
         type: choice
         description: Release Stage
         options:
@@ -14,7 +14,7 @@ on:
       version:
         default: "3.Y.Z.YYMMDD"
         required: true
-      use-emoji:
+      use_emoji:
         type: boolean
         description: Include 🎉🤣 emojis in release notes
 
@@ -48,13 +48,19 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build add-on
         run: python dev.py build
-      - name: Store the build
-        uses: actions/upload-artifact@v3
+      - name: Rename add-on
+        run: mv out/blenderkit.zip out/blenderkit-v${{inputs.version}}.zip
+      - name: Generate Changelog
+        run: echo "# Good things have arrived" > ${{ github.workspace }}-CHANGELOG.txt
+      - name: Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: blenderkit-v${{inputs.version}}.${{steps.date.outputs.date}}
-          path: |
-            out
-            !out/blenderkit.zip
+          draft: true # always draft, we want to check the release notes
+          name: BlenderKit v${{inputs.version}}${{ inputs.release_stage == 'gold' && '' || format('-{0}', inputs.release_stage) }}
+          tag_name: v${{inputs.version}}
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+          files: |
+            out/blenderkit-v${{inputs.version}}.zip
 
   make-tests-matrix:
     runs-on: ubuntu-latest
