@@ -974,7 +974,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.on_init(context)
         self.context = context
 
-
         # if self.do_search or global_vars.DATA.get("search results") is None:
         #     search.search(category=self.category)
         #     if self.category != '':
@@ -983,7 +982,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # start search if there isn't a search result yet
         if global_vars.DATA.get("search results") is None:
             search.search()
-
 
         ui_props = context.window_manager.blenderkitUI
         if ui_props.assetbar_on:

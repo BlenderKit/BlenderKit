@@ -303,7 +303,7 @@ def switch_search_results(self, context):
     if global_vars.DATA["search results"] is None and props.down_up == "SEARCH":
         search.search()
 
-    #update the filters after asset type switch, would keep the filter icon uncolored otherwise
+    # update the filters after asset type switch, would keep the filter icon uncolored otherwise
     search.update_filters()
 
 
@@ -365,21 +365,21 @@ class BlenderKitUIProps(PropertyGroup):
         default=None,
         update=switch_search_results,
     )
-    #moved from per-asset search properties
+    # moved from per-asset search properties
     free_only: BoolProperty(
         name="Free first",
         description="Show free models first",
         default=False,
         update=search.search_update,
     )
-    #moved from per-asset search properties
+    # moved from per-asset search properties
     own_only: BoolProperty(
         name="My Assets Only",
         description="Search only for your assets",
         default=False,
         update=search.search_update,
     )
-    #moved from per-asset search properties
+    # moved from per-asset search properties
     search_bookmarks: BoolProperty(
         name="My Bookmarks",
         default=False,
@@ -531,14 +531,14 @@ def search_procedural_update(self, context):
 
 
 class BlenderKitCommonSearchProps:
-    #main search string
+    # main search string
     search_keywords: StringProperty(
         name="Search",
         description="Search for these keywords",
         default="",
         update=search.search_update,
     )
-    #categories
+    # categories
     search_category: StringProperty(
         name="Category",
         description="Active subcategory for search",
@@ -667,7 +667,6 @@ class BlenderKitCommonSearchProps:
         max=10,
         update=search.search_update_delayed,
     )
-
 
 
 def update_free(self, context):
@@ -1077,7 +1076,7 @@ class BlenderKitTextureUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
 
 
 class BlenderKitBrushSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-    pass;
+    pass
 
 
 class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -1746,7 +1745,6 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
 
 
 class BlenderKitHDRSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
-
     true_hdr: BoolProperty(
         name="Real HDRs only",
         description="Search only for real HDRs, this means images that have a range higher than 0-1 in their pixels.",
