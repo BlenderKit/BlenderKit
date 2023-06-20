@@ -1061,7 +1061,7 @@ class AssetDragOperator(bpy.types.Operator):
         if dir_behaviour == "LOCAL" and bpy.data.filepath == "":
             message = "Save the project to download in local directory mode."
             link_text = "See documentation"
-            url = "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#use-directories"
+            url = "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-Preferences#use-directories"
             bpy.ops.wm.blenderkit_url_dialog(
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )

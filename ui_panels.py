@@ -3115,7 +3115,6 @@ class LoginPopupDialog(bpy.types.Operator):
 
 
 def draw_panel_categories(layout, context):
-    s = context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
 
@@ -3289,9 +3288,6 @@ def header_search_draw(self, context):
     draw_assetbar_show_hide(layout, props)
     if utils.experimental_enabled():
         layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
-    print("hole")
-    print(props.search_category)
-    print(ui_props.asset_type.lower())
     if props.search_category != ui_props.asset_type.lower():
         icon_id = pcoll["categories_active"].icon_id
     else:
