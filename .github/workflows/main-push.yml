@@ -2,7 +2,7 @@ name: main-push
 
 on:
   push:
-    branches: [ main ]
+    branches: [ maindev ]
   workflow_dispatch:
 
 jobs:
