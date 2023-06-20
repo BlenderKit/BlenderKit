@@ -57,10 +57,10 @@ jobs:
         with:
           draft: true # always draft, we want to check the release notes
           name: BlenderKit v${{inputs.version}}${{ inputs.release_stage == 'gold' && '' || format('-{0}', inputs.release_stage) }}
+          prerelease: ${{ inputs.release_stage != 'gold' && 'true' || 'false' }}
           tag_name: v${{inputs.version}}
           body_path: ${{ github.workspace }}-CHANGELOG.txt
-          files: |
-            out/blenderkit-v${{inputs.version}}.zip
+          files: out/blenderkit-v${{inputs.version}}.zip
 
   make-tests-matrix:
     runs-on: ubuntu-latest
