@@ -989,7 +989,6 @@ def search(get_next=False, query=None, author_id=""):
                 idx = query["query"].find(" ", 142)
                 query["query"] = query["query"][:idx]
 
-        print(props.search_category)
         if props.search_category != "":
             if utils.profile_is_validator() and user_preferences.categories_fix:
                 query["category"] = props.search_category
