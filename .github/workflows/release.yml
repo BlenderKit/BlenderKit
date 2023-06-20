@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        type: choice
+        description: Who to greet
+        options: 
+        - monalisa
+        - cschleiden
+      message:
+        required: true
+      use-emoji:
+        type: boolean
+        description: Include 🎉🤣 emojis
+      environment:
+        type: environment
+
+jobs:
+  Checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install
+        run: pip install isort black ruff
+      - name: ISORT
+        run: python -m isort . --check-only --diff
+      - name: BLACK
+        run: python -m black . --check --diff
+      #- name: RUFF on ./daemon
+      #  run: python -m ruff daemon
+      - name: Server set to production
+        run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
+
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build add-on
+        run: python dev.py build
+      - name: Get current date and time
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d--%H-%M-%S')"
+      - name: Store the build
+        uses: actions/upload-artifact@v3
+        with:
+          name: blenderkit-PR${{ github.event.pull_request.number }}-${{ steps.date.outputs.date }}
+          path: |
+            out
+            !out/blenderkit.zip
+
+  make-tests-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        run: python .github/make-tests-matrix.py >> $GITHUB_OUTPUT
+
+  TESTS:
+    needs: make-tests-matrix
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache Blender
+        id: blenderBinaryCache
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/blender
+          key: blender-${{matrix.version}}-${{matrix.sha}}
+      - name: Download Blender
+        if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
+        run: curl ${{ matrix.download_url }} -o /home/runner/blender.tar.xz
+      - name: Mkdir
+        run: mkdir {/home/runner/.local/bin,/home/runner/blender} -p
+      - name: Extract Blender
+        if: steps.blenderBinaryCache.outputs.cache-hit != 'true'
+        run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
+      - name: Add Blender to PATH
+        run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
+      - name: TEST
+        run: python dev.py test --install-at /home/runner/.config/blender/${{matrix.version_x_y}}/scripts/addons
