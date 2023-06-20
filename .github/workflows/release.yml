@@ -5,17 +5,17 @@ on:
     inputs:
       name:
         type: choice
-        description: Who to greet
-        options: 
-        - monalisa
-        - cschleiden
-      message:
+        description: Release Stage
+        options:
+        - alpha
+        - beta
+        - rc
+        - gold
+      version:
         required: true
       use-emoji:
         type: boolean
-        description: Include 🎉🤣 emojis
-      environment:
-        type: environment
+        description: Include 🎉🤣 emojis in release notes
 
 jobs:
   Checks:
