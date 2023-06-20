@@ -12,6 +12,7 @@ on:
         - rc
         - gold
       version:
+        default: "3.Y.Z"
         required: true
       use-emoji:
         type: boolean
@@ -28,10 +29,20 @@ jobs:
         run: python -m isort . --check-only --diff
       - name: BLACK
         run: python -m black . --check --diff
-      #- name: RUFF on ./daemon
-      #  run: python -m ruff daemon
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
+      - name: Version in daemon.py same as in __init__.py
+        run: python3 -c 'from daemon import VERSION; from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, VERSION.split(".")))'
+
+  Release_checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get current date and time
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
+      - name: Version set to ${{inputs.version}}
+        run: python3 -c 'from __init__ import bl_info; assert bl_info["version"] == tuple(map(int, "${{inputs.version}}.${{steps.date.outputs.date}}".split(".")))'"'
 
   Build:
     runs-on: ubuntu-latest
@@ -41,11 +52,11 @@ jobs:
         run: python dev.py build
       - name: Get current date and time
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d--%H-%M-%S')"
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
       - name: Store the build
         uses: actions/upload-artifact@v3
         with:
-          name: blenderkit-PR${{ github.event.pull_request.number }}-${{ steps.date.outputs.date }}
+          name: blenderkit-v${{inputs.version}}.${{steps.date.outputs.date}}
           path: |
             out
             !out/blenderkit.zip
