@@ -129,17 +129,17 @@ def draw_upload_common(layout, props, asset_type, context):
         # row.enabled = False
         # row.prop(props, 'id', icon='FILE_TICK')
     row = layout.row()
-    if props.category == "NONE":
+    if props.is_private == "PUBLIC" and props.category == "NONE":
         row.alert = True
     row.prop(props, "category")
     if props.category != "NONE" and props.subcategory != "EMPTY":
         row = layout.row()
-        if props.subcategory == "NONE":
+        if props.is_private == "PUBLIC" and props.subcategory == "NONE":
             row.alert = True
         row.prop(props, "subcategory")
     if props.subcategory != "NONE" and props.subcategory1 != "EMPTY":
         row = layout.row()
-        if props.subcategory1 == "NONE":
+        if props.is_private == "PUBLIC" and props.subcategory1 == "NONE":
             row.alert = True
         row.prop(props, "subcategory1")
 

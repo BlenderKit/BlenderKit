@@ -123,16 +123,17 @@ def check_missing_data(asset_type, props):
             f"   Please ensure your asset name is no more than {NAME_MAXIMUM} characters long.",
         )
 
-    category_ok = props.category == "NONE"
-    subcategory_ok = props.subcategory != "EMPTY" and props.subcategory == "NONE"
-    subcategory1_ok = props.subcategory1 != "EMPTY" and props.subcategory1 == "NONE"
-    if category_ok or subcategory_ok or subcategory1_ok:
-        write_to_report(
-            props,
-            "Category, subcategory, or sub-subcategory has not been selected.\n"
-            "   Please ensure you select appropriate values; 'None' is not a valid selection.\n"
-            "   Proper categorization significantly improves your asset's discoverability.",
-        )
+    if props.is_private == "PUBLIC":
+        category_ok = props.category == "NONE"
+        subcategory_ok = props.subcategory != "EMPTY" and props.subcategory == "NONE"
+        subcategory1_ok = props.subcategory1 != "EMPTY" and props.subcategory1 == "NONE"
+        if category_ok or subcategory_ok or subcategory1_ok:
+            write_to_report(
+                props,
+                "Category, subcategory, or sub-subcategory has not been selected.\n"
+                "   Please ensure you select appropriate values; 'None' is not a valid selection.\n"
+                "   Proper categorization significantly improves your asset's discoverability.",
+            )
 
     if props.thumbnail == "" and asset_type != "HDR":
         write_to_report(
@@ -529,7 +530,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     upload_data["description"] = props.description
     upload_data["tags"] = utils.string2list(props.tags)
     # category is always only one value by a slug, that's why we go down to the lowest level and overwrite.
-    if props.category == "":
+    if props.category == "" or props.category == "NONE":
         upload_data["category"] = asset_type.lower()
     else:
         upload_data["category"] = props.category
