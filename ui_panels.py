@@ -3266,11 +3266,13 @@ def header_search_draw(self, context):
     draw_assetbar_show_hide(layout, props)
     if utils.experimental_enabled():
         layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
-    if props.search_category == ui_props.asset_type.lower() or props.search_category=="":
+    if (
+        props.search_category == ui_props.asset_type.lower()
+        or props.search_category == ""
+    ):
         icon_id = pcoll["categories"].icon_id
     else:
         icon_id = pcoll["categories_active"].icon_id
-
 
     layout.popover(
         panel="VIEW3D_PT_blenderkit_categories",
