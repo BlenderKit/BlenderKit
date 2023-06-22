@@ -1898,11 +1898,18 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     global_dir: StringProperty(
-        name="Global Files Directory",
-        description="Global storage for your assets, will use subdirectories for the contents. Daemon will place its files in subdirectory 'daemon'.",
+        name="Global Directory",
+        description="Global storage for your assets, will use subdirectories for the contents. Daemon will place its files in subdirectory 'daemon'",
         subtype="DIR_PATH",
         default=default_global_dict,
         update=utils.save_prefs,
+    )
+
+    project_subdir: StringProperty(
+        name="Project Subdirectory",
+        description="Subdirectory for asset data storage in the project (provide relative path)",
+        default="//assets",
+        update=fix_subdir,
     )
 
     daemon_port: EnumProperty(
@@ -1920,14 +1927,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
         ),
         default="62485",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
-    )
-
-    project_subdir: StringProperty(
-        name="Project Assets Subdirectory",
-        description="where data will be stored for individual projects",
-        # subtype='DIR_PATH',
-        default="//assets",
-        update=fix_subdir,
     )
 
     unpack_files: BoolProperty(
@@ -2106,7 +2105,7 @@ In this case you should also set path to your system CA bundle containing proxy 
         min=0,
         max=100,
         update=utils.save_prefs,
-        description="Width of the search field in the assetbar in 3D view. 0 means automatic width.",
+        description="Width of the search field in the assetbar in 3D view. 0 means automatic width",
     )
 
     # counts usages so it can encourage user after some time to do things.
@@ -2126,7 +2125,7 @@ In this case you should also set path to your system CA bundle containing proxy 
 
     asset_popup_counter: IntProperty(
         name="Asset Popup Card Counter",
-        description="Counts Asset popup card counter. To enable hiding of the tooltip after some time.",
+        description="Counts Asset popup card counter. To enable hiding of the tooltip after some time",
         default=0,
         min=0,
         max=6,
@@ -2206,10 +2205,10 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
         if utils.profile_is_validator():
             layout.prop(self, "categories_fix")
 
-        # LOCATIONS SETTINGS
+        # FILE PATHS
         locations_settings = layout.box()
         locations_settings.alignment = "EXPAND"
-        locations_settings.label(text="Locations settings")
+        locations_settings.label(text="File paths")
         locations_settings.prop(self, "directory_behaviour")
         locations_settings.prop(self, "global_dir")
         if self.directory_behaviour in ("BOTH", "LOCAL"):
