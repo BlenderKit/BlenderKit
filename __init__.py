@@ -22,7 +22,7 @@ bl_info = {
     "version": (3, 8, 0, 230625),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
-    "description": "Online BlenderKit library (materials, models, brushes and more). Connects to the internet.",
+    "description": "Boost your workflow with drag&drop assets from the community driven library.",
     "doc_url": "https://github.com/BlenderKit/blenderkit/wiki",
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
@@ -2051,25 +2051,28 @@ In this case you should also set path to your system CA bundle containing proxy 
         items=(
             (
                 "BOTH",
-                "Global and Subdir",
-                "Store files both in global lib and subdirectory of current project. "
-                "Warning - each file can be many times on your harddrive, but helps you keep your projects in one piece.",
+                "Global directory and Project's subdirectory",
+                "Save downloaded asset files in both the global directory and the subdirectory of the current project. "
+                "This option keeps your projects organized and preserves download data since assets are also cached in the global directory. "
+                "However, it may consume more disk space due to potential duplication of assets in both locations.",
             ),
             (
                 "GLOBAL",
-                "Global",
-                "store downloaded files only in global directory. \n "
-                "This can bring problems when moving your projects, \n"
-                "since assets won't be in subdirectory of current project.",
+                "Global directory",
+                "Store downloaded files in the global directory only. "
+                "This option saves disk space by keeping assets in a single location, "
+                "but it makes it more difficult to move projects to another computer since assets won't be in the subdirectory of the current project.",
             ),
             (
                 "LOCAL",
-                "Local",
-                "store downloaded files only in local directory.\n"
-                " This can use more bandwidth when you reuse assets in different projects.",
+                "Project's subdirectory",
+                "Save downloaded files in the subdirectory of the current project only."
+                "This option makes projects compact, portable, and easy to transport as assets are stored inside. "
+                "It usually saves disk space since no duplicate data is stored in the global directory. "
+                "However, when reusing assets in a new project, they will be downloaded again and stored again in the new project's subdirectory.",
             ),
         ),
-        description="Which directories will be used for storing downloaded data",
+        description="Determines the locations used for storing downloaded asset data.",
         default="BOTH",
         update=utils.save_prefs,
     )
