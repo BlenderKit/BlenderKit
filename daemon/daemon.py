@@ -6,7 +6,7 @@ Uses exit codes to signal different error types. Their meaning is defined and ha
 import asyncio
 from argparse import ArgumentParser
 from logging import getLogger
-from os import environ, getpid
+from os import environ, getpid, path
 from platform import system
 from signal import SIGINT, raise_signal
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, socket
@@ -297,6 +297,9 @@ async def persistent_sessions(app):
     if app["PROXY_CA_CERTS"] != "":
         sslcontext.load_verify_locations(app["PROXY_CA_CERTS"])
     sslcontext.load_verify_locations(certifi.where())
+    sslcontext.load_verify_locations(
+        path.join(path.dirname(__file__), "certs/blenderkit-com-chain.pem")
+    )
     try:
         sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
     except Exception as e:
@@ -310,6 +313,7 @@ async def persistent_sessions(app):
     else:
         trust_env = False
 
+    logger.info(f"SSLContext stats: {sslcontext.cert_store_stats()}")
     if daemon_globals.IP_VERSION == "IPv4":
         family = AF_INET
     else:  # default value
