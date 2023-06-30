@@ -135,7 +135,7 @@ def check_missing_data(asset_type, props):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if props.thumbnail == "" and asset_type != "HDR":
+    if asset_type != "HDR" and props.thumbnail == "":
         write_to_report(
             props,
             "A thumbnail image has not been provided.\n"
