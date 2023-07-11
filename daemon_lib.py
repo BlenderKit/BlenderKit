@@ -414,13 +414,19 @@ def send_code_verifier(code_verifier: str):
         return resp
 
 
-def refresh_token(refresh_token):
-    """Refresh authentication token."""
+def refresh_token(refresh_token, old_api_key):
+    """Refresh authentication token. Daemon will use refresh token to get new API key token to replace the old_api_key.
+    old_api_key is used later to replace token only in Blender instances with the same api_key. (User can be logged into multiple accounts.)
+    """
+    bk_logger.info("Calling API token refresh")
     with requests.Session() as session:
         url = get_address() + "/refresh_token"
         resp = session.get(
             url,
-            json={"refresh_token": refresh_token},
+            json={
+                "refresh_token": refresh_token,
+                "old_api_key": old_api_key,
+            },
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )

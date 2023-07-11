@@ -152,7 +152,7 @@ async def download_asset(
 
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_status, "Get download URL"
+            e, resp_text, resp_status, "Download asset"
         )
         task.error(msg, message_detailed=detail)
         return False

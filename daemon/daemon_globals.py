@@ -24,3 +24,6 @@ VERSION = None
 code_verifier = None
 active_apps = []
 last_report_time: float = time()
+
+token_refresh_list = []
+"""List of tokens for which the refreshing is in progress."""
