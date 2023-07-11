@@ -119,18 +119,9 @@ def undo_pre_end_assetbar(context):
 
 @persistent
 def scene_load(context):
-    """Load categories , check timers registration, and update scene asset data.
+    """Load categories, check timers registration, and update scene asset data.
     Should (probably) also update asset data from server (after user consent).
     """
-    if (
-        not bpy.app.timers.is_registered(bkit_oauth.refresh_token_timer)
-        and not bpy.app.background
-    ):
-        bpy.app.timers.register(
-            bkit_oauth.refresh_token_timer, persistent=True, first_interval=5
-        )
-        # bpy.app.timers.register(bkit_oauth.refresh_token_timer, persistent=True, first_interval=36000)
-
     update_assets_data()
 
 
@@ -316,7 +307,7 @@ def handle_search_task_error(task: daemon_tasks.Task) -> None:
     if len(search_tasks) == 0:
         props = utils.get_search_props()
         props.is_searching = False
-    return reports.add_report(task.message, 15, "ERROR")
+    return reports.add_report(task.message, 5, "ERROR")
 
 
 def handle_search_task(task: daemon_tasks.Task) -> bool:

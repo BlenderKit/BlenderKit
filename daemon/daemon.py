@@ -145,12 +145,6 @@ async def consumer_exchange(request: web.Request):
     return web.HTTPPermanentRedirect(redirect_url)
 
 
-async def refresh_token(request: web.Request):
-    atask = asyncio.ensure_future(daemon_oauth.refresh_tokens(request))
-    atask.add_done_callback(daemon_tasks.handle_async_errors)
-    return web.Response(text="ok")
-
-
 async def subscribe_new_addon(request: web.Request, data: dict):
     """Subscribe new add-on into list of active applications.
     Also run all tasks which are needed on add-on startup - will be reported back to add-on once finished.
@@ -421,7 +415,7 @@ if __name__ == "__main__":
             web.view("/shutdown", shutdown),
             web.view("/report_blender_quit", report_blender_quit),
             web.get("/consumer/exchange/", consumer_exchange),
-            web.get("/refresh_token", refresh_token),
+            web.get("/refresh_token", daemon_oauth.refresh_token),
             web.post("/code_verifier", code_verifier),
             web.post("/report_usages", daemon_assets.report_usages_handler),
             web.post("/comments/{func}", daemon_comments.comments_handler),

@@ -1,5 +1,6 @@
 """OAuth for login."""
 
+import asyncio
 import typing
 from logging import getLogger
 
@@ -46,34 +47,51 @@ async def get_tokens(
             return resp_json, resp_status, ""
     except Exception as e:
         msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_status, "Get download URL"
+            e, resp_text, resp_status, "Get tokens"
         )
         logger.warning(detail)
-        return resp_json, resp_status, msg
+        return {}, resp_status, msg
 
 
 async def refresh_tokens(request: web.Request) -> None:
     data = await request.json()
     refresh_token = data["refresh_token"]
+    if refresh_token in daemon_globals.token_refresh_list:
+        logger.info("Refresh token already used.")
+        return
+    logger.info("Token refresh requested.")
+    daemon_globals.token_refresh_list.append(refresh_token)
     response_json, status, error = await get_tokens(
         request, refresh_token=refresh_token, grant_type="refresh_token"
     )
 
     for app_id in daemon_globals.active_apps:
-        task = daemon_tasks.Task(None, app_id, "login", message="Refreshing tokens")
+        task = daemon_tasks.Task(
+            data, app_id, "token_refresh", message="Refreshing tokens"
+        )
         daemon_globals.tasks.append(task)
         task.result = response_json
         if status == 200:
             return task.finished("Refreshed tokens obtained")
         if status == 429:
             return task.error(
-                f"Couldn't refresh API tokens, API rate exceeded: {error}"
+                f"Couldn't refresh API tokens, API rate exceeded. Please login again.",
+                message_detailed=str(error),
             )
         if status == -1:
             return task.error(
-                f"Couldn't refresh API tokens, server is not reachable: {error}. Please login again."
+                f"Couldn't refresh API tokens, server is not reachable. Please login again.",
+                message_detailed=str(error),
             )
 
         return task.error(
-            f"Couldn't refresh API tokens ({status}). Error: {error}. Please login again."
+            f"Couldn't refresh API tokens ({status}). Please login again.",
+            message_detailed=str(error),
         )
+
+
+async def refresh_token(request: web.Request):
+    """Create asyncio task for refreshal of the API key token of the add-on."""
+    atask = asyncio.ensure_future(refresh_tokens(request))
+    atask.add_done_callback(daemon_tasks.handle_async_errors)
+    return web.Response(text="ok")

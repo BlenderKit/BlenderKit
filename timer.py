@@ -159,10 +159,23 @@ def cancel_all_tasks(self, context):
 def task_error_overdrive(task: daemon_tasks.Task) -> None:
     """Handle error task - overdrive some error messages, trigger functions common for all errors."""
     if task.message.count("Invalid token.") > 0 and utils.user_logged_in():
+        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+
+        # Invalid token and api_key_refresh present -> trying to refresh the token
+        if preferences.api_key_refresh != "":
+            daemon_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
+            reports.add_report(
+                "Invalid API key token. Refreshing the token now. If problem persist, please log-out and log-in.",
+                5,
+                "ERROR",
+            )
+            return
+
+        # Invalid token and no api_key_refresh token -> nothing else we can try...
         bkit_oauth.logout()
         reports.add_report(
-            "Invalid API key token. Logged out. Please login again.",
-            15,
+            "Invalid permanent API key token. Logged out. Please login again.",
+            10,
             "ERROR",
         )
 
@@ -197,6 +210,10 @@ def handle_task(task: daemon_tasks.Task):
     # HANDLE LOGIN
     if task.task_type == "login":
         return bkit_oauth.handle_login_task(task)
+
+    # HANDLE TOKEN REFRESH
+    if task.task_type == "token_refresh":
+        return bkit_oauth.handle_token_refresh_task(task)
 
     # HANDLE DAEMON STATUS REPORT
     if task.task_type == "daemon_status":
@@ -292,13 +309,19 @@ def on_startup_daemon_online_timer():
         return 1
 
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    if preferences.show_on_start:
-        search.search()
+    refresh_needed = bkit_oauth.ensure_token_refresh()
+    if refresh_needed:  # called for new API token, lets wait for a while
+        return 1
+
     if (
         preferences.api_key != ""
     ):  # TODO: this could be started from daemon automatically?
         daemon_lib.get_user_profile(preferences.api_key)
         daemon_lib.get_bookmarks()
+
+    if preferences.show_on_start:
+        search.search()
+
     return
 
 

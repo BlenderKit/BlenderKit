@@ -34,19 +34,49 @@ from .daemon import daemon_tasks
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
+REFRESH_RESERVE = 60 * 60 * 24 * 3  # 3 days
 active_authenticator = None
 bk_logger = logging.getLogger(__name__)
 
 
 def handle_login_task(task: daemon_tasks.Task):
     """Handles incoming task of type Login. Writes tokens if it finished successfully, logouts the user on error."""
+    if task.status == "finished":
+        tasks_queue.add_task(
+            (
+                write_tokens,
+                (
+                    task.result["access_token"],
+                    task.result["refresh_token"],
+                    task.result,
+                ),
+            )
+        )
+    elif task.status == "error":
+        logout()
+        reports.add_report(task.message, 5, "ERROR")
+
+
+def handle_token_refresh_task(task: daemon_tasks.Task):
+    """Handle incoming task of type token_refresh. If the new token is meant for the current user, calls handle_login_task.
+    Otherwise it ignores the incoming task.
+    """
+    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    if task.data.get("old_api_key") != preferences.api_key:
+        bk_logger.info("Refreshed token is not meant for current user. Ignoring.")
+        return
 
     if task.status == "finished":
-        access_token = task.result["access_token"]
-        refresh_token = task.result["refresh_token"]
-        oauth_response = task.result
+        reports.add_report(task.message, 5, "INFO")
         tasks_queue.add_task(
-            (write_tokens, (access_token, refresh_token, oauth_response))
+            (
+                write_tokens,
+                (
+                    task.result["access_token"],
+                    task.result["refresh_token"],
+                    task.result,
+                ),
+            )
         )
     elif task.status == "error":
         logout()
@@ -55,7 +85,7 @@ def handle_login_task(task: daemon_tasks.Task):
 
 def logout():
     """Logs out user from add-on."""
-
+    bk_logger.info("Logging out.")
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
     preferences.login_attempt = False
     preferences.api_key_refresh = ""
@@ -119,22 +149,23 @@ def write_tokens(auth_token, refresh_token, oauth_response):
         search.search(query=history[-1])
 
 
-def refresh_token_timer():
-    """Checks if API token needs refresh and makes it if needed."""
-    next_time = 1800
+def ensure_token_refresh() -> bool:
+    """Check if API token needs refresh, call refresh and return True if so.
+    Otherwise do nothing and return False.
+    """
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
     if preferences.api_key == "":  # Not logged in
-        return next_time
+        return False
 
     if preferences.api_key_refresh == "":  # Using manually inserted permanent token
-        return next_time
+        return False
 
-    if time.time() + 7200 < preferences.api_key_timeout:  # Token is not old
-        return next_time
+    if time.time() + REFRESH_RESERVE < preferences.api_key_timeout:  # Token is not old
+        return False
 
     # Token is at the end of life, refresh token exists, it is time to refresh
-    daemon_lib.refresh_token(preferences.api_key_refresh)
-    return next_time
+    daemon_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
+    return True
 
 
 class LoginOnline(bpy.types.Operator):
