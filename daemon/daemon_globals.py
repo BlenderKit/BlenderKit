@@ -20,6 +20,7 @@ IP_VERSION = None
 SSL_CONTEXT = None
 SYSTEM_ID = None
 VERSION = None
+RUNNING_AS_COMPILED = False
 
 code_verifier = None
 active_apps = []

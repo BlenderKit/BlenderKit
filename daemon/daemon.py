@@ -4,6 +4,7 @@ Uses exit codes to signal different error types. Their meaning is defined and ha
 # ruff: noqa: E402
 
 import asyncio
+import sys
 from argparse import ArgumentParser
 from logging import getLogger
 from os import environ, getpid, path
@@ -11,13 +12,12 @@ from platform import system
 from signal import SIGINT, raise_signal
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, socket
 from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext, create_default_context
-from sys import stdout
 from time import time
 from uuid import uuid4
 
 
 VERSION = "3.8.1.230808"
-stdout.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")
 logger = getLogger("daemon")
 
 try:
@@ -255,10 +255,14 @@ async def life_check(app: web.Application):
 
 
 async def start_background_tasks(app: web.Application):
+    if daemon_globals.RUNNING_AS_COMPILED is True:
+        return
     app["life_check"] = asyncio.create_task(life_check(app))
 
 
 async def cleanup_background_tasks(app: web.Application):
+    if daemon_globals.RUNNING_AS_COMPILED is True:
+        return
     try:
         app["life_check"].cancel()
     except Exception as e:
@@ -385,6 +389,7 @@ def compiled_start(args):
         )
         if new_val != "":
             setattr(args, arg, new_val)
+    daemon_globals.RUNNING_AS_COMPILED = True
 
 
 ## MAIN
@@ -401,7 +406,8 @@ if __name__ == "__main__":
     parser.add_argument("--system_id", type=str, default="")
     parser.add_argument("--version", type=str, default=VERSION)
     args = parser.parse_args()
-    if "__compiled__" in globals():
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         compiled_start(args)
 
     logger.info(f"Daemon (PID {getpid()}) initiated with {args}")
