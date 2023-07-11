@@ -16,7 +16,7 @@ from time import time
 from uuid import uuid4
 
 
-VERSION = "3.8.0.230630"
+VERSION = "3.8.0.230711"
 stdout.reconfigure(encoding="utf-8")
 logger = getLogger("bk_daemon")
 

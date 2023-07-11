@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
-    "version": (3, 8, 0, 230630),  # X.Y.Z.yymmdd
+    "version": (3, 8, 0, 230711),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Boost your workflow with drag&drop assets from the community driven library.",
@@ -2247,7 +2247,7 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
         addondir_row.label(text=f"Installed at: {path.dirname(__file__)}")
         addondir_row.enabled = False
         globdir_row = layout.row()
-        globdir_row.label(text=f"Global Files Directory: {self.global_dir}")
+        globdir_row.label(text=f"Global directory: {self.global_dir}")
         globdir_row.enabled = False
         dlog_row = layout.row()
         dlog_row.label(text=f"Daemon log: {daemon_lib.get_daemon_log_path()}")
