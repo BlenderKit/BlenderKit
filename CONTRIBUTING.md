@@ -53,7 +53,7 @@ python dev.py build --install-at /path/to/blender/3.2/scripts/addons
 ### Compiling daemon
 
 Compiled daemon binary is meant as fallback option for situations where the daemon is blocked by antivirus or firewall.
-Daemon is compiled by `nuitka`
+Daemon is compiled by `pyinstaller`.
 
 1. install `pipenv`: `pip install --user pipenv`
 2. compile for current platform and architecture: `python dev.py compile`

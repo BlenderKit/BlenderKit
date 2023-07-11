@@ -1,4 +1,5 @@
 dependencies/Fallback
 __pycache__
 out
+out-daemon
 pyproject.toml

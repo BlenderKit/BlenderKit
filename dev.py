@@ -64,56 +64,53 @@ def do_build(install_at=None, include_tests=False):
 def compile_daemon():
     """Compile daemon for current platform."""
     subprocess.check_call(["pipenv", "install", "-r", "requirements.txt"])
-    subprocess.check_call(["pipenv", "install", "nuitka"])
+    subprocess.check_call(["pipenv", "install", "pyinstaller"])
+    print("PLATFORM:", sys.platform)
     if sys.platform == "darwin":
         subprocess.check_call(
             [
                 "pipenv",
                 "run",
-                "python",
-                "-m",
-                "nuitka",
-                "--macos-create-app-bundle",
-                "--follow-imports",
-                "--output-dir=../out/daemon",
-                "daemon.py",
+                "pyinstaller",
+                "--add-data",
+                "daemon:.",
+                "--onefile",
+                "daemon/daemon.py",
             ],
-            cwd="daemon",
         )
-    if sys.platform == "windows":
+        print("Macos build done")
+    if sys.platform == "win32":
         subprocess.check_call(
             [
                 "pipenv",
                 "run",
-                "python",
-                "-m",
-                "nuitka",
+                "pyinstaller",
+                "--add-data",
+                "daemon;.",
                 "--onefile",
-                "--follow-imports",
-                "--remove-output",
-                "--output-dir=../out/daemon",
-                "daemon.py",
+                "daemon/daemon.py",
             ],
-            cwd="daemon",
         )
+        print("Windows build done")
     if sys.platform == "linux":
         subprocess.check_call(
             [
                 "pipenv",
                 "run",
-                "python",
-                "-m",
-                "nuitka",
+                "pyinstaller",
+                "--add-data",
+                "daemon:.",
                 "--onefile",
-                "--follow-imports",
-                "--remove-output",
-                "--output-dir=../out/daemon",
-                "daemon.py",
+                "daemon/daemon.py",
             ],
-            cwd="daemon",
         )
+        print("Linux build done")
+    shutil.move("dist", "out-daemon/dist")
+    shutil.move("build", "out-daemon/build")
+    shutil.move("daemon.spec", "out-daemon/daemon.spec")
     os.remove("Pipfile")
     os.remove("Pipfile.lock")
+    print("daemon binary available at: out-daemon/dist/daemon")
 
 
 def run_tests():
