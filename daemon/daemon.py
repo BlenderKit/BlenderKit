@@ -282,7 +282,10 @@ def find_and_bind_socket(port: str) -> socket:
     exit(111)
 
 
-async def persistent_sessions(app):
+def configure_ssl_context(app: web.Application):
+    if daemon_globals.SSL_CONTEXT == "DISABLED":
+        logger.warning("SSL Context disabled. Be advised that this is not secure!")
+        return False
     if daemon_globals.SSL_CONTEXT == "PRECONFIGURED":
         sslcontext = create_default_context()
     else:
@@ -299,6 +302,12 @@ async def persistent_sessions(app):
     except Exception as e:
         logger.warning("failed to load default certs:", e)
 
+    logger.info(f"SSLContext stats: {sslcontext.cert_store_stats()}")
+    return sslcontext
+
+
+async def persistent_sessions(app: web.Application):
+    sslcontext = configure_ssl_context(app)
     if app["PROXY_WHICH"] == "SYSTEM":
         trust_env = True
     elif app["PROXY_WHICH"] == "CUSTOM":
@@ -307,7 +316,6 @@ async def persistent_sessions(app):
     else:
         trust_env = False
 
-    logger.info(f"SSLContext stats: {sslcontext.cert_store_stats()}")
     if daemon_globals.IP_VERSION == "IPv4":
         family = AF_INET
     else:  # default value
