@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 
 import bpy
@@ -10,9 +11,19 @@ from . import global_vars
 bk_logger = logging.getLogger(__name__)
 
 
-def get_formatter():
-    """Get default formatter for BlenderKit loggers."""
-    return logging.Formatter(
+class SensitiveFormatter(logging.Formatter):
+    """Formatter that masks API key tokens. Replace temporary tokens with *** and permanent tokens with *****."""
+
+    def format(self, record):
+        msg = logging.Formatter.format(self, record)
+        msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{30}\b(?=["\'\s])', r"***", msg)
+        msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{40}\b(?=["\'\s])', r"*****", msg)
+        return msg
+
+
+def get_sensitive_formatter():
+    """Get default sensitive formatter for BlenderKit loggers."""
+    return SensitiveFormatter(
         fmt="blenderkit %(levelname)s: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
         datefmt="%H:%M:%S",
     )
@@ -29,7 +40,7 @@ def configure_bk_logger():
 
     stream_handler = logging.StreamHandler()
     stream_handler.stream = sys.stdout  # 517
-    stream_handler.setFormatter(get_formatter())
+    stream_handler.setFormatter(get_sensitive_formatter())
     bk_logger.addHandler(stream_handler)
 
 
@@ -42,7 +53,7 @@ def configure_imported_loggers():
     urllib3_handler = logging.StreamHandler()
     urllib3_handler.stream = sys.stdout  # 517
     urllib3_handler.setLevel(global_vars.LOGGING_LEVEL_IMPORTED)
-    urllib3_handler.setFormatter(get_formatter())
+    urllib3_handler.setFormatter(get_sensitive_formatter())
     urllib3_logger.addHandler(urllib3_handler)
 
 

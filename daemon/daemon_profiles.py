@@ -14,7 +14,7 @@ import daemon_utils
 from aiohttp import web
 
 
-logger = getLogger(__name__)
+logger = getLogger(f"daemon.{__name__}")
 
 
 async def fetch_gravatar_image_handler(request: web.Request):
