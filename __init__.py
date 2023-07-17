@@ -1989,6 +1989,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
                 "PRECONFIGURED by SSL module - ssl.create_default_context()",
                 "Daemon will use SSL context preconfigured by SSL module, and will add more settings on top of that. Try this if you face SSL errors.",
             ),
+            (
+                "DISABLED",
+                "DISABLED - SSL checks will be disabled. Unsecure!",
+                "Daemon will not use SSL context and will not check SSL certificates. "
+                "Try this if you face SSL errors, but be aware that this is unsecure and should be used only for debugging purposes. "
+                "Setting CA certificates path correctly is preferred and secure.",
+            ),
         ),
         description="SSL context to be be used by daemon",
         default="DEFAULT",
