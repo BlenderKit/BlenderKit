@@ -14,7 +14,7 @@ import daemon_utils
 from aiohttp import ClientSession, web
 
 
-logger = getLogger(__name__)
+logger = getLogger(f"daemon.{__name__}")
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
 
 

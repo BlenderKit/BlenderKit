@@ -9,7 +9,7 @@ import daemon_utils
 from aiohttp import web
 
 
-logger = getLogger(__name__)
+logger = getLogger(f"daemon.{__name__}")
 
 
 ### COMMENTS

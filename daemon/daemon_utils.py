@@ -14,7 +14,7 @@ import daemon_tasks
 from aiohttp import ClientResponseError, web
 
 
-logger = getLogger(__name__)
+logger = getLogger(f"daemon.{__name__}")
 
 
 def get_headers(api_key: str = "") -> dict[str, str]:
@@ -262,25 +262,35 @@ async def make_request(request: web.Request, task: daemon_tasks.Task):
         return task.error(f"{error_message}: {e}")
 
 
-def get_formatter():
-    """Get default formatter for daemon loggers."""
-    return Formatter(
+class SensitiveFormatter(Formatter):
+    """Formatter that masks API key tokens. Replace temporary tokens with *** and permanent tokens with *****."""
+
+    def format(self, record):
+        msg = Formatter.format(self, record)
+        msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{30}\b(?=["\'\s])', r"***", msg)
+        msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{40}\b(?=["\'\s])', r"*****", msg)
+        return msg
+
+
+def get_sensitive_formatter():
+    """Get default sensitive formatter for daemon loggers."""
+    return SensitiveFormatter(
         fmt="%(levelname)s: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
         datefmt="%H:%M:%S",
     )
 
 
 def configure_logger():
-    """Configure 'bk_daemon' logger to which all other logs defined as `logger = logging.getLogger(__name__)` writes.
+    """Configure 'daemon' logger to which all other logs defined as `logger = logging.getLogger(f"daemon.{__name__}")` writes.
     Sets it logging level to `daemon_globals.LOGGING_LEVEL_DAEMON`.
     """
     basicConfig(level=daemon_globals.LOGGING_LEVEL_DAEMON)
-    logger = getLogger("bk_daemon")
+    logger = getLogger("daemon")
     logger.propagate = False
     logger.handlers = []
     handler = StreamHandler()
     handler.stream = sys.stdout  # 517
-    handler.setFormatter(get_formatter())
+    handler.setFormatter(get_sensitive_formatter())
     logger.addHandler(handler)
 
 
@@ -293,7 +303,7 @@ def configure_imported_loggers():
     aiohttp_handler = StreamHandler()
     aiohttp_handler.stream = sys.stdout  # 517
     aiohttp_handler.setLevel(daemon_globals.LOGGING_LEVEL_IMPORTED)
-    aiohttp_handler.setFormatter(get_formatter())
+    aiohttp_handler.setFormatter(get_sensitive_formatter())
     aiohttp_logger.addHandler(aiohttp_handler)
 
 

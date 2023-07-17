@@ -18,7 +18,7 @@ from uuid import uuid4
 
 VERSION = "3.8.0.230711"
 stdout.reconfigure(encoding="utf-8")
-logger = getLogger("bk_daemon")
+logger = getLogger("daemon")
 
 try:
     import aiohttp
@@ -202,7 +202,7 @@ async def report(request: web.Request):
         if task.status == "finished":
             daemon_globals.tasks.remove(task)
         if task.status == "error":
-            print(
+            logger.error(
                 f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}"
             )
             daemon_globals.tasks.remove(task)
