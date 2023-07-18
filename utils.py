@@ -373,6 +373,7 @@ def get_active_brush():
     return brush
 
 
+# TODO: unused, remove?
 def load_XXXXXXXXXXXX_prefs():
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     wm = bpy.context.window_manager
@@ -413,6 +414,7 @@ def get_scene_id():
     return bpy.context.scene["uuid"]
 
 
+# TODO: not used, remove with its setting in get_prefs_dir()?
 def save_resolutions(self, context):
     wm = bpy.context.window_manager
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
@@ -431,7 +433,7 @@ def get_prefs_dir():
     wm.blenderkit_models.resolution = user_preferences.models_resolution
     wm.blenderkit_mat.resolution = user_preferences.mat_resolution
     wm.blenderkit_HDR.resolution = user_preferences.hdr_resolution
-
+    # TODO: wm.blenderkit_models.resolution is not accessible, is it needed?
     prefs = {
         "debug_value": bpy.app.debug_value,
         "binary_path": bpy.app.binary_path,
@@ -465,32 +467,34 @@ def set_proxy():
 
 def save_prefs(self, context):
     # first check context, so we don't do this on registration or blender startup
-    if not bpy.app.background:  # (hasattr kills blender)
-        # print('saving prefs')
-        bpy.ops.wm.save_userpref()
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-        # we test the api key for length, so not a random accidentally typed sequence gets saved.
-        lk = len(user_preferences.api_key)
-        if 0 < lk < 25:
-            # reset the api key in case the user writes some nonsense, e.g. a search string instead of the Key
-            user_preferences.api_key = ""
-            props = get_search_props()
-            props.report = "Login failed. Please paste a correct API Key."
-
-        prefs = get_prefs_dir()
-        global_vars.PREFS = prefs
-        set_proxy()
-
+    if bpy.app.background is True:  # (hasattr kills blender)
         return
-        try:
-            fpath = paths.BLENDERKIT_SETTINGS_FILENAME
 
-            if not os.path.exists(paths._presets):
-                os.makedirs(paths._presets)
-            with open(fpath, "w", encoding="utf-8") as s:
-                json.dump(prefs, s, ensure_ascii=False, indent=4)
-        except Exception as e:
-            print(e)
+    # print('saving prefs')
+    bpy.ops.wm.save_userpref()
+    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    # we test the api key for length, so not a random accidentally typed sequence gets saved.
+    lk = len(user_preferences.api_key)
+    if 0 < lk < 25:
+        # reset the api key in case the user writes some nonsense, e.g. a search string instead of the Key
+        user_preferences.api_key = ""
+        props = get_search_props()
+        props.report = "Login failed. Please paste a correct API Key."
+
+    prefs = get_prefs_dir()
+    global_vars.PREFS = prefs
+    set_proxy()
+
+    return
+    try:
+        fpath = paths.BLENDERKIT_SETTINGS_FILENAME
+
+        if not os.path.exists(paths._presets):
+            os.makedirs(paths._presets)
+        with open(fpath, "w", encoding="utf-8") as s:
+            json.dump(prefs, s, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print(e)
 
 
 def uploadable_asset_poll():

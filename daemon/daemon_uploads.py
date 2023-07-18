@@ -145,6 +145,9 @@ async def pack_blend_file(task: daemon_tasks.Task, metadata_response: dict):
             process = await asyncio.create_subprocess_exec(
                 export_data["binary_path"],
                 "--background",
+                "--factory-startup",  # disables user preferences, addons, etc.
+                "--addons",
+                "blenderkit",
                 "-noaudio",
                 cleanfile_path,
                 "--python",

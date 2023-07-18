@@ -291,7 +291,7 @@ def check_timers_timer():
 
 
 def on_startup_timer():
-    """Run once on the startup of add-on."""
+    """Run once on the startup of add-on (Blender start with enabled add-on, add-on enabled)."""
     addon_updater_ops.check_for_update_background()
     utils.check_globaldir_permissions()
     utils.ensure_system_ID()
@@ -326,7 +326,7 @@ def on_startup_daemon_online_timer():
 
 
 def register_timers():
-    """Registers all timers.
+    """Register all timers if add-on is not running in background (thumbnail rendering, upload, unpacking and also tests).
     It registers check_timers_timer which registers all other periodic non-ending timers.
     And individually it register all timers which are expected to end.
     """
@@ -347,9 +347,7 @@ def register_timers():
 def unregister_timers():
     """Unregister all timers at the very start of unregistration.
     This prevents the timers being called before the unregistration finishes.
-    Also reports unregistration to daemon.
     """
-
     if bpy.app.background:
         return
 

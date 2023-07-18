@@ -142,43 +142,57 @@ def update_upload_brush_preview(self, context):
         check_thumbnail(props, imgpath)
 
 
+def get_thumbnailer_args(script_name, thumbnailer_filepath, datafile, api_key):
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    script_path = os.path.join(script_path, script_name)
+    args = [
+        bpy.app.binary_path,
+        "--background",
+        "--factory-startup",
+        "--addons",
+        "blenderkit",
+        "-noaudio",
+        thumbnailer_filepath,
+        "--python",
+        script_path,
+        "--",
+        datafile,
+        api_key,
+    ]
+    return args
+
+
 def start_model_thumbnailer(
     self=None, json_args=None, props=None, wait=False, add_bg_process=True
 ):
     """Start Blender in background and render the thumbnail."""
+    SCRIPT_NAME = "autothumb_model_bg.py"
     if props:
         props.is_generating_thumbnail = True
         props.thumbnail_generating_state = "Saving .blend file"
 
-    binary_path = bpy.app.binary_path
-    script_name = "autothumb_model_bg.py"
-    script_path = os.path.dirname(os.path.realpath(__file__))
-    script_path = os.path.join(script_path, script_name)
-    thumbnailer_file_path = paths.get_thumbnailer_filepath()
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
+    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
     except Exception as e:
         self.report({"WARNING"}, f"Error while exporting file: {e}")
         return {"FINISHED"}
-
+    args = get_thumbnailer_args(
+        SCRIPT_NAME,
+        paths.get_thumbnailer_filepath(),
+        datafile,
+        user_preferences.api_key,
+    )
     proc = subprocess.Popen(
-        [
-            binary_path,
-            "--background",
-            "-noaudio",
-            thumbnailer_file_path,
-            "--python",
-            script_path,
-            "--",
-            datafile,
-        ],
+        args,
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         creationflags=utils.get_process_flags(),
     )
-    bk_logger.info(f"Started Blender executing {script_name} on file {datafile}")
+    bk_logger.info(f"Started Blender executing {SCRIPT_NAME} on file {datafile}")
     eval_path_computing = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
     eval_path_state = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.thumbnail_generating_state"
     eval_path = f"bpy.data.objects['{json_args['asset_name']}']"
@@ -216,17 +230,14 @@ def start_material_thumbnailer(
     -------
 
     """
+    SCRIPT_NAME = "autothumb_material_bg.py"
     if props:
         props.is_generating_thumbnail = True
         props.thumbnail_generating_state = "Saving .blend file"
 
-    binary_path = bpy.app.binary_path
-    script_name = "autothumb_material_bg.py"
-    script_path = os.path.dirname(os.path.realpath(__file__))
-    script_path = os.path.join(script_path, script_name)
-    thumbnailer_file_path = paths.get_material_thumbnailer_filepath()
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
-
+    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
@@ -234,22 +245,19 @@ def start_material_thumbnailer(
         self.report({"WARNING"}, f"Error while exporting file: {e}")
         return {"FINISHED"}
 
+    args = get_thumbnailer_args(
+        SCRIPT_NAME,
+        paths.get_material_thumbnailer_filepath(),
+        datafile,
+        user_preferences.api_key,
+    )
     proc = subprocess.Popen(
-        [
-            binary_path,
-            "--background",
-            "-noaudio",
-            thumbnailer_file_path,
-            "--python",
-            script_path,
-            "--",
-            datafile,
-        ],
+        args,
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         creationflags=utils.get_process_flags(),
     )
-    bk_logger.info(f"Started Blender executing {script_name} on file {datafile}")
+    bk_logger.info(f"Started Blender executing {SCRIPT_NAME} on file {datafile}")
 
     eval_path_computing = f"bpy.data.materials['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
     eval_path_state = f"bpy.data.materials['{json_args['asset_name']}'].blenderkit.thumbnail_generating_state"

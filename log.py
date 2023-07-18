@@ -1,9 +1,6 @@
 import logging
-import os
 import re
 import sys
-
-import bpy
 
 from . import global_vars
 
@@ -61,56 +58,3 @@ def configure_loggers():
     """Configure all loggers for BlenderKit addon. See called functions for details."""
     configure_bk_logger()
     configure_imported_loggers()
-
-
-### UNUSED - REMOVE IF FIX IS NOT FOUND
-def setup_logging_to_file(global_dir: str):
-    """Setup logging to file by redirecting all stdout and stderr into dedicated loggers which logs into file and into stream (back to console), also add file handler to `blenderkit` logger.
-    The redirection is done by setting `sys.stdout` and `sys.stderr` to custom `LogFile()` object.
-    File output is located at `global_dir/blenderkit.log`.
-    If the blender runs in background logging to file is skipped.
-    """
-    if bpy.app.background:
-        return
-
-    log_path = os.path.join(global_dir, "blenderkit.log")
-    os.makedirs(global_dir, exist_ok=True)
-
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setFormatter(get_formatter())
-
-    # has to be done here as before we do not have access to preferences and global_dir
-    logging.getLogger("blenderkit").addHandler(file_handler)
-
-    sys.stdout = LogFile("stdout", log_path)
-    sys.stderr = LogFile("stderr", log_path)
-
-
-class LogFile(object):
-    """File-like object to log text using the `logging` module. This is used to replace the default `sys.stdout` and `sys.stderr`."""
-
-    def __init__(self, name, log_path):
-        formatter = logging.Formatter(
-            fmt="%(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
-            datefmt="%H:%M:%S",
-        )
-
-        file_handler = logging.FileHandler(log_path, mode="w")
-        file_handler.setFormatter(formatter)
-
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-
-        self.logger = logging.getLogger(name)
-        self.logger.propagate = False
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(stream_handler)
-
-    def write(self, msg, level=logging.INFO):
-        if msg.strip() == "":
-            return
-        self.logger.log(level, msg.rstrip(), stacklevel=2)
-
-    def flush(self):
-        for handler in self.logger.handlers:
-            handler.flush()

@@ -1398,7 +1398,6 @@ def register_download():
     bpy.utils.register_class(BlenderkitKillDownloadOperator)
     bpy.app.handlers.load_post.append(scene_load)
     bpy.app.handlers.save_pre.append(scene_save)
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
 
 
 def unregister_download():

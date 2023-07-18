@@ -28,7 +28,8 @@ import bpy
 from blenderkit import append_link, bg_blender, bg_utils, daemon_lib, utils
 
 
-BLENDERKIT_EXPORT_DATA = sys.argv[-1]
+BLENDERKIT_EXPORT_DATA = sys.argv[-2]
+BLENDERKIT_EXPORT_API_KEY = sys.argv[-1]
 
 
 def get_obnames():
@@ -86,8 +87,7 @@ if __name__ == "__main__":
     try:
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
-
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        thumbnail_use_gpu = data.get("thumbnail_use_gpu")
 
         if data.get("do_download"):
             # if this isn't here, blender crashes.
@@ -101,7 +101,7 @@ if __name__ == "__main__":
             bg_blender.progress("Downloading asset")
             asset_data = data["asset_data"]
             has_url, asset_data = daemon_lib.get_download_url(
-                asset_data, utils.get_scene_id(), user_preferences.api_key
+                asset_data, utils.get_scene_id(), BLENDERKIT_EXPORT_API_KEY
             )
             if has_url is not True:
                 bg_blender.progress(
@@ -109,7 +109,7 @@ if __name__ == "__main__":
                 )
             bg_blender.progress("downloading asset")
             fpath = bg_utils.download_asset_file(
-                asset_data, api_key=user_preferences.api_key
+                asset_data, api_key=BLENDERKIT_EXPORT_API_KEY
             )
             data["filepath"] = fpath
             main_object, allobs = append_link.link_collection(
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         bpy.context.scene.camera = bpy.data.objects[camdict[data["thumbnail_snap_to"]]]
         center_obs_for_thumbnail(allobs)
         bpy.context.scene.render.filepath = data["thumbnail_path"]
-        if user_preferences.thumbnail_use_gpu:
+        if thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
 
         fdict = {
@@ -202,7 +202,7 @@ if __name__ == "__main__":
             file = {"type": "thumbnail", "index": 0, "file_path": fpath}
             upload_data = {
                 "name": data["asset_data"]["name"],
-                "token": user_preferences.api_key,
+                "token": BLENDERKIT_EXPORT_API_KEY,
                 "id": data["asset_data"]["id"],
             }
             bg_utils.upload_file(upload_data, file)
