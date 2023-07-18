@@ -28,7 +28,8 @@ import bpy
 from blenderkit import append_link, bg_blender, bg_utils, daemon_lib, utils
 
 
-BLENDERKIT_EXPORT_DATA = sys.argv[-1]
+BLENDERKIT_EXPORT_DATA = sys.argv[-2]
+BLENDERKIT_EXPORT_API_KEY = sys.argv[-1]
 bk_logger = logging.getLogger(__name__)
 
 
@@ -46,11 +47,11 @@ def unhide_collection(cname):
 if __name__ == "__main__":
     try:
         bg_blender.progress("preparing thumbnail scene")
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
             # append_material(file_name, matname = None, link = False, fake_user = True)
+
+        thumbnail_use_gpu = data.get("thumbnail_use_gpu")
         if data.get("do_download"):
             # need to save the file, so that asset doesn't get downloaded into addon directory
             temp_blend_path = os.path.join(data["tempdir"], "temp.blend")
@@ -63,7 +64,7 @@ if __name__ == "__main__":
 
             asset_data = data["asset_data"]
             has_url, asset_data = daemon_lib.get_download_url(
-                asset_data, utils.get_scene_id(), user_preferences.api_key
+                asset_data, utils.get_scene_id(), BLENDERKIT_EXPORT_API_KEY
             )
             if not has_url:
                 bg_blender.progress(
@@ -134,7 +135,7 @@ if __name__ == "__main__":
 
         s.cycles.volume_step_size = tscale * 0.1
 
-        if user_preferences.thumbnail_use_gpu:
+        if thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
 
         s.cycles.samples = data["thumbnail_samples"]
@@ -165,8 +166,6 @@ if __name__ == "__main__":
         render_thumbnails()
         if data.get("upload_after_render") and data.get("asset_data"):
             bg_blender.progress("uploading thumbnail")
-            preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
             file = {
                 "type": "thumbnail",
                 "index": 0,
@@ -174,7 +173,7 @@ if __name__ == "__main__":
             }
             upload_data = {
                 "name": data["asset_data"]["name"],
-                "token": preferences.api_key,
+                "token": BLENDERKIT_EXPORT_API_KEY,
                 "id": data["asset_data"]["id"],
             }
             bg_utils.upload_file(upload_data, file)

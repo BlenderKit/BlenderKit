@@ -182,8 +182,11 @@ def scene_load(context):
     ui_props.turn_off = False
     if global_vars.DAEMON_ACCESSIBLE:
         ui_props.logo_status = "logo"
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    preferences.login_attempt = False
+    if (
+        bpy.app.factory_startup is False
+    ):  # factory_start is used in bg blender runs, but we want to run for tests in background mode
+        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences.login_attempt = False
 
 
 conditions = (
@@ -2276,7 +2279,6 @@ classes = (
 
 def register():
     reload(global_vars)
-    global_vars.VERSION = bl_info["version"]
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
     addon_updater_ops.register(bl_info)
@@ -2327,10 +2329,12 @@ def register():
         type=BlenderKitBrushUploadProps
     )
 
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    global_vars.PREFS = utils.get_prefs_dir()
-    daemon_lib.reorder_ports(user_preferences.daemon_port)
-    utils.set_proxy()
+    global_vars.VERSION = bl_info["version"]
+    if bpy.app.factory_startup is False:
+        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        global_vars.PREFS = utils.get_prefs_dir()
+        daemon_lib.reorder_ports(user_preferences.daemon_port)
+        utils.set_proxy()
 
     search.register_search()
     asset_inspector.register_asset_inspector()
@@ -2347,7 +2351,6 @@ def register():
     tasks_queue.register()
     asset_bar_op.register()
     disclaimer_op.register()
-
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)

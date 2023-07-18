@@ -1237,8 +1237,9 @@ def pre_load(context):
     ui_props = bpy.context.window_manager.blenderkitUI
     ui_props.assetbar_on = False
     ui_props.turn_off = True
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    preferences.login_attempt = False
+    # TODO: is this needed?
+    # preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    # preferences.login_attempt = False
 
 
 def register_ui():

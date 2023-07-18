@@ -32,10 +32,10 @@ bk_logger = logging.getLogger(__name__)
 
 @persistent
 def scene_load(context):
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    if not bpy.app.background:
-        if not (bpy.app.timers.is_registered(queue_worker)):
-            bpy.app.timers.register(queue_worker)
+    if bpy.app.background is True:
+        return
+    if not (bpy.app.timers.is_registered(queue_worker)):
+        bpy.app.timers.register(queue_worker)
 
 
 def get_queue():

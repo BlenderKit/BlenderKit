@@ -314,6 +314,9 @@ async def send_to_bg(data, fpath, command="generate_resolutions", wait=True):
 
     args = [
         "--background",
+        "--factory-startup",  # disables user preferences, addons, etc.
+        "--addons",
+        "blenderkit",
         "-noaudio",
         # "--no-addons",
         fpath,
