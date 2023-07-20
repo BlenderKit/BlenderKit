@@ -1024,14 +1024,20 @@ def user_is_owner(asset_data=None):
 
 
 def asset_from_newer_blender_version(asset_data):
-    """checks if asset is from a newer blender version, to avoid incompatibility"""
-    bver = bpy.app.version
-    aver = asset_data["sourceAppVersion"].split(".")
-    bver_f = bver[0] + bver[1] * 0.01 + bver[2] * 0.0001
-    if len(aver) >= 3:
-        aver_f = int(aver[0]) + int(aver[1]) * 0.01 + int(aver[2]) * 0.0001
-        return aver_f > bver_f
-    return False
+    """Check if asset is from a newer blender version, to avoid incompatibility. Give info if difference is in major, minor or patch version."""
+    asset_ver = asset_data["sourceAppVersion"].split(".")
+    while len(asset_ver) < 3:
+        asset_ver.append("0")
+    if bpy.app.version[0] < int(asset_ver[0]):
+        return True, "major"
+
+    if bpy.app.version[1] < int(asset_ver[1]):
+        return True, "minor"
+
+    if bpy.app.version[2] < int(asset_ver[2]):
+        return True, "patch"
+
+    return False, ""
 
 
 def guard_from_crash():

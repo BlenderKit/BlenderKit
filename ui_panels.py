@@ -2373,15 +2373,26 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             date = self.asset_data["created"][:10]
             date = f"{date[8:10]}. {date[5:7]}. {date[:4]}"
             self.draw_property(box, "Created", date)
-        if utils.asset_from_newer_blender_version(self.asset_data):
-            # row = box.row()
+        from_newer, difference = utils.asset_from_newer_blender_version(self.asset_data)
+        if from_newer:
+            if difference == "major":
+                warning = (
+                    f"{self.asset_data['sourceAppVersion']} - newer major version!"
+                )
+            elif difference == "minor":
+                warning = (
+                    f"{self.asset_data['sourceAppVersion']} - newer minor version!"
+                )
+            else:
+                warning = (
+                    f"{self.asset_data['sourceAppVersion']} - slightly newer version."
+                )
             box.alert = True
             self.draw_property(
                 box,
                 "Blender version",
-                self.asset_data["sourceAppVersion"] + "- newer than yours.",
+                warning,
                 icon="ERROR",
-                # tooltip='Asset is from a newer Blender version and might work incorrectly in your scene',
             )
             box.alert = False
         else:

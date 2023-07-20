@@ -1094,10 +1094,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 quality_text += f" / {int(asset_data['score'])}"
             self.quality_label.text = quality_text
 
-            if utils.asset_from_newer_blender_version(asset_data):
-                self.version_warning.text = (
-                    "Asset from newer Blender version! Use at your own risk."
-                )
+            from_newer, difference = utils.asset_from_newer_blender_version(asset_data)
+            if from_newer:
+                if difference == "major":
+                    self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Use at your own risk."
+                elif difference == "minor":
+                    self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Caution advised."
+                else:
+                    self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Some features may not work."
             else:
                 self.version_warning.text = ""
 
