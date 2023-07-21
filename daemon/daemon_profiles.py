@@ -3,6 +3,7 @@ TODO: We should find a better vocabulary for this.
 """
 
 import asyncio
+import getpass
 import os
 import tempfile
 from logging import getLogger
@@ -52,8 +53,13 @@ async def fetch_gravatar_image(task: daemon_tasks.Task, request: web.Request):
     if "avatar128" not in task.data:
         return fetch_gravatar_image_old(task, request)
 
+    username = getpass.getuser()
+    safe_username = "".join(c for c in username if c.isalnum())
     gravatar_path = os.path.join(
-        tempfile.gettempdir(), "bkit_temp", "bkit_g", f'{task.data["id"]}.jpg'
+        tempfile.gettempdir(),
+        f"bktemp_{safe_username}",
+        "bkit_g",
+        f'{task.data["id"]}.jpg',
     )
     if os.path.exists(gravatar_path):
         task.result = {"gravatar_path": gravatar_path}
@@ -73,8 +79,13 @@ async def fetch_gravatar_image_old(task: daemon_tasks.Task, request: web.Request
     """Older way of getting gravatar image. May be needed for some users with old gravatars."""  # TODO: is this still in use?
     if task.data.get("gravatarHash") is None:
         return
+    username = getpass.getuser()
+    safe_username = "".join(c for c in username if c.isalnum())
     gravatar_path = os.path.join(
-        tempfile.gettempdir(), "bkit_temp", "bkit_g", f'{task.data["gravatarHash"]}.jpg'
+        tempfile.gettempdir(),
+        f"bktemp_{safe_username}",
+        "bkit_g",
+        f'{task.data["gravatarHash"]}.jpg',
     )
     if os.path.exists(gravatar_path):
         task.result = {"gravatar_path": gravatar_path}
