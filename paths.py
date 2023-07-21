@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import getpass
 import logging
 import os
 import shutil
@@ -24,7 +25,7 @@ import tempfile
 
 import bpy
 
-from . import daemon_lib, global_vars, reports, tasks_queue, utils
+from . import daemon_lib, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -105,9 +106,9 @@ def get_temp_dir(subdir=None):
         d = dirs_exist_dict.get("top")
         if d is not None:
             return d
-
-    # tempdir = user_preferences.temp_dir
-    tempdir = os.path.join(tempfile.gettempdir(), "bkit_temp")
+    username = getpass.getuser()
+    safe_username = "".join(c for c in username if c.isalnum())
+    tempdir = os.path.join(tempfile.gettempdir(), f"bktemp_{safe_username}")
     if tempdir.startswith("//"):
         tempdir = bpy.path.abspath(tempdir)
     try:
