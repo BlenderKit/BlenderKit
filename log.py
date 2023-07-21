@@ -33,8 +33,8 @@ def configure_bk_logger():
     """Configure 'blenderkit' logger to which all other logs defined as `bk_logger = logging.getLogger(__name__)` writes.
     Sets it logging level to `global_vars.LOGGING_LEVEL_BLENDERKIT`.
     """
-    logging.basicConfig(level=global_vars.LOGGING_LEVEL_BLENDERKIT)
     bk_logger = logging.getLogger("blenderkit")
+    bk_logger.setLevel(global_vars.LOGGING_LEVEL_BLENDERKIT)
     bk_logger.propagate = False
     bk_logger.handlers = []
 
