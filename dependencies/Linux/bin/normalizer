@@ -1,4 +1,4 @@
-#!/opt/homebrew/opt/python@3.10/bin/python3.10
+#!/Library/Frameworks/Python.framework/Versions/3.10/bin/python3.10
 # -*- coding: utf-8 -*-
 import re
 import sys
