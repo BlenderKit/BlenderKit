@@ -6,17 +6,16 @@ import sys
 
 import global_vars
 
-
 PACKAGES = [
     "multidict==6.0.4",
     "yarl==1.9.2",
-    "aiohttp==3.8.4",
+    "aiohttp==3.8.5",
     "aiosignal==1.3.1",
     "async-timeout==4.0.2",
     "attrs==23.1.0",
-    "certifi==2023.5.7",
-    "charset-normalizer==3.1.0",
-    "frozenlist==1.3.3",
+    "certifi==2023.7.22",
+    "charset-normalizer==3.2.0",
+    "frozenlist==1.4.0",
     "idna==3.4",
 ]
 
