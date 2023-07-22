@@ -6,6 +6,7 @@ import sys
 
 import global_vars
 
+
 PACKAGES = [
     "multidict==6.0.4",
     "yarl==1.9.2",
