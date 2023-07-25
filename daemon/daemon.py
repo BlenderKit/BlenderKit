@@ -66,6 +66,7 @@ async def download_asset(request: web.Request):
     task.async_task = asyncio.ensure_future(
         daemon_assets.do_asset_download(request, task)
     )
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
     return web.json_response({"task_id": task_id})
@@ -84,6 +85,7 @@ async def search_assets(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(daemon_search.do_search(request, task))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
     return web.json_response({"task_id": task_id})
@@ -104,6 +106,7 @@ async def upload_asset(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(daemon_uploads.do_upload(request, task))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
     return web.json_response({"task_id": task_id})
@@ -151,9 +154,11 @@ async def subscribe_new_addon(request: web.Request, data: dict):
     """
     daemon_globals.active_apps.append(data["app_id"])
     disclaimer_task = asyncio.ensure_future(daemon_disclaimer.get_disclaimer(request))
+    disclaimer_task.set_name(f"get_disclaimer-{data['app_id']}")
     disclaimer_task.add_done_callback(daemon_tasks.handle_async_errors)
 
     categories_task = asyncio.ensure_future(daemon_search.fetch_categories(request))
+    categories_task.set_name(f"fetch_categories-{data['app_id']}")
     categories_task.add_done_callback(daemon_tasks.handle_async_errors)
     if data["api_key"] == "":
         return  # everything done, if not logged in
@@ -161,6 +166,7 @@ async def subscribe_new_addon(request: web.Request, data: dict):
     notifications_task = asyncio.ensure_future(
         daemon_disclaimer.get_notifications(request)
     )
+    notifications_task.set_name(f"get_notifications-{data['app_id']}")
     notifications_task.add_done_callback(daemon_tasks.handle_async_errors)
 
 

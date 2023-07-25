@@ -225,6 +225,7 @@ async def nonblocking_request_handler(request: web.Request):
     task = daemon_tasks.Task(data, data["app_id"], "wrappers/nonblocking_request")
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(make_request(request, task))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.json_response({"task_id": task.task_id})
 

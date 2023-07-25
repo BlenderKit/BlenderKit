@@ -27,6 +27,7 @@ async def comments_handler(request: web.Request):
     elif func == "mark_comment_private":
         task.async_task = asyncio.ensure_future(mark_comment_private(request, task))
 
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.json_response({"task_id": task.task_id})
 
@@ -105,8 +106,13 @@ async def create_comment(request: web.Request, task: daemon_tasks.Task) -> bool:
         task.data, task.data["app_id"], "comments/get_comments"
     )
     daemon_globals.tasks.append(followup_task)
-    get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
-    get_comments_task.add_done_callback(daemon_tasks.handle_async_errors)
+    followup_task.async_task = asyncio.ensure_future(
+        get_comments(request, followup_task)
+    )
+    followup_task.async_task.set_name(
+        f"{followup_task.task_type}-{followup_task.task_id}"
+    )
+    followup_task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
 
 async def feedback_comment(request: web.Request, task: daemon_tasks.Task):
@@ -136,8 +142,13 @@ async def feedback_comment(request: web.Request, task: daemon_tasks.Task):
         task.data, task.data["app_id"], "comments/get_comments"
     )
     daemon_globals.tasks.append(followup_task)
-    get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
-    get_comments_task.add_done_callback(daemon_tasks.handle_async_errors)
+    followup_task.async_task = asyncio.ensure_future(
+        get_comments(request, followup_task)
+    )
+    followup_task.async_task.set_name(
+        f"{followup_task.task_type}-{followup_task.task_id}"
+    )
+    followup_task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
 
 
 async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) -> None:
@@ -166,8 +177,13 @@ async def mark_comment_private(request: web.Request, task: daemon_tasks.Task) ->
         task.data, task.data["app_id"], "comments/get_comments"
     )
     daemon_globals.tasks.append(followup_task)
-    get_comments_task = asyncio.ensure_future(get_comments(request, followup_task))
-    get_comments_task.add_done_callback(daemon_tasks.handle_async_errors)
+    followup_task.async_task = asyncio.ensure_future(
+        get_comments(request, followup_task)
+    )
+    followup_task.async_task.set_name(
+        f"{followup_task.task_type}-{followup_task.task_id}"
+    )
+    followup_task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return None
 
 
@@ -179,6 +195,7 @@ async def mark_notification_read_handler(request: web.Request) -> web.Response:
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(mark_notification_read(request, task))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.json_response({"task_id": task.task_id})
 

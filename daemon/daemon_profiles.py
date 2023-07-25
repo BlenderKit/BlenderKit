@@ -28,6 +28,7 @@ async def fetch_gravatar_image_handler(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(fetch_gravatar_image(task, request))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")
 
@@ -42,6 +43,7 @@ async def get_user_profile_handler(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(get_user_profile(task, request))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")
 

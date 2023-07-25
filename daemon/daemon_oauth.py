@@ -3,6 +3,7 @@
 import asyncio
 import typing
 from logging import getLogger
+from uuid import uuid4
 
 import daemon_globals
 import daemon_tasks
@@ -93,5 +94,6 @@ async def refresh_tokens(request: web.Request) -> None:
 async def refresh_token(request: web.Request):
     """Create asyncio task for refreshal of the API key token of the add-on."""
     atask = asyncio.ensure_future(refresh_tokens(request))
+    atask.set_name(f"refresh_token-{uuid4()}")
     atask.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")

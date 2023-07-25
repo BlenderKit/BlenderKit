@@ -145,9 +145,6 @@ async def download_asset(
                         message=f"Downloading {t} {task.data['resolution']}",
                     )
                     file.write(chunk)
-                    # if globals.tasks[data['task_id']].get('kill'):
-                    #   delete_unfinished_file(file_path)
-                    #   return
                 return True
 
     except Exception as e:
@@ -418,6 +415,7 @@ async def report_usages_handler(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(report_usages(request, task))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")
 
