@@ -53,14 +53,15 @@ async def download_image_batch(
     session: aiohttp.ClientSession, tsks: list[daemon_tasks.Task], block: bool = False
 ):
     """Download batch of images. images are tuples of file path and url."""
-    coroutines = []
+    atasks = []
     for task in tsks:
-        coroutine = asyncio.ensure_future(download_image(session, task))
-        coroutine.add_done_callback(daemon_tasks.handle_async_errors)
-        coroutines.append(coroutine)
+        task.async_task = asyncio.ensure_future(download_image(session, task))
+        task.async_task.set_name(f"{task.task_type}-{task.task_id}")
+        task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
+        atasks.append(task.async_task)
 
     if block is True:
-        await asyncio.gather(*coroutines)
+        await asyncio.gather(*atasks)
 
 
 async def parse_thumbnails(task: daemon_tasks.Task):

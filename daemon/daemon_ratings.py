@@ -17,6 +17,7 @@ async def get_rating_handler(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(get_rating(task, request))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")
 
@@ -56,6 +57,7 @@ async def send_rating_handler(request: web.Request):
         task.async_task = asyncio.ensure_future(delete_rating(task, request))
     else:
         task.async_task = asyncio.ensure_future(send_rating(task, request))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")
 
@@ -121,6 +123,7 @@ async def get_bookmarks_handler(request: web.Request):
     )
     daemon_globals.tasks.append(task)
     task.async_task = asyncio.ensure_future(get_bookmarks(task, request))
+    task.async_task.set_name(f"{task.task_type}-{task.task_id}")
     task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
     return web.Response(text="ok")
 

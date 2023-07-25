@@ -78,15 +78,33 @@ class Task:
 
 
 def handle_async_errors(atask: asyncio.Task):
-    stack = atask.get_stack()
-    exception = atask.exception()
+    try:
+        stack = atask.get_stack()
+    except Exception as e:
+        print(f".get_stack() failed for task {atask.get_name()}: {e}")
+        stack = []
+
+    try:
+        exception = atask.exception()
+    except asyncio.CancelledError as e:
+        print(f"Task {atask.get_name()} was cancelled")
+        exception = e
+    except Exception as e:
+        print(f".exception() failed for task {atask.get_name()}: {e}")
+        exception = e
+
     if exception is None and stack == []:
         return
 
-    atask.print_stack()
+    try:
+        atask.print_stack()
+    except Exception as e:
+        print(f".print_stack failed for {atask.get_name()}: {e}")
+
     import daemon_globals  # ugly but we cannot import on start as this is also imported from add-on directly
 
     for task in daemon_globals.tasks:
         if atask is not task.async_task:
             continue
         task.error(str(exception))
+        print(f"Task {atask.get_name()} progress set to error")
