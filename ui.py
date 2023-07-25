@@ -1072,6 +1072,8 @@ class AssetDragOperator(bpy.types.Operator):
                 # either switch to sculpt mode and layout automatically or show a popup message
                 if context.active_object and context.active_object.type == "MESH":
                     bpy.ops.object.mode_set(mode="SCULPT")
+                    self.mouse_release()  # does the main job with assets
+
                     if bpy.data.workspaces.get("Sculpting") is not None:
                         bpy.context.window.workspace = bpy.data.workspaces["Sculpting"]
                     reports.add_report(
