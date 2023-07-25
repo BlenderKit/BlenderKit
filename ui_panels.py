@@ -1169,8 +1169,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         # if props.search_engine == 'OTHER':
         #     layout.prop(props, "search_engine_keyword")
         row = layout.row()
-        if utils.experimental_enabled():
-            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         row = layout.row()
         layout.prop(ui_props, "free_only")
@@ -1249,8 +1248,7 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         layout.separator()
 
         row = layout.row()
-        if utils.experimental_enabled():
-            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
 
         layout.label(text="Texture:")
@@ -1300,8 +1298,7 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
         layout.separator()
 
         row = layout.row()
-        if utils.experimental_enabled():
-            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
 
         layout.prop(ui_props, "free_only")
@@ -1335,8 +1332,7 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         layout.separator()
 
         row = layout.row()
-        if utils.experimental_enabled():
-            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         layout.prop(ui_props, "free_only")
         layout.prop(props, "true_hdr")
@@ -1365,8 +1361,7 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
         layout.separator()
 
         row = layout.row()
-        if utils.experimental_enabled():
-            row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         layout.prop(ui_props, "free_only")
 
@@ -1701,13 +1696,10 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
 
 def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
     ui_props = context.window_manager.blenderkitUI
-
     author_id = str(asset_data["author"].get("id"))
-    wm = bpy.context.window_manager
-
     layout.operator_context = "INVOKE_DEFAULT"
 
-    if utils.experimental_enabled() and utils.user_logged_in():
+    if utils.user_logged_in():
         r = ratings_utils.get_rating_local(asset_data["id"], "bookmarks")
         if r == 1:
             text = "Delete Bookmark"
@@ -3275,8 +3267,7 @@ def header_search_draw(self, context):
     row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
 
     draw_assetbar_show_hide(layout, props)
-    if utils.experimental_enabled():
-        layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
+    layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
     if (
         props.search_category == ui_props.asset_type.lower()
         or props.search_category == ""
