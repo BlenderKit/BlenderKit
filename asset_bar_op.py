@@ -1137,8 +1137,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
             # show bookmark button - always on mouse enter
-            if utils.experimental_enabled():
-                widget.bookmark_button.visible = True
+            widget.bookmark_button.visible = True
 
             # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
@@ -1204,9 +1203,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search(get_next=True)
 
     def update_bookmark_icon(self, bookmark_button):
-        if not utils.experimental_enabled():
-            bookmark_button.visible = False
-            return
         asset_data = global_vars.DATA["search results"][bookmark_button.asset_index]
         r = ratings_utils.get_rating_local(asset_data["id"], "bookmarks")
         if r == 1:

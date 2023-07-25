@@ -66,8 +66,8 @@ supported_material_drag = (
 # supported_material_drag = ('MESH')
 
 
-def experimental_enabled():
-    """experimental features will always be enabled for staff and validators"""
+def experimental_enabled() -> bool:
+    """Check if experimental features are enabled. Experimental features are always be enabled for staff and validators."""
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
     return preferences.experimental_features or profile_is_validator()
 

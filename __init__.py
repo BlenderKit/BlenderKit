@@ -2145,13 +2145,8 @@ In this case you should also set path to your system CA bundle containing proxy 
     )
 
     experimental_features: BoolProperty(
-        name="Enable experimental features: Bookmarks",
-        description="""Enable experimental features of BlenderKit:
-
-BOOKMARKS:
-This feature lets logged-in users save their favorite assets and search for them later. To mark or unmark an asset, click on the bookmark icon located in the top right corner of the asset thumbnail. You can filter search results to display only bookmarked assets by clicking on the bookmark icon in the search panel.
-
-We welcome your feedback. If you encounter any issues or have ideas for improvements, please let us know. However, please note that these experimental features may not function as expected""",
+        name="Enable experimental features",
+        description="""Enable experimental features of BlenderKit. There are no experimental features available in this version.""",
         default=False,
         update=utils.save_prefs,
     )
@@ -2208,7 +2203,6 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "show_on_start")
         if self.api_key.strip() == "":
             ui_panels.draw_login_buttons(layout)
         else:
@@ -2232,6 +2226,7 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
         gui_settings = layout.box()
         gui_settings.alignment = "EXPAND"
         gui_settings.label(text="GUI settings")
+        gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
         gui_settings.prop(self, "max_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
@@ -2253,6 +2248,8 @@ We welcome your feedback. If you encounter any issues or have ideas for improvem
 
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
+
+        # RUNTIME INFO
         addondir_row = layout.row()
         addondir_row.label(text=f"Installed at: {path.dirname(__file__)}")
         addondir_row.enabled = False
