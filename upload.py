@@ -135,12 +135,26 @@ def check_missing_data(asset_type, props):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if asset_type != "HDR" and props.thumbnail == "":
-        write_to_report(
-            props,
-            "A thumbnail image has not been provided.\n"
-            "   Please add a thumbnail in JPG or PNG format, with at least 1024x1024 pixels.",
-        )
+    if asset_type == "HDR":
+        pass
+    elif asset_type == "BRUSH":
+        brush = utils.get_active_brush()
+        thumbnail = ""
+        if brush is not None:
+            thumbnail = bpy.path.abspath(brush.icon_filepath)
+        if thumbnail == "":
+            write_to_report(
+                props,
+                "Brush Icon Filepath has not been provided.\n"
+                "   Please check Custom Icon option add a Brush Icon in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+            )
+    else:
+        if props.thumbnail == "":
+            write_to_report(
+                props,
+                "A thumbnail image has not been provided.\n"
+                "   Please add a thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+            )
 
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
