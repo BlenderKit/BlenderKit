@@ -309,6 +309,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     bl_label = "BlenderKit asset bar refresh"
     bl_description = "BlenderKit asset bar refresh"
     bl_options = {"REGISTER"}
+    instances = []
 
     do_search: BoolProperty(
         name="Run Search", description="", default=True, options={"SKIP_SAVE"}
@@ -968,6 +969,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.add_widgets(self.tooltip_widgets)
 
     def on_invoke(self, context, event):
+        self.context = context
+        self.instances.append(self)
         if not context.area:
             return {"CANCELLED"}
 
@@ -1420,6 +1423,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset -= self.wcount * self.hcount
         self.scroll_update()
         self.enter_button(widget)
+
+    @classmethod
+    def unregister(cls):
+        bk_logger.debug(f"unregistering class {cls}")
+        instances_copy = cls.instances.copy()
+        for instance in instances_copy:
+            bk_logger.debug(f"- instance {instance}")
+            try:
+                instance.unregister_handlers(instance.context)
+            except Exception as e:
+                bk_logger.debug(f"-- error unregister_handlers(): {e}")
+            try:
+                instance.on_finish(instance.context)
+            except Exception as e:
+                bk_logger.debug(f"-- error calling on_finish(): {e}")
+            cls.instances.remove(instance)
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal
