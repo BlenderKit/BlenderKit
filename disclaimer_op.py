@@ -6,11 +6,12 @@ import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
 from . import global_vars, paths, reports, tasks_queue, utils
-from .bl_ui_widgets.bl_ui_button import *
-from .bl_ui_widgets.bl_ui_drag_panel import *
-from .bl_ui_widgets.bl_ui_draw_op import *
-from .bl_ui_widgets.bl_ui_image import *
+from .bl_ui_widgets.bl_ui_button import BL_UI_Button
+from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
+from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
+from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .daemon import daemon_tasks
+from .ui_bgl import get_text_size
 
 
 bk_logger = logging.getLogger("blenderkit")
@@ -23,6 +24,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     bl_label = "BlenderKit disclaimer"
     bl_description = "BlenderKit disclaimer"
     bl_options = {"REGISTER"}
+    instances = []
 
     message: StringProperty(
         name="message",
@@ -80,7 +82,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
             self.hover_bg_color = (0.127, 0.034, 1, 1.0)
         self.text_color = (0.9, 0.9, 0.9, 1)
 
-        pix_size = ui_bgl.get_text_size(
+        pix_size = get_text_size(
             font_id=1,
             text=self.message,
             text_size=text_size,
@@ -121,6 +123,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
     def on_invoke(self, context, event):
         # Add new widgets here (TODO: perhaps a better, more automated solution?)
+        self.context = context
+        self.instances.append(self)
         widgets_panel = [self.label, self.button_close, self.logo]
         widgets = [self.panel]
 
@@ -196,6 +200,25 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
         if all_zero:
             self.finish()
+
+    @classmethod
+    def unregister(cls):
+        bk_logger.debug(f"unregistering class {cls}")
+        instances_copy = cls.instances.copy()
+        for instance in instances_copy:
+            bk_logger.debug(f"- class instance {instance}")
+            try:
+                instance.unregister_handlers(instance.context)
+            except Exception as e:
+                bk_logger.debug(f"-- error unregister_handlers(): {e}")
+            try:
+                instance.on_finish(instance.context)
+            except Exception as e:
+                bk_logger.debug(f"-- error calling on_finish() {e}")
+            if bpy.context.region is not None:
+                bpy.context.region.tag_redraw()
+
+            cls.instances.remove(instance)
 
     # Button press handlers
     def button1_press(self, widget):

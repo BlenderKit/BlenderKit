@@ -94,6 +94,12 @@ class BL_UI_OT_draw_operator(Operator):
     def draw_callback_px(self, op, context):
         draw_callback_px_separated(self, op, context)
 
+    def cancel(self, context):
+        """Cancel the modal operator and finish. This is called before unregistration on Blender quit. Has to be here, so BL_UI_Button, BL_UI_Drag_Panel, BL_UI_Image and other elements are removed with finish().
+        We cannot call this during unregister because at that stage Operator is already removed, but BL_UI_Button is kept in memory causing memory leaks. Issue: #770
+        """
+        self.finish()
+
 
 def draw_callback_px_separated(self, op, context):
     # separated only for puprpose of profiling

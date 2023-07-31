@@ -2399,6 +2399,7 @@ def unregister():
     except Exception as e:
         bk_logger.error(e)
 
+    del bpy.types.WindowManager.blenderkitUI
     del bpy.types.WindowManager.blenderkit_models
     del bpy.types.WindowManager.blenderkit_scene
     del bpy.types.WindowManager.blenderkit_HDR
