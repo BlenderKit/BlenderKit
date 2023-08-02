@@ -21,6 +21,7 @@ import logging
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
@@ -174,6 +175,11 @@ def start_model_thumbnailer(
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
+    if user_preferences.thumbnail_use_gpu is True:
+        json_args["cycles_compute_device_type"] = bpy.context.preferences.addons[
+            "cycles"
+        ].preferences.compute_device_type
+
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
@@ -186,11 +192,17 @@ def start_model_thumbnailer(
         datafile,
         user_preferences.api_key,
     )
+    blender_user_scripts_dir = (
+        Path(__file__).resolve().parents[2]
+    )  # scripts/addons/blenderkit/autothumb.py
+    env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
+    env.update(os.environ)
     proc = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         creationflags=utils.get_process_flags(),
+        env=env,
     )
     bk_logger.info(f"Started Blender executing {SCRIPT_NAME} on file {datafile}")
     eval_path_computing = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
@@ -238,6 +250,10 @@ def start_material_thumbnailer(
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
+    if user_preferences.thumbnail_use_gpu is True:
+        json_args["cycles_compute_device_type"] = bpy.context.preferences.addons[
+            "cycles"
+        ].preferences.compute_device_type
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
@@ -251,11 +267,17 @@ def start_material_thumbnailer(
         datafile,
         user_preferences.api_key,
     )
+    blender_user_scripts_dir = (
+        Path(__file__).resolve().parents[2]
+    )  # scripts/addons/blenderkit/autothumb.py
+    env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
+    env.update(os.environ)
     proc = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         creationflags=utils.get_process_flags(),
+        env=env,
     )
     bk_logger.info(f"Started Blender executing {SCRIPT_NAME} on file {datafile}")
 

@@ -141,6 +141,13 @@ if __name__ == "__main__":
         bpy.context.scene.render.filepath = data["thumbnail_path"]
         if thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
+            compute_device_type = data.get("cycles_compute_device_type")
+            if compute_device_type is not None:
+                # DOCS:https://github.com/dfelinto/blender/blob/master/intern/cycles/blender/addon/properties.py
+                bpy.context.preferences.addons[
+                    "cycles"
+                ].preferences.compute_device_type = compute_device_type
+                bpy.context.preferences.addons["cycles"].preferences.refresh_devices()
 
         fdict = {
             "DEFAULT": 1,

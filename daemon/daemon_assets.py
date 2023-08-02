@@ -7,6 +7,7 @@ import shutil
 import sys
 import tempfile
 from logging import getLogger
+from pathlib import Path
 
 import aiohttp
 import daemon_globals
@@ -323,12 +324,18 @@ async def send_to_bg(data, fpath, command="generate_resolutions", wait=True):
         datafile,
     ]
     logger.info(f"Running in BG: {command}")
+    blender_user_scripts_dir = (
+        Path(__file__).resolve().parents[3]
+    )  # scripts/addons/blenderkit/daemon/daemon_uploads.py
+    env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
+    env.update(os.environ)
     proc = await asyncio.create_subprocess_exec(
         binary_path,
         *args,
         creationflags=daemon_utils.get_process_flags(),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        env=env,
     )
     if wait:
         stdout, _ = await proc.communicate()

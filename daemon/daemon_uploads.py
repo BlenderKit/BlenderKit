@@ -108,7 +108,10 @@ async def pack_blend_file(task: daemon_tasks.Task, metadata_response: dict):
     """Pack the asset data into a separate clean blend file.
     This runs a script inside Blender in separate process.
     """
-    addon_path = Path(__file__).resolve().parents[1]  # ../daemon/uploads.py
+    addon_path = Path(__file__).resolve().parents[1]  # ../daemon/daemon_uploads.py
+    blender_user_scripts_dir = (
+        Path(__file__).resolve().parents[3]
+    )  # scripts/addons/blenderkit/daemon/daemon_uploads.py
     script_path = str(addon_path.joinpath("upload_bg.py"))
     cleanfile_path = str(addon_path.joinpath("blendfiles", "cleaned.blend"))
     upload_data = task.data["upload_data"]
@@ -142,6 +145,8 @@ async def pack_blend_file(task: daemon_tasks.Task, metadata_response: dict):
 
             task.change_progress(10, "preparing scene - running blender instance")
             logger.info("Running asset packing")
+            env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
+            env.update(os.environ)
             process = await asyncio.create_subprocess_exec(
                 export_data["binary_path"],
                 "--background",
@@ -156,6 +161,7 @@ async def pack_blend_file(task: daemon_tasks.Task, metadata_response: dict):
                 datafile,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                env=env,
             )
             stdout, _ = await process.communicate()
             if process.returncode != 0:
