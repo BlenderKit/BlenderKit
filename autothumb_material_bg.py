@@ -137,6 +137,13 @@ if __name__ == "__main__":
 
         if thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
+            compute_device_type = data.get("cycles_compute_device_type")
+            if compute_device_type is not None:
+                # DOCS:https://github.com/dfelinto/blender/blob/master/intern/cycles/blender/addon/properties.py
+                bpy.context.preferences.addons[
+                    "cycles"
+                ].preferences.compute_device_type = compute_device_type
+                bpy.context.preferences.addons["cycles"].preferences.refresh_devices()
 
         s.cycles.samples = data["thumbnail_samples"]
         bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
