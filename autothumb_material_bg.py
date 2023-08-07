@@ -109,6 +109,14 @@ if __name__ == "__main__":
         for ob in bpy.context.visible_objects:
             if ob.name[:15] == "MaterialPreview":
                 utils.activate(ob)
+                if bpy.app.version >= (3, 3, 0):
+                    bpy.ops.object.transform_apply(
+                        location=False, rotation=False, scale=True, isolate_users=True
+                    )
+                else:
+                    bpy.ops.object.transform_apply(
+                        location=False, rotation=False, scale=True
+                    )
                 bpy.ops.object.transform_apply(
                     location=False, rotation=False, scale=True
                 )
