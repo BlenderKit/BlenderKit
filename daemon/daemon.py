@@ -469,6 +469,9 @@ if __name__ == "__main__":
     server.on_cleanup.append(cleanup_background_tasks)
 
     sock = find_and_bind_socket(args.port)
+    if system() == "Windows":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    logger.info(f"Using asyncio event loop: {asyncio.get_event_loop()}")
     try:
         web.run_app(server, sock=sock)
     except OSError as e:
