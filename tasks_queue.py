@@ -41,7 +41,6 @@ def scene_load(context):
 def get_queue():
     # we pick just a random one of blender types, to try to get a persistent queue
     t = bpy.types.Scene
-
     if not hasattr(t, "task_queue"):
         t.task_queue = queue.Queue()
     return t.task_queue
@@ -94,25 +93,20 @@ def queue_worker():
     # save some performance by returning early
     if q.empty():
         return time_step
-
     back_to_queue = []  # delayed events
     stashed = {}
     # first round we get all tasks that are supposed to be stashed and run only once (only_last option)
     # stashing finds tasks with the property only_last and same command and executes only the last one.
     while not q.empty():
-        # print('queue while 1')
-
         task = q.get()
         if task.only_last:
-            # this now makes the keys not only by task, but also first argument.
-            # by now stashing is only used for ratings, where the first argument is url.
+            # this now makes the keys not only by task, but also two arguments.
+            # by now stashing is only used for ratings, where the first argument is url, second rating type.
             # This enables fast rating of multiple assets while allowing larger delay for uploading of ratings.
             # this avoids a duplicate request error on the server
-            stashed[str(task.command) + str(task.arguments[0])] = task
+            stashed[f"{task.command}-{task.arguments[0]}-{task.arguments[1]}"] = task
         else:
             back_to_queue.append(task)
-    if len(stashed.keys()) > 1:
-        bk_logger.debug("task queue stashed task:" + str(stashed))
     # return tasks to que except for stashed
     for task in back_to_queue:
         q.put(task)
@@ -157,7 +151,6 @@ def queue_worker():
     for task in back_to_queue:
         q.put(task)
     # utils.p('end queue worker timer')
-
     return time_step
 
 
