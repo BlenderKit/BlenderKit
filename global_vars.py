@@ -23,6 +23,7 @@ LOGGING_LEVEL_IMPORTED = WARN
 PREFS = {}
 
 SERVER = environ.get("BLENDERKIT_SERVER", "https://www.blenderkit.com")
+DISCORD_INVITE_URL = "https://discord.gg/tCKyjFMRar"
 
 TIPS = [
     (
@@ -88,6 +89,10 @@ TIPS = [
     (
         "Get latest experimental versions of add-on by enabling prerelases in preferences.",
         "",
+    ),
+    (
+        "On Discord? Jump into assets & add-on talks.",
+        DISCORD_INVITE_URL,
     ),
 ]
 VERSION = None  # filled in register()

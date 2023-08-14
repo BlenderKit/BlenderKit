@@ -23,8 +23,8 @@ import logging
 import random
 import string
 import time
-import webbrowser
 from urllib.parse import quote as urlquote
+from webbrowser import open_new_tab
 
 import bpy
 from bpy.props import BoolProperty
@@ -110,7 +110,7 @@ def login(signup):
         authorize_url = f"{global_vars.SERVER}/accounts/register/?next={authorize_url}"
     else:
         authorize_url = f"{global_vars.SERVER}{authorize_url}"
-    webbrowser.open_new_tab(authorize_url)
+    open_new_tab(authorize_url)
 
     return
 
