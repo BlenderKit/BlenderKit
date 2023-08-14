@@ -2208,7 +2208,9 @@ In this case you should also set path to your system CA bundle containing proxy 
         else:
             layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
         layout.prop(self, "api_key", text="Your API Key")
-        layout.prop(self, "experimental_features")
+        community_row = layout.row()
+        community_row.prop(self, "experimental_features")
+        community_row.operator("wm.blenderkit_join_discord", icon="URL")
         if utils.profile_is_validator():
             layout.prop(self, "categories_fix")
 

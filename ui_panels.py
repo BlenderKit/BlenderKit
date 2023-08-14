@@ -22,6 +22,7 @@ import logging
 import os
 import platform
 import random
+from webbrowser import open_new_tab
 
 import bpy
 from bpy.props import IntProperty, StringProperty
@@ -1138,6 +1139,22 @@ def draw_login_buttons(layout, invoke=False):
             # layout.operator("wm.blenderkit_login", text="Login as someone else",
             #                 icon='URL').signup = False
             layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
+
+
+class OpenBlenderKitDiscord(bpy.types.Operator):
+    """Connect with our team, creators, and fellow users to discuss assets and the add-on"""
+
+    bl_idname = "wm.blenderkit_join_discord"
+    bl_label = "Open Discord"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        open_new_tab(global_vars.DISCORD_INVITE_URL)
+        return {"FINISHED"}
 
 
 class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
@@ -3367,6 +3384,7 @@ classes = (
     VIEW3D_PT_blenderkit_model_properties,
     VIEW3D_MT_blenderkit_model_properties,
     NODE_PT_blenderkit_material_properties,
+    OpenBlenderKitDiscord,
     # VIEW3D_PT_blenderkit_ratings,
     VIEW3D_PT_blenderkit_downloads,
     # OBJECT_MT_blenderkit_resolution_menu,
