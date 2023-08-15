@@ -22,7 +22,20 @@ async def debug_handler(request: web.Request):
         text += f"{configuration}: {result}\n"
     text += await get_info()
     text += await get_app_sessions_info(request)
+    text += await get_peercerts(request)
     return web.Response(text=text)
+
+
+async def get_peercerts(request: web.Request):
+    text = f"\n\nServer certificates are:\n"
+    sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
+    sslcontext.load_verify_locations(certifi.where())
+    async with aiohttp.ClientSession() as session:
+        r = await session.get("https://www.blenderkit.com", ssl=sslcontext)
+        cert = r.connection.transport.get_extra_info("peercert")
+        text += str(cert)
+        r.close()
+    return text
 
 
 async def get_app_sessions_info(request: web.Request):
