@@ -21,7 +21,32 @@ async def debug_handler(request: web.Request):
     for configuration, result in results.items():
         text += f"{configuration}: {result}\n"
     text += await get_info()
+    text += await get_app_sessions_info(request)
     return web.Response(text=text)
+
+
+async def get_app_sessions_info(request: web.Request):
+    session = [
+        request.app["SESSION_API_REQUESTS"],
+        request.app["SESSION_SMALL_THUMBS"],
+        request.app["SESSION_BIG_THUMBS"],
+        request.app["SESSION_ASSETS"],
+        request.app["SESSION_UPLOADS"],
+    ]
+    text = "\n\nSESSIONS INFO:\n"
+    ssl_contexts = []
+    for session in session:
+        ssl_contexts.append(session.connector._ssl)
+
+    if len(set(ssl_contexts)) == 1:
+        text += f"SSL contexts are same:\n"
+        text += f"{ssl_contexts[0].get_ca_certs()}\n"
+    else:
+        text += f"SSL contexts are different:\n"
+        for ssl_context in ssl_contexts:
+            text += f"{ssl_context.get_ca_certs()}\n"
+
+    return text
 
 
 async def get_info():

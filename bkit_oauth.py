@@ -110,6 +110,7 @@ def login(signup):
         authorize_url = f"{global_vars.SERVER}/accounts/register/?next={authorize_url}"
     else:
         authorize_url = f"{global_vars.SERVER}{authorize_url}"
+    bk_logger.info(f"Opening browser for login with URL: {authorize_url}")
     open_new_tab(authorize_url)
 
     return

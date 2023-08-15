@@ -39,6 +39,7 @@ async def get_tokens(
     url = f"{daemon_globals.SERVER}/o/token/"
     try:
         resp_text, resp_status = None, -1
+        logger.info(f"Requesting tokens from {url}")
         async with session.post(url, data=data, headers=headers) as resp:
             resp_status = resp.status
             resp_text = await resp.text()
@@ -50,7 +51,9 @@ async def get_tokens(
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get tokens"
         )
-        logger.warning(detail)
+        logger.error(f"{msg}: {detail}.")
+        certs = session.connector._ssl.get_ca_certs()
+        logger.info(f"Certs used: {certs}")
         return {}, resp_status, msg
 
 

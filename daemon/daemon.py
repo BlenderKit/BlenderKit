@@ -11,7 +11,13 @@ from os import environ, getpid, path
 from platform import system
 from signal import SIGINT, raise_signal
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, socket
-from ssl import PROTOCOL_TLS_CLIENT, Purpose, SSLContext, create_default_context
+from ssl import (
+    PROTOCOL_TLS_CLIENT,
+    Purpose,
+    SSLContext,
+    create_default_context,
+    get_default_verify_paths,
+)
 from time import time
 from uuid import uuid4
 
@@ -131,10 +137,16 @@ async def consumer_exchange(request: web.Request):
     )
     if status == -1:
         text = f"Authorization Failed. Server is not reachable. Response: {error}"
+        session = request.app["SESSION_API_REQUESTS"]
+        certs = certs = session.connector._ssl.get_ca_certs()
+        text = f"{text} \n\nCerts used:\n{certs}"
         return web.Response(text=text)
 
     if status != 200:
         text = f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}"
+        session = request.app["SESSION_API_REQUESTS"]
+        certs = certs = session.connector._ssl.get_ca_certs()
+        text = f"{text} \n\nCerts used:\n{certs}"
         return web.Response(text=text)
 
     for app_id in daemon_globals.active_apps:
@@ -302,11 +314,15 @@ def configure_ssl_context(app: web.Application):
         sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
 
     if app["PROXY_CA_CERTS"] != "":
+        logger.info(f"Loading verify_locations from {app['PROXY_CA_CERTS']}")
         sslcontext.load_verify_locations(app["PROXY_CA_CERTS"])
+
+    logger.info(f"Loading verify_locations from {certifi.where()}")
     sslcontext.load_verify_locations(certifi.where())
-    sslcontext.load_verify_locations(
-        path.join(path.dirname(__file__), "certs/blenderkit-com-chain.pem")
-    )
+
+    bk_cert_path = path.join(path.dirname(__file__), "certs/blenderkit-com-chain.pem")
+    logger.info(f"Loading verify_locations from {bk_cert_path}")
+    sslcontext.load_verify_locations(bk_cert_path)
     try:
         sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
     except Exception as e:
@@ -360,6 +376,8 @@ async def persistent_sessions(app: web.Application):
         trust_env=trust_env,
         timeout=timeout,
     )
+    logger.info(f"ssl.get_default_verify_paths: {get_default_verify_paths()}")
+    logger.info(f"certifi.where(): {certifi.where()}")
 
     yield
     await asyncio.gather(
