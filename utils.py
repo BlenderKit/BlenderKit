@@ -848,6 +848,9 @@ def automap(
                 uvl = tob.data.uv_layers[-1]
                 uvl.name = "automap"
 
+            tob.data.uv_layers.active = tob.data.uv_layers["automap"]
+            tob.data.uv_layers["automap"].active_render = True
+
             # TODO limit this to active material
             # tob.data.uv_textures['automap'].active = True
 
@@ -859,9 +862,10 @@ def automap(
             bpy.ops.mesh.select_all(action="DESELECT")
 
             # this exception is just for a 2.8 background thunmbnailer crash, can be removed when material slot select works...
-            if bg_exception:
+            if bg_exception or len(tob.material_slots) == 0:
                 bpy.ops.mesh.select_all(action="SELECT")
             else:
+
                 bpy.ops.object.material_slot_select()
 
             scale = (scale.x + scale.y + scale.z) / 3.0
@@ -883,8 +887,6 @@ def automap(
                 bpy.ops.uv.cube_project(cube_size=cube_size, correct_aspect=False)
 
             bpy.ops.object.editmode_toggle()
-            tob.data.uv_layers.active = tob.data.uv_layers["automap"]
-            tob.data.uv_layers["automap"].active_render = True
             # this by now works only for thumbnail preview, but should be extended to work on arbitrary objects.
             # by now, it takes the basic uv map = 1 meter. also, it now doeasn't respect more materials on one object,
             # it just scales whole UV.
