@@ -865,7 +865,6 @@ def automap(
             if bg_exception or len(tob.material_slots) == 0:
                 bpy.ops.mesh.select_all(action="SELECT")
             else:
-
                 bpy.ops.object.material_slot_select()
 
             scale = (scale.x + scale.y + scale.z) / 3.0
