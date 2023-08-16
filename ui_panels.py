@@ -1230,7 +1230,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
             props, "search_animated", text="Animated"
         )  # , text ='condition of object new/old e.t.c.')
         layout.prop(
-            props, "quality_limit", slider=True
+            ui_props, "quality_limit", slider=True
         )  # , text ='condition of object new/old e.t.c.')
 
         # layout.prop(props, "search_procedural", expand=True)
@@ -1286,7 +1286,7 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
             row = layout.row(align=True)
             row.prop(props, "search_file_size_min", text="Min")
             row.prop(props, "search_file_size_max", text="Max")
-        layout.prop(props, "quality_limit", slider=True)
+        layout.prop(ui_props, "quality_limit", slider=True)
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1319,6 +1319,7 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
         row.prop(ui_props, "own_only", icon="USER")
 
         layout.prop(ui_props, "free_only")
+        layout.prop(ui_props, "quality_limit", slider=True)
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1353,6 +1354,7 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         row.prop(ui_props, "own_only", icon="USER")
         layout.prop(ui_props, "free_only")
         layout.prop(props, "true_hdr")
+        layout.prop(ui_props, "quality_limit", slider=True)
 
 
 class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
@@ -1381,6 +1383,7 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
         row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         layout.prop(ui_props, "free_only")
+        layout.prop(ui_props, "quality_limit", slider=True)
 
     def draw(self, context):
         self.draw_layout(self.layout)
