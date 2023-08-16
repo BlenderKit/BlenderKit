@@ -389,6 +389,15 @@ class BlenderKitUIProps(PropertyGroup):
         description="Filter my bookmarked assets only",
         update=search.search_update,
     )
+    # moved from per-asset search properties
+    quality_limit: IntProperty(
+        name="Quality limit",
+        description="Only show assets with a higher quality",
+        default=0,
+        min=0,
+        max=10,
+        update=search.search_update_delayed,
+    )
 
     logo_status: StringProperty(name="", default="logo_offline")
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
@@ -662,14 +671,7 @@ class BlenderKitCommonSearchProps:
         default=False,
         update=search.search_update,
     )
-    quality_limit: IntProperty(
-        name="Quality limit",
-        description="Only show assets with a higher quality",
-        default=0,
-        min=0,
-        max=10,
-        update=search.search_update_delayed,
-    )
+
 
 
 def update_free(self, context):

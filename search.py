@@ -705,10 +705,11 @@ def build_query_common(query, props):
         query_common["files_size_gte"] = props.search_file_size_min * 1024 * 1024
         query_common["files_size_lte"] = props.search_file_size_max * 1024 * 1024
 
-    if props.quality_limit > 0:
-        query["quality_gte"] = props.quality_limit
-
     ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.quality_limit > 0:
+        query["quality_gte"] = ui_props.quality_limit
+
     if ui_props.search_bookmarks:
         query["bookmarks_rating"] = 1
     query.update(query_common)
@@ -1039,7 +1040,7 @@ def clean_filters():
     sprops.property_unset("search_file_size")
     sprops.property_unset("search_procedural")
     ui_props.property_unset("free_only")
-    sprops.property_unset("quality_limit")
+    ui_props.property_unset("quality_limit")
     ui_props.property_unset("search_bookmarks")
     if ui_props.asset_type == "MODEL":
         sprops.property_unset("search_style")
@@ -1081,7 +1082,7 @@ def update_filters():
         or sprops.search_file_size
         or sprops.search_procedural != "BOTH"
         or ui_props.free_only
-        or sprops.quality_limit > 0
+        or ui_props.quality_limit > 0
         or ui_props.search_bookmarks
     )
 
