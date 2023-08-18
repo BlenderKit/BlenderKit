@@ -50,7 +50,9 @@ async def get_tokens(
         msg, detail = daemon_utils.extract_error_message(
             e, resp_text, resp_status, "Get tokens"
         )
-        logger.warning(detail)
+        logger.error(f"{msg}: {detail}.")
+        certs = session.connector._ssl.get_ca_certs()
+        logger.info(f"Certs used: {certs}")
         return {}, resp_status, msg
 
 

@@ -83,7 +83,7 @@ def handle_token_refresh_task(task: daemon_tasks.Task):
         reports.add_report(task.message, 5, "ERROR")
 
 
-def logout():
+def logout() -> None:
     """Logs out user from add-on."""
     bk_logger.info("Logging out.")
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
@@ -95,7 +95,7 @@ def logout():
         del global_vars.DATA["bkit profile"]
 
 
-def login(signup):
+def login(signup: bool) -> None:
     """Logs user into the addon.
     Opens a browser with login page. Once user is logged it redirects to daemon handling access code via URL querry parameter.
     Using the access_code daemon then requests api_token and handles the results as a task with status finished/error.
@@ -110,9 +110,8 @@ def login(signup):
         authorize_url = f"{global_vars.SERVER}/accounts/register/?next={authorize_url}"
     else:
         authorize_url = f"{global_vars.SERVER}{authorize_url}"
-    open_new_tab(authorize_url)
-
-    return
+    ok = open_new_tab(authorize_url)
+    bk_logger.info(f"Login page in browser opened ({ok})")
 
 
 def generate_pkce_pair() -> tuple[str, str]:
@@ -200,7 +199,6 @@ class LoginOnline(bpy.types.Operator):
         preferences = bpy.context.preferences.addons["blenderkit"].preferences
         preferences.login_attempt = True
         login(self.signup)
-
         return {"FINISHED"}
 
     def invoke(self, context, event):
