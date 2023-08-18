@@ -30,11 +30,20 @@ async def get_peercerts(request: web.Request):
     text = f"\n\nServer certificates are:\n"
     sslcontext = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
     sslcontext.load_verify_locations(certifi.where())
-    async with aiohttp.ClientSession() as session:
-        r = await session.get("https://www.blenderkit.com", ssl=sslcontext)
-        cert = r.connection.transport.get_extra_info("peercert")
-        text += str(cert)
-        r.close()
+    async with aiohttp.ClientSession(trust_env=True) as session:
+        r = None
+        try:
+            r = await session.get("https://www.blenderkit.com", ssl=sslcontext)
+        except Exception as e:
+            print(e)
+            text += f"Exception: {e}\n"
+        try:
+            cert = r.connection.transport.get_extra_info("peercert")
+            text += str(cert)
+            r.close()
+        except Exception as e:
+            print(e)
+            text += f"Exception: {e}\n"
     return text
 
 
