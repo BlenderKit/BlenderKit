@@ -2022,9 +2022,9 @@ class BlenderKitAddonPreferences(AddonPreferences):
             ),
             (
                 "CUSTOM",
-                "CUSTOM: use custom proxy settings (experimental)",
-                "Add-on will use custom proxy settings, system proxy settings will be ignored."
-                'Please set the address in the addon preferences below in the field "Custom proxy address". '
+                "CUSTOM: use custom proxy settings",
+                "Add-on will use specified custom proxy settings, system proxy settings will be ignored."
+                'Please set the address in the add-on preferences below in the field "Custom proxy address". '
                 "This is an experimental feature, might not work on some systems",
             ),
         ),
@@ -2035,25 +2035,30 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     proxy_address: StringProperty(
         name="Custom proxy address",
-        description="""(experimental) Set custom proxy for HTTP requests of addon. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
+        description="""Set custom HTTP proxy for HTTPS requests of add-on. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
         
-If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication. You have to specify the address with https:// prefix.
+If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication. You have to specify the address with http:// prefix.
 
 HTTPS proxies are not supported! We wait for support in Python 3.11 and in aiohttp module. You can specify the HTTPS proxy with https:// prefix for hacking around and development purposes, but functionality cannot be guaranteed.
-In this case you should also set path to your system CA bundle containing proxy certs in the field "Custom CA certificates path" below""",
+In this case you should also set path to your system CA bundle containing proxy's certificates in the field "Custom CA certificates path" below""",
         default="",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
     )
 
     proxy_ca_certs: StringProperty(
         name="Custom CA certificates path",
-        description="Define custom path to CA BUNDLE certificates in .pem or .crt format which owerwrites the usage of certificates in 'certifi' package."
-        "Specifying path to your system CA bundle containing proxy certs might fix HTTPS proxy issues."
-        "If empty the default certificates from certifi package will be used and HTTPS proxies might not work."
-        "This applies both for custom proxies, or system proxies. This is an experimental feature, might not work on some systems"
-        "When set, please shutdown the daemon server on address: http:localhost:port/shutdown so the daemon reloads new CA certificates.",
+        description=(
+            "Specify a path to a custom bundle of trusted certificates in .pem or .crt format.\n\n"
+            "If you're on corporate/institutional networks, using a VPN, or behind intermediaries like proxies, firewalls, antiviruses that manipulate HTTPS traffic, "
+            "the add-on might struggle to verify encrypted communication as signed by the BlenderKit server leading to CERTIFICATE_VERIFY_FAILED error. "
+            "This is because the traffic could be decrypted, possibly altered or logged, and then re-encrypted by the intermediary's certificate and not by BlenderKit certificate. "
+            "If you recognize and trust this intermediary, provide the path to its public certificates or their certificate authority here. "
+            "This ensures the add-on communicates with a known, trusted entity, and not a potential threat.\n\n"
+            "For those in corporate or educational institutions, it's advisable to consult your IT department about the relevant certificates. "
+            "For personal VPNs, proxies, or other software, please consult its documentation"
+        ),
         default="",
-        subtype="DIR_PATH",
+        subtype="FILE_PATH",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
     )
 
@@ -2247,7 +2252,7 @@ In this case you should also set path to your system CA bundle containing proxy 
         network_settings.prop(self, "proxy_which")
         if self.proxy_which == "CUSTOM":
             network_settings.prop(self, "proxy_address")
-            network_settings.prop(self, "proxy_ca_certs")
+        network_settings.prop(self, "proxy_ca_certs")
 
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
