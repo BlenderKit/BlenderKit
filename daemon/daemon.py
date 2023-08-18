@@ -131,10 +131,16 @@ async def consumer_exchange(request: web.Request):
     )
     if status == -1:
         text = f"Authorization Failed. Server is not reachable. Response: {error}"
+        session = request.app["SESSION_API_REQUESTS"]
+        certs = certs = session.connector._ssl.get_ca_certs()
+        text = f"{text} \n\nCerts used:\n{certs}"
         return web.Response(text=text)
 
     if status != 200:
         text = f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}"
+        session = request.app["SESSION_API_REQUESTS"]
+        certs = certs = session.connector._ssl.get_ca_certs()
+        text = f"{text} \n\nCerts used:\n{certs}"
         return web.Response(text=text)
 
     for app_id in daemon_globals.active_apps:
@@ -302,11 +308,15 @@ def configure_ssl_context(app: web.Application):
         sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
 
     if app["PROXY_CA_CERTS"] != "":
+        logger.info(f"Loading custom CA_certs from {app['PROXY_CA_CERTS']}")
         sslcontext.load_verify_locations(app["PROXY_CA_CERTS"])
+
+    logger.info(f"Loading certifi certs from {certifi.where()}")
     sslcontext.load_verify_locations(certifi.where())
-    sslcontext.load_verify_locations(
-        path.join(path.dirname(__file__), "certs/blenderkit-com-chain.pem")
-    )
+
+    bk_cert_path = path.join(path.dirname(__file__), "certs/blenderkit-com-chain.pem")
+    logger.info(f"Loading blenderkit-com-chain.pem from {bk_cert_path}")
+    sslcontext.load_verify_locations(bk_cert_path)
     try:
         sslcontext.load_default_certs(purpose=Purpose.CLIENT_AUTH)
     except Exception as e:
