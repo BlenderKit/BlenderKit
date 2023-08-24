@@ -665,13 +665,19 @@ class BlenderKitCommonSearchProps:
     #     update=search.search_update,
     # )
 
-    unrated_only: BoolProperty(
-        name="Unrated only",
+    unrated_quality_only: BoolProperty(
+        name="Unrated quality",
         description="Show only unrated models",
         default=False,
         update=search.search_update,
     )
 
+    unrated_wh_only: BoolProperty(
+        name="Unrated complexity",
+        description="Show only unrated models",
+        default=False,
+        update=search.search_update,
+    )
 
 def update_free(self, context):
     if self.is_free == "FULL":
