@@ -698,8 +698,11 @@ def build_query_common(query, props):
     if props.search_verification_status != "ALL" and utils.profile_is_validator():
         query_common["verification_status"] = props.search_verification_status.lower()
 
-    if props.unrated_only and utils.profile_is_validator():
+    if props.unrated_quality_only and utils.profile_is_validator():
         query["quality_count"] = 0
+
+    if props.unrated_wh_only and utils.profile_is_validator():
+        query["working_hours_count"] = 0
 
     if props.search_file_size:
         query_common["files_size_gte"] = props.search_file_size_min * 1024 * 1024
