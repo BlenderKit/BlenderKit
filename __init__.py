@@ -679,6 +679,7 @@ class BlenderKitCommonSearchProps:
         update=search.search_update,
     )
 
+
 def update_free(self, context):
     if self.is_free == "FULL":
         self.is_free = "FREE"
