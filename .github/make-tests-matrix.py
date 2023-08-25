@@ -46,10 +46,10 @@ jobs = [
         "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.0-linux-x64.tar.xz",
     },
     {
-        "version": "3.3.6",
+        "version": "3.3.10",
         "version_x_y": "3.3",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.6-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.10-linux-x64.tar.xz",
     },
     {
         "version": "3.4.0",
@@ -69,6 +69,24 @@ jobs = [
         "sha": "released",
         "download_url": "https://download.blender.org/release/Blender3.5/blender-3.5.0-linux-x64.tar.xz",
     },
+    {
+        "version": "3.5.1",
+        "version_x_y": "3.5",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender3.5/blender-3.5.1-linux-x64.tar.xz",
+    },
+    {
+        "version": "3.6.0",
+        "version_x_y": "3.6",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.0-linux-x64.tar.xz",
+    },
+    {
+        "version": "3.6.2",
+        "version_x_y": "3.6",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.2-linux-x64.tar.xz",
+    },
     # {'version': '', 'version_x_y': '', 'download_url': ''},
 ]
 
@@ -77,7 +95,7 @@ def get_daily_builds(jobs: list):
     resp = request.urlopen("https://builder.blender.org/download/daily/")
     page = resp.read().decode("utf-8")
     releases = re.findall(
-        r"(https://builder.blender.org/download/daily/blender-((3\.\d)\.\d-\w+)\+\S{1,6}\.(\S{12})-linux\.x86_64-release\.tar\.xz)",
+        r"(https://builder.blender.org/download/daily/blender-(((?:3|4)\.\d)\.\d-\w+)\+\S{1,6}\.(\S{12})-linux\.x86_64-release\.tar\.xz)",
         page,
     )
     for release in releases:
