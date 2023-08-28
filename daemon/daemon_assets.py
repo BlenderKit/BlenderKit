@@ -319,7 +319,7 @@ async def send_to_bg(data, fpath, command="generate_resolutions", wait=True):
         # "--no-addons",
         fpath,
         "--python",
-        os.path.join(script_path, "..", "resolutions_bg.py"),
+        os.path.join(script_path, "..", "unpack_asset_bg.py"),
         "--",
         datafile,
     ]
@@ -329,6 +329,7 @@ async def send_to_bg(data, fpath, command="generate_resolutions", wait=True):
     )  # scripts/addons/blenderkit/daemon/daemon_uploads.py
     env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
     env.update(os.environ)
+
     proc = await asyncio.create_subprocess_exec(
         binary_path,
         *args,
@@ -339,11 +340,16 @@ async def send_to_bg(data, fpath, command="generate_resolutions", wait=True):
     )
     if wait:
         stdout, _ = await proc.communicate()
+        out = stdout.decode()  # Decode stdout into a string
+
+        # Log the output, whether the command succeeded or failed
+        logger.info(f"Command {command} output:\n{out}")
+
         if proc.returncode != 0:
-            out = stdout.decode()
             logger.error(
                 f"Command {command} failed ({proc.returncode}) in background:\n{out}"
             )
+
     return proc
 
 
