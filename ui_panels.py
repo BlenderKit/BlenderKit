@@ -3229,7 +3229,7 @@ def header_search_draw(self, context):
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
     if not preferences.search_in_header:
         return
-    if context.mode not in ("PAINT_TEXTURE", "OBJECT", "SCULPT"):
+    if context.mode not in ("PAINT_TEXTURE", "OBJECT", "SCULPT", "POSE"):
         return
     # hide search bar if overlays are hidden
     # this was nice, but was then reported as a bug by some users, who didn't understand this behaviour.
