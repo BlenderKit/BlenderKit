@@ -57,8 +57,6 @@ def get_current_resolution():
     return actres
 
 
-
-
 def regenerate_thumbnail_material(data):
     # this should re-generate material thumbnail and re-upload it.
     # first let's skip procedural assets
@@ -90,4 +88,3 @@ def regenerate_thumbnail_material(data):
     # this does the actual job
 
     return
-
