@@ -31,7 +31,6 @@ from blenderkit import paths, utils
 bk_logger = logging.getLogger(__name__)
 
 
-
 def get_texture_filepath(tex_dir_path, image, resolution="blend"):
     if len(image.packed_files) > 0:
         image_file_name = bpy.path.basename(image.packed_files[0].filepath)
@@ -60,6 +59,7 @@ def get_texture_filepath(tex_dir_path, image, resolution="blend"):
             done = True
 
     return fpn
+
 
 def unpack_asset(data):
     utils.p("unpacking asset")
@@ -138,7 +138,8 @@ def unpack_asset(data):
     bpy.ops.wm.quit_blender()
     sys.exit()
 
-with open(sys.argv[-1], 'r', encoding='utf-8') as f:
+
+with open(sys.argv[-1], "r", encoding="utf-8") as f:
     data = json.load(f)
 
 if __name__ == "__main__":
