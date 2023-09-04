@@ -94,6 +94,10 @@ TIPS = [
         "On Discord? Jump into assets & add-on talks.",
         DISCORD_INVITE_URL,
     ),
+    (
+        "Right-click on the downloaded asset to rate, bookmark and more in the 'Selected Model' submenu.",
+        "",
+    ),
 ]
 VERSION = None  # filled in register()
 BUNDLED_FOR_PYTHON = "3.10"
