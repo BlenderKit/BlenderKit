@@ -692,12 +692,10 @@ class FastMetadata(bpy.types.Operator):
         # col = layout.column()
         layout.label(text=self.message)
         layout.prop(self, "category")
-        if self.category != "NONE" and self.subcategory != "NONE":
+        if self.category != "NONE" and self.subcategory != "EMPTY":
             layout.prop(self, "subcategory")
-        if self.subcategory != "NONE" and self.subcategory1 != "NONE":
-            enums = categories.get_subcategory1_enums(self, context)
-            if enums[0][0] != "NONE":
-                layout.prop(self, "subcategory1")
+        if self.subcategory != "NONE" and self.subcategory1 != "EMPTY":
+            layout.prop(self, "subcategory1")
         layout.prop(self, "name")
         layout.prop(self, "description")
         layout.prop(self, "tags")
@@ -707,9 +705,9 @@ class FastMetadata(bpy.types.Operator):
             layout.prop(self, "license")
 
     def execute(self, context):
-        if self.subcategory1 != "NONE":
+        if self.subcategory1 not in ("NONE","EMPTY"):
             category = self.subcategory1
-        elif self.subcategory != "NONE":
+        elif self.subcategory not in ("NONE","EMPTY"):
             category = self.subcategory
         else:
             category = self.category
