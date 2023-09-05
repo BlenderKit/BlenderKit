@@ -66,7 +66,7 @@ def get_texture_ui(tpath, iname):
                 (utils.get_hidden_image, (tpath, iname)), only_last=True
             )
 
-        tasks_queue.add_task((utils.get_hidden_texture, (iname,False)), only_last=True)
+        tasks_queue.add_task((utils.get_hidden_texture, (iname, False)), only_last=True)
 
         return None
     return tex
