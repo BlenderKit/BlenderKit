@@ -292,11 +292,7 @@ def get_large_thumbnail_image(asset_data):
     if image_ready is None:
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
 
-    if asset_data["assetType"] == "hdr":
-        colorspace = "Non-Color"
-    else:
-        colorspace = "sRGB"
-    img = utils.get_hidden_image(tpath, iname, colorspace=colorspace)
+    img = utils.get_hidden_image(tpath, iname, colorspace="")
     return img
 
 

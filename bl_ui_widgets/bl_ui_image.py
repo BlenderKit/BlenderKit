@@ -2,7 +2,7 @@ import os
 
 import bpy
 
-from .. import ui_bgl
+from .. import image_utils, ui_bgl
 from .bl_ui_widget import BL_UI_Widget
 
 
@@ -53,6 +53,9 @@ class BL_UI_Image(BL_UI_Widget):
         except Exception as e:
             print(e)
             self.__image = None
+
+    def set_image_colorspace(self, colorspace):
+        image_utils.set_colorspace(self.__image, colorspace)
 
     def get_image_path(self):
         self.check_image_exists()

@@ -480,11 +480,7 @@ def load_preview(asset):
         except:
             return False
 
-    if asset["assetType"] == "hdr":
-        # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
-        image_utils.set_colorspace(img, "Non-Color")
-    else:
-        image_utils.set_colorspace(img, "sRGB")
+    image_utils.set_colorspace(img)
     asset["thumb_small_loaded"] = True
     return True
 

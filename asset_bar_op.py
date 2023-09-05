@@ -296,12 +296,7 @@ def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
         return
 
     element.set_image(tpath)
-    # if asset['assetType'] == 'hdr':
-    #   # to display hdr thumbnails correctly, we use non-color, otherwise looks shifted
-    #   image_utils.set_colorspace(img, 'Non-Color')
-    # else:
-    #   image_utils.set_colorspace(img, 'sRGB')
-    # asset['thumb_small_loaded'] = True
+    element.set_image_colorspace("")
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
@@ -362,6 +357,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         tooltip_image.set_image(img_path)
         tooltip_image.set_image_size((self.tooltip_width, self.tooltip_height))
         tooltip_image.set_image_position((0, 0))
+        tooltip_image.set_image_colorspace("")
         self.tooltip_image = tooltip_image
         self.tooltip_widgets.append(tooltip_image)
 
@@ -416,6 +412,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (self.gravatar_size - 1 * self.margin, self.gravatar_size - 1 * self.margin)
         )
         gravatar_image.set_image_position((0, 0))
+        gravatar_image.set_image_colorspace("")
         self.gravatar_image = gravatar_image
         self.tooltip_widgets.append(gravatar_image)
 
@@ -1117,8 +1114,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 self.gravatar_image.set_image(authors[a_id].get("gravatarImg"))
             else:
                 img_path = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-
                 self.gravatar_image.set_image(img_path)
+            self.gravatar_image.set_image_colorspace("")
 
             properties_width = 0
             for r in bpy.context.area.regions:
