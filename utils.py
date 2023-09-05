@@ -537,7 +537,9 @@ def img_to_preview(img, copy_original=False):
     # img.preview.icon_pixels_float = img.pixels[:]
 
 
-def get_hidden_image(tpath, bdata_name, force_reload=False, colorspace="sRGB"):
+def get_hidden_image(
+    tpath, bdata_name, force_reload: bool = False, colorspace: str = ""
+):
     if bdata_name[0] == ".":
         hidden_name = bdata_name
     else:
@@ -583,7 +585,7 @@ def get_thumbnail(name):
     img = bpy.data.images.get(name)
     if img == None:
         img = bpy.data.images.load(p, check_existing=True)
-        image_utils.set_colorspace(img, "sRGB")
+        image_utils.set_colorspace(img)
         img.name = name
         img.name = name
 

@@ -4,7 +4,7 @@ import blf
 import bpy
 import gpu
 
-from .. import ui_bgl
+from .. import image_utils, ui_bgl
 from .bl_ui_widget import BL_UI_Widget
 
 
@@ -88,6 +88,9 @@ class BL_UI_Button(BL_UI_Widget):
             # self.__image.pixels
         except AttributeError:
             self.__image = None
+
+    def set_image_colorspace(self, colorspace):
+        image_utils.set_colorspace(self.__image, colorspace)
 
     def set_image(self, rel_filepath):
         # first try to access the image, for cases where it can get removed

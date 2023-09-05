@@ -65,17 +65,28 @@ def img_save_as(
     set_orig_render_settings(ors)
 
 
-def set_colorspace(img, colorspace):
+def set_colorspace(img, colorspace: str = ""):
     """sets image colorspace, but does so in a try statement, because some people might actually replace the default
     colorspace settings, and it literally can't be guessed what these people use, even if it will mostly be the filmic addon.
     """
     try:
+        if colorspace == "":
+            colorspace = guess_colorspace()
+
         if colorspace == "Non-Color":
             img.colorspace_settings.is_data = True
         else:
             img.colorspace_settings.name = colorspace
-    except:
-        print(f"Colorspace {colorspace} not found.")
+    except Exception as e:
+        print(f"Colorspace {colorspace} not found: {e}")
+
+
+def guess_colorspace():
+    display_device = bpy.context.scene.display_settings.display_device
+    if display_device == "sRGB":
+        return "sRGB"
+    if display_device == "ACES":
+        return "aces"
 
 
 def analyze_image_is_true_hdr(image):
