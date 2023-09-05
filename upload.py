@@ -705,9 +705,9 @@ class FastMetadata(bpy.types.Operator):
             layout.prop(self, "license")
 
     def execute(self, context):
-        if self.subcategory1 not in ("NONE","EMPTY"):
+        if self.subcategory1 not in ("NONE", "EMPTY"):
             category = self.subcategory1
-        elif self.subcategory not in ("NONE","EMPTY"):
+        elif self.subcategory not in ("NONE", "EMPTY"):
             category = self.subcategory
         else:
             category = self.category
