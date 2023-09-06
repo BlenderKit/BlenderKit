@@ -658,6 +658,17 @@ def query_to_url(query={}, params={}):
         order = [
             "-is_free",
         ]
+
+    # query with category_subtree:model etc gives irrelevant results
+    if query.get("category_subtree") in (
+        "model",
+        "material",
+        "scene",
+        "brush",
+        "hdr",
+    ):
+        query["category_subtree"] = None
+
     if query.get("query") is None and query.get("category_subtree") == None:
         # assumes no keywords and no category, thus an empty search that is triggered on start.
         # orders by last core file upload
