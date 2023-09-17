@@ -15,6 +15,7 @@ from . import (
     disclaimer_op,
     download,
     global_vars,
+    persistent_preferences,
     ratings_utils,
     reports,
     search,
@@ -131,20 +132,38 @@ def timer_image_cleanup():
     return 60
 
 
-def save_prefs_cancel_all_tasks_and_restart_daemon(self, context):
+def save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context):
     """Save preferences, cancel all daemon tasks and shutdown the daemon.
     The daemon_communication_timer will soon take care of starting the daemon again leading to a restart.
     """
-    utils.save_prefs(self, context)
+    utils.save_prefs(user_preferences, context)
+    if user_preferences.preferences_lock == True:
+        return
+
     reports.add_report("Restarting daemon server", 5, "INFO")
-    daemon_lib.reorder_ports(
-        bpy.context.preferences.addons["blenderkit"].preferences.daemon_port
-    )
+    daemon_lib.reorder_ports(user_preferences.daemon_port)
     try:
-        cancel_all_tasks(self, context)
+        cancel_all_tasks(user_preferences, context)
         daemon_lib.kill_daemon_server()
     except Exception as e:
         bk_logger.warning(str(e))
+
+
+def trusted_CA_certs_property_updated(user_preferences, context):
+    """Update trusted CA certs environment variables and call save_prefs()."""
+    update_trusted_CA_certs(user_preferences.trusted_ca_certs)
+    return save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context)
+
+
+def update_trusted_CA_certs(certs: str):
+    if certs == "":
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("CURL_CA_BUNDLE", None)
+        return
+
+    os.environ["REQUESTS_CA_BUNDLE"] = certs
+    os.environ["CURL_CA_BUNDLE"] = certs
+    return
 
 
 def cancel_all_tasks(self, context):
@@ -292,6 +311,7 @@ def check_timers_timer():
 
 def on_startup_timer():
     """Run once on the startup of add-on (Blender start with enabled add-on, add-on enabled)."""
+    persistent_preferences.load_preferences_from_JSON()
     addon_updater_ops.check_for_update_background()
     utils.check_globaldir_permissions()
     utils.ensure_system_ID()

@@ -97,7 +97,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
         urlquery = f"https://www.blenderkit.com/api/v1/search/?query={search_word}+asset_type:{asset_type}+order:_score&dict_parameters=1&page_size=15&addon_version={addon_version}&blender_version={blender_version}"
         tempdir = paths.get_temp_dir(f"{asset_type}_search")
         data = {
-            "PREFS": utils.get_prefs_dir(),
+            "PREFS": utils.get_preferences_as_dict(),
             "tempdir": tempdir,
             "urlquery": urlquery,
             "asset_type": asset_type,

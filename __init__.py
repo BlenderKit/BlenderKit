@@ -94,6 +94,7 @@ if "bpy" in locals():
     upload = reload(upload)
     upload_bg = reload(upload_bg)
     utils = reload(utils)
+    persistent_preferences = reload(persistent_preferences)
     reports = reload(reports)
 
     bl_ui_widget = reload(bl_ui_widget)
@@ -142,6 +143,7 @@ else:
     from . import upload
     from . import upload_bg
     from . import utils
+    from . import persistent_preferences
     from . import reports
 
     from .bl_ui_widgets import bl_ui_widget
@@ -692,24 +694,6 @@ def update_free(self, context):
         )
 
 
-# common_upload_props = [
-#     {
-#         'identifier':'id',
-#         'name':"Asset Version Id",
-#         'type':'StringProperty',
-#         'description':'Unique name of the asset version(hidden)',
-#         'default':''
-# }
-# {
-#         'identifier':'id',
-#         'name':"Asset Version Id",
-#         'type':'StringProperty',
-#         'description':'Unique name of the asset version(hidden)',
-#         'default':''
-# }
-# ]
-
-
 class BlenderKitCommonUploadProps(object):
     # for p in common_upload_props:
     #     exec(f"{p['identifier']}: {p['type']}(name='{p['name']}',description='{p['description']}',default='{p['default']}')")
@@ -797,11 +781,6 @@ class BlenderKitCommonUploadProps(object):
     total_megapixels: IntProperty(
         name="Megapixels", description="Total megapixels of texture", default=0
     )
-
-    # is_private: BoolProperty(name="Asset is Private",
-    #                       description="If not marked private, your asset will go into the validation process automatically\n"
-    #                                   "Private assets are limited by quota",
-    #                       default=False)
 
     is_free: EnumProperty(
         name="Thumbnail Style",
@@ -891,7 +870,7 @@ class BlenderKitMaterialSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         default="",
         update=search.search_update,
     )
-    append_method: EnumProperty(
+    import_method: EnumProperty(
         name="Import Method",
         items=(
             (
@@ -1682,7 +1661,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         update=search.search_update,
     )
 
-    append_method: EnumProperty(
+    import_method: EnumProperty(
         name="Import Method",
         items=(
             ("LINK_COLLECTION", "Link", "Link Collection"),
@@ -1805,7 +1784,7 @@ class BlenderKitSceneSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
 
 
 def fix_subdir(self, context):
-    """Fixes project subdicrectory settings if people input invalid path."""
+    """Fixes project subdirectory settings if people input invalid path."""
 
     # pp = pathlib.PurePath(self.project_subdir)
     pp = self.project_subdir[:]
@@ -1836,21 +1815,28 @@ def update_unpack(self, context):
 
 
 class BlenderKitAddonPreferences(AddonPreferences):
-    # this must match the addon name, use '__package__'
-    # when defining this in a submodule of a python package.
     bl_idname = __name__
-
     default_global_dict = paths.default_global_dict()
-    models_resolution: StringProperty(default="1024")
-    mat_resolution: StringProperty(default="1024")
-    hdr_resolution: StringProperty(default="1024")
+
+    preferences_lock: BoolProperty(
+        name="Preferences Locked",
+        description="When this is on, preferences will not be saved. Used for programatical changes of preferences",
+        default=False,
+    )
+
+    keep_preferences: BoolProperty(
+        name="Keep preferences on disabling",
+        description="When selected, the BlenderKit add-on preferences will be saved into JSON file and persisted even when the add-on is disabled and then re-enabled.",
+        default=False,
+        update=persistent_preferences.keep_preferences_property_updated,
+    )
 
     api_key: StringProperty(
         name="BlenderKit API Key",
         description="Your blenderkit API Key. Get it from your page on the website",
         default="",
         subtype="PASSWORD",
-        update=utils.save_prefs,
+        update=utils.api_key_property_updated,
     )
 
     api_key_refresh: StringProperty(
@@ -2052,7 +2038,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
     )
 
-    proxy_ca_certs: StringProperty(
+    trusted_ca_certs: StringProperty(
         name="Custom CA certificates path",
         description=(
             "Specify a path to a custom bundle of trusted certificates in .pem or .crt format.\n\n"
@@ -2066,7 +2052,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         ),
         default="",
         subtype="FILE_PATH",
-        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
+        update=timer.trusted_CA_certs_property_updated,
     )
 
     directory_behaviour: EnumProperty(
@@ -2141,6 +2127,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         default=0,
         min=0,
         max=20000,
+        update=persistent_preferences.asset_counter_property_updated,
     )
 
     notifications_counter: IntProperty(
@@ -2221,6 +2208,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         else:
             layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
         layout.prop(self, "api_key", text="Your API Key")
+        layout.prop(self, "keep_preferences")
         community_row = layout.row()
         community_row.prop(self, "experimental_features")
         community_row.operator("wm.blenderkit_join_discord", icon="URL")
@@ -2259,7 +2247,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         network_settings.prop(self, "proxy_which")
         if self.proxy_which == "CUSTOM":
             network_settings.prop(self, "proxy_address")
-        network_settings.prop(self, "proxy_ca_certs")
+        network_settings.prop(self, "trusted_ca_certs")
 
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
@@ -2351,9 +2339,9 @@ def register():
     global_vars.VERSION = bl_info["version"]
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-        global_vars.PREFS = utils.get_prefs_dir()
+        global_vars.PREFS = utils.get_preferences_as_dict()
         daemon_lib.reorder_ports(user_preferences.daemon_port)
-        utils.set_proxy()
+        timer.update_trusted_CA_certs(user_preferences.trusted_ca_certs)
 
     search.register_search()
     asset_inspector.register_asset_inspector()

@@ -871,7 +871,7 @@ def add_search_process(query, params):
         urlquery = query_to_url(query, params)
 
     data = {
-        "PREFS": utils.get_prefs_dir(),
+        "PREFS": utils.get_preferences_as_dict(),
         "tempdir": tempdir,
         "urlquery": urlquery,
         "asset_type": query["asset_type"],

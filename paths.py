@@ -47,7 +47,7 @@ BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading
 BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
 BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
-BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, "bkit.json")
+BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, "bk_preferences.json")
 
 
 def cleanup_old_folders():

@@ -307,9 +307,8 @@ def configure_ssl_context(app: web.Application):
     else:
         sslcontext = SSLContext(protocol=PROTOCOL_TLS_CLIENT)
 
-    if app["PROXY_CA_CERTS"] != "":
-        logger.info(f"Loading custom CA_certs from {app['PROXY_CA_CERTS']}")
-        sslcontext.load_verify_locations(app["PROXY_CA_CERTS"])
+    if app["TRUSTED_CA_CERTS"] != "":
+        sslcontext.load_verify_locations(app["TRUSTED_CA_CERTS"])
 
     logger.info(f"Loading certifi certs from {certifi.where()}")
     sslcontext.load_verify_locations(certifi.where())
@@ -410,7 +409,7 @@ if __name__ == "__main__":
     parser.add_argument("--server", type=str, default="https://www.blenderkit.com")
     parser.add_argument("--proxy_which", type=str, default="SYSTEM")
     parser.add_argument("--proxy_address", type=str, default="")
-    parser.add_argument("--proxy_ca_certs", type=str, default="")
+    parser.add_argument("--trusted_ca_certs", type=str, default="")
     parser.add_argument("--ip_version", type=str, default="BOTH")
     parser.add_argument("--ssl_context", type=str, default="DEFAULT")
     parser.add_argument("--system_id", type=str, default="")
@@ -431,7 +430,7 @@ if __name__ == "__main__":
     server = web.Application()
     server["PROXY_WHICH"] = args.proxy_which
     server["PROXY_ADDRESS"] = args.proxy_address
-    server["PROXY_CA_CERTS"] = args.proxy_ca_certs
+    server["TRUSTED_CA_CERTS"] = args.trusted_ca_certs
 
     server.cleanup_ctx.append(persistent_sessions)
     server.add_routes(
