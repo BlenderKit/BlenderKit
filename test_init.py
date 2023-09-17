@@ -30,10 +30,7 @@ class Test01Registration(unittest.TestCase):
             "ssl_context": user_preferences.ssl_context,
             "proxy_which": user_preferences.proxy_which,
             "proxy_address": user_preferences.proxy_address,
-            "proxy_ca_certs": user_preferences.proxy_ca_certs,
+            "trusted_ca_certs": user_preferences.trusted_ca_certs,
             "unpack_files": user_preferences.unpack_files,
-            "models_resolution": user_preferences.models_resolution,
-            "mat_resolution": user_preferences.mat_resolution,
-            "hdr_resolution": user_preferences.hdr_resolution,
         }
         assert global_vars.PREFS == prefs

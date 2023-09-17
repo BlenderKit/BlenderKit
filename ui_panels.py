@@ -1461,7 +1461,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
 
             layout.label(text="Import method:")
             row = layout.row()
-            row.prop(props, "append_method", expand=True, icon_only=False)
+            row.prop(props, "import_method", expand=True, icon_only=False)
 
         if ui_props.asset_type == "MATERIAL":
             props = wm.blenderkit_mat
@@ -1469,7 +1469,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
             layout.label(text="Import method:")
             row = layout.row()
 
-            row.prop(props, "append_method", expand=True, icon_only=False)
+            row.prop(props, "import_method", expand=True, icon_only=False)
         if ui_props.asset_type == "SCENE":
             draw_scene_import_settings(self, context)
 

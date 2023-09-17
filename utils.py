@@ -30,7 +30,7 @@ import uuid
 import bpy
 from mathutils import Vector
 
-from . import global_vars, image_utils, paths, reports
+from . import global_vars, image_utils, paths, persistent_preferences, reports
 from .daemon import daemon_tasks
 
 
@@ -373,128 +373,88 @@ def get_active_brush():
     return brush
 
 
-# TODO: unused, remove?
-def load_XXXXXXXXXXXX_prefs():
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    wm = bpy.context.window_manager
-    # if user_preferences.api_key == '':
-    fpath = paths.BLENDERKIT_SETTINGS_FILENAME
-    if os.path.exists(fpath):
-        try:
-            with open(fpath, "r", encoding="utf-8") as s:
-                prefs = json.load(s)
-                user_preferences.api_key = prefs.get("api_key", "")
-                user_preferences.api_key_refresh = prefs.get("api_key_refresh", "")
-                user_preferences.global_dir = prefs.get(
-                    "global_dir", paths.default_global_dict()
-                )
-                user_preferences.project_subdir = prefs.get(
-                    "project_subdir", "//assets"
-                )
-                user_preferences.directory_behaviour = prefs.get("directory_behaviour")
-                user_preferences.proxy_which = prefs.get("proxy_which")
-                user_preferences.proxy_address = prefs.get("proxy_address", "")
-                user_preferences.proxy_ca_certs = prefs.get("proxy_ca_certs", "")
-                wm.blenderkit_models.resolution = prefs.get("models_resolution")
-                wm.blenderkit_mat.resolution = prefs.get("materials_resolution")
-                wm.blenderkit_HDR.resolution = prefs.get("hdrs_resolution")
-            print("RETURNING PREFS", prefs)
-            return prefs
-        except Exception as e:
-            print("failed to read addon preferences.")
-            print(e)
-            os.remove(fpath)
-    else:
-        return get_prefs_dir()
-
-
 def get_scene_id():
     """gets scene id and possibly also generates a new one"""
     bpy.context.scene["uuid"] = bpy.context.scene.get("uuid", str(uuid.uuid4()))
     return bpy.context.scene["uuid"]
 
 
-# TODO: not used, remove with its setting in get_prefs_dir()?
-def save_resolutions(self, context):
-    wm = bpy.context.window_manager
+def get_preferences_as_dict():
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    if self.__class__.__name__ == "BlenderKitModelSearchProps":
-        user_preferences.models_resolution = wm.blenderkit_models.resolution
-    if self.__class__.__name__ == "BlenderKitMaterialSearchProps":
-        user_preferences.mat_resolution = wm.blenderkit_mat.resolution
-    if self.__class__.__name__ == "BlenderKitHDRSearchProps":
-        user_preferences.hdr_resolution = wm.blenderkit_HDR.resolution
-
-
-def get_prefs_dir():
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
-    wm = bpy.context.window_manager
-    wm.blenderkit_models.resolution = user_preferences.models_resolution
-    wm.blenderkit_mat.resolution = user_preferences.mat_resolution
-    wm.blenderkit_HDR.resolution = user_preferences.hdr_resolution
-    # TODO: wm.blenderkit_models.resolution is not accessible, is it needed?
     prefs = {
+        # SYSTEM STUFF
         "debug_value": bpy.app.debug_value,
         "binary_path": bpy.app.binary_path,
+        "system_id": user_preferences.system_id,
+        "app_id": os.getpid(),
+        "asset_counter": user_preferences.asset_counter,
+        # MAIN PREFERENCES
         "api_key": user_preferences.api_key,
         "api_key_refresh": user_preferences.api_key_refresh,
-        "system_id": user_preferences.system_id,
+        "api_key_timeout": user_preferences.api_key_timeout,
+        "experimental_features": user_preferences.experimental_features,
+        "keep_preferences": user_preferences.keep_preferences,
+        # FILE PATHS
+        "directory_behaviour": user_preferences.directory_behaviour,
         "global_dir": user_preferences.global_dir,
         "project_subdir": user_preferences.project_subdir,
-        "directory_behaviour": user_preferences.directory_behaviour,
-        "is_saved": user_preferences.directory_behaviour,
-        "app_id": os.getpid(),
+        "unpack_files": user_preferences.unpack_files,
+        # GUI
+        "show_on_start": user_preferences.show_on_start,
+        "thumb_size": user_preferences.thumb_size,
+        "max_assetbar_rows": user_preferences.max_assetbar_rows,
+        "search_field_width": user_preferences.search_field_width,
+        "search_in_header": user_preferences.search_in_header,
+        "tips_on_start": user_preferences.tips_on_start,
+        "announcements_on_start": user_preferences.announcements_on_start,
+        # NETWORK
+        "daemon_port": user_preferences.daemon_port,
         "ip_version": user_preferences.ip_version,
         "ssl_context": user_preferences.ssl_context,
         "proxy_which": user_preferences.proxy_which,
         "proxy_address": user_preferences.proxy_address,
-        "proxy_ca_certs": user_preferences.proxy_ca_certs,
-        "unpack_files": user_preferences.unpack_files,
-        "models_resolution": user_preferences.models_resolution,
-        "mat_resolution": user_preferences.mat_resolution,
-        "hdr_resolution": user_preferences.hdr_resolution,
+        "trusted_ca_certs": user_preferences.trusted_ca_certs,
+        # UPDATES
+        "auto_check_update": user_preferences.auto_check_update,
+        "enable_prereleases": user_preferences.enable_prereleases,
+        "updater_interval_months": user_preferences.updater_interval_months,
+        "updater_interval_days": user_preferences.updater_interval_days,
+        # IMPORT SETTINGS
+        "resolution": user_preferences.resolution,
     }
     return prefs
 
 
-def set_proxy():
-    certs = global_vars.PREFS.get("proxy_ca_certs", "")
-    if certs != "":
-        os.environ["REQUESTS_CA_BUNDLE"] = certs
-        os.environ["CURL_CA_BUNDLE"] = certs
-
-
-def save_prefs(self, context):
+def save_prefs(user_preferences, context):
     # first check context, so we don't do this on registration or blender startup
-    if bpy.app.background is True:  # (hasattr kills blender)
+    if bpy.app.background is True:
         return
 
-    # print('saving prefs')
+    global_vars.PREFS = get_preferences_as_dict()
+    if user_preferences.preferences_lock is True:
+        return
+
     bpy.ops.wm.save_userpref()
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    # we test the api key for length, so not a random accidentally typed sequence gets saved.
-    lk = len(user_preferences.api_key)
-    if 0 < lk < 25:
-        # reset the api key in case the user writes some nonsense, e.g. a search string instead of the Key
-        user_preferences.api_key = ""
-        props = get_search_props()
-        props.report = "Login failed. Please paste a correct API Key."
+    if user_preferences.keep_preferences is True:
+        persistent_preferences.write_preferences_to_JSON(global_vars.PREFS)
 
-    prefs = get_prefs_dir()
-    global_vars.PREFS = prefs
-    set_proxy()
 
-    return
-    try:
-        fpath = paths.BLENDERKIT_SETTINGS_FILENAME
+def api_key_property_updated(user_preferences, context):
+    """Check if api_key is of valid length so random typo does not get saved.
+    If length is not correct, then reset api_key to empty string. Call save_prefs() when api_key is correct.
+    """
+    if len(user_preferences.api_key) >= 25:
+        return save_prefs(user_preferences, context)
 
-        if not os.path.exists(paths._presets):
-            os.makedirs(paths._presets)
-        with open(fpath, "w", encoding="utf-8") as s:
-            json.dump(prefs, s, ensure_ascii=False, indent=4)
-    except Exception as e:
-        print(e)
+    if len(user_preferences.api_key) == 0:
+        return save_prefs(user_preferences, context)
+
+    user_preferences.api_key = ""
+    reports.add_report(
+        "Login failed. Wrong API key length. Please login again, or paste a correct API Key.",
+        type="ERROR",
+    )
+    return  # save_prefs not called, as setting api_key to empty string will trigger this function again
 
 
 def uploadable_asset_poll():

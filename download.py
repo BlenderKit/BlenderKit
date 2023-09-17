@@ -290,9 +290,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     s = bpy.context.scene
     wm = bpy.context.window_manager
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
-    if user_preferences.api_key == "":
-        user_preferences.asset_counter += 1
+    user_preferences.asset_counter += 1
+    print("ASSET_COUNTER:", user_preferences.asset_counter)
 
     if asset_data["assetType"] == "scene":
         sprops = wm.blenderkit_scene
@@ -315,7 +314,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         downloaders = kwargs.get("downloaders")
         sprops = wm.blenderkit_models
         # TODO this is here because combinations of linking objects or appending groups are rather not-usefull
-        if sprops.append_method == "LINK_COLLECTION":
+        if sprops.import_method == "LINK_COLLECTION":
             sprops.append_link = "LINK"
             sprops.import_as = "GROUP"
         else:
@@ -483,7 +482,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 material = m
                 break
         if not inscene:
-            link = sprops.append_method == "LINK"
+            link = sprops.import_method == "LINK"
             material = append_link.append_material(
                 file_names[-1], matname=asset_data["name"], link=link, fake_user=False
             )
@@ -843,7 +842,7 @@ def download(asset_data, **kwargs):
         asset_data = asset_data.to_dict()
     data = {
         "asset_data": asset_data,
-        "PREFS": utils.get_prefs_dir(),
+        "PREFS": utils.get_preferences_as_dict(),
         "progress": 0,
         "text": f'downloading {asset_data["name"]}',
     }
