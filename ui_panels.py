@@ -1554,7 +1554,10 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             draw_login_progress(layout)
             return
 
-        if len(user_preferences.api_key) < 20 and user_preferences.asset_counter > 20:
+        if (
+            len(user_preferences.api_key) < 20
+            and user_preferences.download_counter > 20
+        ):
             draw_login_buttons(layout)
             layout.separator()
         # if bpy.data.filepath == '':
@@ -1702,6 +1705,11 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
+        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        if user_preferences.welcome_operator_counter > 10:
+            return {"FINISHED"}
+        user_preferences.welcome_operator_counter += 1
+
         wm = bpy.context.window_manager
         img = utils.get_thumbnail("intro.jpg")
         utils.img_to_preview(img, copy_original=True)

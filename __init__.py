@@ -1828,7 +1828,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Keep preferences on disabling",
         description="When selected, the BlenderKit add-on preferences will be saved into JSON file and persisted even when the add-on is disabled and then re-enabled.",
         default=False,
-        update=persistent_preferences.keep_preferences_property_updated,
+        update=persistent_preferences.property_keep_preferences_updated,
     )
 
     api_key: StringProperty(
@@ -2120,30 +2120,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         description="Width of the search field in the assetbar in 3D view. 0 means automatic width",
     )
 
-    # counts usages so it can encourage user after some time to do things.
-    asset_counter: IntProperty(
-        name="Usage Counter",
-        description="Counts usages so it asks for registration only after reaching a limit",
-        default=0,
-        min=0,
-        max=20000,
-        update=persistent_preferences.asset_counter_property_updated,
-    )
-
-    notifications_counter: IntProperty(
-        name="Notifications Counter",
-        description="count users notifications",
-        default=0,
-    )
-
-    asset_popup_counter: IntProperty(
-        name="Asset Popup Card Counter",
-        description="Counts Asset popup card counter. To enable hiding of the tooltip after some time",
-        default=0,
-        min=0,
-        max=6,
-    )
-
     experimental_features: BoolProperty(
         name="Enable experimental features",
         description="""Enable experimental features of BlenderKit. There are no experimental features available in this version.""",
@@ -2158,6 +2134,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    ### UPDATES
     auto_check_update: bpy.props.BoolProperty(
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
@@ -2199,6 +2176,29 @@ In this case you should also set path to your system CA bundle containing proxy'
         default=0,
         min=0,
         max=59,
+    )
+
+    ### STATISTICS - so we can hide tooltips after a while and tailor UI more
+    download_counter: IntProperty(
+        name="Download Counter",
+        description="Counts downloads of assets so it asks for registration only after reaching a limit",
+        default=0,
+        min=0,
+        update=utils.save_prefs_without_save_userpref,
+    )
+    asset_popup_counter: IntProperty(
+        name="Asset Popup Card Counter",
+        description="Counts Asset popup card counter. To enable hiding of the tooltip after some time",
+        default=0,
+        min=0,
+        update=utils.save_prefs_without_save_userpref,
+    )
+    welcome_operator_counter: IntProperty(
+        name="Welcome Operator Counter",
+        description="Counts how many times the Welcome Operator was shown on addon enable.",
+        default=0,
+        min=0,
+        update=utils.save_prefs,
     )
 
     def draw(self, context):

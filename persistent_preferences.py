@@ -10,73 +10,52 @@ from . import paths, utils
 bk_logger = logging.getLogger(__name__)
 
 
-def keep_preferences_property_updated(user_preferences, context):
-    """Delete persistent JSON preferences file if keep_preferences was set to False. Call save_prefs() in all cases."""
-    if user_preferences.keep_preferences is True:
-        return utils.save_prefs(user_preferences, context)
-
-    settings_path = paths.BLENDERKIT_SETTINGS_FILENAME
-    if os.path.exists(settings_path) is False:
-        return utils.save_prefs(user_preferences, context)
-
-    try:
-        os.remove(settings_path)
-        bk_logger.info(f"Deleted preferences file {settings_path}")
-    except Exception as e:
-        bk_logger.error(f"Failed to delete preferences file {settings_path}: {e}")
-    utils.save_prefs(user_preferences, context)
+def get_preferences_path() -> str:
+    """Return path to the persistent JSON preferences file."""
+    config_dir = paths.get_config_dir_path()
+    preferences_path = os.path.join(config_dir, "preferences.json")
+    return os.path.abspath(preferences_path)
 
 
 def write_preferences_to_JSON(preferences: dict):
-    if not os.path.exists(paths._presets):
-        os.makedirs(paths._presets)
-
+    """Write preferences to JSON file, called on save_prefs()."""
+    paths.ensure_config_dir_exists()
+    preferences_path = get_preferences_path()
     try:
-        settings_path = paths.BLENDERKIT_SETTINGS_FILENAME
-        with open(settings_path, "w", encoding="utf-8") as s:
+        with open(preferences_path, "w", encoding="utf-8") as s:
             json.dump(preferences, s, ensure_ascii=False, indent=4)
-        bk_logger.info(f"Saved preferences to {settings_path}")
+        bk_logger.info(f"Saved preferences to {preferences_path}")
     except Exception as e:
         bk_logger.warning(f"Failed to save preferences: {e}")
 
 
-def asset_counter_property_updated(user_preferences, context):
-    """Update asset counter in persistent JSON preferences file."""
-    print(
-        "asset_counter_property_updated, writting to json:",
-        user_preferences.asset_counter,
-    )
-    prefs = utils.get_preferences_as_dict()
-    write_preferences_to_JSON(prefs)  # TODO: WRITE TO SOME OTHER FILE
-    # SO THAT ASSETS ARE COUNTED ALSO FOR USERS WHO DO NOT HAVE KEEP_PREFERENCES ENABLED
-    print("wrote asset_counter:", prefs.get("asset_counter"))
-
-
 def load_preferences_from_JSON():
     """Load preferences from JSON file and update the user preferences accordingly."""
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    # wm = bpy.context.window_manager
-
-    fpath = paths.BLENDERKIT_SETTINGS_FILENAME
-    if os.path.exists(fpath) is not True:
+    preferences_path = get_preferences_path()
+    if os.path.exists(preferences_path) is not True:
         return utils.get_preferences_as_dict()
 
     try:
-        with open(fpath, "r", encoding="utf-8") as s:
+        with open(preferences_path, "r", encoding="utf-8") as s:
             prefs = json.load(s)
     except Exception as e:
         bk_logger.warning("Failed to read preferences from JSON: {e}")
-        os.remove(fpath)
+        os.remove(preferences_path)
         return utils.get_preferences_as_dict()
 
+    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     user_preferences.preferences_lock = True
 
-    # SYSTEM STUFF
-    user_preferences.asset_counter = prefs.get(
-        "asset_counter", user_preferences.asset_counter
+    # STATISTICS
+    user_preferences.download_counter = prefs.get(
+        "download_counter", user_preferences.download_counter
     )
-    bk_logger.info(f"Asset counter is: {user_preferences.asset_counter}")
-
+    user_preferences.asset_popup_counter = prefs.get(
+        "asset_popup_counter", user_preferences.asset_popup_counter
+    )
+    user_preferences.welcome_operator_counter = prefs.get(
+        "welcome_operator_counter", user_preferences.welcome_operator_counter
+    )
     # MAIN PREFERENCES
     user_preferences.api_key = prefs.get("api_key", user_preferences.api_key)
     user_preferences.api_key_refresh = prefs.get(
@@ -159,10 +138,25 @@ def load_preferences_from_JSON():
 
     # IMPORT SETTINGS
     user_preferences.resolution = prefs.get("resolution", user_preferences.resolution)
-
-    # wm.blenderkit_models.resolution = prefs.get("models_resolution")
-    # wm.blenderkit_mat.resolution = prefs.get("materials_resolution")
-    # wm.blenderkit_HDR.resolution = prefs.get("hdrs_resolution")
-    bk_logger.info(f"Successfully loaded preferences from {fpath}")
+    bk_logger.info(f"Successfully loaded preferences from {preferences_path}")
     user_preferences.preferences_lock = False
     return prefs
+
+
+def property_keep_preferences_updated(user_preferences, context):
+    """Runs when keep_preferences BoolProperty is updated.
+    Delete preferences JSON file if set to False. Call save_prefs() in all cases.
+    """
+    if user_preferences.keep_preferences is True:
+        return utils.save_prefs(user_preferences, context)
+
+    preferences_path = get_preferences_path()
+    if os.path.exists(preferences_path) is False:
+        return utils.save_prefs(user_preferences, context)
+
+    try:
+        os.remove(preferences_path)
+        bk_logger.info(f"Deleted preferences file {preferences_path}")
+    except Exception as e:
+        bk_logger.error(f"Failed to delete preferences file {preferences_path}: {e}")
+    utils.save_prefs(user_preferences, context)

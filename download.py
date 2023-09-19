@@ -290,8 +290,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     s = bpy.context.scene
     wm = bpy.context.window_manager
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    user_preferences.asset_counter += 1
-    print("ASSET_COUNTER:", user_preferences.asset_counter)
+    user_preferences.download_counter += 1
 
     if asset_data["assetType"] == "scene":
         sprops = wm.blenderkit_scene
