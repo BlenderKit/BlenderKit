@@ -30,7 +30,6 @@ from . import daemon_lib, global_vars, reports, utils
 
 bk_logger = logging.getLogger(__name__)
 
-_presets = os.path.join(bpy.utils.user_resource("SCRIPTS"), "presets")
 BLENDERKIT_API = f"{global_vars.SERVER}/api/v1"
 BLENDERKIT_OAUTH_LANDING_URL = f"{global_vars.SERVER}/oauth-landing"
 BLENDERKIT_PLANS_URL = f"{global_vars.SERVER}/plans/pricing"
@@ -46,8 +45,6 @@ BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-h
 BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-scene/"
 BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
 BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
-
-BLENDERKIT_SETTINGS_FILENAME = os.path.join(_presets, "bk_preferences.json")
 
 
 def cleanup_old_folders():
@@ -430,3 +427,18 @@ def get_addon_thumbnail_path(name):
         next = ".jpg"
     subpath = f"thumbnails{os.sep}{name}{next}"
     return os.path.join(script_path, subpath)
+
+
+def get_config_dir_path() -> str:
+    """Get the path to the config directory in global_dir."""
+    global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
+    directory = os.path.join(global_dir, "config")
+    return os.path.abspath(directory)
+
+
+def ensure_config_dir_exists():
+    """Ensure that the config directory exists."""
+    config_dir = get_config_dir_path()
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+    return config_dir

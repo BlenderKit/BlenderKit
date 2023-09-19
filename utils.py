@@ -387,7 +387,10 @@ def get_preferences_as_dict():
         "binary_path": bpy.app.binary_path,
         "system_id": user_preferences.system_id,
         "app_id": os.getpid(),
-        "asset_counter": user_preferences.asset_counter,
+        # STATISTICS
+        "download_counter": user_preferences.download_counter,
+        "asset_popup_counter": user_preferences.asset_popup_counter,
+        "welcome_operator_counter": user_preferences.welcome_operator_counter,
         # MAIN PREFERENCES
         "api_key": user_preferences.api_key,
         "api_key_refresh": user_preferences.api_key_refresh,
@@ -425,7 +428,12 @@ def get_preferences_as_dict():
     return prefs
 
 
-def save_prefs(user_preferences, context):
+def save_prefs_without_save_userpref(user_preferences, context):
+    """Save preferences (update global_vars.PREFS, write to JSON if needed) without calling bpy.ops.wm.save_userpref()."""
+    save_prefs(user_preferences, context, save_userprefs=False)
+
+
+def save_prefs(user_preferences, context, **kwargs):
     # first check context, so we don't do this on registration or blender startup
     if bpy.app.background is True:
         return
@@ -434,8 +442,12 @@ def save_prefs(user_preferences, context):
     if user_preferences.preferences_lock is True:
         return
 
-    bpy.ops.wm.save_userpref()
-    if user_preferences.keep_preferences is True:
+    if kwargs.get("save_userprefs", True):
+        bpy.ops.wm.save_userpref()
+
+    if (
+        user_preferences.keep_preferences is True
+    ):  # TODO: write statistics even if keep_preferences is False
         persistent_preferences.write_preferences_to_JSON(global_vars.PREFS)
 
 
