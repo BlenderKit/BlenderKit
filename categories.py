@@ -108,6 +108,14 @@ def get_category(categories, cat_path=()):
                     return c
                 break
 
+            if c["slug"] == "all":
+                for category_in_all in c["children"]:
+                    if category_in_all["slug"] == category:
+                        categories = category_in_all["children"]
+                        if category == cat_path[-1]:
+                            return category_in_all
+                        break
+
 
 def handle_categories_task(task: daemon_tasks.Task):
     """Handle incomming categories_update task which contains information about fetching updated categories.
