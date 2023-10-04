@@ -132,15 +132,21 @@ async def consumer_exchange(request: web.Request):
     if status == -1:
         text = f"Authorization Failed. Server is not reachable. Response: {error}"
         session = request.app["SESSION_API_REQUESTS"]
-        certs = certs = session.connector._ssl.get_ca_certs()
-        text = f"{text} \n\nCerts used:\n{certs}"
+        try:
+            certs = certs = session.connector._ssl.get_ca_certs()
+            text = f"{text} \n\nCerts used:\n{certs}"
+        except Exception as e:
+            text = f"{text} \n\nCould not get certs to print them here: {e}"
         return web.Response(text=text)
 
     if status != 200:
         text = f"Authorization Failed. Retrieval of tokens failed (status code: {status}). Response: {error}"
         session = request.app["SESSION_API_REQUESTS"]
-        certs = certs = session.connector._ssl.get_ca_certs()
-        text = f"{text} \n\nCerts used:\n{certs}"
+        try:
+            certs = certs = session.connector._ssl.get_ca_certs()
+            text = f"{text} \n\nCerts used:\n{certs}"
+        except Exception as e:
+            text = f"{text} \n\nCould not get certs to print them here: {e}"
         return web.Response(text=text)
 
     for app_id in daemon_globals.active_apps:

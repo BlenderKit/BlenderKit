@@ -51,8 +51,13 @@ async def get_tokens(
             e, resp_text, resp_status, "Get tokens"
         )
         logger.error(f"{msg}: {detail}.")
-        certs = session.connector._ssl.get_ca_certs()
-        logger.info(f"Certs used: {certs}")
+
+        try:
+            certs = session.connector._ssl.get_ca_certs()
+            logger.info(f"Certs used: {certs}")
+        except Exception as e:
+            logger.warning(f"Could not get certs to print them here: {e}")
+
         return {}, resp_status, msg
 
 
