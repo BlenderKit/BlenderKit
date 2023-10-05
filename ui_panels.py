@@ -1368,13 +1368,11 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
 
     @classmethod
     def poll(cls, context):
-        s = context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "BRUSH"
 
     def draw_layout(self, layout):
         wm = bpy.context.window_manager
-        props = wm.blenderkit_brush
         ui_props = wm.blenderkitUI
 
         layout.separator()
@@ -1402,10 +1400,6 @@ class VIEW3D_PT_blenderkit_categories(Panel):
     def poll(cls, context):
         ui_props = bpy.context.window_manager.blenderkitUI
         if not global_vars.DAEMON_RUNNING:
-            return False
-        if ui_props.asset_type == "BRUSH" and not (
-            context.sculpt_object or context.image_paint_object
-        ):
             return False
         return ui_props.down_up == "SEARCH"
 
