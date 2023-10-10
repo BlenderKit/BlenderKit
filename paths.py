@@ -35,7 +35,7 @@ BLENDERKIT_OAUTH_LANDING_URL = f"{global_vars.SERVER}/oauth-landing"
 BLENDERKIT_PLANS_URL = f"{global_vars.SERVER}/plans/pricing"
 BLENDERKIT_REPORT_URL = f"{global_vars.SERVER}/usage_report"
 BLENDERKIT_USER_ASSETS_URL = f"{global_vars.SERVER}/my-assets"
-BLENDERKIT_MANUAL_URL = "https://youtu.be/pSay3yaBWV0"
+BLENDERKIT_MANUAL_URL = "https://youtu.be/0P8ZjfbUjeA"
 BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/upload/"
 BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
     f"{global_vars.SERVER}/docs/uploading-material/"
