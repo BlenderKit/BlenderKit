@@ -1804,6 +1804,9 @@ def fix_subdir(self, context):
 
 
 def update_unpack(self, context):
+    """Open UI message about unpacking compatibility. If unpack was updated from code (preferences_lock is True), then don't show the message."""
+    if self.preferences_lock == True:
+        return
     ui_panels.ui_message(
         title="Unpack compatibility",
         message=" - With unpack on, you can access your textures easier,"
