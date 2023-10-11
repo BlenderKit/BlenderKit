@@ -273,23 +273,15 @@ def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
     """
     directory = paths.get_temp_dir("%s_search" % asset["assetType"])
-    if asset[thumb_type] == "":  # for thumbnails not present at all
-        tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-    else:
-        tpath = os.path.join(directory, asset[thumb_type])
+    tpath = os.path.join(directory, asset[thumb_type])
 
     if element.get_image_path() == tpath:
-        # no need to update
-        return
-    # img_name_datablock = f'.{asset["thumbnail_small"]}'
-
-    # if not os.path.exists(tpath):
-    #     del global_vars.DATA['images available'][tpath]
+        return  # no need to update
 
     image_ready = global_vars.DATA["images available"].get(tpath)
     if image_ready is None:
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-    if image_ready is False:
+    if image_ready is False or asset[thumb_type] == "":
         tpath = paths.get_addon_thumbnail_path("thumbnail_not_available.jpg")
 
     if element.get_image_path() == tpath:
