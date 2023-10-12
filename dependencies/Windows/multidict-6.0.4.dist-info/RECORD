@@ -7,11 +7,11 @@ multidict-6.0.4.dist-info/WHEEL,sha256=rneS2j8QNmAwdNKHN86s6-qP7AMcWZgqiEoH3bdbh
 multidict-6.0.4.dist-info/top_level.txt,sha256=-euDElkk5_qkmfIJ7WiqCab02ZlSFZWynejKg59qZQQ,10
 multidict/__init__.py,sha256=mY4YGSMgwwOgcBqSuFcEYlJh72MmvPDilSf05L7wMik,976
 multidict/__init__.pyi,sha256=Snjf741LdwYBQk-3F5JcEpLQTjrFT6QgB2UcuARawyk,5003
-multidict/__pycache__/__init__.cpython-310.pyc,,
-multidict/__pycache__/_abc.cpython-310.pyc,,
-multidict/__pycache__/_compat.cpython-310.pyc,,
-multidict/__pycache__/_multidict_base.cpython-310.pyc,,
-multidict/__pycache__/_multidict_py.cpython-310.pyc,,
+multidict/__pycache__/__init__.cpython-311.pyc,,
+multidict/__pycache__/_abc.cpython-311.pyc,,
+multidict/__pycache__/_compat.cpython-311.pyc,,
+multidict/__pycache__/_multidict_base.cpython-311.pyc,,
+multidict/__pycache__/_multidict_py.cpython-311.pyc,,
 multidict/_abc.py,sha256=5a8deo_qMHWH6x-FmBYkljkLhWOJngwSnxQWFoKjn9E,1238
 multidict/_compat.py,sha256=cLjdGfIaDkrFYtxRVl2yP-dmoJZa-CMThQ7vtLwHsg0,330
 multidict/_multidict.cp310-win_amd64.pyd,sha256=NmBd7PoQp5q3KBttScwQckZ4AYA24-4_bHcBOk8hdK8,46592
