@@ -548,9 +548,17 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         upload_data["category"] = asset_type.lower()
     else:
         upload_data["category"] = props.category
-    if props.subcategory not in ("NONE", "EMPTY"):
+    if props.subcategory not in (
+        "NONE",
+        "EMPTY",
+        "OTHER",
+    ):  # if OTHER category is selected, parent category will be used
         upload_data["category"] = props.subcategory
-    if props.subcategory1 not in ("NONE", "EMPTY"):
+    if props.subcategory1 not in (
+        "NONE",
+        "EMPTY",
+        "OTHER",
+    ):  # if OTHER category is selected, parent category will be used
         upload_data["category"] = props.subcategory1
 
     upload_data["license"] = props.license
