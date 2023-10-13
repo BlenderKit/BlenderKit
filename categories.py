@@ -238,6 +238,14 @@ def get_subcategory_enums(self, context):
             0,
             ("NONE", "None", "Default state, category not defined by user"),
         )
+        items.append(
+            (
+                "OTHER",
+                "Other...",
+                "The asset does not belong to any of the subcategories listed above.",
+            ),
+        )
+
     return items
 
 
@@ -268,6 +276,13 @@ def get_subcategory1_enums(self, context):
         items.insert(
             0,
             ("NONE", "None", "Default state, category not defined by user"),
+        )
+        items.append(
+            (
+                "OTHER",
+                "Other...",
+                "The asset does not belong to any of the sub-subcategories listed above.",
+            ),
         )
 
     return items
