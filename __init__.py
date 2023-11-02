@@ -400,6 +400,15 @@ class BlenderKitUIProps(PropertyGroup):
         max=10,
         update=search.search_update_delayed,
     )
+    search_license: EnumProperty(
+        name="License",
+        items=(('ANY', 'Any', ''),
+               ("royalty_free", "Royalty Free", "royalty free commercial license"),
+               ("cc_zero", "Creative Commons Zero", "Creative Commons Zero")),
+        description="License of the asset",
+        default="ANY",
+        update=search.search_update,
+    )
 
     logo_status: StringProperty(name="", default="logo_offline")
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
@@ -483,6 +492,7 @@ class BlenderKitUIProps(PropertyGroup):
     #### rating UI props
     rating_ui_scale = ui_scale
 
+    header_menu_fold: BoolProperty(name="Header menu fold", default=False)
     rating_button_on: BoolProperty(name="Rating Button On", default=True)
     rating_menu_on: BoolProperty(name="Rating Menu On", default=False)
     rating_on: BoolProperty(name="Rating on", default=True)
@@ -680,6 +690,8 @@ class BlenderKitCommonSearchProps:
         default=False,
         update=search.search_update,
     )
+
+
 
 
 def update_free(self, context):
@@ -1741,6 +1753,7 @@ class BlenderKitHDRSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         default=True,
         update=search.search_update,
     )
+
 
 
 class BlenderKitSceneSearchProps(PropertyGroup, BlenderKitCommonSearchProps):

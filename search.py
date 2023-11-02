@@ -722,6 +722,9 @@ def build_query_common(query, props):
 
     if ui_props.search_bookmarks:
         query["bookmarks_rating"] = 1
+
+    if ui_props.search_license != "ANY":
+        query["license"] = ui_props.search_license
     query.update(query_common)
 
 
@@ -1094,6 +1097,7 @@ def update_filters():
         or ui_props.free_only
         or ui_props.quality_limit > 0
         or ui_props.search_bookmarks
+        or ui_props.search_license != "ANY"
     )
 
     if ui_props.asset_type == "MODEL":
