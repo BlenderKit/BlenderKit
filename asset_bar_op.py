@@ -95,8 +95,10 @@ def modal_inside(self, context, event):
         if self.handle_widget_events(event):
             return {"RUNNING_MODAL"}
 
-        if event.type in {"ESC"}:
-            self.finish()
+        if event.type in {"ESC"} and event.value == "PRESS":
+            # just escape dragging when dragging, not appending.
+            if not ui_props.dragging:
+                self.finish()
 
         self.mouse_x = event.mouse_region_x
         self.mouse_y = event.mouse_region_y

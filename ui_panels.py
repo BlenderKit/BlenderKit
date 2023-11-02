@@ -1234,8 +1234,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         )  # , text ='condition of object new/old e.t.c.')
 
         # layout.prop(props, "search_procedural", expand=True)
-        # ADULT
-        # layout.prop(props, "search_adult")  # , text ='condition of object new/old e.t.c.')
+        layout.prop(ui_props, "search_license")
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1287,6 +1286,8 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
             row.prop(props, "search_file_size_min", text="Min")
             row.prop(props, "search_file_size_max", text="Max")
         layout.prop(ui_props, "quality_limit", slider=True)
+        layout.prop(ui_props, "search_license")
+
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1320,6 +1321,8 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
 
         layout.prop(ui_props, "free_only")
         layout.prop(ui_props, "quality_limit", slider=True)
+        layout.prop(ui_props, "search_license")
+
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1355,6 +1358,8 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         layout.prop(ui_props, "free_only")
         layout.prop(props, "true_hdr")
         layout.prop(ui_props, "quality_limit", slider=True)
+        layout.prop(ui_props, "search_license")
+
 
 
 class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
@@ -1382,6 +1387,8 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
         row.prop(ui_props, "own_only", icon="USER")
         layout.prop(ui_props, "free_only")
         layout.prop(ui_props, "quality_limit", slider=True)
+        layout.prop(ui_props, "search_license")
+
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -3263,8 +3270,19 @@ def header_search_draw(self, context):
     # the center snap menu is in edit and object mode if tool settings are off.
     # if context.space_data.show_region_tool_header == True or context.mode[:4] not in ('EDIT', 'OBJE'):
     # layout.separator_spacer()
+    row = layout.row(align=True)
+    row.scale_x = 0.85
+
+    if ui_props.header_menu_fold:
+        row.prop(ui_props, "header_menu_fold", text="", icon="RIGHTARROW", emboss=False)
+        row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
+        return
+    else:
+        row.prop(ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False)
+    row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
+
+
     layout = layout.row(align=True)
-    layout.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
     # layout.separator()
     if not global_vars.DAEMON_RUNNING:
         layout.label(text="Waiting for daemon")
