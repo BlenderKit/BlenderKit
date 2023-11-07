@@ -1288,7 +1288,6 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         layout.prop(ui_props, "quality_limit", slider=True)
         layout.prop(ui_props, "search_license")
 
-
     def draw(self, context):
         self.draw_layout(self.layout)
 
@@ -1322,7 +1321,6 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
         layout.prop(ui_props, "free_only")
         layout.prop(ui_props, "quality_limit", slider=True)
         layout.prop(ui_props, "search_license")
-
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1361,7 +1359,6 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         layout.prop(ui_props, "search_license")
 
 
-
 class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_brush_search"
@@ -1388,7 +1385,6 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
         layout.prop(ui_props, "free_only")
         layout.prop(ui_props, "quality_limit", slider=True)
         layout.prop(ui_props, "search_license")
-
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -3278,9 +3274,10 @@ def header_search_draw(self, context):
         row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
         return
     else:
-        row.prop(ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False)
+        row.prop(
+            ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False
+        )
     row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
-
 
     layout = layout.row(align=True)
     # layout.separator()
