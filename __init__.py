@@ -402,9 +402,11 @@ class BlenderKitUIProps(PropertyGroup):
     )
     search_license: EnumProperty(
         name="License",
-        items=(('ANY', 'Any', ''),
-               ("royalty_free", "Royalty Free", "royalty free commercial license"),
-               ("cc_zero", "Creative Commons Zero", "Creative Commons Zero")),
+        items=(
+            ("ANY", "Any", ""),
+            ("royalty_free", "Royalty Free", "royalty free commercial license"),
+            ("cc_zero", "Creative Commons Zero", "Creative Commons Zero"),
+        ),
         description="License of the asset",
         default="ANY",
         update=search.search_update,
@@ -690,8 +692,6 @@ class BlenderKitCommonSearchProps:
         default=False,
         update=search.search_update,
     )
-
-
 
 
 def update_free(self, context):
@@ -1753,7 +1753,6 @@ class BlenderKitHDRSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         default=True,
         update=search.search_update,
     )
-
 
 
 class BlenderKitSceneSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
