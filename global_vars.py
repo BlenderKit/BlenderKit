@@ -36,8 +36,12 @@ TIPS = [
         f"{SERVER}/docs/fair-share/",
     ),
     (
-        "Click or drag model or material in scene to link/append.",
+        "Click on or drag a model or material into the scene to link or append it.",
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#basic-usage",
+    ),
+    (
+        "Press ESC while dragging a model or material to cancel the action and avoid any download.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#cancel-drag-and-drop",
     ),
     (
         "Right click in the asset bar for a detailed asset card.",
