@@ -436,7 +436,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
         offset = 0
-        if user_preferences.asset_popup_counter < 5:
+        if (
+            user_preferences.asset_popup_counter
+            < user_preferences.asset_popup_counter_max
+        ):
             # this is shown only to users who don't know yet about the popup card.
             label = self.new_text(
                 "Right click for menu.",

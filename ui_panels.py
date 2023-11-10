@@ -2885,9 +2885,11 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.prefill_ratings()
 
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
-
-        user_preferences.asset_popup_counter += 1
-
+        if (
+            user_preferences.asset_popup_counter
+            < user_preferences.asset_popup_counter_max
+        ):
+            user_preferences.asset_popup_counter += 1
         # get comments
         api_key = user_preferences.api_key
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])

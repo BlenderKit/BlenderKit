@@ -2201,11 +2201,14 @@ In this case you should also set path to your system CA bundle containing proxy'
         min=0,
         update=utils.save_prefs_without_save_userpref,
     )
+
+    asset_popup_counter_max = 5  # how many times the popup hint will be shown
     asset_popup_counter: IntProperty(
         name="Asset Popup Card Counter",
         description="Counts Asset popup card counter. To enable hiding of the tooltip after some time",
         default=0,
         min=0,
+        max=asset_popup_counter_max,
         update=utils.save_prefs_without_save_userpref,
     )
     welcome_operator_counter: IntProperty(
