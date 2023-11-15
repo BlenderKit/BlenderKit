@@ -17,8 +17,8 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
+import addon_utils
 import bpy
-from object_print3d_utils import operators as ops
 
 from . import utils
 
@@ -170,30 +170,37 @@ def check_render_engine(props, obs):
 
 
 def check_printable(props, obs):
-    if len(obs) == 1:
-        check_cls = (
-            ops.Print3DCheckSolid,
-            ops.Print3DCheckIntersections,
-            ops.Print3DCheckDegenerate,
-            ops.Print3DCheckDistorted,
-            ops.Print3DCheckThick,
-            ops.Print3DCheckSharp,
-            # ops.Print3DCheckOverhang,
-        )
+    if len(obs) != 1:
+        return
 
-        ob = obs[0]
+    addon_name = "object_print3d_utils"
+    was_enabled, _ = addon_utils.check(addon_name)
+    addon_utils.enable(addon_name)
 
-        info = []
-        for cls in check_cls:
-            cls.main_check(ob, info)
+    from object_print3d_utils import operators as ops
 
-        printable = True
-        for item in info:
-            passed = item[0].endswith(" 0")
-            if not passed:
-                printable = False
+    check_cls = (
+        ops.MESH_OT_print3d_check_solid,  # ops.Print3DCheckSolid,
+        ops.MESH_OT_print3d_check_intersections,  # ops.Print3DCheckIntersections,
+        ops.MESH_OT_print3d_check_degenerate,  # ops.Print3DCheckDegenerate,
+        ops.MESH_OT_print3d_check_distorted,  # ops.Print3DCheckDistorted,
+        ops.MESH_OT_print3d_check_thick,  # ops.Print3DCheckThick,
+        ops.MESH_OT_print3d_check_sharp,  # ops.Print3DCheckSharp,
+    )
 
-        props.printable_3d = printable
+    info = []
+    for cls in check_cls:
+        cls.main_check(obs[0], info)
+
+    printable = True
+    for item in info:
+        passed = item[0].endswith(" 0")
+        if not passed:
+            printable = False
+
+    props.printable_3d = printable
+    if not was_enabled:
+        addon_utils.disable(addon_name)
 
 
 def check_rig(props, obs):
@@ -363,6 +370,7 @@ def get_autotags():
         props.texture_resolution_max = 0
         props.texture_resolution_min = 0
         # disabled printing checking, some 3d print addon bug.
+        # bug fixed, could be enabled in the future
         # check_printable( props, obs)
         check_render_engine(props, obs)
 
