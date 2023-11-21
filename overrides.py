@@ -163,18 +163,23 @@ def ensure_eevee_transparency(m):
     """ensures alpha for transparent materials when the user didn't set it up correctly"""
     # if the blend mode is opaque, it means user probably ddidn't know or forgot to
     # set up material properly
-    if m.blend_method == "OPAQUE":
-        alpha = False
-        for n in m.node_tree.nodes:
-            if n.type in eevee_transp_nodes:
-                alpha = True
-            elif n.type == "BSDF_PRINCIPLED":
+    if m.blend_method != "OPAQUE":
+        return
+
+    alpha = False
+    for n in m.node_tree.nodes:
+        if n.type in eevee_transp_nodes:
+            alpha = True
+        elif n.type == "BSDF_PRINCIPLED":
+            if bpy.app.version < (4, 0, 0):
                 i = n.inputs["Transmission"]
-                if i.default_value > 0 or len(i.links) > 0:
-                    alpha = True
-        if alpha:
-            m.blend_method = "HASHED"
-            m.shadow_method = "HASHED"
+            else:
+                i = n.inputs["Transmission Weight"]
+            if i.default_value > 0 or len(i.links) > 0:
+                alpha = True
+    if alpha:
+        m.blend_method = "HASHED"
+        m.shadow_method = "HASHED"
 
 
 class BringToScene(Operator):
