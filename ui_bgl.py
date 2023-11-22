@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import blf
+import bpy
 import gpu
 from bpy import app
 from gpu_extras.batch import batch_for_shader
@@ -90,8 +91,13 @@ cached_images = {}
 
 def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batch=None):
     # draw_rect(x,y, width, height, (.5,0,0,.5))
-    if not image:
+
+    try:
+        image.name
+    except:
+        print("Image is invalid- draw function")
         return
+
     ci = cached_images.get(image.filepath)
     if ci is not None:
         if (

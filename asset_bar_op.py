@@ -290,7 +290,6 @@ def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
 
     if element.get_image_path() == tpath:
         return
-
     element.set_image(tpath)
     element.set_image_colorspace("")
 
@@ -1165,7 +1164,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.show_tooltip()
         if self.active_index != search_index:
             self.active_index = search_index
-
             # scene = bpy.context.scene
             # wm = bpy.context.window_manager
             sr = global_vars.DATA["search results"]
@@ -1175,7 +1173,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # self.tooltip = asset_data['tooltip']
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = search_index  # + self.scroll_offset
-
             set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
             get_tooltip_data(asset_data)
             an = asset_data["displayName"]
@@ -1199,7 +1196,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Some features may not work."
             else:
                 self.version_warning.text = ""
-
             authors = global_vars.DATA["bkit authors"]
             a_id = asset_data["author"]["id"]
             if (
@@ -1320,8 +1316,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_progress_bar(self, asset_button, asset_data):
         if asset_data["downloaded"] > 0:
             pb = asset_button.progress_bar
-            ui_scale = bpy.context.preferences.view.ui_scale
-            w = int(self.button_size * ui_scale * asset_data["downloaded"] / 100.0)
+            w = int(self.button_size * asset_data["downloaded"] / 100.0)
             asset_button.progress_bar.width = w
             asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
             asset_button.progress_bar.visible = True
