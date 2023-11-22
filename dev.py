@@ -9,13 +9,13 @@ import global_vars
 
 PACKAGES = [
     "multidict==6.0.4",
-    "yarl==1.9.2",
-    "aiohttp==3.8.6",
+    "yarl==1.9.3",
+    "aiohttp==3.9.0",
     "aiosignal==1.3.1",
     "async-timeout==4.0.3",
     "attrs==23.1.0",
-    "certifi==2023.7.22",
-    "charset-normalizer==3.3.0",
+    "certifi==2023.11.17",
+    "charset-normalizer==3.3.2",
     "frozenlist==1.4.0",
     "idna==3.4",
 ]

@@ -341,9 +341,9 @@ class URL:
         return self._val > other._val
 
     def __truediv__(self, name):
-        if not type(name) is str:
+        if not isinstance(name, str):
             return NotImplemented
-        return self._make_child((name,))
+        return self._make_child((str(name),))
 
     def __mod__(self, query):
         return self.update_query(query)
@@ -713,7 +713,8 @@ class URL:
 
     def _make_child(self, segments, encoded=False):
         """add segments to self._val.path, accounting for absolute vs relative paths"""
-        parsed = []
+        # keep the trailing slash if the last segment ends with /
+        parsed = [""] if segments and segments[-1][-1:] == "/" else []
         for seg in reversed(segments):
             if not seg:
                 continue
@@ -1117,8 +1118,8 @@ class URL:
 
     def human_repr(self):
         """Return decoded human readable string for URL representation."""
-        user = _human_quote(self.user, "#/:?@")
-        password = _human_quote(self.password, "#/:?@")
+        user = _human_quote(self.user, "#/:?@[]")
+        password = _human_quote(self.password, "#/:?@[]")
         host = self.host
         if host:
             host = self._encode_host(self.host, human=True)
