@@ -69,6 +69,7 @@ if "bpy" in locals():
     append_link = reload(append_link)
     timer = reload(timer)
     asset_bar_op = reload(asset_bar_op)
+    asset_drag_op = reload(asset_drag_op)
     asset_inspector = reload(asset_inspector)
     autothumb = reload(autothumb)
     bg_blender = reload(bg_blender)
@@ -96,6 +97,7 @@ if "bpy" in locals():
     utils = reload(utils)
     persistent_preferences = reload(persistent_preferences)
     reports = reload(reports)
+    rereports = reload(reports)
 
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
@@ -118,6 +120,7 @@ else:
     from . import timer
     from . import append_link
     from . import asset_bar_op
+    from . import asset_drag_op
     from . import asset_inspector
     from . import autothumb
     from . import bg_blender
@@ -2375,6 +2378,7 @@ def register():
     bkit_oauth.register()
     tasks_queue.register()
     asset_bar_op.register()
+    asset_drag_op.register()
     disclaimer_op.register()
     timer.register_timers()
 
@@ -2412,6 +2416,7 @@ def unregister():
     bkit_oauth.unregister()
     tasks_queue.unregister()
     asset_bar_op.unregister()
+    asset_drag_op.unregister()
     disclaimer_op.unregister()
 
     try:

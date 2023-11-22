@@ -26,9 +26,9 @@ class BL_UI_Image(BL_UI_Widget):
         try:
             self.__image
             self.__image.filepath
-            # self.__image.pixels
         except AttributeError:
             self.__image = None
+        return None
 
     def set_image(self, rel_filepath):
         # first try to access the image, for cases where it can get removed
@@ -51,6 +51,7 @@ class BL_UI_Image(BL_UI_Widget):
                 self.__image.reload()
                 self.__image.gl_load()
         except Exception as e:
+            print("this is exception in set_image function")
             print(e)
             self.__image = None
 
@@ -92,6 +93,7 @@ class BL_UI_Image(BL_UI_Widget):
                 batch=None,
             )
             return True
+
         return False
 
     def set_mouse_down(self, mouse_down_func):

@@ -14,6 +14,7 @@ class BL_UI_OT_draw_operator(Operator):
         self._finished = False
 
         self.widgets = []
+        self._timer_interval = 0.1
 
     def init_widgets(self, context, widgets):
         self.widgets = widgets
@@ -31,7 +32,7 @@ class BL_UI_OT_draw_operator(Operator):
 
         args = (self, context)
 
-        self.register_handlers(args, context)
+        self.register_handlers(args, context, timer_interval=self._timer_interval)
 
         context.window_manager.modal_handler_add(self)
 
@@ -43,12 +44,12 @@ class BL_UI_OT_draw_operator(Operator):
         context.region.tag_redraw()
         return {"RUNNING_MODAL"}
 
-    def register_handlers(self, args, context):
+    def register_handlers(self, args, context, timer_interval=0.1):
         self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(
             self.draw_callback_px, args, "WINDOW", "POST_PIXEL"
         )
         self.draw_event = context.window_manager.event_timer_add(
-            0.1, window=context.window
+            timer_interval, window=context.window
         )
 
     def unregister_handlers(self, context):
