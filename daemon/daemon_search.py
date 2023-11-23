@@ -10,6 +10,7 @@ import daemon_assets
 import daemon_globals
 import daemon_tasks
 import daemon_utils
+import yarl
 from aiohttp import ClientResponseError, web
 
 
@@ -31,10 +32,9 @@ async def download_image(session: aiohttp.ClientSession, task: daemon_tasks.Task
     image_url = task.data["image_url"]
     image_path = task.data["image_path"]
     headers = daemon_utils.get_headers()
+    iurl = yarl.URL(image_url, encoded=True)
     try:
-        async with session.get(
-            image_url, headers=headers, raise_for_status=True
-        ) as resp:
+        async with session.get(iurl, headers=headers, raise_for_status=True) as resp:
             with open(image_path, "wb") as file:
                 async for chunk in resp.content.iter_chunked(4096 * 32):
                     file.write(chunk)
