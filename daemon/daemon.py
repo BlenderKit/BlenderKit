@@ -221,7 +221,7 @@ async def report(request: web.Request):
             daemon_globals.tasks.remove(task)
         if task.status == "error":
             logger.error(
-                f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, result: {task.result}, data: {task.data}"
+                f"{task.task_type.upper()} task error, taskID: {task.task_id}, appID: {task.app_id}, message: {task.message}, detailed: {task.message_detailed}, result: {task.result}, data: {task.data}"
             )
             daemon_globals.tasks.remove(task)
 
