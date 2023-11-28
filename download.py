@@ -697,10 +697,18 @@ def handle_download_task(task: daemon_tasks.Task):
         # we still write progress since sometimes the progress bars wouldn't end on 100%
         download_write_progress(task.task_id, task)
         # try to parse, in some states task gets returned to be pending (e.g. in editmode)
-        done = download_post(task)
-        if not done:
-            timer.pending_tasks.append(task)
-    elif task.status == "error":
+        successful = download_post(task)
+        if successful == True:
+            download_tasks.pop(task.task_id)
+            return
+
+        task.status = "error"
+        if isinstance(successful, Exception):
+            task.message = f"Append failed {successful}"
+        else:
+            task.message = f"Append failed, download_post() returned: {successful}"
+
+    if task.status == "error":
         reports.add_report(task.message, 15, "ERROR")
         download_tasks.pop(task.task_id)
     else:
@@ -804,20 +812,16 @@ def download_post(task: daemon_tasks.Task):
                 replace_resolution_appended(
                     file_paths, task.data["asset_data"], task.data["resolution"]
                 )
-            done = True
-        else:
-            orig_task.update(task.data)
-            done = try_finished_append(file_paths=file_paths, **task.data)
-            # if not done:
-            # TODO add back re-download capability for deamon - used for lost libraries
-            # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
-            # download(asset_data, **tcom.passargs)
-            #
+            return True
 
-        bk_logger.debug("finished download thread")
+        orig_task.update(task.data)
+        return try_finished_append(file_paths=file_paths, **task.data)
+        # TODO add back re-download capability for deamon - used for lost libraries
+        # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
+        # download(asset_data, **tcom.passargs)
+        #
+
     # utils.p('end download timer')
-    if done:
-        download_tasks.pop(task.task_id)
     return done
 
 
@@ -909,7 +913,9 @@ def check_existing(asset_data, resolution="blend", can_return_others=False):
 
 def try_finished_append(asset_data, **kwargs):  # location=None, material_target=None):
     """Try to append asset, if not successfully delete source files.
-    This means probably wrong download, so download should restart
+    This means probably wrong download, so download should restart.
+    Returns True if successful, False if file_names are empty or file_names[-1] is not file.
+    Returns Exception if append_asset() failed.
     """
     file_names = kwargs.get("file_paths")
     if file_names is None:
@@ -930,13 +936,13 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         # TODO: this should distinguis if the appending failed (wrong file)
         # or something else happened(shouldn't delete the files)
         traceback.print_exc(limit=20)
-        reports.add_report(f"Append failed: {e}", 15, "ERROR")
+        # reports.add_report(f"Append failed: {e}", 15, "ERROR")
         for f in file_names:
             try:
                 os.remove(f)
             except Exception as e:
                 bk_logger.error(f"{e}")
-    return False
+        return e
 
 
 def get_asset_in_scene(asset_data):
@@ -1075,6 +1081,7 @@ def start_download(asset_data, **kwargs) -> bool:
         append_ok = try_finished_append(asset_data, **kwargs)
         if append_ok:
             return False
+        bk_logger.info("Failed to append asset: {append_ok}")
 
     if asset_data["assetType"] in ("model", "material"):
         downloader = {
