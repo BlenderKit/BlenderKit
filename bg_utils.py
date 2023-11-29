@@ -62,6 +62,7 @@ def upload_file(upload_data, f):
 
 def download_asset_file(asset_data, resolution="blend", api_key=""):
     """This is a simple non-threaded way to download files for background resolution geneneration tool."""
+
     file_names = paths.get_download_filepaths(asset_data, resolution)
     if len(file_names) == 0:
         return None

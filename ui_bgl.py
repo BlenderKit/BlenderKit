@@ -94,7 +94,12 @@ def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batc
         return
     ci = cached_images.get(image.filepath)
     if ci is not None:
-        if ci["x"] == x and ci["y"] == y:
+        if (
+            ci["x"] == x
+            and ci["y"] == y
+            and ci["width"] == width
+            and ci["height"] == height
+        ):
             batch = ci["batch"]
             image_shader = ci["image_shader"]
             texture = ci["texture"]
@@ -122,6 +127,8 @@ def draw_image(x, y, width, height, image, transparency, crop=(0, 0, 1, 1), batc
         cached_images[image.filepath] = {
             "x": x,
             "y": y,
+            "width": width,
+            "height": height,
             "batch": batch,
             "image_shader": image_shader,
             "texture": texture,

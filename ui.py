@@ -1300,5 +1300,8 @@ def unregister_ui():
     km = wm.keyconfigs.addon.keymaps.get("Window")
     if km:
         for kmi in addon_keymapitems:
-            km.keymap_items.remove(kmi)
+            try:
+                km.keymap_items.remove(kmi)
+            except:
+                pass
     del addon_keymapitems[:]

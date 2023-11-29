@@ -494,7 +494,9 @@ class BlenderKitUIProps(PropertyGroup):
     #### rating UI props
     rating_ui_scale = ui_scale
 
-    header_menu_fold: BoolProperty(name="Header menu fold", default=False)
+    header_menu_fold: BoolProperty(
+        name="Header menu fold", default=False, update=ui_panels.update_header_menu_fold
+    )
     rating_button_on: BoolProperty(name="Rating Button On", default=True)
     rating_menu_on: BoolProperty(name="Rating Menu On", default=False)
     rating_on: BoolProperty(name="Rating on", default=True)
