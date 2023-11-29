@@ -15,8 +15,8 @@ class BL_UI_Image(BL_UI_Widget):
         self.__image_size = (24, 24)
         self.__image_position = (4, 2)
 
-    def set_image_size(self, imgage_size):
-        self.__image_size = imgage_size
+    def set_image_size(self, image_size):
+        self.__image_size = image_size
 
     def set_image_position(self, image_position):
         self.__image_position = image_position
