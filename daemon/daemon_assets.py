@@ -455,6 +455,59 @@ async def report_usages(request: web.Request, task: daemon_tasks.Task) -> bool:
     return True
 
 
+async def blocking_file_download_handler(request: web.Request):
+    """Handle request for blocking file download. Will not return until the file is downloaded."""
+    session = request.app["SESSION_API_REQUESTS"]
+    data = await request.json()
+    file_path = data["filepath"]
+    try:
+        with open(file_path, "wb") as file:
+            resp_text, resp_status = None, -1
+            async with session.get(
+                data["url"],
+                headers=daemon_utils.get_headers(),
+            ) as resp:
+                resp_status = resp.status
+                total_length = resp.headers.get("Content-Length")
+                if total_length is None:  # no content length header
+                    # bk_logger.error("Download asset failed: Got no Content-Length")
+                    delete_unfinished_file(data["filepath"])
+                    return False
+
+                if resp.ok is False:
+                    delete_unfinished_file(file_path)
+                    resp_text = await resp.text()
+                    resp.raise_for_status()
+
+                file_size = int(total_length)
+                fsmb = file_size // (1024 * 1024)
+                fskb = file_size % 1024
+                if fsmb == 0:
+                    t = "%iKB" % fskb
+                else:
+                    t = " %iMB" % fsmb
+                # task.change_progress(
+                #     progress=0, message=f"Downloading {t} {task.data['resolution']}"
+                # )
+                downloaded = 0
+                async for chunk in resp.content.iter_chunked(4096 * 32):
+                    downloaded += len(chunk)
+                    progress = int(100 * downloaded / file_size)
+                    # task.change_progress(
+                    #     progress=progress,
+                    #     message=f"Downloading {t} {task.data['resolution']}",
+                    # )
+                    file.write(chunk)
+                return True
+
+    except Exception as e:
+        msg, detail = daemon_utils.extract_error_message(
+            e, resp_text, resp_status, "Download asset"
+        )
+        # task.error(msg, message_detailed=detail)
+        return False
+
+
 async def blocking_file_upload_handler(request: web.Request):
     """Handle request for blocking file upload. Will not return until the file is uploaded."""
     session = request.app["SESSION_API_REQUESTS"]

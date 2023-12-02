@@ -73,7 +73,9 @@ if __name__ == "__main__":
                 exit()
             # download first, or rather make sure if it's already downloaded
             bg_blender.progress("downloading asset")
-            fpath = bg_utils.download_asset_file(asset_data)
+            fpath = bg_utils.download_asset_file(
+                asset_data, api_key=BLENDERKIT_EXPORT_API_KEY
+            )
             data["filepath"] = fpath
 
         mat = append_link.append_material(

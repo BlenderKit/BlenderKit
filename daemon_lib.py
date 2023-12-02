@@ -351,6 +351,23 @@ def blocking_file_upload(url: str, filepath: str) -> requests.Response:
         return resp
 
 
+def blocking_file_download(url: str, filepath: str) -> requests.Response:
+    """Upload file to server. This is a blocking wrapper, will not return until results are available."""
+    data = {
+        "url": url,
+        "filepath": filepath,
+        "app_id": os.getpid(),
+    }
+    with requests.Session() as session:
+        resp = session.get(
+            f"{get_address()}/wrappers/blocking_file_download",
+            json=data,
+            timeout=(1, 180),
+            proxies=NO_PROXIES,
+        )
+        return resp
+
+
 def blocking_request(
     url: str,
     method: str = "GET",

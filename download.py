@@ -27,7 +27,6 @@ from . import (
     daemon_lib,
     global_vars,
     paths,
-    ratings_utils,
     reports,
     resolutions,
     search,
