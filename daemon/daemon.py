@@ -466,6 +466,10 @@ if __name__ == "__main__":
                 daemon_assets.blocking_file_upload_handler,
             ),
             web.get(
+                "/wrappers/blocking_file_download",
+                daemon_assets.blocking_file_download_handler,
+            ),
+            web.get(
                 "/wrappers/blocking_request", daemon_utils.blocking_request_handler
             ),
             web.get(

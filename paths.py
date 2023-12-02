@@ -146,6 +146,8 @@ def get_download_dirs(asset_type):
     }
 
     dirs = []
+    if global_vars.PREFS.get("directory_behaviour") is None:
+        global_vars.PREFS = utils.get_preferences_as_dict()
 
     if global_vars.PREFS["directory_behaviour"] in ("BOTH", "GLOBAL"):
         ddir = global_vars.PREFS["global_dir"]
