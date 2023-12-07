@@ -221,11 +221,8 @@ class BL_UI_Widget:
         self.mouse_exit_func = mouse_exit_func
 
     def call_mouse_exit(self):
-        try:
-            if self.mouse_exit_func:
-                self.mouse_exit_func(self)
-        except:
-            pass
+        if self.mouse_exit_func:
+            self.mouse_exit_func(self)
 
     def mouse_exit(self, event, x, y):
         self.call_mouse_exit()
