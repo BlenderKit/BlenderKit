@@ -82,7 +82,7 @@ def download_asset_file(asset_data, resolution="blend", api_key=""):
 
     res_file_info, resolution = paths.get_res_file(asset_data, resolution)
     response = daemon_lib.blocking_file_download(
-        str(res_file_info["url"]), filepath=file_name
+        str(res_file_info["url"]), filepath=file_name, api_key=api_key
     )
     return file_name
 
