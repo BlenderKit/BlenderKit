@@ -207,6 +207,9 @@ class BL_UI_Widget:
     def mouse_enter_func(self, widget):
         pass
 
+    def mouse_exit_func(self, widget):
+        pass
+
     def set_mouse_enter(self, mouse_enter_func):
         self.mouse_enter_func = mouse_enter_func
 
