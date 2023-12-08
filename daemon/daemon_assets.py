@@ -465,7 +465,7 @@ async def blocking_file_download_handler(request: web.Request):
             resp_text, resp_status = None, -1
             async with session.get(
                 data["url"],
-                headers=daemon_utils.get_headers(),
+                headers=daemon_utils.get_headers(api_key=data["api_key"]),
             ) as resp:
                 resp_status = resp.status
                 total_length = resp.headers.get("Content-Length")
