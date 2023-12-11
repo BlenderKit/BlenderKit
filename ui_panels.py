@@ -203,6 +203,19 @@ def draw_panel_hdr_search(self, context):
     utils.label_multiline(layout, text=props.report)
 
 
+def draw_panel_geonodetool_search(self, context):
+    s = context.scene
+    wm = context.window_manager
+    props = wm.blenderkit_geonodetool
+
+    layout = self.layout
+    row = layout.row()
+    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    draw_assetbar_show_hide(row, props)
+
+    utils.label_multiline(layout, text=props.report)
+
+
 def draw_thumbnail_upload_panel(layout, props):
     tex = autothumb.get_texture_ui(props.thumbnail, ".upload_preview")
     if not tex or not tex.image:
@@ -428,6 +441,40 @@ class VIEW3D_MT_blenderkit_model_properties(Menu):
         draw_model_context_menu(self, context)
 
 
+class NODE_PT_blenderkit_geonodetool_properties(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "NODE_PT_blenderkit_geonodetool_properties"
+    bl_space_type = "NODE_EDITOR"
+    bl_region_type = "UI"
+    bl_label = "Selected Geonode tool"
+    # bl_context = "editmode"
+
+    @classmethod
+    def poll(cls, context):
+        if bpy.context.space_data.tree_type != "GeometryNodeTree":
+            return False
+        return bpy.context.space_data.edit_tree.is_tool
+
+    def draw(self, context):
+        # draw asset properties here
+        layout = self.layout
+
+        et = bpy.context.space_data.edit_tree
+        if et.get("asset_data") is None:
+            utils.label_multiline(
+                layout,
+                text="To upload this asset to BlenderKit, go to the Find and Upload Assets panel.",
+            )
+            layout.prop(et, "name")
+
+        if et.get("asset_data") is not None:
+            ad = et["asset_data"]
+            layout.label(text=str(ad["name"]))
+
+            layout.label(text="Asset tools:")
+            draw_asset_context_menu(self.layout, context, ad, from_panel=True)
+
+
 class NODE_PT_blenderkit_material_properties(Panel):
     bl_category = "BlenderKit"
     bl_idname = "NODE_PT_blenderkit_material_properties"
@@ -438,6 +485,8 @@ class NODE_PT_blenderkit_material_properties(Panel):
 
     @classmethod
     def poll(cls, context):
+        if bpy.context.space_data.tree_type != "ShaderNodeTree":
+            return False
         p = (
             bpy.context.view_layer.objects.active is not None
             and bpy.context.active_object.active_material is not None
@@ -463,9 +512,7 @@ class NODE_PT_blenderkit_material_properties(Panel):
 
             layout.label(text="Asset tools:")
             draw_asset_context_menu(self.layout, context, ad, from_panel=True)
-            # if 'rig' in ad['tags']:
-            #     # layout.label(text = 'can make proxy')
-            #     layout.operator('object.blenderkit_make_proxy', text = 'Make Armature proxy')
+
         # fast upload, blocked by now
         # else:
         #     op = layout.operator("object.blenderkit_upload", text='Store as private', icon='EXPORT')
@@ -3230,13 +3277,14 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
 
 def header_search_draw(self, context):
     """Top bar menu in 3D view"""
+    print(f"try to draw also in {context.mode}")
     if not utils.guard_from_crash():
         return
 
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
     if not preferences.search_in_header:
         return
-    if context.mode not in ("PAINT_TEXTURE", "OBJECT", "SCULPT", "POSE"):
+    if context.mode not in ("PAINT_TEXTURE", "OBJECT", "SCULPT", "POSE", "EDIT_MESH"):
         return
     # hide search bar if overlays are hidden
     # this was nice, but was then reported as a bug by some users, who didn't understand this behaviour.
@@ -3247,22 +3295,26 @@ def header_search_draw(self, context):
     layout = self.layout
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.asset_type == "MODEL":
-        props = wm.blenderkit_models
-        asset_type_icon = "OBJECT_DATAMODE"
-    if ui_props.asset_type == "MATERIAL":
-        props = wm.blenderkit_mat
-        asset_type_icon = "MATERIAL"
-    if ui_props.asset_type == "BRUSH":
-        props = wm.blenderkit_brush
-        asset_type_icon = "BRUSH_DATA"
-    if ui_props.asset_type == "HDR":
-        props = wm.blenderkit_HDR
-        asset_type_icon = "WORLD"
-    if ui_props.asset_type == "SCENE":
-        props = wm.blenderkit_scene
-        asset_type_icon = "SCENE_DATA"
 
+    props_dict = {
+        "MODEL": wm.blenderkit_models,
+        "MATERIAL": wm.blenderkit_mat,
+        "BRUSH": wm.blenderkit_brush,
+        "HDR": wm.blenderkit_HDR,
+        "SCENE": wm.blenderkit_scene,
+        "GEONODETOOL": wm.blenderkit_geonodetool,
+    }
+    props = props_dict[ui_props.asset_type]
+    icons_dict = {
+        "MODEL": "OBJECT_DATAMODE",
+        "MATERIAL": "MATERIAL",
+        "BRUSH": "BRUSH_DATA",
+        "HDR": "WORLD",
+        "SCENE": "SCENE_DATA",
+        "GEONODETOOL": "TOOL_SETTINGS",
+    }
+
+    asset_type_icon = icons_dict[ui_props.asset_type]
     pcoll = icons.icon_collections["main"]
 
     # the center snap menu is in edit and object mode if tool settings are off.
@@ -3279,7 +3331,7 @@ def header_search_draw(self, context):
         row.prop(
             ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False
         )
-    row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
+        row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
 
     layout = layout.row(align=True)
     # layout.separator()
@@ -3287,14 +3339,16 @@ def header_search_draw(self, context):
         layout.label(text="Waiting for daemon")
         return
 
-    layout.prop(
-        ui_props,
-        "asset_type",
-        expand=True,
-        icon_only=True,
-        text="",
-        icon=asset_type_icon,
-    )
+    # edit mode for tools
+    if not context.mode == "EDIT_MESH":
+        layout.prop(
+            ui_props,
+            "asset_type",
+            expand=True,
+            icon_only=True,
+            text="",
+            icon=asset_type_icon,
+        )
     row = layout.row()
     if (context.region.width) > 700:
         row.ui_units_x = 5 + int(context.region.width / 200)
@@ -3327,7 +3381,11 @@ def header_search_draw(self, context):
     else:
         icon_id = pcoll["filter"].icon_id
 
-    if ui_props.asset_type == "MODEL":
+    if context.mode == "EDIT_MESH":
+        # geo node tools right now.
+        pass
+
+    elif ui_props.asset_type == "MODEL":
         layout.popover(
             panel="VIEW3D_PT_blenderkit_advanced_model_search",
             text="",
@@ -3407,6 +3465,7 @@ classes = (
     VIEW3D_PT_blenderkit_model_properties,
     VIEW3D_MT_blenderkit_model_properties,
     NODE_PT_blenderkit_material_properties,
+    NODE_PT_blenderkit_geonodetool_properties,
     OpenBlenderKitDiscord,
     # VIEW3D_PT_blenderkit_ratings,
     VIEW3D_PT_blenderkit_downloads,

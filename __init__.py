@@ -317,7 +317,6 @@ def asset_type_callback(self, context):
     Returns
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
     """
-
     if self.down_up == "SEARCH":
         items = (
             ("MODEL", "Models", "Find models", "OBJECT_DATAMODE", 0),
@@ -325,6 +324,7 @@ def asset_type_callback(self, context):
             ("SCENE", "Scenes", "Find scenes", "SCENE_DATA", 3),
             ("HDR", "HDRs", "Find HDRs", "WORLD", 4),
             ("BRUSH", "Brushes", "Find brushes", "BRUSH_DATA", 5),
+            ("GEONODETOOL", "Tools", "Find tools", "TOOL_SETTINGS", 6),
         )
     else:
         items = (
@@ -333,6 +333,7 @@ def asset_type_callback(self, context):
             ("SCENE", "Scene", "Upload a scene", "SCENE_DATA", 3),
             ("HDR", "HDR", "Upload a HDR", "WORLD", 4),
             ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 5),
+            ("GEONODETOOL", "Tool", "Upload a tool", "TOOL_SETTINGS", 6),
         )
 
     return items
@@ -1081,6 +1082,10 @@ class BlenderKitBrushSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     pass
 
 
+class BlenderKitGeoToolSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
+    pass
+
+
 class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     texture_resolution_max: IntProperty(
         name="Texture Resolution Max",
@@ -1105,6 +1110,21 @@ class BlenderKitBrushUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Mode where the brush works",
         default="SCULPT",
     )
+
+
+class BlenderKitGeoToolUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
+    pass
+    # mode: EnumProperty(
+    #     name="Mode",
+    #     items=(
+    #         ("IMAGE", "Texture paint", "Texture brush"),
+    #         ("SCULPT", "Sculpt", "Sculpt brush"),
+    #         ("VERTEX", "Vertex paint", "Vertex paint brush"),
+    #         ("WEIGHT", "Weight paint", "Weight paint brush"),
+    #     ),
+    #     description="Mode where the brush works",
+    #     default="SCULPT",
+    # )
 
 
 # upload properties
@@ -2299,6 +2319,8 @@ classes = (
     BlenderKitTextureUploadProps,
     BlenderKitBrushSearchProps,
     BlenderKitBrushUploadProps,
+    BlenderKitGeoToolSearchProps,
+    BlenderKitGeoToolUploadProps,
 )
 
 
@@ -2352,6 +2374,14 @@ def register():
     )
     bpy.types.Brush.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitBrushUploadProps
+    )
+
+    # TOOLS
+    bpy.types.WindowManager.blenderkit_geonodetool = PointerProperty(
+        type=BlenderKitGeoToolSearchProps
+    )
+    bpy.types.GeometryNodeTree.blenderkit = PointerProperty(  # for uploads, not now...
+        type=BlenderKitGeoToolUploadProps
     )
 
     global_vars.VERSION = bl_info["version"]
