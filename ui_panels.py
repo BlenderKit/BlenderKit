@@ -3220,7 +3220,7 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
             row.label(text=data["asset_data"]["name"])
             row.label(text=str(int(data["progress"])) + " %")
             op = row.operator("scene.blenderkit_download_kill", text="", icon="CANCEL")
-            op.task_index = key
+            op.task_id = key
             if data.get("retry_counter", 0) > 0:
                 row = layout.row()
                 row.label(text="failed. retrying ... ", icon="ERROR")
