@@ -178,8 +178,6 @@ async def fetch_categories(request: web.Request) -> None:
         message="Getting updated categories",
     )
     daemon_globals.tasks.append(task)
-    print(daemon_globals.SERVER)
-    print("fetching categories")
     url = f"{daemon_globals.SERVER}/api/v1/categories/"
     try:  # https://www.blenderkit.com/api/v1/docs/#operation/categories_list
         resp_text, resp_status = None, -1

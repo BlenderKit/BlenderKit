@@ -54,6 +54,7 @@ mappingdict = {
     "MATERIAL": "material",
     "TEXTURE": "texture",
     "BRUSH": "brush",
+    "GEONODETOOL": "geonodetool",
 }
 
 verification_icons = {

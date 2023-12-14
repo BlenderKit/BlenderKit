@@ -50,10 +50,14 @@ def append_geonodetool(file_name, toolname=None, link=False, fake_user=True):
         data_to,
     ):
         for g in data_from.node_groups:
+            print(g)
             if g == toolname or toolname is None:
-                data_to.geonode_tools = [g]
+                data_to.node_groups = [g]
                 toolname = g
-    tool = bpy.data.geonode_tools[toolname]
+    print("shoudl be in here", toolname)
+    for t in bpy.data.node_groups:
+        print("inside blend", t)
+    tool = bpy.data.node_groups[toolname]
     tool.use_fake_user = fake_user
     return tool
 

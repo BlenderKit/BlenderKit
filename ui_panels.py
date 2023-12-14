@@ -473,6 +473,8 @@ class NODE_PT_blenderkit_geonodetool_properties(Panel):
     def poll(cls, context):
         if bpy.context.space_data.tree_type != "GeometryNodeTree":
             return False
+        if not bpy.context.space_data.edit_tree:
+            return False
         return bpy.context.space_data.edit_tree.is_tool
 
     def draw(self, context):
@@ -3371,7 +3373,6 @@ def header_search_draw(self, context):
         row.prop(
             ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False
         )
-
 
     # draw logo as part of the folding UI, it is better clickable.
     row.prop(

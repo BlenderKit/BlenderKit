@@ -38,6 +38,7 @@ if __name__ == "__main__":
         upload_data = data["upload_data"]
 
         bpy.data.scenes.new("upload")
+        print("test")
         for s in bpy.data.scenes:
             if s.name != "upload":
                 bpy.data.scenes.remove(s)
@@ -76,6 +77,8 @@ if __name__ == "__main__":
             main_source = append_link.append_geonodetool(
                 file_name=export_data["source_filepath"], toolname=toolname
             )
+        print("test1")
+
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,
             # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed

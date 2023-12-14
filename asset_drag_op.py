@@ -617,10 +617,16 @@ class AssetDragOperator(bpy.types.Operator):
                 asset_index=self.asset_search_index,
             )
 
-        bpy.ops.view3d.blenderkit_download_gizmo_widget(
-            "INVOKE_REGION_WIN",
-            asset_base_id=self.asset_data["assetBaseId"],
-        )
+        if ui_props.asset_type == "GEONODETOOL":
+            bpy.ops.scene.blenderkit_download(  # asset_type=ui_props.asset_type,
+                asset_index=self.asset_search_index,
+            )
+
+        if ui_props.asset_type in ["MODEL", "MATERIAL"]:
+            bpy.ops.view3d.blenderkit_download_gizmo_widget(
+                "INVOKE_REGION_WIN",
+                asset_base_id=self.asset_data["assetBaseId"],
+            )
 
     def modal(self, context, event):
         scene = bpy.context.scene

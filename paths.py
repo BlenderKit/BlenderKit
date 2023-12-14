@@ -143,6 +143,7 @@ def get_download_dirs(asset_type):
         "scene": "scenes",
         "material": "materials",
         "hdr": "hdrs",
+        "geonodetool": "geonodetools",
     }
 
     dirs = []

@@ -873,7 +873,7 @@ def add_search_process(query, params):
         search_tasks = dict()
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
-    if params.get("get_next"):
+    if params.get("get_next") and params.get("next"):
         urlquery = params["next"]
     else:
         urlquery = query_to_url(query, params)
