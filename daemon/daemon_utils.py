@@ -8,10 +8,9 @@ import sys
 from logging import Formatter, StreamHandler, basicConfig, getLogger
 from pathlib import Path
 
-import aiohttp
 import daemon_globals
 import daemon_tasks
-from aiohttp import ClientResponseError, web
+from aiohttp import ClientResponseError, ClientSession, web
 
 
 logger = getLogger(f"daemon.{__name__}")
@@ -168,7 +167,7 @@ async def message_to_addon(
 
 
 async def download_file(
-    url: str, destination: str, session: aiohttp.ClientSession, api_key: str = ""
+    url: str, destination: str, session: ClientSession, api_key: str = ""
 ) -> str:
     """Download a file from url into destination on the disk, creates directory structure if needed.
     With api_key the request will be authorized for BlenderKit server.

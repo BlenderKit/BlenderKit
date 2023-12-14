@@ -73,6 +73,7 @@ def get_texture_ui(tpath, iname):
 
 
 def check_thumbnail(props, imgpath):
+    # TODO implement check if the file exists, if size is corect etc. needs some care
     if imgpath == "":
         props.has_thumbnail = False
         return None
@@ -513,8 +514,8 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             "thumbnail_samples": self.thumbnail_samples,
             "thumbnail_denoising": self.thumbnail_denoising,
         }
-        args_dict.update(thumbnail_args)
 
+        args_dict.update(thumbnail_args)
         start_model_thumbnailer(self, json_args=args_dict, wait=False)
         return {"FINISHED"}
 

@@ -6,6 +6,8 @@ import logging
 import os
 from time import sleep
 
+import addon_utils
+
 from . import daemon_lib, download, paths, reports, utils
 
 
@@ -61,50 +63,27 @@ def upload_file(upload_data, f):
 
 
 def download_asset_file(asset_data, resolution="blend", api_key=""):
-    """This is a simple non-threaded way to download files for background resolution geneneration tool."""
+    """This is a simple non-threaded way to download files for background thumbnail rerender and others."""
+
+    # make sure BlenderKit is enabled, needed for downloading.
+    addon_utils.enable(
+        "blenderkit", default_set=True, persistent=True, handle_error=None
+    )
+
     file_names = paths.get_download_filepaths(asset_data, resolution)
     if len(file_names) == 0:
         return None
     file_name = file_names[0]
-
     if download.check_existing(asset_data, resolution=resolution):
         # this sends the thread for processing, where another check should occur, since the file might be corrupted.
         bk_logger.debug("not downloading, already in db")
         return file_name
     headers = utils.get_headers(api_key=api_key)
-    with open(file_name, "wb") as f:
-        bk_logger.info(f"Downloading {file_name}")
-        res_file_info, resolution = paths.get_res_file(asset_data, resolution)
-        response = daemon_lib.blocking_request(
-            "GET", res_file_info["url"], headers=headers
-        )
-        total_length = response.headers.get("Content-Length")
 
-        if total_length is None or int(total_length) < 1000:  # no content length header
-            bk_logger.info(f"{response.content}")
-            delete_unfinished_file(file_name)
-            return None
-
-        total_length = int(total_length)
-        dl = 0
-        last_percent = 0
-        percent = 0
-        for data in response.iter_content(chunk_size=4096 * 10):
-            dl += len(data)
-
-            # the exact output you're looking for:
-            fs_str = utils.files_size_to_text(total_length)
-
-            percent = int(dl * 100 / total_length)
-            if percent > last_percent:
-                last_percent = percent
-                # sys.stdout.write('\r')
-                # sys.stdout.write(f'Downloading {asset_data['name']} {fs_str} {percent}% ')  # + int(dl * 50 / total_length) * 'x')
-                bk_logger.info(
-                    f'Downloading {asset_data["name"]} {fs_str} {percent}%'
-                )  # + int(dl * 50 / total_length) * 'x')
-                # sys.stdout.flush()
-            f.write(data)
+    res_file_info, resolution = paths.get_res_file(asset_data, resolution)
+    response = daemon_lib.blocking_file_download(
+        str(res_file_info["url"]), filepath=file_name, api_key=api_key
+    )
     return file_name
 
 

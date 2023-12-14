@@ -155,8 +155,8 @@ def modal_inside(self, context, event):
             self.scroll_update()
             return {"RUNNING_MODAL"}
         if self.check_ui_resized(context) or self.check_new_search_results(context):
-            self.update_ui_size(context)
-            self.update_layout(context, event)
+            self.update_assetbar_sizes(context)
+            self.update_assetbar_layout(context)
             self.scroll_update(
                 always=True
             )  # one extra update for scroll for correct redraw, updates all buttons
@@ -230,6 +230,8 @@ BL_UI_Button.mouse_down_right = mouse_down_right
 BL_UI_Button.set_mouse_down_right = set_mouse_down_right
 
 asset_bar_operator = None
+
+
 # BL_UI_Button.handle_event = handle_event
 
 
@@ -288,7 +290,6 @@ def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
 
     if element.get_image_path() == tpath:
         return
-
     element.set_image(tpath)
     element.set_image_colorspace("")
 
@@ -334,6 +335,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def init_tooltip(self):
         self.tooltip_widgets = []
+        self.tooltip_scale = 1.0
         self.tooltip_height = self.tooltip_size
         self.tooltip_width = self.tooltip_size
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -355,14 +357,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_image = tooltip_image
         self.tooltip_widgets.append(tooltip_image)
 
-        bottom_panel_fraction = 0.15
-        labels_start = self.tooltip_height * (1 - bottom_panel_fraction)
+        self.bottom_panel_fraction = 0.15
+        self.labels_start = self.tooltip_height * (1 - self.bottom_panel_fraction)
 
         dark_panel = BL_UI_Widget(
             0,
-            labels_start,
+            self.labels_start,
             self.tooltip_width,
-            self.tooltip_height * bottom_panel_fraction,
+            self.tooltip_height * self.bottom_panel_fraction,
         )
         dark_panel.bg_color = (0.0, 0.0, 0.0, 0.7)
         self.tooltip_dark_panel = dark_panel
@@ -370,8 +372,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         name_label = self.new_text(
             "",
-            self.margin,
-            labels_start + self.margin,
+            self.tooltip_margin,
+            self.labels_start + self.tooltip_margin,
             height=self.asset_name_text_size,
             text_size=self.asset_name_text_size,
         )
@@ -379,14 +381,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(name_label)
 
         self.gravatar_size = int(
-            self.tooltip_height * bottom_panel_fraction - self.margin
+            self.tooltip_height * self.bottom_panel_fraction - self.tooltip_margin
         )
 
         authors_name = self.new_text(
             "author",
-            self.tooltip_width - self.gravatar_size - self.margin,
-            self.tooltip_height - self.author_text_size - self.margin,
-            labels_start,
+            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_height - self.author_text_size - self.tooltip_margin,
+            self.labels_start,
             height=self.author_text_size,
             text_size=self.author_text_size,
             halign="RIGHT",
@@ -403,7 +405,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         img_path = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
         gravatar_image.set_image(img_path)
         gravatar_image.set_image_size(
-            (self.gravatar_size - 1 * self.margin, self.gravatar_size - 1 * self.margin)
+            (
+                self.gravatar_size - 1 * self.tooltip_margin,
+                self.gravatar_size - 1 * self.tooltip_margin,
+            )
         )
         gravatar_image.set_image_position((0, 0))
         gravatar_image.set_image_colorspace("")
@@ -411,8 +416,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(gravatar_image)
 
         quality_star = BL_UI_Image(
-            self.margin,
-            self.tooltip_height - self.margin - self.asset_name_text_size,
+            self.tooltip_margin,
+            self.tooltip_height - self.tooltip_margin - self.asset_name_text_size,
             1,
             1,
         )
@@ -426,8 +431,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(quality_star)
         quality_label = self.new_text(
             "",
-            2 * self.margin + self.asset_name_text_size,
-            self.tooltip_height - int(self.asset_name_text_size + self.margin),
+            2 * self.tooltip_margin + self.asset_name_text_size,
+            self.tooltip_height - int(self.asset_name_text_size + self.tooltip_margin),
             height=self.asset_name_text_size,
             text_size=self.asset_name_text_size,
         )
@@ -443,8 +448,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # this is shown only to users who don't know yet about the popup card.
             label = self.new_text(
                 "Right click for menu.",
-                self.margin,
-                self.tooltip_height + self.margin,
+                self.tooltip_margin,
+                self.tooltip_height + self.tooltip_margin,
                 height=self.author_text_size,
                 text_size=self.author_text_size,
             )
@@ -453,8 +458,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # version warning
         version_warning = self.new_text(
             "",
-            self.margin,
-            self.tooltip_height + self.margin + int(self.author_text_size * offset),
+            self.tooltip_margin,
+            self.tooltip_height
+            + self.tooltip_margin
+            + int(self.author_text_size * offset),
             height=self.author_text_size,
             text_size=self.author_text_size,
         )
@@ -526,7 +533,44 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return True
         return False
 
-    def update_ui_size(self, context):
+    def update_tooltip_size(self, context):
+        """Calculate all important sizes for the tooltip"""
+        region = context.region
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_scale = bpy.context.preferences.view.ui_scale
+
+        if hasattr(self, "tooltip_panel"):
+            tooltip_y_offset = abs(region.height - self.tooltip_panel.y_screen)
+        else:
+            tooltip_y_offset = abs(region.height - (self.bar_height + self.bar_y))
+        self.tooltip_scale = min(
+            1.0, tooltip_y_offset / (self.tooltip_base_size_pixels * ui_scale)
+        )
+
+        self.asset_name_text_size = int(
+            0.039 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
+        )
+        self.author_text_size = int(self.asset_name_text_size * 0.8)
+        self.tooltip_size = int(
+            self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
+        )
+        self.tooltip_margin = int(
+            0.017 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
+        )
+
+        if ui_props.asset_type == "HDR":
+            self.tooltip_width = self.tooltip_size * 2
+            self.tooltip_height = self.tooltip_size
+        else:
+            self.tooltip_width = self.tooltip_size
+            self.tooltip_height = self.tooltip_size
+
+        self.gravatar_size = int(
+            self.tooltip_height * self.bottom_panel_fraction - self.tooltip_margin
+        )
+
+    def update_assetbar_sizes(self, context):
+        """Calculate all important sizes for the asset bar"""
         region = context.region
         area = context.area
 
@@ -534,19 +578,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
         ui_scale = bpy.context.preferences.view.ui_scale
 
-        # self.margin = int(ui_props.bl_rna.properties['margin'].default * ui_scale)
-        self.margin = int(9 * ui_scale)
+        # assetbar scaling
         self.button_margin = int(0 * ui_scale)
-        self.asset_name_text_size = int(20 * ui_scale)
-        self.author_text_size = int(self.asset_name_text_size * 0.8)
         self.assetbar_margin = int(2 * ui_scale)
-        self.tooltip_size = int(512 * ui_scale)
-
-        if ui_props.asset_type == "HDR":
-            self.tooltip_width = self.tooltip_size * 2
-        else:
-            self.tooltip_width = self.tooltip_size
-
         self.thumb_size = int(user_preferences.thumb_size * ui_scale)
         self.button_size = 2 * self.button_margin + self.thumb_size
         self.other_button_size = int(30 * ui_scale)
@@ -566,7 +600,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 ui_width = r.width * reg_multiplier
             if r.type == "TOOLS":
                 tools_width = r.width * reg_multiplier
-        self.bar_x = int(tools_width + self.margin + ui_props.bar_x_offset * ui_scale)
+        self.bar_x = int(
+            tools_width + self.button_margin + ui_props.bar_x_offset * ui_scale
+        )
         self.bar_end = int(ui_width + 180 * ui_scale + self.other_button_size)
         self.bar_width = int(region.width - self.bar_x - self.bar_end)
 
@@ -604,8 +640,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.reports_x = self.bar_x
             ui_props.reports_x = self.bar_x
 
-    def update_layout(self, context, event):
-        # restarting asset_bar completely since the widgets are too hard to get working with updates.
+    def update_ui_size(self, context):
+        """Calculate all important sizes for the asset bar and tooltip"""
+
+        self.update_assetbar_sizes(context)
+        self.update_tooltip_size(context)
+
+    def update_assetbar_layout(self, context):
+        """Update the layout of the asset bar"""
+        # usually restarting asset_bar completely since the widgets are too hard to get working with updates.
 
         self.scroll_update(always=True)
         self.position_and_hide_buttons()
@@ -621,22 +664,73 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.panel.set_location(self.bar_x, self.panel.y)
 
-        # update Tooltip size
-        if self.tooltip_dark_panel.width != self.tooltip_width:
-            self.tooltip_dark_panel.width = self.tooltip_width
-            self.tooltip_panel.width = self.tooltip_width
-            self.tooltip_image.width = self.tooltip_width
-            self.tooltip_image.set_image_size((self.tooltip_width, self.tooltip_height))
-            self.gravatar_image.set_location(
-                self.tooltip_width - self.gravatar_size,
-                self.tooltip_height - self.gravatar_size,
-            )
-            self.authors_name.set_location(
-                self.tooltip_width - self.gravatar_size - self.margin,
-                self.tooltip_height - self.author_text_size - self.margin,
-            )
+    def update_tooltip_layout(self, context):
+        # update Tooltip size /scale for HDR or if area too small
 
-        # to hide arrows accordingly
+        self.tooltip_panel.width = self.tooltip_width
+        self.tooltip_panel.height = self.tooltip_height
+        self.tooltip_image.width = self.tooltip_width
+        self.tooltip_image.height = self.tooltip_height
+
+        self.labels_start = self.tooltip_height * (1 - self.bottom_panel_fraction)
+
+        self.tooltip_image.set_image_size((self.tooltip_width, self.tooltip_height))
+        self.tooltip_image.set_location(0, 0)
+        # print(self.tooltip_image.width, self.tooltip_image.height)
+
+        self.gravatar_image.set_location(
+            self.tooltip_width - self.gravatar_size,
+            self.tooltip_height - self.gravatar_size,
+        )
+        self.gravatar_image.set_image_size(
+            (
+                self.gravatar_size - 1 * self.tooltip_margin,
+                self.gravatar_size - 1 * self.tooltip_margin,
+            )
+        )
+
+        self.authors_name.set_location(
+            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_height - self.author_text_size - self.tooltip_margin,
+        )
+        self.authors_name.text_size = self.author_text_size
+        self.authors_name.height = self.author_text_size
+
+        self.asset_name.set_location(
+            self.tooltip_margin,
+            self.labels_start + self.tooltip_margin,
+        )
+        self.asset_name.text_size = self.asset_name_text_size
+        self.asset_name.height = self.asset_name_text_size
+
+        self.tooltip_dark_panel.set_location(
+            0,
+            self.labels_start,
+        )
+        self.tooltip_dark_panel.height = (
+            self.tooltip_height * self.bottom_panel_fraction
+        )
+        self.tooltip_dark_panel.width = self.tooltip_width
+
+        self.quality_label.set_location(
+            2 * self.tooltip_margin + self.asset_name_text_size,
+            self.tooltip_height - int(self.asset_name_text_size + self.tooltip_margin),
+        )
+        self.quality_label.text_size = self.asset_name_text_size
+        self.quality_label.height = self.asset_name_text_size
+
+        self.quality_star.set_location(
+            self.tooltip_margin,
+            self.tooltip_height - self.tooltip_margin - self.asset_name_text_size,
+        )
+        self.quality_star.set_image_size(
+            (self.asset_name_text_size, self.asset_name_text_size)
+        )
+
+    def update_layout(self, context, event):
+        """update UI sizes after their recalculation"""
+        self.update_assetbar_layout(context)
+        self.update_tooltip_layout(context)
 
     def asset_button_init(self, asset_x, asset_y, button_idx):
         button_bg_color = (0.2, 0.2, 0.2, 0.1)
@@ -918,6 +1012,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         super().__init__()
 
     def on_init(self, context):
+        self.tooltip_base_size_pixels = 512
+        self.tooltip_scale = 1.0
+        self.bottom_panel_fraction = 0.15
         self.update_ui_size(bpy.context)
 
         # todo move all this to update UI size
@@ -1067,7 +1164,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.show_tooltip()
         if self.active_index != search_index:
             self.active_index = search_index
-
             # scene = bpy.context.scene
             # wm = bpy.context.window_manager
             sr = global_vars.DATA["search results"]
@@ -1077,7 +1173,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # self.tooltip = asset_data['tooltip']
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = search_index  # + self.scroll_offset
-
             set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
             get_tooltip_data(asset_data)
             an = asset_data["displayName"]
@@ -1101,7 +1196,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Some features may not work."
             else:
                 self.version_warning.text = ""
-
             authors = global_vars.DATA["bkit authors"]
             a_id = asset_data["author"]["id"]
             if (
@@ -1130,7 +1224,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # need to set image here because of context issues.
             img_path = paths.get_addon_thumbnail_path("star_grey.png")
             self.quality_star.set_image(img_path)
-            # self.init_tooltip()
+
+            # set location twice for size calculations updates.
+            self.tooltip_panel.set_location(tooltip_x, tooltip_y)
+            self.update_tooltip_size(bpy.context)
+            self.update_tooltip_layout(bpy.context)
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
             # show bookmark button - always on mouse enter
@@ -1218,8 +1316,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_progress_bar(self, asset_button, asset_data):
         if asset_data["downloaded"] > 0:
             pb = asset_button.progress_bar
-            ui_scale = bpy.context.preferences.view.ui_scale
-            w = int(self.button_size * ui_scale * asset_data["downloaded"] / 100.0)
+            w = int(self.button_size * asset_data["downloaded"] / 100.0)
             asset_button.progress_bar.width = w
             asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
             asset_button.progress_bar.visible = True

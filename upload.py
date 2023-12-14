@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import tempfile
+from pathlib import Path
 
 import bpy
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
@@ -134,6 +135,13 @@ def check_missing_data(asset_type, props):
                 "   Please ensure you select appropriate values; 'None' is not a valid selection.\n"
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
+
+    if props.thumbnail != "" and not os.path.exists(Path(props.thumbnail)):
+        write_to_report(
+            props,
+            "Thumbnail filepath does not exist on the disk.\n"
+            "   Please check the filepath and try again.",
+        )
 
     if asset_type == "HDR":
         pass

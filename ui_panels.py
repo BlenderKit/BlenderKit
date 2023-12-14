@@ -30,6 +30,7 @@ from bpy.types import Menu, Panel
 
 from . import (
     addon_updater_ops,
+    asset_bar_op,
     autothumb,
     categories,
     comments_utils,
@@ -3291,13 +3292,21 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
             row.label(text=data["asset_data"]["name"])
             row.label(text=str(int(data["progress"])) + " %")
             op = row.operator("scene.blenderkit_download_kill", text="", icon="CANCEL")
-            op.task_index = key
+            op.task_id = key
             if data.get("retry_counter", 0) > 0:
                 row = layout.row()
                 row.label(text="failed. retrying ... ", icon="ERROR")
                 row.label(text=str(data["retry_counter"]))
 
                 layout.separator()
+
+
+def update_header_menu_fold(self, context):
+    ui_props = bpy.context.window_manager.blenderkitUI
+    if ui_props.header_menu_fold and asset_bar_op.asset_bar_operator is not None:
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=False, do_search=False)
+    elif not ui_props.header_menu_fold and asset_bar_op.asset_bar_operator is None:
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
 
 
 def header_search_draw(self, context):
@@ -3346,17 +3355,33 @@ def header_search_draw(self, context):
     # if context.space_data.show_region_tool_header == True or context.mode[:4] not in ('EDIT', 'OBJE'):
     # layout.separator_spacer()
     row = layout.row(align=True)
-    row.scale_x = 0.85
+    row.scale_x = 0.9
 
     if ui_props.header_menu_fold:
         row.prop(ui_props, "header_menu_fold", text="", icon="RIGHTARROW", emboss=False)
-        row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
+        row.prop(
+            ui_props,
+            "header_menu_fold",
+            text="",
+            icon_value=pcoll[ui_props.logo_status].icon_id,
+            emboss=False,
+        )
         return
     else:
         row.prop(
             ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False
         )
-        row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
+
+
+    # draw logo as part of the folding UI, it is better clickable.
+    row.prop(
+        ui_props,
+        "header_menu_fold",
+        text="",
+        icon_value=pcoll[ui_props.logo_status].icon_id,
+        emboss=False,
+    )
+    # row.label(text="", icon_value=pcoll[ui_props.logo_status].icon_id)
 
     layout = layout.row(align=True)
     # layout.separator()

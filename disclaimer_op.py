@@ -220,10 +220,6 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
             cls.instances.remove(instance)
 
-    # Button press handlers
-    def button1_press(self, widget):
-        print("Button '{0}' is pressed".format(widget.text))
-
 
 def run_disclaimer_task(message: str, url: str, tip: bool):
     fake_context = utils.get_fake_context(bpy.context)

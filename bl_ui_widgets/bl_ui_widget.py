@@ -101,6 +101,7 @@ class BL_UI_Widget:
             self.shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
         else:
             self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+
         self.batch_panel = batch_for_shader(
             self.shader, "TRIS", {"pos": vertices}, indices=indices
         )
@@ -205,6 +206,9 @@ class BL_UI_Widget:
         pass
 
     def mouse_enter_func(self, widget):
+        pass
+
+    def mouse_exit_func(self, widget):
         pass
 
     def set_mouse_enter(self, mouse_enter_func):

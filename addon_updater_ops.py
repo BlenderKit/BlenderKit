@@ -684,7 +684,8 @@ def updater_run_install_popup_handler(scene):
             bpy.app.handlers.depsgraph_update_post.remove(
                 updater_run_install_popup_handler
             )
-    except:
+    except Exception as e:
+        print(e)
         pass
 
     if "ignore" in updater.json and updater.json["ignore"]:

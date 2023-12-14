@@ -74,8 +74,8 @@ class BL_UI_Button(BL_UI_Widget):
             bpy.context.region.tag_redraw()
         self._select_bg_color = value
 
-    def set_image_size(self, imgage_size):
-        self.__image_size = imgage_size
+    def set_image_size(self, image_size):
+        self.__image_size = image_size
 
     def set_image_position(self, image_position):
         self.__image_position = image_position
