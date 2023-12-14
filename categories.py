@@ -123,15 +123,9 @@ def handle_categories_task(task: daemon_tasks.Task):
         "HDR": ["hdr"],
         "MATERIAL": ["material"],
         "BRUSH": ["brush"],
+        "GEONODETOOL": ["geonodetool"],
     }
-    #
-    global_vars.DATA["active_category_search"] = {
-        "MODEL": "model",
-        "SCENE": "scene",
-        "HDR": "hdr",
-        "MATERIAL": "material",
-        "BRUSH": "brush",
-    }
+
     if task.status == "finished":
         global_vars.DATA["bkit_categories"] = task.result
         with open(categories_filepath, "w", encoding="utf-8") as file:

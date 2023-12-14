@@ -71,6 +71,11 @@ if __name__ == "__main__":
             main_source = append_link.append_brush(
                 file_name=export_data["source_filepath"], brushname=brushname
             )
+        elif upload_data["assetType"] == "geonodetool":
+            toolname = export_data["node_group"]
+            main_source = append_link.append_geonodetool(
+                file_name=export_data["source_filepath"], toolname=toolname
+            )
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,
             # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed

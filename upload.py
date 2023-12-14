@@ -532,6 +532,36 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             pt = pt.lower()
             upload_data["pbrType"] = pt
 
+    elif asset_type == "GEONODETOOL":
+        ui_props = bpy.context.window_manager.blenderkitUI
+
+        asset = ui_props.geonode_tool_upload
+        if not asset:
+            return None, None
+
+        props = asset.blenderkit
+
+        export_data["node_group"] = str(asset.name)
+        export_data["thumbnail_path"] = bpy.path.abspath(props.thumbnail)
+        eval_path_computing = (
+            f"bpy.data.node_groups['{asset.name}'].blenderkit.uploading"
+        )
+        eval_path_state = (
+            f"bpy.data.node_groups['{asset.name}'].blenderkit.upload_state"
+        )
+        eval_path = f"bpy.data.node_groups['{asset.name}']"
+
+        # mat analytics happen here, since they don't take up any time...
+
+        upload_params = {
+            # "textureResolutionMax": props.texture_resolution_max,
+            # "trueHDR": props.true_hdr,
+        }
+
+        upload_data = {
+            "assetType": "geonodetool",
+        }
+
     add_version(upload_data)
 
     # caller can be upload operator, but also asset bar called from tooltip generator
@@ -913,6 +943,7 @@ asset_types = (
     ("MATERIAL", "Material", "Any .blend Material"),
     ("TEXTURE", "Texture", "A texture, or texture set"),
     ("BRUSH", "Brush", "Brush, can be any type of blender brush"),
+    ("GEONODETOOL", "Tool", "Geometry nodes tool"),
     ("ADDON", "Addon", "Addon"),
 )
 

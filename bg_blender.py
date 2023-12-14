@@ -199,6 +199,7 @@ process_sources = (
     ("MATERIAL", "Material", "any .blend Material"),
     ("TEXTURE", "Texture", "a texture, or texture set"),
     ("BRUSH", "Brush", "brush, can be any type of blender brush"),
+    ("GEONODETOOL", "Geonode Tool", "a geonode tool"),
 )
 
 

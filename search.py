@@ -662,6 +662,7 @@ def query_to_url(query={}, params={}):
         "scene",
         "brush",
         "hdr",
+        "geonodetools",
     ):
         query["category_subtree"] = None
 
@@ -854,6 +855,14 @@ def build_query_brush():
     return query
 
 
+def build_query_geonodetool():
+    props = bpy.context.window_manager.blenderkit_geonodetool
+    query = {"asset_type": "geonodetool"}
+
+    build_query_common(query, props)
+    return query
+
+
 def add_search_process(query, params):
     global search_tasks
     if len(search_tasks) > 0:
@@ -984,6 +993,11 @@ def search(get_next=False, query=None, author_id=""):
             if not hasattr(wm, "blenderkit_brush"):
                 return
             query = build_query_brush()
+
+        if ui_props.asset_type == "GEONODETOOL":
+            if not hasattr(wm, "blenderkit_geonodetool"):
+                return
+            query = build_query_geonodetool()
 
         # crop long searches
         if query.get("query"):
@@ -1118,6 +1132,8 @@ def update_filters():
         sprops.use_filters = fcommon
     elif ui_props.asset_type == "HDR":
         sprops.use_filters = sprops.true_hdr
+    elif ui_props.asset_type == "GEONODETOOL":
+        sprops.use_filters = fcommon
     return True
 
 
@@ -1162,6 +1178,9 @@ def search_update(self, context):
                 target_asset_type = "SCENE"
             elif asset_type_string.find("hdr") > -1:
                 target_asset_type = "HDR"
+            elif asset_type_string.find("geonodetool") > -1:
+                target_asset_type = "GEONODETOOL"
+
             if ui_props.asset_type != target_asset_type:
                 sprops.search_keywords = ""
                 ui_props.asset_type = target_asset_type

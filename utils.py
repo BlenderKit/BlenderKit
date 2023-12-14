@@ -117,6 +117,12 @@ def get_active_HDR():
     return image
 
 
+def get_active_geonodetool():
+    ui_props = bpy.context.window_manager.blenderkitUI
+    geonodetool = ui_props.geonode_tool_upload
+    return geonodetool
+
+
 def get_selected_models():
     """
     Detect all hierarchies that contain asset data from selection. Only parents that have actual ['asset data'] get returned
@@ -268,6 +274,11 @@ def get_search_props():
         if not hasattr(wm, "blenderkit_brush"):
             return
         props = wm.blenderkit_brush
+
+    if uiprops.asset_type == "GEONODETOOL":
+        if not hasattr(wm, "blenderkit_geonodetool"):
+            return
+        props = wm.blenderkit_geonodetool
     return props
 
 
@@ -291,8 +302,10 @@ def get_active_asset_by_type(asset_type="model"):
         return None
     if asset_type == "brush":
         b = get_active_brush()
-        if b is not None:
-            return b
+        return b
+    if asset_type == "geonodetool":
+        b = get_active_geonodetool()
+        return b
     return None
 
 
@@ -316,9 +329,10 @@ def get_active_asset():
     elif ui_props.asset_type == "TEXTURE":
         return None
     elif ui_props.asset_type == "BRUSH":
-        b = get_active_brush()
-        if b is not None:
-            return b
+        return get_active_brush()
+    elif ui_props.asset_type == "GEONODETOOL":
+        return get_active_geonodetool()
+
     return None
 
 
@@ -349,6 +363,10 @@ def get_upload_props():
         return None
     elif ui_props.asset_type == "BRUSH":
         b = get_active_brush()
+        if b is not None:
+            return b.blenderkit
+    elif ui_props.asset_type == "GEONODETOOL":
+        b = get_active_geonodetool()
         if b is not None:
             return b.blenderkit
     return None
@@ -481,6 +499,8 @@ def uploadable_asset_poll():
         )
     if ui_props.asset_type == "HDR":
         return ui_props.hdr_upload_image is not None
+    if ui_props.asset_type == "GEONODETOOL":
+        return ui_props.geonode_tool_upload is not None
     return True
 
 

@@ -74,6 +74,9 @@ def draw_upload_common(layout, props, asset_type, context):
     if asset_type == "HDR":
         asset_type_text = asset_type
         url = paths.BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL
+    if asset_type == "GEONODETOOL":
+        asset_type_text = asset_type
+        url = ""  # paths.BLENDERKIT_GEONODETOOL_UPLOAD_INSTRUCTIONS_URL
     op = layout.operator(
         "wm.url_open", text=f"Read {asset_type} upload instructions", icon="QUESTION"
     )
@@ -176,7 +179,6 @@ def draw_panel_hdr_upload(self, context):
     layout = self.layout
     ui_props = bpy.context.window_manager.blenderkitUI
 
-    # layout.prop_search(ui_props, "hdr_upload_image", bpy.data, "images")
     layout.prop(ui_props, "hdr_upload_image")
 
     hdr = utils.get_active_HDR()
@@ -201,6 +203,23 @@ def draw_panel_hdr_search(self, context):
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
+
+
+def draw_panel_geonodetool_upload(self, context):
+    layout = self.layout
+    ui_props = bpy.context.window_manager.blenderkitUI
+    layout.enabled = True
+
+    layout.template_ID(ui_props, "geonode_tool_upload")
+    geonodetool = utils.get_active_geonodetool()
+
+    if geonodetool is not None:
+        props = geonodetool.blenderkit
+
+        layout = self.layout
+
+        draw_upload_common(layout, props, "GEONODETOOL", context)
+        layout.prop(props, "thumbnail")
 
 
 def draw_panel_geonodetool_search(self, context):
@@ -1645,6 +1664,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             )
             return
 
+        if ui_props.asset_type == "GEONODETOOL":
+            return draw_panel_geonodetool_search(self, context)
+
     def draw_upload(self, context, layout, ui_props):
         # if not ui_props.assetbar_on:
         #     text = 'Show asset preview - ;'
@@ -1694,6 +1716,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
                 return draw_panel_brush_upload(self, context)
             layout.label(text="Switch to paint or sculpt mode.")
             return
+
+        if ui_props.asset_type == "GEONODETOOL":
+            return draw_panel_geonodetool_upload(self, context)
 
 
 class BlenderKitWelcomeOperator(bpy.types.Operator):
@@ -3277,7 +3302,7 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
 
 def header_search_draw(self, context):
     """Top bar menu in 3D view"""
-    print(f"try to draw also in {context.mode}")
+    # print(f"try to draw also in {context.mode}")
     if not utils.guard_from_crash():
         return
 

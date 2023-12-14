@@ -543,6 +543,12 @@ class BlenderKitUIProps(PropertyGroup):
         name="Upload HDR", type=bpy.types.Image, description="Pick an image to upload"
     )
 
+    geonode_tool_upload: PointerProperty(
+        name="Upload Tool",
+        type=bpy.types.GeometryNodeTree,
+        description="Pick the geometry node tool to upload",
+    )
+
     new_comment: StringProperty(
         name="New comment", description="Write your comment", default=""
     )
@@ -1113,7 +1119,14 @@ class BlenderKitBrushUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
 
 
 class BlenderKitGeoToolUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
-    pass
+    thumbnail: StringProperty(
+        name="Thumbnail",
+        description="Thumbnail path - minimum 1024x1024 square .jpg\n"
+        "And make it beautiful!",
+        subtype="FILE_PATH",
+        default="",
+        # update=autothumb.update_upload_model_preview,
+    )
     # mode: EnumProperty(
     #     name="Mode",
     #     items=(
@@ -2456,6 +2469,7 @@ def unregister():
     del bpy.types.WindowManager.blenderkit_HDR
     del bpy.types.WindowManager.blenderkit_brush
     del bpy.types.WindowManager.blenderkit_mat
+    del bpy.types.WindowManager.blenderkit_geonodetool
 
     del bpy.types.Scene.blenderkit
     del bpy.types.Object.blenderkit
