@@ -2582,12 +2582,17 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # op = row.operator('view3d.asset_drag_drop', text='Drag & Drop from here', depress=True)
         # From here on, only ratings are drawn, which won't be displayed for private assets from now on.
 
-        if not self.asset_data["isPrivate"]:
+        rc = self.asset_data.get("ratingsCount")
+
+        if (
+            not self.asset_data["isPrivate"]
+            and rc.get("quality") is not None
+            and rc.get("workingHours") is not None
+        ):
             row = box_thumbnail.row()
             row.alignment = "EXPAND"
 
             # display_ratings = can_display_ratings(self.asset_data)
-            rc = self.asset_data.get("ratingsCount")
             show_rating_threshold = 0
             show_rating_prompt_threshold = 5
 
@@ -3395,8 +3400,8 @@ def header_search_draw(self, context):
         layout.prop(
             ui_props,
             "asset_type",
-            expand=True,
-            icon_only=True,
+            expand=False,
+            icon_only=False,
             text="",
             icon=asset_type_icon,
         )

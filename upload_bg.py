@@ -77,6 +77,9 @@ if __name__ == "__main__":
             main_source = append_link.append_geonodetool(
                 file_name=export_data["source_filepath"], toolname=toolname
             )
+            if main_source.asset_data is None:
+                main_source.asset_mark()
+
         print("test1")
 
         try:
