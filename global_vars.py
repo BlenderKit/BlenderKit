@@ -44,6 +44,10 @@ TIPS = [
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#cancel-drag-and-drop",
     ),
     (
+        "During drag-and-drop, rotate the dragged asset's outline box by 90 degrees using the mouse wheel.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#rotate-asset",
+    ),
+    (
         "Right click in the asset bar for a detailed asset card.",
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation",
     ),
