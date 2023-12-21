@@ -30,7 +30,15 @@ import uuid
 import bpy
 from mathutils import Vector
 
-from . import global_vars, image_utils, paths, persistent_preferences, reports
+from . import (
+    daemon_lib,
+    global_vars,
+    image_utils,
+    paths,
+    persistent_preferences,
+    reports,
+    search,
+)
 from .daemon import daemon_tasks
 
 
@@ -456,6 +464,8 @@ def api_key_property_updated(user_preferences, context):
     If length is not correct, then reset api_key to empty string. Call save_prefs() when api_key is correct.
     """
     if len(user_preferences.api_key) >= 25:
+        daemon_lib.get_user_profile(user_preferences.api_key)
+        search.refresh_search()
         return save_prefs(user_preferences, context)
 
     if len(user_preferences.api_key) == 0:

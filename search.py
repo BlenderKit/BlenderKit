@@ -1189,6 +1189,22 @@ def strip_accents(s):
     )
 
 
+def refresh_search():
+    """Refresh search results. Useful after login/logout."""
+    props = utils.get_search_props()
+    if props is not None:
+        props.report = ""
+
+    ui_props = bpy.context.window_manager.blenderkitUI
+    if ui_props.assetbar_on:
+        ui_props.turn_off = True
+        ui_props.assetbar_on = False
+    cleanup_search_results()  # TODO: is it possible to start this from daemon automatically? probably YEA
+    history = global_vars.DATA["search history"]
+    if len(history) > 0:
+        search(query=history[-1])
+
+
 # TODO: fix the tooltip?
 class SearchOperator(Operator):
     """Tooltip"""
