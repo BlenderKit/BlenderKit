@@ -136,7 +136,8 @@ def check_missing_data(asset_type, props):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if props.thumbnail != "" and not os.path.exists(Path(props.thumbnail)):
+    thumb_path = bpy.path.abspath(props.thumbnail)
+    if props.thumbnail != "" and not os.path.exists(Path(thumb_path)):
         write_to_report(
             props,
             "Thumbnail filepath does not exist on the disk.\n"
