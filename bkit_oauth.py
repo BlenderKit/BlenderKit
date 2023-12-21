@@ -132,20 +132,7 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     preferences.api_key_timeout = int(time.time() + oauth_response["expires_in"])
     preferences.login_attempt = False
     preferences.api_key_refresh = refresh_token
-    preferences.api_key = auth_token
-
-    props = utils.get_search_props()
-    if props is not None:
-        props.report = ""
-    daemon_lib.get_user_profile(preferences.api_key)
-    # ui_props = bpy.context.window_manager.blenderkitUI
-    # if ui_props.assetbar_on:
-    #     ui_props.turn_off = True
-    #     ui_props.assetbar_on = False
-    search.cleanup_search_results()  # TODO: is it possible to start this from daemon automatically? probably YEA
-    history = global_vars.DATA["search history"]
-    if len(history) > 0:
-        search.search(query=history[-1])
+    preferences.api_key = auth_token  # triggers api_key update function
 
 
 def ensure_token_refresh() -> bool:
