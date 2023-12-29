@@ -156,6 +156,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
         if not context.area:
             # end if area disappears
             self.finish()
+            return {"FINISHED"}  # so region.tag_redraw() is not called later
 
         if self.handle_widget_events(event):
             self.start_time = time.time()
@@ -164,6 +165,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
         if event.type in {"ESC"}:
             self.finish()
+            return {"FINISHED"}
 
         if event.type == "TIMER":
             run_time = time.time() - self.start_time
