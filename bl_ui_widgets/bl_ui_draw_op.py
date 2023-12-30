@@ -53,9 +53,10 @@ class BL_UI_OT_draw_operator(Operator):
         )
 
     def unregister_handlers(self, context):
-        context.window_manager.event_timer_remove(self.draw_event)
-
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle, "WINDOW")
+        if self.draw_event is not None:
+            context.window_manager.event_timer_remove(self.draw_event)
+        if self.draw_handle is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle, "WINDOW")
 
         self.draw_handle = None
         self.draw_event = None

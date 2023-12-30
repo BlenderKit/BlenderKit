@@ -27,7 +27,7 @@ import traceback
 import bpy
 from bpy.app.handlers import persistent
 
-from . import daemon_lib
+from . import asset_bar_op, daemon_lib, disclaimer_op
 
 
 # Safely import the updater.
@@ -498,8 +498,8 @@ class AddonUpdaterUpdatedSuccessful(bpy.types.Operator):
         # we need to restart BlenderKit daemon after update
         try:
             daemon_lib.kill_daemon_server()
-        except:
-            pass
+        except Exception as e:
+            print(f"Failed to kill daemon server: {e}")
         return context.window_manager.invoke_props_popup(self, event)
 
     def draw(self, context):
@@ -759,6 +759,12 @@ def post_update_callback(module_name, res=None):
         updater.print_verbose(
             "{} updater: Running post update callback".format(updater.addon)
         )
+
+        # BK: Have to remove all running modals before script reload
+        bpy.utils.unregister_class(disclaimer_op.BlenderKitDisclaimerOperator)
+        bpy.utils.unregister_class(asset_bar_op.BlenderKitAssetBarOperator)
+        bpy.ops.script.reload()  # BK: Reload scripts so the updated add-on is loaded
+        updater.print_verbose(f"{updater.addon} updater: Reloaded scripts")
 
         atr = AddonUpdaterUpdatedSuccessful.bl_idname.split(".")
         getattr(getattr(bpy.ops, atr[0]), atr[1])("INVOKE_DEFAULT")
