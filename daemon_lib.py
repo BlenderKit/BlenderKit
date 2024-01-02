@@ -502,9 +502,9 @@ def check_daemon_exit_code() -> tuple[int, str]:
     # exit_code = global_vars.daemon_process.returncode
     log_path = f"{get_daemon_directory_path()}/daemon-{get_port()}.log"
     if exit_code == 101:
-        message = f"failed to import AIOHTTP. Try to delete {dependencies.get_dependencies_path()} and restart Blender."
+        message = f"failed to import AIOHTTP. Try to delete {dependencies.get_deps_directory_path()} and restart Blender."
     elif exit_code == 102:
-        message = f"failed to import CERTIFI. Try to delete {dependencies.get_dependencies_path()} and restart Blender."
+        message = f"failed to import CERTIFI. Try to delete {dependencies.get_deps_directory_path()} and restart Blender."
     elif exit_code == 100:
         message = f"unexpected OSError. Please report a bug and paste content of log {log_path}"
     elif exit_code == 111:
