@@ -2431,68 +2431,81 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         image_split = 0.25
         text_width = width
         authors = global_vars.DATA["bkit authors"]
-        a = authors.get(self.asset_data["author"]["id"])
+        author = authors.get(self.asset_data["author"]["id"])
+        if author is None:
+            return
+
+        row = layout.row()
+        author_box = row.box()
+        author_box.scale_y = 0.6  # get text lines closer to each other
+        author_box.label(text="Author")  # just one extra line to give spacing
+        if hasattr(self, "gimg"):
+            author_left = author_box.split(factor=image_split)
+            author_left.template_icon(icon_value=self.gimg.preview.icon_id, scale=7)
+            self.gimg.gl_touch()
+
+            text_area = author_left.split()
+            text_width = int(text_width * (1 - image_split))
+        else:
+            text_area = author_box
+
+        author_right = text_area.column()
+        row = author_right.row()
+        col = row.column()
+
+        utils.label_multiline(col, text=author["tooltip"], width=text_width)
+        # check if author didn't fill any data about himself and prompt him if that's the case
         if (
-            a is not None
-        ):  # or a is '' or (a.get('gravatarHash') is not None and a.get('gravatarImg') is None):
-            row = layout.row()
-            author_box = row.box()
-            author_box.scale_y = 0.6  # get text lines closer to each other
-            author_box.label(text="Author")  # just one extra line to give spacing
-            if hasattr(self, "gimg"):
-                author_left = author_box.split(factor=image_split)
-                author_left.template_icon(icon_value=self.gimg.preview.icon_id, scale=7)
-                self.gimg.gl_touch()
+            utils.user_is_owner(asset_data=self.asset_data)
+            and author.get("aboutMe") is not None
+            and len(author.get("aboutMe", "")) == 0
+        ):
+            row = col.row()
+            row.enabled = False
+            row.label(text="Please introduce yourself to the community!")
 
-                text_area = author_left.split()
-                text_width = int(text_width * (1 - image_split))
-            else:
-                text_area = author_box
+            op = col.operator("wm.blenderkit_url", text="Edit your profile")
+            op.url = f"{global_vars.SERVER}/profile"
+            op.tooltip = "Edit your profile on BlenderKit webpage"
 
-            author_right = text_area.column()
-            row = author_right.row()
-            col = row.column()
-
-            utils.label_multiline(col, text=a["tooltip"], width=text_width)
-            # check if author didn't fill any data about himself and prompt him if that's the case
-            if (
-                utils.user_is_owner(asset_data=self.asset_data)
-                and a.get("aboutMe") is not None
-                and len(a.get("aboutMe", "")) == 0
-            ):
-                row = col.row()
-                row.enabled = False
-                row.label(text="Please introduce yourself to the community!")
-
-                op = col.operator("wm.blenderkit_url", text="Edit your profile")
-                op.url = f"{global_vars.SERVER}/profile"
-                op.tooltip = "Edit your profile on BlenderKit webpage"
-
+        # ABOUT ME WEBPAGE
+        if author.get("aboutMeUrl") is not None:
             button_row = author_box.row()
             button_row.scale_y = 2.0
-
-            if a.get("aboutMeUrl") is not None:
-                url = a["aboutMeUrl"]
-                text = url
-                if len(url) > 45:
-                    text = url[:45] + "..."
-                op = button_row.operator("wm.url_open", text=text)
-                op.url = url
-                button_row = author_box.row()
-                button_row.scale_y = 2.0
-
-            url = paths.get_author_gallery_url(a["id"])
-            text = "Author's Profile"
-
+            url = author["aboutMeUrl"]
+            text = utils.remove_url_protocol(url)
+            text = utils.shorten_text(text, 45)
             op = button_row.operator("wm.url_open", text=text)
             op.url = url
 
-            op = button_row.operator(
-                "view3d.blenderkit_search", text="Find Assets By Author"
-            )
-            op.esc = True
-            op.keywords = ""
-            op.author_id = self.asset_data["author"]["id"]
+        # SOCIAL NETWORKS
+        social_networks = author.get("socialNetworks", [])
+        if len(social_networks) > 0:
+            button_row = author_box.row()
+            button_row.scale_y = 2.0
+        for social_network in social_networks:
+            url = social_network.get("url")
+            text = social_network.get("socialNetwork", {}).get("name")
+            if url is None or text is None:
+                continue
+            op = button_row.operator("wm.url_open", text=text)
+            op.url = url
+
+        button_row = author_box.row()
+        button_row.scale_y = 2.0
+
+        url = paths.get_author_gallery_url(author["id"])
+        text = "Author's Profile"
+
+        op = button_row.operator("wm.url_open", text=text)
+        op.url = url
+
+        op = button_row.operator(
+            "view3d.blenderkit_search", text="Find Assets By Author"
+        )
+        op.esc = True
+        op.keywords = ""
+        op.author_id = self.asset_data["author"]["id"]
 
     def draw_thumbnail_box(self, layout, width=250):
         layout.emboss = "NORMAL"
