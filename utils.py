@@ -1285,3 +1285,21 @@ def check_globaldir_permissions():
         15,
         type="ERROR",
     )
+
+
+def shorten_text(text: str, max_len: int = -1) -> str:
+    """Shorten text to max_len characters and end it with '…' (horizontal elipsis) if the text was shortened
+    (max_len-1 characters will be used, last one will be '…').
+    If max_len is -1, then no shortening is done."""
+    if max_len == -1:
+        return text
+    if len(text) > max_len:
+        text = text[: max_len - 1] + "…"
+    return text
+
+
+def remove_url_protocol(text: str) -> str:
+    """Remove http:// or https:// from the beginning of the text. Useful for cleaner presentation of URLs to users."""
+    text = text.lstrip("https://")
+    text = text.lstrip("http://")
+    return text
