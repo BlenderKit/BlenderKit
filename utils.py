@@ -637,12 +637,10 @@ def pprint(data, data1=None, data2=None, data3=None, data4=None):
     p(json.dumps(data, indent=4, sort_keys=True))
 
 
-def get_hierarchy(ob):
-    """get all objects in a tree"""
+def get_hierarchy(object) -> list:
+    """Get all objects in a hierarchy tree."""
     obs = []
-    doobs = [ob]
-    # pprint('get hierarchy')
-    pprint(ob.name)
+    doobs = [object]
     while len(doobs) > 0:
         o = doobs.pop()
         doobs.extend(o.children)
@@ -650,16 +648,19 @@ def get_hierarchy(ob):
     return obs
 
 
-def select_hierarchy(ob, state=True):
-    obs = get_hierarchy(ob)
-    for ob in obs:
-        ob.select_set(state)
-    return obs
+def delete_hierarchy(object):
+    """Delete object and all other objects in the hierarchy.
+    In 3.2 and newer use temp_override to delete objects that are not selected.
+    In 3.1 or older use selected_objects override to delete objects that are not selected.
+    https://wiki.blender.org/wiki/Reference/Release_Notes/3.2/Python_API
+    """
+    objects = get_hierarchy(object)
+    if bpy.app.version < (3, 2, 0):
+        bpy.ops.object.delete({"selected_objects": objects})
+        return
 
-
-def delete_hierarchy(ob):
-    obs = get_hierarchy(ob)
-    bpy.ops.object.delete({"selected_objects": obs})
+    with bpy.context.temp_override(selected_objects=objects):
+        bpy.ops.object.delete()
 
 
 def get_bounds_snappable(obs, use_modifiers=False):
