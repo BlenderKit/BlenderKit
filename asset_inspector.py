@@ -425,4 +425,4 @@ def unregister_asset_inspector():
 
 
 if __name__ == "__main__":
-    register()
+    register()  # TODO: fix call to missing function
