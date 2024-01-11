@@ -26,7 +26,7 @@ class BL_UI_Image(BL_UI_Widget):
         try:
             self.__image
             self.__image.filepath
-        except AttributeError:
+        except Exception as e:
             self.__image = None
         return None
 
