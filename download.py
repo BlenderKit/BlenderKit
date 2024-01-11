@@ -939,8 +939,8 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         for f in file_names:
             try:
                 os.remove(f)
-            except Exception as e:
-                bk_logger.error(f"{e}")
+            except Exception as e1:
+                bk_logger.error(f"{e1}")
         return e
 
 

@@ -880,11 +880,14 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         a = bpy.context.area
 
-        loc = view3d_utils.location_3d_to_region_2d(
-            bpy.context.region,
-            bpy.context.space_data.region_3d,
-            self.downloader["location"],
-        )
+        if bpy.context.space_data is not None and hasattr(self, "downloader"):
+            loc = view3d_utils.location_3d_to_region_2d(
+                bpy.context.region,
+                bpy.context.space_data.region_3d,
+                self.downloader["location"],
+            )
+        else:
+            loc = Vector((0, 0))
 
         self.panel = BL_UI_Drag_Panel(
             loc.x, bpy.context.region.height - loc.y, self.width, self.height
@@ -963,11 +966,15 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
             self.finish()
 
         # if event.type == "MOUSEMOVE":
-        loc = view3d_utils.location_3d_to_region_2d(
-            bpy.context.region,
-            bpy.context.space_data.region_3d,
-            self.downloader["location"],
-        )
+        if bpy.context.space_data is not None:
+            loc = view3d_utils.location_3d_to_region_2d(
+                bpy.context.region,
+                bpy.context.space_data.region_3d,
+                self.downloader["location"],
+            )
+        else:
+            loc = Vector((0, 0))
+
         self.panel.set_location(loc.x, context.region.height - loc.y)
         self.label.text = self.task["text"]
         if self.handle_widget_events(event):

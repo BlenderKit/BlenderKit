@@ -86,7 +86,7 @@ class BL_UI_Button(BL_UI_Widget):
             self.__image
             self.__image.filepath
             # self.__image.pixels
-        except AttributeError:
+        except Exception as e:
             self.__image = None
 
     def set_image_colorspace(self, colorspace):
