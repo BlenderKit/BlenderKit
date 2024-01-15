@@ -16,7 +16,7 @@ from time import time
 from uuid import uuid4
 
 
-VERSION = "3.10.0.240109"
+VERSION = "3.10.0.240115"
 sys.stdout.reconfigure(encoding="utf-8")
 logger = getLogger("daemon")
 
