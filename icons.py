@@ -44,6 +44,13 @@ icons_read = {
     "bookmark_full.png": "bookmark_full",
     "bookmark_empty.png": "bookmark_empty",
     "bar_slider_up.png": "bar_slider_up",
+    "logo_artstation.png": "logo_artstation",
+    "logo_facebook.png": "logo_facebook",
+    "logo_instagram.png": "logo_instagram",
+    "logo_tiktok.png": "logo_tiktok",
+    "logo_vimeo.png": "logo_vimeo",
+    "logo_x.png": "logo_twitter",
+    "logo_youtube.png": "logo_youtube",
 }
 
 # fill the icon_collections["previews"] with icons of numbers for complexity rating
