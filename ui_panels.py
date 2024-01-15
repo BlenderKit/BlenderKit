@@ -2468,44 +2468,56 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             op.url = f"{global_vars.SERVER}/profile"
             op.tooltip = "Edit your profile on BlenderKit webpage"
 
-        # ABOUT ME WEBPAGE
-        if author.get("aboutMeUrl") is not None:
-            button_row = author_box.row()
-            button_row.scale_y = 2.0
-            url = author["aboutMeUrl"]
-            text = utils.remove_url_protocol(url)
-            text = utils.shorten_text(text, 45)
-            op = button_row.operator("wm.url_open", text=text)
-            op.url = url
-
-        # SOCIAL NETWORKS
-        social_networks = author.get("socialNetworks", [])
-        if len(social_networks) > 0:
-            button_row = author_box.row()
-            button_row.scale_y = 2.0
-        for social_network in social_networks:
-            url = social_network.get("url")
-            text = social_network.get("socialNetwork", {}).get("name")
-            if url is None or text is None:
-                continue
-            op = button_row.operator("wm.url_open", text=text)
-            op.url = url
+        pcoll = icons.icon_collections["main"]
 
         button_row = author_box.row()
         button_row.scale_y = 2.0
 
-        url = paths.get_author_gallery_url(author["id"])
-        text = "Author's Profile"
-
-        op = button_row.operator("wm.url_open", text=text)
-        op.url = url
-
+        # AUTHOR's ASSETS SEARCH
         op = button_row.operator(
-            "view3d.blenderkit_search", text="Find Assets By Author"
+            "view3d.blenderkit_search", text="Find Assets By Author", icon="VIEWZOOM"
         )
         op.esc = True
         op.keywords = ""
         op.author_id = self.asset_data["author"]["id"]
+
+        button_row = button_row.row(align=True)
+
+        # AUTHOR's BLENDERKIT PROFILE
+        url = paths.get_author_gallery_url(author["id"])
+        tooltip = "Go to author's profile on BlenderKit webpage"
+        icon_value = pcoll["logo"].icon_id
+        op = button_row.operator("wm.blenderkit_url", text="", icon_value=icon_value)
+        op.url = url
+        op.tooltip = tooltip
+
+        # ABOUT ME WEBPAGE
+        if author.get("aboutMeUrl") is not None:
+            url = author["aboutMeUrl"]
+            text = utils.remove_url_protocol(url)
+            text = utils.shorten_text(text, 45)
+            op = button_row.operator("wm.blenderkit_url", text="", icon="URL")
+            op.url = url
+            op.tooltip = f"Go to author's personal web page: \n\n{url}\n"
+
+        # SOCIAL NETWORKS
+        social_networks = author.get("socialNetworks", [])
+
+        for social_network in social_networks:
+            url = social_network.get("url")
+            text = social_network.get("socialNetwork", {}).get("name")
+            tooltip = f"Go to {text} profile"
+
+            icon_value = pcoll[f"logo_{text.lower()}"].icon_id
+            print(text, icon_value)
+            if url is None or text is None:
+                continue
+
+            op = button_row.operator(
+                "wm.blenderkit_url", text="", icon_value=icon_value
+            )
+            op.url = url
+            op.tooltip = tooltip
 
     def draw_thumbnail_box(self, layout, width=250):
         layout.emboss = "NORMAL"
