@@ -2509,7 +2509,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             tooltip = f"Go to {text} profile"
 
             icon_value = pcoll[f"logo_{text.lower()}"].icon_id
-            print(text, icon_value)
             if url is None or text is None:
                 continue
 
