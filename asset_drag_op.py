@@ -880,7 +880,11 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         a = bpy.context.area
 
-        if bpy.context.space_data is not None and hasattr(self, "downloader"):
+        if (
+            bpy.context.space_data is not None
+            and hasattr(self, "downloader")
+            and self.downloader is not None
+        ):
             loc = view3d_utils.location_3d_to_region_2d(
                 bpy.context.region,
                 bpy.context.space_data.region_3d,
@@ -966,7 +970,11 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
             self.finish()
 
         # if event.type == "MOUSEMOVE":
-        if bpy.context.space_data is not None:
+        if (
+            bpy.context.space_data is not None
+            and hasattr(self, "downloader")
+            and self.downloader is not None
+        ):
             loc = view3d_utils.location_3d_to_region_2d(
                 bpy.context.region,
                 bpy.context.space_data.region_3d,
