@@ -965,6 +965,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         if not context.area:
             # end if area disappears
             self.finish()
+            return {"PASS_THROUGH"}
 
         # if event.type == "MOUSEMOVE":
         if bpy.context.space_data is not None:
