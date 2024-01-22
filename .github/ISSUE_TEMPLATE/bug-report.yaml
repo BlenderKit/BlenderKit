@@ -1,45 +1,63 @@
 name: Bug Report
-description: Report bug, crash, problem...
+description: Report a bug, crash, or other issue
 body:
   - type: markdown
     attributes:
       value: |
-        ### Before you report a Bug, please check the following:
-        - you have the [latest version of BlenderKit](https://github.com/blenderkit/blenderkit/releases/latest) installed (latest version may have fix for your problem)
-        - you have restarted the Blender after updating BlenderKit (skipping restart often causes esoteric bugs, restart can often fix your problems instantly)
-        - search for similar issues in [issues](https://github.com/blenderkit/blenderkit/issues) (they can contain workarounds or solutions to fix your problem right away)
+        *Please make the title as descriptive as possible, including part of the error message if applicable. This helps other users find and relate to your issue more easily.*
 
-        ### Quick-help:
-        These 3 steps often fixes the problem:
-        1. uninstall BlenderKit
-        2. install [latest version of BlenderKit](https://github.com/blenderkit/blenderkit/releases/latest) via Blender UI, using the .zip file
-        3. restart Blender
+        #### Before reporting a bug, please ensure the following:
+        - You have installed the [latest version of BlenderKit](https://github.com/blenderkit/blenderkit/releases/latest), as the latest release may include a fix for your issue.
+        - You have restarted Blender after updating BlenderKit. Skipping a restart can lead to unusual bugs; a restart often resolves issues immediately.
+        - You have searched for similar issues in the [BlenderKit issues](https://github.com/blenderkit/blenderkit/issues). Existing threads may offer workarounds or solutions.
 
-        Thank you for reporting a bug! You help us to improve BlenderKit.
+        #### 3-Step Quick Help:
+        1. Uninstall BlenderKit.
+        2. Install the [latest version of BlenderKit](https://github.com/blenderkit/blenderkit/releases/latest) via Blender's UI, using the .zip file.
+        3. Restart Blender.
 
   - type: textarea
     id: description
     attributes:
-      label: Describe the Bug
+      label: Bug Description
       description: |
-        Please describe the problem and expected behavior. Adding a screnshot is good, adding environment information is better, adding a complete log is the best (see below).
-    value: |
-      
+        Please describe the problem, the expected behavior, and any deviation from it. Including a screenshot is helpful, providing environment information is more beneficial, and adding a complete log is most advantageous (see below).
+      value: |
+        When I...
 
-      - BlenderKit version:
-      - Blender version:
-      - Operating system & architecture (x84_64, arm64...):
-      - behind VPN, proxy, firewall?:
+        ### Environment Information - Bug happens on:
+        - BlenderKit version: v3.y.z
+        - Blender version and source (blender.org, Steam, Snap, package manager, etc.): vX.Y.Z (from: )
+        - Operating system & architecture: Win10/Win11 (x86_64/ARM64), MacOS (Intel/Apple Silicon), Debian/Ubuntu/Fedora... (x86_64/ARM64)
+        - Using VPN, proxy, or firewall? (Yes/No/Not sure, please describe if applicable):
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Logs
+      label: Error Logs
       description: |
-        Ideally please provide a log of the problem - [How to Get Error Logs](https://www.blenderkit.com/report-bug/).
-        Having the logs helps us to find the problem and deliver the fix for you much faster.
-        Sometimes we are able to fix without the logs, but most of the time we will ask you for the logs anyway.
+        Ideally, please provide the error logs related to the problem. [Here's how to get error logs](https://www.blenderkit.com/report-bug/).
+        Providing error logs enables us to diagnose and address the issue more efficiently. 
+        We may be able to resolve the issue without the logs, but in most cases, we will request them.
     validations:
       required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: |
+        Please outline the steps you took that led to the bug. If you're unsure of the exact steps, describe what you were doing when the bug occurred.
+      value: |
+        1. 
+        2. 
+        3.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report this bug! Your input helps us improve BlenderKit.
