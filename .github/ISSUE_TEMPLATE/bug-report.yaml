@@ -4,74 +4,42 @@ body:
   - type: markdown
     attributes:
       value: |
+        ### Before you report a Bug, please check the following:
+        - you have the [latest version of BlenderKit](https://github.com/blenderkit/blenderkit/releases/latest) installed (latest version may have fix for your problem)
+        - you have restarted the Blender after updating BlenderKit (skipping restart often causes esoteric bugs, restart can often fix your problems instantly)
+        - search for similar issues in [issues](https://github.com/blenderkit/blenderkit/issues) (they can contain workarounds or solutions to fix your problem right away)
+
+        ### Quick-help:
+        These 3 steps often fixes the problem:
+        1. uninstall BlenderKit
+        2. install [latest version of BlenderKit](https://github.com/blenderkit/blenderkit/releases/latest) via Blender UI, using the .zip file
+        3. restart Blender
+
         Thank you for reporting a bug! You help us to improve BlenderKit.
 
   - type: textarea
     id: description
     attributes:
-      label: Describe the bug
-      description: Please try to describe here what the bug/crash/problem is about.
+      label: Describe the Bug
+      description: |
+        Please describe the problem and expected behavior. Adding a screnshot is good, adding environment information is better, adding a complete log is the best (see below).
+    value: |
+      
+
+      - BlenderKit version:
+      - Blender version:
+      - Operating system & architecture (x84_64, arm64...):
+      - behind VPN, proxy, firewall?:
     validations:
       required: true
-
-  - type: textarea
-    id: expected-behavior
-    attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
-    validations:
-      required: false
-
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots/video
-      description: |
-        If applicable please provide a screenshot/video of the problem.
-    validations:
-      required: false
 
   - type: textarea
     id: logs
     attributes:
       label: Logs
       description: |
-        If applicable please provide a log of the problem.
-        - On Mac or linux, you need to run Blender from a terminal, where you can later see the debug info.
-        - On Windows, you need to toggle system console in the top menu (see screenshot below).
-    validations:
-      required: false
-
-  - type: markdown
-    attributes:
-      value: |
-        <p align="center">
-          <img width="50%" alt="To enable system console click CTRL+ALT+C or go to menu - Window - Toggle System Console" src="https://raw.githubusercontent.com/BlenderKit/blenderkit/main/.github/ISSUE_TEMPLATE/toggle-system-console.png">
-        </p>
-
-  - type: textarea
-    id: environment
-    attributes:
-      label: Environment 
-      description: |
-        Please provide information about Blender and BlenderKit versions, operating system etc.
-        
-        Through command line: you can get the version info by running following command in command line (on Windows use `blender.exe` instead of `blender`):
-        `blender -b --python-expr "import bpy;import blenderkit;print('\n\n>>> VERSION INFO, please copy to bug report:\n\nBlenderKit version:',blenderkit.bl_info['version'],'\nBlender version:',bpy.app.version_string, bpy.app.build_date, bpy.app.build_platform,'\n\n<<<')"`
-
-        Through GUI:
-        BlenderKit version: in Blender click on: `EDIT -> Preferences -> Addons`, search for BlenderKit and expand it, which will show you the version of addon.
-        Blender version: in Blender click on: `Blender Icon (left from FILE) -> About Blender` which will show you the version of Blender.
-      value: |
-        - BlenderKit version: 
-        - Blender version: 
-        - Operating system:
-        - additional specifics?
-
-  - type: textarea
-    id: additional-info
-    attributes:
-      label: Additional information
-      description: More information about the issue. Were you behind VPN?
+        Ideally please provide a log of the problem - [How to Get Error Logs](https://www.blenderkit.com/report-bug/).
+        Having the logs helps us to find the problem and deliver the fix for you much faster.
+        Sometimes we are able to fix without the logs, but most of the time we will ask you for the logs anyway.
     validations:
       required: false
