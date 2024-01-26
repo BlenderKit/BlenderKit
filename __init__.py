@@ -1914,6 +1914,12 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs,
     )
 
+    show_VIEW3D_MT_blenderkit_model_properties: bpy.props.BoolProperty(
+        name="Show BlenderKit in Object Context Menu",
+        description="Show BlenderKit submenu in object context menu",
+        default=True,
+    )
+
     global_dir: StringProperty(
         name="Global Directory",
         description="Global storage for your assets, will use subdirectories for the contents. Daemon will place its files in subdirectory 'daemon'",
@@ -2257,6 +2263,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "max_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
+        gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
 

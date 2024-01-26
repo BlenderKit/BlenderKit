@@ -3508,8 +3508,11 @@ def header_draw(self, context):
 
 
 def object_context_draw(self, context):
+    preferences = bpy.context.preferences.addons["blenderkit"].preferences
     layout = self.layout
     pcoll = icons.icon_collections["main"]
+    if not preferences.show_VIEW3D_MT_blenderkit_model_properties:
+        return
     layout.menu(
         VIEW3D_MT_blenderkit_model_properties.bl_idname,
         icon_value=pcoll["logo"].icon_id,
