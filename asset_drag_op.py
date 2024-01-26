@@ -856,6 +856,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         else:
             self.downloader = None
 
+        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
         ui_scale = bpy.context.preferences.view.ui_scale
 
         text_size = int(10 * ui_scale)
@@ -876,7 +877,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
             dpi=int(bpy.context.preferences.system.dpi / ui_scale),
         )
         self.height = pix_size[1] + 2 * margin
-        self.button_size = int(ui_props.thumb_size)
+        self.button_size = int(user_preferences.thumb_size * ui_scale)
         self.width = pix_size[0] + 2 * margin  # adding image and cancel button to width
 
         a = bpy.context.area
@@ -954,6 +955,11 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         self.init_widgets(context, widgets)
         self.panel.add_widgets(widgets_panel)
 
+    def change_visibility(self, visible):
+        self.panel.visible = visible
+        for widget in self.panel.widgets:
+            widget.visible = visible
+
     def modal(self, context, event):
         if self._finished:
             return {"FINISHED"}
@@ -969,13 +975,22 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         # if event.type == "MOUSEMOVE":
         if bpy.context.space_data is not None:
+            self.panel.visible = False
             loc = view3d_utils.location_3d_to_region_2d(
                 bpy.context.region,
                 bpy.context.space_data.region_3d,
                 self.downloader["location"],
             )
-        else:
-            loc = Vector((0, 0))
+            self.change_visibility(True)
+        if (
+            loc is None
+            or loc.x < 0 - self.button_size
+            or loc.y < 0 - self.button_size
+            or loc.x > context.region.width
+            or loc.y > context.region.height
+        ):
+            self.change_visibility(False)
+            return {"PASS_THROUGH"}
 
         self.panel.set_location(loc.x, context.region.height - loc.y)
         self.label.text = self.task["text"]
