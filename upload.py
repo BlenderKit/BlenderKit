@@ -331,9 +331,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             upload_params["textureResolutionMax"] = props.texture_resolution_max
             upload_params["textureResolutionMin"] = props.texture_resolution_min
         if props.mesh_poly_type != "OTHER":
-            upload_params[
-                "meshPolyType"
-            ] = props.mesh_poly_type.lower()  # .replace('_',' ')
+            upload_params["meshPolyType"] = (
+                props.mesh_poly_type.lower()
+            )  # .replace('_',' ')
 
         optional_params = [
             "manufacturer",
@@ -404,9 +404,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             upload_params["textureResolutionMax"] = props.texture_resolution_max
             upload_params["textureResolutionMin"] = props.texture_resolution_min
         if props.mesh_poly_type != "OTHER":
-            upload_params[
-                "meshPolyType"
-            ] = props.mesh_poly_type.lower()  # .replace('_',' ')
+            upload_params["meshPolyType"] = (
+                props.mesh_poly_type.lower()
+            )  # .replace('_',' ')
 
     elif asset_type == "MATERIAL":
         mat = bpy.context.active_object.active_material

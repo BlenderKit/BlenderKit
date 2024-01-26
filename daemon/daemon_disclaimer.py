@@ -1,6 +1,5 @@
 """Holds functionality for getting disclaimers and notifications."""
 
-
 import uuid
 from logging import getLogger
 

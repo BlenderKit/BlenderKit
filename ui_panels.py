@@ -353,9 +353,9 @@ def draw_panel_model_search(self, context):
         icon = "ERROR"
     utils.label_multiline(layout, text=props.report, icon=icon)
     if props.report == "You need Full plan to get this item.":
-        layout.operator(
-            "wm.url_open", text="Get Full plan", icon="URL"
-        ).url = paths.BLENDERKIT_PLANS_URL
+        layout.operator("wm.url_open", text="Get Full plan", icon="URL").url = (
+            paths.BLENDERKIT_PLANS_URL
+        )
 
 
 def draw_panel_scene_search(self, context):
@@ -628,9 +628,9 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                         text="My free storage: %i MiB" % (me["remainingPrivateQuota"])
                     )
 
-            layout.operator(
-                "wm.url_open", text="See my uploads", icon="URL"
-            ).url = paths.BLENDERKIT_USER_ASSETS_URL
+            layout.operator("wm.url_open", text="See my uploads", icon="URL").url = (
+                paths.BLENDERKIT_USER_ASSETS_URL
+            )
 
         draw_login_buttons(layout)
 
@@ -1129,9 +1129,9 @@ def draw_login_buttons(layout, invoke=False):
         else:
             layout.operator_context = "EXEC_DEFAULT"
         if not utils.user_logged_in():
-            layout.operator(
-                "wm.blenderkit_login", text="Login", icon="URL"
-            ).signup = False
+            layout.operator("wm.blenderkit_login", text="Login", icon="URL").signup = (
+                False
+            )
             layout.operator(
                 "wm.blenderkit_login", text="Sign up", icon="URL"
             ).signup = True
@@ -3093,9 +3093,9 @@ class UrlPopupDialog(bpy.types.Operator):
             )
 
             layout.operator_context = "EXEC_DEFAULT"
-            layout.operator(
-                "wm.blenderkit_login", text="Login", icon="URL"
-            ).signup = False
+            layout.operator("wm.blenderkit_login", text="Login", icon="URL").signup = (
+                False
+            )
         op.url = self.url
 
     def execute(self, context):
