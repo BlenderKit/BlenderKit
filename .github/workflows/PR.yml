@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install
-        run: pip install isort black ruff
+        run: pip install -r devs/requirements.txt
       - name: ISORT
         run: python -m isort . --check-only --diff
       - name: BLACK
