@@ -1356,6 +1356,11 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         row.prop(ui_props, "own_only", icon="USER")
         layout.prop(ui_props, "free_only")
         layout.prop(props, "true_hdr")
+        layout.prop(props, "search_texture_resolution", text="Texture Resolutions")
+        if props.search_texture_resolution:
+            row = layout.row(align=True)
+            row.prop(props, "search_texture_resolution_min", text="Min")
+            row.prop(props, "search_texture_resolution_max", text="Max")
         layout.prop(ui_props, "quality_limit", slider=True)
         layout.prop(ui_props, "search_license")
 
