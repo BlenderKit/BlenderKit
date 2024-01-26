@@ -487,9 +487,10 @@ def load_preview(asset):
 
 def load_previews():
     results = global_vars.DATA.get("search results")
-    if results is not None:
-        for i, result in enumerate(results):
-            load_preview(result)
+    if results is None:
+        return
+    for _, result in enumerate(results):
+        load_preview(result)
 
 
 #  line splitting for longer texts...
@@ -698,7 +699,6 @@ def build_query_common(query, props):
     """Add shared parameters to query."""
     query_common = {}
     if props.search_keywords != "":
-        # keywords = urllib.parse.urlencode(props.search_keywords)
         keywords = props.search_keywords.replace("&", "%26")
         query_common["query"] = keywords
 
@@ -731,24 +731,15 @@ def build_query_common(query, props):
 def build_query_model():
     """Use all search input to request results from server."""
     props = bpy.context.window_manager.blenderkit_models
-    query = {
-        "asset_type": "model",
-        # "engine": props.search_engine,
-        # "adult": props.search_adult,
-    }
+    query = {"asset_type": "model"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
             query["model_style"] = props.search_style
         else:
             query["model_style"] = props.search_style_other
 
-    # the 'free_only' parametr gets moved to the search command and is used for ordering the assets as free first
-    # if ui_props.free_only:
-    #     query["is_free"] = True
-
     if props.search_condition != "UNSPECIFIED":
         query["condition"] = props.search_condition
-
     if props.search_design_year:
         query["designYear_gte"] = props.search_design_year_min
         query["designYear_lte"] = props.search_design_year_max
@@ -773,8 +764,6 @@ def build_query_scene():
     props = bpy.context.window_manager.blenderkit_scene
     query = {
         "asset_type": "scene",
-        # "engine": props.search_engine,
-        # "adult": props.search_adult,
     }
     build_query_common(query, props)
     return query
@@ -785,9 +774,10 @@ def build_query_HDR():
     props = bpy.context.window_manager.blenderkit_HDR
     query = {
         "asset_type": "hdr",
-        # "engine": props.search_engine,
-        # "adult": props.search_adult,
     }
+    if props.search_texture_resolution:
+        query["textureResolutionMax_gte"] = props.search_texture_resolution_min
+        query["textureResolutionMax_lte"] = props.search_texture_resolution_max
     if props.true_hdr:
         query["trueHDR"] = props.true_hdr
     build_query_common(query, props)
@@ -797,12 +787,6 @@ def build_query_HDR():
 def build_query_material():
     props = bpy.context.window_manager.blenderkit_mat
     query = {"asset_type": "material"}
-    # if props.search_engine == 'NONE':
-    #     query["engine"] = ''
-    # if props.search_engine != 'OTHER':
-    #     query["engine"] = props.search_engine
-    # else:
-    #     query["engine"] = props.search_engine_other
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
             query["style"] = props.search_style
