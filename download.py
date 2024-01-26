@@ -489,9 +489,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         if len(target_object.material_slots) == 0:
             target_object.data.materials.append(material)
         else:
-            target_object.material_slots[
-                kwargs["material_target_slot"]
-            ].material = material
+            target_object.material_slots[kwargs["material_target_slot"]].material = (
+                material
+            )
 
         asset_main = material
 
@@ -513,9 +513,9 @@ def update_asset_metadata(asset_main, asset_data):
     asset_main.blenderkit.description = asset_data["description"]
     asset_main.blenderkit.tags = utils.list2string(asset_data["tags"])
     # BUG #554: categories needs update, but are not in asset_data
-    asset_main[
-        "asset_data"
-    ] = asset_data  # TODO remove this??? should write to blenderkit Props?
+    asset_main["asset_data"] = (
+        asset_data  # TODO remove this??? should write to blenderkit Props?
+    )
 
 
 def replace_resolution_linked(file_paths, asset_data):

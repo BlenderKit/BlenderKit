@@ -463,9 +463,9 @@ class AddonUpdaterInstallManually(bpy.types.Operator):
         row = layout.row()
 
         if updater.update_link is not None:
-            row.operator(
-                "wm.url_open", text="Direct download"
-            ).url = updater.update_link
+            row.operator("wm.url_open", text="Direct download").url = (
+                updater.update_link
+            )
         else:
             row.operator("wm.url_open", text="(failed to retrieve direct download)")
             row.enabled = False
