@@ -8,13 +8,13 @@ We use `isort` for imports sorting.
 We use `black` for codestyle.
 We will use `ruff` for linting.
 
-To install them all run: `pip3 install --user isort, black, ruff`.
+We define their versions in `devs/requirements.txt` so the local development environment is consistent with CI/CD (Github Actions).
+To install them in correct versions run: `pip3 install -U --user --r devs/requirements.py`.
 
 Before committing your changes, please run:
 ```
 isort .
 black .
-ruff .
 ```
 
 or just run `python3 dev.py format` to run all of them automatically.
