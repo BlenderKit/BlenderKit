@@ -1493,7 +1493,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     bpy.ops.wm.url_open(url=a["aboutMeUrl"])
             return True
         # FastRateMenu
-        if event.type == "R" and self.active_index > -1:
+        print(event.type, event.value, event.shift, event.ctrl, event.alt)
+        if event.type == "R" and self.active_index > -1 and not event.shift:
             sr = global_vars.DATA["search results"]
             asset_data = sr[self.active_index]
             if not utils.user_is_owner(asset_data=asset_data):
@@ -1502,6 +1503,54 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_id=asset_data["id"],
                     asset_type=asset_data["assetType"],
                 )
+            return True
+        elif (
+            event.type == "V"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = global_vars.DATA["search results"]
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="validated"
+            )
+            return True
+        elif (
+            event.type == "H"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = global_vars.DATA["search results"]
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="on_hold"
+            )
+            return True
+        elif (
+            event.type == "U"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = global_vars.DATA["search results"]
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="uploaded"
+            )
+            return True
+        elif (
+            event.type == "R"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = global_vars.DATA["search results"]
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="rejected"
+            )
             return True
         return False
 
