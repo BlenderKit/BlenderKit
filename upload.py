@@ -98,7 +98,7 @@ def check_missing_data_brush(props):
     autothumb.update_upload_brush_preview(None, None)
 
 
-def check_missing_data(asset_type, props):
+def check_missing_data(asset_type, props, upload_thumbnail=True):
     """
     Check if user did everything alright for particular assets and notify her back if not.
     Parameters
@@ -136,7 +136,8 @@ def check_missing_data(asset_type, props):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if asset_type != "HDR":
+    if asset_type != "HDR" and upload_thumbnail:
+        # check thumbnails if it's supposed to be uploaded
         thumb_path = bpy.path.abspath(props.thumbnail)
         if props.thumbnail != "" and not os.path.exists(Path(thumb_path)):
             write_to_report(
@@ -145,26 +146,24 @@ def check_missing_data(asset_type, props):
                 "   Please check the filepath and try again.",
             )
 
-    if asset_type == "HDR":
-        pass
-    elif asset_type == "BRUSH":
-        brush = utils.get_active_brush()
-        thumbnail = ""
-        if brush is not None:
-            thumbnail = bpy.path.abspath(brush.icon_filepath)
-        if thumbnail == "":
-            write_to_report(
-                props,
-                "Brush Icon Filepath has not been provided.\n"
-                "   Please check Custom Icon option add a Brush Icon in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-            )
-    else:
-        if props.thumbnail == "":
-            write_to_report(
-                props,
-                "A thumbnail image has not been provided.\n"
-                "   Please add a thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-            )
+        elif asset_type == "BRUSH":
+            brush = utils.get_active_brush()
+            thumbnail = ""
+            if brush is not None:
+                thumbnail = bpy.path.abspath(brush.icon_filepath)
+            if thumbnail == "":
+                write_to_report(
+                    props,
+                    "Brush Icon Filepath has not been provided.\n"
+                    "   Please check Custom Icon option add a Brush Icon in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                )
+        else:
+            if props.thumbnail == "":
+                write_to_report(
+                    props,
+                    "A thumbnail image has not been provided.\n"
+                    "   Please add a thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                )
 
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
@@ -332,9 +331,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             upload_params["textureResolutionMax"] = props.texture_resolution_max
             upload_params["textureResolutionMin"] = props.texture_resolution_min
         if props.mesh_poly_type != "OTHER":
-            upload_params["meshPolyType"] = (
-                props.mesh_poly_type.lower()
-            )  # .replace('_',' ')
+            upload_params[
+                "meshPolyType"
+            ] = props.mesh_poly_type.lower()  # .replace('_',' ')
 
         optional_params = [
             "manufacturer",
@@ -405,9 +404,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             upload_params["textureResolutionMax"] = props.texture_resolution_max
             upload_params["textureResolutionMin"] = props.texture_resolution_min
         if props.mesh_poly_type != "OTHER":
-            upload_params["meshPolyType"] = (
-                props.mesh_poly_type.lower()
-            )  # .replace('_',' ')
+            upload_params[
+                "meshPolyType"
+            ] = props.mesh_poly_type.lower()  # .replace('_',' ')
 
     elif asset_type == "MATERIAL":
         mat = bpy.context.active_object.active_material
@@ -866,7 +865,8 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     props.tags = props.tags[:]
 
     # check for missing metadata
-    check_missing_data(asset_type, props)
+    upload_thumbnail = "THUMBNAIL" in upload_set
+    check_missing_data(asset_type, props, upload_thumbnail=upload_thumbnail)
     # if previous check did find any problems then
     if props.report != "":
         return False, None, None
