@@ -31,7 +31,7 @@ var (
 	ActiveAppsMux sync.Mutex
 	ActiveApps    []float64
 
-	Tasks    []*Task
+	Tasks    map[int]map[string]*Task
 	TasksMux sync.Mutex
 	TasksCh  chan *Task
 )
@@ -42,13 +42,14 @@ func handleChannels() {
 		select {
 		case task := <-TasksCh:
 			TasksMux.Lock()
-			Tasks = append(Tasks, task)
+			Tasks[task.AppID][task.TaskID] = task
 			TasksMux.Unlock()
 		}
 	}
 }
 
 func init() {
+	Tasks = make(map[int]map[string]*Task)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
 	fmt.Println("Platform version:", PlatformVersion)
 }
@@ -127,16 +128,28 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	TasksMux.Lock()
-	tasks := Tasks
-	defer TasksMux.Unlock()
-
 	taskID := uuid.New().String()
-	task := NewTask(nil, appID, taskID, "daemon_status")
+	reportTask := NewTask(nil, appID, taskID, "daemon_status")
+	reportTask.Finish("Daemon is running")
+	TasksMux.Lock()
+	defer TasksMux.Unlock()
+	if Tasks[appID] == nil {
+		Tasks[appID] = make(map[string]*Task)
+	}
 
-	tasks = append(tasks, task)
+	toReport := make([]*Task, 0, len(Tasks[appID]))
+	toReport = append(toReport, reportTask)
+	for _, task := range Tasks[appID] {
+		if task.AppID == appID {
+			continue
+		}
+		toReport = append(toReport, task)
+		if task.Status == "finished" {
+			delete(Tasks[appID], task.TaskID)
+		}
+	}
 
-	responseJSON, err := json.Marshal(tasks)
+	responseJSON, err := json.Marshal(toReport)
 	if err != nil {
 		http.Error(w, "Error converting to JSON: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -244,9 +257,9 @@ searchJSON: map[
 */
 
 func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers http.Header) {
-	task := NewTask(rJSON, appID, "search", "")
 	TasksMux.Lock()
-	Tasks = append(Tasks, task)
+	task := NewTask(rJSON, appID, taskID, "")
+	Tasks[task.AppID][taskID] = task
 	TasksMux.Unlock()
 
 	urlQuery, ok := rJSON["urlquery"].(string)
