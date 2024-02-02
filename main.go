@@ -31,18 +31,26 @@ var (
 	ActiveAppsMux sync.Mutex
 	ActiveApps    []float64
 
-	Tasks    map[int]map[string]*Task
-	TasksMux sync.Mutex
-	TasksCh  chan *Task
+	Tasks              map[int]map[string]*Task
+	TasksMux           sync.Mutex
+	AddTaskCh          chan *Task
+	ChangeTaskStatusCh chan *TaskStatusUpdate
 )
 
 // Endless loop to handle channels
 func handleChannels() {
 	for {
 		select {
-		case task := <-TasksCh:
+		case task := <-AddTaskCh:
 			TasksMux.Lock()
 			Tasks[task.AppID][task.TaskID] = task
+			TasksMux.Unlock()
+		case u := <-ChangeTaskStatusCh:
+			TasksMux.Lock()
+			Tasks[u.AppID][u.TaskID].Status = u.Status
+			if u.Progress >= 0 {
+				Tasks[u.AppID][u.TaskID].Progress = u.Progress
+			}
 			TasksMux.Unlock()
 		}
 	}
@@ -140,7 +148,8 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	toReport := make([]*Task, 0, len(Tasks[appID]))
 	toReport = append(toReport, reportTask)
 	for _, task := range Tasks[appID] {
-		if task.AppID == appID {
+		fmt.Printf("Handling task report: %s %s %d %s\n", task.TaskType, task.Status, task.AppID, task.TaskID)
+		if task.AppID != appID {
 			continue
 		}
 		toReport = append(toReport, task)
@@ -158,6 +167,15 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
+}
+
+// TaskStatusUpdate is a struct for updating the status of a task through a channel.
+// Progress is optional and should be set to -1 if update is not needed.
+type TaskStatusUpdate struct {
+	AppID    int
+	TaskID   string
+	Status   string
+	Progress int
 }
 
 type Task struct {
@@ -258,7 +276,7 @@ searchJSON: map[
 
 func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers http.Header) {
 	TasksMux.Lock()
-	task := NewTask(rJSON, appID, taskID, "")
+	task := NewTask(rJSON, appID, taskID, "search")
 	Tasks[task.AppID][taskID] = task
 	TasksMux.Unlock()
 
@@ -287,8 +305,10 @@ func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers ht
 		log.Println("Error decoding search response:", err)
 		return
 	}
-	log.Println("Search result:", result)
+	TasksMux.Lock()
+	task.Result = result
 	task.Finish("Search results downloaded")
+	TasksMux.Unlock()
 }
 
 func downloadImageBatch(session *http.Client, tasks []*Task, block bool) {
