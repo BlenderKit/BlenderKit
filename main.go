@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -148,12 +150,11 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	toReport := make([]*Task, 0, len(Tasks[appID]))
 	toReport = append(toReport, reportTask)
 	for _, task := range Tasks[appID] {
-		fmt.Printf("Handling task report: %s %s %d %s\n", task.TaskType, task.Status, task.AppID, task.TaskID)
 		if task.AppID != appID {
 			continue
 		}
 		toReport = append(toReport, task)
-		if task.Status == "finished" {
+		if task.Status == "finished" || task.Status == "error" {
 			delete(Tasks[appID], task.TaskID)
 		}
 	}
@@ -230,22 +231,41 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Println("searchJSON:", rJSON, "appID:", appID)
 
 	prefs, ok := rJSON["PREFS"].(map[string]interface{})
 	if !ok {
-		http.Error(w, "Error parsing PREFS", http.StatusInternalServerError)
+		http.Error(w, "Error parsing PREFS", http.StatusBadRequest)
 		return
 	}
 	apiKey, ok := prefs["api_key"].(string)
 	if !ok {
-		http.Error(w, "Error parsing api_key", http.StatusInternalServerError)
+		http.Error(w, "Error parsing api_key", http.StatusBadRequest)
+		return
+	}
+	urlQuery, ok := rJSON["urlquery"].(string)
+	if !ok {
+		http.Error(w, "Error parsing urlquery", http.StatusBadRequest)
+		return
+	}
+	adVer, err := GetAddonVersionFromJSON(rJSON)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	blVer, err := GetBlenderVersionFromJSON(rJSON)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	tempDir, ok := rJSON["tempdir"].(string)
+	if !ok {
+		http.Error(w, "Error parsing tempdir", http.StatusBadRequest)
 		return
 	}
 
 	headers := getHeaders(apiKey, *SystemID)
 	taskID := uuid.New().String()
-	go doSearch(rJSON, appID, taskID, headers)
+	go doSearch(rJSON, appID, taskID, headers, urlQuery, adVer, blVer, tempDir)
 
 	resData := map[string]string{"task_id": taskID}
 	responseJSON, err := json.Marshal(resData)
@@ -259,32 +279,12 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-/*
-searchJSON: map[
-	PREFS:map[announcements_on_start:true api_key:xkILXiSE5MAjIYs6axnb0wqysdJxIM api_key_refresh:PH4f9dJfU4zL6uCsovWmul7ZCcebzc api_key_timeout:1.707241796e+09 app_id:79508 asset_popup_counter:5 auto_check_update:true binary_path:/Applications/Blender.app/Contents/MacOS/blender daemon_port:62485 debug_value:0 directory_behaviour:BOTH download_counter:105 enable_prereleases:false experimental_features:false global_dir:/Users/ag/blenderkit_data ip_version:BOTH keep_preferences:true max_assetbar_rows:1 project_subdir://assets proxy_address: proxy_which:SYSTEM resolution:2048 search_field_width:0 search_in_header:true show_on_start:false ssl_context:DEFAULT system_id:116830648666783 thumb_size:96 tips_on_start:true trusted_ca_certs: unpack_files:false updater_interval_days:10 updater_interval_months:0 welcome_operator_counter:4]
-	addon_version:3.10.1
-	api_key:xkILXiSE5MAjIYs6axnb0wqysdJxIM
-	app_id:79508
-	asset_type:model
-	blender_version:4.1.0
-	get_next:false
-	page_size:15
-	scene_uuid:<nil>
-	tempdir:/var/folders/n5/zgtk48652gq_1_b8h9g2mfph0000gn/T/bktemp_ag/model_search
-	urlquery:https://www.blenderkit.com/api/v1/search/?query=cat+asset_type:model+order:_score&dict_parameters=1&page_size=15&addon_version=3.10.1&blender_version=4.1.0]
-*/
-
-func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers http.Header) {
+func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers http.Header, urlQuery string, adVer *AddonVersion, blVer *BlenderVersion, tempDir string) {
 	TasksMux.Lock()
 	task := NewTask(rJSON, appID, taskID, "search")
 	Tasks[task.AppID][taskID] = task
 	TasksMux.Unlock()
 
-	urlQuery, ok := rJSON["urlquery"].(string)
-	if !ok {
-		log.Println("Error parsing urlquery")
-		return
-	}
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", urlQuery, nil)
 	if err != nil {
@@ -300,32 +300,207 @@ func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers ht
 	}
 	defer resp.Body.Close()
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	var searchResult map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
 		log.Println("Error decoding search response:", err)
 		return
 	}
 	TasksMux.Lock()
-	task.Result = result
+	task.Result = searchResult
 	task.Finish("Search results downloaded")
 	TasksMux.Unlock()
+
+	go parseThumbnails(searchResult, blVer, tempDir, appID)
 }
 
-func downloadImageBatch(session *http.Client, tasks []*Task, block bool) {
-	var wg sync.WaitGroup
-	for _, task := range tasks {
-		wg.Add(1)
-		go func(t Task) {
-			defer wg.Done()
-			// Implement the download logic here using `session` (http.Client)
-			// This could involve making HTTP GET requests for each image URL
-			// specified in the `task` and handling the image data.
-		}(*task)
+func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion, tempDir string, appID int) {
+	var smallThumbsTasks, fullThumbsTasks []*Task
+	results, ok := searchResults["results"].([]interface{})
+	if !ok {
+		fmt.Println("Invalid search results:", searchResults)
+		return
 	}
 
+	for i, item := range results {
+		result, ok := item.(map[string]interface{})
+		if !ok {
+			fmt.Println("Skipping invalid result:", item)
+			continue
+		}
+
+		useWebp := false
+		webpGeneratedTimestamp, ok := result["webpGeneratedTimestamp"].(float64)
+		if !ok {
+			fmt.Println("Invalid webpGeneratedTimestamp:", result)
+		}
+		if webpGeneratedTimestamp > 0 {
+			useWebp = true
+		}
+		if blVer.Major < 3 || (blVer.Major == 3 && blVer.Minor < 4) {
+			useWebp = false
+		}
+
+		assetType, ok := result["assetType"].(string)
+		if !ok {
+			fmt.Println("Invalid assetType:", result)
+		}
+
+		assetBaseID, ok := result["assetBaseId"].(string)
+		if !ok {
+			fmt.Println("Invalid assetBaseId:", result)
+		}
+
+		var smallThumbKey, fullThumbKey string
+		if useWebp {
+			smallThumbKey = "thumbnailSmallUrlWebp"
+			if assetType == "hdr" {
+				fullThumbKey = "thumbnailLargeUrlNonsquaredWebp"
+			} else {
+				fullThumbKey = "thumbnailMiddleUrlWebp"
+			}
+		} else {
+			smallThumbKey = "thumbnailSmallUrl"
+			if assetType == "hdr" {
+				fullThumbKey = "thumbnailLargeUrlNonsquared"
+			} else {
+				fullThumbKey = "thumbnailMiddleUrl"
+			}
+		}
+
+		smallThumbURL, smallThumbURLOK := result[smallThumbKey].(string)
+		if !smallThumbURLOK {
+			fmt.Printf("Invalid %s: %v\n", smallThumbKey, result)
+		}
+
+		fullThumbURL, fullThumbURLOK := result[fullThumbKey].(string)
+		if !fullThumbURLOK {
+			fmt.Printf("Invalid %s: %v\n", fullThumbKey, result)
+		}
+
+		smallImgName, smallImgNameErr := ExtractFilenameFromURL(smallThumbURL)
+		fullImgName, fullImgNameErr := ExtractFilenameFromURL(fullThumbURL)
+
+		// join tempDir and smallImgName
+		smallImgPath := filepath.Join(tempDir, smallImgName)
+		fullImgPath := filepath.Join(tempDir, fullImgName)
+
+		if smallThumbURLOK && smallImgNameErr == nil {
+			taskUUID := uuid.New().String()
+			taskData := map[string]interface{}{
+				"thumbnail_type": "small",
+				"image_path":     smallImgPath,
+				"image_url":      smallThumbURL,
+				"assetBaseId":    assetBaseID,
+				"index":          i,
+			}
+			task := NewTask(taskData, appID, taskUUID, "thumbnail_download")
+			if _, err := os.Stat(smallImgPath); err == nil { // TODO: do not check file existence in for loop -> gotta be faster
+				task.Finish("thumbnail on disk")
+			} else {
+				smallThumbsTasks = append(smallThumbsTasks, task)
+			}
+			TasksMux.Lock()
+			Tasks[task.AppID][task.TaskID] = task
+			TasksMux.Unlock()
+		}
+
+		if fullThumbURLOK && fullImgNameErr == nil {
+			taskUUID := uuid.New().String()
+			taskData := map[string]interface{}{
+				"thumbnail_type": "full",
+				"image_path":     fullImgPath,
+				"image_url":      fullThumbURL,
+				"assetBaseId":    assetBaseID,
+				"index":          i,
+			}
+			task := NewTask(taskData, appID, taskUUID, "thumbnail_download")
+			if _, err := os.Stat(fullImgPath); err == nil {
+				task.Finish("thumbnail on disk")
+			} else {
+				fullThumbsTasks = append(fullThumbsTasks, task)
+			}
+			TasksMux.Lock()
+			Tasks[task.AppID][task.TaskID] = task
+			TasksMux.Unlock()
+		}
+	}
+	go downloadImageBatch(smallThumbsTasks, true)
+	go downloadImageBatch(fullThumbsTasks, true)
+}
+
+func downloadImageBatch(tasks []*Task, block bool) {
+	wg := new(sync.WaitGroup)
+	for _, task := range tasks {
+		wg.Add(1)
+		go DownloadThumbnail(task, wg)
+	}
 	if block {
 		wg.Wait()
 	}
+}
+
+func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
+	defer wg.Done()
+	imgURL, ok := t.Data["image_url"].(string)
+	if !ok {
+		fmt.Println("Invalid image_url:", t.Data)
+		return
+	}
+	imgPath, ok := t.Data["image_path"].(string)
+	if !ok {
+		fmt.Println("Invalid image_path:", t.Data)
+		return
+	}
+
+	req, err := http.NewRequest("GET", imgURL, nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
+	headers := getHeaders("", *SystemID)
+	req.Header = headers
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TasksMux.Lock()
+		t.Message = "Error performing request to download thumbnail"
+		t.Status = "error"
+		TasksMux.Unlock()
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TasksMux.Lock()
+		t.Message = "Error downloading thumbnail"
+		t.Status = "error"
+		TasksMux.Unlock()
+		return
+	}
+
+	// Open the file for writing
+	file, err := os.Create(imgPath)
+	if err != nil {
+		TasksMux.Lock()
+		t.Message = "Error creating file for thumbnail"
+		t.Status = "error"
+		TasksMux.Unlock()
+		return
+	}
+	defer file.Close()
+
+	// Copy the response body to the file
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		TasksMux.Lock()
+		t.Message = "Error copying thumbnail response body to file"
+		t.Status = "error"
+		TasksMux.Unlock()
+		return
+	}
+	TasksMux.Lock()
+	t.Finish("thumbnail downloaded")
+	TasksMux.Unlock()
 }
 
 /*
