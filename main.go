@@ -321,7 +321,7 @@ func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion
 		return
 	}
 
-	for i, item := range results {
+	for i, item := range results { // TODO: Should be a function parseThumbnail() to avaid nesting
 		result, ok := item.(map[string]interface{})
 		if !ok {
 			fmt.Println("Skipping invalid result:", item)
@@ -380,7 +380,6 @@ func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion
 		smallImgName, smallImgNameErr := ExtractFilenameFromURL(smallThumbURL)
 		fullImgName, fullImgNameErr := ExtractFilenameFromURL(fullThumbURL)
 
-		// join tempDir and smallImgName
 		smallImgPath := filepath.Join(tempDir, smallImgName)
 		fullImgPath := filepath.Join(tempDir, fullImgName)
 
@@ -395,7 +394,7 @@ func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion
 			}
 			task := NewTask(taskData, appID, taskUUID, "thumbnail_download")
 			if _, err := os.Stat(smallImgPath); err == nil { // TODO: do not check file existence in for loop -> gotta be faster
-				task.Finish("thumbnail on disk")
+				task.Finish("thumbnail on disk") //
 			} else {
 				smallThumbsTasks = append(smallThumbsTasks, task)
 			}
@@ -502,49 +501,3 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	t.Finish("thumbnail downloaded")
 	TasksMux.Unlock()
 }
-
-/*
-async def do_search(request: web.Request, task: daemon_tasks.Task):
-    """Searches for results and download thumbnails.
-    1. Sends search request to BlenderKit server. (Creates search task.)
-    2. Reports the result to the addon. (Search task finished.)
-    3. Gets small and large thumbnails. (Thumbnail tasks.)
-    4. Reports paths to downloaded thumbnails. (Thumbnail task finished.)
-    """
-    headers = daemon_utils.get_headers(task.data["PREFS"]["api_key"])
-    session = request.app["SESSION_API_REQUESTS"]
-    try:
-        resp_text, resp_status = None, -1
-        async with session.get(task.data["urlquery"], headers=headers) as resp:
-            resp_status = resp.status
-            resp_text = await resp.text()
-            resp.raise_for_status()
-            task.result = await resp.json()
-    except Exception as e:
-        msg, detail = daemon_utils.extract_error_message(
-            e, resp_text, resp_status, "Search failed"
-        )
-        return task.error(msg, message_detailed=detail)
-
-    task.finished("Search results downloaded")
-    # Post-search tasks
-    small_thumbs_tasks, full_thumbs_tasks = await parse_thumbnails(task)
-    await download_image_batch(request.app["SESSION_SMALL_THUMBS"], small_thumbs_tasks)
-    await download_image_batch(request.app["SESSION_BIG_THUMBS"], full_thumbs_tasks)
-
-
-async def download_image_batch(
-    session: aiohttp.ClientSession, tsks: list[daemon_tasks.Task], block: bool = False
-):
-    """Download batch of images. images are tuples of file path and url."""
-    atasks = []
-    for task in tsks:
-        task.async_task = asyncio.ensure_future(download_image(session, task))
-        task.async_task.set_name(f"{task.task_type}-{task.task_id}")
-        task.async_task.add_done_callback(daemon_tasks.handle_async_errors)
-        atasks.append(task.async_task)
-
-    if block is True:
-        await asyncio.gather(*atasks)
-
-*/
