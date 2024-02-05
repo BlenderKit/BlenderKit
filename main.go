@@ -66,13 +66,12 @@ func handleChannels() {
 func init() {
 	Tasks = make(map[int]map[string]*Task)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
-	// get GUID
+
 	SystemID, err := machineid.ProtectedID("myAppName")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(SystemID)
-
+	fmt.Println("Platform version:", SystemID)
 	fmt.Println("Platform version:", PlatformVersion)
 }
 
