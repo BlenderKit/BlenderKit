@@ -17,21 +17,25 @@ import (
 )
 
 const (
-	Version       = "3.10.0.240115"
-	ReportTimeout = 3 * time.Minute
+	Version         = "3.10.0.240115"
+	ReportTimeout   = 3 * time.Minute
+	OAUTH_CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 )
 
 var (
 	SystemID        *string
 	PlatformVersion string
+	Port            *string
+	Server          *string
 
-	Server *string
+	CodeVerifier    string //Used for OAuth2
+	CodeVerifierMux sync.Mutex
 
 	lastReportAccess     *time.Time
 	lastReportAccessLock *sync.Mutex
 
 	ActiveAppsMux sync.Mutex
-	ActiveApps    []float64
+	ActiveApps    []int
 
 	Tasks              map[int]map[string]*Task
 	TasksMux           sync.Mutex
@@ -65,7 +69,7 @@ func init() {
 }
 
 func main() {
-	port := flag.String("port", "62485", "port to listen on")
+	Port = flag.String("port", "62485", "port to listen on")
 	Server = flag.String("server", "https://www.blenderkit.com", "server to connect to")
 	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")
 	proxy_address := flag.String("proxy_address", "", "proxy address")
@@ -75,7 +79,7 @@ func main() {
 	SystemID = flag.String("system_id", "", "system ID")
 	version := flag.String("version", Version, "version of BlenderKit")
 	flag.Parse()
-	fmt.Fprintln(os.Stdout, ">>> Starting with flags", *port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context, *SystemID, *version)
+	fmt.Fprintln(os.Stdout, ">>> Starting with flags", *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context, *SystemID, *version)
 
 	go monitorReportAccess(lastReportAccess, lastReportAccessLock)
 	go handleChannels()
@@ -89,9 +93,10 @@ func main() {
 	//mux.HandleFunc("/upload_asset", uploadAsset)
 	//mux.HandleFunc("/shutdown", shutdown)
 	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
-	//mux.HandleFunc("/consumer/exchange/", consumerExchange)
+
+	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	//mux.HandleFunc("/refresh_token", refreshToken)
-	//mux.HandleFunc("/code_verifier", codeVerifier)
+	mux.HandleFunc("/code_verifier", codeVerifierHandler)
 	//mux.HandleFunc("/report_usages", reportUsagesHandler)
 	//mux.HandleFunc("/comments/{func}", commentsHandler) // TODO: NEEDS TO BE HANDLED SOMEHOW ELSE
 	//mux.HandleFunc("/notifications/mark_notification_read", markNotificationReadHandler)
@@ -108,7 +113,7 @@ func main() {
 	//mux.HandleFunc("/ratings/get_bookmarks", getBookmarksHandler)
 	//mux.HandleFunc("/debug", debugHandler)
 
-	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *port), mux)
+	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v\n", err)
 	}
@@ -145,6 +150,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	defer TasksMux.Unlock()
 	if Tasks[appID] == nil {
 		Tasks[appID] = make(map[string]*Task)
+		fmt.Println("New add-on connected:", appID)
 	}
 
 	toReport := make([]*Task, 0, len(Tasks[appID]))
