@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/denisbrodbeck/machineid"
 	"github.com/google/uuid"
 )
 
@@ -23,7 +24,7 @@ const (
 )
 
 var (
-	SystemID        *string
+	SystemID        string // Unique hashed ID of the current system
 	PlatformVersion string
 	Port            *string
 	Server          *string
@@ -65,6 +66,13 @@ func handleChannels() {
 func init() {
 	Tasks = make(map[int]map[string]*Task)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
+	// get GUID
+	SystemID, err := machineid.ProtectedID("myAppName")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(SystemID)
+
 	fmt.Println("Platform version:", PlatformVersion)
 }
 
@@ -76,10 +84,10 @@ func main() {
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
 	ip_version := flag.String("ip_version", "BOTH", "IP version to use")
 	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use")
-	SystemID = flag.String("system_id", "", "system ID")
+	flag.String("system_id", "", "system ID") // Just to please the add-on
 	version := flag.String("version", Version, "version of BlenderKit")
 	flag.Parse()
-	fmt.Fprintln(os.Stdout, ">>> Starting with flags", *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context, *SystemID, *version)
+	fmt.Fprintln(os.Stdout, ">>> Starting with flags", *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context, *version)
 
 	go monitorReportAccess(lastReportAccess, lastReportAccessLock)
 	go handleChannels()
@@ -106,6 +114,7 @@ func main() {
 	//mux.HandleFunc("/wrappers/blocking_file_download", blockingFileDownloadHandler)
 	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
 	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
+
 	//mux.HandleFunc("/profiles/fetch_gravatar_image", fetchGravatarImageHandler)
 	//mux.HandleFunc("/profiles/get_user_profile", getUserProfileHandler)
 	//mux.HandleFunc("/ratings/get_rating", getRatingHandler)
@@ -269,7 +278,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	headers := getHeaders(apiKey, *SystemID)
+	headers := getHeaders(apiKey, SystemID)
 	taskID := uuid.New().String()
 	go doSearch(rJSON, appID, taskID, headers, urlQuery, adVer, blVer, tempDir)
 
@@ -462,7 +471,7 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		fmt.Println("Error creating request:", err)
 		return
 	}
-	headers := getHeaders("", *SystemID)
+	headers := getHeaders("", SystemID)
 	req.Header = headers
 
 	client := &http.Client{}
