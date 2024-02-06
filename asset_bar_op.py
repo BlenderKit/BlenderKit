@@ -1492,8 +1492,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 if a.get("aboutMeUrl") is not None:
                     bpy.ops.wm.url_open(url=a["aboutMeUrl"])
             return True
+
         # FastRateMenu
-        print(event.type, event.value, event.shift, event.ctrl, event.alt)
         if event.type == "R" and self.active_index > -1 and not event.shift:
             sr = global_vars.DATA["search results"]
             asset_data = sr[self.active_index]
@@ -1504,7 +1504,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_type=asset_data["assetType"],
                 )
             return True
-        elif (
+
+        if (
             event.type == "V"
             and event.shift
             and self.active_index > -1
@@ -1516,7 +1517,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_id=asset_data["id"], state="validated"
             )
             return True
-        elif (
+
+        if (
             event.type == "H"
             and event.shift
             and self.active_index > -1
@@ -1528,7 +1530,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_id=asset_data["id"], state="on_hold"
             )
             return True
-        elif (
+
+        if (
             event.type == "U"
             and event.shift
             and self.active_index > -1
@@ -1540,7 +1543,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_id=asset_data["id"], state="uploaded"
             )
             return True
-        elif (
+
+        if (
             event.type == "R"
             and event.shift
             and self.active_index > -1
