@@ -136,34 +136,38 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if asset_type != "HDR" and upload_thumbnail:
-        # check thumbnails if it's supposed to be uploaded
-        thumb_path = bpy.path.abspath(props.thumbnail)
-        if props.thumbnail != "" and not os.path.exists(Path(thumb_path)):
-            write_to_report(
-                props,
-                "Thumbnail filepath does not exist on the disk.\n"
-                "   Please check the filepath and try again.",
-            )
-
-        elif asset_type == "BRUSH":
-            brush = utils.get_active_brush()
-            thumbnail = ""
-            if brush is not None:
-                thumbnail = bpy.path.abspath(brush.icon_filepath)
-            if thumbnail == "":
-                write_to_report(
-                    props,
-                    "Brush Icon Filepath has not been provided.\n"
-                    "   Please check Custom Icon option add a Brush Icon in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-                )
-        else:
+    if upload_thumbnail:
+        if asset_type in ("MODEL", "SCENE", "MATERIAL"):
+            thumb_path = bpy.path.abspath(props.thumbnail)
             if props.thumbnail == "":
                 write_to_report(
                     props,
                     "A thumbnail image has not been provided.\n"
                     "   Please add a thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
                 )
+            elif not os.path.exists(Path(thumb_path)):
+                write_to_report(
+                    props,
+                    "Thumbnail filepath does not exist on the disk.\n"
+                    "   Please check the filepath and try again.",
+                )
+
+        if asset_type == "BRUSH":
+            brush = utils.get_active_brush()
+            if brush is not None:
+                thumb_path = bpy.path.abspath(brush.icon_filepath)
+                if thumb_path == "":
+                    write_to_report(
+                        props,
+                        "Brush Icon Filepath has not been provided.\n"
+                        "   Please check Custom Icon option add a Brush Icon in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                    )
+                elif not os.path.exists(Path(thumb_path)):
+                    write_to_report(
+                        props,
+                        "Brush Icon Filepath does not exist on the disk.\n"
+                        "   Please check the filepath and try again.",
+                    )
 
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
