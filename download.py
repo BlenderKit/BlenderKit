@@ -1119,7 +1119,7 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     def execute(self, context):
         global download_tasks
         download_tasks.pop(self.task_id)
-        daemon_lib.kill_download(self.task_id)
+        daemon_lib.cancel_download(self.task_id)
         return {"FINISHED"}
 
 

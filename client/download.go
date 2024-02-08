@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -152,7 +153,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	// START DOWNLOAD IF NEEDED
 	if action == "download" {
 		fp := downloadFilePaths[0]
-		err = downloadAsset(downloadURL, fp, data, taskID)
+		err = downloadAsset(downloadURL, fp, data, taskID, task.Ctx)
 		if err != nil {
 			e := fmt.Errorf("error downloading asset: %v", err)
 			TaskErrorCh <- &TaskError{
@@ -179,7 +180,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	}
 }
 
-func downloadAsset(url, filePath string, data DownloadData, taskID string) error {
+func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx context.Context) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -187,7 +188,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string) error
 	defer file.Close()
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
@@ -221,7 +222,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string) error
 		return fmt.Errorf("Content-Length header is missing")
 	}
 
-	fileSize, err := strconv.Atoi(totalLength)
+	fileSize, err := strconv.ParseInt(totalLength, 10, 64)
 	if err != nil {
 		e := DeleteFile(filePath)
 		if e != nil {
@@ -230,42 +231,64 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string) error
 		return err
 	}
 
+	// Setup for monitoring progress and cancellation
 	sizeInMB := float64(fileSize) / 1024 / 1024
-	downloadMessage := fmt.Sprintf("Downloading %.2fMB", sizeInMB)
-
-	var downloaded int
-	const chunkSize = 4096 * 32
-	buffer := make([]byte, chunkSize)
-	for {
-		n, err := resp.Body.Read(buffer)
-		if n > 0 {
-			downloaded += n
-			progress := int(100 * downloaded / fileSize)
+	var downloaded int64 = 0
+	progress := make(chan int64)
+	go func() {
+		var downloadMessage string
+		for p := range progress {
+			progress := int(100 * p / fileSize)
+			if sizeInMB < 1 { // If the size is less than 1MB, show in KB
+				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), progress)
+			} else { // If the size is not a whole number, show one decimal place
+				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, progress)
+			}
 			TaskProgressUpdateCh <- &TaskProgressUpdate{
 				AppID:    data.AppID,
 				TaskID:   taskID,
 				Progress: progress,
 				Message:  downloadMessage,
 			}
-
-			_, writeErr := file.Write(buffer[:n])
-			if writeErr != nil {
-				e := DeleteFile(filePath)
-				if e != nil {
-					return fmt.Errorf("writing file failed: %v, failed to delete file: %v", err, e)
-				}
-				return writeErr
-			}
 		}
-		if err != nil {
-			if err == io.EOF {
-				return nil // end of file reached, download completed
+	}()
+
+	buffer := make([]byte, 32*1024) // 32KB buffer
+	for {
+		select {
+		case <-ctx.Done():
+			close(progress)
+			err = DeleteFile(filePath)
+			if err != nil {
+				return fmt.Errorf("%v, failed to delete file: %v", ctx.Err(), err)
 			}
-			e := DeleteFile(filePath)
-			if e != nil {
-				return fmt.Errorf("reading response body failed: %v, failed to delete file: %v", err, e)
+			return ctx.Err()
+		default:
+			n, readErr := resp.Body.Read(buffer)
+			if n > 0 {
+				_, writeErr := file.Write(buffer[:n])
+				if writeErr != nil {
+					close(progress)
+					err = DeleteFile(filePath) // Clean up; ignore error from DeleteFile to focus on writeErr
+					if err != nil {
+						return fmt.Errorf("%v, failed to delete file: %v", writeErr, err)
+					}
+					return writeErr
+				}
+				downloaded += int64(n)
+				progress <- downloaded
 			}
-			return err
+			if readErr != nil {
+				close(progress)
+				if readErr == io.EOF {
+					return nil // Download completed successfully
+				}
+				err := DeleteFile(filePath) // Clean up; ignore error from DeleteFile to focus on readErr
+				if err != nil {
+					return fmt.Errorf("%v, failed to delete file: %v", readErr, err)
+				}
+				return readErr
+			}
 		}
 	}
 }

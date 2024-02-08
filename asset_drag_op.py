@@ -822,16 +822,16 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
     def cancel_press(self, widget):
         self.finish()
-        kill_download = False
+        cancel_download = False
         for key, t in download.download_tasks.items():
             if key == self.task_key:
                 for d in t.get("downloaders", []):
                     if d["location"] == self.downloader["location"]:
                         download.download_tasks[key]["downloaders"].remove(d)
                         if len(download.download_tasks[key]["downloaders"]) == 0:
-                            kill_download = True
+                            cancel_download = True
                         break
-        if kill_download:
+        if cancel_download:
             bpy.ops.scene.blenderkit_download_kill(task_id=self.task_key)
 
     def __init__(self):

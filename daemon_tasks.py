@@ -57,7 +57,6 @@ class Task:
         self.status = "finished"
         self.progress = 100
 
-
     def __str__(self):
         return f"ID={self.task_id}, APP_ID={self.app_id}"
 
@@ -67,4 +66,3 @@ class Task:
 
     def to_seriazable_object(self):
         return json.loads(self.to_JSON())
-
