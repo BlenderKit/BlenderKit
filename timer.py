@@ -39,7 +39,7 @@ def handle_failed_reports(exception: Exception) -> float:
     )
     global_vars.DAEMON_ACCESSIBLE = False
     if global_vars.DAEMON_FAILED_REPORTS in (0, 10):
-        daemon_lib.start_daemon_server()
+        daemon_lib.start_blenderkit_client()
 
     global_vars.DAEMON_FAILED_REPORTS += 1
     if global_vars.DAEMON_FAILED_REPORTS < 15:
@@ -61,7 +61,7 @@ def handle_failed_reports(exception: Exception) -> float:
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
     global_vars.DAEMON_RUNNING = False
-    daemon_lib.start_daemon_server()
+    daemon_lib.start_blenderkit_client()
     return 30.0
 
 
