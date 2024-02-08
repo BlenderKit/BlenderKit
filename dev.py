@@ -22,44 +22,50 @@ PACKAGES = [
 
 
 def blenderkit_client_build(abs_build_dir: str):
-    """Build blenderkit client for all platforms."""
+    """Build blenderkit client for all platforms in parallel."""
     build_dir = os.path.join(abs_build_dir, "client")
-    env_windows_amd64 = {"GOOS": "windows", "GOARCH": "amd64"}
-    env_windows_arm64 = {"GOOS": "windows", "GOARCH": "arm64"}
-    env_darwin_amd64 = {"GOOS": "darwin", "GOARCH": "amd64"}
-    env_darwin_arm64 = {"GOOS": "darwin", "GOARCH": "arm64"}
-    env_linux_amd64 = {"GOOS": "linux", "GOARCH": "amd64"}
-    env_linux_arm64 = {"GOOS": "linux", "GOARCH": "arm64"}
+    builds = [
+        {
+            "env": {"GOOS": "windows", "GOARCH": "amd64"},
+            "output": "blenderkit-client-windows-x86_64.exe",
+        },
+        {
+            "env": {"GOOS": "windows", "GOARCH": "arm64"},
+            "output": "blenderkit-client-windows-arm64.exe",
+        },
+        {
+            "env": {"GOOS": "darwin", "GOARCH": "amd64"},
+            "output": "blenderkit-client-macos-x86_64",
+        },
+        {
+            "env": {"GOOS": "darwin", "GOARCH": "arm64"},
+            "output": "blenderkit-client-macos-arm64",
+        },
+        {
+            "env": {"GOOS": "linux", "GOARCH": "amd64"},
+            "output": "blenderkit-client-linux-x86_64",
+        },
+        {
+            "env": {"GOOS": "linux", "GOARCH": "arm64"},
+            "output": "blenderkit-client-linux-arm64",
+        },
+    ]
 
-    # Windows x86_64
-    build_path = os.path.join(build_dir, "blenderkit-client-windows-amd64.exe")
-    subprocess.run(["go", "build", "-o", build_path, "."], env={**env_windows_amd64, **os.environ}, cwd="./client")
-    print("Windows x86_64 build done")
+    processes = []
+    for build in builds:
+        build_path = os.path.join(build_dir, build["output"])
+        env = {**build["env"], **os.environ}
+        process = subprocess.Popen(
+            ["go", "build", "-o", build_path, "."],
+            env=env,
+            cwd="./client",
+        )
+        processes.append(process)
 
-    # Windows arm64
-    build_path = os.path.join(build_dir, "blenderkit-client-windows-arm64.exe")
-    subprocess.run(["go", "build", "-o", build_path, "."], env={**env_windows_arm64, **os.environ}, cwd="./client")
-    print("Windows arm64 build done")
-
-    # macOS x86_64
-    build_path = os.path.join(build_dir, "blenderkit-client-macos-amd64")
-    subprocess.run(["go", "build", "-o", build_path, "."], env={**env_darwin_amd64, **os.environ}, cwd="./client")
-    print("macOS x86_64 build done")
-
-    # macOS arm64
-    build_path = os.path.join(build_dir, "blenderkit-client-macos-arm64")
-    subprocess.run(["go", "build", "-o", build_path, "."], env={**env_darwin_arm64, **os.environ}, cwd="./client")
-    print("macOS arm64 build done")
-
-    # Linux x86_64
-    build_path = os.path.join(build_dir, "blenderkit-client-linux-amd64")
-    subprocess.run(["go", "build", "-o", build_path, "."], env={**env_linux_amd64, **os.environ}, cwd="./client")
-    print("Linux x86_64 build done")
-
-    # Linux arm64
-    build_path = os.path.join(build_dir, "blenderkit-client-linux-arm64")
-    subprocess.run(["go", "build", "-o", build_path, "."], env={**env_linux_arm64, **os.environ}, cwd="./client")
-    print("Linux arm64 build done")
+    print(f"Client build started for {len(builds)} platforms.")
+    for process in processes:
+        process.wait()
+    print("Client builds completed.")
 
 
 def do_build(install_at=None, include_tests=False):
@@ -71,7 +77,7 @@ def do_build(install_at=None, include_tests=False):
     shutil.rmtree(out_dir, True)
 
     blenderkit_client_build(addon_build_dir)
-    
+
     ignore_files = [".gitignore", "dev.py", "README.md", "CONTRIBUTING.md", "setup.cfg"]
 
     shutil.copytree(
@@ -81,10 +87,14 @@ def do_build(install_at=None, include_tests=False):
     )
     shutil.copytree("blendfiles", f"{addon_build_dir}/blendfiles")
     shutil.copytree(
-        "daemon", f"{addon_build_dir}/daemon", ignore=shutil.ignore_patterns("__pycache__")
+        "daemon",
+        f"{addon_build_dir}/daemon",
+        ignore=shutil.ignore_patterns("__pycache__"),
     )
     shutil.copytree("data", f"{addon_build_dir}/data")
-    shutil.copytree("dependencies", f"{addon_build_dir}/dependencies") # TODO: remove this when client is implemented
+    shutil.copytree(
+        "dependencies", f"{addon_build_dir}/dependencies"
+    )  # TODO: remove this when client is implemented
     shutil.copytree("thumbnails", f"{addon_build_dir}/thumbnails")
 
     for item in os.listdir():
