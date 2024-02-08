@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -44,14 +45,16 @@ var (
 	TaskProgressUpdateCh chan *TaskProgressUpdate
 	TaskFinishCh         chan *TaskFinish
 	TaskErrorCh          chan *TaskError
+	TaskCancelCh         chan *TaskCancel
 )
 
 func init() {
 	Tasks = make(map[int]map[string]*Task)
-	AddTaskCh = make(chan *Task)
-	TaskProgressUpdateCh = make(chan *TaskProgressUpdate)
-	TaskFinishCh = make(chan *TaskFinish)
-	TaskErrorCh = make(chan *TaskError)
+	AddTaskCh = make(chan *Task, 100)
+	TaskProgressUpdateCh = make(chan *TaskProgressUpdate, 1000)
+	TaskFinishCh = make(chan *TaskFinish, 100)
+	TaskErrorCh = make(chan *TaskError, 100)
+	TaskCancelCh = make(chan *TaskCancel, 100)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
 }
 
@@ -85,11 +88,25 @@ func handleChannels() {
 		case e := <-TaskErrorCh:
 			TasksMux.Lock()
 			task := Tasks[e.AppID][e.TaskID]
+			if task.Status == "cancelled" {
+				delete(Tasks[e.AppID], e.TaskID)
+				TasksMux.Unlock()
+				logger.Printf("Error ignored on %s (%s): %s, task in cancelled status\n", task.TaskType, task.TaskID, e.Error)
+				continue
+			}
 			task.Message = fmt.Sprintf("%v", e.Error)
 			task.Status = "error"
 			TasksMux.Unlock()
 			logger.Printf("Error in %s (%s): %v\n", task.TaskType, task.TaskID, e.Error)
+		case k := <-TaskCancelCh:
+			TasksMux.Lock()
+			task := Tasks[k.AppID][k.TaskID]
+			task.Status = "cancelled"
+			task.Cancel()
+			TasksMux.Unlock()
+			logger.Printf("Cancelled %s (%s), reason: %s\n", task.TaskType, task.TaskID, k.Reason)
 		}
+
 	}
 }
 
@@ -122,7 +139,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", indexHandler)
 	mux.HandleFunc("/report", reportHandler)
-	//mux.HandleFunc("/kill_download", killDownloadHandler)
+	mux.HandleFunc("/cancel_download", CancelDownloadHandler) // prepare to use less aggressive name
 	mux.HandleFunc("/download_asset", downloadAssetHandler)
 	mux.HandleFunc("/search_asset", searchHandler)
 	//mux.HandleFunc("/upload_asset", uploadAsset)
@@ -262,6 +279,12 @@ type TaskFinish struct {
 	Result  interface{}
 }
 
+type TaskCancel struct {
+	AppID  int
+	TaskID string
+	Reason string
+}
+
 type Task struct {
 	Data            map[string]interface{} `json:"data"`
 	AppID           int                    `json:"app_id"`
@@ -273,6 +296,8 @@ type Task struct {
 	Status          string                 `json:"status"` // created, finished, error
 	Result          interface{}            `json:"result"`
 	Error           error                  `json:"-"`
+	Ctx             context.Context        `json:"-"` // Context for canceling the task, use in long running functions which support it
+	Cancel          context.CancelFunc     `json:"-"` // Function for canceling the task
 }
 
 func (t *Task) Finish(message string) {
@@ -283,6 +308,7 @@ func NewTask(data map[string]interface{}, appID int, taskID, taskType string) *T
 	if data == nil {
 		data = make(map[string]interface{})
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Task{
 		Data:            data,
 		AppID:           appID,
@@ -294,6 +320,8 @@ func NewTask(data map[string]interface{}, appID int, taskID, taskType string) *T
 		Status:          "created",
 		Result:          make(map[string]interface{}),
 		Error:           nil,
+		Ctx:             ctx,
+		Cancel:          cancel,
 	}
 }
 
@@ -821,4 +849,32 @@ func FetchUnreadNotifications(data ReportData) {
 		Message: "Notifications fetched",
 		Result:  respData,
 	}
+}
+
+type CancelDownloadData struct {
+	TaskID string `json:"task_id"`
+	AppID  int    `json:"app_id"`
+}
+
+func CancelDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var data CancelDownloadData
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	TaskCancelCh <- &TaskCancel{
+		AppID:  data.AppID,
+		TaskID: data.TaskID,
+		Reason: "cancelled by user",
+	}
+	w.WriteHeader(http.StatusOK)
 }

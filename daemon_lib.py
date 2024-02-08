@@ -106,14 +106,13 @@ def download_asset(data):
         return resp.json()
 
 
-def kill_download(task_id):
-    """Kill the specified task with ID on the daemon."""
+def cancel_download(task_id):
+    """Cancel the specified task with ID on the daemon."""
     address = get_address()
+    data = {"task_id": task_id, "app_id": os.getpid()}
     with requests.Session() as session:
-        url = address + "/kill_download"
-        resp = session.get(
-            url, json={"task_id": task_id}, timeout=TIMEOUT, proxies=NO_PROXIES
-        )
+        url = address + "/cancel_download"
+        resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
@@ -494,13 +493,15 @@ def check_blenderkit_client_exit_code() -> tuple[int, str]:
     exit_code = global_vars.client_process.poll()
     if exit_code is None:
         return exit_code, "BlenderKit client process is running."
-    
+
     log_path = f"{get_daemon_directory_path()}/daemon-{get_port()}.log"
     message = f"BlenderKit client process exited with code {exit_code}. Please report a bug and paste content of log {log_path}"
     return exit_code, message
 
+
 def start_blenderkit_client():
     log_path = get_daemon_log_path()
+    os.makedirs(get_daemon_directory_path(), exist_ok=True)
     client_binary_path = get_client_binary_path()
 
     creation_flags = 0
