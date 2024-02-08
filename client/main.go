@@ -129,7 +129,7 @@ func main() {
 	mux.HandleFunc("/download_asset", downloadAssetHandler)
 	mux.HandleFunc("/search_asset", searchHandler)
 	//mux.HandleFunc("/upload_asset", uploadAsset)
-	//mux.HandleFunc("/shutdown", shutdown)
+	mux.HandleFunc("/shutdown", shutdownHandler)
 	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
 
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
@@ -173,6 +173,11 @@ func monitorReportAccess(t *time.Time, l *sync.Mutex) {
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	pid := os.Getpid()
 	fmt.Fprintf(w, "%d", pid)
+}
+
+func shutdownHandler(w http.ResponseWriter, r *http.Request) {
+	go delayedExit(0.1)
+	w.WriteHeader(http.StatusOK)
 }
 
 type ReportData struct {
@@ -290,13 +295,15 @@ func NewTask(data map[string]interface{}, appID int, taskID, taskType string) *T
 }
 
 func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
-	go delayedExit()
+	go delayedExit(1)
 	w.WriteHeader(http.StatusOK)
 }
 
-func delayedExit() {
-	fmt.Println("Going to die...")
-	time.Sleep(3 * time.Second)
+func delayedExit(t float64) {
+	fmt.Println("Going to shutdown...")
+	time.Sleep(time.Duration(t * float64(time.Second)))
+	//time.Sleep(time.Duration(t) * time.Second)
+	fmt.Println("Bye!")
 	os.Exit(0)
 }
 
