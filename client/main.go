@@ -204,10 +204,16 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	taskID := uuid.New().String()
 	reportTask := NewTask(nil, data.AppID, taskID, "daemon_status")
 	reportTask.Finish("Daemon is running")
+
 	TasksMux.Lock()
-	if Tasks[data.AppID] == nil {
-		Tasks[data.AppID] = make(map[string]*Task)
+	if Tasks[data.AppID] == nil { // New add-on connected
 		fmt.Println("New add-on connected:", data.AppID)
+		go FetchDisclaimer(data)
+		go FetchCategories(data)
+		if data.APIKey != "" {
+			go FetchNotifications(data)
+		}
+		Tasks[data.AppID] = make(map[string]*Task)
 	}
 
 	toReport := make([]*Task, 0, len(Tasks[data.AppID]))
@@ -256,7 +262,7 @@ type TaskFinish struct {
 	AppID   int
 	TaskID  string
 	Message string
-	Result  map[string]interface{}
+	Result  interface{}
 }
 
 type Task struct {
@@ -268,7 +274,7 @@ type Task struct {
 	MessageDetailed string                 `json:"message_detailed"`
 	Progress        int                    `json:"progress"`
 	Status          string                 `json:"status"` // created, finished, error
-	Result          map[string]interface{} `json:"result"`
+	Result          interface{}            `json:"result"`
 	Error           error                  `json:"-"`
 }
 
@@ -608,4 +614,76 @@ type DownloadData struct {
 	DownloadDirs []string `json:"download_dirs"`
 	AssetData    `json:"asset_data"`
 	PREFS        `json:"PREFS"`
+}
+
+func FetchDisclaimer(data ReportData) {
+	log.Println("Disclaimer fake fetched")
+}
+
+type Category struct {
+	Name                 string     `json:"name"`
+	Slug                 string     `json:"slug"`
+	Active               bool       `json:"active"`
+	Thumbnail            string     `json:"thumbnail"`
+	ThumbnailWidth       int        `json:"thumbnailWidth"`
+	ThumbnailHeight      int        `json:"thumbnailHeight"`
+	Order                int        `json:"order"`
+	AlternateTitle       string     `json:"alternateTitle"`
+	AlternateURL         string     `json:"alternateUrl"`
+	Description          string     `json:"description"`
+	MetaKeywords         string     `json:"metaKeywords"`
+	MetaExtra            string     `json:"metaExtra"`
+	Children             []Category `json:"children"`
+	AssetCount           int        `json:"assetCount"`
+	AssetCountCumulative int        `json:"assetCountCumulative"`
+}
+
+// CategoriesData is a struct for storing the response from the server when fetching https://www.blenderkit.com/api/v1/categories/
+type CategoriesData struct {
+	Count   int        `json:"count"`
+	Next    string     `json:"next"`
+	Prev    string     `json:"previous"`
+	Results []Category `json:"results"`
+}
+
+// Fetch categories from the server: https://www.blenderkit.com/api/v1/categories/
+// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/categories_list
+func FetchCategories(data ReportData) {
+	taskUUID := uuid.New().String()
+	task := NewTask(nil, data.AppID, taskUUID, "categories_update")
+	AddTaskCh <- task
+
+	headers := getHeaders(data.APIKey, SystemID)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", *Server+"/api/v1/categories", nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	req.Header = headers
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	var respData CategoriesData
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	fix_category_counts(respData.Results)
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskUUID,
+		Message: "Categories updated",
+		Result:  respData.Results,
+	}
+}
+
+func FetchNotifications(data ReportData) {
+	log.Println("Notifications fake fetched")
 }
