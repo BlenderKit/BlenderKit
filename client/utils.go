@@ -148,3 +148,22 @@ func abs(x int) int {
 	}
 	return x
 }
+
+// Iterate over each top-level category and updates its AssetCount
+// to include the total count of assets from all its descendant categories.
+// This is done by calling count_to_parent, which recursively processes each category and its children.
+func fix_category_counts(categories []Category) {
+	for i := range categories {
+		count_to_parent(&categories[i])
+	}
+}
+
+// Recursively update a category's AssetCount to include counts from all its children.
+// It traverses the entire hierarchy of child categories, ensuring that the cumulative asset counts
+// are correctly aggregated up to the top-level parent category.
+func count_to_parent(parent *Category) {
+	for i := range parent.Children {
+		count_to_parent(&parent.Children[i])
+		parent.AssetCount += parent.Children[i].AssetCount
+	}
+}
