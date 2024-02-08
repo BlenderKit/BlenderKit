@@ -1,4 +1,4 @@
-module github.com/agajdosi/blenderkit-daemon
+module github.com/blenderkit/blenderkit/client
 
 go 1.21.6
 
