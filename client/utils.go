@@ -158,3 +158,11 @@ func Slugify(slug string) string {
 
 	return slug
 }
+
+// Helper function to calculate absolute value.
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
