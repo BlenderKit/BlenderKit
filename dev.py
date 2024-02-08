@@ -86,15 +86,7 @@ def do_build(install_at=None, include_tests=False):
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     shutil.copytree("blendfiles", f"{addon_build_dir}/blendfiles")
-    shutil.copytree(
-        "daemon",
-        f"{addon_build_dir}/daemon",
-        ignore=shutil.ignore_patterns("__pycache__"),
-    )
     shutil.copytree("data", f"{addon_build_dir}/data")
-    shutil.copytree(
-        "dependencies", f"{addon_build_dir}/dependencies"
-    )  # TODO: remove this when client is implemented
     shutil.copytree("thumbnails", f"{addon_build_dir}/thumbnails")
 
     for item in os.listdir():
@@ -199,52 +191,6 @@ def format_code():
     # print()
 
 
-def bundle_dependencies():
-    """Bundle dependencies specified in PACKAGES variable into ./dependencies directory."""
-    MACOS = {
-        "name": "Darwin",
-        "platforms": {
-            #'macosx_10_9_x86_64': packages,
-            "macosx_10_9_universal2": PACKAGES,
-        },
-    }
-
-    LINUX = {
-        "name": "Linux",
-        "platforms": {
-            "manylinux_2_17_x86_64": PACKAGES[0:3],
-            "manylinux1_x86_64": PACKAGES[3:],
-        },
-    }
-
-    WINDOWS = {
-        "name": "Windows",
-        "platforms": {
-            "win_amd64": PACKAGES,
-        },
-    }
-
-    shutil.rmtree("dependencies", True)
-    print("***** VENDORING DEPENDENCIES *****")
-    for OS in [MACOS, WINDOWS, LINUX]:
-        print(f'\n===== {OS["name"]} =====')
-        for platform in OS["platforms"]:
-            for module in OS["platforms"][platform]:
-                cmd = [
-                    "pip3",
-                    "install",
-                    "--only-binary=:all:",
-                    f"--platform={platform}",
-                    f"--python-version={global_vars.BUNDLED_FOR_PYTHON}",
-                    f'--target=dependencies/{OS["name"]}',
-                    "--no-deps",
-                    module,
-                ]
-                exit_code = subprocess.call(cmd)
-                if exit_code != 0:
-                    sys.exit(1)
-
-
 ### COMMAND LINE INTERFACE
 
 parser = argparse.ArgumentParser()
@@ -256,7 +202,6 @@ parser.add_argument(
   FORMAT = isort imports, format code with Black and lint it with Ruff.
   TEST = build with test files and run tests
   BUILD = copy relevant files into ./out/blenderkit.
-  BUNDLE = bundle dependencies into ./dependencies
   COMPILE = compile daemon for current platform
   """,
 )
@@ -273,8 +218,6 @@ if args.command == "build":
 elif args.command == "test":
     do_build(args.install_at, include_tests=True)
     run_tests()
-elif args.command == "bundle":
-    bundle_dependencies()
 elif args.command == "compile":
     compile_daemon()
 elif args.command == "format":

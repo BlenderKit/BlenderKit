@@ -34,7 +34,7 @@ from . import (
     ui_panels,
     utils,
 )
-from .daemon import daemon_tasks
+from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from os import environ, path
 import bpy
 import requests
 
-from . import dependencies, global_vars, reports
+from . import global_vars, reports
 
 
 bk_logger = logging.getLogger(__name__)
@@ -490,42 +490,14 @@ def handle_daemon_status_task(task):
     global_vars.DAEMON_RUNNING = True
 
 
-def check_daemon_exit_code() -> tuple[int, str]:
-    """Checks the exit code of daemon process. Returns exit_code and its message.
-    Function polls the process which should not block.
-    But better run only when daemon misbehaves and is expected that it already exited.
-    """
-    exit_code = global_vars.daemon_process.poll()
+def check_blenderkit_client_exit_code() -> tuple[int, str]:
+    exit_code = global_vars.client_process.poll()
     if exit_code is None:
-        return exit_code, "Daemon process is running."
-
-    # exit_code = global_vars.daemon_process.returncode
+        return exit_code, "BlenderKit client process is running."
+    
     log_path = f"{get_daemon_directory_path()}/daemon-{get_port()}.log"
-    if exit_code == 101:
-        message = f"failed to import AIOHTTP. Try to delete {dependencies.get_deps_directory_path()} and restart Blender."
-    elif exit_code == 102:
-        message = f"failed to import CERTIFI. Try to delete {dependencies.get_deps_directory_path()} and restart Blender."
-    elif exit_code == 100:
-        message = f"unexpected OSError. Please report a bug and paste content of log {log_path}"
-    elif exit_code == 111:
-        message = "unable to bind any socket. Check your antivirus/firewall and unblock BlenderKit."
-    elif exit_code == 113:
-        message = (
-            "cannot open port. Check your antivirus/firewall and unblock BlenderKit."
-        )
-    elif exit_code == 114:
-        message = f"invalid pointer address. Please report a bug and paste content of log {log_path}"
-    elif exit_code == 121:
-        message = 'semaphore timeout exceeded. In preferences set IP version to "Use only IPv4".'
-    elif exit_code == 148:
-        message = "address already in use. Select different daemon port in preferences."
-    elif exit_code == 149:
-        message = "address already in use. Select different daemon port in preferences."
-    else:
-        message = f"unexpected Exception. Please report a bug and paste content of log {log_path}"
-
+    message = f"BlenderKit client process exited with code {exit_code}. Please report a bug and paste content of log {log_path}"
     return exit_code, message
-
 
 def start_blenderkit_client():
     log_path = get_daemon_log_path()

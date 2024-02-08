@@ -24,8 +24,7 @@ import shutil
 
 import bpy
 
-from . import global_vars, paths
-from .daemon import daemon_tasks
+from . import global_vars, paths, daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)

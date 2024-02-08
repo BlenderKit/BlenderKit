@@ -29,8 +29,7 @@ from webbrowser import open_new_tab
 import bpy
 from bpy.props import BoolProperty
 
-from . import daemon_lib, global_vars, reports, search, tasks_queue, utils
-from .daemon import daemon_tasks
+from . import daemon_lib, global_vars, reports, tasks_queue, utils, daemon_tasks
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
