@@ -132,7 +132,6 @@ def handle_categories_task(task: daemon_tasks.Task):
         "BRUSH": "brush",
     }
     if task.status == "finished":
-        print("categories task finished", task.result)
         global_vars.DATA["bkit_categories"] = task.result
         with open(categories_filepath, "w", encoding="utf-8") as file:
             json.dump(

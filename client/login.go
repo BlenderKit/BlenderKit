@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // Handles code_verifier exchange: add-on creates PKCE pair and sends its code_challenge to daemon so it can later verify the response from server.
@@ -58,7 +60,8 @@ func consumerExchangeHandler(w http.ResponseWriter, r *http.Request) {
 
 	TasksMux.Lock()
 	for appID := range Tasks {
-		task := NewTask(make(map[string]interface{}), appID, "login", "Getting authorization code")
+		taskID := uuid.New().String()
+		task := NewTask(make(map[string]interface{}), appID, taskID, "login")
 		task.Result = responseJSON
 		task.Finish("Tokens obtained")
 		Tasks[appID][task.TaskID] = task
@@ -90,18 +93,14 @@ func GetTokens(r *http.Request, authCode string, refreshToken string, grantType 
 
 	url := fmt.Sprintf("%s/o/token/", *Server)
 	session := http.Client{}
-	headers := getHeaders("", "116830648666783") // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
+	headers := getHeaders("", SystemID) // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Fatalf("Error creating request: %v", err)
 	}
 	// Set the Content-Type for form-encoded data
+	req.Header = headers
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	for key, values := range headers {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
 
 	fmt.Print("Sending request to ", url, " with data: ", data.Encode(), " and headers:", req.Header, "\n")
 	resp, err := session.Do(req)
