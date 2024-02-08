@@ -300,47 +300,39 @@ func delayedExit() {
 	os.Exit(0)
 }
 
+type SearchData struct {
+	PREFS          `json:"PREFS"`
+	URLQuery       string `json:"urlquery"`
+	AddonVersion   string `json:"addon_version"`
+	BlenderVersion string `json:"blender_version"`
+	TempDir        string `json:"tempdir"`
+}
+
 func searchHandler(w http.ResponseWriter, r *http.Request) {
-	rJSON, appID, err := parseRequestJSON(r)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Error reading search request body: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var data SearchData
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	prefs, ok := rJSON["PREFS"].(map[string]interface{})
-	if !ok {
-		http.Error(w, "Error parsing PREFS", http.StatusBadRequest)
-		return
-	}
-	apiKey, ok := prefs["api_key"].(string)
-	if !ok {
-		http.Error(w, "Error parsing api_key", http.StatusBadRequest)
-		return
-	}
-	urlQuery, ok := rJSON["urlquery"].(string)
-	if !ok {
-		http.Error(w, "Error parsing urlquery", http.StatusBadRequest)
-		return
-	}
-	adVer, err := GetAddonVersionFromJSON(rJSON)
+	var rJSON map[string]interface{}
+	err = json.Unmarshal(body, &rJSON)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	blVer, err := GetBlenderVersionFromJSON(rJSON)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	tempDir, ok := rJSON["tempdir"].(string)
-	if !ok {
-		http.Error(w, "Error parsing tempdir", http.StatusBadRequest)
+		fmt.Println(">>> Error parsing JSON:", err)
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	headers := getHeaders(apiKey, SystemID)
 	taskID := uuid.New().String()
-	go doSearch(rJSON, appID, taskID, headers, urlQuery, adVer, blVer, tempDir)
+	go doSearch(rJSON, data, taskID)
 
 	resData := map[string]string{"task_id": taskID}
 	responseJSON, err := json.Marshal(resData)
@@ -354,21 +346,19 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers http.Header, urlQuery string, adVer *AddonVersion, blVer *BlenderVersion, tempDir string) {
+func doSearch(rJSON map[string]interface{}, data SearchData, taskID string) {
 	TasksMux.Lock()
-	task := NewTask(rJSON, appID, taskID, "search")
+	task := NewTask(rJSON, data.AppID, taskID, "search")
 	Tasks[task.AppID][taskID] = task
 	TasksMux.Unlock()
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlQuery, nil)
+	req, err := http.NewRequest("GET", data.URLQuery, nil)
 	if err != nil {
 		log.Println("Error creating request:", err)
 		return
 	}
-	req.Header = headers
-	fmt.Println("Search Headers:", req.Header, "URL:", req.URL.String())
-
+	req.Header = getHeaders(data.PREFS.APIKey, SystemID)
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println("Error performing search request:", err)
@@ -386,11 +376,13 @@ func doSearch(rJSON map[string]interface{}, appID int, taskID string, headers ht
 	task.Finish("Search results downloaded")
 	TasksMux.Unlock()
 
-	go parseThumbnails(searchResult, blVer, tempDir, appID)
+	go parseThumbnails(searchResult, data)
 }
 
-func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion, tempDir string, appID int) {
+func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 	var smallThumbsTasks, fullThumbsTasks []*Task
+	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
+
 	results, ok := searchResults["results"].([]interface{})
 	if !ok {
 		fmt.Println("Invalid search results:", searchResults)
@@ -456,8 +448,8 @@ func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion
 		smallImgName, smallImgNameErr := ExtractFilenameFromURL(smallThumbURL)
 		fullImgName, fullImgNameErr := ExtractFilenameFromURL(fullThumbURL)
 
-		smallImgPath := filepath.Join(tempDir, smallImgName)
-		fullImgPath := filepath.Join(tempDir, fullImgName)
+		smallImgPath := filepath.Join(data.TempDir, smallImgName)
+		fullImgPath := filepath.Join(data.TempDir, fullImgName)
 
 		if smallThumbURLOK && smallImgNameErr == nil {
 			taskUUID := uuid.New().String()
@@ -468,7 +460,7 @@ func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion
 				"assetBaseId":    assetBaseID,
 				"index":          i,
 			}
-			task := NewTask(taskData, appID, taskUUID, "thumbnail_download")
+			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
 			if _, err := os.Stat(smallImgPath); err == nil { // TODO: do not check file existence in for loop -> gotta be faster
 				task.Finish("thumbnail on disk") //
 			} else {
@@ -488,7 +480,7 @@ func parseThumbnails(searchResults map[string]interface{}, blVer *BlenderVersion
 				"assetBaseId":    assetBaseID,
 				"index":          i,
 			}
-			task := NewTask(taskData, appID, taskUUID, "thumbnail_download")
+			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
 			if _, err := os.Stat(fullImgPath); err == nil {
 				task.Finish("thumbnail on disk")
 			} else {
