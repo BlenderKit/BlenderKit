@@ -207,11 +207,11 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] == nil { // New add-on connected
-		fmt.Println("New add-on connected:", data.AppID)
+		log.Println("New add-on connected:", data.AppID)
 		go FetchDisclaimer(data)
 		go FetchCategories(data)
 		if data.APIKey != "" {
-			go FetchNotifications(data)
+			go FetchUnreadNotifications(data)
 		}
 		Tasks[data.AppID] = make(map[string]*Task)
 	}
@@ -732,6 +732,96 @@ func FetchDisclaimer(data ReportData) {
 	}
 }
 
-func FetchNotifications(data ReportData) {
-	log.Println("Notifications fake fetched")
+type Notification struct {
+	ID          int                       `json:"id"`
+	Recipient   NotificationRecipient     `json:"recipient"`
+	Actor       NotificationActor         `json:"actor"`
+	Target      NotificationTarget        `json:"target"`
+	Verb        string                    `json:"verb"`
+	ActionObj   *NotificationActionObject `json:"actionObject"`
+	Level       string                    `json:"level"`
+	Description string                    `json:"description"`
+	Unread      bool                      `json:"unread"`
+	Public      bool                      `json:"public"`
+	Deleted     bool                      `json:"deleted"`
+	Emailed     bool                      `json:"emailed"`
+	Timestamp   string                    `json:"timestamp"`
+	String      string                    `json:"string"`
+}
+
+type NotificationActor struct {
+	PK               interface{} `json:"pk"` // for some reason it can be int or string
+	ContentTypeName  string      `json:"contentTypeName"`
+	ContentTypeModel string      `json:"contentTypeModel"`
+	ContentTypeApp   string      `json:"contentTypeApp"`
+	ContentTypeID    int         `json:"contentTypeId"`
+	URL              string      `json:"url"`
+	String           string      `json:"string"`
+}
+
+type NotificationTarget struct {
+	PK               interface{} `json:"pk"` // for some reason it can be int or string
+	ContentTypeName  string      `json:"contentTypeName"`
+	ContentTypeModel string      `json:"contentTypeModel"`
+	ContentTypeApp   string      `json:"contentTypeApp"`
+	ContentTypeID    int         `json:"contentTypeId"`
+	URL              string      `json:"url"`
+	String           string      `json:"string"`
+}
+
+type NotificationRecipient struct {
+	ID int `json:"id"`
+}
+
+type NotificationActionObject struct {
+	PK               int    `json:"pk,omitempty"`
+	ContentTypeName  string `json:"contentTypeName,omitempty"`
+	ContentTypeModel string `json:"contentTypeModel,omitempty"`
+	ContentTypeApp   string `json:"contentTypeApp,omitempty"`
+	ContentTypeId    int    `json:"contentTypeId,omitempty"`
+	URL              string `json:"url,omitempty"`
+	String           string `json:"string,omitempty"`
+}
+
+type NotificationData struct {
+	Count   int            `json:"count"`
+	Next    string         `json:"next"`
+	Prev    string         `json:"previous"`
+	Results []Notification `json:"results"`
+}
+
+// Fetch unread notifications from the server: https://www.blenderkit.com/api/v1/notifications/unread/.
+// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
+func FetchUnreadNotifications(data ReportData) {
+	taskUUID := uuid.New().String()
+	task := NewTask(nil, data.AppID, taskUUID, "notifications")
+	AddTaskCh <- task
+
+	headers := getHeaders(data.APIKey, SystemID)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", *Server+"/api/v1/notifications/unread/", nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	req.Header = headers
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	var respData NotificationData
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskUUID,
+		Message: "Notifications fetched",
+		Result:  respData,
+	}
 }
