@@ -93,7 +93,7 @@ func GetTokens(r *http.Request, authCode string, refreshToken string, grantType 
 
 	url := fmt.Sprintf("%s/o/token/", *Server)
 	session := http.Client{}
-	headers := getHeaders("", SystemID) // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
+	headers := getHeaders("", *SystemID) // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Fatalf("Error creating request: %v", err)

@@ -192,7 +192,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string) error
 		return err
 	}
 
-	req.Header = getHeaders("", SystemID) // download needs no API key in headers
+	req.Header = getHeaders("", *SystemID) // download needs no API key in headers
 	resp, err := client.Do(req)
 	if err != nil {
 		e := DeleteFile(filePath)
@@ -298,7 +298,7 @@ func GetDownloadURL(data DownloadData) (bool, string, error) {
 	if err != nil {
 		return false, "", err
 	}
-	req.Header = getHeaders(data.APIKey, SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID)
 	req.URL.RawQuery = reqData.Encode()
 
 	resp, err := client.Do(req)
