@@ -1,8 +1,6 @@
-# Blenderkit add-on
+# BlenderKit-client
 
-BlenderKit add-on is the official add-on of the [BlenderKit](https://www.blenderkit.com/) service for Blender 3D.
-It enables users to upload, search, download, and rate different assets for Blender 3D.
-It works together with BlenderKit online database of models.
+This a client for BlenderKit (previously daemon). It's a local server that listens for requests from BlenderKit add-on and processes them.
 
 ## How to contribute
 
