@@ -616,10 +616,6 @@ type DownloadData struct {
 	PREFS        `json:"PREFS"`
 }
 
-func FetchDisclaimer(data ReportData) {
-	log.Println("Disclaimer fake fetched")
-}
-
 type Category struct {
 	Name                 string     `json:"name"`
 	Slug                 string     `json:"slug"`
@@ -681,6 +677,58 @@ func FetchCategories(data ReportData) {
 		TaskID:  taskUUID,
 		Message: "Categories updated",
 		Result:  respData.Results,
+	}
+}
+
+type Disclaimer struct {
+	ValidFrom string `json:"validFrom"`
+	ValidTo   string `json:"validTo"`
+	Priority  int    `json:"priority"`
+	Message   string `json:"message"`
+	URL       string `json:"url"`
+	Slug      string `json:"slug"`
+}
+
+type DisclaimerData struct {
+	Count    int          `json:"count"`
+	Next     string       `json:"next"`
+	Previous string       `json:"previous"`
+	Results  []Disclaimer `json:"results"`
+}
+
+// Fetch disclaimer from the server: https://www.blenderkit.com/api/v1/disclaimer/active/.
+// API documentation:  https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
+func FetchDisclaimer(data ReportData) {
+	taskUUID := uuid.New().String()
+	task := NewTask(nil, data.AppID, taskUUID, "disclaimer")
+	AddTaskCh <- task
+
+	headers := getHeaders(data.APIKey, SystemID)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", *Server+"/api/v1/disclaimer/active/", nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	req.Header = headers
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	var respData DisclaimerData
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskUUID,
+		Message: "Disclaimer fetched",
+		Result:  respData,
 	}
 }
 
