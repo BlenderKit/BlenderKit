@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/denisbrodbeck/machineid"
 	"github.com/google/uuid"
 )
 
@@ -25,7 +24,7 @@ const (
 )
 
 var (
-	SystemID        string // Unique hashed ID of the current system
+	SystemID        *string // Unique ID of the current system (15 integers)
 	PlatformVersion string
 	Port            *string
 	Server          *string
@@ -54,18 +53,6 @@ func init() {
 	TaskFinishCh = make(chan *TaskFinish)
 	TaskErrorCh = make(chan *TaskError)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
-
-	protectedID, err := machineid.ProtectedID("myAppName")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	SystemID, err = fakePythonUUUIDGetNode()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Protected ID:", protectedID)
-	fmt.Println("System ID:", SystemID)
 }
 
 // Endless loop to handle channels
@@ -114,10 +101,20 @@ func main() {
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
 	ip_version := flag.String("ip_version", "BOTH", "IP version to use")
 	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use")
-	flag.String("system_id", "", "system ID") // Just to please the add-on
+	SystemID = flag.String("system_id", "", "system ID") // Just to please the add-on
 	version := flag.String("version", Version, "version of BlenderKit")
 	flag.Parse()
-	fmt.Fprintln(os.Stdout, ">>> Starting with flags", *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context, *version)
+	fmt.Print("\n\n")
+	log.Printf("Starting with flags port=%s server=%s version=%s system_id=%s proxy_which=%s proxy_address=%s trusted_ca_certs=%s ip_version=%s ssl_context=%s",
+		*Port, *Server, *version, *SystemID, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context)
+	if *SystemID == "" {
+		var err error
+		SystemID, err = fakePythonUUUIDGetNode()
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Flag SystemID is empty, so guessing it:", *SystemID)
+	}
 
 	go monitorReportAccess(lastReportAccess, lastReportAccessLock)
 	go handleChannels()
@@ -371,7 +368,7 @@ func doSearch(rJSON map[string]interface{}, data SearchData, taskID string) {
 		log.Println("Error creating request:", err)
 		return
 	}
-	req.Header = getHeaders(data.PREFS.APIKey, SystemID)
+	req.Header = getHeaders(data.PREFS.APIKey, *SystemID)
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println("Error performing search request:", err)
@@ -537,7 +534,7 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		fmt.Println("Error creating request:", err)
 		return
 	}
-	headers := getHeaders("", SystemID)
+	headers := getHeaders("", *SystemID)
 	req.Header = headers
 
 	client := &http.Client{}
@@ -649,7 +646,7 @@ func FetchCategories(data ReportData) {
 	task := NewTask(nil, data.AppID, taskUUID, "categories_update")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, SystemID)
+	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", *Server+"/api/v1/categories", nil)
 	if err != nil {
@@ -703,7 +700,7 @@ func FetchDisclaimer(data ReportData) {
 	task := NewTask(nil, data.AppID, taskUUID, "disclaimer")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, SystemID)
+	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", *Server+"/api/v1/disclaimer/active/", nil)
 	if err != nil {
@@ -797,7 +794,7 @@ func FetchUnreadNotifications(data ReportData) {
 	task := NewTask(nil, data.AppID, taskUUID, "notifications")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, SystemID)
+	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", *Server+"/api/v1/notifications/unread/", nil)
 	if err != nil {
