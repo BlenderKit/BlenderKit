@@ -50,25 +50,6 @@ To build and copy to Blender 3.2.x addons directory run:
 python dev.py build --install-at /path/to/blender/3.2/scripts/addons
 ```
 
-### Compiling daemon
-
-Compiled daemon binary is meant as fallback option for situations where the daemon is blocked by antivirus or firewall.
-Daemon is compiled by `pyinstaller`.
-
-1. install `pipenv`: `pip install --user pipenv`
-2. compile for current platform and architecture: `python dev.py compile`
-
-
-### Updating dependencies
-
-1. create a virtual environment: `python3 -m venv .venv`
-2. activate the environment: `source .venv/bin/activate`
-3. change symbols in requirements.txt from `==` to `>=`
-4. install the dependencies: `pip3 install -r requirements.txt`
-5. save the installed latest versions into requirements.txt: `pip3 freeze > requirements.txt` 
-6. copy the versions into: constant `PACKAGES` in `dev.py` 
-7. bundle the dependencies: `python3 dev.py bundle`
-
 ## Releasing
 
 Before release update the add-on version in `__init__.py` and `daemon/daemon.py`, make sure it is merged in `main` branch.

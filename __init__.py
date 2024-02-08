@@ -54,14 +54,12 @@ bk_logger = logging.getLogger(__name__)
 
 if "bpy" in locals():
     global_vars = reload(global_vars)
-    dependencies = reload(dependencies)
     try:
         log = reload(log)
     except:
         from . import log
 
     log.configure_loggers()
-    sys.path.insert(0, path.join(path.dirname(__file__), "daemon"))
 
     # alphabetically sorted all add-on modules since reload only happens from __init__.
     # modules with _bg are used for background computations in separate blender instance and that's why they don't need reload.
@@ -77,6 +75,7 @@ if "bpy" in locals():
     categories = reload(categories)
     colors = reload(colors)
     daemon_lib = reload(daemon_lib)
+    daemon_tasks = reload(daemon_tasks)
     disclaimer_op = reload(disclaimer_op)
     download = reload(download)
     icons = reload(icons)
@@ -111,7 +110,7 @@ if "bpy" in locals():
     # bl_ui_textbox = reload(bl_ui_textbox)
 
 else:
-    from . import dependencies, global_vars, log
+    from . import global_vars, log
 
     log.configure_loggers()
     sys.path.insert(0, path.join(path.dirname(__file__), "daemon"))
@@ -128,6 +127,7 @@ else:
     from . import categories
     from . import colors
     from . import daemon_lib
+    from . import daemon_tasks
     from . import disclaimer_op
     from . import download
     from . import icons

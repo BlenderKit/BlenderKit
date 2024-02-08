@@ -11,7 +11,6 @@ from . import (
     categories,
     comments_utils,
     daemon_lib,
-    dependencies,
     disclaimer_op,
     download,
     global_vars,
@@ -23,7 +22,7 @@ from . import (
     upload,
     utils,
 )
-from .daemon import daemon_tasks
+from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -46,14 +45,14 @@ def handle_failed_reports(exception: Exception) -> float:
         return 0.1 * global_vars.DAEMON_FAILED_REPORTS
 
     bk_logger.warning(f"Could not get reports: {exception}")
-    return_code, meaning = daemon_lib.check_daemon_exit_code()
+    return_code, meaning = daemon_lib.check_blenderkit_client_exit_code()
     if return_code is None and global_vars.DAEMON_FAILED_REPORTS == 15:
         reports.add_report(
-            "Daemon is not responding, add-on will not work.", 10, "ERROR"
+            "Client is not responding, add-on will not work.", 10, "ERROR"
         )
     if return_code is not None and global_vars.DAEMON_FAILED_REPORTS == 15:
         reports.add_report(
-            f"Daemon is not running, add-on will not work. Error({return_code}): {meaning}",
+            f"Client is not running, add-on will not work. Error({return_code}): {meaning}",
             10,
             "ERROR",
         )
@@ -316,10 +315,6 @@ def on_startup_timer():
     utils.check_globaldir_permissions()
     utils.ensure_system_ID()
 
-    dependencies.ensure_preinstalled_deps_copied()
-    dependencies.add_installed_deps_path()
-    dependencies.add_preinstalled_deps_path()
-    dependencies.ensure_deps()
     return None
 
 

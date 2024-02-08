@@ -47,7 +47,7 @@ from . import (
     utils,
     version_checker,
 )
-from .daemon import daemon_tasks
+from . import daemon_tasks
 
 
 NAME_MINIMUM = 3

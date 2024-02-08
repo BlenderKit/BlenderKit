@@ -39,7 +39,7 @@ from . import (
     reports,
     search,
 )
-from .daemon import daemon_tasks
+from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)
