@@ -153,7 +153,7 @@ func main() {
 	//mux.HandleFunc("/comments/{func}", commentsHandler) // TODO: NEEDS TO BE HANDLED SOMEHOW ELSE
 	//mux.HandleFunc("/notifications/mark_notification_read", markNotificationReadHandler)
 
-	//mux.HandleFunc("/wrappers/get_download_url", getDownloadUrlWrapper)
+	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
 	//mux.HandleFunc("/wrappers/blocking_file_upload", blockingFileUploadHandler)
 	//mux.HandleFunc("/wrappers/blocking_file_download", blockingFileDownloadHandler)
 	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
@@ -639,6 +639,7 @@ type AssetData struct {
 }
 
 type DownloadData struct {
+	AppID        int      `json:"app_id"`
 	DownloadDirs []string `json:"download_dirs"`
 	AssetData    `json:"asset_data"`
 	PREFS        `json:"PREFS"`
@@ -880,4 +881,37 @@ func CancelDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		Reason: "cancelled by user",
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// GetDownloadURLWrapper Handle get_download_url request. This serves as a wrapper around get_download_url so this can be called from addon.
+// Returns the results directly so it is a blocking on add-on side (as add-on uses blocking Requests for this).
+// TODO: NEDS TESTING AND TUNING ON THE ADD-ON SIDE
+func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
+	data := DownloadData{}
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	canDownload, URL, err := GetDownloadURL(data)
+	if err != nil {
+		http.Error(w, "Error getting download URL: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: this is probably different implementation than in the original code, but it does not make sense to send asset_data back, it is already there!
+	// needs testing and tuning on the add-on side - do not know now how to trigger this func right now
+	responseJSON, err := json.Marshal(map[string]interface{}{
+		"can_download": canDownload,
+		"download_url": URL,
+	})
+	if err != nil {
+		http.Error(w, "Error converting to JSON: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseJSON)
 }
