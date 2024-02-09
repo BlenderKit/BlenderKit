@@ -33,8 +33,8 @@ var (
 	CodeVerifier    string //Used for OAuth2
 	CodeVerifierMux sync.Mutex
 
-	lastReportAccess     *time.Time
-	lastReportAccessLock *sync.Mutex
+	lastReportAccess    time.Time
+	lastReportAccessMux sync.Mutex
 
 	ActiveAppsMux sync.Mutex
 	ActiveApps    []int
@@ -133,7 +133,7 @@ func main() {
 		log.Println("Flag SystemID is empty, so guessing it:", *SystemID)
 	}
 
-	go monitorReportAccess(lastReportAccess, lastReportAccessLock)
+	go monitorReportAccess()
 	go handleChannels()
 
 	mux := http.NewServeMux()
@@ -172,15 +172,15 @@ func main() {
 	}
 }
 
-func monitorReportAccess(t *time.Time, l *sync.Mutex) {
+func monitorReportAccess() {
 	for {
 		time.Sleep(ReportTimeout)
-		l.Lock()
-		if time.Since(*t) > ReportTimeout {
-			log.Println("No /report access for 3 minutes, shutting down.")
+		lastReportAccessMux.Lock()
+		if time.Since(lastReportAccess) > ReportTimeout {
+			log.Printf("No /report access for %v minutes, shutting down.", ReportTimeout)
 			os.Exit(0)
 		}
-		l.Unlock()
+		lastReportAccessMux.Unlock()
 	}
 }
 
@@ -200,6 +200,10 @@ type ReportData struct {
 }
 
 func reportHandler(w http.ResponseWriter, r *http.Request) {
+	lastReportAccessMux.Lock()
+	lastReportAccess = time.Now()
+	lastReportAccessMux.Unlock()
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError)
