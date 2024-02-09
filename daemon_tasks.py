@@ -32,7 +32,11 @@ class Task:
         self.message_detailed = message_detailed
         self.progress = progress
         self.status = status  # created / finished / error
-        self.result = result.copy()
+        if result != None:
+            self.result = result.copy()
+        else: # to be extra safe
+            print("result is None", self.task_type)
+            self.result = {}
 
     def change_progress(self, progress: int, message: str = "", status: str = ""):
         self.progress = progress
