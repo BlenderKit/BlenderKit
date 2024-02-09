@@ -147,8 +147,8 @@ func main() {
 	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
 
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
-	//mux.HandleFunc("/refresh_token", refreshToken)
-	mux.HandleFunc("/code_verifier", codeVerifierHandler)
+	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
+	mux.HandleFunc("/code_verifier", CodeVerifierHandler)
 	//mux.HandleFunc("/report_usages", reportUsagesHandler)
 	//mux.HandleFunc("/comments/{func}", commentsHandler) // TODO: NEEDS TO BE HANDLED SOMEHOW ELSE
 	//mux.HandleFunc("/notifications/mark_notification_read", markNotificationReadHandler)
@@ -331,10 +331,9 @@ func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func delayedExit(t float64) {
-	fmt.Println("Going to shutdown...")
+	log.Println("Going to shutdown...")
 	time.Sleep(time.Duration(t * float64(time.Second)))
-	//time.Sleep(time.Duration(t) * time.Second)
-	fmt.Println("Bye!")
+	log.Println("Bye!")
 	os.Exit(0)
 }
 
