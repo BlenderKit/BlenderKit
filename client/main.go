@@ -164,7 +164,7 @@ func main() {
 	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
 
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
-	//mux.HandleFunc("/profiles/get_user_profile", getUserProfileHandler)
+	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
 	//mux.HandleFunc("/ratings/get_rating", getRatingHandler)
 	//mux.HandleFunc("/ratings/send_rating", sendRatingHandler)
 	//mux.HandleFunc("/ratings/get_bookmarks", getBookmarksHandler)
@@ -1021,5 +1021,54 @@ func FetchGravatarImage(data FetchGravatarData) {
 		TaskID:  taskID,
 		Message: "Downloaded",
 		Result:  map[string]string{"gravatar_path": gravatarPath},
+	}
+}
+
+type FetchUserProfileData struct {
+	AppID  int    `json:"app_id"`
+	APIKey string `json:"api_key"`
+}
+
+func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	var data FetchUserProfileData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	go GetUserProfile(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+func GetUserProfile(data FetchUserProfileData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
+
+	headers := getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", *Server+"/api/v1/me/", nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	req.Header = headers
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "data suceessfully fetched",
+		Result:  respData,
 	}
 }
