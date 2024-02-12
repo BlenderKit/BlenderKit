@@ -143,19 +143,20 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", indexHandler)
+	mux.HandleFunc("/shutdown", shutdownHandler)
+	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
 	mux.HandleFunc("/report", reportHandler)
-	mux.HandleFunc("/cancel_download", CancelDownloadHandler) // prepare to use less aggressive name
+	//mux.HandleFunc("/debug", debugHandler)
+
+	mux.HandleFunc("/cancel_download", CancelDownloadHandler)
 	mux.HandleFunc("/download_asset", downloadAssetHandler)
 	mux.HandleFunc("/search_asset", searchHandler)
 	//mux.HandleFunc("/upload_asset", uploadAsset)
-	mux.HandleFunc("/shutdown", shutdownHandler)
-	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
 
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
 	mux.HandleFunc("/code_verifier", CodeVerifierHandler)
 	//mux.HandleFunc("/report_usages", reportUsagesHandler)
-	//mux.HandleFunc("/comments/{func}", commentsHandler) // TODO: NEEDS TO BE HANDLED SOMEHOW ELSE
 	//mux.HandleFunc("/notifications/mark_notification_read", markNotificationReadHandler)
 
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
@@ -164,12 +165,17 @@ func main() {
 	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
 	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
 
+	mux.HandleFunc("/comments/get_comments", GetCommentsHandler) // TODO: Rename this to FetchCommentsHandler - it is not getting local data, it is fetching!
+	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
+	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
+	mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
+
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
-	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)                     // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
-	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
+
 	mux.HandleFunc("/ratings/get_bookmarks", GetBookmarksHandler) // TODO: Rename this to FetchBookmarksHandler - it is not getting local data, it is fetching!
-	//mux.HandleFunc("/debug", debugHandler)
+	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)       // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
+	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
 
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
 	if err != nil {
@@ -1249,4 +1255,99 @@ func GetBookmarks(data MinimalTaskData) {
 		Message: "Bookmarks data obtained",
 		Result:  respData,
 	}
+}
+
+type GetCommentsData struct {
+	AppID   int    `json:"app_id"`
+	APIKey  string `json:"api_key"`
+	AssetID string `json:"asset_id"`
+}
+
+func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
+	var data GetCommentsData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+
+	go GetComments(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// GetComments fetches all comments on the given asset.
+//
+// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/comments_read
+func GetComments(data GetCommentsData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/get_comments")
+
+	url := fmt.Sprintf("%s/api/v1/comments/assets-uuidasset/%s/", *Server, data.AssetID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error getting comments - %v: %v", resp.Status, url)}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "comments downloaded",
+		Result:  respData,
+	}
+}
+
+type CreateCommentData struct {
+	AppID       int    `json:"app_id"`
+	APIKey      string `json:"api_key"`
+	AssetID     string `json:"asset_id"`
+	CommentText string `json:"comment_text"`
+	ReplyToID   string `json:"reply_to_id"`
+}
+
+func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
+}
+
+type FeedbackCommentData struct {
+	AppID     int    `json:"app_id"`
+	APIKey    string `json:"api_key"`
+	AssetID   string `json:"asset_id"`
+	CommentID string `json:"comment_id"`
+	Flag      string `json:"flag"`
+}
+
+func FeedbackCommentHandler(w http.ResponseWriter, r *http.Request) {
+}
+
+type MarkCommentPrivateData struct {
+	AppID     int    `json:"app_id"`
+	APIKey    string `json:"api_key"`
+	AssetID   string `json:"asset_id"`
+	CommentID string `json:"comment_id"`
+	IsPrivate bool   `json:"is_private"`
+}
+
+func MarkCommentPrivateHandler(w http.ResponseWriter, r *http.Request) {
 }
