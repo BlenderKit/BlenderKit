@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -166,7 +167,7 @@ func main() {
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)                     // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
-	//mux.HandleFunc("/ratings/send_rating", sendRatingHandler)
+	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
 	//mux.HandleFunc("/ratings/get_bookmarks", getBookmarksHandler)
 	//mux.HandleFunc("/debug", debugHandler)
 
@@ -1122,6 +1123,79 @@ func GetRating(data GetRatingData) {
 		AppID:   data.AppID,
 		TaskID:  taskID,
 		Message: "Rating data obtained",
+		Result:  respData,
+	}
+}
+
+type SendRatingData struct {
+	AppID       int    `json:"app_id"`
+	APIKey      string `json:"api_key"`
+	AssetID     string `json:"asset_id"`
+	RatingType  string `json:"rating_type"`
+	RatingValue int    `json:"rating_value"`
+}
+
+func SendRatingHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var data SendRatingData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	go SendRating(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// SendRating is a function for sending the user's rating of the asset.
+// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_update
+func SendRating(data SendRatingData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/send_rating")
+
+	reqData := map[string]interface{}{"score": data.RatingValue}
+	reqBody, err := json.Marshal(reqData)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/%s/", *Server, data.AssetID, data.RatingType)
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error rating asset - %v: %v", resp.Status, url)}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: fmt.Sprintf("Rated %s=%d successfully", data.RatingType, data.RatingValue),
 		Result:  respData,
 	}
 }
