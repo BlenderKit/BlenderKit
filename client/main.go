@@ -165,7 +165,7 @@ func main() {
 
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
-	//mux.HandleFunc("/ratings/get_rating", getRatingHandler)
+	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)                     // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
 	//mux.HandleFunc("/ratings/send_rating", sendRatingHandler)
 	//mux.HandleFunc("/ratings/get_bookmarks", getBookmarksHandler)
 	//mux.HandleFunc("/debug", debugHandler)
@@ -1069,6 +1069,59 @@ func GetUserProfile(data FetchUserProfileData) {
 		AppID:   data.AppID,
 		TaskID:  taskID,
 		Message: "data suceessfully fetched",
+		Result:  respData,
+	}
+}
+
+type GetRatingData struct {
+	AppID   int    `json:"app_id"`
+	APIKey  string `json:"api_key"`
+	AssetID string `json:"asset_id"`
+}
+
+func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
+	var data GetRatingData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	go GetRating(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// GetRating is a function for fetching the rating of the asset.
+// Re-implements: file://daemon/daemon_ratings.py : get_rating()
+func GetRating(data GetRatingData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/get_rating")
+
+	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/", *Server, data.AssetID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	req.Header = getHeaders(data.APIKey, *SystemID)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "Rating data obtained",
 		Result:  respData,
 	}
 }
