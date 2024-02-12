@@ -22,6 +22,10 @@ const (
 	ReportTimeout    = 3 * time.Minute
 	OAUTH_CLIENT_ID  = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 	WindowsPathLimit = 250
+
+	// PATHS
+	server_default   = "https://www.blenderkit.com"
+	gravatar_dirname = "bkit_g" // directory in safeTempDir() for gravatar images
 )
 
 var (
@@ -112,7 +116,7 @@ func handleChannels() {
 
 func main() {
 	Port = flag.String("port", "62485", "port to listen on")
-	Server = flag.String("server", "https://www.blenderkit.com", "server to connect to")
+	Server = flag.String("server", server_default, "server to connect to")
 	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
@@ -159,7 +163,7 @@ func main() {
 	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
 	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
 
-	//mux.HandleFunc("/profiles/fetch_gravatar_image", fetchGravatarImageHandler)
+	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	//mux.HandleFunc("/profiles/get_user_profile", getUserProfileHandler)
 	//mux.HandleFunc("/ratings/get_rating", getRatingHandler)
 	//mux.HandleFunc("/ratings/send_rating", sendRatingHandler)
@@ -289,27 +293,29 @@ type TaskCancel struct {
 	Reason string
 }
 
+// Task is a struct for storing a task in this Client application.
+// Exported fields are used for JSON encoding/decoding and are defined in same in the add-on.
 type Task struct {
-	Data            map[string]interface{} `json:"data"`
-	AppID           int                    `json:"app_id"`
-	TaskID          string                 `json:"task_id"`
-	TaskType        string                 `json:"task_type"`
-	Message         string                 `json:"message"`
-	MessageDetailed string                 `json:"message_detailed"`
-	Progress        int                    `json:"progress"`
-	Status          string                 `json:"status"` // created, finished, error
-	Result          interface{}            `json:"result"`
-	Error           error                  `json:"-"`
-	Ctx             context.Context        `json:"-"` // Context for canceling the task, use in long running functions which support it
-	Cancel          context.CancelFunc     `json:"-"` // Function for canceling the task
+	Data            interface{}        `json:"data"`             // Data for the task, should be a struct like DownloadData, SearchData, etc.
+	AppID           int                `json:"app_id"`           // PID of the Blender running the add-on
+	TaskID          string             `json:"task_id"`          // random UUID for the task
+	TaskType        string             `json:"task_type"`        // search, download, etc.
+	Message         string             `json:"message"`          // Short message for the user
+	MessageDetailed string             `json:"message_detailed"` // Longer message to the console
+	Progress        int                `json:"progress"`         // 0-100
+	Status          string             `json:"status"`           // created, finished, error
+	Result          interface{}        `json:"result"`           // Result to be used by the add-on
+	Error           error              `json:"-"`                // Internal: error in the task
+	Ctx             context.Context    `json:"-"`                // Internal: Context for canceling the task, use in long running functions which support it
+	Cancel          context.CancelFunc `json:"-"`                // Internal: Function for canceling the task
 }
 
 func (t *Task) Finish(message string) {
 	t.Status = "finished"
 	t.Message = message
 }
-func NewTask(data map[string]interface{}, appID int, taskID, taskType string) *Task {
-	if data == nil {
+func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
+	if data == nil { // so it is not returned as None, but as empty dict{}
 		data = make(map[string]interface{})
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -494,12 +500,12 @@ func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 
 		if smallThumbURLOK && smallImgNameErr == nil {
 			taskUUID := uuid.New().String()
-			taskData := map[string]interface{}{
-				"thumbnail_type": "small",
-				"image_path":     smallImgPath,
-				"image_url":      smallThumbURL,
-				"assetBaseId":    assetBaseID,
-				"index":          i,
+			taskData := DownloadThumbnailData{
+				ThumbnailType: "small",
+				ImagePath:     smallImgPath,
+				ImageURL:      smallThumbURL,
+				AssetBaseID:   assetBaseID,
+				Index:         i,
 			}
 			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
 			if _, err := os.Stat(smallImgPath); err == nil { // TODO: do not check file existence in for loop -> gotta be faster
@@ -514,12 +520,12 @@ func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 
 		if fullThumbURLOK && fullImgNameErr == nil {
 			taskUUID := uuid.New().String()
-			taskData := map[string]interface{}{
-				"thumbnail_type": "full",
-				"image_path":     fullImgPath,
-				"image_url":      fullThumbURL,
-				"assetBaseId":    assetBaseID,
-				"index":          i,
+			taskData := DownloadThumbnailData{
+				ThumbnailType: "full",
+				ImagePath:     fullImgPath,
+				ImageURL:      fullThumbURL,
+				AssetBaseID:   assetBaseID,
+				Index:         i,
 			}
 			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
 			if _, err := os.Stat(fullImgPath); err == nil {
@@ -536,6 +542,14 @@ func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 	go downloadImageBatch(fullThumbsTasks, true)
 }
 
+type DownloadThumbnailData struct {
+	ThumbnailType string `json:"thumbnail_type"`
+	ImagePath     string `json:"image_path"`
+	ImageURL      string `json:"image_url"`
+	AssetBaseID   string `json:"assetBaseId"`
+	Index         int    `json:"index"`
+}
+
 func downloadImageBatch(tasks []*Task, block bool) {
 	wg := new(sync.WaitGroup)
 	for _, task := range tasks {
@@ -549,18 +563,13 @@ func downloadImageBatch(tasks []*Task, block bool) {
 
 func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	defer wg.Done()
-	imgURL, ok := t.Data["image_url"].(string)
+	data, ok := t.Data.(DownloadThumbnailData)
 	if !ok {
-		fmt.Println("Invalid image_url:", t.Data)
-		return
-	}
-	imgPath, ok := t.Data["image_path"].(string)
-	if !ok {
-		fmt.Println("Invalid image_path:", t.Data)
+		TaskErrorCh <- &TaskError{AppID: t.AppID, TaskID: t.TaskID, Error: fmt.Errorf("invalid data type")}
 		return
 	}
 
-	req, err := http.NewRequest("GET", imgURL, nil)
+	req, err := http.NewRequest("GET", data.ImageURL, nil)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return
@@ -588,7 +597,7 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	}
 
 	// Open the file for writing
-	file, err := os.Create(imgPath)
+	file, err := os.Create(data.ImagePath)
 	if err != nil {
 		TasksMux.Lock()
 		t.Message = "Error creating file for thumbnail"
@@ -914,4 +923,103 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
+}
+
+type FetchGravatarData struct {
+	AppID        int    `json:"app_id"`
+	ID           int    `json:"id"`
+	Avatar128    string `json:"avatar128"` //e.g.: "/avatar-redirect/ad7c20a8-98ca-4128-9189-f727b2d1e4f3/128/"
+	GravatarHash string `json:"gravatarHash"`
+}
+
+// FetchGravatarImageHandler is a handler for the /profiles/fetch_gravatar_image endpoint.
+// It is used to fetch the Gravatar image for the user.
+// TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
+func FetchGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
+	var data FetchGravatarData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	go FetchGravatarImage(data)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// FetchGravatarImage is a function for fetching the Gravatar image of the creator.
+// It preferes to fetch the image from the server using the Avatar128 parameter,
+// but if it is not available, it tries to download it from Gravatar using gravatarHash.
+func FetchGravatarImage(data FetchGravatarData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/fetch_gravatar_image")
+
+	filename := fmt.Sprintf("%d.jpg", data.ID)
+	tempDir, err := GetSafeTempPath()
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	gravatarPath := filepath.Join(tempDir, gravatar_dirname, filename)
+	exists, _, _ := FileExists(gravatarPath)
+	if exists {
+		TaskFinishCh <- &TaskFinish{
+			AppID:   data.AppID,
+			TaskID:  taskID,
+			Message: "Found on disk",
+			Result:  map[string]string{"gravatar_path": gravatarPath},
+		}
+		return
+	}
+
+	var url string
+	if data.Avatar128 != "" {
+		url = *Server + data.Avatar128
+	} else {
+		url = fmt.Sprintf("https://www.gravatar.com/avatar/%v?d=404", data.GravatarHash)
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	headers := getHeaders("", *SystemID)
+	req.Header = headers
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("error downloading gravatar image - %v: %v", resp.Status, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	// Open the file for writing
+	file, err := os.Create(gravatarPath)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	// Copy the response body to the file
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "Downloaded",
+		Result:  map[string]string{"gravatar_path": gravatarPath},
+	}
 }
