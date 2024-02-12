@@ -167,8 +167,8 @@ func main() {
 
 	mux.HandleFunc("/comments/get_comments", GetCommentsHandler) // TODO: Rename this to FetchCommentsHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
-	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
-	mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
+	//mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
+	//mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
 
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
