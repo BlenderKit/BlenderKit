@@ -1324,10 +1324,142 @@ type CreateCommentData struct {
 	APIKey      string `json:"api_key"`
 	AssetID     string `json:"asset_id"`
 	CommentText string `json:"comment_text"`
-	ReplyToID   string `json:"reply_to_id"`
+	ReplyToID   int    `json:"reply_to_id"`
 }
 
 func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
+	var data CreateCommentData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	go CreateComment(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+type GetCommentsResponseForm struct {
+	Timestamp    string `json:"timestamp"`
+	SecurityHash string `json:"securityHash"`
+}
+
+type GetCommentsResponse struct {
+	Form GetCommentsResponseForm `json:"form"`
+}
+
+type CommentPostData struct {
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	URL          string `json:"url"`
+	Followup     bool   `json:"followup"`
+	ReplyTo      int    `json:"reply_to"`
+	Honeypot     string `json:"honeypot"`
+	ContentType  string `json:"content_type"`
+	ObjectPK     string `json:"object_pk"`
+	Timestamp    string `json:"timestamp"`
+	SecurityHash string `json:"security_hash"`
+	Comment      string `json:"comment"`
+}
+
+// CreateComment creates a comment on the given asset.
+// It first GETs freshest comments data on the asset (from this we need Timestamp and SecurityHash for the POST request).
+// It then creates a new comment through POST request.
+//
+// API docs GET: https://www.blenderkit.com/api/v1/docs/#operation/comments_get
+//
+// API docs POST: https://www.blenderkit.com/api/v1/docs/#operation/comments_comment_create
+func CreateComment(data CreateCommentData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/create_comment")
+
+	headers := getHeaders(data.APIKey, *SystemID)
+	get_url := fmt.Sprintf("%s/api/v1/comments/asset-comment/%s/", *Server, data.AssetID)
+	req, err := http.NewRequest("GET", get_url, nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = headers
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error getting comments - %v: %v", resp.Status, get_url)}
+		return
+	}
+
+	var commentsData GetCommentsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&commentsData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	uploadData := CommentPostData{
+		Name:         "",
+		Email:        "",
+		URL:          "",
+		Followup:     data.ReplyToID > 0,
+		ReplyTo:      data.ReplyToID,
+		Honeypot:     "",
+		ContentType:  "assets.uuidasset",
+		ObjectPK:     data.AssetID,
+		Timestamp:    commentsData.Form.Timestamp,
+		SecurityHash: commentsData.Form.SecurityHash,
+		Comment:      data.CommentText,
+	}
+	uploadDataJSON, err := json.Marshal(uploadData)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	post_url := fmt.Sprintf("%s/api/v1/comments/comment/", *Server)
+	post_req, err := http.NewRequest("POST", post_url, bytes.NewBuffer(uploadDataJSON))
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	post_req.Header = headers
+	post_resp, err := client.Do(post_req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if post_resp.StatusCode != http.StatusCreated {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment - %v: %v", post_resp.Status, post_url)}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(post_resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "Comment created",
+		Result:  respData,
+	}
+
+	go GetComments(GetCommentsData{
+		AppID:   data.AppID,
+		APIKey:  data.APIKey,
+		AssetID: data.AssetID,
+	})
 }
 
 type FeedbackCommentData struct {
