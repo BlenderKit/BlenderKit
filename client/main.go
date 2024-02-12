@@ -168,7 +168,7 @@ func main() {
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)                     // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
-	//mux.HandleFunc("/ratings/get_bookmarks", getBookmarksHandler)
+	mux.HandleFunc("/ratings/get_bookmarks", GetBookmarksHandler) // TODO: Rename this to FetchBookmarksHandler - it is not getting local data, it is fetching!
 	//mux.HandleFunc("/debug", debugHandler)
 
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
@@ -199,11 +199,6 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-type ReportData struct {
-	AppID  int    `json:"app_id"`
-	APIKey string `json:"api_key"`
-}
-
 func reportHandler(w http.ResponseWriter, r *http.Request) {
 	lastReportAccessMux.Lock()
 	lastReportAccess = time.Now()
@@ -216,7 +211,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var data ReportData
+	var data MinimalTaskData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		log.Println("Error parsing ReportData:", err)
@@ -261,6 +256,12 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
+}
+
+// MinimalTaskData is minimal data needed from add-on to schedule a task.
+type MinimalTaskData struct {
+	AppID  int    `json:"app_id"`  // AppID is PID of Blender in which add-on runs
+	APIKey string `json:"api_key"` // Can be empty for non-logged users
 }
 
 // TaskStatusUpdate is a struct for updating the status of a task through a channel.
@@ -683,7 +684,7 @@ type CategoriesData struct {
 
 // Fetch categories from the server: https://www.blenderkit.com/api/v1/categories/
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/categories_list
-func FetchCategories(data ReportData) {
+func FetchCategories(data MinimalTaskData) {
 	taskUUID := uuid.New().String()
 	task := NewTask(nil, data.AppID, taskUUID, "categories_update")
 	AddTaskCh <- task
@@ -737,7 +738,7 @@ type DisclaimerData struct {
 
 // Fetch disclaimer from the server: https://www.blenderkit.com/api/v1/disclaimer/active/.
 // API documentation:  https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
-func FetchDisclaimer(data ReportData) {
+func FetchDisclaimer(data MinimalTaskData) {
 	taskUUID := uuid.New().String()
 	task := NewTask(nil, data.AppID, taskUUID, "disclaimer")
 	AddTaskCh <- task
@@ -831,7 +832,7 @@ type NotificationData struct {
 
 // Fetch unread notifications from the server: https://www.blenderkit.com/api/v1/notifications/unread/.
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
-func FetchUnreadNotifications(data ReportData) {
+func FetchUnreadNotifications(data MinimalTaskData) {
 	taskUUID := uuid.New().String()
 	task := NewTask(nil, data.AppID, taskUUID, "notifications")
 	AddTaskCh <- task
@@ -1025,13 +1026,8 @@ func FetchGravatarImage(data FetchGravatarData) {
 	}
 }
 
-type FetchUserProfileData struct {
-	AppID  int    `json:"app_id"`
-	APIKey string `json:"api_key"`
-}
-
 func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
-	var data FetchUserProfileData
+	var data MinimalTaskData
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
@@ -1041,7 +1037,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func GetUserProfile(data FetchUserProfileData) {
+func GetUserProfile(data MinimalTaskData) {
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
 
@@ -1196,6 +1192,61 @@ func SendRating(data SendRatingData) {
 		AppID:   data.AppID,
 		TaskID:  taskID,
 		Message: fmt.Sprintf("Rated %s=%d successfully", data.RatingType, data.RatingValue),
+		Result:  respData,
+	}
+}
+
+func GetBookmarksHandler(w http.ResponseWriter, r *http.Request) {
+	var data MinimalTaskData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+
+	go GetBookmarks(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// GetBookmarks is a function for fetching the user's bookmarks.
+func GetBookmarks(data MinimalTaskData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/get_bookmarks")
+
+	url := fmt.Sprintf("%s/api/v1/search/?query=bookmarks_rating:1", *Server)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error getting bookmarks - %v: %v", resp.Status, url)}
+		return
+	}
+
+	var respData map[string]interface{}
+
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "Bookmarks data obtained",
 		Result:  respData,
 	}
 }
