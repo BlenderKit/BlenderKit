@@ -89,27 +89,27 @@ func handleChannels() {
 				task.Message = f.Message
 			}
 			TasksMux.Unlock()
-			logger.Printf("Finished %s (%s)\n", task.TaskType, task.TaskID)
+			logger.Printf("✅ %s (%s)\n", task.TaskType, task.TaskID)
 		case e := <-TaskErrorCh:
 			TasksMux.Lock()
 			task := Tasks[e.AppID][e.TaskID]
 			if task.Status == "cancelled" {
 				delete(Tasks[e.AppID], e.TaskID)
 				TasksMux.Unlock()
-				logger.Printf("Error ignored on %s (%s): %s, task in cancelled status\n", task.TaskType, task.TaskID, e.Error)
+				logger.Printf("⛔ ignored on %s (%s): %s, task in cancelled status\n", task.TaskType, task.TaskID, e.Error)
 				continue
 			}
 			task.Message = fmt.Sprintf("%v", e.Error)
 			task.Status = "error"
 			TasksMux.Unlock()
-			logger.Printf("Error in %s (%s): %v\n", task.TaskType, task.TaskID, e.Error)
+			logger.Printf("❌ in %s (%s): %v\n", task.TaskType, task.TaskID, e.Error)
 		case k := <-TaskCancelCh:
 			TasksMux.Lock()
 			task := Tasks[k.AppID][k.TaskID]
 			task.Status = "cancelled"
 			task.Cancel()
 			TasksMux.Unlock()
-			logger.Printf("Cancelled %s (%s), reason: %s\n", task.TaskType, task.TaskID, k.Reason)
+			logger.Printf("⛔ %s (%s), reason: %s\n", task.TaskType, task.TaskID, k.Reason)
 		}
 
 	}
