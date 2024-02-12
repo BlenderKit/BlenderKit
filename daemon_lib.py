@@ -133,13 +133,18 @@ def upload_asset(upload_data, export_data, upload_set):
 
 
 ### PROFILES
-def fetch_gravatar_image(author_data):
+def fetch_gravatar_image(author_data): # TODO: require avatar128 and gravatarHash and refuse directly
     """Fetch gravatar image for specified user. Find it on disk or download it from server."""
-    author_data["app_id"] = os.getpid()
+    data = {
+        "app_id": os.getpid(),
+        "id": author_data.get("id", ""),
+        "avatar128": author_data.get("avatar128", ""),
+        "gravatarHash": author_data.get("gravatarHash", ""),
+    }
     with requests.Session() as session:
         return session.get(
             f"{get_address()}/profiles/fetch_gravatar_image",
-            json=author_data,
+            json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )

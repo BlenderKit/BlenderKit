@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -166,4 +168,34 @@ func count_to_parent(parent *Category) {
 		count_to_parent(&parent.Children[i])
 		parent.AssetCount += parent.Children[i].AssetCount
 	}
+}
+
+// GetSafeTempPath returns a safe, user-specific path in the system's temporary directory.
+// This is the location where thumbnails, gravatars and other temporary files are stored.
+//
+// Contains dirs: bkit_g, brush_search, hdr_search, material_search, model_search, scene_search
+//
+// Contains files: categories.json.
+func GetSafeTempPath() (string, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	username := currentUser.Username
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", err
+	}
+	safeUsername := reg.ReplaceAllString(username, "")
+
+	tempDir := os.TempDir()
+	safeTempPath := filepath.Join(tempDir, "bktemp_"+safeUsername)
+
+	err = os.MkdirAll(safeTempPath, 0700)
+	if err != nil {
+		return "", err
+	}
+
+	return safeTempPath, nil
 }
