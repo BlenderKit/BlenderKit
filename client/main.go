@@ -168,7 +168,7 @@ func main() {
 	mux.HandleFunc("/comments/get_comments", GetCommentsHandler) // TODO: Rename this to FetchCommentsHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
 	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
-	//mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
+	mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
 
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
@@ -1555,13 +1555,85 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 	})
 }
 
-type MarkCommentPrivateData struct {
+// MarkCommentPrivateTaskData is expected from the add-on.
+type MarkCommentPrivateTaskData struct {
 	AppID     int    `json:"app_id"`
 	APIKey    string `json:"api_key"`
 	AssetID   string `json:"asset_id"`
-	CommentID string `json:"comment_id"`
+	CommentID int    `json:"comment_id"`
 	IsPrivate bool   `json:"is_private"`
 }
 
+// MarkCommentPrivateData is sent to the server.
+type MarkCommentPrivateData struct {
+	IsPrivate bool `json:"is_private"`
+}
+
 func MarkCommentPrivateHandler(w http.ResponseWriter, r *http.Request) {
+	var data MarkCommentPrivateTaskData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	go MarkCommentPrivate(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// MarkCommentPrivate marks comment as private or public.
+//
+// API docs: # https://www.blenderkit.com/api/v1/docs/#operation/comments_is_private_create
+func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
+	url := fmt.Sprintf("%s/api/v1/comments/is_private/%d/", *Server, data.CommentID)
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/mark_comment_private")
+
+	uploadData := MarkCommentPrivateData{IsPrivate: data.IsPrivate}
+	JSON, err := json.Marshal(uploadData)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment feedback - %v: %v", resp.Status, url)}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "comment visibility updated",
+		Result:  respData,
+	}
+	go GetComments(GetCommentsData{
+		AppID:   data.AppID,
+		APIKey:  data.APIKey,
+		AssetID: data.AssetID,
+	})
 }
