@@ -157,25 +157,26 @@ func main() {
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
 	mux.HandleFunc("/code_verifier", CodeVerifierHandler)
 	//mux.HandleFunc("/report_usages", reportUsagesHandler)
-	//mux.HandleFunc("/notifications/mark_notification_read", markNotificationReadHandler)
 
-	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
-	//mux.HandleFunc("/wrappers/blocking_file_upload", blockingFileUploadHandler)
-	//mux.HandleFunc("/wrappers/blocking_file_download", blockingFileDownloadHandler)
-	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
-	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
+	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
+	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
 
 	mux.HandleFunc("/comments/get_comments", GetCommentsHandler) // TODO: Rename this to FetchCommentsHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
 	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
 	mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
 
-	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
-	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
+	mux.HandleFunc("/notifications/mark_notification_read", MarkNotificationReadHandler)
 
 	mux.HandleFunc("/ratings/get_bookmarks", GetBookmarksHandler) // TODO: Rename this to FetchBookmarksHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)       // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
+
+	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
+	//mux.HandleFunc("/wrappers/blocking_file_upload", blockingFileUploadHandler)
+	//mux.HandleFunc("/wrappers/blocking_file_download", blockingFileDownloadHandler)
+	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
+	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
 
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
 	if err != nil {
@@ -1636,4 +1637,67 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 		APIKey:  data.APIKey,
 		AssetID: data.AssetID,
 	})
+}
+
+// MarkNotificationReadTaskData is expected from the add-on.
+type MarkNotificationReadTaskData struct {
+	AppID        int    `json:"app_id"`
+	APIKey       string `json:"api_key"`
+	Notification int    `json:"notification_id"`
+}
+
+func MarkNotificationReadHandler(w http.ResponseWriter, r *http.Request) {
+	var data MarkNotificationReadTaskData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	go MarkNotificationRead(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// MarkNotificationRead marks notification as read.
+//
+// API docs: https://www.blenderkit.com/api/v1/docs/#operation/notifications_mark-as-read_read
+func MarkNotificationRead(data MarkNotificationReadTaskData) {
+	url := fmt.Sprintf("%s/api/v1/notifications/mark-as-read/%d/", *Server, data.Notification)
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "notifications/mark_notification_read")
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment feedback - %v: %v", resp.Status, url)}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "notification marked as read",
+		Result:  respData,
+	}
 }
