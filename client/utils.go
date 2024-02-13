@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -80,14 +81,6 @@ func ExtractFilenameFromURL(urlStr string) (string, error) {
 	return escaped, nil
 }
 
-type ThumbnailDownloadData struct {
-	ImagePath     string `json:"image_path"`
-	ImageURL      string `json:"image_url"`
-	AssetBaseID   string `json:"assetBaseId"`
-	ThumbnailType string `json:"thumbnail_type"`
-	Index         int    `json:"index"`
-}
-
 // Check if the file exists on the hard drive.
 // Returns error if the file exists but is not a file.
 func FileExists(filePath string) (bool, fs.FileInfo, error) {
@@ -107,6 +100,29 @@ func DeleteFile(filePath string) error {
 		return err
 	}
 	return nil
+}
+
+// DeleteFileAndParentIfEmpty deletes the specified file and its parent directory if empty.
+func DeleteFileAndParentIfEmpty(filePath string) {
+	err := os.Remove(filePath)
+	if err != nil {
+		log.Printf("Error removing file %v: %v", filePath, err)
+		return
+	}
+
+	assetDir := filepath.Dir(filePath)
+	dirContents, err := os.ReadDir(assetDir)
+	if err != nil {
+		log.Printf("Error reading directory %v: %v", assetDir, err)
+		return
+	}
+
+	if len(dirContents) == 0 {
+		err := os.Remove(assetDir)
+		if err != nil {
+			log.Printf("Error removing directory %v: %v", assetDir, err)
+		}
+	}
 }
 
 // Files on server are saved in format: "resolution_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend" for resolution files, or "blend_d5368c9d-092e-4319-afe1-dd765de6da01.blend" for original files,
