@@ -175,7 +175,7 @@ func main() {
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
 	mux.HandleFunc("/wrappers/blocking_file_upload", BlockingFileUploadHandler)
 	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
-	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
+	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
 	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
 
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
@@ -1857,4 +1857,54 @@ func DeleteUnfinishedFile(filePath string) {
 			log.Printf("Error removing directory %v: %v", assetDir, err)
 		}
 	}
+}
+
+// BlockingRequestData represents the expected structure of the incoming request data.
+type BlockingRequestData struct {
+	URL     string            `json:"url"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers"`
+	JSON    json.RawMessage   `json:"json"`
+}
+
+func BlockingRequestHandler(w http.ResponseWriter, r *http.Request) {
+	var data BlockingRequestData
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	reqBody := bytes.NewReader(data.JSON)
+	client := &http.Client{}
+	req, err := http.NewRequest(data.Method, data.URL, reqBody)
+	if err != nil {
+		log.Printf("Error creating request: %v", err)
+		http.Error(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+
+	for key, value := range data.Headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error making request: %v", err)
+		http.Error(w, "Request failed", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %v", err)
+		http.Error(w, "Failed to read response body", http.StatusInternalServerError)
+		return
+	}
+
+	for key, value := range resp.Header {
+		w.Header()[key] = value
+	}
+	w.WriteHeader(resp.StatusCode)
+	w.Write(respBody)
 }
