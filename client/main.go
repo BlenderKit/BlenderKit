@@ -38,6 +38,8 @@ const (
 	EmoNetwork       = "📡"
 	EmoNewConnection = "🤝"
 	EmoDisconnecting = "👐"
+	EmoSecure        = "🔒"
+	EmoInsecure      = "🧨"
 )
 
 var (
@@ -140,8 +142,8 @@ func main() {
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
 	ip_version := flag.String("ip_version", "BOTH", "IP version to use")
-	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use")
-	SystemID = flag.String("system_id", "", "system ID") // Just to please the add-on
+	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use") // possible values: "DEFAULT", "PRECONFIGURED", "DISABLED"
+	SystemID = flag.String("system_id", "", "system ID")                       // Just to please the add-on
 	version := flag.String("version", Version, "version of BlenderKit")
 	flag.Parse()
 	fmt.Print("\n\n")
@@ -155,7 +157,7 @@ func main() {
 		log.Println("Flag SystemID is empty, so guessing it:", *SystemID)
 	}
 
-	CreateHTTPClients(*proxy_address, *proxy_which)
+	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context)
 	go monitorReportAccess()
 	go handleChannels()
 
@@ -1706,7 +1708,7 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 
 // CreateHTTPClients creates HTTP clients with proxy settings, assings them to global variables.
 // Handles errors gracefully - if any error occurs setting up proxy, it will just default to no proxy.
-func CreateHTTPClients(proxyURL, proxyWhich string) {
+func CreateHTTPClients(proxyURL, proxyWhich, sslContext string) {
 	var proxy func(*http.Request) (*url.URL, error)
 	switch proxyWhich {
 	case "SYSTEM":
@@ -1723,10 +1725,21 @@ func CreateHTTPClients(proxyURL, proxyWhich string) {
 	case "NONE":
 		BKLog.Printf("%s Using no proxy", EmoOK)
 	default:
-		BKLog.Printf("%s Defaulting to no proxy due to - unknown proxy_which parameter: %v", EmoOK, proxyWhich)
+		BKLog.Printf("%s Defaulting to no proxy due to - unrecognized proxy_which parameter: %v", EmoOK, proxyWhich)
 	}
 
-	tlsConfig := &tls.Config{}
+	var tlsConfig *tls.Config
+	switch sslContext {
+	case "ENABLED":
+		tlsConfig = &tls.Config{}
+		BKLog.Printf("%s SSL verification is enabled", EmoSecure)
+	case "DISABLED":
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		BKLog.Printf("%s SSL verification disabled, insecure!", EmoInsecure)
+	default:
+		tlsConfig = &tls.Config{}
+		BKLog.Printf("%s Defaulting to enabled SSL verification due to - unrecognized ssl_context parameter: %v", EmoSecure, sslContext)
+	}
 
 	tAPI := http.DefaultTransport.(*http.Transport).Clone()
 	tAPI.TLSClientConfig = tlsConfig

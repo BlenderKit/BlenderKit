@@ -2000,28 +2000,21 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     ssl_context: EnumProperty(
-        name="SSL Context",
+        name="SSL Verification",
         items=(
             (
-                "DEFAULT",
-                "DEFAULT blank context - ssl.SSLContext()",
-                "Daemon will use blank SSL context and will add settings on top of that. This is independent of SSL module settings and version of Python. This is default option for BlenderKit 3.2 and higher.",
-            ),
-            (
-                "PRECONFIGURED",
-                "PRECONFIGURED by SSL module - ssl.create_default_context()",
-                "Daemon will use SSL context preconfigured by SSL module, and will add more settings on top of that. Try this if you face SSL errors.",
+                "ENABLED",
+                "Enabled SSL Verification",
+                "Activates SSL verification for outbound connections, ensuring secure communication between the BlenderKit-client and the blenderkit.com server",
             ),
             (
                 "DISABLED",
-                "DISABLED - SSL checks will be disabled. Unsecure!",
-                "Daemon will not use SSL context and will not check SSL certificates. "
-                "Try this if you face SSL errors, but be aware that this is unsecure and should be used only for debugging purposes. "
-                "Setting CA certificates path correctly is preferred and secure.",
+                "Disabled SSL Verification - Insecure!",
+                "Deactivates SSL verification, bypassing the validation of SSL certificates by BlenderKit-client. This mode is insecure and recommended only for testing environments",
             ),
         ),
-        description="SSL context to be be used by daemon",
-        default="DEFAULT",
+        description="Secure communication between BlenderKit-client and blenderkit.com server by SSL",
+        default="ENABLED",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
     )
 
