@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -176,7 +177,7 @@ func main() {
 	mux.HandleFunc("/wrappers/blocking_file_upload", BlockingFileUploadHandler)
 	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
-	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
+	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
 
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
 	if err != nil {
@@ -1907,4 +1908,91 @@ func BlockingRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	w.Write(respBody)
+}
+
+// NonblockingRequestTaskData is expected from the add-on.
+type NonblockingRequestTaskData struct {
+	AppID    int                       `json:"app_id"`
+	URL      string                    `json:"url"`
+	Method   string                    `json:"method"`
+	Headers  map[string]string         `json:"headers"`
+	Messages NonblockingRequestMessage `json:"messages"`
+	JSON     json.RawMessage           `json:"json"`
+}
+
+type NonblockingRequestMessage struct {
+	Error   string `json:"error"`
+	Success string `json:"success"`
+}
+
+func NonblockingRequestHandler(w http.ResponseWriter, r *http.Request) {
+	var data NonblockingRequestTaskData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+
+	go NonblockingRequest(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// NonblockingRequest creates a new task and adds it to the task queue.
+// It makes a request to the specified URL and returns the response as result in the Task.
+func NonblockingRequest(data NonblockingRequestTaskData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "wrappers/nonblocking_request")
+
+	client := &http.Client{}
+	reqBody := bytes.NewBuffer(data.JSON)
+	req, err := http.NewRequest(data.Method, data.URL, reqBody)
+	if err != nil {
+		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
+		return
+	}
+
+	for key, value := range data.Headers {
+		req.Header.Add(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
+		return
+	}
+	defer resp.Body.Close()
+
+	if 200 > resp.StatusCode && resp.StatusCode >= 300 {
+		es := fmt.Errorf("%v: %v", data.Messages.Error, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
+		return
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
+		return
+	}
+
+	ct := resp.Header.Get("Content-Type")
+	var result interface{}
+	if strings.Contains(ct, "application/json") {
+		var j interface{}
+		err = json.Unmarshal(respBody, &j)
+		if err != nil {
+			es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
+			return
+		}
+		result = j
+	} else {
+		result = string(respBody)
+	}
+
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: result}
 }
