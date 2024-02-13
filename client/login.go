@@ -101,7 +101,6 @@ func GetTokens(authCode string, refreshToken string) (map[string]interface{}, in
 	data.Set("redirect_uri", fmt.Sprintf("http://localhost:%s/consumer/exchange/", *Port))
 
 	url := fmt.Sprintf("%s/o/token/", *Server)
-	session := http.Client{}
 	headers := getHeaders("", *SystemID) // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -110,7 +109,7 @@ func GetTokens(authCode string, refreshToken string) (map[string]interface{}, in
 	// Set the Content-Type for form-encoded data
 	req.Header = headers
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := session.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		log.Printf("Error making request: %v", err)
 		return nil, -1, "Failed to make request"

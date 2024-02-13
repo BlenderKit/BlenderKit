@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,6 +29,15 @@ const (
 	// PATHS
 	server_default   = "https://www.blenderkit.com"
 	gravatar_dirname = "bkit_g" // directory in safeTempDir() for gravatar images
+
+	// EMOJIS
+	EmoOK            = "✅"
+	EmoCancel        = "⛔"
+	EmoWarning       = "⚠️ " // Needs space at the end for proper alignment, not sure why.
+	EmoError         = "❌"
+	EmoNetwork       = "📡"
+	EmoNewConnection = "🤝"
+	EmoDisconnecting = "👐"
 )
 
 var (
@@ -51,6 +62,11 @@ var (
 	TaskFinishCh         chan *TaskFinish
 	TaskErrorCh          chan *TaskError
 	TaskCancelCh         chan *TaskCancel
+
+	ClientAPI, ClientDownloads, ClientUploads, ClientSmallThumbs, ClientBigThumbs *http.Client
+
+	BKLog   *log.Logger
+	ChanLog *log.Logger
 )
 
 func init() {
@@ -61,11 +77,13 @@ func init() {
 	TaskErrorCh = make(chan *TaskError, 100)
 	TaskCancelCh = make(chan *TaskCancel, 100)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
+
+	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)
+	ChanLog = log.New(os.Stdout, "<- ", log.LstdFlags)
 }
 
 // Endless loop to handle channels
 func handleChannels() {
-	logger := log.New(os.Stdout, "<-", log.LstdFlags)
 	for {
 		select {
 		case task := <-AddTaskCh:
@@ -89,36 +107,36 @@ func handleChannels() {
 				task.Message = f.Message
 			}
 			TasksMux.Unlock()
-			logger.Printf("✅ %s (%s)\n", task.TaskType, task.TaskID)
+			ChanLog.Printf("%s %s (%s)\n", EmoOK, task.TaskType, task.TaskID)
 		case e := <-TaskErrorCh:
 			TasksMux.Lock()
 			task := Tasks[e.AppID][e.TaskID]
 			if task.Status == "cancelled" {
 				delete(Tasks[e.AppID], e.TaskID)
 				TasksMux.Unlock()
-				logger.Printf("⛔ ignored on %s (%s): %s, task in cancelled status\n", task.TaskType, task.TaskID, e.Error)
+				ChanLog.Printf("%s ignored on %s (%s): %s, task in cancelled status\n", EmoCancel, task.TaskType, task.TaskID, e.Error)
 				continue
 			}
 			task.Message = fmt.Sprintf("%v", e.Error)
 			task.Status = "error"
 			TasksMux.Unlock()
-			logger.Printf("❌ in %s (%s): %v\n", task.TaskType, task.TaskID, e.Error)
+			ChanLog.Printf("%s in %s (%s): %v\n", EmoError, task.TaskType, task.TaskID, e.Error)
 		case k := <-TaskCancelCh:
 			TasksMux.Lock()
 			task := Tasks[k.AppID][k.TaskID]
 			task.Status = "cancelled"
 			task.Cancel()
 			TasksMux.Unlock()
-			logger.Printf("⛔ %s (%s), reason: %s\n", task.TaskType, task.TaskID, k.Reason)
+			ChanLog.Printf("%s %s (%s), reason: %s\n", EmoCancel, task.TaskType, task.TaskID, k.Reason)
 		}
-
 	}
 }
 
 func main() {
+	var err error
 	Port = flag.String("port", "62485", "port to listen on")
 	Server = flag.String("server", server_default, "server to connect to")
-	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")
+	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use") // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
 	ip_version := flag.String("ip_version", "BOTH", "IP version to use")
@@ -127,10 +145,9 @@ func main() {
 	version := flag.String("version", Version, "version of BlenderKit")
 	flag.Parse()
 	fmt.Print("\n\n")
-	log.Printf("Starting with flags port=%s server=%s version=%s system_id=%s proxy_which=%s proxy_address=%s trusted_ca_certs=%s ip_version=%s ssl_context=%s",
+	BKLog.Printf("Starting with flags port=%s server=%s version=%s system_id=%s proxy_which=%s proxy_address=%s trusted_ca_certs=%s ip_version=%s ssl_context=%s",
 		*Port, *Server, *version, *SystemID, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context)
 	if *SystemID == "" {
-		var err error
 		SystemID, err = fakePythonUUUIDGetNode()
 		if err != nil {
 			log.Fatal(err)
@@ -138,6 +155,7 @@ func main() {
 		log.Println("Flag SystemID is empty, so guessing it:", *SystemID)
 	}
 
+	CreateHTTPClients(*proxy_address, *proxy_which)
 	go monitorReportAccess()
 	go handleChannels()
 
@@ -178,7 +196,7 @@ func main() {
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
 	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
 
-	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
+	err = http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v\n", err)
 	}
@@ -189,7 +207,7 @@ func monitorReportAccess() {
 		time.Sleep(ReportTimeout)
 		lastReportAccessMux.Lock()
 		if time.Since(lastReportAccess) > ReportTimeout {
-			log.Printf("No /report access for %v minutes, shutting down.", ReportTimeout)
+			BKLog.Printf("No /report access for %v minutes, shutting down.", ReportTimeout)
 			os.Exit(0)
 		}
 		lastReportAccessMux.Unlock()
@@ -221,7 +239,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	var data MinimalTaskData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		log.Println("Error parsing ReportData:", err)
+		BKLog.Println("Error parsing ReportData:", err)
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -232,7 +250,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] == nil { // New add-on connected
-		log.Println("New add-on connected:", data.AppID)
+		BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, data.AppID)
 		go FetchDisclaimer(data)
 		go FetchCategories(data)
 		if data.APIKey != "" {
@@ -345,14 +363,14 @@ func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
 }
 
 func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
+	BKLog.Printf("%s Going to shutdown...", EmoDisconnecting)
 	go delayedExit(1)
 	w.WriteHeader(http.StatusOK)
 }
 
 func delayedExit(t float64) {
-	log.Println("Going to shutdown...")
 	time.Sleep(time.Duration(t * float64(time.Second)))
-	log.Println("Bye!")
+	BKLog.Println("Bye!")
 	os.Exit(0)
 }
 
@@ -409,23 +427,23 @@ func doSearch(rJSON map[string]interface{}, data SearchData, taskID string) {
 	Tasks[task.AppID][taskID] = task
 	TasksMux.Unlock()
 
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", data.URLQuery, nil)
 	if err != nil {
-		log.Println("Error creating request:", err)
+		BKLog.Println("Error creating request:", err)
 		return
 	}
+
 	req.Header = getHeaders(data.PREFS.APIKey, *SystemID)
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		log.Println("Error performing search request:", err)
+		BKLog.Println("Error performing search request:", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	var searchResult map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		log.Println("Error decoding search response:", err)
+		BKLog.Println("Error decoding search response:", err)
 		return
 	}
 	TasksMux.Lock()
@@ -584,11 +602,10 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		fmt.Println("Error creating request:", err)
 		return
 	}
+
 	headers := getHeaders("", *SystemID)
 	req.Header = headers
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientBigThumbs.Do(req)
 	if err != nil {
 		TasksMux.Lock()
 		t.Message = "Error performing request to download thumbnail"
@@ -699,14 +716,14 @@ func FetchCategories(data MinimalTaskData) {
 	AddTaskCh <- task
 
 	headers := getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
+
 	req.Header = headers
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
@@ -754,14 +771,13 @@ func FetchDisclaimer(data MinimalTaskData) {
 	AddTaskCh <- task
 
 	headers := getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = headers
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
@@ -849,14 +865,13 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 	AddTaskCh <- task
 
 	headers := getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = headers
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
@@ -998,11 +1013,10 @@ func FetchGravatarImage(data FetchGravatarData) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
+
 	headers := getHeaders("", *SystemID)
 	req.Header = headers
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientSmallThumbs.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1053,14 +1067,13 @@ func GetUserProfile(data MinimalTaskData) {
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
 
 	headers := getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 	req.Header = headers
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1112,8 +1125,7 @@ func GetRating(data GetRatingData) {
 	}
 	req.Header = getHeaders(data.APIKey, *SystemID)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1180,8 +1192,7 @@ func SendRating(data SendRatingData) {
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1234,8 +1245,7 @@ func GetBookmarks(data MinimalTaskData) {
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1297,8 +1307,7 @@ func GetComments(data GetCommentsData) {
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1389,8 +1398,7 @@ func CreateComment(data CreateCommentData) {
 
 	headers := getHeaders(data.APIKey, *SystemID)
 	req.Header = headers
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1434,7 +1442,7 @@ func CreateComment(data CreateCommentData) {
 	}
 
 	post_req.Header = headers
-	post_resp, err := client.Do(post_req)
+	post_resp, err := ClientAPI.Do(post_req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1522,9 +1530,7 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1605,9 +1611,7 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1674,9 +1678,7 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID)
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1699,5 +1701,70 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 		TaskID:  taskID,
 		Message: "notification marked as read",
 		Result:  respData,
+	}
+}
+
+// CreateHTTPClients creates HTTP clients with proxy settings, assings them to global variables.
+// Handles errors gracefully - if any error occurs setting up proxy, it will just default to no proxy.
+func CreateHTTPClients(proxyURL, proxyWhich string) {
+	var proxy func(*http.Request) (*url.URL, error)
+	switch proxyWhich {
+	case "SYSTEM":
+		proxy = http.ProxyFromEnvironment
+		BKLog.Printf("%s Using system proxy settings", EmoOK)
+	case "CUSTOM":
+		pURL, err := url.Parse(proxyURL)
+		if err != nil {
+			BKLog.Printf("%s Defaulting to no proxy due to - error parsing proxy URL: %v", EmoWarning, err)
+		} else {
+			proxy = http.ProxyURL(pURL)
+			BKLog.Printf("%s Using custom proxy: %v", EmoOK, proxyURL)
+		}
+	case "NONE":
+		BKLog.Printf("%s Using no proxy", EmoOK)
+	default:
+		BKLog.Printf("%s Defaulting to no proxy due to - unknown proxy_which parameter: %v", EmoOK, proxyWhich)
+	}
+
+	tlsConfig := &tls.Config{}
+
+	tAPI := http.DefaultTransport.(*http.Transport).Clone()
+	tAPI.TLSClientConfig = tlsConfig
+	tAPI.Proxy = proxy
+	ClientAPI = &http.Client{
+		Transport: tAPI,
+		Timeout:   time.Minute,
+	}
+
+	tDownloads := http.DefaultTransport.(*http.Transport).Clone()
+	tDownloads.TLSClientConfig = tlsConfig
+	tDownloads.Proxy = proxy
+	ClientDownloads = &http.Client{
+		Transport: tDownloads,
+		Timeout:   1 * time.Hour,
+	}
+
+	tUploads := http.DefaultTransport.(*http.Transport).Clone()
+	tUploads.TLSClientConfig = tlsConfig
+	tUploads.Proxy = proxy
+	ClientUploads = &http.Client{
+		Transport: tUploads,
+		Timeout:   24 * time.Hour,
+	}
+
+	tBigThumbs := http.DefaultTransport.(*http.Transport).Clone()
+	tBigThumbs.TLSClientConfig = tlsConfig
+	tBigThumbs.Proxy = proxy
+	ClientBigThumbs = &http.Client{
+		Transport: tBigThumbs,
+		Timeout:   time.Minute,
+	}
+
+	tSmallThumbs := http.DefaultTransport.(*http.Transport).Clone()
+	tSmallThumbs.TLSClientConfig = tlsConfig
+	tSmallThumbs.Proxy = proxy
+	ClientSmallThumbs = &http.Client{
+		Transport: tSmallThumbs,
+		Timeout:   time.Minute,
 	}
 }

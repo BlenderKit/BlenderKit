@@ -50,8 +50,7 @@ func BlockingFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := ClientUploads.Do(req)
 	if err != nil {
 		log.Println("PUT request failed", err)
 		http.Error(w, "PUT request failed", http.StatusInternalServerError)
@@ -106,7 +105,6 @@ func BlockingFileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", data.URL, nil)
 	if err != nil {
 		es := fmt.Sprintf("error creating request: %v", err)
@@ -117,7 +115,7 @@ func BlockingFileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Add("Authorization", "Bearer "+data.APIKey)
 
-	resp, err := client.Do(req)
+	resp, err := ClientDownloads.Do(req)
 	if err != nil {
 		es := fmt.Sprintf("error executing request: %v", err)
 		log.Print(es)
@@ -165,7 +163,6 @@ func BlockingRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := bytes.NewReader(data.JSON)
-	client := &http.Client{}
 	req, err := http.NewRequest(data.Method, data.URL, reqBody)
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
@@ -177,7 +174,7 @@ func BlockingRequestHandler(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set(key, value)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		log.Printf("Error making request: %v", err)
 		http.Error(w, "Request failed", http.StatusInternalServerError)
@@ -234,7 +231,6 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "wrappers/nonblocking_request")
 
-	client := &http.Client{}
 	reqBody := bytes.NewBuffer(data.JSON)
 	req, err := http.NewRequest(data.Method, data.URL, reqBody)
 	if err != nil {
@@ -247,7 +243,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 		req.Header.Add(key, value)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
