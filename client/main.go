@@ -167,7 +167,7 @@ func main() {
 
 	mux.HandleFunc("/comments/get_comments", GetCommentsHandler) // TODO: Rename this to FetchCommentsHandler - it is not getting local data, it is fetching!
 	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
-	//mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
+	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
 	//mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
 
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
@@ -401,6 +401,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
+// TODO: implement SearchData struct
 func doSearch(rJSON map[string]interface{}, data SearchData, taskID string) {
 	TasksMux.Lock()
 	task := NewTask(rJSON, data.AppID, taskID, "search")
@@ -691,13 +692,14 @@ type CategoriesData struct {
 // Fetch categories from the server: https://www.blenderkit.com/api/v1/categories/
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/categories_list
 func FetchCategories(data MinimalTaskData) {
+	url := *Server + "/api/v1/categories"
 	taskUUID := uuid.New().String()
 	task := NewTask(nil, data.AppID, taskUUID, "categories_update")
 	AddTaskCh <- task
 
 	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", *Server+"/api/v1/categories", nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
@@ -745,13 +747,14 @@ type DisclaimerData struct {
 // Fetch disclaimer from the server: https://www.blenderkit.com/api/v1/disclaimer/active/.
 // API documentation:  https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
 func FetchDisclaimer(data MinimalTaskData) {
+	url := *Server + "/api/v1/disclaimer/active/"
 	taskUUID := uuid.New().String()
 	task := NewTask(nil, data.AppID, taskUUID, "disclaimer")
 	AddTaskCh <- task
 
 	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", *Server+"/api/v1/disclaimer/active/", nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
@@ -839,13 +842,14 @@ type NotificationData struct {
 // Fetch unread notifications from the server: https://www.blenderkit.com/api/v1/notifications/unread/.
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
 func FetchUnreadNotifications(data MinimalTaskData) {
+	url := *Server + "/api/v1/notifications/unread/"
 	taskUUID := uuid.New().String()
 	task := NewTask(nil, data.AppID, taskUUID, "notifications")
 	AddTaskCh <- task
 
 	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", *Server+"/api/v1/notifications/unread/", nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
@@ -952,7 +956,6 @@ func FetchGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go FetchGravatarImage(data)
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -960,6 +963,13 @@ func FetchGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
 // It preferes to fetch the image from the server using the Avatar128 parameter,
 // but if it is not available, it tries to download it from Gravatar using gravatarHash.
 func FetchGravatarImage(data FetchGravatarData) {
+	var url string
+	if data.Avatar128 != "" {
+		url = *Server + data.Avatar128
+	} else {
+		url = fmt.Sprintf("https://www.gravatar.com/avatar/%v?d=404", data.GravatarHash)
+	}
+
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/fetch_gravatar_image")
 
@@ -980,13 +990,6 @@ func FetchGravatarImage(data FetchGravatarData) {
 			Result:  map[string]string{"gravatar_path": gravatarPath},
 		}
 		return
-	}
-
-	var url string
-	if data.Avatar128 != "" {
-		url = *Server + data.Avatar128
-	} else {
-		url = fmt.Sprintf("https://www.gravatar.com/avatar/%v?d=404", data.GravatarHash)
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -1044,12 +1047,13 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUserProfile(data MinimalTaskData) {
+	url := *Server + "/api/v1/me/"
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
 
 	headers := getHeaders(data.APIKey, *SystemID)
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", *Server+"/api/v1/me/", nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1096,10 +1100,10 @@ func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
 // GetRating is a function for fetching the rating of the asset.
 // Re-implements: file://daemon/daemon_ratings.py : get_rating()
 func GetRating(data GetRatingData) {
+	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/", *Server, data.AssetID)
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/get_rating")
 
-	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/", *Server, data.AssetID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1157,6 +1161,7 @@ func SendRatingHandler(w http.ResponseWriter, r *http.Request) {
 // SendRating is a function for sending the user's rating of the asset.
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_update
 func SendRating(data SendRatingData) {
+	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/%s/", *Server, data.AssetID, data.RatingType)
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/send_rating")
 
@@ -1167,7 +1172,6 @@ func SendRating(data SendRatingData) {
 		return
 	}
 
-	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/%s/", *Server, data.AssetID, data.RatingType)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1218,10 +1222,10 @@ func GetBookmarksHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetBookmarks is a function for fetching the user's bookmarks.
 func GetBookmarks(data MinimalTaskData) {
+	url := fmt.Sprintf("%s/api/v1/search/?query=bookmarks_rating:1", *Server)
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/get_bookmarks")
 
-	url := fmt.Sprintf("%s/api/v1/search/?query=bookmarks_rating:1", *Server)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1281,10 +1285,10 @@ func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
 //
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/comments_read
 func GetComments(data GetCommentsData) {
+	url := fmt.Sprintf("%s/api/v1/comments/assets-uuidasset/%s/", *Server, data.AssetID)
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/get_comments")
 
-	url := fmt.Sprintf("%s/api/v1/comments/assets-uuidasset/%s/", *Server, data.AssetID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1371,17 +1375,18 @@ type CommentPostData struct {
 //
 // API docs POST: https://www.blenderkit.com/api/v1/docs/#operation/comments_comment_create
 func CreateComment(data CreateCommentData) {
+	get_url := fmt.Sprintf("%s/api/v1/comments/asset-comment/%s/", *Server, data.AssetID)
+	post_url := fmt.Sprintf("%s/api/v1/comments/comment/", *Server)
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/create_comment")
 
-	headers := getHeaders(data.APIKey, *SystemID)
-	get_url := fmt.Sprintf("%s/api/v1/comments/asset-comment/%s/", *Server, data.AssetID)
 	req, err := http.NewRequest("GET", get_url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
+	headers := getHeaders(data.APIKey, *SystemID)
 	req.Header = headers
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -1421,7 +1426,6 @@ func CreateComment(data CreateCommentData) {
 		return
 	}
 
-	post_url := fmt.Sprintf("%s/api/v1/comments/comment/", *Server)
 	post_req, err := http.NewRequest("POST", post_url, bytes.NewBuffer(uploadDataJSON))
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1462,15 +1466,93 @@ func CreateComment(data CreateCommentData) {
 	})
 }
 
-type FeedbackCommentData struct {
+// FeedbackCommentTaskData is expected from the add-on.
+type FeedbackCommentTaskData struct {
 	AppID     int    `json:"app_id"`
 	APIKey    string `json:"api_key"`
 	AssetID   string `json:"asset_id"`
-	CommentID string `json:"comment_id"`
+	CommentID int    `json:"comment_id"`
+	Flag      string `json:"flag"`
+}
+
+// FeedbackCommentData is sent to the server.
+type FeedbackCommentData struct {
+	CommentID int    `json:"comment"`
 	Flag      string `json:"flag"`
 }
 
 func FeedbackCommentHandler(w http.ResponseWriter, r *http.Request) {
+	var data FeedbackCommentTaskData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	go FeedbackComment(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// FeedbackComment uploads flag on the comment to the server.
+// Flag is basically like/dislike but can be also a different flag.
+//
+// API docs: https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
+func FeedbackComment(data FeedbackCommentTaskData) {
+	url := fmt.Sprintf("%s/api/v1/comments/feedback/", *Server)
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/feedback_comment")
+
+	upload_data := FeedbackCommentData{
+		CommentID: data.CommentID,
+		Flag:      data.Flag,
+	}
+
+	JSON, err := json.Marshal(upload_data)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID)
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment feedback - %v: %v", resp.Status, url)}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "flag uploaded",
+		Result:  respData,
+	}
+	go GetComments(GetCommentsData{
+		AppID:   data.AppID,
+		APIKey:  data.APIKey,
+		AssetID: data.AssetID,
+	})
 }
 
 type MarkCommentPrivateData struct {
