@@ -187,14 +187,13 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 	}
 	defer file.Close()
 
-	client := &http.Client{}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
 
 	req.Header = getHeaders("", *SystemID) // download needs no API key in headers
-	resp, err := client.Do(req)
+	resp, err := ClientDownloads.Do(req)
 	if err != nil {
 		e := DeleteFile(filePath)
 		if e != nil {
@@ -316,7 +315,6 @@ func GetDownloadURL(data DownloadData) (bool, string, error) {
 
 	file, _ := GetResolutionFile(data.Files, data.Resolution)
 
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", file.DownloadURL, nil)
 	if err != nil {
 		return false, "", err
@@ -324,7 +322,7 @@ func GetDownloadURL(data DownloadData) (bool, string, error) {
 	req.Header = getHeaders(data.APIKey, *SystemID)
 	req.URL.RawQuery = reqData.Encode()
 
-	resp, err := client.Do(req)
+	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		return false, "", err
 	}
