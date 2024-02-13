@@ -34,7 +34,7 @@ class Task:
         self.status = status  # created / finished / error
         if result != None:
             self.result = result.copy()
-        else: # to be extra safe
+        else:  # to be extra safe
             print("result is None", self.task_type)
             self.result = {}
 

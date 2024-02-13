@@ -133,7 +133,9 @@ def upload_asset(upload_data, export_data, upload_set):
 
 
 ### PROFILES
-def fetch_gravatar_image(author_data): # TODO: require avatar128 and gravatarHash and refuse directly
+def fetch_gravatar_image(
+    author_data,
+):  # TODO: require avatar128 and gravatarHash and refuse directly
     """Fetch gravatar image for specified user. Find it on disk or download it from server."""
     data = {
         "app_id": os.getpid(),
