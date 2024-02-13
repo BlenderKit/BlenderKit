@@ -358,10 +358,10 @@ def blocking_file_upload(url: str, filepath: str) -> requests.Response:
 def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Response:
     """Upload file to server. This is a blocking wrapper, will not return until results are available."""
     data = {
+        "app_id": os.getpid(),
         "api_key": api_key,
         "url": url,
         "filepath": filepath,
-        "app_id": os.getpid(),
     }
     with requests.Session() as session:
         resp = session.get(

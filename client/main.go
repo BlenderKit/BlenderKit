@@ -174,7 +174,7 @@ func main() {
 
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
 	mux.HandleFunc("/wrappers/blocking_file_upload", BlockingFileUploadHandler)
-	//mux.HandleFunc("/wrappers/blocking_file_download", blockingFileDownloadHandler)
+	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
 	//mux.HandleFunc("/wrappers/blocking_request", blockingRequestHandler)
 	//mux.HandleFunc("/wrappers/nonblocking_request", nonblockingRequestHandler)
 
@@ -1761,4 +1761,100 @@ func BlockingFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	w.Write(respBody)
+}
+
+// BlockingFileDownloadTaskData is expected from the add-on.
+type BlockingFileDownloadTaskData struct {
+	AppID    int    `json:"app_id"`
+	APIKey   string `json:"api_key"`
+	URL      string `json:"url"`
+	Filepath string `json:"filepath"`
+}
+
+// BlockingFileDownloadHandler downloads file from a URL. It is a blocking call by design.
+// It does the download of a single file, and only then returns.
+func BlockingFileDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	var data BlockingFileDownloadTaskData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		log.Print(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	file, err := os.Create(data.Filepath)
+	if err != nil {
+		es := fmt.Sprintf("error creating file: %v", err)
+		log.Print(es)
+		http.Error(w, es, http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", data.URL, nil)
+	if err != nil {
+		es := fmt.Sprintf("error creating request: %v", err)
+		log.Print(es)
+		http.Error(w, es, http.StatusInternalServerError)
+		DeleteUnfinishedFile(data.Filepath)
+		return
+	}
+	req.Header.Add("Authorization", "Bearer "+data.APIKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		es := fmt.Sprintf("error executing request: %v", err)
+		log.Print(es)
+		http.Error(w, es, http.StatusInternalServerError)
+		DeleteUnfinishedFile(data.Filepath)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		es := fmt.Sprintf("server responded with status: %v", resp.Status)
+		log.Print(es)
+		http.Error(w, es, resp.StatusCode)
+		DeleteUnfinishedFile(data.Filepath)
+		return
+	}
+
+	written, err := io.Copy(file, resp.Body)
+	if err != nil {
+		es := fmt.Sprintf("error writing to file: %v", err)
+		log.Print(es)
+		http.Error(w, es, http.StatusInternalServerError)
+		DeleteUnfinishedFile(data.Filepath)
+		return
+	}
+
+	log.Printf("Downloaded %d bytes\n", written)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("File downloaded successfully"))
+}
+
+// DeleteUnfinishedFile deletes the specified file and its directory if empty.
+func DeleteUnfinishedFile(filePath string) {
+	err := os.Remove(filePath)
+	if err != nil {
+		log.Printf("Error removing file %v: %v", filePath, err)
+		return
+	}
+
+	assetDir := filepath.Dir(filePath)
+	dirContents, err := os.ReadDir(assetDir)
+	if err != nil {
+		log.Printf("Error reading directory %v: %v", assetDir, err)
+		return
+	}
+
+	if len(dirContents) == 0 {
+		err := os.Remove(assetDir)
+		if err != nil {
+			log.Printf("Error removing directory %v: %v", assetDir, err)
+		}
+	}
 }
