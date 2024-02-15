@@ -80,8 +80,8 @@ func init() {
 	TaskCancelCh = make(chan *TaskCancel, 100)
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
 
-	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)
-	ChanLog = log.New(os.Stdout, "<- ", log.LstdFlags)
+	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)   // Hexagon like BlenderKit logo
+	ChanLog = log.New(os.Stdout, "<- ", log.LstdFlags) // Same symbols as channel in Go
 }
 
 // Endless loop to handle channels
@@ -166,7 +166,7 @@ func main() {
 	mux.HandleFunc("/shutdown", shutdownHandler)
 	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
 	mux.HandleFunc("/report", reportHandler)
-	//mux.HandleFunc("/debug", debugHandler)
+	mux.HandleFunc("/debug", DebugNetworkHandler)
 
 	mux.HandleFunc("/cancel_download", CancelDownloadHandler)
 	mux.HandleFunc("/download_asset", downloadAssetHandler)
@@ -176,7 +176,6 @@ func main() {
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
 	mux.HandleFunc("/code_verifier", CodeVerifierHandler)
-	//mux.HandleFunc("/report_usages", reportUsagesHandler)
 
 	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
