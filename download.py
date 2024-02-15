@@ -122,7 +122,9 @@ def scene_save(context):
     if bpy.app.background:
         return
     check_unused()
-    report_data = get_asset_usages()
+    report_data = (
+        get_asset_usages()
+    )  # TODO: FIX OR REMOVE THIS (now returns empty dict all the time) https://github.com/BlenderKit/blenderkit/issues/1013
     if report_data != {}:
         daemon_lib.report_usages(report_data)
 
@@ -171,6 +173,8 @@ def scene_load(context):
     # and erase from scene linked files that aren't used in the scene.
 
 
+# TODO: FIX OR REMOVE THIS BROKEN FUNCTION - remove empty dict all the time
+# https://github.com/BlenderKit/blenderkit/issues/1013
 def get_asset_usages():
     """Report the usage of assets to the server."""
     sid = utils.get_scene_id()
