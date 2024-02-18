@@ -295,8 +295,8 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 // should return ['/Users/ag/blenderkit_data/models/kitten_0992088b-fb84-4c69-bb6e-426272970c8b/kitten_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend']
 func GetDownloadFilepaths(data DownloadData, filename string) []string {
 	filePaths := []string{}
-	filename = ServerToLocalFilename(filename, data.AssetData.Name)
-	assetFolderName := fmt.Sprintf("%s_%s", Slugify(data.AssetData.Name), data.AssetData.ID)
+	filename = ServerToLocalFilename(filename, data.DownloadAssetData.Name)
+	assetFolderName := fmt.Sprintf("%s_%s", Slugify(data.DownloadAssetData.Name), data.DownloadAssetData.ID)
 	for _, dir := range data.DownloadDirs {
 		assetDirPath := filepath.Join(dir, assetFolderName)
 		if _, err := os.Stat(assetDirPath); os.IsNotExist(err) {

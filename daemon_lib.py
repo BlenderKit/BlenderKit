@@ -121,15 +121,16 @@ def upload_asset(upload_data, export_data, upload_set):
     """Upload specified asset."""
     data = {
         "app_id": os.getpid(),
+        "api_key": bpy.context.preferences.addons["blenderkit"].preferences.api_key,
         "upload_data": upload_data,
         "export_data": export_data,
         "upload_set": upload_set,
     }
     with requests.Session() as session:
-        url = get_address() + "/upload_asset"
+        url = get_address() + "/asset/upload"
         bk_logger.debug(f"making a request to: {url}")
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
-        return resp.json()
+        return resp
 
 
 ### PROFILES
