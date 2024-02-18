@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -25,13 +26,17 @@ const (
 	WindowsPathLimit = 250
 
 	// PATHS
-	server_default   = "https://www.blenderkit.com"
-	gravatar_dirname = "bkit_g" // directory in safeTempDir() for gravatar images
+	server_default              = "https://www.blenderkit.com" // default address to production blenderkit server
+	gravatar_dirname            = "bkit_g"                     // directory in safeTempDir() for gravatar images
+	cleanfile_path              = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
+	upload_script_path          = "upload_bg.py"               // relative path to upload script in add-on directory
+	blenderkit_export_data_file = "data.json"                  // relative path to blenderkit export data file in add-on directory
 
 	// EMOJIS
 	EmoOK            = "✅"
 	EmoCancel        = "⛔"
 	EmoWarning       = "⚠️ " // Needs space at the end for proper alignment, not sure why.
+	EmoInfo          = "ℹ️"
 	EmoError         = "❌"
 	EmoNetwork       = "📡"
 	EmoNewConnection = "🤝"
@@ -59,6 +64,7 @@ var (
 	TasksMux             sync.Mutex
 	AddTaskCh            chan *Task
 	TaskProgressUpdateCh chan *TaskProgressUpdate
+	TaskMessageCh        chan *TaskMessageUpdate
 	TaskFinishCh         chan *TaskFinish
 	TaskErrorCh          chan *TaskError
 	TaskCancelCh         chan *TaskCancel
@@ -73,9 +79,11 @@ func init() {
 	Tasks = make(map[int]map[string]*Task)
 	AddTaskCh = make(chan *Task, 100)
 	TaskProgressUpdateCh = make(chan *TaskProgressUpdate, 1000)
+	TaskMessageCh = make(chan *TaskMessageUpdate, 1000)
 	TaskFinishCh = make(chan *TaskFinish, 100)
-	TaskErrorCh = make(chan *TaskError, 100)
 	TaskCancelCh = make(chan *TaskCancel, 100)
+	TaskErrorCh = make(chan *TaskError, 100)
+
 	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
 
 	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)   // Hexagon like BlenderKit logo
@@ -97,6 +105,12 @@ func handleChannels() {
 			if u.Message != "" {
 				task.Message = u.Message
 			}
+			TasksMux.Unlock()
+		case m := <-TaskMessageCh:
+			TasksMux.Lock()
+			task := Tasks[m.AppID][m.TaskID]
+			task.Message = m.Message
+			ChanLog.Printf("%s %s (%s): %s\n", EmoInfo, task.TaskType, task.TaskID, m.Message)
 			TasksMux.Unlock()
 		case f := <-TaskFinishCh:
 			TasksMux.Lock()
@@ -297,6 +311,13 @@ type TaskProgressUpdate struct {
 	Message  string
 }
 
+// TaskMessageUpdate is a struct for updating the message of a task through a channel.
+type TaskMessageUpdate struct {
+	AppID   int
+	TaskID  string
+	Message string
+}
+
 // TaskError is a struct for reporting an error in a task through a channel.
 // Error will be converted to string and stored in the task's Message field.
 type TaskError struct {
@@ -361,9 +382,32 @@ func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
 	}
 }
 
+type ReportData struct {
+	AppID int `json:"app_id"` // AppID is PID of Blender in which add-on runs
+}
+
 func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
-	BKLog.Printf("%s Going to shutdown...", EmoDisconnecting)
-	go delayedExit(1)
+	var data ReportData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	BKLog.Printf("%s Add-on disconnected: %d", EmoDisconnecting, data.AppID)
+
+	TasksMux.Lock()
+	if Tasks[data.AppID] != nil {
+		for _, task := range Tasks[data.AppID] {
+			task.Cancel()
+		}
+		delete(Tasks, data.AppID)
+	}
+	TasksMux.Unlock()
+
+	if len(Tasks) == 0 {
+		BKLog.Printf("%s Add-on No add-ons left, shutting down...", EmoWarning)
+		go delayedExit(1)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -652,12 +696,14 @@ type PREFS struct {
 	APIKeyTimeout int    `json:"api_key_timeout"`
 	SceneID       string `json:"scene_id"`
 	AppID         int    `json:"app_id"`
-	BinaryPath    string `json:"binary_path"`
 	SystemID      string `json:"system_id"`
-	GlobalDir     string `json:"global_dir"`
-	ProjectSubdir string `json:"project_subdir"`
 	UnpackFiles   bool   `json:"unpack_files"`
 	Resolution    string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
+	// PATHS
+	ProjectSubdir string `json:"project_subdir"`
+	GlobalDir     string `json:"global_dir"`
+	BinaryPath    string `json:"binary_path"`
+	AddonDir      string `json:"addon_dir"`
 }
 
 type File struct {
@@ -1703,33 +1749,6 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	}
 }
 
-/*
-PYTHON:
-
-
-UPLOAD_SET=['METADATA', 'THUMBNAIL', 'MAINFILE']
-
-
-
-require_by_api={
-    "assetBaseId": "79bcc37c-601a-4e27-a603-d9eb650d651e",
-    "name": "string",
-    "description": "string",
-    "assetType": "string",
-    "category": "string",
-    "adult": true,
-    "isFree": true,
-    "tags": ["string"],
-	"license": "royalty_free",
-	"parameters": [{ }],
-	"sourceAppName": "string",
-	"sourceAppVersion": "string",
-	"addonVersion": "string",
-	"verificationStatus": "uploading",
-	"isPrivate": true
-	}
-*/
-
 type AssetParameterData struct {
 	Parametertype string `json:"parameterType"`
 	Value         string `json:"value"`
@@ -1747,6 +1766,7 @@ type AssetUploadExportData struct {
 	SourceFilePath    string   `json:"source_filepath"`
 	BinaryPath        string   `json:"binary_path"`
 	DebugValue        int      `json:"debug_value"`
+	HDRFilepath       string   `json:"hdr_filepath,omitempty"`
 }
 
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
@@ -1780,29 +1800,33 @@ type AssetsCreateResponse struct {
 // https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
 // https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 type AssetUploadData struct {
-	AddonVersion       string      `json:"addonVersion"`
-	AssetType          string      `json:"assetType"`
-	Category           string      `json:"category"`
-	Description        string      `json:"description"`
-	DisplayName        string      `json:"displayName"`
-	IsFree             bool        `json:"isFree"`
-	IsPrivate          bool        `json:"isPrivate"`
-	License            string      `json:"license"`
-	Name               string      `json:"name"`
-	Parameters         interface{} `json:"parameters"`
-	SourceAppName      string      `json:"sourceAppName"`
-	SourceAppVersion   string      `json:"sourceAppVersion"`
-	Tags               []string    `json:"tags"`
-	VerificationStatus string      `json:"verificationStatus,omitempty"`
+	AddonVersion     string      `json:"addonVersion"`
+	AssetType        string      `json:"assetType"`
+	Category         string      `json:"category"`
+	Description      string      `json:"description"`
+	DisplayName      string      `json:"displayName"`
+	IsFree           bool        `json:"isFree"`
+	IsPrivate        bool        `json:"isPrivate"`
+	License          string      `json:"license"`
+	Name             string      `json:"name"`
+	Parameters       interface{} `json:"parameters"`
+	SourceAppName    string      `json:"sourceAppName"`
+	SourceAppVersion string      `json:"sourceAppVersion"`
+	Tags             []string    `json:"tags"`
+
+	// Not required
+	VerificationStatus string `json:"verificationStatus,omitempty"`
+	AssetBaseID        string `json:"assetBaseId,omitempty"`
+	ID                 string `json:"id,omitempty"`
 }
 
 // AssetUploadTaskData is expected from the add-on.
 type AssetUploadRequestData struct {
-	AppID      int                   `json:"app_id"`
-	ApiKey     string                `json:"api_key"`
-	UploadData AssetUploadData       `json:"upload_data"`
-	ExportData AssetUploadExportData `json:"export_data"`
-	UploadSet  []string              `json:"upload_set"`
+	AppID       int                   `json:"app_id"`
+	Preferences PREFS                 `json:"PREFS"`
+	UploadData  AssetUploadData       `json:"upload_data"`
+	ExportData  AssetUploadExportData `json:"export_data"`
+	UploadSet   []string              `json:"upload_set"`
 }
 
 type AssetUploadResultData struct {
@@ -1825,13 +1849,27 @@ func UploadAsset(data AssetUploadRequestData) {
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "asset_upload")
 
+	isMainFileUpload, isMetadataUpload, isThumbnailUpload := false, false, false
+	for _, file := range data.UploadSet {
+		if file == "MAINFILE" {
+			isMainFileUpload = true
+		}
+		if file == "METADATA" {
+			isMetadataUpload = true
+		}
+		if file == "THUMBNAIL" {
+			isThumbnailUpload = true
+		}
+	}
+	BKLog.Print("  UploadAsset: isMainFileUpload", isMainFileUpload, "isMetadataUpload", isMetadataUpload, "isThumbnailUpload", isThumbnailUpload)
+
 	// 1. METADATA UPLOAD
 	var metadataResp *AssetsCreateResponse
 	var err error
 	metadataID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, metadataID, "asset_metadata_upload")
+
 	if data.ExportData.AssetBaseID == "" { // 1.A NEW ASSET
-		fmt.Println("CREATING NEW ASSET METADATA")
 		metadataResp, err = CreateMetadata(data)
 		if err != nil {
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1839,14 +1877,10 @@ func UploadAsset(data AssetUploadRequestData) {
 			return
 		}
 	} else { // 1.B UPDATE OF ASSET
-		fmt.Println("UPDATING ASSET METADATA")
-		for _, file := range data.UploadSet {
-			if file == "MAINFILE" { // UPDATE OF MAINFILE -> DEVALIDATE ASSET
-				log.Println("DEVALIDATING ASSET")
-				data.UploadData.VerificationStatus = "uploading"
-				break
-			}
+		if isMainFileUpload { // UPDATE OF MAINFILE -> DEVALIDATE ASSET
+			data.UploadData.VerificationStatus = "uploading"
 		}
+
 		metadataResp, err = UpdateMetadata(data)
 		if err != nil {
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1857,18 +1891,323 @@ func UploadAsset(data AssetUploadRequestData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: metadataID, Result: metadataResp}
 
 	// 2. PACKING
+	filesToUpload, err := PackBlendFile(data, *metadataResp, isMainFileUpload)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
 
 	// 3. UPLOAD
+	err = upload_asset_data(filesToUpload, data, *metadataResp, isMainFileUpload)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
+	}
 
 	// 4. COMPLETE
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp}
+}
+
+type PackingData struct {
+	ExportData AssetUploadExportData `json:"export_data"`
+	UploadData AssetsCreateResponse  `json:"upload_data"`
+	UploadSet  []string              `json:"upload_set"`
+}
+
+type UploadFile struct {
+	Type     string
+	Index    int
+	FilePath string
+}
+
+func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool) error {
+	for _, file := range files {
+		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
+		if err != nil {
+			return err
+		}
+
+		err = uploadFileToS3(file, data, upload_info_json)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Check the status if only thumbnail or metadata gets reuploaded.
+	// the logic is that on hold assets might be switched to uploaded state for validators,
+	// if the asset was put on hold because of thumbnail only.
+	set_uploaded_status := false
+	if !isMainFileUpload {
+		if metadataResp.VerificationStatus == "on_hold" {
+			set_uploaded_status = true
+		}
+		if metadataResp.VerificationStatus == "deleted" {
+			set_uploaded_status = true
+		}
+		if metadataResp.VerificationStatus == "rejected" {
+			set_uploaded_status = true
+		}
+	}
+
+	if isMainFileUpload {
+		set_uploaded_status = true
+	}
+
+	if !set_uploaded_status {
+		return nil
+	}
+
+	// mark on server as uploaded
+	confirm_data := map[string]string{"verificationStatus": "uploaded"}
+	confirm_data_json, err := json.Marshal(confirm_data)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, metadataResp.ID)
+	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(confirm_data_json))
+	if err != nil {
+		return err
+	}
+	req.Header = getHeaders(data.Preferences.APIKey, *SystemID)
+
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+		return err
+	}
+
+	return nil
+}
+
+type S3UploadInfoResponse struct {
+	AssetID          string `json:"assetId"`
+	FilePath         string `json:"filePath"`
+	FileType         string `json:"fileType"`
+	ID               string `json:"id"`
+	OriginalFilename string `json:"originalFilename"`
+	S3UploadURL      string `json:"s3UploadUrl"`
+	UploadDoneURL    string `json:"uploadDoneUrl"`
+	UploadURL        string `json:"uploadUrl"`
+}
+
+func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse) (S3UploadInfoResponse, error) {
+	var resp_JSON S3UploadInfoResponse
+	upload_info := map[string]interface{}{
+		"assetId":          metadataResp.ID,
+		"fileType":         file.Type,
+		"fileIndex":        file.Index,
+		"originalFilename": filepath.Base(file.FilePath),
+	}
+	upload_info_json, err := json.Marshal(upload_info)
+	if err != nil {
+		return resp_JSON, err
+	}
+
+	url := fmt.Sprintf("%s/api/v1/uploads/", *Server)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(upload_info_json))
+	if err != nil {
+		return resp_JSON, err
+	}
+	req.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		return resp_JSON, err
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		err = fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+		return resp_JSON, err
+	}
+
+	resp_json, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp_JSON, err
+	}
+
+	err = json.Unmarshal(resp_json, &resp_JSON)
+	if err != nil {
+		return resp_JSON, err
+	}
+
+	return resp_JSON, nil
+}
+
+func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3UploadInfoResponse) error {
+	// First, get the file size
+	fileInfo, err := os.Stat(file.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+	fileSize := fileInfo.Size()
+
+	// Open the file
+	fileContent, err := os.Open(file.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer fileContent.Close()
+
+	// Create a new HTTP request for the upload
+	req, err := http.NewRequest("PUT", uploadInfo.S3UploadURL, fileContent)
+	if err != nil {
+		return fmt.Errorf("failed to create S3 upload request: %w", err)
+	}
+
+	// Set the Content-Type header
+	// You might want to set this based on the file's actual type if you know it
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	// Set the Content-Length header
+	req.ContentLength = fileSize
+
+	// Perform the upload
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to upload to S3: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("S3 upload failed with status code: %d", resp.StatusCode)
+	}
+
+	// UPLOAD VALIDATION
+	fmt.Println("Validating upload with server.")
+
+	valReq, err := http.NewRequest("POST", uploadInfo.UploadDoneURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create upload validation request: %w", err)
+	}
+	valReq.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID)
+
+	valResp, err := ClientAPI.Do(valReq)
+	if err != nil {
+		return fmt.Errorf("failed to validate upload with server: %w", err)
+	}
+	defer valResp.Body.Close()
+
+	if valResp.StatusCode >= 400 {
+		return fmt.Errorf("server upload validation failed with status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, isMainFileUpload bool) ([]UploadFile, error) {
+	files := []UploadFile{}
+	addon_path := data.Preferences.AddonDir
+	blender_user_scripts_path := filepath.Dir(addon_path)
+	script_path := filepath.Join(addon_path, "upload_bg.py")
+	cleanfile_path := filepath.Join(addon_path, cleanfile_path)
+
+	upload_data := metadata
+	export_data := data.ExportData
+	upload_set := data.UploadSet
+
+	if export_data.AssetBaseID == "" {
+		export_data.AssetBaseID = metadata.AssetBaseID
+		export_data.ID = metadata.ID
+	}
+	upload_data.AssetBaseID = export_data.AssetBaseID
+	upload_data.ID = export_data.ID
+
+	var fpath string
+	if isMainFileUpload { // This should be a separate function!
+		if upload_data.AssetType == "hdr" {
+			fpath = export_data.HDRFilepath
+		} else {
+			fpath = filepath.Join(export_data.TempDir, export_data.AssetBaseID+".blend")
+			data := PackingData{
+				ExportData: export_data,
+				UploadData: upload_data,
+				UploadSet:  upload_set,
+			}
+			datafile := filepath.Join(export_data.TempDir, blenderkit_export_data_file)
+			log.Println("opening file @ PackBlendFile()")
+
+			JSON, err := json.Marshal(data)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = os.WriteFile(datafile, JSON, 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println("Running asset packing")
+			cmd := exec.Command(
+				export_data.BinaryPath,
+				"--background",
+				"--factory-startup", // disables user preferences, addons, etc.
+				"--addons",
+				"blenderkit",
+				"-noaudio",
+				cleanfile_path,
+				"--python",
+				script_path,
+				"--",
+				datafile,
+			)
+
+			cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=\"%v\"", blender_user_scripts_path))
+			out, err := cmd.CombinedOutput()
+			fmt.Println("PACKING OUTPUT:", string(out))
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					exitCode := exitErr.ExitCode()
+					return files, fmt.Errorf("command exited with code %d\nOutput: %s", exitCode, out)
+				} else {
+					return files, fmt.Errorf("command execution failed: %v\nOutput: %s", err, out)
+				}
+			}
+		}
+	}
+
+	exists, _, _ := FileExists(fpath)
+	if !exists {
+		return files, fmt.Errorf("packed file (%s) does not exist, please try manual packing first", fpath)
+	}
+
+	for _, filetype := range upload_set {
+		if filetype == "THUMBNAIL" {
+			file := UploadFile{
+				Type:     "thumbnail",
+				Index:    0,
+				FilePath: export_data.ThumbnailPath,
+			}
+			files = append(files, file)
+			continue
+		}
+
+		if filetype == "MAINFILE" {
+			file := UploadFile{
+				Type:     "blend",
+				Index:    0,
+				FilePath: fpath,
+			}
+			files = append(files, file)
+			continue
+		}
+
+	}
+
+	return files, nil
 }
 
 // CreateMetadata creates metadata on the server, so it can be saved inside the current file.
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
 func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
-	headers := getHeaders(data.ApiKey, "")
+	headers := getHeaders(data.Preferences.APIKey, "")
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
@@ -1909,7 +2248,7 @@ func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) 
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
-	headers := getHeaders(data.ApiKey, "")
+	headers := getHeaders(data.Preferences.APIKey, "")
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {

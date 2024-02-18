@@ -390,9 +390,10 @@ def get_scene_id():
 def get_preferences_as_dict():
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     prefs = {
-        # SYSTEM STUFF
+        # SYSTEM STUFF - TODO: is this needed in here? (Why to save this into JSON?) But is used for sending data to client.
         "debug_value": bpy.app.debug_value,
         "binary_path": bpy.app.binary_path,
+        "addon_dir": os.path.dirname(__file__),
         "system_id": user_preferences.system_id,
         "app_id": os.getpid(),
         # STATISTICS

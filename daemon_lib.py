@@ -8,7 +8,7 @@ from os import environ, path
 import bpy
 import requests
 
-from . import global_vars, reports
+from . import global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ def upload_asset(upload_data, export_data, upload_set):
     """Upload specified asset."""
     data = {
         "app_id": os.getpid(),
-        "api_key": bpy.context.preferences.addons["blenderkit"].preferences.api_key,
+        "PREFS": utils.get_preferences_as_dict(),
         "upload_data": upload_data,
         "export_data": export_data,
         "upload_set": upload_set,
