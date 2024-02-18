@@ -169,7 +169,7 @@ func main() {
 	mux.HandleFunc("/cancel_download", CancelDownloadHandler)
 	mux.HandleFunc("/download_asset", downloadAssetHandler)
 	mux.HandleFunc("/search_asset", searchHandler)
-	//mux.HandleFunc("/upload_asset", uploadAsset)
+	mux.HandleFunc("/asset/upload", AssetUploadHandler)
 
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
@@ -666,7 +666,7 @@ type File struct {
 	FileType    string `json:"fileType"`
 }
 
-type AssetData struct {
+type DownloadAssetData struct {
 	Name                 string `json:"name"`
 	ID                   string `json:"id"`
 	AvailableResolutions []int  `json:"available_resolutions"`
@@ -674,10 +674,10 @@ type AssetData struct {
 }
 
 type DownloadData struct {
-	AppID        int      `json:"app_id"`
-	DownloadDirs []string `json:"download_dirs"`
-	AssetData    `json:"asset_data"`
-	PREFS        `json:"PREFS"`
+	AppID             int      `json:"app_id"`
+	DownloadDirs      []string `json:"download_dirs"`
+	DownloadAssetData `json:"asset_data"`
+	PREFS             `json:"PREFS"`
 }
 
 type Category struct {
@@ -1701,4 +1701,276 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 		Message: "notification marked as read",
 		Result:  respData,
 	}
+}
+
+/*
+PYTHON:
+
+
+UPLOAD_SET=['METADATA', 'THUMBNAIL', 'MAINFILE']
+
+
+
+require_by_api={
+    "assetBaseId": "79bcc37c-601a-4e27-a603-d9eb650d651e",
+    "name": "string",
+    "description": "string",
+    "assetType": "string",
+    "category": "string",
+    "adult": true,
+    "isFree": true,
+    "tags": ["string"],
+	"license": "royalty_free",
+	"parameters": [{ }],
+	"sourceAppName": "string",
+	"sourceAppVersion": "string",
+	"addonVersion": "string",
+	"verificationStatus": "uploading",
+	"isPrivate": true
+	}
+*/
+
+type AssetParameterData struct {
+	Parametertype string `json:"parameterType"`
+	Value         string `json:"value"`
+}
+
+type AssetUploadExportData struct {
+	Models            []string `json:"models"`
+	ThumbnailPath     string   `json:"thumbnail_path"`
+	AssetBaseID       string   `json:"assetBaseId"`
+	ID                string   `json:"id"`
+	EvalPathComputing string   `json:"eval_path_computing"`
+	EvalPathState     string   `json:"eval_path_state"`
+	EvalPath          string   `json:"eval_path"`
+	TempDir           string   `json:"temp_dir"`
+	SourceFilePath    string   `json:"source_filepath"`
+	BinaryPath        string   `json:"binary_path"`
+	DebugValue        int      `json:"debug_value"`
+}
+
+// Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
+// API docs:
+// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
+// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+type AssetsCreateResponse struct {
+	AddonVersion       string      `json:"addonVersion"`
+	Adult              bool        `json:"adult"`
+	AssetBaseID        string      `json:"assetBaseId"`
+	AssetType          string      `json:"assetType"`
+	Category           string      `json:"category"`
+	Description        string      `json:"description"`
+	DisplayName        string      `json:"displayName"`
+	ID                 string      `json:"id"`
+	IsFree             bool        `json:"isFree"`
+	IsPrivate          bool        `json:"isPrivate"`
+	License            string      `json:"license"`
+	Name               string      `json:"name"`
+	Parameters         interface{} `json:"parameters"`
+	SourceAppName      string      `json:"sourceAppName"`
+	SourceAppVersion   string      `json:"sourceAppVersion"`
+	Tags               []string    `json:"tags"`
+	URL                string      `json:"url"`
+	VerificationStatus string      `json:"verificationStatus"`
+	VersionNumber      string      `json:"versionNumber"`
+}
+
+// AssetUploadTaskData is expected from the add-on. Used to create/update metadata on asset.
+// API docs:
+// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
+// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+type AssetUploadData struct {
+	AddonVersion       string      `json:"addonVersion"`
+	AssetType          string      `json:"assetType"`
+	Category           string      `json:"category"`
+	Description        string      `json:"description"`
+	DisplayName        string      `json:"displayName"`
+	IsFree             bool        `json:"isFree"`
+	IsPrivate          bool        `json:"isPrivate"`
+	License            string      `json:"license"`
+	Name               string      `json:"name"`
+	Parameters         interface{} `json:"parameters"`
+	SourceAppName      string      `json:"sourceAppName"`
+	SourceAppVersion   string      `json:"sourceAppVersion"`
+	Tags               []string    `json:"tags"`
+	VerificationStatus string      `json:"verificationStatus,omitempty"`
+}
+
+// AssetUploadTaskData is expected from the add-on.
+type AssetUploadRequestData struct {
+	AppID      int                   `json:"app_id"`
+	ApiKey     string                `json:"api_key"`
+	UploadData AssetUploadData       `json:"upload_data"`
+	ExportData AssetUploadExportData `json:"export_data"`
+	UploadSet  []string              `json:"upload_set"`
+}
+
+type AssetUploadResultData struct {
+}
+
+func AssetUploadHandler(w http.ResponseWriter, r *http.Request) {
+	var data AssetUploadRequestData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+	go UploadAsset(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+func UploadAsset(data AssetUploadRequestData) {
+	taskID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "asset_upload")
+
+	// 1. METADATA UPLOAD
+	var metadataResp *AssetsCreateResponse
+	var err error
+	metadataID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, metadataID, "asset_metadata_upload")
+	if data.ExportData.AssetBaseID == "" { // 1.A NEW ASSET
+		fmt.Println("CREATING NEW ASSET METADATA")
+		metadataResp, err = CreateMetadata(data)
+		if err != nil {
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err}
+			return
+		}
+	} else { // 1.B UPDATE OF ASSET
+		fmt.Println("UPDATING ASSET METADATA")
+		for _, file := range data.UploadSet {
+			if file == "MAINFILE" { // UPDATE OF MAINFILE -> DEVALIDATE ASSET
+				log.Println("DEVALIDATING ASSET")
+				data.UploadData.VerificationStatus = "uploading"
+				break
+			}
+		}
+		metadataResp, err = UpdateMetadata(data)
+		if err != nil {
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err}
+			return
+		}
+	}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: metadataID, Result: metadataResp}
+
+	// 2. PACKING
+
+	// 3. UPLOAD
+
+	// 4. COMPLETE
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp}
+}
+
+// CreateMetadata creates metadata on the server, so it can be saved inside the current file.
+// API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
+func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
+	headers := getHeaders(data.ApiKey, "")
+
+	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("parameters is not a map[string]interface{}")
+	}
+	data.UploadData.Parameters = DictToParams(parameters)
+
+	JSON, err := json.Marshal(data.UploadData)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header = headers
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("error creating asset - %v: %v", resp.Status, url)
+	}
+
+	respData := new(AssetsCreateResponse)
+	if err := json.NewDecoder(resp.Body).Decode(respData); err != nil {
+		return nil, err
+	}
+
+	return respData, nil
+}
+
+// UploadMetadata uploads metadata to the server, so it can be saved inside the current file.
+// API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
+	headers := getHeaders(data.ApiKey, "")
+
+	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("parameters is not a map[string]interface{}")
+	}
+	data.UploadData.Parameters = DictToParams(parameters)
+
+	JSON, err := json.Marshal(data.UploadData)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(JSON))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header = headers
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error updating asset - %v: %v", resp.Status, url)
+	}
+
+	respData := new(AssetsCreateResponse)
+	if err := json.NewDecoder(resp.Body).Decode(respData); err != nil {
+		return nil, err
+	}
+
+	return respData, nil
+}
+
+// DictToParams (in Python terminology) converts a map of inputs into a slice of parameter objects.
+// This is used to convert the parameters from the add-on to the format expected by the API.
+// e.g. {"a": "1", "b": "2"} -> [{"parameterType": "a", "value": "1"}, {"parameterType": "b", "value": "2"}]
+func DictToParams(inputs map[string]interface{}) []map[string]string {
+	parameters := make([]map[string]string, 0)
+	for k, v := range inputs {
+		var value string
+		switch v := v.(type) {
+		case []string:
+			for idx, s := range v {
+				value += s
+				if idx < len(v)-1 {
+					value += ","
+				}
+			}
+		case bool:
+			value = fmt.Sprintf("%t", v)
+		default:
+			value = fmt.Sprintf("%v", v)
+		}
+		param := map[string]string{
+			"parameterType": k,
+			"value":         value,
+		}
+		parameters = append(parameters, param)
+	}
+	return parameters
 }
