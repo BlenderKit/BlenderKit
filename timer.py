@@ -328,12 +328,6 @@ def on_startup_daemon_online_timer():
     if refresh_needed:  # called for new API token, lets wait for a while
         return 1
 
-    if (
-        preferences.api_key != ""
-    ):  # TODO: this could be started from daemon automatically?
-        daemon_lib.get_user_profile(preferences.api_key)
-        daemon_lib.get_bookmarks()
-
     if preferences.show_on_start:
         search.search()
 
