@@ -38,6 +38,7 @@ from . import (
     autothumb,
     categories,
     daemon_lib,
+    daemon_tasks,
     global_vars,
     image_utils,
     overrides,
@@ -47,7 +48,6 @@ from . import (
     utils,
     version_checker,
 )
-from . import daemon_tasks
 
 
 NAME_MINIMUM = 3

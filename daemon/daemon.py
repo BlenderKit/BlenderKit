@@ -43,9 +43,10 @@ import daemon_oauth
 import daemon_profiles
 import daemon_ratings
 import daemon_search
-import daemon_tasks
 import daemon_uploads
 import daemon_utils
+
+import daemon_tasks
 
 
 PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]

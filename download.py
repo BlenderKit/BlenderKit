@@ -25,6 +25,7 @@ import traceback
 from . import (
     append_link,
     daemon_lib,
+    daemon_tasks,
     global_vars,
     paths,
     reports,
@@ -34,7 +35,6 @@ from . import (
     ui_panels,
     utils,
 )
-from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)

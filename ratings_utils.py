@@ -29,8 +29,7 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import daemon_lib, global_vars, icons, reports, tasks_queue, utils
-from . import daemon_tasks
+from . import daemon_lib, daemon_tasks, global_vars, icons, reports, tasks_queue, utils
 
 
 bk_logger = logging.getLogger(__name__)
