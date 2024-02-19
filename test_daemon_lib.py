@@ -8,18 +8,17 @@ import requests
 
 from blenderkit import daemon_lib, download, global_vars, paths, utils
 
-
 ### DAEMON IS NOT RUNNING ###
 
 
-class Test01DaemonNotRunning(unittest.TestCase):
-    def test01_daemon_not_running(self):
-        """Tests run in background (bpy.app.background == True), so daemon is not started during registration.
+class Test01ClientNotRunning(unittest.TestCase):
+    def test01_client_not_running(self):
+        """Tests run in background (bpy.app.background == True), so blednerkit-client is not started during registration.
         Also the daemon_communication_timer() and all other timers are not registered.
-        So we expect daemon to be not running.
+        So we expect blenderkit-client to be not running.
         """
         with requests.Session() as session:
-            alive, pid = daemon_lib.daemon_is_alive(session)
+            alive, pid = daemon_lib.client_is_responding(session)
             self.assertFalse(alive)
             self.assertIsInstance(alive, bool)
             self.assertIsInstance(pid, str)
@@ -28,7 +27,7 @@ class Test01DaemonNotRunning(unittest.TestCase):
         app_id = os.getpid()
         try:
             daemon_lib.get_reports(app_id)
-            self.fail("got report but daemon should be offline")
+            self.fail("got report but blenderkit-client should be offline")
         except requests.exceptions.ConnectionError as err:
             type(err)
             return
@@ -36,22 +35,22 @@ class Test01DaemonNotRunning(unittest.TestCase):
             self.fail(f"expected requests.exceptions.ConnectionError, got {err}")
 
 
-### DAEMON IS RUNNING ###
+### CLIENT IS RUNNING ###
 
 
-class Test02DaemonRunning(unittest.TestCase):
+class Test02ClientRunning(unittest.TestCase):
     def test01_start_daemon_server(self):
-        daemon_lib.start_daemon_server()
+        daemon_lib.client_is_responding()
         with requests.Session() as session:
             for i in range(10):
                 time.sleep(i * 0.5)
-                alive, _ = daemon_lib.daemon_is_alive(session)
+                alive, _ = daemon_lib.client_is_responding(session)
                 if alive == True:
                     break
             self.assertTrue(alive)
 
 
-class Test03DaemonUtilFunctions(unittest.TestCase):
+class Test03ClientUtilFunctions(unittest.TestCase):
     def test_get_port(self):
         ports = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
         self.assertIn(daemon_lib.get_port(), ports)
@@ -64,11 +63,11 @@ class Test03DaemonUtilFunctions(unittest.TestCase):
         self.assertEqual(parsed.port, int(daemon_lib.get_port()))
 
     def test_daemon_directory_path(self):
-        dir_path = daemon_lib.get_daemon_directory_path()
+        dir_path = daemon_lib.get_client_directory()
         self.assertTrue(os.path.exists(dir_path))
 
 
-class Test04GetReportsDaemonRunning(unittest.TestCase):
+class Test04GetReportsClientRunning(unittest.TestCase):
     def test_get_reports_running(self):
         """Get reports for current Blender PID (app_id)."""
         app_id = os.getpid()
@@ -209,15 +208,15 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
         self._download_asset(self.assets_to_download[8])
 
 
-### DAEMON IS NOT RUNNING ###
+### CLIENT IS NOT RUNNING ###
 
 
-class Test99DaemonStopped(unittest.TestCase):
-    def test_kill_daemon_server(self):
-        daemon_lib.kill_daemon_server()
+class Test99ClientStopped(unittest.TestCase):
+    def test_shutdown_client(self):
+        daemon_lib.shutdown_client()
         with requests.Session() as session:
             for _ in range(5):
-                alive, _ = daemon_lib.daemon_is_alive(session)
+                alive, _ = daemon_lib.client_is_responding(session)
                 if alive == False:
                     break
                 time.sleep(1)

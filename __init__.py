@@ -2283,7 +2283,9 @@ In this case you should also set path to your system CA bundle containing proxy'
         globdir_row.label(text=f"Global directory: {self.global_dir}")
         globdir_row.enabled = False
         dlog_row = layout.row()
-        dlog_row.label(text=f"Daemon log: {daemon_lib.get_daemon_log_path()}")
+        dlog_row.label(
+            text=f"BlenderKit-client log: {daemon_lib.get_client_log_path()}"
+        )
         dlog_row.enabled = False
         tmpdir_row = layout.row()
         tmpdir_row.label(text=f"Temp directory: {paths.get_temp_dir()}")

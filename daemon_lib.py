@@ -2,8 +2,8 @@ import logging
 import os
 import platform
 import subprocess
-import sys
-from os import environ, path
+import shutil
+from os import path
 
 import bpy
 import requests
@@ -17,12 +17,12 @@ TIMEOUT = (0.1, 1)
 
 
 def get_address() -> str:
-    """Get address of the daemon."""
+    """Get address of the blenderkit-client."""
     return f"http://127.0.0.1:{get_port()}"
 
 
 def get_port() -> str:
-    """Get the most probable port of currently running daemon.
+    """Get the most probable port of currently running blenderkit-client.
     After add-on registration and if all goes well, the port is the same as
     """
     return global_vars.DAEMON_PORTS[0]
@@ -36,25 +36,14 @@ def reorder_ports(port: str):
     )
 
 
-def get_daemon_directory_path() -> str:
-    """Get path to daemon directory in blenderkit_data directory."""
-    global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
-    directory = path.join(global_dir, "daemon")
-    return path.abspath(directory)
-
-
-def get_daemon_log_path() -> str:
-    """Get path to daemon log file in blenderkit_data directory."""
-    log_path = path.join(get_daemon_directory_path(), f"daemon-{get_port()}.log")
-    return path.abspath(log_path)
-
-
 def get_reports(app_id: str, api_key=""):
     """Get reports for all tasks of app_id Blender instance at once.
     If few last calls failed, then try to get reports also from other than default ports.
     """
     data = {"app_id": app_id, "api_key": api_key}
-    if global_vars.DAEMON_FAILED_REPORTS < 10:  # on 10, there is second daemon start
+    if (
+        global_vars.DAEMON_FAILED_REPORTS < 10
+    ):  # on 10, there is second blenderkit-client start
         url = f"{get_address()}/report"
         report = request_report(url, data)
         return report
@@ -458,8 +447,8 @@ def refresh_token(refresh_token, old_api_key):
         return resp
 
 
-def daemon_is_alive(session: requests.Session) -> tuple[bool, str]:
-    """Check whether daemon is responding."""
+def client_is_responding(session: requests.Session) -> tuple[bool, str]:
+    """Check whether blenderkit-client is responding."""
     address = get_address()
     try:
         with session.get(address, timeout=TIMEOUT, proxies=NO_PROXIES) as resp:
@@ -481,8 +470,8 @@ def report_blender_quit():
         return resp
 
 
-def kill_daemon_server():
-    """Request to restart the daemon server."""
+def shutdown_client():
+    """Request to shutdown the blenderkit-client."""
     address = get_address()
     with requests.Session() as session:
         url = address + "/shutdown"
@@ -508,8 +497,13 @@ def check_blenderkit_client_exit_code() -> tuple[int, str]:
 
 
 def start_blenderkit_client():
-    log_path = get_daemon_log_path()
-    os.makedirs(get_daemon_directory_path(), exist_ok=True)
+    """Start BlenderKit-client in separate process.
+    1. Check if binary is available at global_dir/client/vX.Y.Z.YYMMDD/blenderkit-client-<os>-<arch>(.exe)
+    2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z.YYMMDD/
+    3. Start the client process which serves as bridge between BlenderKit add-on and BlenderKit server.
+    """
+    ensure_client_binary_installed()
+    log_path = get_client_log_path()
     client_binary_path = get_client_binary_path()
 
     creation_flags = 0
@@ -546,123 +540,13 @@ def start_blenderkit_client():
             )
     except Exception as e:
         reports.add_report(
-            f"Error: BlenderKit client failed to start - {e}", 10, "ERROR"
+            f"Error: BlenderKit-client failed to start - {e}", 10, "ERROR"
         )
         raise (e)
 
     bk_logger.info(
-        f"BlenderKit client starting on {get_address()}, log file at: {log_path}"
+        f"BlenderKit-client starting on {get_address()}, log file at: {log_path}"
     )
-
-
-# DEPRECATED
-def start_daemon_server():
-    """Start daemon server in separate process."""
-    daemon_dir = get_daemon_directory_path()
-    log_path = get_daemon_log_path()
-    blenderkit_path = path.dirname(__file__)
-    daemon_path = path.join(blenderkit_path, "daemon/daemon.py")
-    preinstalled_deps = dependencies.get_preinstalled_deps_path()
-    installed_deps = dependencies.get_installed_deps_path()
-
-    env = environ.copy()
-    env["PYTHONPATH"] = installed_deps + os.pathsep + preinstalled_deps
-
-    python_home = path.abspath(path.dirname(sys.executable) + "/..")
-    env["PYTHONHOME"] = python_home
-
-    creation_flags = 0
-    if platform.system() == "Windows":
-        env["PATH"] = (
-            env["PATH"]
-            + os.pathsep
-            + path.abspath(path.dirname(sys.executable) + "/../../../blender.crt")
-        )
-        creation_flags = subprocess.CREATE_NO_WINDOW
-
-    python_check = subprocess.run(
-        args=[sys.executable, "--version"],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if python_check.returncode != 0:
-        bk_logger.warning(
-            f"Error checking Python interpreter, exit code: {python_check.returncode},"
-            + f"Stdout: {python_check.stdout}, "
-            + f"Stderr: {python_check.stderr}, "
-            + f"Where Python: {sys.executable}, "
-            + f"Environment: {env}"
-        )
-
-    try:
-        with open(log_path, "wb") as log:
-            global_vars.daemon_process = subprocess.Popen(
-                args=[
-                    sys.executable,
-                    "-u",
-                    daemon_path,
-                    "--port",
-                    get_port(),
-                    "--server",
-                    global_vars.SERVER,
-                    "--proxy_which",
-                    global_vars.PREFS.get("proxy_which", ""),
-                    "--proxy_address",
-                    global_vars.PREFS.get("proxy_address", ""),
-                    "--trusted_ca_certs",
-                    global_vars.PREFS.get("trusted_ca_certs", ""),
-                    "--ip_version",
-                    global_vars.PREFS.get("ip_version", ""),
-                    "--ssl_context",
-                    global_vars.PREFS.get("ssl_context", ""),
-                    "--system_id",
-                    bpy.context.preferences.addons["blenderkit"].preferences.system_id,
-                    "--version",
-                    f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}",
-                ],
-                env=env,
-                stdout=log,
-                stderr=log,
-                creationflags=creation_flags,
-            )
-    except PermissionError as e:
-        reports.add_report(
-            f"FATAL ERROR: Write access denied to {daemon_dir}. Check you have write permissions to the directory.",
-            10,
-            "ERROR",
-        )
-        raise (e)
-    except OSError as e:
-        if platform.system() != "Windows":
-            reports.add_report(str(e), 10, "ERROR")
-            raise (e)
-        if e.winerror == 87:  # parameter is incorrect, issue #100
-            error_message = f"FATAL ERROR: Daemon server blocked from starting. Check your antivirus or firewall. Error: {e}"
-            reports.add_report(error_message, 10, "ERROR")
-            raise (e)
-        else:
-            reports.add_report(str(e), 10, "ERROR")
-            raise (e)
-    except Exception as e:
-        reports.add_report(f"Error: Daemon server failed to start - {e}", 10, "ERROR")
-        raise (e)
-
-    if python_check.returncode == 0:
-        bk_logger.info(
-            f"Daemon server starting on address {get_address()}, log file for errors located at: {log_path}"
-        )
-    else:
-        pid = global_vars.daemon_process.pid
-        bk_logger.warning(
-            f"Tried to start daemon server on address {get_address()}, PID: {pid},\nlog file: {log_path}"
-        )
-        reports.add_report(
-            "Unsuccessful Python check. Daemon will probably fail to run.", 5, "ERROR"
-        )
-
-
-#### CLIENT IMPLEMENTATION
 
 
 def decide_client_binary_name() -> str:
@@ -677,35 +561,70 @@ def decide_client_binary_name() -> str:
     """
     os_name = platform.system()
     architecture = platform.machine()
-
     if os_name == "Darwin":  # more user-friendly name for macOS
         os_name = "macos"
     if architecture == "AMD64":  # fix for windows
         architecture = "x86_64"
-    if os_name == "Windows":
-        name = f"blenderit-client-{os_name}-{architecture}.exe"
-    else:
-        name = f"blenderkit-client-{os_name}-{architecture}"
 
-    return name.lower()
+    if os_name == "Windows":
+        return f"blenderit-client-{os_name}-{architecture}.exe".lower()
+
+    return f"blenderkit-client-{os_name}-{architecture}".lower()
 
 
 def get_client_directory() -> str:
-    """Get the path to the client directory located in global_dir."""
+    """Get the path to the blenderkit-client directory located in global_dir."""
     global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
     directory = path.join(global_dir, "client")
     return directory
 
 
 def get_client_log_path() -> str:
-    """Get path to blenderkit-client log file in global_dir/client."""
-    log_path = os.path.join(get_client_directory(), f"client-{get_port()}.log")
+    """Get path to blenderkit-client log file in global_dir/client.
+    If the port is the default port 62485, the log file is named default.log,
+    otherwise it is named client-<port>.log.
+    """
+    port = get_port()
+    if port == "62485":
+        log_path = os.path.join(get_client_directory(), f"default.log")
+    else:
+        log_path = os.path.join(get_client_directory(), f"client-{get_port()}.log")
     return path.abspath(log_path)
 
 
-def get_client_binary_path() -> str:
-    """Get the path to the client binary - located in add-on directory."""
+def get_preinstalled_client_path() -> str:
+    """Get the path to the preinstalled client binary - located in add-on directory.
+    This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z.YYMMDD on first run.
+    """
     addon_dir = path.dirname(__file__)
     binary_name = decide_client_binary_name()
     binary_path = path.join(addon_dir, "client", binary_name)
     return path.abspath(binary_path)
+
+
+def get_client_binary_path() -> str:
+    """Get the path to the client binary located in global_dir/client/vX.Y.Z.YYMMDD.
+    This is the binary that is used to start the client process.
+    We do not start from the add-on because it might block update or delete of the add-on.
+    """
+    directory = get_client_directory()
+    binary_name = decide_client_binary_name()
+    ver_string = f"v{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
+    binary_path = path.join(directory, ver_string, binary_name)
+    return path.abspath(binary_path)
+
+
+def ensure_client_binary_installed():
+    """Ensure that the client binary is installed in global_dir/client/vX.Y.Z.YYMMDD.
+    If not, copy the binary from the add-on directory blenderkit/client.
+    As side effect, this function also creates the global_dir/client/vX.Y.Z.YYMMDD directory.
+    """
+    client_binary_path = get_client_binary_path()
+    if path.exists(client_binary_path):
+        return
+
+    preinstalled_client_path = get_preinstalled_client_path()
+    os.makedirs(path.dirname(client_binary_path), exist_ok=True)
+    shutil.copy(preinstalled_client_path, client_binary_path)
+    os.chmod(client_binary_path, 0o711)
+    bk_logger.info(f"BlenderKit-client binary copied to {client_binary_path}")
