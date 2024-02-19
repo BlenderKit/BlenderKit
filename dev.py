@@ -2,27 +2,10 @@ import argparse
 import os
 import shutil
 import subprocess
-import sys
-
-import global_vars
-
-
-PACKAGES = [
-    "multidict==6.0.4",
-    "yarl==1.9.4",
-    "aiohttp==3.9.1",
-    "aiosignal==1.3.1",
-    "async-timeout==4.0.3",
-    "attrs==23.1.0",
-    "certifi==2023.11.17",
-    "charset-normalizer==3.3.2",
-    "frozenlist==1.4.1",
-    "idna==3.6",
-]
 
 
 def blenderkit_client_build(abs_build_dir: str):
-    """Build blenderkit client for all platforms in parallel."""
+    """Build blenderkit-client for all platforms in parallel."""
     build_dir = os.path.join(abs_build_dir, "client")
     builds = [
         {
@@ -68,7 +51,7 @@ def blenderkit_client_build(abs_build_dir: str):
     print("Client builds completed.")
 
 
-def do_build(install_at=None, include_tests=False):
+def do_build(install_at=None, include_tests=False, clean_dir=None):
     """Build addon by copying relevant addon directories and files to ./out/blenderkit directory.
     Create zip in ./out/blenderkit.zip.
     """
@@ -101,63 +84,18 @@ def do_build(install_at=None, include_tests=False):
         shutil.copy(item, f"{addon_build_dir}/{item}")
 
     # CREATE ZIP
+    print("Creating ZIP archive.")
     shutil.make_archive("out/blenderkit", "zip", "out", "blenderkit")
 
     if install_at is not None:
+        print(f"Copying to {install_at}/blenderkit")
         shutil.rmtree(f"{install_at}/blenderkit", ignore_errors=True)
         shutil.copytree("out/blenderkit", f"{install_at}/blenderkit")
+    if clean_dir is not None:
+        print(f"Cleaning directory {clean_dir}")
+        shutil.rmtree(clean_dir, ignore_errors=True)
 
-
-def compile_daemon():
-    """Compile daemon for current platform."""
-    subprocess.check_call(["pipenv", "install", "-r", "requirements.txt"])
-    subprocess.check_call(["pipenv", "install", "pyinstaller"])
-    print("PLATFORM:", sys.platform)
-    if sys.platform == "darwin":
-        subprocess.check_call(
-            [
-                "pipenv",
-                "run",
-                "pyinstaller",
-                "--add-data",
-                "daemon:.",
-                "--onefile",
-                "daemon/daemon.py",
-            ],
-        )
-        print("Macos build done")
-    if sys.platform == "win32":
-        subprocess.check_call(
-            [
-                "pipenv",
-                "run",
-                "pyinstaller",
-                "--add-data",
-                "daemon;.",
-                "--onefile",
-                "daemon/daemon.py",
-            ],
-        )
-        print("Windows build done")
-    if sys.platform == "linux":
-        subprocess.check_call(
-            [
-                "pipenv",
-                "run",
-                "pyinstaller",
-                "--add-data",
-                "daemon:.",
-                "--onefile",
-                "daemon/daemon.py",
-            ],
-        )
-        print("Linux build done")
-    shutil.move("dist", "out-daemon/dist")
-    shutil.move("build", "out-daemon/build")
-    shutil.move("daemon.spec", "out-daemon/daemon.spec")
-    os.remove("Pipfile")
-    os.remove("Pipfile.lock")
-    print("daemon binary available at: out-daemon/dist/daemon")
+    print("Build done!")
 
 
 def run_tests():
@@ -197,12 +135,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "command",
     default="build",
-    choices=["format", "build", "bundle", "compile", "test"],
+    choices=["format", "build", "test"],
     help="""
   FORMAT = isort imports, format code with Black and lint it with Ruff.
   TEST = build with test files and run tests
   BUILD = copy relevant files into ./out/blenderkit.
-  COMPILE = compile daemon for current platform
   """,
 )
 parser.add_argument(
@@ -211,15 +148,19 @@ parser.add_argument(
     default=None,
     help="If path is specified, then builded addon will be copied to that location.",
 )
+parser.add_argument(
+    "--clean-dir",
+    type=str,
+    default=None,
+    help="Specify path to global_dir or other dir to be cleaned.",
+)
 args = parser.parse_args()
 
 if args.command == "build":
-    do_build(args.install_at)
+    do_build(args.install_at, clean_dir=args.clean_dir)
 elif args.command == "test":
     do_build(args.install_at, include_tests=True)
     run_tests()
-elif args.command == "compile":
-    compile_daemon()
 elif args.command == "format":
     format_code()
 else:
