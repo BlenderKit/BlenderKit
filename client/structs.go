@@ -98,7 +98,7 @@ type Asset struct {
 	AssetType                        string                 `json:"assetType"`
 	Author                           Author                 `json:"author"`
 	CanDownload                      bool                   `json:"canDownload"`
-	CanDownloadError                 bool                   `json:"canDownloadError"`
+	CanDownloadError                 interface{}            `json:"canDownloadError"` // False or {"messages": ["User is anonymous"], "type": "anonymous_user"} Oh yeah, tell me how is this logical!
 	Category                         string                 `json:"category"`
 	Created                          string                 `json:"created"`
 	Description                      string                 `json:"description"`
