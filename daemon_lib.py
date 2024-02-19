@@ -603,21 +603,21 @@ def get_preinstalled_client_path() -> str:
 
 
 def get_client_binary_path() -> str:
-    """Get the path to the client binary located in global_dir/client/vX.Y.Z.YYMMDD.
+    """Get the path to the client binary located in global_dir/client/bin/vX.Y.Z.YYMMDD.
     This is the binary that is used to start the client process.
     We do not start from the add-on because it might block update or delete of the add-on.
     """
-    directory = get_client_directory()
+    client_dir = get_client_directory()
     binary_name = decide_client_binary_name()
     ver_string = f"v{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
-    binary_path = path.join(directory, ver_string, binary_name)
+    binary_path = path.join(client_dir, "bin", ver_string, binary_name)
     return path.abspath(binary_path)
 
 
 def ensure_client_binary_installed():
-    """Ensure that the client binary is installed in global_dir/client/vX.Y.Z.YYMMDD.
+    """Ensure that the client binary is installed in global_dir/client/bin/vX.Y.Z.YYMMDD.
     If not, copy the binary from the add-on directory blenderkit/client.
-    As side effect, this function also creates the global_dir/client/vX.Y.Z.YYMMDD directory.
+    As side effect, this function also creates the global_dir/client/bin/vX.Y.Z.YYMMDD directory.
     """
     client_binary_path = get_client_binary_path()
     if path.exists(client_binary_path):

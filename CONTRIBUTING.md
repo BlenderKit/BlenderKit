@@ -38,16 +38,23 @@ To build run:
 python dev.py build
 ```
 
-#### Development build: build and copy to Blender for quick testing
+#### Development build: build for quick testing
 
 Script `dev.py` provides handy option `--install-at` to copy the `out/blenderkit` directly to Blender so you can quickly test the build just by starting the Blender without any further steps.
 Just specify path to addons directory in `--install-at` flag.
 Script will then remove old `blenderkit` directory in addons location and replace it with current build.
 
-To build and copy to Blender 3.2.x addons directory run:
+To build and copy to Blender 4.0.x addons directory and also clean blenderkit_data, run:
 
 ```
-python dev.py build --install-at /path/to/blender/3.2/scripts/addons
+python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir /Users/username/blenderkit_data
+```
+
+NOTE: --clean-dir is required if you change anything in the blenderkit-client, otherwise add-on will not copy the new binaries over the old ones.
+We recommend using this command to clean all client binaries, while enabling you to continuously tail -f default.log file:
+
+```
+python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir /Users/username/blenderkit_data/client/bin
 ```
 
 ## Releasing
