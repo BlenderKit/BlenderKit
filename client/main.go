@@ -36,7 +36,7 @@ const (
 	EmoOK            = "✅"
 	EmoCancel        = "⛔"
 	EmoWarning       = "⚠️ " // Needs space at the end for proper alignment, not sure why.
-	EmoInfo          = "ℹ️"
+	EmoInfo          = "ℹ️ "
 	EmoError         = "❌"
 	EmoNetwork       = "📡"
 	EmoNewConnection = "🤝"
@@ -96,6 +96,10 @@ func handleChannels() {
 		select {
 		case task := <-AddTaskCh:
 			TasksMux.Lock()
+			if Tasks[task.AppID] == nil {
+				BKLog.Printf("%s Unexpected: AppID %d not in Tasks! Add-on should first make report requst, then shedule tasks, fix this!", EmoWarning, task.AppID)
+				SubscribeNewApp(task.AppID, "")
+			}
 			Tasks[task.AppID][task.TaskID] = task
 			TasksMux.Unlock()
 		case u := <-TaskProgressUpdateCh:
@@ -257,20 +261,14 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	TasksMux.Lock()
+	if Tasks[data.AppID] == nil { // New add-on connected
+		SubscribeNewApp(data.AppID, data.APIKey)
+	}
+
 	taskID := uuid.New().String()
 	reportTask := NewTask(nil, data.AppID, taskID, "daemon_status")
 	reportTask.Finish("Daemon is running")
-
-	TasksMux.Lock()
-	if Tasks[data.AppID] == nil { // New add-on connected
-		BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, data.AppID)
-		go FetchDisclaimer(data)
-		go FetchCategories(data)
-		if data.APIKey != "" {
-			go FetchUnreadNotifications(data)
-		}
-		Tasks[data.AppID] = make(map[string]*Task)
-	}
 
 	toReport := make([]*Task, 0, len(Tasks[data.AppID]))
 	toReport = append(toReport, reportTask)
@@ -294,6 +292,22 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
+}
+
+// SubscribeNewApp adds new App into Tasks[AppID].
+// This is called when new AppID appears - meeaning new add-on or other app wants to communicate with Client.
+func SubscribeNewApp(appID int, APIKey string) {
+	BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, appID)
+	Tasks[appID] = make(map[string]*Task)
+
+	data := MinimalTaskData{AppID: appID, APIKey: APIKey}
+	go FetchDisclaimer(data)
+	go FetchCategories(data)
+	if APIKey != "" {
+		go FetchUnreadNotifications(data)
+		go GetBookmarks(data)
+		go GetUserProfile(data)
+	}
 }
 
 func (t *Task) Finish(message string) {
@@ -413,8 +427,6 @@ func doSearch(data SearchTaskData, taskID string) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-
-	fmt.Printf("SEARCH RESULTS: %v", searchResult)
 
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: searchResult}
 	go parseThumbnails(searchResult, data)
@@ -600,12 +612,7 @@ func FetchCategories(data MinimalTaskData) {
 
 	fix_category_counts(respData.Results)
 
-	TaskFinishCh <- &TaskFinish{
-		AppID:   data.AppID,
-		TaskID:  taskUUID,
-		Message: "Categories updated",
-		Result:  respData.Results,
-	}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Message: "Categories updated", Result: respData.Results}
 }
 
 // Fetch disclaimer from the server: https://www.blenderkit.com/api/v1/disclaimer/active/.
@@ -636,12 +643,7 @@ func FetchDisclaimer(data MinimalTaskData) {
 		return
 	}
 
-	TaskFinishCh <- &TaskFinish{
-		AppID:   data.AppID,
-		TaskID:  taskUUID,
-		Message: "Disclaimer fetched",
-		Result:  respData,
-	}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Message: "Disclaimer fetched", Result: respData}
 }
 
 // Fetch unread notifications from the server: https://www.blenderkit.com/api/v1/notifications/unread/.
@@ -672,12 +674,7 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 		return
 	}
 
-	TaskFinishCh <- &TaskFinish{
-		AppID:   data.AppID,
-		TaskID:  taskUUID,
-		Message: "Notifications fetched",
-		Result:  respData,
-	}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Message: "Notifications fetched", Result: respData}
 }
 
 func CancelDownloadHandler(w http.ResponseWriter, r *http.Request) {
@@ -827,6 +824,7 @@ func FetchGravatarImage(data FetchGravatarData) {
 }
 
 func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	BKLog.Print("GET USER PROFILE")
 	var data MinimalTaskData
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
