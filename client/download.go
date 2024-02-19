@@ -410,7 +410,7 @@ func GetDownloadURL(data DownloadData) (bool, string, error) {
 	return true, url, nil
 }
 
-func GetResolutionFile(files []File, targetRes string) (File, string) {
+func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) {
 	resolutionsMap := map[string]int{
 		"resolution_0_5K": 512,
 		"resolution_1K":   1024,
@@ -418,7 +418,7 @@ func GetResolutionFile(files []File, targetRes string) (File, string) {
 		"resolution_4K":   4096,
 		"resolution_8K":   8192,
 	}
-	var originalFile, closest File
+	var originalFile, closest AssetFile
 	var targetResInt, mindist = resolutionsMap[targetRes], 100000000
 
 	fmt.Println(">>> Target resolution:", targetRes)
@@ -451,7 +451,7 @@ func GetResolutionFile(files []File, targetRes string) (File, string) {
 		}
 	}
 
-	if (closest != File{}) {
+	if (closest != AssetFile{}) {
 		return closest, closest.FileType
 	}
 

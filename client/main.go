@@ -296,67 +296,6 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-// MinimalTaskData is minimal data needed from add-on to schedule a task.
-type MinimalTaskData struct {
-	AppID  int    `json:"app_id"`  // AppID is PID of Blender in which add-on runs
-	APIKey string `json:"api_key"` // Can be empty for non-logged users
-}
-
-// TaskStatusUpdate is a struct for updating the status of a task through a channel.
-// Message is optional and should be set to "" if update is not needed.
-type TaskProgressUpdate struct {
-	AppID    int
-	TaskID   string
-	Progress int
-	Message  string
-}
-
-// TaskMessageUpdate is a struct for updating the message of a task through a channel.
-type TaskMessageUpdate struct {
-	AppID   int
-	TaskID  string
-	Message string
-}
-
-// TaskError is a struct for reporting an error in a task through a channel.
-// Error will be converted to string and stored in the task's Message field.
-type TaskError struct {
-	AppID  int
-	TaskID string
-	Error  error
-}
-
-// TaskProgressUpdate is a struct for updating the progress of a task through a channel.
-type TaskFinish struct {
-	AppID   int
-	TaskID  string
-	Message string
-	Result  interface{}
-}
-
-type TaskCancel struct {
-	AppID  int
-	TaskID string
-	Reason string
-}
-
-// Task is a struct for storing a task in this Client application.
-// Exported fields are used for JSON encoding/decoding and are defined in same in the add-on.
-type Task struct {
-	Data            interface{}        `json:"data"`             // Data for the task, should be a struct like DownloadData, SearchData, etc.
-	AppID           int                `json:"app_id"`           // PID of the Blender running the add-on
-	TaskID          string             `json:"task_id"`          // random UUID for the task
-	TaskType        string             `json:"task_type"`        // search, download, etc.
-	Message         string             `json:"message"`          // Short message for the user
-	MessageDetailed string             `json:"message_detailed"` // Longer message to the console
-	Progress        int                `json:"progress"`         // 0-100
-	Status          string             `json:"status"`           // created, finished, error
-	Result          interface{}        `json:"result"`           // Result to be used by the add-on
-	Error           error              `json:"-"`                // Internal: error in the task
-	Ctx             context.Context    `json:"-"`                // Internal: Context for canceling the task, use in long running functions which support it
-	Cancel          context.CancelFunc `json:"-"`                // Internal: Function for canceling the task
-}
-
 func (t *Task) Finish(message string) {
 	t.Status = "finished"
 	t.Message = message
@@ -380,10 +319,6 @@ func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
 		Ctx:             ctx,
 		Cancel:          cancel,
 	}
-}
-
-type ReportData struct {
-	AppID int `json:"app_id"` // AppID is PID of Blender in which add-on runs
 }
 
 func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
@@ -417,14 +352,6 @@ func delayedExit(t float64) {
 	os.Exit(0)
 }
 
-type SearchData struct {
-	PREFS          `json:"PREFS"`
-	URLQuery       string `json:"urlquery"`
-	AddonVersion   string `json:"addon_version"`
-	BlenderVersion string `json:"blender_version"`
-	TempDir        string `json:"tempdir"`
-}
-
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -433,7 +360,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var data SearchData
+	var data SearchTaskData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
@@ -449,7 +376,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskID := uuid.New().String()
-	go doSearch(rJSON, data, taskID)
+	go doSearch(data, taskID)
 
 	resData := map[string]string{"task_id": taskID}
 	responseJSON, err := json.Marshal(resData)
@@ -464,103 +391,63 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO: implement SearchData struct
-func doSearch(rJSON map[string]interface{}, data SearchData, taskID string) {
-	TasksMux.Lock()
-	task := NewTask(rJSON, data.AppID, taskID, "search")
-	Tasks[task.AppID][taskID] = task
-	TasksMux.Unlock()
+func doSearch(data SearchTaskData, taskID string) {
+	AddTaskCh <- NewTask(data, data.AppID, taskID, "search")
 
 	req, err := http.NewRequest("GET", data.URLQuery, nil)
 	if err != nil {
-		BKLog.Println("Error creating request:", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-
 	req.Header = getHeaders(data.PREFS.APIKey, *SystemID)
+
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		BKLog.Println("Error performing search request:", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
-	var searchResult map[string]interface{}
+	var searchResult SearchResults
 	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		BKLog.Println("Error decoding search response:", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-	TasksMux.Lock()
-	task.Result = searchResult
-	task.Finish("Search results downloaded")
-	TasksMux.Unlock()
 
+	fmt.Printf("SEARCH RESULTS: %v", searchResult)
+
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: searchResult}
 	go parseThumbnails(searchResult, data)
 }
 
-func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
+func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	var smallThumbsTasks, fullThumbsTasks []*Task
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
-	results, ok := searchResults["results"].([]interface{})
-	if !ok {
-		fmt.Println("Invalid search results:", searchResults)
-		return
-	}
-
-	for i, item := range results { // TODO: Should be a function parseThumbnail() to avaid nesting
-		result, ok := item.(map[string]interface{})
-		if !ok {
-			fmt.Println("Skipping invalid result:", item)
-			continue
-		}
-
+	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avaid nesting
 		useWebp := false
-		webpGeneratedTimestamp, ok := result["webpGeneratedTimestamp"].(float64)
-		if !ok {
-			fmt.Println("Invalid webpGeneratedTimestamp:", result)
-		}
-		if webpGeneratedTimestamp > 0 {
+		if result.WebpGeneratedTimestamp > 0 {
 			useWebp = true
 		}
 		if blVer.Major < 3 || (blVer.Major == 3 && blVer.Minor < 4) {
 			useWebp = false
 		}
 
-		assetType, ok := result["assetType"].(string)
-		if !ok {
-			fmt.Println("Invalid assetType:", result)
-		}
-
-		assetBaseID, ok := result["assetBaseId"].(string)
-		if !ok {
-			fmt.Println("Invalid assetBaseId:", result)
-		}
-
-		var smallThumbKey, fullThumbKey string
+		var smallThumbURL, fullThumbURL string
 		if useWebp {
-			smallThumbKey = "thumbnailSmallUrlWebp"
-			if assetType == "hdr" {
-				fullThumbKey = "thumbnailLargeUrlNonsquaredWebp"
+			smallThumbURL = result.ThumbnailSmallURLWebp
+			if result.AssetType == "hdr" {
+				fullThumbURL = result.ThumbnailLargeURLNonsquaredWebp
 			} else {
-				fullThumbKey = "thumbnailMiddleUrlWebp"
+				fullThumbURL = result.ThumbnailMiddleURLWebp
 			}
 		} else {
-			smallThumbKey = "thumbnailSmallUrl"
-			if assetType == "hdr" {
-				fullThumbKey = "thumbnailLargeUrlNonsquared"
+			smallThumbURL = result.ThumbnailSmallURL
+			if result.AssetType == "hdr" {
+				fullThumbURL = result.ThumbnailLargeURLNonsquared
 			} else {
-				fullThumbKey = "thumbnailMiddleUrl"
+				fullThumbURL = result.ThumbnailMiddleURL
 			}
-		}
-
-		smallThumbURL, smallThumbURLOK := result[smallThumbKey].(string)
-		if !smallThumbURLOK {
-			fmt.Printf("Invalid %s: %v\n", smallThumbKey, result)
-		}
-
-		fullThumbURL, fullThumbURLOK := result[fullThumbKey].(string)
-		if !fullThumbURLOK {
-			fmt.Printf("Invalid %s: %v\n", fullThumbKey, result)
 		}
 
 		smallImgName, smallImgNameErr := ExtractFilenameFromURL(smallThumbURL)
@@ -569,18 +456,18 @@ func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 		smallImgPath := filepath.Join(data.TempDir, smallImgName)
 		fullImgPath := filepath.Join(data.TempDir, fullImgName)
 
-		if smallThumbURLOK && smallImgNameErr == nil {
+		if smallImgNameErr == nil {
 			taskUUID := uuid.New().String()
 			taskData := DownloadThumbnailData{
 				ThumbnailType: "small",
 				ImagePath:     smallImgPath,
 				ImageURL:      smallThumbURL,
-				AssetBaseID:   assetBaseID,
+				AssetBaseID:   result.AssetBaseID,
 				Index:         i,
 			}
 			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
 			if _, err := os.Stat(smallImgPath); err == nil { // TODO: do not check file existence in for loop -> gotta be faster
-				task.Finish("thumbnail on disk") //
+				task.Finish("thumbnail on disk")
 			} else {
 				smallThumbsTasks = append(smallThumbsTasks, task)
 			}
@@ -589,13 +476,13 @@ func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 			TasksMux.Unlock()
 		}
 
-		if fullThumbURLOK && fullImgNameErr == nil {
+		if fullImgNameErr == nil {
 			taskUUID := uuid.New().String()
 			taskData := DownloadThumbnailData{
 				ThumbnailType: "full",
 				ImagePath:     fullImgPath,
 				ImageURL:      fullThumbURL,
-				AssetBaseID:   assetBaseID,
+				AssetBaseID:   result.AssetBaseID,
 				Index:         i,
 			}
 			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
@@ -611,14 +498,6 @@ func parseThumbnails(searchResults map[string]interface{}, data SearchData) {
 	}
 	go downloadImageBatch(smallThumbsTasks, true)
 	go downloadImageBatch(fullThumbsTasks, true)
-}
-
-type DownloadThumbnailData struct {
-	ThumbnailType string `json:"thumbnail_type"`
-	ImagePath     string `json:"image_path"`
-	ImageURL      string `json:"image_url"`
-	AssetBaseID   string `json:"assetBaseId"`
-	Index         int    `json:"index"`
 }
 
 func downloadImageBatch(tasks []*Task, block bool) {
@@ -690,69 +569,6 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	TasksMux.Unlock()
 }
 
-type PREFS struct {
-	APIKey        string `json:"api_key"`
-	APIKeyRefres  string `json:"api_key_refresh"`
-	APIKeyTimeout int    `json:"api_key_timeout"`
-	SceneID       string `json:"scene_id"`
-	AppID         int    `json:"app_id"`
-	SystemID      string `json:"system_id"`
-	UnpackFiles   bool   `json:"unpack_files"`
-	Resolution    string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
-	// PATHS
-	ProjectSubdir string `json:"project_subdir"`
-	GlobalDir     string `json:"global_dir"`
-	BinaryPath    string `json:"binary_path"`
-	AddonDir      string `json:"addon_dir"`
-}
-
-type File struct {
-	Created     string `json:"created"`
-	DownloadURL string `json:"downloadUrl"`
-	FileType    string `json:"fileType"`
-}
-
-type DownloadAssetData struct {
-	Name                 string `json:"name"`
-	ID                   string `json:"id"`
-	AvailableResolutions []int  `json:"available_resolutions"`
-	Files                []File `json:"files"`
-	AssetType            string `json:"assetType"` // needed for unpacking
-}
-
-type DownloadData struct {
-	AppID             int      `json:"app_id"`
-	DownloadDirs      []string `json:"download_dirs"`
-	DownloadAssetData `json:"asset_data"`
-	PREFS             `json:"PREFS"`
-}
-
-type Category struct {
-	Name                 string     `json:"name"`
-	Slug                 string     `json:"slug"`
-	Active               bool       `json:"active"`
-	Thumbnail            string     `json:"thumbnail"`
-	ThumbnailWidth       int        `json:"thumbnailWidth"`
-	ThumbnailHeight      int        `json:"thumbnailHeight"`
-	Order                int        `json:"order"`
-	AlternateTitle       string     `json:"alternateTitle"`
-	AlternateURL         string     `json:"alternateUrl"`
-	Description          string     `json:"description"`
-	MetaKeywords         string     `json:"metaKeywords"`
-	MetaExtra            string     `json:"metaExtra"`
-	Children             []Category `json:"children"`
-	AssetCount           int        `json:"assetCount"`
-	AssetCountCumulative int        `json:"assetCountCumulative"`
-}
-
-// CategoriesData is a struct for storing the response from the server when fetching https://www.blenderkit.com/api/v1/categories/
-type CategoriesData struct {
-	Count   int        `json:"count"`
-	Next    string     `json:"next"`
-	Prev    string     `json:"previous"`
-	Results []Category `json:"results"`
-}
-
 // Fetch categories from the server: https://www.blenderkit.com/api/v1/categories/
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/categories_list
 func FetchCategories(data MinimalTaskData) {
@@ -792,22 +608,6 @@ func FetchCategories(data MinimalTaskData) {
 	}
 }
 
-type Disclaimer struct {
-	ValidFrom string `json:"validFrom"`
-	ValidTo   string `json:"validTo"`
-	Priority  int    `json:"priority"`
-	Message   string `json:"message"`
-	URL       string `json:"url"`
-	Slug      string `json:"slug"`
-}
-
-type DisclaimerData struct {
-	Count    int          `json:"count"`
-	Next     string       `json:"next"`
-	Previous string       `json:"previous"`
-	Results  []Disclaimer `json:"results"`
-}
-
 // Fetch disclaimer from the server: https://www.blenderkit.com/api/v1/disclaimer/active/.
 // API documentation:  https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
 func FetchDisclaimer(data MinimalTaskData) {
@@ -844,64 +644,6 @@ func FetchDisclaimer(data MinimalTaskData) {
 	}
 }
 
-type Notification struct {
-	ID          int                       `json:"id"`
-	Recipient   NotificationRecipient     `json:"recipient"`
-	Actor       NotificationActor         `json:"actor"`
-	Target      NotificationTarget        `json:"target"`
-	Verb        string                    `json:"verb"`
-	ActionObj   *NotificationActionObject `json:"actionObject"`
-	Level       string                    `json:"level"`
-	Description string                    `json:"description"`
-	Unread      bool                      `json:"unread"`
-	Public      bool                      `json:"public"`
-	Deleted     bool                      `json:"deleted"`
-	Emailed     bool                      `json:"emailed"`
-	Timestamp   string                    `json:"timestamp"`
-	String      string                    `json:"string"`
-}
-
-type NotificationActor struct {
-	PK               interface{} `json:"pk"` // for some reason it can be int or string
-	ContentTypeName  string      `json:"contentTypeName"`
-	ContentTypeModel string      `json:"contentTypeModel"`
-	ContentTypeApp   string      `json:"contentTypeApp"`
-	ContentTypeID    int         `json:"contentTypeId"`
-	URL              string      `json:"url"`
-	String           string      `json:"string"`
-}
-
-type NotificationTarget struct {
-	PK               interface{} `json:"pk"` // for some reason it can be int or string
-	ContentTypeName  string      `json:"contentTypeName"`
-	ContentTypeModel string      `json:"contentTypeModel"`
-	ContentTypeApp   string      `json:"contentTypeApp"`
-	ContentTypeID    int         `json:"contentTypeId"`
-	URL              string      `json:"url"`
-	String           string      `json:"string"`
-}
-
-type NotificationRecipient struct {
-	ID int `json:"id"`
-}
-
-type NotificationActionObject struct {
-	PK               int    `json:"pk,omitempty"`
-	ContentTypeName  string `json:"contentTypeName,omitempty"`
-	ContentTypeModel string `json:"contentTypeModel,omitempty"`
-	ContentTypeApp   string `json:"contentTypeApp,omitempty"`
-	ContentTypeId    int    `json:"contentTypeId,omitempty"`
-	URL              string `json:"url,omitempty"`
-	String           string `json:"string,omitempty"`
-}
-
-type NotificationData struct {
-	Count   int            `json:"count"`
-	Next    string         `json:"next"`
-	Prev    string         `json:"previous"`
-	Results []Notification `json:"results"`
-}
-
 // Fetch unread notifications from the server: https://www.blenderkit.com/api/v1/notifications/unread/.
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
 func FetchUnreadNotifications(data MinimalTaskData) {
@@ -936,11 +678,6 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 		Message: "Notifications fetched",
 		Result:  respData,
 	}
-}
-
-type CancelDownloadData struct {
-	TaskID string `json:"task_id"`
-	AppID  int    `json:"app_id"`
 }
 
 func CancelDownloadHandler(w http.ResponseWriter, r *http.Request) {
@@ -997,13 +734,6 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
-}
-
-type FetchGravatarData struct {
-	AppID        int    `json:"app_id"`
-	ID           int    `json:"id"`
-	Avatar128    string `json:"avatar128"` //e.g.: "/avatar-redirect/ad7c20a8-98ca-4128-9189-f727b2d1e4f3/128/"
-	GravatarHash string `json:"gravatarHash"`
 }
 
 // FetchGravatarImageHandler is a handler for the /profiles/fetch_gravatar_image endpoint.
@@ -1192,14 +922,6 @@ func GetRating(data GetRatingData) {
 	}
 }
 
-type SendRatingData struct {
-	AppID       int    `json:"app_id"`
-	APIKey      string `json:"api_key"`
-	AssetID     string `json:"asset_id"`
-	RatingType  string `json:"rating_type"`
-	RatingValue int    `json:"rating_value"`
-}
-
 func SendRatingHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1318,12 +1040,6 @@ func GetBookmarks(data MinimalTaskData) {
 	}
 }
 
-type GetCommentsData struct {
-	AppID   int    `json:"app_id"`
-	APIKey  string `json:"api_key"`
-	AssetID string `json:"asset_id"`
-}
-
 func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
 	var data GetCommentsData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -1379,14 +1095,6 @@ func GetComments(data GetCommentsData) {
 	}
 }
 
-type CreateCommentData struct {
-	AppID       int    `json:"app_id"`
-	APIKey      string `json:"api_key"`
-	AssetID     string `json:"asset_id"`
-	CommentText string `json:"comment_text"`
-	ReplyToID   int    `json:"reply_to_id"`
-}
-
 func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 	var data CreateCommentData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -1398,29 +1106,6 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	go CreateComment(data)
 	w.WriteHeader(http.StatusOK)
-}
-
-type GetCommentsResponseForm struct {
-	Timestamp    string `json:"timestamp"`
-	SecurityHash string `json:"securityHash"`
-}
-
-type GetCommentsResponse struct {
-	Form GetCommentsResponseForm `json:"form"`
-}
-
-type CommentPostData struct {
-	Name         string `json:"name"`
-	Email        string `json:"email"`
-	URL          string `json:"url"`
-	Followup     bool   `json:"followup"`
-	ReplyTo      int    `json:"reply_to"`
-	Honeypot     string `json:"honeypot"`
-	ContentType  string `json:"content_type"`
-	ObjectPK     string `json:"object_pk"`
-	Timestamp    string `json:"timestamp"`
-	SecurityHash string `json:"security_hash"`
-	Comment      string `json:"comment"`
 }
 
 // CreateComment creates a comment on the given asset.
@@ -1521,21 +1206,6 @@ func CreateComment(data CreateCommentData) {
 	})
 }
 
-// FeedbackCommentTaskData is expected from the add-on.
-type FeedbackCommentTaskData struct {
-	AppID     int    `json:"app_id"`
-	APIKey    string `json:"api_key"`
-	AssetID   string `json:"asset_id"`
-	CommentID int    `json:"comment_id"`
-	Flag      string `json:"flag"`
-}
-
-// FeedbackCommentData is sent to the server.
-type FeedbackCommentData struct {
-	CommentID int    `json:"comment"`
-	Flag      string `json:"flag"`
-}
-
 func FeedbackCommentHandler(w http.ResponseWriter, r *http.Request) {
 	var data FeedbackCommentTaskData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -1608,20 +1278,6 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 	})
 }
 
-// MarkCommentPrivateTaskData is expected from the add-on.
-type MarkCommentPrivateTaskData struct {
-	AppID     int    `json:"app_id"`
-	APIKey    string `json:"api_key"`
-	AssetID   string `json:"asset_id"`
-	CommentID int    `json:"comment_id"`
-	IsPrivate bool   `json:"is_private"`
-}
-
-// MarkCommentPrivateData is sent to the server.
-type MarkCommentPrivateData struct {
-	IsPrivate bool `json:"is_private"`
-}
-
 func MarkCommentPrivateHandler(w http.ResponseWriter, r *http.Request) {
 	var data MarkCommentPrivateTaskData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -1689,13 +1345,6 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 	})
 }
 
-// MarkNotificationReadTaskData is expected from the add-on.
-type MarkNotificationReadTaskData struct {
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	Notification int    `json:"notification_id"`
-}
-
 func MarkNotificationReadHandler(w http.ResponseWriter, r *http.Request) {
 	var data MarkNotificationReadTaskData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -1748,89 +1397,6 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 		Message: "notification marked as read",
 		Result:  respData,
 	}
-}
-
-type AssetParameterData struct {
-	Parametertype string `json:"parameterType"`
-	Value         string `json:"value"`
-}
-
-type AssetUploadExportData struct {
-	Models            []string `json:"models"`
-	ThumbnailPath     string   `json:"thumbnail_path"`
-	AssetBaseID       string   `json:"assetBaseId"`
-	ID                string   `json:"id"`
-	EvalPathComputing string   `json:"eval_path_computing"`
-	EvalPathState     string   `json:"eval_path_state"`
-	EvalPath          string   `json:"eval_path"`
-	TempDir           string   `json:"temp_dir"`
-	SourceFilePath    string   `json:"source_filepath"`
-	BinaryPath        string   `json:"binary_path"`
-	DebugValue        int      `json:"debug_value"`
-	HDRFilepath       string   `json:"hdr_filepath,omitempty"`
-}
-
-// Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
-// API docs:
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
-type AssetsCreateResponse struct {
-	AddonVersion       string      `json:"addonVersion"`
-	Adult              bool        `json:"adult"`
-	AssetBaseID        string      `json:"assetBaseId"`
-	AssetType          string      `json:"assetType"`
-	Category           string      `json:"category"`
-	Description        string      `json:"description"`
-	DisplayName        string      `json:"displayName"`
-	ID                 string      `json:"id"`
-	IsFree             bool        `json:"isFree"`
-	IsPrivate          bool        `json:"isPrivate"`
-	License            string      `json:"license"`
-	Name               string      `json:"name"`
-	Parameters         interface{} `json:"parameters"`
-	SourceAppName      string      `json:"sourceAppName"`
-	SourceAppVersion   string      `json:"sourceAppVersion"`
-	Tags               []string    `json:"tags"`
-	URL                string      `json:"url"`
-	VerificationStatus string      `json:"verificationStatus"`
-	VersionNumber      string      `json:"versionNumber"`
-}
-
-// AssetUploadTaskData is expected from the add-on. Used to create/update metadata on asset.
-// API docs:
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
-type AssetUploadData struct {
-	AddonVersion     string      `json:"addonVersion"`
-	AssetType        string      `json:"assetType"`
-	Category         string      `json:"category"`
-	Description      string      `json:"description"`
-	DisplayName      string      `json:"displayName"`
-	IsFree           bool        `json:"isFree"`
-	IsPrivate        bool        `json:"isPrivate"`
-	License          string      `json:"license"`
-	Name             string      `json:"name"`
-	Parameters       interface{} `json:"parameters"`
-	SourceAppName    string      `json:"sourceAppName"`
-	SourceAppVersion string      `json:"sourceAppVersion"`
-	Tags             []string    `json:"tags"`
-
-	// Not required
-	VerificationStatus string `json:"verificationStatus,omitempty"`
-	AssetBaseID        string `json:"assetBaseId,omitempty"`
-	ID                 string `json:"id,omitempty"`
-}
-
-// AssetUploadTaskData is expected from the add-on.
-type AssetUploadRequestData struct {
-	AppID       int                   `json:"app_id"`
-	Preferences PREFS                 `json:"PREFS"`
-	UploadData  AssetUploadData       `json:"upload_data"`
-	ExportData  AssetUploadExportData `json:"export_data"`
-	UploadSet   []string              `json:"upload_set"`
-}
-
-type AssetUploadResultData struct {
 }
 
 func AssetUploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -1909,18 +1475,6 @@ func UploadAsset(data AssetUploadRequestData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp}
 }
 
-type PackingData struct {
-	ExportData AssetUploadExportData `json:"export_data"`
-	UploadData AssetsCreateResponse  `json:"upload_data"`
-	UploadSet  []string              `json:"upload_set"`
-}
-
-type UploadFile struct {
-	Type     string
-	Index    int
-	FilePath string
-}
-
 func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool) error {
 	for _, file := range files {
 		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
@@ -1986,17 +1540,6 @@ func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadata
 	return nil
 }
 
-type S3UploadInfoResponse struct {
-	AssetID          string `json:"assetId"`
-	FilePath         string `json:"filePath"`
-	FileType         string `json:"fileType"`
-	ID               string `json:"id"`
-	OriginalFilename string `json:"originalFilename"`
-	S3UploadURL      string `json:"s3UploadUrl"`
-	UploadDoneURL    string `json:"uploadDoneUrl"`
-	UploadURL        string `json:"uploadUrl"`
-}
-
 func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse) (S3UploadInfoResponse, error) {
 	var resp_JSON S3UploadInfoResponse
 	upload_info := map[string]interface{}{
@@ -2043,34 +1586,25 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 }
 
 func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3UploadInfoResponse) error {
-	// First, get the file size
 	fileInfo, err := os.Stat(file.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file: %w", err)
 	}
 	fileSize := fileInfo.Size()
 
-	// Open the file
 	fileContent, err := os.Open(file.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer fileContent.Close()
 
-	// Create a new HTTP request for the upload
 	req, err := http.NewRequest("PUT", uploadInfo.S3UploadURL, fileContent)
 	if err != nil {
 		return fmt.Errorf("failed to create S3 upload request: %w", err)
 	}
-
-	// Set the Content-Type header
-	// You might want to set this based on the file's actual type if you know it
 	req.Header.Set("Content-Type", "application/octet-stream")
-
-	// Set the Content-Length header
 	req.ContentLength = fileSize
 
-	// Perform the upload
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to upload to S3: %w", err)
