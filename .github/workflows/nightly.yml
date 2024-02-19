@@ -37,7 +37,7 @@ jobs:
         id: date
         run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
       - name: Store the build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: blenderkit-nightly-${{ steps.date.outputs.date }}
           path: |

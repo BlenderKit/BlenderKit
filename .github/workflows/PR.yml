@@ -34,7 +34,7 @@ jobs:
       - name: Build add-on
         run: python dev.py build
       - name: Store the build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: blenderkit-PR${{ github.event.pull_request.number }}-${{ github.sha }}
           path: |
