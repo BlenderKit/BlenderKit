@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gookit/color"
 )
 
 const (
@@ -26,11 +27,10 @@ const (
 	WindowsPathLimit = 250
 
 	// PATHS
-	server_default              = "https://www.blenderkit.com" // default address to production blenderkit server
-	gravatar_dirname            = "bkit_g"                     // directory in safeTempDir() for gravatar images
-	cleanfile_path              = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
-	upload_script_path          = "upload_bg.py"               // relative path to upload script in add-on directory
-	blenderkit_export_data_file = "data.json"                  // relative path to blenderkit export data file in add-on directory
+	server_default     = "https://www.blenderkit.com" // default address to production blenderkit server
+	gravatar_dirname   = "bkit_g"                     // directory in safeTempDir() for gravatar images
+	cleanfile_path     = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
+	upload_script_path = "upload_bg.py"               // relative path to upload script in add-on directory
 
 	// EMOJIS
 	EmoOK            = "✅"
@@ -717,6 +717,7 @@ type DownloadAssetData struct {
 	ID                   string `json:"id"`
 	AvailableResolutions []int  `json:"available_resolutions"`
 	Files                []File `json:"files"`
+	AssetType            string `json:"assetType"` // needed for unpacking
 }
 
 type DownloadData struct {
@@ -2105,7 +2106,7 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, isMainFileUpload bool) ([]UploadFile, error) {
 	files := []UploadFile{}
 	addon_path := data.Preferences.AddonDir
-	blender_user_scripts_path := filepath.Dir(addon_path)
+	blenderUserScripts := filepath.Dir(filepath.Dir(addon_path)) // e.g.: /Users/username/Library/Application Support/Blender/4.1/scripts"
 	script_path := filepath.Join(addon_path, "upload_bg.py")
 	cleanfile_path := filepath.Join(addon_path, cleanfile_path)
 
@@ -2131,7 +2132,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				UploadData: upload_data,
 				UploadSet:  upload_set,
 			}
-			datafile := filepath.Join(export_data.TempDir, blenderkit_export_data_file)
+			datafile := filepath.Join(export_data.TempDir, "data.json")
 			log.Println("opening file @ PackBlendFile()")
 
 			JSON, err := json.Marshal(data)
@@ -2158,9 +2159,9 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				datafile,
 			)
 
-			cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=\"%v\"", blender_user_scripts_path))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=\"%v\"", blenderUserScripts))
 			out, err := cmd.CombinedOutput()
-			fmt.Println("PACKING OUTPUT:", string(out))
+			color.FgGray.Println("(Background) Packing logs:\n", string(out))
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					exitCode := exitErr.ExitCode()

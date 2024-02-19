@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/gookit/color"
 )
 
 func downloadAssetHandler(w http.ResponseWriter, r *http.Request) {
@@ -151,8 +153,8 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	}
 
 	// START DOWNLOAD IF NEEDED
+	fp := downloadFilePaths[0]
 	if action == "download" {
-		fp := downloadFilePaths[0]
 		err = downloadAsset(downloadURL, fp, data, taskID, task.Ctx)
 		if err != nil {
 			e := fmt.Errorf("error downloading asset: %v", err)
@@ -167,8 +169,18 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		fmt.Println("PLACING THE FILE")
 	}
 
+	// UNPACKING
 	if data.UnpackFiles {
-		// TODO: UNPACK FILE
+		err := UnpackAsset(fp, data, taskID)
+		if err != nil {
+			e := fmt.Errorf("error unpacking asset: %v", err)
+			TaskErrorCh <- &TaskError{
+				AppID:  data.AppID,
+				TaskID: taskID,
+				Error:  e,
+			}
+			return
+		}
 	}
 
 	result := map[string]interface{}{"file_paths": downloadFilePaths}
@@ -178,6 +190,53 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		Message: "Asset downloaded and ready",
 		Result:  result,
 	}
+}
+
+// UnpackAsset unpacks the downloaded asset (.blend file)
+func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
+	TaskMessageCh <- &TaskMessageUpdate{
+		AppID:   data.AppID,
+		TaskID:  taskID,
+		Message: "Unpacking files",
+	}
+	blenderUserScripts := filepath.Dir(filepath.Dir(data.PREFS.AddonDir)) // e.g.: /Users/username/Library/Application Support/Blender/4.1/scripts"
+	unpackScriptPath := filepath.Join(data.PREFS.AddonDir, "unpack_asset_bg.py")
+	dataFile := filepath.Join(os.TempDir(), "resdata.json")
+
+	process_data := map[string]interface{}{
+		"fpath":      blendPath,
+		"asset_data": data.DownloadAssetData,
+		"commannd":   "unpack",
+		//"debug_value": data.PREFS.DebugValue,
+	}
+	jsonData, err := json.Marshal(process_data)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(dataFile, jsonData, 0644)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(
+		data.BinaryPath,
+		"--background",
+		"--factory-startup", // disables user preferences, addons, etc.
+		"--addons", "blenderkit",
+		"-noaudio",
+		blendPath,
+		"--python", unpackScriptPath,
+		"--",
+		dataFile,
+	)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=\"%v\"", blenderUserScripts))
+	out, err := cmd.CombinedOutput()
+	color.FgGray.Println("(Background) Unpacking logs:\n", string(out))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx context.Context) error {
