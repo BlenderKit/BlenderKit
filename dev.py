@@ -34,7 +34,6 @@ def blenderkit_client_build(abs_build_dir: str):
         },
     ]
 
-    processes = []
     for build in builds:
         build_path = os.path.join(build_dir, build["output"])
         env = {**build["env"], **os.environ}
@@ -43,11 +42,18 @@ def blenderkit_client_build(abs_build_dir: str):
             env=env,
             cwd="./client",
         )
-        processes.append(process)
+        build["process"] = process
 
     print(f"Client build started for {len(builds)} platforms.")
-    for process in processes:
-        process.wait()
+    builds_ok = True
+    for build in builds:
+        build["process"].wait()
+        if build["process"].returncode != 0:
+            print(f"Client build ({build['env']}) failed")
+            builds_ok = False
+    
+    if not builds_ok:
+        exit(1)
     print("Client builds completed.")
 
 
