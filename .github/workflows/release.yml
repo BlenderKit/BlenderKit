@@ -19,7 +19,7 @@ jobs:
   Checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install
         run: pip install -r devs/requirements.txt
       - name: ISORT
@@ -34,7 +34,7 @@ jobs:
   Release_checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Version set to ${{inputs.version}}
         run: python3 -c "import re; f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_init.split(', '))) == tuple(map(int, '${{inputs.version}}'.split('.'))), f'Version mismatch of {version_init} and ${{inputs.version}}'"
 
@@ -42,7 +42,12 @@ jobs:
     needs: [Checks, Release_checks, TESTS]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+        id: go
       - name: Build add-on
         run: python dev.py build
       - name: Rename add-on
@@ -59,63 +64,12 @@ jobs:
           #body_path: ${{ github.workspace }}-CHANGELOG.txt
           files: out/blenderkit-v${{inputs.version}}.zip
 
-  Build_daemon_windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - run: python --version
-      - run: python -m pip install pipenv
-      - run: python dev.py compile
-      - run: ls out-daemon/dist
-      - name: Store daemon binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: daemon-windows-${{inputs.version}}
-          path: out-daemon/dist/daemon.exe
-
-  Build_daemon_macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - run: python --version
-      - run: python -m pip install pipenv
-      - run: python dev.py compile
-      - run: ls out-daemon/dist
-      - name: Store daemon binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: daemon-macos-${{inputs.version}}
-          path: out-daemon/dist/daemon
-
-  Build_daemon_linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - run: python --version
-      - run: python -m pip install pipenv
-      - run: python dev.py compile
-      - run: ls out-daemon/dist
-      - name: Store daemon binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: daemon-linux-${{inputs.version}}
-          path: out-daemon/dist/daemon
-
   make-tests-matrix:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: set-matrix
         run: python .github/make-tests-matrix.py >> $GITHUB_OUTPUT
 
@@ -126,10 +80,10 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache Blender
         id: blenderBinaryCache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /home/runner/blender
           key: blender-${{matrix.version}}-${{matrix.sha}}
