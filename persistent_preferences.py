@@ -109,9 +109,12 @@ def load_preferences_from_JSON():
         "daemon_port", user_preferences.daemon_port
     )
     user_preferences.ip_version = prefs.get("ip_version", user_preferences.ip_version)
-    user_preferences.ssl_context = prefs.get(
-        "ssl_context", user_preferences.ssl_context
-    )
+    try:
+        user_preferences.ssl_context = prefs.get(
+            "ssl_context", user_preferences.ssl_context
+        )
+    except Exception as e:
+        print(f"Failed to load ssl_context: {e}")
     user_preferences.proxy_which = prefs.get(
         "proxy_which", user_preferences.proxy_which
     )

@@ -465,10 +465,7 @@ def api_key_property_updated(user_preferences, context):
     If length is not correct, then reset api_key to empty string. Call save_prefs() when api_key is correct.
     """
     if len(user_preferences.api_key) >= 25:
-        bk_logger.info("API KEY PROPERTY UPDATED")
-        if (
-            global_vars.DAEMON_ACCESSIBLE
-        ):  # to prevent getting user profile on start when API key is loaded - client will handle this automatically
+        if user_preferences.preferences_lock == False:
             daemon_lib.get_user_profile(user_preferences.api_key)
         search.refresh_search()
         return save_prefs(user_preferences, context)
