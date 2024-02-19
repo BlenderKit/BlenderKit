@@ -354,8 +354,8 @@ func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
 	TasksMux.Unlock()
 
 	if len(Tasks) == 0 {
-		BKLog.Printf("%s Add-on No add-ons left, shutting down...", EmoWarning)
-		go delayedExit(1)
+		BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
+		go delayedExit(0.1)
 	}
 	w.WriteHeader(http.StatusOK)
 }
