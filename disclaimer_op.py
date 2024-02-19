@@ -5,12 +5,11 @@ import time
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from . import global_vars, paths, reports, tasks_queue, utils
+from . import daemon_tasks, global_vars, paths, reports, tasks_queue, utils
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
-from . import daemon_tasks
 from .ui_bgl import get_text_size
 
 

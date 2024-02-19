@@ -9,8 +9,9 @@ from logging import Formatter, StreamHandler, basicConfig, getLogger
 from pathlib import Path
 
 import daemon_globals
-import daemon_tasks
 from aiohttp import ClientResponseError, ClientSession, web
+
+import daemon_tasks
 
 
 logger = getLogger(f"daemon.{__name__}")

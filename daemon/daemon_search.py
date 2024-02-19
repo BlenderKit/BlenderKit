@@ -8,10 +8,11 @@ from logging import getLogger
 import aiohttp
 import daemon_assets
 import daemon_globals
-import daemon_tasks
 import daemon_utils
 import yarl
 from aiohttp import ClientResponseError, web
+
+import daemon_tasks
 
 
 logger = getLogger(f"daemon.{__name__}")

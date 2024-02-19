@@ -6,9 +6,10 @@ from logging import getLogger
 from uuid import uuid4
 
 import daemon_globals
-import daemon_tasks
 import daemon_utils
 from aiohttp import web
+
+import daemon_tasks
 
 
 logger = getLogger(f"daemon.{__name__}")

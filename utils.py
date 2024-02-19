@@ -32,6 +32,7 @@ from mathutils import Vector
 
 from . import (
     daemon_lib,
+    daemon_tasks,
     global_vars,
     image_utils,
     paths,
@@ -39,7 +40,6 @@ from . import (
     reports,
     search,
 )
-from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)

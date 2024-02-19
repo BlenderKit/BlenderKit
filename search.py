@@ -35,6 +35,7 @@ from . import (
     asset_bar_op,
     bkit_oauth,
     daemon_lib,
+    daemon_tasks,
     global_vars,
     image_utils,
     paths,
@@ -45,7 +46,6 @@ from . import (
     utils,
     version_checker,
 )
-from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)

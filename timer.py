@@ -11,6 +11,7 @@ from . import (
     categories,
     comments_utils,
     daemon_lib,
+    daemon_tasks,
     disclaimer_op,
     download,
     global_vars,
@@ -22,7 +23,6 @@ from . import (
     upload,
     utils,
 )
-from . import daemon_tasks
 
 
 bk_logger = logging.getLogger(__name__)

@@ -10,9 +10,10 @@ from logging import getLogger
 from urllib.parse import urljoin
 
 import daemon_globals
-import daemon_tasks
 import daemon_utils
 from aiohttp import web
+
+import daemon_tasks
 
 
 logger = getLogger(f"daemon.{__name__}")
