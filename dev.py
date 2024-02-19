@@ -51,7 +51,7 @@ def blenderkit_client_build(abs_build_dir: str):
         if build["process"].returncode != 0:
             print(f"Client build ({build['env']}) failed")
             builds_ok = False
-    
+
     if not builds_ok:
         exit(1)
     print("Client builds completed.")
