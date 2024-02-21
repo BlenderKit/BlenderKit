@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	Version          = "3.10.0.240115"
+	Version          = "3.12.0.240221" // Overwritten automatically by -ldflags
 	ReportTimeout    = 3 * time.Minute
 	OAUTH_CLIENT_ID  = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 	WindowsPathLimit = 250
