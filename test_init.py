@@ -4,7 +4,7 @@ import unittest
 import bpy
 
 import blenderkit
-from blenderkit import global_vars
+from blenderkit import daemon_lib, global_vars
 
 
 class Test01Registration(unittest.TestCase):
@@ -19,6 +19,7 @@ class Test01Registration(unittest.TestCase):
             # SYSTEM STUFF
             "debug_value": bpy.app.debug_value,
             "binary_path": bpy.app.binary_path,
+            "addon_dir": daemon_lib.get_addon_dir(),
             "system_id": user_preferences.system_id,
             "app_id": os.getpid(),
             # STATISTICS
@@ -59,4 +60,5 @@ class Test01Registration(unittest.TestCase):
             # IMPORT SETTINGS
             "resolution": user_preferences.resolution,
         }
-        assert global_vars.PREFS == prefs
+        self.maxDiff = None
+        self.assertDictEqual(global_vars.PREFS, prefs)
