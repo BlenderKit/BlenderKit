@@ -567,7 +567,7 @@ def decide_client_binary_name() -> str:
         architecture = "x86_64"
 
     if os_name == "Windows":
-        return f"blenderit-client-{os_name}-{architecture}.exe".lower()
+        return f"blenderkit-client-{os_name}-{architecture}.exe".lower()
 
     return f"blenderkit-client-{os_name}-{architecture}".lower()
 
