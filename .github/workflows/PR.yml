@@ -10,8 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './client/go.mod'
+          cache-dependency-path: './client/go.sum'
+        id: go
+      - name: Python - install dependencies
         run: pip install -r devs/requirements.txt
+      - name: Go format check
+        run: test -z $(gofmt -l ./client)
       - name: ISORT
         run: python -m isort . --check-only --diff
       - name: BLACK
@@ -58,6 +66,12 @@ jobs:
       matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './client/go.mod'
+          cache-dependency-path: './client/go.sum'
+        id: go
       - name: Cache Blender
         id: blenderBinaryCache
         uses: actions/cache@v4
