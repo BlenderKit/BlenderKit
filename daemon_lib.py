@@ -447,19 +447,6 @@ def refresh_token(refresh_token, old_api_key):
         return resp
 
 
-def client_is_responding(session: requests.Session) -> tuple[bool, str]:
-    """Check whether blenderkit-client is responding."""
-    address = get_address()
-    try:
-        with session.get(address, timeout=TIMEOUT, proxies=NO_PROXIES) as resp:
-            if resp.status_code != 200:
-                return False, f"Server response not 200: {resp.status_code}"
-            return True, f"Server alive, PID: {resp.text}"
-
-    except requests.exceptions.ConnectionError as err:
-        return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
-
-
 def report_blender_quit():
     address = get_address()
     with requests.Session() as session:
@@ -491,7 +478,7 @@ def check_blenderkit_client_exit_code() -> tuple[int, str]:
     if exit_code is None:
         return exit_code, "BlenderKit client process is running."
 
-    log_path = f"{get_daemon_directory_path()}/daemon-{get_port()}.log"
+    log_path = f"{get_client_directory()}/daemon-{get_port()}.log"
     message = f"BlenderKit client process exited with code {exit_code}. Please report a bug and paste content of log {log_path}"
     return exit_code, message
 
@@ -624,7 +611,14 @@ def ensure_client_binary_installed():
         return
 
     preinstalled_client_path = get_preinstalled_client_path()
+    bk_logger.info(f"Copying BlenderKit-client binary {preinstalled_client_path}")
     os.makedirs(path.dirname(client_binary_path), exist_ok=True)
     shutil.copy(preinstalled_client_path, client_binary_path)
     os.chmod(client_binary_path, 0o711)
     bk_logger.info(f"BlenderKit-client binary copied to {client_binary_path}")
+
+
+def get_addon_dir():
+    """Get the path to the add-on directory."""
+    addon_dir = path.dirname(__file__)
+    return addon_dir

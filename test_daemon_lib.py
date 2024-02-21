@@ -9,6 +9,21 @@ import requests
 from blenderkit import daemon_lib, download, global_vars, paths, utils
 
 
+def client_is_responding() -> tuple[bool, str]:
+    """Check whether blenderkit-client is responding."""
+    address = daemon_lib.get_address()
+    try:
+        with requests.Session() as session:
+            with session.get(
+                address, timeout=daemon_lib.TIMEOUT, proxies=daemon_lib.NO_PROXIES
+            ) as resp:
+                if resp.status_code != 200:
+                    return False, f"Server response not 200: {resp.status_code}"
+                return True, f"Server alive, PID: {resp.text}"
+    except requests.exceptions.ConnectionError as err:
+        return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
+
+
 ### DAEMON IS NOT RUNNING ###
 
 
@@ -18,11 +33,10 @@ class Test01ClientNotRunning(unittest.TestCase):
         Also the daemon_communication_timer() and all other timers are not registered.
         So we expect blenderkit-client to be not running.
         """
-        with requests.Session() as session:
-            alive, pid = daemon_lib.client_is_responding(session)
-            self.assertFalse(alive)
-            self.assertIsInstance(alive, bool)
-            self.assertIsInstance(pid, str)
+        alive, pid = client_is_responding()
+        self.assertFalse(alive)
+        self.assertIsInstance(alive, bool)
+        self.assertIsInstance(pid, str)
 
     def test02_get_reports_not_running(self):
         app_id = os.getpid()
@@ -41,14 +55,13 @@ class Test01ClientNotRunning(unittest.TestCase):
 
 class Test02ClientRunning(unittest.TestCase):
     def test01_start_daemon_server(self):
-        daemon_lib.client_is_responding()
-        with requests.Session() as session:
-            for i in range(10):
-                time.sleep(i * 0.5)
-                alive, _ = daemon_lib.client_is_responding(session)
-                if alive == True:
-                    break
-            self.assertTrue(alive)
+        daemon_lib.start_blenderkit_client()
+        for i in range(10):
+            time.sleep(i * 0.5)
+            alive, _ = client_is_responding()
+            if alive == True:
+                break
+        self.assertTrue(alive)
 
 
 class Test03ClientUtilFunctions(unittest.TestCase):
@@ -215,10 +228,9 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 class Test99ClientStopped(unittest.TestCase):
     def test_shutdown_client(self):
         daemon_lib.shutdown_client()
-        with requests.Session() as session:
-            for _ in range(5):
-                alive, _ = daemon_lib.client_is_responding(session)
-                if alive == False:
-                    break
-                time.sleep(1)
-            self.assertFalse(alive)
+        for _ in range(5):
+            alive, _ = client_is_responding()
+            if alive == False:
+                break
+            time.sleep(1)
+        self.assertFalse(alive)
