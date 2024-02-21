@@ -102,6 +102,13 @@ func handleChannels() {
 			}
 			Tasks[task.AppID][task.TaskID] = task
 			TasksMux.Unlock()
+			// Task can be created directly with status "finished" or "error"
+			if task.Status == "error" {
+				ChanLog.Printf("%s %s (%s): %v\n", EmoError, task.TaskType, task.TaskID, task.Error)
+			}
+			if task.Status == "finished" {
+				ChanLog.Printf("%s %s (%s)\n", EmoOK, task.TaskType, task.TaskID)
+			}
 		case u := <-TaskProgressUpdateCh:
 			TasksMux.Lock()
 			task := Tasks[u.AppID][u.TaskID]
@@ -114,8 +121,8 @@ func handleChannels() {
 			TasksMux.Lock()
 			task := Tasks[m.AppID][m.TaskID]
 			task.Message = m.Message
-			ChanLog.Printf("%s %s (%s): %s\n", EmoInfo, task.TaskType, task.TaskID, m.Message)
 			TasksMux.Unlock()
+			ChanLog.Printf("%s %s (%s): %s\n", EmoInfo, task.TaskType, task.TaskID, m.Message)
 		case f := <-TaskFinishCh:
 			TasksMux.Lock()
 			task := Tasks[f.AppID][f.TaskID]
@@ -404,7 +411,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-// TODO: implement SearchData struct
 func doSearch(data SearchTaskData, taskID string) {
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "search")
 
@@ -478,14 +484,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 				Index:         i,
 			}
 			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
-			if _, err := os.Stat(smallImgPath); err == nil { // TODO: do not check file existence in for loop -> gotta be faster
-				task.Finish("thumbnail on disk")
-			} else {
-				smallThumbsTasks = append(smallThumbsTasks, task)
-			}
-			TasksMux.Lock()
-			Tasks[task.AppID][task.TaskID] = task
-			TasksMux.Unlock()
+			smallThumbsTasks = append(smallThumbsTasks, task)
 		}
 
 		if fullImgNameErr == nil {
@@ -498,14 +497,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 				Index:         i,
 			}
 			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
-			if _, err := os.Stat(fullImgPath); err == nil {
-				task.Finish("thumbnail on disk")
-			} else {
-				fullThumbsTasks = append(fullThumbsTasks, task)
-			}
-			TasksMux.Lock()
-			Tasks[task.AppID][task.TaskID] = task
-			TasksMux.Unlock()
+			fullThumbsTasks = append(fullThumbsTasks, task)
 		}
 	}
 	go downloadImageBatch(smallThumbsTasks, true)
@@ -527,13 +519,24 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	defer wg.Done()
 	data, ok := t.Data.(DownloadThumbnailData)
 	if !ok {
-		TaskErrorCh <- &TaskError{AppID: t.AppID, TaskID: t.TaskID, Error: fmt.Errorf("invalid data type")}
+		t.Status = "error"
+		t.Error = fmt.Errorf("invalid data type")
+		AddTaskCh <- t
+		return
+	}
+
+	if _, err := os.Stat(data.ImagePath); err == nil {
+		t.Status = "finished"
+		t.Message = "thumbnail on disk"
+		AddTaskCh <- t
 		return
 	}
 
 	req, err := http.NewRequest("GET", data.ImageURL, nil)
 	if err != nil {
-		fmt.Println("Error creating request:", err)
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
 		return
 	}
 
@@ -541,44 +544,43 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	req.Header = headers
 	resp, err := ClientBigThumbs.Do(req)
 	if err != nil {
-		TasksMux.Lock()
 		t.Message = "Error performing request to download thumbnail"
 		t.Status = "error"
-		TasksMux.Unlock()
+		t.Error = err
+		AddTaskCh <- t
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		TasksMux.Lock()
 		t.Message = "Error downloading thumbnail"
 		t.Status = "error"
-		TasksMux.Unlock()
+		AddTaskCh <- t
 		return
 	}
 
 	// Open the file for writing
 	file, err := os.Create(data.ImagePath)
 	if err != nil {
-		TasksMux.Lock()
 		t.Message = "Error creating file for thumbnail"
 		t.Status = "error"
-		TasksMux.Unlock()
+		t.Error = err
+		AddTaskCh <- t
 		return
 	}
 	defer file.Close()
 
 	// Copy the response body to the file
 	if _, err := io.Copy(file, resp.Body); err != nil {
-		TasksMux.Lock()
 		t.Message = "Error copying thumbnail response body to file"
 		t.Status = "error"
-		TasksMux.Unlock()
+		t.Error = err
+		AddTaskCh <- t
 		return
 	}
-	TasksMux.Lock()
-	t.Finish("thumbnail downloaded")
-	TasksMux.Unlock()
+	t.Status = "finished"
+	t.Message = "thumbnail downloaded"
+	AddTaskCh <- t
 }
 
 // Fetch categories from the server: https://www.blenderkit.com/api/v1/categories/
