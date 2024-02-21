@@ -82,6 +82,12 @@ jobs:
       matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './client/go.mod'
+          cache-dependency-path: './client/go.sum'
+        id: go
       - name: Cache Blender
         id: blenderBinaryCache
         uses: actions/cache@v4
