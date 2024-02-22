@@ -43,6 +43,8 @@ const (
 	EmoDisconnecting = "👐"
 	EmoSecure        = "🔒"
 	EmoInsecure      = "🧨"
+	EmoUpload        = "⬆️ "
+	EmoDownload      = "⬇️ "
 )
 
 var (
@@ -110,6 +112,7 @@ func handleChannels() {
 				ChanLog.Printf("%s %s (%s)\n", EmoOK, task.TaskType, task.TaskID)
 			}
 		case u := <-TaskProgressUpdateCh:
+			fmt.Printf("Updating progres on app %d task %s - %d%%\n", u.AppID, u.TaskID, u.Progress)
 			TasksMux.Lock()
 			task := Tasks[u.AppID][u.TaskID]
 			task.Progress = u.Progress
@@ -1408,7 +1411,7 @@ func AssetUploadHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		es := fmt.Sprintf("error parsing JSON: %v", err)
-		fmt.Println(es)
+		BKLog.Printf("%s AssetUploadHandler - %v", EmoError, es)
 		http.Error(w, es, http.StatusBadRequest)
 		return
 	}
@@ -1418,7 +1421,14 @@ func AssetUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 func UploadAsset(data AssetUploadRequestData) {
 	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "asset_upload")
+	AddTaskCh <- &Task{
+		AppID:    data.AppID,
+		TaskID:   taskID,
+		Data:     data,
+		Result:   make(map[string]interface{}),
+		TaskType: "asset_upload",
+		Message:  "Upload initiated",
+	}
 
 	isMainFileUpload, isMetadataUpload, isThumbnailUpload := false, false, false
 	for _, file := range data.UploadSet {
@@ -1432,7 +1442,7 @@ func UploadAsset(data AssetUploadRequestData) {
 			isThumbnailUpload = true
 		}
 	}
-	BKLog.Print("  UploadAsset: isMainFileUpload", isMainFileUpload, "isMetadataUpload", isMetadataUpload, "isThumbnailUpload", isThumbnailUpload)
+	BKLog.Printf("%s Asset Upload Started - isMainFileUpload=%t isMetadataUpload=%t isThumbnailUpload=%t", EmoUpload, isMainFileUpload, isMetadataUpload, isThumbnailUpload)
 
 	// 1. METADATA UPLOAD
 	var metadataResp *AssetsCreateResponse
@@ -1469,24 +1479,24 @@ func UploadAsset(data AssetUploadRequestData) {
 	}
 
 	// 3. UPLOAD
-	err = upload_asset_data(filesToUpload, data, *metadataResp, isMainFileUpload)
+	err = upload_asset_data(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
 	// 4. COMPLETE
-	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp, Message: "Upload successful!"}
 }
 
-func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool) error {
+func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) error {
 	for _, file := range files {
 		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
 		if err != nil {
 			return err
 		}
 
-		err = uploadFileToS3(file, data, upload_info_json)
+		err = uploadFileToS3(file, data, upload_info_json, taskID)
 		if err != nil {
 			return err
 		}
@@ -1589,7 +1599,34 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 	return resp_JSON, nil
 }
 
-func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3UploadInfoResponse) error {
+// Struct to track progress of a file upload/download
+type ProgressReader struct {
+	r          io.Reader // The underlying reader
+	n          int64     // Number of bytes already read
+	total      int64     // Total byte size of the file
+	appID      int       // which app is this for - used for sending progress updates via TaskMessageCh
+	taskID     string    // which task is this for - used for sending progress updates via TaskMessageCh
+	preMessage string    // message to prepend to the progress message
+}
+
+// Read reads data into p, tracking bytes read to report progress.
+func (pr *ProgressReader) Read(p []byte) (int, error) {
+	read, err := pr.r.Read(p)
+	pr.n += int64(read)
+
+	// Calculate and send the progress percentage
+	percentage := float64(pr.n) / float64(pr.total) * 100
+	msg := fmt.Sprintf("%s: %d%%", pr.preMessage, int(percentage))
+	TaskMessageCh <- &TaskMessageUpdate{AppID: pr.appID, TaskID: pr.taskID, Message: msg}
+
+	return read, err
+}
+
+type UploadValidationResponse struct {
+	Detail string `json:"detail"`
+}
+
+func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3UploadInfoResponse, taskID string) error {
 	fileInfo, err := os.Stat(file.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file: %w", err)
@@ -1602,7 +1639,16 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	}
 	defer fileContent.Close()
 
-	req, err := http.NewRequest("PUT", uploadInfo.S3UploadURL, fileContent)
+	// Wrap the fileContent with our ProgressReader
+	progressReader := &ProgressReader{
+		r:          fileContent,
+		total:      fileSize,
+		appID:      data.AppID,
+		taskID:     taskID,
+		preMessage: fmt.Sprintf("Uploading %s", file.Type),
+	}
+
+	req, err := http.NewRequest("PUT", uploadInfo.S3UploadURL, progressReader)
 	if err != nil {
 		return fmt.Errorf("failed to create S3 upload request: %w", err)
 	}
@@ -1620,8 +1666,6 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	}
 
 	// UPLOAD VALIDATION
-	fmt.Println("Validating upload with server.")
-
 	valReq, err := http.NewRequest("POST", uploadInfo.UploadDoneURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create upload validation request: %w", err)
@@ -1635,7 +1679,16 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	defer valResp.Body.Close()
 
 	if valResp.StatusCode >= 400 {
-		return fmt.Errorf("server upload validation failed with status code: %d", resp.StatusCode)
+		valRespData, err := io.ReadAll(valResp.Body)
+		if err != nil {
+			return fmt.Errorf("upload validation faild (%d) AND failed to read upload validation response: %w", valResp.StatusCode, err)
+		}
+		var valRespJSON UploadValidationResponse
+		err = json.Unmarshal(valRespData, &valRespJSON)
+		if err != nil {
+			return fmt.Errorf("upload validation failed (%d) AND failed to unmarshal upload validation response to JSON: %w", valResp.StatusCode, err)
+		}
+		return fmt.Errorf("upload validation failed (%d): %v", valResp.StatusCode, valRespJSON.Detail)
 	}
 
 	return nil

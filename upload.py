@@ -993,7 +993,7 @@ class UploadOperator(Operator):
             props.upload_state = ""
             return {"CANCELLED"}
 
-        props.upload_state = "0% - preparing upload"
+        props.upload_state = "Upload initiating..."
         props.uploading = True
 
         daemon_lib.upload_asset(upload_data, export_data, upload_set)
@@ -1199,7 +1199,7 @@ class AssetVerificationStatusChange(Operator):
 
 def handle_asset_upload(task: daemon_tasks.Task):
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
-    asset.upload_state = f"{task.progress}% - {task.message}"
+    asset.upload_state = task.message
     if task.status == "error":
         asset.uploading = False
         return reports.add_report(task.message, type="ERROR")

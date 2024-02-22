@@ -448,6 +448,7 @@ def refresh_token(refresh_token, old_api_key):
 
 
 def report_blender_quit():
+    """Report to the blenderkit-client that Blender has quit."""
     address = get_address()
     with requests.Session() as session:
         url = address + "/report_blender_quit"
