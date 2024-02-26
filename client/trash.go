@@ -7,10 +7,10 @@ import (
 	"net"
 )
 
-// fakePythonUUUIDGetNode is a fake implementation of the Python uuid.getnode() function
+// fakePythonUUIDGetNode is a fake implementation of the Python uuid.getnode() function
 // It returns the MAC address of the first non-loopback, up network interface as a string
 // We could replace this by more robust machineid.ProtectedID("blenderkit-client") from package github.com/denisbrodbeck/machineid
-func fakePythonUUUIDGetNode() (*string, error) {
+func fakePythonUUIDGetNode() (*string, error) {
 	mac, err := getMACAddress()
 	if err != nil {
 		return nil, err

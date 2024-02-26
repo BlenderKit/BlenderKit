@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -21,7 +20,7 @@ import (
 )
 
 const (
-	Version          = "3.12.0.240221" // Overwritten automatically by -ldflags
+	Version          = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
 	ReportTimeout    = 3 * time.Minute
 	OAUTH_CLIENT_ID  = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 	WindowsPathLimit = 250
@@ -48,10 +47,9 @@ const (
 )
 
 var (
-	SystemID        *string // Unique ID of the current system (15 integers)
-	PlatformVersion string
-	Port            *string
-	Server          *string
+	SystemID *string // Unique ID of the current system (15 integers)
+	Port     *string
+	Server   *string
 
 	CodeVerifier    string //Used for OAuth2
 	CodeVerifierMux sync.Mutex
@@ -85,8 +83,6 @@ func init() {
 	TaskFinishCh = make(chan *TaskFinish, 100)
 	TaskCancelCh = make(chan *TaskCancel, 100)
 	TaskErrorCh = make(chan *TaskError, 100)
-
-	PlatformVersion = runtime.GOOS + " " + runtime.GOARCH + " go" + runtime.Version()
 
 	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)   // Hexagon like BlenderKit logo
 	ChanLog = log.New(os.Stdout, "<- ", log.LstdFlags) // Same symbols as channel in Go
@@ -164,19 +160,19 @@ func main() {
 	var err error
 	Port = flag.String("port", "62485", "port to listen on")
 	Server = flag.String("server", server_default, "server to connect to")
-	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use") // possible values: "SYSTEM", "NONE", "CUSTOM"
+	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use") // possible values: "DEFAULT", "PRECONFIGURED", "DISABLED"
+	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")        // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
-	ip_version := flag.String("ip_version", "BOTH", "IP version to use")
-	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use") // possible values: "DEFAULT", "PRECONFIGURED", "DISABLED"
-	SystemID = flag.String("system_id", "", "system ID")                       // Just to please the add-on
-	version := flag.String("version", Version, "version of BlenderKit")
+	SystemID = flag.String("system_id", "", "system ID")
+	version := flag.String("version", Version, "version of BlenderKit")  // for backwards compatibility, not used now
+	ip_version := flag.String("ip_version", "BOTH", "IP version to use") // for backwards compatibility, not used now
 	flag.Parse()
 	fmt.Print("\n\n")
 	BKLog.Printf("Starting with flags port=%s server=%s version=%s system_id=%s proxy_which=%s proxy_address=%s trusted_ca_certs=%s ip_version=%s ssl_context=%s",
 		*Port, *Server, *version, *SystemID, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context)
 	if *SystemID == "" {
-		SystemID, err = fakePythonUUUIDGetNode()
+		SystemID, err = fakePythonUUIDGetNode()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -422,7 +418,7 @@ func doSearch(data SearchTaskData, taskID string) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-	req.Header = getHeaders(data.PREFS.APIKey, *SystemID)
+	req.Header = getHeaders(data.PREFS.APIKey, *SystemID, data.AddonVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -480,6 +476,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		if smallImgNameErr == nil {
 			taskUUID := uuid.New().String()
 			taskData := DownloadThumbnailData{
+				AddonVersion:  data.AddonVersion,
 				ThumbnailType: "small",
 				ImagePath:     smallImgPath,
 				ImageURL:      smallThumbURL,
@@ -493,6 +490,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		if fullImgNameErr == nil {
 			taskUUID := uuid.New().String()
 			taskData := DownloadThumbnailData{
+				AddonVersion:  data.AddonVersion,
 				ThumbnailType: "full",
 				ImagePath:     fullImgPath,
 				ImageURL:      fullThumbURL,
@@ -543,7 +541,7 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		return
 	}
 
-	headers := getHeaders("", *SystemID)
+	headers := getHeaders("", *SystemID, data.AddonVersion)
 	req.Header = headers
 	resp, err := ClientBigThumbs.Do(req)
 	if err != nil {
@@ -594,7 +592,7 @@ func FetchCategories(data MinimalTaskData) {
 	task := NewTask(nil, data.AppID, taskUUID, "categories_update")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, *SystemID)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -628,7 +626,7 @@ func FetchDisclaimer(data MinimalTaskData) {
 	task := NewTask(nil, data.AppID, taskUUID, "disclaimer")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, *SystemID)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -659,7 +657,7 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 	task := NewTask(nil, data.AppID, taskUUID, "notifications")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, *SystemID)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -792,7 +790,7 @@ func FetchGravatarImage(data FetchGravatarData) {
 		return
 	}
 
-	headers := getHeaders("", *SystemID)
+	headers := getHeaders("", *SystemID, data.AddonVersion)
 	req.Header = headers
 	resp, err := ClientSmallThumbs.Do(req)
 	if err != nil {
@@ -849,7 +847,7 @@ func GetUserProfile(data MinimalTaskData) {
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
 
-	headers := getHeaders(data.APIKey, *SystemID)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -878,9 +876,10 @@ func GetUserProfile(data MinimalTaskData) {
 }
 
 type GetRatingData struct {
-	AppID   int    `json:"app_id"`
-	APIKey  string `json:"api_key"`
-	AssetID string `json:"asset_id"`
+	AddonVersion string `json:"addon_version"`
+	AppID        int    `json:"app_id"`
+	APIKey       string `json:"api_key"`
+	AssetID      string `json:"asset_id"`
 }
 
 func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
@@ -906,7 +905,7 @@ func GetRating(data GetRatingData) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -966,7 +965,7 @@ func SendRating(data SendRatingData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1019,7 +1018,7 @@ func GetBookmarks(data MinimalTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1075,7 +1074,7 @@ func GetComments(data GetCommentsData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1134,7 +1133,7 @@ func CreateComment(data CreateCommentData) {
 		return
 	}
 
-	headers := getHeaders(data.APIKey, *SystemID)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -1252,7 +1251,7 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1319,7 +1318,7 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1379,7 +1378,7 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1538,7 +1537,7 @@ func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadata
 	if err != nil {
 		return err
 	}
-	req.Header = getHeaders(data.Preferences.APIKey, *SystemID)
+	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -1572,7 +1571,7 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 	if err != nil {
 		return resp_JSON, err
 	}
-	req.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID)
+	req.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := ClientAPI.Do(req)
@@ -1670,7 +1669,7 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	if err != nil {
 		return fmt.Errorf("failed to create upload validation request: %w", err)
 	}
-	valReq.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID)
+	valReq.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion)
 
 	valResp, err := ClientAPI.Do(valReq)
 	if err != nil {
@@ -1799,7 +1798,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
 func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
-	headers := getHeaders(data.Preferences.APIKey, "")
+	headers := getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
@@ -1840,7 +1839,7 @@ func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) 
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
-	headers := getHeaders(data.Preferences.APIKey, "")
+	headers := getHeaders(data.Preferences.APIKey, "", data.UploadData.AddonVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
