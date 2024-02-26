@@ -418,7 +418,7 @@ func doSearch(data SearchTaskData, taskID string) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-	req.Header = getHeaders(data.PREFS.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.PREFS.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -541,7 +541,7 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		return
 	}
 
-	headers := getHeaders("", *SystemID, data.AddonVersion)
+	headers := getHeaders("", *SystemID, data.AddonVersion, data.PlatformVersion)
 	req.Header = headers
 	resp, err := ClientBigThumbs.Do(req)
 	if err != nil {
@@ -592,7 +592,7 @@ func FetchCategories(data MinimalTaskData) {
 	task := NewTask(nil, data.AppID, taskUUID, "categories_update")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -626,7 +626,7 @@ func FetchDisclaimer(data MinimalTaskData) {
 	task := NewTask(nil, data.AppID, taskUUID, "disclaimer")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -657,7 +657,7 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 	task := NewTask(nil, data.AppID, taskUUID, "notifications")
 	AddTaskCh <- task
 
-	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -790,7 +790,7 @@ func FetchGravatarImage(data FetchGravatarData) {
 		return
 	}
 
-	headers := getHeaders("", *SystemID, data.AddonVersion)
+	headers := getHeaders("", *SystemID, data.AddonVersion, data.PlatformVersion)
 	req.Header = headers
 	resp, err := ClientSmallThumbs.Do(req)
 	if err != nil {
@@ -847,7 +847,7 @@ func GetUserProfile(data MinimalTaskData) {
 	taskID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
 
-	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -875,13 +875,6 @@ func GetUserProfile(data MinimalTaskData) {
 	}
 }
 
-type GetRatingData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	AssetID      string `json:"asset_id"`
-}
-
 func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
 	var data GetRatingData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -905,7 +898,7 @@ func GetRating(data GetRatingData) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -965,7 +958,7 @@ func SendRating(data SendRatingData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1018,7 +1011,7 @@ func GetBookmarks(data MinimalTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1074,7 +1067,7 @@ func GetComments(data GetCommentsData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1133,7 +1126,7 @@ func CreateComment(data CreateCommentData) {
 		return
 	}
 
-	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -1251,7 +1244,7 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1318,7 +1311,7 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1378,7 +1371,7 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 		return
 	}
 
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
@@ -1537,7 +1530,7 @@ func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadata
 	if err != nil {
 		return err
 	}
-	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion)
+	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -1571,7 +1564,7 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 	if err != nil {
 		return resp_JSON, err
 	}
-	req.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion)
+	req.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := ClientAPI.Do(req)
@@ -1669,7 +1662,7 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	if err != nil {
 		return fmt.Errorf("failed to create upload validation request: %w", err)
 	}
-	valReq.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion)
+	valReq.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	valResp, err := ClientAPI.Do(valReq)
 	if err != nil {
@@ -1798,7 +1791,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
 func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
-	headers := getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion)
+	headers := getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
@@ -1839,7 +1832,7 @@ func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) 
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
-	headers := getHeaders(data.Preferences.APIKey, "", data.UploadData.AddonVersion)
+	headers := getHeaders(data.Preferences.APIKey, "", data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {

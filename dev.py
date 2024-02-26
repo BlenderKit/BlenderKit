@@ -12,27 +12,39 @@ def blenderkit_client_build(abs_build_dir: str):
     builds = [
         {
             "env": {"GOOS": "windows", "GOARCH": "amd64"},
-            "output": os.path.join(f"v{client_version}", "blenderkit-client-windows-x86_64.exe"),
+            "output": os.path.join(
+                f"v{client_version}", "blenderkit-client-windows-x86_64.exe"
+            ),
         },
         {
             "env": {"GOOS": "windows", "GOARCH": "arm64"},
-            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-windows-arm64.exe"),
+            "output": os.path.join(
+                f"v{client_version}", f"blenderkit-client-windows-arm64.exe"
+            ),
         },
         {
             "env": {"GOOS": "darwin", "GOARCH": "amd64"},
-            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-macos-x86_64"),
+            "output": os.path.join(
+                f"v{client_version}", f"blenderkit-client-macos-x86_64"
+            ),
         },
         {
             "env": {"GOOS": "darwin", "GOARCH": "arm64"},
-            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-macos-arm64"),
+            "output": os.path.join(
+                f"v{client_version}", f"blenderkit-client-macos-arm64"
+            ),
         },
         {
             "env": {"GOOS": "linux", "GOARCH": "amd64"},
-            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-linux-x86_64"),
+            "output": os.path.join(
+                f"v{client_version}", f"blenderkit-client-linux-x86_64"
+            ),
         },
         {
             "env": {"GOOS": "linux", "GOARCH": "arm64"},
-            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-linux-arm64"),
+            "output": os.path.join(
+                f"v{client_version}", f"blenderkit-client-linux-arm64"
+            ),
         },
     ]
     ldflags = f"-X main.Version={client_version}"
@@ -46,7 +58,9 @@ def blenderkit_client_build(abs_build_dir: str):
         )
         build["process"] = process
 
-    print(f"BlenderKit-client v{client_version} build started for {len(builds)} platforms.")
+    print(
+        f"BlenderKit-client v{client_version} build started for {len(builds)} platforms."
+    )
     builds_ok = True
     for build in builds:
         build["process"].wait()

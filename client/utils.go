@@ -11,17 +11,15 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 )
 
 // GetHeaders returns a set of HTTP headers to be used in requests to the server.
-// The headers include the Content-Type - application/json.
 // These are the default headers which should be set to all requests of client to the server.
-func getHeaders(apiKey, systemID, addonVersion string) http.Header {
+func getHeaders(apiKey, systemID, addonVersion, platformVersion string) http.Header {
 	headers := http.Header{}
 	headers.Set("Content-Type", "application/json")
-	headers.Set("Platform-Version", fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH))
+	headers.Set("Platform-Version", platformVersion)
 	headers.Set("System-ID", systemID)
 	headers.Set("Addon-Version", addonVersion)
 	headers.Set("Client-Version", Version)
