@@ -101,7 +101,7 @@ func GetTokens(authCode string, refreshToken string) (map[string]interface{}, in
 	data.Set("redirect_uri", fmt.Sprintf("http://localhost:%s/consumer/exchange/", *Port))
 
 	url := fmt.Sprintf("%s/o/token/", *Server)
-	headers := getHeaders("", *SystemID, "") // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
+	headers := getHeaders("", *SystemID, "", "") // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Fatalf("Error creating request: %v", err)

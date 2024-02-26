@@ -4,9 +4,10 @@ import "context"
 
 // MinimalTaskData is minimal data needed from add-on to schedule a task.
 type MinimalTaskData struct {
-	AppID        int    `json:"app_id"`  // AppID is PID of Blender in which add-on runs
-	APIKey       string `json:"api_key"` // Can be empty for non-logged users
-	AddonVersion string `json:"addon_version"`
+	AppID           int    `json:"app_id"`  // AppID is PID of Blender in which add-on runs
+	APIKey          string `json:"api_key"` // Can be empty for non-logged users
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
 }
 
 // TaskStatusUpdate is a struct for updating the status of a task through a channel.
@@ -198,6 +199,7 @@ type DownloadAssetData struct {
 
 type DownloadData struct {
 	AddonVersion      string   `json:"addon_version"`
+	PlatformVersion   string   `json:"platform_version"`
 	AppID             int      `json:"app_id"`
 	DownloadDirs      []string `json:"download_dirs"`
 	DownloadAssetData `json:"asset_data"`
@@ -305,6 +307,7 @@ type AssetsCreateResponse struct {
 // https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 type AssetUploadData struct {
 	AddonVersion     string      `json:"addonVersion"`
+	PlatformVersion  string      `json:"platformVersion"`
 	AssetType        string      `json:"assetType"`
 	Category         string      `json:"category"`
 	Description      string      `json:"description"`
@@ -335,20 +338,22 @@ type AssetUploadRequestData struct {
 
 // MarkNotificationReadTaskData is expected from the add-on.
 type MarkNotificationReadTaskData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	Notification int    `json:"notification_id"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	Notification    int    `json:"notification_id"`
 }
 
 // MarkCommentPrivateTaskData is expected from the add-on.
 type MarkCommentPrivateTaskData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	AssetID      string `json:"asset_id"`
-	CommentID    int    `json:"comment_id"`
-	IsPrivate    bool   `json:"is_private"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AssetID         string `json:"asset_id"`
+	CommentID       int    `json:"comment_id"`
+	IsPrivate       bool   `json:"is_private"`
 }
 
 // MarkCommentPrivateData is sent to the server.
@@ -358,12 +363,13 @@ type MarkCommentPrivateData struct {
 
 // FeedbackCommentTaskData is expected from the add-on.
 type FeedbackCommentTaskData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	AssetID      string `json:"asset_id"`
-	CommentID    int    `json:"comment_id"`
-	Flag         string `json:"flag"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AssetID         string `json:"asset_id"`
+	CommentID       int    `json:"comment_id"`
+	Flag            string `json:"flag"`
 }
 
 // FeedbackCommentData is sent to the server.
@@ -396,41 +402,53 @@ type CommentPostData struct {
 }
 
 type CreateCommentData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	AssetID      string `json:"asset_id"`
-	CommentText  string `json:"comment_text"`
-	ReplyToID    int    `json:"reply_to_id"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AssetID         string `json:"asset_id"`
+	CommentText     string `json:"comment_text"`
+	ReplyToID       int    `json:"reply_to_id"`
 }
 
 type GetCommentsData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	AssetID      string `json:"asset_id"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AssetID         string `json:"asset_id"`
 }
 
 type SendRatingData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	APIKey       string `json:"api_key"`
-	AssetID      string `json:"asset_id"`
-	RatingType   string `json:"rating_type"`
-	RatingValue  int    `json:"rating_value"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AssetID         string `json:"asset_id"`
+	RatingType      string `json:"rating_type"`
+	RatingValue     int    `json:"rating_value"`
 }
 
 type FetchGravatarData struct {
-	AddonVersion string `json:"addon_version"`
-	AppID        int    `json:"app_id"`
-	ID           int    `json:"id"`
-	Avatar128    string `json:"avatar128"` //e.g.: "/avatar-redirect/ad7c20a8-98ca-4128-9189-f727b2d1e4f3/128/"
-	GravatarHash string `json:"gravatarHash"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	ID              int    `json:"id"`
+	Avatar128       string `json:"avatar128"` //e.g.: "/avatar-redirect/ad7c20a8-98ca-4128-9189-f727b2d1e4f3/128/"
+	GravatarHash    string `json:"gravatarHash"`
 }
 
 type CancelDownloadData struct {
 	TaskID string `json:"task_id"`
 	AppID  int    `json:"app_id"`
+}
+
+type GetRatingData struct {
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AssetID         string `json:"asset_id"`
 }
 
 type Notification struct {
@@ -508,27 +526,29 @@ type DisclaimerData struct {
 }
 
 type DownloadThumbnailData struct {
-	AddonVersion  string `json:"addon_version"`
-	ThumbnailType string `json:"thumbnail_type"`
-	ImagePath     string `json:"image_path"`
-	ImageURL      string `json:"image_url"`
-	AssetBaseID   string `json:"assetBaseId"`
-	Index         int    `json:"index"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	ThumbnailType   string `json:"thumbnail_type"`
+	ImagePath       string `json:"image_path"`
+	ImageURL        string `json:"image_url"`
+	AssetBaseID     string `json:"assetBaseId"`
+	Index           int    `json:"index"`
 }
 
 type SearchTaskData struct {
-	PREFS          `json:"PREFS"`
-	AddonVersion   string `json:"addon_version"`
-	APIKey         string `json:"api_key"`
-	AppID          int    `json:"app_id"`
-	AssetType      string `json:"asset_type"`
-	BlenderVersion string `json:"blender_version"`
-	GetNext        bool   `json:"get_next"`
-	NextURL        string `json:"next"`
-	PageSize       int    `json:"page_size"`
-	SceneUUID      string `json:"scene_uuid"`
-	TempDir        string `json:"tempdir"`
-	URLQuery       string `json:"urlquery"`
+	PREFS           `json:"PREFS"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	APIKey          string `json:"api_key"`
+	AppID           int    `json:"app_id"`
+	AssetType       string `json:"asset_type"`
+	BlenderVersion  string `json:"blender_version"`
+	GetNext         bool   `json:"get_next"`
+	NextURL         string `json:"next"`
+	PageSize        int    `json:"page_size"`
+	SceneUUID       string `json:"scene_uuid"`
+	TempDir         string `json:"tempdir"`
+	URLQuery        string `json:"urlquery"`
 }
 
 type ReportData struct {

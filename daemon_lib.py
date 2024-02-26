@@ -27,6 +27,7 @@ def get_port() -> str:
     """
     return global_vars.DAEMON_PORTS[0]
 
+
 def ensure_minimal_data(data: dict = {}) -> dict:
     """Ensure that the data send to the client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
@@ -36,10 +37,17 @@ def ensure_minimal_data(data: dict = {}) -> dict:
     if "app_id" not in data:
         data["app_id"] = os.getpid()
     if "api_key" not in data:
-        data["api_key"] = bpy.context.preferences.addons["blenderkit"].preferences.api_key
+        data["api_key"] = bpy.context.preferences.addons[
+            "blenderkit"
+        ].preferences.api_key
     if "addon_version" not in data:
-        data["addon_version"] = f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
+        data["addon_version"] = (
+            f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
+        )
+    if "platform_version" not in data:
+        data["platform_version"] = platform.platform()
     return data
+
 
 def reorder_ports(port: str):
     """Reorder DAEMON_PORTS so the specified port is first."""
@@ -307,7 +315,7 @@ def get_download_url(asset_data, scene_id, api_key):
         "resolution": "blend",
         "asset_data": asset_data,
         "PREFS": {
-            "api_key": api_key, # TODO: remove this, it is already available via ensure_minimal_data
+            "api_key": api_key,  # TODO: remove this, it is already available via ensure_minimal_data
             "scene_id": scene_id,
         },
     }
@@ -447,9 +455,7 @@ def report_blender_quit():
     data = ensure_minimal_data()
     with requests.Session() as session:
         url = address + "/report_blender_quit"
-        resp = session.get(
-            url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES
-        )
+        resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
@@ -585,14 +591,14 @@ def get_client_version() -> str:
     client_bundled_dir = path.join(addon_dir, "client")
     version_dir = next(os.scandir(client_bundled_dir)).name
     return version_dir
-    
+
 
 def get_preinstalled_client_path() -> str:
     """Get the path to the preinstalled client binary - located in add-on directory.
     This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z.YYMMDD on first run.
     """
     addon_dir = path.dirname(__file__)
-    client_version =  get_client_version()
+    client_version = get_client_version()
     binary_name = decide_client_binary_name()
     binary_path = path.join(addon_dir, "client", client_version, binary_name)
     return path.abspath(binary_path)
