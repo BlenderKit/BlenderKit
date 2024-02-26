@@ -72,12 +72,9 @@ def daemon_communication_timer():
     global pending_tasks
     bk_logger.debug("Getting tasks from daemon")
     search.check_clipboard()
-    app_id = os.getpid()
     results = list()
-
     try:
-        api_key = bpy.context.preferences.addons["blenderkit"].preferences.api_key
-        results = daemon_lib.get_reports(app_id, api_key)
+        results = daemon_lib.get_reports(os.getpid())
         global_vars.DAEMON_FAILED_REPORTS = 0
     except Exception as e:
         return handle_failed_reports(e)

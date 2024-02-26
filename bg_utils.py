@@ -78,7 +78,6 @@ def download_asset_file(asset_data, resolution="blend", api_key=""):
         # this sends the thread for processing, where another check should occur, since the file might be corrupted.
         bk_logger.debug("not downloading, already in db")
         return file_name
-    headers = utils.get_headers(api_key=api_key)
 
     res_file_info, resolution = paths.get_res_file(asset_data, resolution)
     response = daemon_lib.blocking_file_download(

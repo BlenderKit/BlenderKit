@@ -27,6 +27,19 @@ def get_port() -> str:
     """
     return global_vars.DAEMON_PORTS[0]
 
+def ensure_minimal_data(data: dict = {}) -> dict:
+    """Ensure that the data send to the client contains:
+    - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
+    - api_key is the authentication token for the BlenderKit server, so BlenderKit client can authenticate the user.
+    - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
+    """
+    if "app_id" not in data:
+        data["app_id"] = os.getpid()
+    if "api_key" not in data:
+        data["api_key"] = bpy.context.preferences.addons["blenderkit"].preferences.api_key
+    if "addon_version" not in data:
+        data["addon_version"] = f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
+    return data
 
 def reorder_ports(port: str):
     """Reorder DAEMON_PORTS so the specified port is first."""
@@ -36,11 +49,11 @@ def reorder_ports(port: str):
     )
 
 
-def get_reports(app_id: str, api_key=""):
+def get_reports(app_id: str):
     """Get reports for all tasks of app_id Blender instance at once.
     If few last calls failed, then try to get reports also from other than default ports.
     """
-    data = {"app_id": app_id, "api_key": api_key}
+    data = ensure_minimal_data({"app_id": app_id})
     if (
         global_vars.DAEMON_FAILED_REPORTS < 10
     ):  # on 10, there is second blenderkit-client start
@@ -76,7 +89,7 @@ def search_asset(data):
     """Search for specified asset."""
     bk_logger.debug("Starting search request")
     address = get_address()
-    data["app_id"] = os.getpid()
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         url = address + "/search_asset"
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
@@ -88,7 +101,7 @@ def search_asset(data):
 def download_asset(data):
     """Download specified asset."""
     address = get_address()
-    data["app_id"] = os.getpid()
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         url = address + "/download_asset"
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
@@ -98,7 +111,7 @@ def download_asset(data):
 def cancel_download(task_id):
     """Cancel the specified task with ID on the daemon."""
     address = get_address()
-    data = {"task_id": task_id, "app_id": os.getpid()}
+    data = ensure_minimal_data({"task_id": task_id})
     with requests.Session() as session:
         url = address + "/cancel_download"
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
@@ -109,12 +122,12 @@ def cancel_download(task_id):
 def upload_asset(upload_data, export_data, upload_set):
     """Upload specified asset."""
     data = {
-        "app_id": os.getpid(),
         "PREFS": utils.get_preferences_as_dict(),
         "upload_data": upload_data,
         "export_data": export_data,
         "upload_set": upload_set,
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         url = get_address() + "/asset/upload"
         bk_logger.debug(f"making a request to: {url}")
@@ -128,11 +141,11 @@ def fetch_gravatar_image(
 ):  # TODO: require avatar128 and gravatarHash and refuse directly
     """Fetch gravatar image for specified user. Find it on disk or download it from server."""
     data = {
-        "app_id": os.getpid(),
         "id": author_data.get("id", ""),
         "avatar128": author_data.get("avatar128", ""),
         "gravatarHash": author_data.get("gravatarHash", ""),
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.get(
             f"{get_address()}/profiles/fetch_gravatar_image",
@@ -146,7 +159,7 @@ def get_user_profile(api_key):
     """Get profile of currently logged-in user.
     This creates task to daemon to fetch data which are later handled once available.
     """
-    data = {"api_key": api_key, "app_id": os.getpid()}
+    data = ensure_minimal_data()
     with requests.Session() as session:
         return session.get(
             f"{get_address()}/profiles/get_user_profile",
@@ -159,11 +172,7 @@ def get_user_profile(api_key):
 ### COMMENTS
 def get_comments(asset_id, api_key=""):
     """Get all comments on the asset."""
-    data = {
-        "asset_id": asset_id,
-        "api_key": api_key,
-        "app_id": os.getpid(),
-    }
+    data = ensure_minimal_data({"asset_id": asset_id})
     with requests.Session() as session:
         return session.post(
             f"{get_address()}/comments/get_comments",
@@ -178,10 +187,9 @@ def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
     data = {
         "asset_id": asset_id,
         "comment_text": comment_text,
-        "api_key": api_key,
         "reply_to_id": reply_to_id,
-        "app_id": os.getpid(),
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
             f"{get_address()}/comments/create_comment",
@@ -196,10 +204,9 @@ def feedback_comment(asset_id, comment_id, api_key, flag="like"):
     data = {
         "asset_id": asset_id,
         "comment_id": comment_id,
-        "api_key": api_key,
         "flag": flag,
-        "app_id": os.getpid(),
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
             f"{get_address()}/comments/feedback_comment",
@@ -214,10 +221,9 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
     data = {
         "asset_id": asset_id,
         "comment_id": comment_id,
-        "api_key": api_key,
         "is_private": is_private,
-        "app_id": os.getpid(),
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
             f"{get_address()}/comments/mark_comment_private",
@@ -230,11 +236,7 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
 ### NOTIFICATIONS
 def mark_notification_read(notification_id):
     """Mark the notification as read on the server."""
-    data = {
-        "notification_id": notification_id,
-        "api_key": bpy.context.preferences.addons["blenderkit"].preferences.api_key,
-        "app_id": os.getpid(),
-    }
+    data = ensure_minimal_data({"notification_id": notification_id})
     with requests.Session() as session:
         return session.post(
             f"{get_address()}/notifications/mark_notification_read",
@@ -245,14 +247,13 @@ def mark_notification_read(notification_id):
 
 
 ### REPORTS
-def report_usages(report: dict):
+def report_usages(data: dict):
     """Report usages of assets in current scene via daemon to the server."""
-    report["api_key"] = bpy.context.preferences.addons["blenderkit"].preferences.api_key
-    report["app_id"] = os.getpid()
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.post(
             f"{get_address()}/report_usages",
-            json=report,
+            json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )
@@ -261,11 +262,7 @@ def report_usages(report: dict):
 
 # RATINGS
 def get_rating(asset_id: str):
-    data = {
-        "api_key": bpy.context.preferences.addons["blenderkit"].preferences.api_key,
-        "app_id": os.getpid(),
-        "asset_id": asset_id,
-    }
+    data = ensure_minimal_data({"asset_id": asset_id})
     with requests.Session() as session:
         return session.get(
             f"{get_address()}/ratings/get_rating",
@@ -277,12 +274,11 @@ def get_rating(asset_id: str):
 
 def send_rating(asset_id: str, rating_type: str, rating_value: str):
     data = {
-        "api_key": bpy.context.preferences.addons["blenderkit"].preferences.api_key,
-        "app_id": os.getpid(),
         "asset_id": asset_id,
         "rating_type": rating_type,
         "rating_value": rating_value,
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
             f"{get_address()}/ratings/send_rating",
@@ -294,10 +290,7 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
 
 # BOOKMARKS
 def get_bookmarks():
-    data = {
-        "api_key": bpy.context.preferences.addons["blenderkit"].preferences.api_key,
-        "app_id": os.getpid(),
-    }
+    data = ensure_minimal_data()
     with requests.Session() as session:
         return session.get(
             f"{get_address()}/ratings/get_bookmarks",
@@ -311,14 +304,14 @@ def get_bookmarks():
 def get_download_url(asset_data, scene_id, api_key):
     """Get download url from server. This is a blocking wrapper, will not return until results are available."""
     data = {
-        "app_id": os.getpid(),
         "resolution": "blend",
         "asset_data": asset_data,
         "PREFS": {
-            "api_key": api_key,
+            "api_key": api_key, # TODO: remove this, it is already available via ensure_minimal_data
             "scene_id": scene_id,
         },
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.get(
             f"{get_address()}/wrappers/get_download_url",
@@ -335,8 +328,8 @@ def blocking_file_upload(url: str, filepath: str) -> requests.Response:
     data = {
         "url": url,
         "filepath": filepath,
-        "app_id": os.getpid(),
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.get(
             f"{get_address()}/wrappers/blocking_file_upload",
@@ -350,11 +343,10 @@ def blocking_file_upload(url: str, filepath: str) -> requests.Response:
 def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Response:
     """Upload file to server. This is a blocking wrapper, will not return until results are available."""
     data = {
-        "app_id": os.getpid(),
-        "api_key": api_key,
         "url": url,
         "filepath": filepath,
     }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.get(
             f"{get_address()}/wrappers/blocking_file_download",
@@ -402,8 +394,8 @@ def nonblocking_request(
         "method": method,
         "headers": headers,
         "messages": messages,
-        "app_id": os.getpid(),
     }
+    data = ensure_minimal_data(data)
     if json_data != {}:
         data["json"] = json_data
     with requests.Session() as session:
@@ -417,7 +409,7 @@ def nonblocking_request(
 
 ### AUTHORIZATION
 def send_code_verifier(code_verifier: str):
-    data = {"code_verifier": code_verifier}
+    data = ensure_minimal_data({"code_verifier": code_verifier})
     with requests.Session() as session:
         resp = session.post(
             f"{get_address()}/code_verifier",
@@ -433,14 +425,16 @@ def refresh_token(refresh_token, old_api_key):
     old_api_key is used later to replace token only in Blender instances with the same api_key. (User can be logged into multiple accounts.)
     """
     bk_logger.info("Calling API token refresh")
+    data = {
+        "refresh_token": refresh_token,
+        "old_api_key": old_api_key,
+    }
+    data = ensure_minimal_data(data)
     with requests.Session() as session:
         url = get_address() + "/refresh_token"
         resp = session.get(
             url,
-            json={
-                "refresh_token": refresh_token,
-                "old_api_key": old_api_key,
-            },
+            json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )
@@ -450,10 +444,11 @@ def refresh_token(refresh_token, old_api_key):
 def report_blender_quit():
     """Report to the blenderkit-client that Blender has quit."""
     address = get_address()
+    data = ensure_minimal_data()
     with requests.Session() as session:
         url = address + "/report_blender_quit"
         resp = session.get(
-            url, json={"app_id": os.getpid()}, timeout=TIMEOUT, proxies=NO_PROXIES
+            url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES
         )
         return resp
 
@@ -461,9 +456,10 @@ def report_blender_quit():
 def shutdown_client():
     """Request to shutdown the blenderkit-client."""
     address = get_address()
+    data = ensure_minimal_data()
     with requests.Session() as session:
         url = address + "/shutdown"
-        resp = session.get(url, timeout=TIMEOUT, proxies=NO_PROXIES)
+        resp = session.get(url, data=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
@@ -492,7 +488,7 @@ def start_blenderkit_client():
     """
     ensure_client_binary_installed()
     log_path = get_client_log_path()
-    client_binary_path = get_client_binary_path()
+    client_binary_path, client_version = get_client_binary_path()
 
     creation_flags = 0
     if platform.system() == "Windows":
@@ -533,7 +529,7 @@ def start_blenderkit_client():
         raise (e)
 
     bk_logger.info(
-        f"BlenderKit-client starting on {get_address()}, log file at: {log_path}"
+        f"BlenderKit-client {client_version} starting on {get_address()}, log file at: {log_path}"
     )
 
 
@@ -580,26 +576,39 @@ def get_client_log_path() -> str:
     return path.abspath(log_path)
 
 
+def get_client_version() -> str:
+    """Get the version of the blenderkit-client binary bundled within the add-on.
+    Binaries are located in blenderkit/client/vX.Y.Z.YYMMDD/ directory.
+    From this directory name, we get the version of the client binary.
+    """
+    addon_dir = path.dirname(__file__)
+    client_bundled_dir = path.join(addon_dir, "client")
+    version_dir = next(os.scandir(client_bundled_dir)).name
+    return version_dir
+    
+
 def get_preinstalled_client_path() -> str:
     """Get the path to the preinstalled client binary - located in add-on directory.
     This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z.YYMMDD on first run.
     """
     addon_dir = path.dirname(__file__)
+    client_version =  get_client_version()
     binary_name = decide_client_binary_name()
-    binary_path = path.join(addon_dir, "client", binary_name)
+    binary_path = path.join(addon_dir, "client", client_version, binary_name)
     return path.abspath(binary_path)
 
 
-def get_client_binary_path() -> str:
+def get_client_binary_path():
     """Get the path to the client binary located in global_dir/client/bin/vX.Y.Z.YYMMDD.
     This is the binary that is used to start the client process.
     We do not start from the add-on because it might block update or delete of the add-on.
+    Returns: (str, str) - path to the client binary, version of the client binary
     """
     client_dir = get_client_directory()
     binary_name = decide_client_binary_name()
-    ver_string = f"v{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
+    ver_string = get_client_version()
     binary_path = path.join(client_dir, "bin", ver_string, binary_name)
-    return path.abspath(binary_path)
+    return path.abspath(binary_path), ver_string
 
 
 def ensure_client_binary_installed():
@@ -607,7 +616,7 @@ def ensure_client_binary_installed():
     If not, copy the binary from the add-on directory blenderkit/client.
     As side effect, this function also creates the global_dir/client/bin/vX.Y.Z.YYMMDD directory.
     """
-    client_binary_path = get_client_binary_path()
+    client_binary_path, _ = get_client_binary_path()
     if path.exists(client_binary_path):
         return
 

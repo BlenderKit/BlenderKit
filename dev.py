@@ -6,45 +6,47 @@ import subprocess
 
 def blenderkit_client_build(abs_build_dir: str):
     """Build blenderkit-client for all platforms in parallel."""
+    with open("client/VERSION", "r") as f:
+        client_version = f.read().strip()
     build_dir = os.path.join(abs_build_dir, "client")
     builds = [
         {
             "env": {"GOOS": "windows", "GOARCH": "amd64"},
-            "output": "blenderkit-client-windows-x86_64.exe",
+            "output": os.path.join(f"v{client_version}", "blenderkit-client-windows-x86_64.exe"),
         },
         {
             "env": {"GOOS": "windows", "GOARCH": "arm64"},
-            "output": "blenderkit-client-windows-arm64.exe",
+            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-windows-arm64.exe"),
         },
         {
             "env": {"GOOS": "darwin", "GOARCH": "amd64"},
-            "output": "blenderkit-client-macos-x86_64",
+            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-macos-x86_64"),
         },
         {
             "env": {"GOOS": "darwin", "GOARCH": "arm64"},
-            "output": "blenderkit-client-macos-arm64",
+            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-macos-arm64"),
         },
         {
             "env": {"GOOS": "linux", "GOARCH": "amd64"},
-            "output": "blenderkit-client-linux-x86_64",
+            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-linux-x86_64"),
         },
         {
             "env": {"GOOS": "linux", "GOARCH": "arm64"},
-            "output": "blenderkit-client-linux-arm64",
+            "output":  os.path.join(f"v{client_version}", f"blenderkit-client-linux-arm64"),
         },
     ]
-
+    ldflags = f"-X main.Version={client_version}"
     for build in builds:
         build_path = os.path.join(build_dir, build["output"])
         env = {**build["env"], **os.environ}
         process = subprocess.Popen(
-            ["go", "build", "-o", build_path, "."],
+            ["go", "build", "-o", build_path, "-ldflags", ldflags, "."],
             env=env,
             cwd="./client",
         )
         build["process"] = process
 
-    print(f"Client build started for {len(builds)} platforms.")
+    print(f"BlenderKit-client v{client_version} build started for {len(builds)} platforms.")
     builds_ok = True
     for build in builds:
         build["process"].wait()
@@ -54,7 +56,7 @@ def blenderkit_client_build(abs_build_dir: str):
 
     if not builds_ok:
         exit(1)
-    print("Client builds completed.")
+    print(f"BlenderKit-client v{client_version} builds completed.")
 
 
 def do_build(install_at=None, include_tests=False, clean_dir=None):

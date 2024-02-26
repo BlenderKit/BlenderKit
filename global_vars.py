@@ -108,6 +108,5 @@ TIPS = [
     ),
 ]
 VERSION = None  # filled in register()
-BUNDLED_FOR_PYTHON = "3.10"
 
 daemon_process = None
