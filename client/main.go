@@ -20,7 +20,6 @@ import (
 )
 
 const (
-	Version          = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
 	ReportTimeout    = 3 * time.Minute
 	OAUTH_CLIENT_ID  = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 	WindowsPathLimit = 250
@@ -47,9 +46,10 @@ const (
 )
 
 var (
-	SystemID *string // Unique ID of the current system (15 integers)
-	Port     *string
-	Server   *string
+	ClientVersion = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
+	SystemID      *string   // Unique ID of the current system (string of 15 integers)
+	Port          *string
+	Server        *string
 
 	CodeVerifier    string //Used for OAuth2
 	CodeVerifierMux sync.Mutex
@@ -76,6 +76,7 @@ var (
 )
 
 func init() {
+	SystemID = getSystemID()
 	Tasks = make(map[int]map[string]*Task)
 	AddTaskCh = make(chan *Task, 100)
 	TaskProgressUpdateCh = make(chan *TaskProgressUpdate, 1000)
@@ -164,20 +165,11 @@ func main() {
 	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")        // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
-	SystemID = flag.String("system_id", "", "system ID")
-	version := flag.String("version", Version, "version of BlenderKit")  // for backwards compatibility, not used now
-	ip_version := flag.String("ip_version", "BOTH", "IP version to use") // for backwards compatibility, not used now
+	addon_version := flag.String("version", "", "addon version")
 	flag.Parse()
 	fmt.Print("\n\n")
-	BKLog.Printf("Starting with flags port=%s server=%s version=%s system_id=%s proxy_which=%s proxy_address=%s trusted_ca_certs=%s ip_version=%s ssl_context=%s",
-		*Port, *Server, *version, *SystemID, *proxy_which, *proxy_address, *trusted_ca_certs, *ip_version, *ssl_context)
-	if *SystemID == "" {
-		SystemID, err = fakePythonUUIDGetNode()
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println("Flag SystemID is empty, so guessing it:", *SystemID)
-	}
+	BKLog.Printf("BlenderKit-client v%s starting from add-on v%s\n   port=%s\n   server=%s\n   proxy_which=%s\n   proxy_address=%s\n   trusted_ca_certs=%s\n   ssl_context=%s",
+		ClientVersion, *addon_version, *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context)
 
 	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context)
 	go monitorReportAccess()
@@ -1564,7 +1556,7 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 	if err != nil {
 		return resp_JSON, err
 	}
-	req.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := ClientAPI.Do(req)
@@ -1662,7 +1654,7 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	if err != nil {
 		return fmt.Errorf("failed to create upload validation request: %w", err)
 	}
-	valReq.Header = getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	valReq.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	valResp, err := ClientAPI.Do(valReq)
 	if err != nil {
@@ -1791,7 +1783,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
 func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
-	headers := getHeaders(data.Preferences.APIKey, data.Preferences.SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	headers := getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {

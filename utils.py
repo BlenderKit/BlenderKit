@@ -394,7 +394,6 @@ def get_preferences_as_dict():
         "debug_value": bpy.app.debug_value,
         "binary_path": bpy.app.binary_path,
         "addon_dir": os.path.dirname(__file__),
-        "system_id": user_preferences.system_id,
         "app_id": os.getpid(),
         # STATISTICS
         "download_counter": user_preferences.download_counter,
@@ -775,19 +774,12 @@ def get_headers(api_key: str = "") -> dict[str, str]:
     headers = {
         "accept": "application/json",
         "Platform-Version": platform.platform(),
-        "system-id": bpy.context.preferences.addons["blenderkit"].preferences.system_id,
         "addon-version": f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}",
     }
     if api_key != "":
         headers["Authorization"] = f"Bearer {api_key}"
 
     return headers
-
-
-def ensure_system_ID():
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
-    if preferences.system_id == "":
-        preferences.system_id = str(uuid.getnode())
 
 
 def scale_2d(v, s, p):

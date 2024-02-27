@@ -167,7 +167,6 @@ type PREFS struct {
 	APIKeyTimeout int    `json:"api_key_timeout"`
 	SceneID       string `json:"scene_id"`
 	AppID         int    `json:"app_id"`
-	SystemID      string `json:"system_id"`
 	UnpackFiles   bool   `json:"unpack_files"`
 	Resolution    string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
 	// PATHS

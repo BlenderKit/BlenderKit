@@ -310,7 +310,6 @@ def on_startup_timer():
     persistent_preferences.load_preferences_from_JSON()
     addon_updater_ops.check_for_update_background()
     utils.check_globaldir_permissions()
-    utils.ensure_system_ID()
 
     return None
 

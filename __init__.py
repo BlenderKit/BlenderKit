@@ -1872,14 +1872,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=0,
     )
 
-    system_id: StringProperty(
-        name="ID of the system",
-        description="Identificator of the machine running the BlenderKit, is the same independently of BlenderKit or Blender versions",
-        default="",
-        subtype="PASSWORD",
-        update=utils.save_prefs,
-    )
-
     login_attempt: BoolProperty(
         name="Login/Signup attempt",
         description="When this is on, BlenderKit is trying to connect and login",
