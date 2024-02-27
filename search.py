@@ -378,16 +378,7 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
         if asset_bar_op.asset_bar_operator is not None:
             asset_bar_op.asset_bar_operator.scroll_offset = 0
         ui_props.scroll_offset = 0
-    props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
-    if len(global_vars.DATA["search results"]) == 0:
-        tasks_queue.add_task((reports.add_report, ("No matching results found.",)))
-    else:
-        tasks_queue.add_task(
-            (
-                reports.add_report,
-                (f"Found {global_vars.DATA['search results orig']['count']} results.",),
-            )
-        )
+
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get("get_next"):
         bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
@@ -848,6 +839,11 @@ def add_search_process(query, params):
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
     if params.get("get_next"):
+        if not params.get("next"):
+            bk_logger.info(
+                "params['next']=True, but params['next'] is None, no more results available, cannot search empty URL, cancelling the search."
+            )
+            return
         urlquery = params["next"]
     else:
         urlquery = query_to_url(query, params)
