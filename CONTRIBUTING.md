@@ -1,14 +1,42 @@
 # Contributing
 
+BlenderKit add-on is an open-source project and we welcome contributions from the community.
+
+## Add-on Architecture
+BlenderKit add-on is made of two main parts:
+- Blender add-on written in Python, which is responsible for the user interface and interaction with Blender
+- Client written in Go, which serves as background HTTP server - a bridge between BlenderKit add-on and BlenderKit server
+
+### How it is packaged
+BlenderKit add-on is packaged as a zip file (standard way for Blender add-ons), which contains all the necessary files for the add-on to work.
+This includes not only the Python files, icons and other files, but also the Client binaries for 3 platforms on 2 architectures (windows x86_64, windows arm64, macos x86_64, macos arm64, linux x86_64, linux arm64).
+When add-on is registered, it chooses the correct Client binary for the platform and architecture and copies it to the user's BlenderKit data directory, from this location the Client is later started.
+
+### How it works
+Communication between Add-on and Client happens in one way direction: add-on schedules Tasks via request and periodically gets updates about the progress and results of the tasks in reponses to the requests:
+`Add-on -> Client -> Server`
+
+1. add-on checks whether the Client is running. If it is not, it starts the Client binary located at `<global-directory>/client/bin/vX.Y.Z/blenderkit-client-<platform>-<architecture>`,
+2. add-on periodically asks for results with GET request and Client responds to the request,
+
+3. if needed add-on sends requests (identifying itself with app_id which is PID of running Blender instance) for search, download asset, get notifications, download thumbnails etc. to the Client
+4. Client receives the request for work, saves it into `var Tasks map[int]map[string]*Task` and ASAP responds by OK to not block the add-on,
+5. Client starts the work in goroutine, or makes request to BlenderKit server, or combination of both,
+6. When work is done, or response comes from BlenderKit server, Client updates the results into `var Tasks map[int]map[string]*Task`.
+7. next time when add-on periodically asks for results of the Tasks, Client sends the results as response.
+
+Communication between Client and Server currently happens in one way also Client -> Server (Client makes requests to Server).
+
 ## Development
 
 ### Codestyle
 
 We use `isort` for imports sorting.
 We use `black` for codestyle.
+We use `go fmt` for formatting Go code in `./client`
 We will use `ruff` for linting.
 
-We define their versions in `devs/requirements.txt` so the local development environment is consistent with CI/CD (Github Actions).
+We define versions in `devs/requirements.txt` so the local development environment is consistent with CI/CD (Github Actions).
 To install them in correct versions run: `pip3 install -U --user --r devs/requirements.py`.
 
 Before committing your changes, please run:
@@ -86,12 +114,22 @@ python dev.py test --install-at /path/to/blender/3.2/scripts/addons
 NOTE: please make sure that version in the `--install-at` path must match the version of the Blender version you have on your PATH.
 Otherwise the add-on with test files will be copied to Blender version 3.x, but tests will run on different Blender version 3.a with outdated BlenderKit build.
 
-### Automated testing: CI/CD
+### Pull Requests
+
+To contribute to the project, please create a Pull Request.
+PR should contain a description of the changes and the reason for the changes.
+Ideally PR should be linked to an issue in the issue tracker.
+
+PR will be reviewed by the team and if it passes the automated tests and checks, it will be merged.
+
+#### Automated tests
 
 We run automated tests on: Pull Requests.
 The tests and checks which must pass for PR to be accepted are:
 - unit/integration tests on several versions of Blender 3.x.,
-- `isort` check,
+- `isort` check for validity of import sorting,
+- `black` check for codestyle,
+- `go fmt` check for formatting Go code in `./client`,
 - automated build of the add-on.
 
 Those CI/CD jobs are realized through Github workflows and are defined in `.github/workflows` directory.
