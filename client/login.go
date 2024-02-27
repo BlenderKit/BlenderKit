@@ -101,14 +101,13 @@ func GetTokens(authCode string, refreshToken string) (map[string]interface{}, in
 	data.Set("redirect_uri", fmt.Sprintf("http://localhost:%s/consumer/exchange/", *Port))
 
 	url := fmt.Sprintf("%s/o/token/", *Server)
-	headers := getHeaders("", *SystemID, "", "") // Ensure this sets Content-Type to "application/x-www-form-urlencoded"
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Fatalf("Error creating request: %v", err)
 	}
-	// Set the Content-Type for form-encoded data
-	req.Header = headers
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	req.Header = getHeaders("", *SystemID, "", "")                      // Request comes from the browser, so we cannot set addonVersion and platformVersion
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // Overwrite Content-Type to "application/x-www-form-urlencoded"
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		log.Printf("Error making request: %v", err)

@@ -47,7 +47,7 @@ def blenderkit_client_build(abs_build_dir: str):
             ),
         },
     ]
-    ldflags = f"-X main.Version={client_version}"
+    ldflags = f"-X main.ClientVersion={client_version}"
     for build in builds:
         build_path = os.path.join(build_dir, build["output"])
         env = {**build["env"], **os.environ}

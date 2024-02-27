@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // GetHeaders returns a set of HTTP headers to be used in requests to the server.
@@ -22,11 +24,22 @@ func getHeaders(apiKey, systemID, addonVersion, platformVersion string) http.Hea
 	headers.Set("Platform-Version", platformVersion)
 	headers.Set("System-ID", systemID)
 	headers.Set("Addon-Version", addonVersion)
-	headers.Set("Client-Version", Version)
+	headers.Set("Client-Version", ClientVersion)
 	if apiKey != "" {
 		headers.Set("Authorization", "Bearer "+apiKey)
 	}
 	return headers
+}
+
+// GetSystemID returns the NodeID of the machine as string of 15 integers.
+// It is the same format as platform.platform() produces in Python.
+func getSystemID() *string {
+	var nodeInt uint64
+	for _, b := range uuid.NodeID() {
+		nodeInt = (nodeInt << 8) | uint64(b)
+	}
+	nodeStr := fmt.Sprintf("%d", nodeInt)
+	return &nodeStr
 }
 
 func StringToAddonVersion(s string) (*AddonVersion, error) {

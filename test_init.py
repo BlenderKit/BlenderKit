@@ -20,7 +20,6 @@ class Test01Registration(unittest.TestCase):
             "debug_value": bpy.app.debug_value,
             "binary_path": bpy.app.binary_path,
             "addon_dir": daemon_lib.get_addon_dir(),
-            "system_id": user_preferences.system_id,
             "app_id": os.getpid(),
             # STATISTICS
             "download_counter": user_preferences.download_counter,

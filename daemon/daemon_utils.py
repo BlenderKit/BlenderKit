@@ -22,7 +22,6 @@ def get_headers(api_key: str = "") -> dict[str, str]:
     headers = {
         "accept": "application/json",
         "Platform-Version": platform.platform(),
-        "system-id": daemon_globals.SYSTEM_ID,
         "addon-version": daemon_globals.VERSION,
     }
     if api_key == "":
