@@ -33,7 +33,6 @@ from bpy.types import Operator
 
 from . import (
     asset_bar_op,
-    bkit_oauth,
     daemon_lib,
     daemon_tasks,
     global_vars,
