@@ -96,8 +96,8 @@ def logout() -> None:
 
 def login(signup: bool) -> None:
     """Logs user into the addon.
-    Opens a browser with login page. Once user is logged it redirects to daemon handling access code via URL querry parameter.
-    Using the access_code daemon then requests api_token and handles the results as a task with status finished/error.
+    Opens a browser with login page. Once user is logged it redirects browser to Client handling access code via URL querry parameter.
+    Using the access_code Client then requests api_token and handles the results as a task with status finished/error.
     This is handled by function handle_login_task which saves tokens, or shows error message.
     """
     local_landing_URL = f"http://localhost:{daemon_lib.get_port()}/consumer/exchange/"
@@ -115,7 +115,7 @@ def login(signup: bool) -> None:
 
 def generate_pkce_pair() -> tuple[str, str]:
     """Generate PKCE pair - a code verifier and code challange.
-    The challange should be sent first to the server, the verifier is used in next steps to verify identity (handles daemon).
+    The challange should be sent first to the server, the verifier is used in next steps to verify identity (handles Client).
     """
     rand = random.SystemRandom()
     code_verifier = "".join(rand.choices(string.ascii_letters + string.digits, k=128))

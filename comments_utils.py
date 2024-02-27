@@ -18,7 +18,7 @@
 
 import logging
 
-from . import daemon_tasks, global_vars, ratings_utils
+from . import daemon_tasks, global_vars
 
 
 bk_logger = logging.getLogger(__name__)

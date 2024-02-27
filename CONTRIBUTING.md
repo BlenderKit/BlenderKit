@@ -87,10 +87,10 @@ python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir
 
 ## Releasing
 
-Before release update the add-on version in `__init__.py` and `daemon/daemon.py`, make sure it is merged in `main` branch.
+Before release update the add-on version in `__init__.py` and `client/VERSION`, make sure it is merged in `main` branch.
 
 1. go to Github Actions, choose `Release` workflow
-2. insert the version in format `X.Y.Z.YYMMDD` (e.g. `3.8.0.2306220`), this has to be same as in `__init__.py` and `daemon/daemon.py`
+2. insert the version in format `X.Y.Z.YYMMDD` (e.g. `3.8.0.2306220`), this has to be same as in `__init__.py`.
 3. set Release Stage to `alpha`, `beta`, `rc` or `gold` for final release
 4. once finished, the release draft is available in Github Releases
 

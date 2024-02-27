@@ -113,7 +113,6 @@ else:
     from . import global_vars, log
 
     log.configure_loggers()
-    sys.path.insert(0, path.join(path.dirname(__file__), "daemon"))
 
     from . import addon_updater_ops
     from . import timer
@@ -1914,7 +1913,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     global_dir: StringProperty(
         name="Global Directory",
-        description="Global storage for your assets, will use subdirectories for the contents. Daemon will place its files in subdirectory 'daemon'",
+        description="Global storage for your assets, will use subdirectories for the contents. Client will place its files in subdirectory 'client'",
         subtype="DIR_PATH",
         default=default_global_dict,
         update=utils.save_prefs,
@@ -1928,8 +1927,8 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     daemon_port: EnumProperty(
-        name="Daemon port",
-        description="Port to be used for startup and communication with download daemon. Changing the port will cancel all running downloads and searches",
+        name="Client port",
+        description="Port to be used for startup and communication with BlenderKit-Client. Changing the port will cancel all running downloads and searches",
         items=(
             ("62485", "62485", ""),
             ("65425", "65425", ""),
@@ -2417,7 +2416,7 @@ def unregister():
 
     try:
         daemon_lib.report_blender_quit()
-        bk_logger.info("Reported Blender quit to daemon")
+        bk_logger.info("Reported Blender quit to Client.")
     except Exception as e:
         bk_logger.error(e)
 
