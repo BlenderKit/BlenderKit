@@ -45,13 +45,12 @@ func getSystemID() *string {
 func StringToAddonVersion(s string) (*AddonVersion, error) {
 	adVer := &AddonVersion{}
 	if s == "" {
-		return nil, fmt.Errorf("empty 'addon_version'")
+		return nil, fmt.Errorf("add-on version is empty string")
 	}
 
 	_, err := fmt.Sscanf(s, "%d.%d.%d", &adVer.Major, &adVer.Minor, &adVer.Patch)
 	if err != nil {
-		err = fmt.Errorf("error parsing 'addon_version' in JSON: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error parsing add-on version: %v", err)
 	}
 
 	return adVer, nil
@@ -60,13 +59,12 @@ func StringToAddonVersion(s string) (*AddonVersion, error) {
 func StringToBlenderVersion(s string) (*BlenderVersion, error) {
 	blVer := &BlenderVersion{}
 	if s == "" {
-		return nil, fmt.Errorf("empty 'blender_version'")
+		return nil, fmt.Errorf("blender version is empty string")
 	}
 
 	_, err := fmt.Sscanf(s, "%d.%d.%d", &blVer.Major, &blVer.Minor, &blVer.Patch)
 	if err != nil {
-		err = fmt.Errorf("error parsing 'blender_version' in JSON: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error parsing blender version: %v", err)
 	}
 	return blVer, nil
 }
@@ -151,6 +149,9 @@ func ServerToLocalFilename(filename, assetName string) string {
 	return lfn
 }
 
+// Slugify converts a string to a URL-friendly slug.
+// It removes non-alphanumeric characters, and replaces spaces with hyphens.
+// It also ensures that the slug does not exceed 50 characters.
 func Slugify(slug string) string {
 	slug = strings.ToLower(slug) // Normalize string: convert to lowercase
 	characters := "<>:\"/\\|?*., ()#"
