@@ -121,6 +121,14 @@ def do_build(install_at=None, include_tests=False, clean_dir=None):
 
 
 def run_tests():
+    print("\n=== Running Client Go unit tests ===")
+    gotest = subprocess.Popen(["go", "test"], cwd="client")
+    gotest.wait()
+    if gotest.returncode != 0:
+        exit(1)
+    print("Go tests passed.\n")
+
+    print("=== Running add-on integration tests in Blender tests ===")
     test = subprocess.Popen(
         [
             "blender",
@@ -133,9 +141,9 @@ def run_tests():
         ]
     )
     test.wait()
-
     if test.returncode == 1:
         exit(1)
+    print("=== Blender integration tests passed ===")
 
 
 def format_code():

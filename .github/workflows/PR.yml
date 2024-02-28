@@ -29,6 +29,20 @@ jobs:
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
 
+  Client-Unit-Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './client/go.mod'
+          cache-dependency-path: './client/go.sum'
+        id: go
+      - name: Go test
+        working-directory: ./client
+        run: go test
+
   Build:
     runs-on: ubuntu-latest
     steps:
