@@ -38,7 +38,7 @@ func getSystemID() *string {
 	for _, b := range uuid.NodeID() {
 		nodeInt = (nodeInt << 8) | uint64(b)
 	}
-	nodeStr := fmt.Sprintf("%d", nodeInt)
+	nodeStr := fmt.Sprintf("%015d", nodeInt)
 	return &nodeStr
 }
 
