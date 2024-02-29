@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
-    "version": (3, 12, 0, 240221),  # X.Y.Z.yymmdd
+    "version": (3, 12, 0, 240229),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Boost your workflow with drag&drop assets from the community driven library.",
