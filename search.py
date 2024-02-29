@@ -839,11 +839,6 @@ def add_search_process(query, params):
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
     if params.get("get_next"):
-        if not params.get("next"):
-            bk_logger.info(
-                "params['next']=True, but params['next'] is None, no more results available, cannot search empty URL, cancelling the search."
-            )
-            return
         urlquery = params["next"]
     else:
         urlquery = query_to_url(query, params)

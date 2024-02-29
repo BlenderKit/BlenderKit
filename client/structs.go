@@ -156,8 +156,8 @@ type Asset struct {
 type SearchResults struct {
 	Count       int         `json:"count"`
 	Facets      interface{} `json:"facets"`
-	NextURL     string      `json:"next"`
-	PreviousURL string      `json:"previous"`
+	NextURL     string      `json:"next,omitempty"`
+	PreviousURL string      `json:"previous,omitempty"`
 	Results     []Asset     `json:"results"`
 }
 
