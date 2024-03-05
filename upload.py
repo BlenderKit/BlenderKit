@@ -996,7 +996,7 @@ class UploadOperator(Operator):
         props.upload_state = "Upload initiating..."
         props.uploading = True
 
-        daemon_lib.upload_asset(upload_data, export_data, upload_set)
+        daemon_lib.asset_upload(upload_data, export_data, upload_set)
         return {"FINISHED"}
 
     def draw(self, context):

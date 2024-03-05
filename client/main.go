@@ -177,34 +177,38 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", indexHandler)
-	mux.HandleFunc("/shutdown", shutdownHandler)
-	mux.HandleFunc("/report_blender_quit", reportBlenderQuitHandler)
 	mux.HandleFunc("/report", reportHandler)
+	mux.HandleFunc("/shutdown", shutdownHandler)
 	mux.HandleFunc("/debug", DebugNetworkHandler)
 
-	mux.HandleFunc("/cancel_download", CancelDownloadHandler)
-	mux.HandleFunc("/download_asset", downloadAssetHandler)
-	mux.HandleFunc("/search_asset", searchHandler)
-	mux.HandleFunc("/asset/upload", AssetUploadHandler)
-
+	// LOGIN
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
 	mux.HandleFunc("/code_verifier", CodeVerifierHandler)
 
-	mux.HandleFunc("/profiles/fetch_gravatar_image", FetchGravatarImageHandler) // TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
-	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)         // TODO: Rename this to FetchUserProfileHandler - it is not getting local data, it is fetching!
+	// BLENDER SPECIFIC HANDLERS
+	mux.HandleFunc("/blender/unsubscribe_addon", blenderUnsubscribeAddonHandler)
+	mux.HandleFunc("/blender/cancel_download", CancelDownloadHandler)
+	mux.HandleFunc("/blender/asset_download", assetDownloadHandler)
+	mux.HandleFunc("/blender/asset_search", assetSearchHandler)
+	mux.HandleFunc("/blender/asset_upload", assetUploadHandler)
 
-	mux.HandleFunc("/comments/get_comments", GetCommentsHandler) // TODO: Rename this to FetchCommentsHandler - it is not getting local data, it is fetching!
+	// API HANDLERS
+	mux.HandleFunc("/profiles/download_gravatar_image", DownloadGravatarImageHandler)
+	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)
+
+	mux.HandleFunc("/comments/get_comments", GetCommentsHandler)
 	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
 	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
 	mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
 
 	mux.HandleFunc("/notifications/mark_notification_read", MarkNotificationReadHandler)
 
-	mux.HandleFunc("/ratings/get_bookmarks", GetBookmarksHandler) // TODO: Rename this to FetchBookmarksHandler - it is not getting local data, it is fetching!
-	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)       // TODO: Rename this to FetchRatingHandler - it is not getting local data, it is fetching!
+	mux.HandleFunc("/ratings/get_bookmarks", GetBookmarksHandler)
+	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)
 	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
 
+	// WRAPPERS
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
 	mux.HandleFunc("/wrappers/blocking_file_upload", BlockingFileUploadHandler)
 	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
@@ -333,14 +337,14 @@ func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
 	}
 }
 
-func reportBlenderQuitHandler(w http.ResponseWriter, r *http.Request) {
+func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 	var data ReportData
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	BKLog.Printf("%s Add-on disconnected: %d", EmoDisconnecting, data.AppID)
+	BKLog.Printf("%s Add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] != nil {
@@ -364,7 +368,7 @@ func delayedExit(t float64) {
 	os.Exit(0)
 }
 
-func searchHandler(w http.ResponseWriter, r *http.Request) {
+func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading search request body: "+err.Error(), http.StatusInternalServerError)
@@ -388,7 +392,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskID := uuid.New().String()
-	go doSearch(data, taskID)
+	go doAssetSearch(data, taskID)
 
 	resData := map[string]string{"task_id": taskID}
 	responseJSON, err := json.Marshal(resData)
@@ -402,7 +406,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-func doSearch(data SearchTaskData, taskID string) {
+func doAssetSearch(data SearchTaskData, taskID string) {
 	AddTaskCh <- NewTask(data, data.AppID, taskID, "search")
 
 	req, err := http.NewRequest("GET", data.URLQuery, nil)
@@ -730,8 +734,7 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 
 // FetchGravatarImageHandler is a handler for the /profiles/fetch_gravatar_image endpoint.
 // It is used to fetch the Gravatar image for the user.
-// TODO: Rename this to DownloadGravatarImageHandler - it is not fetching, it is downloading!
-func FetchGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
+func DownloadGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
 	var data FetchGravatarData
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
@@ -739,14 +742,15 @@ func FetchGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go FetchGravatarImage(data)
+	go DownloadGravatarImage(data)
 	w.WriteHeader(http.StatusOK)
 }
 
-// FetchGravatarImage is a function for fetching the Gravatar image of the creator.
-// It preferes to fetch the image from the server using the Avatar128 parameter,
+// DownloadGravatarImage is a function for downloading the Gravatar image of the creator.
+// It first checks if Gravatar image is available locally. If not, it downloads it from the server.
+// It preferes to download the image from the server using the Avatar128 parameter,
 // but if it is not available, it tries to download it from Gravatar using gravatarHash.
-func FetchGravatarImage(data FetchGravatarData) {
+func DownloadGravatarImage(data FetchGravatarData) {
 	var url string
 	if data.Avatar128 != "" {
 		url = *Server + data.Avatar128
@@ -1390,7 +1394,7 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	}
 }
 
-func AssetUploadHandler(w http.ResponseWriter, r *http.Request) {
+func assetUploadHandler(w http.ResponseWriter, r *http.Request) {
 	var data AssetUploadRequestData
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
@@ -1399,11 +1403,11 @@ func AssetUploadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, es, http.StatusBadRequest)
 		return
 	}
-	go UploadAsset(data)
+	go doAssetUpload(data)
 	w.WriteHeader(http.StatusOK)
 }
 
-func UploadAsset(data AssetUploadRequestData) {
+func doAssetUpload(data AssetUploadRequestData) {
 	taskID := uuid.New().String()
 	AddTaskCh <- &Task{
 		AppID:    data.AppID,
@@ -1463,7 +1467,7 @@ func UploadAsset(data AssetUploadRequestData) {
 	}
 
 	// 3. UPLOAD
-	err = upload_asset_data(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
+	err = asset_upload_data(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1473,7 +1477,7 @@ func UploadAsset(data AssetUploadRequestData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp, Message: "Upload successful!"}
 }
 
-func upload_asset_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) error {
+func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) error {
 	for _, file := range files {
 		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
 		if err != nil {

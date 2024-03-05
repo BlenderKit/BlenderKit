@@ -93,25 +93,25 @@ def request_report(url: str, data: dict):
 
 ### ASSETS
 # SEARCH
-def search_asset(data):
+def asset_search(data):
     """Search for specified asset."""
     bk_logger.debug("Starting search request")
     address = get_address()
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        url = address + "/search_asset"
+        url = address + "/blender/asset_search"
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         bk_logger.debug("Got search response")
         return resp.json()
 
 
 # DOWNLOAD
-def download_asset(data):
+def asset_download(data):
     """Download specified asset."""
     address = get_address()
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        url = address + "/download_asset"
+        url = address + "/blender/asset_download"
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp.json()
 
@@ -121,13 +121,13 @@ def cancel_download(task_id):
     address = get_address()
     data = ensure_minimal_data({"task_id": task_id})
     with requests.Session() as session:
-        url = address + "/cancel_download"
+        url = address + "/blender/cancel_download"
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
 # UPLOAD
-def upload_asset(upload_data, export_data, upload_set):
+def asset_upload(upload_data, export_data, upload_set):
     """Upload specified asset."""
     data = {
         "PREFS": utils.get_preferences_as_dict(),
@@ -137,14 +137,14 @@ def upload_asset(upload_data, export_data, upload_set):
     }
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        url = get_address() + "/asset/upload"
+        url = get_address() + "/blender/asset_upload"
         bk_logger.debug(f"making a request to: {url}")
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
 ### PROFILES
-def fetch_gravatar_image(
+def download_gravatar_image(
     author_data,
 ):  # TODO: require avatar128 and gravatarHash and refuse directly
     """Fetch gravatar image for specified user. Find it on disk or download it from server."""
@@ -156,15 +156,15 @@ def fetch_gravatar_image(
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.get(
-            f"{get_address()}/profiles/fetch_gravatar_image",
+            f"{get_address()}/profiles/download_gravatar_image",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )
 
 
-def get_user_profile(api_key):
-    """Get profile of currently logged-in user.
+def get_user_profile():
+    """Fetch profile of currently logged-in user.
     This creates task to daemon to fetch data which are later handled once available.
     """
     data = ensure_minimal_data()
@@ -449,12 +449,12 @@ def refresh_token(refresh_token, old_api_key):
         return resp
 
 
-def report_blender_quit():
-    """Report to the blenderkit-client that Blender has quit."""
+def unsubscribe_addon():
+    """Unsubscribe the add-on from the blenderkit-client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
     address = get_address()
     data = ensure_minimal_data()
     with requests.Session() as session:
-        url = address + "/report_blender_quit"
+        url = address + "/blender/unsubscribe_addon"
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 

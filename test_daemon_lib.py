@@ -102,7 +102,7 @@ class Test04GetReportsClientRunning(unittest.TestCase):
 class Test05SearchAndDownloadAsset(unittest.TestCase):
     assets_to_download = []
 
-    def _search_asset(self, search_word, asset_type):
+    def _asset_search(self, search_word, asset_type):
         addon_version = f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
         blender_version = (
             f"{bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}"
@@ -116,7 +116,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
             "asset_type": asset_type,
             "blender_version": blender_version,
         }
-        response = daemon_lib.search_asset(data)
+        response = daemon_lib.asset_search(data)
         search_task_id = response["task_id"]
 
         to_download = None
@@ -148,7 +148,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
             time.sleep(i * 0.1)
         self.fail("Error waiting for search task to be reported as finished")
 
-    def _download_asset(self, asset_data):
+    def _asset_download(self, asset_data):
         if asset_data == None:
             self.fail("Asset data from search are None")
 
@@ -171,55 +171,55 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 
     # small assets are chosen here
     def test00Search(self):
-        self.assets_to_download.append(self._search_asset("Toy train-02", "model"))
+        self.assets_to_download.append(self._asset_search("Toy train-02", "model"))
 
     def test01Search(self):
-        self.assets_to_download.append(self._search_asset("Wooden toy car", "model"))
+        self.assets_to_download.append(self._asset_search("Wooden toy car", "model"))
 
     def test02Search(self):
         self.assets_to_download.append(
-            self._search_asset("flowers1 wallpaper", "material")
+            self._asset_search("flowers1 wallpaper", "material")
         )
 
     def test03Search(self):
-        self.assets_to_download.append(self._search_asset("hexa wallpaper", "material"))
+        self.assets_to_download.append(self._asset_search("hexa wallpaper", "material"))
 
     def test04Search(self):
         self.assets_to_download.append(
-            self._search_asset("Desk for product visualization", "scene")
+            self._asset_search("Desk for product visualization", "scene")
         )
 
     def test05Search(self):
         self.assets_to_download.append(
-            self._search_asset("Butterfly Mural Room", "scene")
+            self._asset_search("Butterfly Mural Room", "scene")
         )
 
     def test06Search(self):
-        self.assets_to_download.append(self._search_asset("Garden Nook", "hdr"))
+        self.assets_to_download.append(self._asset_search("Garden Nook", "hdr"))
 
     def test07Search(self):
-        self.assets_to_download.append(self._search_asset("Dark Autumn Forest", "hdr"))
+        self.assets_to_download.append(self._asset_search("Dark Autumn Forest", "hdr"))
 
     def test08Search(self):
-        self.assets_to_download.append(self._search_asset("bricks", "brush"))
+        self.assets_to_download.append(self._asset_search("bricks", "brush"))
 
     def test09Search(self):
-        self.assets_to_download.append(self._search_asset("Human eye iris", "brush"))
+        self.assets_to_download.append(self._asset_search("Human eye iris", "brush"))
 
     def test10Download(self):
-        self._download_asset(self.assets_to_download[0])
+        self._asset_download(self.assets_to_download[0])
 
     def test12Download(self):
-        self._download_asset(self.assets_to_download[2])
+        self._asset_download(self.assets_to_download[2])
 
     def test14Download(self):
-        self._download_asset(self.assets_to_download[4])
+        self._asset_download(self.assets_to_download[4])
 
     def test16Download(self):
-        self._download_asset(self.assets_to_download[6])
+        self._asset_download(self.assets_to_download[6])
 
     def test18Download(self):
-        self._download_asset(self.assets_to_download[8])
+        self._asset_download(self.assets_to_download[8])
 
 
 ### CLIENT IS NOT RUNNING ###
