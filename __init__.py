@@ -2414,11 +2414,12 @@ def unregister():
     asset_drag_op.unregister()
     disclaimer_op.unregister()
 
-    try:
-        daemon_lib.report_blender_quit()
-        bk_logger.info("Reported Blender quit to Client.")
-    except Exception as e:
-        bk_logger.error(e)
+    if bpy.app.background is False:
+        try:
+            daemon_lib.unsubscribe_addon()
+            bk_logger.info("Reported Blender quit to Client.")
+        except Exception as e:
+            bk_logger.error(e)
 
     del bpy.types.WindowManager.blenderkitUI
     del bpy.types.WindowManager.blenderkit_models
