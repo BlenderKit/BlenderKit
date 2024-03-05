@@ -604,7 +604,7 @@ def generate_author_profile(author_data):
     author_id = str(author_data["id"])
     if author_id in global_vars.DATA["bkit authors"]:
         return
-    daemon_lib.fetch_gravatar_image(author_data)
+    daemon_lib.download_gravatar_image(author_data)
     author_data["tooltip"] = generate_author_textblock(author_data)
     global_vars.DATA["bkit authors"][author_id] = author_data
     return
@@ -620,7 +620,7 @@ def handle_get_user_profile(task: daemon_tasks.Task):
             "user"
         ]
         # after profile arrives, we can check for gravatar image
-        daemon_lib.fetch_gravatar_image(user_data["user"])
+        daemon_lib.download_gravatar_image(user_data["user"])
 
 
 def query_to_url(query={}, params={}):
@@ -850,7 +850,7 @@ def add_search_process(query, params):
         "asset_type": query["asset_type"],
     }
     data.update(params)
-    response = daemon_lib.search_asset(data)
+    response = daemon_lib.asset_search(data)
     search_tasks[response["task_id"]] = data
 
 

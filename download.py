@@ -858,7 +858,7 @@ def download(asset_data, **kwargs):
     data["download_dirs"] = paths.get_download_dirs(asset_data["assetType"])
     if "downloaders" in kwargs:
         data["downloaders"] = kwargs["downloaders"]
-    response = daemon_lib.download_asset(data)
+    response = daemon_lib.asset_download(data)
 
     download_tasks[response["task_id"]] = data
 
