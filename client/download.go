@@ -192,8 +192,18 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	}
 }
 
-// UnpackAsset unpacks the downloaded asset (.blend file)
+// UnpackAsset unpacks the downloaded asset (.blend file).
+// It skips unpacking for HDRi files and returns nil immediately.
 func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
+	if data.AssetType == "hdr" { // Skip unpacking for HDRi files
+		TaskMessageCh <- &TaskMessageUpdate{
+			AppID:   data.AppID,
+			TaskID:  taskID,
+			Message: "HDRi file doesn't need unpacking",
+		}
+		return nil
+	}
+
 	TaskMessageCh <- &TaskMessageUpdate{
 		AppID:   data.AppID,
 		TaskID:  taskID,
