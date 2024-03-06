@@ -4,8 +4,10 @@ BlenderKit add-on is an open-source project and we welcome contributions from th
 
 ## Add-on Architecture
 BlenderKit add-on is made of two main parts:
-- Blender add-on written in Python, which is responsible for the user interface and interaction with Blender
-- Client written in Go, which serves as background HTTP server - a bridge between BlenderKit add-on and BlenderKit server
+- Blender add-on written in Python, which is responsible for the user interface and interaction with Blender. It draws the search panel, does the snaping, asset imports, and communicates with the Client locally.
+- Client written in Go, which serves as background HTTP server - a bridge between BlenderKit add-on and BlenderKit server. It's purpose is to offload the work from Blender and to provide a performant way to communicate with BlenderKit server.
+
+Client is compiled and it's binaries are bundled into the add-on .zip file, so the user does not need to install anything else than the add-on itself.
 
 ### How it is packaged
 BlenderKit add-on is packaged as a zip file (standard way for Blender add-ons), which contains all the necessary files for the add-on to work.
