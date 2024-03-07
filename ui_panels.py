@@ -561,8 +561,8 @@ class VIEW3D_PT_blenderkit_profile(Panel):
         layout = self.layout
         # don't draw when not online
 
-        if not global_vars.DAEMON_RUNNING:
-            layout.label(text="Daemon not running")
+        if not global_vars.CLIENT_RUNNING:
+            layout.label(text="Client not running")
             return
 
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
@@ -1010,8 +1010,8 @@ class VIEW3D_PT_blenderkit_login(Panel):
     def draw(self, context):
         layout = self.layout
         # don't draw when not online
-        if not global_vars.DAEMON_RUNNING:
-            layout.label(text="Daemon not running")
+        if not global_vars.CLIENT_RUNNING:
+            layout.label(text="Client not running")
             return
         user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
         if user_preferences.login_attempt:
@@ -1170,7 +1170,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
     @classmethod
     def poll(cls, context):
         ui_props = bpy.context.window_manager.blenderkitUI
-        if not global_vars.DAEMON_RUNNING:
+        if not global_vars.CLIENT_RUNNING:
             return False
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "MODEL"
 
@@ -1253,7 +1253,7 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
     @classmethod
     def poll(cls, context):
         ui_props = bpy.context.window_manager.blenderkitUI
-        if not global_vars.DAEMON_RUNNING:
+        if not global_vars.CLIENT_RUNNING:
             return False
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "MATERIAL"
 
@@ -1339,7 +1339,7 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
     @classmethod
     def poll(cls, context):
         ui_props = bpy.context.window_manager.blenderkitUI
-        if not global_vars.DAEMON_RUNNING:
+        if not global_vars.CLIENT_RUNNING:
             return False
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "HDR"
 
@@ -1408,7 +1408,7 @@ class VIEW3D_PT_blenderkit_categories(Panel):
     @classmethod
     def poll(cls, context):
         ui_props = bpy.context.window_manager.blenderkitUI
-        if not global_vars.DAEMON_RUNNING:
+        if not global_vars.CLIENT_RUNNING:
             return False
         return ui_props.down_up == "SEARCH"
 
@@ -1438,7 +1438,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
     @classmethod
     def poll(cls, context):
         ui_props = bpy.context.window_manager.blenderkitUI
-        if not global_vars.DAEMON_RUNNING:
+        if not global_vars.CLIENT_RUNNING:
             return False
         if ui_props.asset_type not in ["MATERIAL", "MODEL", "SCENE", "HDR"]:
             return False
@@ -1510,8 +1510,8 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
         layout = self.layout
         # layout.prop_tabs_enum(ui_props, "asset_type", icon_only = True)
-        if not global_vars.DAEMON_RUNNING:
-            layout.label(text="Daemon not running")
+        if not global_vars.CLIENT_RUNNING:
+            layout.label(text="Client not running")
             return
 
         row = layout.row()
@@ -3336,8 +3336,8 @@ def header_search_draw(self, context):
 
     layout = layout.row(align=True)
     # layout.separator()
-    if not global_vars.DAEMON_RUNNING:
-        layout.label(text="Waiting for daemon")
+    if not global_vars.CLIENT_RUNNING:
+        layout.label(text="Waiting for Client")
         return
 
     layout.prop(

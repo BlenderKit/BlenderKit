@@ -88,7 +88,7 @@ class Test04GetReportsClientRunning(unittest.TestCase):
         reports = daemon_lib.get_reports(app_id)
         self.assertEqual(1, len(reports))
         self.assertEqual(reports[0]["app_id"], app_id)
-        self.assertEqual(reports[0]["task_type"], "daemon_status")
+        self.assertEqual(reports[0]["task_type"], "client_status")
 
     def test_get_reports_another_app_id(self):
         """Get reports for non-existing Blender PID (app_id)."""
@@ -96,7 +96,7 @@ class Test04GetReportsClientRunning(unittest.TestCase):
         reports = daemon_lib.get_reports(app_id)
         self.assertEqual(1, len(reports))
         self.assertEqual(reports[0]["app_id"], app_id)
-        self.assertEqual(reports[0]["task_type"], "daemon_status")
+        self.assertEqual(reports[0]["task_type"], "client_status")
 
 
 class Test05SearchAndDownloadAsset(unittest.TestCase):

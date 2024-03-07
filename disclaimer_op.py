@@ -295,8 +295,8 @@ def unregister():
 @bpy.app.handlers.persistent
 def show_disclaimer_timer():
     """Timer responsible for showing the tip disclaimer after the startup once.
-    It waits for daemon to be online, then prompts daemon to get the disclaimers and ends.
-    If daemon does not go online in few seconds, it shows the tips instead and ends.
+    It waits for BlenderKit-Client to be online, then prompts Client to get the disclaimers and ends.
+    If Client does not go online in few seconds, it shows the tips instead and ends.
     """
     global disclaimer_counter
     if disclaimer_counter == -1:

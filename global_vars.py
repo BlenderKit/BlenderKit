@@ -3,13 +3,14 @@ from logging import INFO, WARN
 from os import environ
 
 
-DAEMON_ACCESSIBLE = False
-DAEMON_FAILED_REPORTS = 0
+CLIENT_ACCESSIBLE = False
+CLIENT_FAILED_REPORTS = 0
+"""Number of failed requests to get reports from the BlenderKit-Client. If too many, something is wrong."""
 
-DAEMON_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
+CLIENT_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
 """Ports are ordered during the start, and later after malfunction."""
 
-DAEMON_RUNNING = False
+CLIENT_RUNNING = False
 DATA = {
     "images available": {},
     "search history": deque(maxlen=20),
@@ -109,4 +110,5 @@ TIPS = [
 ]
 VERSION = None  # filled in register()
 
-daemon_process = None
+client_process = None
+"""Holds return value of subprocess.Popen() which starts the BlenderKit-Client."""

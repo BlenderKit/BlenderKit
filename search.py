@@ -600,7 +600,7 @@ def handle_fetch_gravatar_task(task: daemon_tasks.Task):
 
 def generate_author_profile(author_data):
     """Generate author profile by creating author textblock and fetching gravatar image if needed.
-    Gravatar dokkjjwnload is started in daemon and handled later."""
+    Gravatar download is started in BlenderKit-Download and handled later."""
     author_id = str(author_data["id"])
     if author_id in global_vars.DATA["bkit authors"]:
         return
@@ -832,8 +832,8 @@ def add_search_process(query, params):
     global search_tasks
     if len(search_tasks) > 0:
         # just remove all running search tasks.
-        # we can also kill them in daemon, but not so urgent now
-        # TODO stop tasks in daemon?
+        # we can also kill them in BlenderKit-Client, but not so urgent now
+        # TODO stop tasks in BlenderKit-Client?
         bk_logger.debug("Removing old search tasks")
         search_tasks = dict()
 
@@ -910,7 +910,7 @@ def search(get_next=False, query=None, author_id=""):
     """Initialize searching
     query : submit an already built query from search history
     """
-    if global_vars.DAEMON_ACCESSIBLE != True:
+    if global_vars.CLIENT_ACCESSIBLE != True:
         reports.add_report(
             "Cannot search, daemon is not accessible.", timeout=2, type="ERROR"
         )
@@ -1151,7 +1151,7 @@ def search_update(self, context):
             # return here since writing into search keywords triggers this update function once more.
             return
 
-    if global_vars.DAEMON_ACCESSIBLE:
+    if global_vars.CLIENT_ACCESSIBLE:
         reports.add_report(f"Searching for: '{kwds}'", 2)
     search()
 

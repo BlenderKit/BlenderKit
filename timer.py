@@ -36,21 +36,21 @@ def handle_failed_reports(exception: Exception) -> float:
     bk_logger.warning(
         f"Request for daemon reports failed: {type(exception)} {exception}"
     )
-    global_vars.DAEMON_ACCESSIBLE = False
-    if global_vars.DAEMON_FAILED_REPORTS in (0, 10):
+    global_vars.CLIENT_ACCESSIBLE = False
+    if global_vars.CLIENT_FAILED_REPORTS in (0, 10):
         daemon_lib.start_blenderkit_client()
 
-    global_vars.DAEMON_FAILED_REPORTS += 1
-    if global_vars.DAEMON_FAILED_REPORTS < 15:
-        return 0.1 * global_vars.DAEMON_FAILED_REPORTS
+    global_vars.CLIENT_FAILED_REPORTS += 1
+    if global_vars.CLIENT_FAILED_REPORTS < 15:
+        return 0.1 * global_vars.CLIENT_FAILED_REPORTS
 
     bk_logger.warning(f"Could not get reports: {exception}")
     return_code, meaning = daemon_lib.check_blenderkit_client_exit_code()
-    if return_code is None and global_vars.DAEMON_FAILED_REPORTS == 15:
+    if return_code is None and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
             "Client is not responding, add-on will not work.", 10, "ERROR"
         )
-    if return_code is not None and global_vars.DAEMON_FAILED_REPORTS == 15:
+    if return_code is not None and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
             f"Client is not running, add-on will not work. Error({return_code}): {meaning}",
             10,
@@ -59,7 +59,7 @@ def handle_failed_reports(exception: Exception) -> float:
 
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
-    global_vars.DAEMON_RUNNING = False
+    global_vars.CLIENT_RUNNING = False
     daemon_lib.start_blenderkit_client()
     return 30.0
 
@@ -75,13 +75,15 @@ def daemon_communication_timer():
     results = list()
     try:
         results = daemon_lib.get_reports(os.getpid())
-        global_vars.DAEMON_FAILED_REPORTS = 0
+        global_vars.CLIENT_FAILED_REPORTS = 0
     except Exception as e:
         return handle_failed_reports(e)
 
-    if global_vars.DAEMON_ACCESSIBLE is False:
-        bk_logger.info(f"Daemon is running on port {global_vars.DAEMON_PORTS[0]}!")
-        global_vars.DAEMON_ACCESSIBLE = True
+    if global_vars.CLIENT_ACCESSIBLE is False:
+        bk_logger.info(
+            f"BlenderKit-Client is running on port {global_vars.CLIENT_PORTS[0]}!"
+        )
+        global_vars.CLIENT_ACCESSIBLE = True
         wm = bpy.context.window_manager
         wm.blenderkitUI.logo_status = "logo"
 
@@ -230,9 +232,9 @@ def handle_task(task: daemon_tasks.Task):
     if task.task_type == "token_refresh":
         return bkit_oauth.handle_token_refresh_task(task)
 
-    # HANDLE DAEMON STATUS REPORT
-    if task.task_type == "daemon_status":
-        return daemon_lib.handle_daemon_status_task(task)
+    # HANDLE CLIENT STATUS REPORT
+    if task.task_type == "client_status":
+        return daemon_lib.handle_client_status_task(task)
 
     # HANDLE DISCLAIMER
     if task.task_type == "disclaimer":
@@ -316,7 +318,7 @@ def on_startup_timer():
 
 def on_startup_daemon_online_timer():
     """Run once when daemon is online after startup."""
-    if not global_vars.DAEMON_RUNNING:
+    if not global_vars.CLIENT_RUNNING:
         return 1
 
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
