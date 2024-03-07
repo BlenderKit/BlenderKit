@@ -251,7 +251,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 	}
 	defer resp.Body.Close()
 
-	if 200 > resp.StatusCode && resp.StatusCode >= 300 {
+	if resp.StatusCode < 200 && resp.StatusCode >= 300 {
 		es := fmt.Errorf("%v: %v", data.Messages.Error, resp.Status)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return
@@ -279,5 +279,5 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 		result = string(respBody)
 	}
 
-	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: result}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Message: data.Messages.Success, Result: result}
 }
