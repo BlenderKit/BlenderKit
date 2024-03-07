@@ -110,7 +110,7 @@ def get_category(categories, cat_path=()):
 
 def handle_categories_task(task: daemon_tasks.Task):
     """Handle incomming categories_update task which contains information about fetching updated categories.
-    TODO: would be ideal if the file handling (saving, reading fallback JSON) would be done on the daemon side.
+    TODO: would be ideal if the file handling (saving, reading fallback JSON) would be done on the Client side.
     """
     if task.status not in ["finished", "error"]:
         return
@@ -136,7 +136,7 @@ def handle_categories_task(task: daemon_tasks.Task):
         with open(categories_filepath, "w", encoding="utf-8") as file:
             json.dump(
                 task.result, file, ensure_ascii=False, indent=4
-            )  # TODO: do this in daemon, just saving the file so next time it is updated even without internet
+            )  # TODO: do this in Client, just saving the file so next time it is updated even without internet
         return
 
     bk_logger.warning(task.message)

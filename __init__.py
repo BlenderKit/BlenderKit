@@ -184,7 +184,7 @@ def scene_load(context):
     ui_props = bpy.context.window_manager.blenderkitUI
     ui_props.assetbar_on = False
     ui_props.turn_off = False
-    if global_vars.DAEMON_ACCESSIBLE:
+    if global_vars.CLIENT_ACCESSIBLE:
         ui_props.logo_status = "logo"
     if (
         bpy.app.factory_startup is False

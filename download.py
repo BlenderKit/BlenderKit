@@ -829,7 +829,7 @@ def download_post(task: daemon_tasks.Task):
 
 
 def download(asset_data, **kwargs):
-    """Init download data and request task from daemon"""
+    """Init download data and request task from BlenderKit-Client."""
 
     if kwargs.get("retry_counter", 0) > 3:
         sprops = utils.get_search_props()

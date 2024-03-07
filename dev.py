@@ -154,10 +154,6 @@ def format_code():
     print("\n***** FORMATTING CODE on ALL files *****")
     subprocess.call(["black", "."])
 
-    # print("\n***** LINTING with RUFF in ./daemon *****")
-    # subprocess.call(["ruff", "daemon"])
-    # print()
-
 
 ### COMMAND LINE INTERFACE
 

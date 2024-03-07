@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Handles code_verifier exchange: add-on creates PKCE pair and sends its code_challenge to daemon so it can later verify the response from server.
+// Handles code_verifier exchange: add-on creates PKCE pair and sends its code_challenge to Client so it can later verify the response from server.
 // Once add-on get response from here, it opens BlenderKit.com with code_challenge and URL redirect to localhost:port/consumer/exchange.
 // Server verifies user's login and redirects the browser to URL redirect which lands on func consumerExchangeHandler().
 func CodeVerifierHandler(w http.ResponseWriter, r *http.Request) {

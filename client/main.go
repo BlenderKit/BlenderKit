@@ -168,7 +168,7 @@ func main() {
 	addon_version := flag.String("version", "", "addon version")
 	flag.Parse()
 	fmt.Print("\n\n")
-	BKLog.Printf("BlenderKit-client v%s starting from add-on v%s\n   port=%s\n   server=%s\n   proxy_which=%s\n   proxy_address=%s\n   trusted_ca_certs=%s\n   ssl_context=%s",
+	BKLog.Printf("BlenderKit-Client v%s starting from add-on v%s\n   port=%s\n   server=%s\n   proxy_which=%s\n   proxy_address=%s\n   trusted_ca_certs=%s\n   ssl_context=%s",
 		ClientVersion, *addon_version, *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context)
 
 	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context)
@@ -269,8 +269,8 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskID := uuid.New().String()
-	reportTask := NewTask(nil, data.AppID, taskID, "daemon_status")
-	reportTask.Finish("Daemon is running")
+	reportTask := NewTask(nil, data.AppID, taskID, "client_status")
+	reportTask.Finish("Client is running")
 
 	toReport := make([]*Task, 0, len(Tasks[data.AppID]))
 	toReport = append(toReport, reportTask)

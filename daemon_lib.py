@@ -17,21 +17,21 @@ TIMEOUT = (0.1, 1)
 
 
 def get_address() -> str:
-    """Get address of the blenderkit-client."""
+    """Get address of the BlenderKit-Client."""
     return f"http://127.0.0.1:{get_port()}"
 
 
 def get_port() -> str:
-    """Get the most probable port of currently running blenderkit-client.
+    """Get the most probable port of currently running BlenderKit-Client.
     After add-on registration and if all goes well, the port is the same as
     """
-    return global_vars.DAEMON_PORTS[0]
+    return global_vars.CLIENT_PORTS[0]
 
 
 def ensure_minimal_data(data: dict = {}) -> dict:
-    """Ensure that the data send to the client contains:
+    """Ensure that the data send to the BlenderKit-Client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
-    - api_key is the authentication token for the BlenderKit server, so BlenderKit client can authenticate the user.
+    - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
     - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
     """
     if "app_id" not in data:
@@ -50,10 +50,10 @@ def ensure_minimal_data(data: dict = {}) -> dict:
 
 
 def reorder_ports(port: str):
-    """Reorder DAEMON_PORTS so the specified port is first."""
-    i = global_vars.DAEMON_PORTS.index(port)
-    global_vars.DAEMON_PORTS = (
-        global_vars.DAEMON_PORTS[i:] + global_vars.DAEMON_PORTS[:i]
+    """Reorder CLIENT_PORTS so the specified port is first."""
+    i = global_vars.CLIENT_PORTS.index(port)
+    global_vars.CLIENT_PORTS = (
+        global_vars.CLIENT_PORTS[i:] + global_vars.CLIENT_PORTS[:i]
     )
 
 
@@ -63,24 +63,24 @@ def get_reports(app_id: str):
     """
     data = ensure_minimal_data({"app_id": app_id})
     if (
-        global_vars.DAEMON_FAILED_REPORTS < 10
-    ):  # on 10, there is second blenderkit-client start
+        global_vars.CLIENT_FAILED_REPORTS < 10
+    ):  # on 10, there is second BlenderKit-Client start
         url = f"{get_address()}/report"
         report = request_report(url, data)
         return report
 
     last_exception = None
-    for port in global_vars.DAEMON_PORTS:
+    for port in global_vars.CLIENT_PORTS:
         url = f"http://127.0.0.1:{port}/report"
         try:
             report = request_report(url, data)
             bk_logger.warning(
-                f"Got reports port {port}, setting it as default for this instance"
+                f"Got reports from BlenderKit-Client on port {port}, setting it as default for this instance"
             )
             reorder_ports(port)
             return report
         except Exception as e:
-            bk_logger.info(f"Failed to get daemon reports: {e}")
+            bk_logger.info(f"Failed to get BlenderKit-Client reports: {e}")
             last_exception = e
     raise last_exception
 
@@ -117,7 +117,7 @@ def asset_download(data):
 
 
 def cancel_download(task_id):
-    """Cancel the specified task with ID on the daemon."""
+    """Cancel the specified task with ID on the BlenderKit-Client."""
     address = get_address()
     data = ensure_minimal_data({"task_id": task_id})
     with requests.Session() as session:
@@ -165,7 +165,7 @@ def download_gravatar_image(
 
 def get_user_profile():
     """Fetch profile of currently logged-in user.
-    This creates task to daemon to fetch data which are later handled once available.
+    This creates task on BlenderKit-Client to fetch data which are later handled once available.
     """
     data = ensure_minimal_data()
     with requests.Session() as session:
@@ -256,7 +256,7 @@ def mark_notification_read(notification_id):
 
 ### REPORTS
 def report_usages(data: dict):
-    """Report usages of assets in current scene via daemon to the server."""
+    """Report usages of assets in current scene via BlenderKit-Client to the server."""
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.post(
@@ -372,7 +372,7 @@ def blocking_request(
     json_data: dict = {},
     timeout: tuple = TIMEOUT,
 ) -> requests.Response:
-    """Make blocking HTTP request through daemon's AIOHTTP library.
+    """Make blocking HTTP request through BlenderKit-Client.
     Will not return until results are available."""
     data = {
         "url": url,
@@ -394,7 +394,7 @@ def blocking_request(
 def nonblocking_request(
     url: str, method: str, headers: dict, json_data: dict = {}, messages: dict = {}
 ) -> requests.Response:
-    """Make non-blocking HTTP request through daemon's AIOHTTP library.
+    """Make non-blocking HTTP request through BlenderKit-Client.
     This function will return ASAP, not returning any actual data.
     """
     data = {
@@ -429,7 +429,7 @@ def send_code_verifier(code_verifier: str):
 
 
 def refresh_token(refresh_token, old_api_key):
-    """Refresh authentication token. Daemon will use refresh token to get new API key token to replace the old_api_key.
+    """Refresh authentication token. BlenderKit-Client will use refresh token to get new API key token to replace the old_api_key.
     old_api_key is used later to replace token only in Blender instances with the same api_key. (User can be logged into multiple accounts.)
     """
     bk_logger.info("Calling API token refresh")
@@ -450,7 +450,7 @@ def refresh_token(refresh_token, old_api_key):
 
 
 def unsubscribe_addon():
-    """Unsubscribe the add-on from the blenderkit-client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
+    """Unsubscribe the add-on from the BlenderKit-Client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
     address = get_address()
     data = ensure_minimal_data()
     with requests.Session() as session:
@@ -460,7 +460,7 @@ def unsubscribe_addon():
 
 
 def shutdown_client():
-    """Request to shutdown the blenderkit-client."""
+    """Request to shutdown the BlenderKit-Client."""
     address = get_address()
     data = ensure_minimal_data()
     with requests.Session() as session:
@@ -469,20 +469,19 @@ def shutdown_client():
         return resp
 
 
-def handle_daemon_status_task(task):
-    if global_vars.DAEMON_RUNNING is False:
+def handle_client_status_task(task):
+    if global_vars.CLIENT_RUNNING is False:
         wm = bpy.context.window_manager
         wm.blenderkitUI.logo_status = "logo"
-    global_vars.DAEMON_RUNNING = True
+    global_vars.CLIENT_RUNNING = True
 
 
 def check_blenderkit_client_exit_code() -> tuple[int, str]:
     exit_code = global_vars.client_process.poll()
     if exit_code is None:
-        return exit_code, "BlenderKit client process is running."
+        return exit_code, "BlenderKit-Client process is running."
 
-    log_path = f"{get_client_directory()}/daemon-{get_port()}.log"
-    message = f"BlenderKit client process exited with code {exit_code}. Please report a bug and paste content of log {log_path}"
+    message = f"BlenderKit-Client process exited with code {exit_code}. Please report a bug and paste content of log {get_client_log_path()}"
     return exit_code, message
 
 
@@ -490,7 +489,7 @@ def start_blenderkit_client():
     """Start BlenderKit-client in separate process.
     1. Check if binary is available at global_dir/client/vX.Y.Z.YYMMDD/blenderkit-client-<os>-<arch>(.exe)
     2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z.YYMMDD/
-    3. Start the client process which serves as bridge between BlenderKit add-on and BlenderKit server.
+    3. Start the BlenderKit-Client process which serves as bridge between BlenderKit add-on and BlenderKit server.
     """
     ensure_client_binary_installed()
     log_path = get_client_log_path()
@@ -526,17 +525,17 @@ def start_blenderkit_client():
             )
     except Exception as e:
         reports.add_report(
-            f"Error: BlenderKit-client failed to start - {e}", 10, "ERROR"
+            f"Error: BlenderKit-Client failed to start - {e}", 10, "ERROR"
         )
         raise (e)
 
     bk_logger.info(
-        f"BlenderKit-client {client_version} starting on {get_address()}, log file at: {log_path}"
+        f"BlenderKit-Client {client_version} starting on {get_address()}, log file at: {log_path}"
     )
 
 
 def decide_client_binary_name() -> str:
-    """Decide the name of the client binary based on the current operating system and architecture.
+    """Decide the name of the BlenderKit-Client binary based on the current operating system and architecture.
     Possible return values:
     - blenderkit-client-windows-x86_64.exe
     - blenderkit-client-windows-arm64.exe
@@ -559,14 +558,14 @@ def decide_client_binary_name() -> str:
 
 
 def get_client_directory() -> str:
-    """Get the path to the blenderkit-client directory located in global_dir."""
+    """Get the path to the BlenderKit-Client directory located in global_dir."""
     global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
     directory = path.join(global_dir, "client")
     return directory
 
 
 def get_client_log_path() -> str:
-    """Get path to blenderkit-client log file in global_dir/client.
+    """Get path to BlenderKit-Client log file in global_dir/client.
     If the port is the default port 62485, the log file is named default.log,
     otherwise it is named client-<port>.log.
     """
@@ -579,7 +578,7 @@ def get_client_log_path() -> str:
 
 
 def get_client_version() -> str:
-    """Get the version of the blenderkit-client binary bundled within the add-on.
+    """Get the version of the BlenderKit-Client binary bundled within the add-on.
     Binaries are located in blenderkit/client/vX.Y.Z.YYMMDD/ directory.
     From this directory name, we get the version of the client binary.
     """
@@ -590,7 +589,7 @@ def get_client_version() -> str:
 
 
 def get_preinstalled_client_path() -> str:
-    """Get the path to the preinstalled client binary - located in add-on directory.
+    """Get the path to the preinstalled BlenderKit-Client binary - located in add-on directory.
     This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z.YYMMDD on first run.
     """
     addon_dir = path.dirname(__file__)
@@ -601,10 +600,10 @@ def get_preinstalled_client_path() -> str:
 
 
 def get_client_binary_path():
-    """Get the path to the client binary located in global_dir/client/bin/vX.Y.Z.YYMMDD.
+    """Get the path to the BlenderKit-Client binary located in global_dir/client/bin/vX.Y.Z.YYMMDD.
     This is the binary that is used to start the client process.
     We do not start from the add-on because it might block update or delete of the add-on.
-    Returns: (str, str) - path to the client binary, version of the client binary
+    Returns: (str, str) - path to the Client binary, version of the Client binary
     """
     client_dir = get_client_directory()
     binary_name = decide_client_binary_name()
@@ -614,7 +613,7 @@ def get_client_binary_path():
 
 
 def ensure_client_binary_installed():
-    """Ensure that the client binary is installed in global_dir/client/bin/vX.Y.Z.YYMMDD.
+    """Ensure that the BlenderKit-Client binary is installed in global_dir/client/bin/vX.Y.Z.YYMMDD.
     If not, copy the binary from the add-on directory blenderkit/client.
     As side effect, this function also creates the global_dir/client/bin/vX.Y.Z.YYMMDD directory.
     """
@@ -623,11 +622,11 @@ def ensure_client_binary_installed():
         return
 
     preinstalled_client_path = get_preinstalled_client_path()
-    bk_logger.info(f"Copying BlenderKit-client binary {preinstalled_client_path}")
+    bk_logger.info(f"Copying BlenderKit-Client binary {preinstalled_client_path}")
     os.makedirs(path.dirname(client_binary_path), exist_ok=True)
     shutil.copy(preinstalled_client_path, client_binary_path)
     os.chmod(client_binary_path, 0o711)
-    bk_logger.info(f"BlenderKit-client binary copied to {client_binary_path}")
+    bk_logger.info(f"BlenderKit-Client binary copied to {client_binary_path}")
 
 
 def get_addon_dir():
