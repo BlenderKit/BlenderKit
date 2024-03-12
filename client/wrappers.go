@@ -198,11 +198,17 @@ func BlockingRequestHandler(w http.ResponseWriter, r *http.Request) {
 
 // NonblockingRequestTaskData is expected from the add-on.
 type NonblockingRequestTaskData struct {
-	AppID    int                       `json:"app_id"`
+	// Data common to all tasks.
+	AppID           int    `json:"app_id"`
+	SystemID        string `json:"system_id"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	ApiKey          string `json:"api_key"`
+	// Data specific to non-blocking request.
 	URL      string                    `json:"url"`
 	Method   string                    `json:"method"`
-	Headers  map[string]string         `json:"headers"`
-	Messages NonblockingRequestMessage `json:"messages"`
+	Headers  map[string]string         `json:"headers"`  // Expands default headers, or overwrites them.
+	Messages NonblockingRequestMessage `json:"messages"` // Error and Success messages to be reported back to the Blender UI.
 	JSON     json.RawMessage           `json:"json"`
 }
 
@@ -238,9 +244,9 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return
 	}
-
+	req.Header = getHeaders(data.ApiKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	for key, value := range data.Headers {
-		req.Header.Add(key, value)
+		req.Header.Set(key, value)
 	}
 
 	resp, err := ClientAPI.Do(req)
@@ -251,7 +257,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 && resp.StatusCode >= 300 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		es := fmt.Errorf("%v: %v", data.Messages.Error, resp.Status)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return

@@ -743,13 +743,11 @@ class FastMetadata(bpy.types.Operator):
             "license": self.license,
         }
         url = f"{paths.BLENDERKIT_API}/assets/{self.asset_id}/"
-        api_key = bpy.context.preferences.addons["blenderkit"].preferences.api_key
-        headers = utils.get_headers(api_key)
         messages = {
             "success": "Metadata upload succeded",
             "error": "Metadata upload failed",
         }
-        daemon_lib.nonblocking_request(url, "PATCH", headers, metadata, messages)
+        daemon_lib.nonblocking_request(url, "PATCH", {}, metadata, messages)
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -1175,15 +1173,12 @@ class AssetVerificationStatusChange(Operator):
                 result["verificationStatus"] = self.state
 
         url = paths.BLENDERKIT_API + "/assets/" + str(self.asset_id) + "/"
-        headers = utils.get_headers(
-            bpy.context.preferences.addons["blenderkit"].preferences.api_key
-        )
         upload_data = {"verificationStatus": self.state}
         messages = {
             "success": "Verification status changed",
             "error": "Verification status change failed",
         }
-        daemon_lib.nonblocking_request(url, "PATCH", headers, upload_data, messages)
+        daemon_lib.nonblocking_request(url, "PATCH", {}, upload_data, messages)
 
         if asset_bar_op.asset_bar_operator is not None:
             asset_bar_op.asset_bar_operator.update_layout(context, None)

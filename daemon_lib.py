@@ -392,7 +392,7 @@ def blocking_request(
 
 ### REQUEST WRAPPERS
 def nonblocking_request(
-    url: str, method: str, headers: dict, json_data: dict = {}, messages: dict = {}
+    url: str, method: str, headers: dict = {}, json_data: dict = {}, messages: dict = {}
 ) -> requests.Response:
     """Make non-blocking HTTP request through BlenderKit-Client.
     This function will return ASAP, not returning any actual data.
