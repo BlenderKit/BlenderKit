@@ -172,7 +172,7 @@ def parse_result(r):
 
         r["available_resolutions"] = []
         use_webp = True
-        if bpy.app.version < (3, 4, 0) or r.get("webpGeneratedTimestamp") == None:
+        if bpy.app.version < (3, 4, 0) or r.get("webpGeneratedTimestamp", 0) == 0:
             use_webp = False  # WEBP was optimized in Blender 3.4.0
 
         # BIG THUMB - HDR CASE
