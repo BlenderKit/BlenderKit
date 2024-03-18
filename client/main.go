@@ -78,12 +78,12 @@ var (
 func init() {
 	SystemID = getSystemID()
 	Tasks = make(map[int]map[string]*Task)
-	AddTaskCh = make(chan *Task, 100)
+	AddTaskCh = make(chan *Task, 1000)
 	TaskProgressUpdateCh = make(chan *TaskProgressUpdate, 1000)
 	TaskMessageCh = make(chan *TaskMessageUpdate, 1000)
-	TaskFinishCh = make(chan *TaskFinish, 100)
-	TaskCancelCh = make(chan *TaskCancel, 100)
-	TaskErrorCh = make(chan *TaskError, 100)
+	TaskFinishCh = make(chan *TaskFinish, 1000)
+	TaskCancelCh = make(chan *TaskCancel, 1000)
+	TaskErrorCh = make(chan *TaskError, 1000)
 
 	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)   // Hexagon like BlenderKit logo
 	ChanLog = log.New(os.Stdout, "<- ", log.LstdFlags) // Same symbols as channel in Go
@@ -464,38 +464,38 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		}
 
 		smallImgName, smallImgNameErr := ExtractFilenameFromURL(smallThumbURL)
-		fullImgName, fullImgNameErr := ExtractFilenameFromURL(fullThumbURL)
-
 		smallImgPath := filepath.Join(data.TempDir, smallImgName)
+		smallTaskData := DownloadThumbnailData{
+			AddonVersion:  data.AddonVersion,
+			ThumbnailType: "small",
+			ImagePath:     smallImgPath,
+			ImageURL:      smallThumbURL,
+			AssetBaseID:   result.AssetBaseID,
+			Index:         i,
+		}
+		smallTaskUUID := uuid.New().String()
+		smallTask := NewTask(smallTaskData, data.AppID, smallTaskUUID, "thumbnail_download")
+		if smallImgNameErr != nil {
+			smallTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s ", smallImgNameErr, result.DisplayName)
+		}
+		smallThumbsTasks = append(smallThumbsTasks, smallTask)
+
+		fullImgName, fullImgNameErr := ExtractFilenameFromURL(fullThumbURL)
 		fullImgPath := filepath.Join(data.TempDir, fullImgName)
-
-		if smallImgNameErr == nil {
-			taskUUID := uuid.New().String()
-			taskData := DownloadThumbnailData{
-				AddonVersion:  data.AddonVersion,
-				ThumbnailType: "small",
-				ImagePath:     smallImgPath,
-				ImageURL:      smallThumbURL,
-				AssetBaseID:   result.AssetBaseID,
-				Index:         i,
-			}
-			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
-			smallThumbsTasks = append(smallThumbsTasks, task)
+		fullTaskData := DownloadThumbnailData{
+			AddonVersion:  data.AddonVersion,
+			ThumbnailType: "full",
+			ImagePath:     fullImgPath,
+			ImageURL:      fullThumbURL,
+			AssetBaseID:   result.AssetBaseID,
+			Index:         i,
 		}
-
-		if fullImgNameErr == nil {
-			taskUUID := uuid.New().String()
-			taskData := DownloadThumbnailData{
-				AddonVersion:  data.AddonVersion,
-				ThumbnailType: "full",
-				ImagePath:     fullImgPath,
-				ImageURL:      fullThumbURL,
-				AssetBaseID:   result.AssetBaseID,
-				Index:         i,
-			}
-			task := NewTask(taskData, data.AppID, taskUUID, "thumbnail_download")
-			fullThumbsTasks = append(fullThumbsTasks, task)
+		fullTaskUUID := uuid.New().String()
+		fullTask := NewTask(fullTaskData, data.AppID, fullTaskUUID, "thumbnail_download")
+		if fullImgNameErr != nil {
+			fullTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", fullImgNameErr, result.DisplayName)
 		}
+		fullThumbsTasks = append(fullThumbsTasks, fullTask)
 	}
 	go downloadImageBatch(smallThumbsTasks, true)
 	go downloadImageBatch(fullThumbsTasks, true)
@@ -514,6 +514,12 @@ func downloadImageBatch(tasks []*Task, block bool) {
 
 func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	defer wg.Done()
+	if t.Error != nil { // error from ExtractFilenameFromURL() in parseThumbnails()
+		t.Status = "error"
+		AddTaskCh <- t
+		return
+	}
+
 	data, ok := t.Data.(DownloadThumbnailData)
 	if !ok {
 		t.Status = "error"
@@ -575,6 +581,7 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		AddTaskCh <- t
 		return
 	}
+
 	t.Status = "finished"
 	t.Message = "thumbnail downloaded"
 	AddTaskCh <- t
