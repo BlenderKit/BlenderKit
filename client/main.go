@@ -812,6 +812,7 @@ func DownloadGravatarImage(data FetchGravatarData) {
 	err = os.MkdirAll(filepath.Dir(gravatarPath), os.ModePerm)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		return
 	}
 	file, err := os.Create(gravatarPath)
 	if err != nil {
