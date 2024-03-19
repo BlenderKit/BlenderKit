@@ -63,9 +63,11 @@ if __name__ == "__main__":
             bpy.ops.wm.save_as_mainfile(filepath=temp_blend_path)
 
             asset_data = data["asset_data"]
-            has_url, asset_data = daemon_lib.get_download_url(
+            has_url, download_url, file_name = daemon_lib.get_download_url(
                 asset_data, utils.get_scene_id(), BLENDERKIT_EXPORT_API_KEY
             )
+            asset_data["files"][0]["url"] = download_url
+            asset_data["files"][0]["file_name"] = file_name
             if not has_url:
                 bg_blender.progress(
                     "couldn't download asset for thumnbail re-rendering"
