@@ -43,6 +43,7 @@ const (
 	EmoInsecure      = "🧨"
 	EmoUpload        = "⬆️ "
 	EmoDownload      = "⬇️ "
+	EmoIdentity      = "🆔"
 )
 
 var (
@@ -51,8 +52,8 @@ var (
 	Port          *string
 	Server        *string
 
-	CodeVerifier    string //Used for OAuth2
-	CodeVerifierMux sync.Mutex
+	OAuth2Sessions    map[string]OAuth2VerificationData // Map of OAuth2 sessions, key is the state string
+	OAuth2SessionsMux sync.Mutex
 
 	lastReportAccess    time.Time
 	lastReportAccessMux sync.Mutex
@@ -77,6 +78,7 @@ var (
 
 func init() {
 	SystemID = getSystemID()
+	OAuth2Sessions = make(map[string]OAuth2VerificationData)
 	Tasks = make(map[int]map[string]*Task)
 	AddTaskCh = make(chan *Task, 1000)
 	TaskProgressUpdateCh = make(chan *TaskProgressUpdate, 1000)
@@ -184,7 +186,7 @@ func main() {
 	// LOGIN
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
-	mux.HandleFunc("/code_verifier", CodeVerifierHandler)
+	mux.HandleFunc("/oauth2/verification_data", OAuth2VerificationDataHandler)
 
 	// BLENDER SPECIFIC HANDLERS
 	mux.HandleFunc("/blender/unsubscribe_addon", blenderUnsubscribeAddonHandler)
@@ -835,7 +837,6 @@ func DownloadGravatarImage(data FetchGravatarData) {
 }
 
 func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
-	BKLog.Print("GET USER PROFILE")
 	var data MinimalTaskData
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {

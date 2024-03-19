@@ -34,18 +34,15 @@ def ensure_minimal_data(data: dict = {}) -> dict:
     - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
     - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
     """
-    if "app_id" not in data:
-        data["app_id"] = os.getpid()
-    if "api_key" not in data:
-        data["api_key"] = bpy.context.preferences.addons[
-            "blenderkit"
-        ].preferences.api_key
-    if "addon_version" not in data:
-        data["addon_version"] = (
-            f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
-        )
-    if "platform_version" not in data:
-        data["platform_version"] = platform.platform()
+    prefs = bpy.context.preferences.addons["blenderkit"].preferences
+    av = global_vars.VERSION
+    data.setdefault("app_id", os.getpid())
+    data.setdefault("api_key", prefs.api_key)
+    data.setdefault("platform_version", platform.platform())
+    data.setdefault(
+        "addon_version",
+        f"{av[0]}.{av[1]}.{av[2]}.{av[3]}",
+    )
     return data
 
 
@@ -416,11 +413,19 @@ def nonblocking_request(
 
 
 ### AUTHORIZATION
-def send_code_verifier(code_verifier: str):
-    data = ensure_minimal_data({"code_verifier": code_verifier})
+def send_oauth_verification_data(code_verifier, state: str):
+    """Send OAUTH2 Code Verifier and State parameters to BlenderKit-Client.
+    So it can later use them to authenticate the redirected response from the browser.
+    """
+    data = ensure_minimal_data(
+        {
+            "code_verifier": code_verifier,
+            "state": state,
+        }
+    )
     with requests.Session() as session:
         resp = session.post(
-            f"{get_address()}/code_verifier",
+            f"{get_address()}/oauth2/verification_data",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -433,11 +438,7 @@ def refresh_token(refresh_token, old_api_key):
     old_api_key is used later to replace token only in Blender instances with the same api_key. (User can be logged into multiple accounts.)
     """
     bk_logger.info("Calling API token refresh")
-    data = {
-        "refresh_token": refresh_token,
-        "old_api_key": old_api_key,
-    }
-    data = ensure_minimal_data(data)
+    data = ensure_minimal_data({"refresh_token": refresh_token})
     with requests.Session() as session:
         url = get_address() + "/refresh_token"
         resp = session.get(
