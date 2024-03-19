@@ -12,40 +12,58 @@ import (
 	"github.com/google/uuid"
 )
 
-// Handles code_verifier exchange: add-on creates PKCE pair and sends its code_challenge to Client so it can later verify the response from server.
-// Once add-on get response from here, it opens BlenderKit.com with code_challenge and URL redirect to localhost:port/consumer/exchange.
+type OAuth2VerificationData struct {
+	MinimalTaskData
+	CodeVerifier string `json:"code_verifier"`
+	State        string `json:"state"`
+}
+
+// Handles Code Verifier and State parameters exchange for OAuth2 verfication.
+// Add-on creates PKCE pair (Code Chalange + Code Verifier) and sends its code_verifier to Client so it can later verify the response from server.
+// Random state string is also generated and send to the Client.
+// Once add-on get response from here, it opens BlenderKit.com with code_challenge + state parameters with URL redirect to localhost:port/consumer/exchange.
 // Server verifies user's login and redirects the browser to URL redirect which lands on func consumerExchangeHandler().
-func CodeVerifierHandler(w http.ResponseWriter, r *http.Request) {
-	rJSON := make(map[string]interface{})
-	if err := json.NewDecoder(r.Body).Decode(&rJSON); err != nil {
+// This func later checks the response against code_verifier and state parameters.
+func OAuth2VerificationDataHandler(w http.ResponseWriter, r *http.Request) {
+	var data OAuth2VerificationData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cv, ok := rJSON["code_verifier"].(string)
-	if !ok {
-		http.Error(w, "Invalid or missing 'code_verifier' in JSON", http.StatusBadRequest)
-		return
-	}
-
-	CodeVerifierMux.Lock()
-	CodeVerifier = cv
-	CodeVerifierMux.Unlock()
-	fmt.Printf("Code verifier set: %v\n", CodeVerifier)
+	OAuth2SessionsMux.Lock()
+	OAuth2Sessions[data.State] = data
+	OAuth2SessionsMux.Unlock()
+	BKLog.Printf("%s Add-on (%v) has created OAuth2 session (code_verifier=%s, state=%s).", EmoIdentity, data.AppID, data.CodeVerifier, data.State)
 	w.WriteHeader(http.StatusOK)
 }
 
-// Handles the exchange of the authorization code for tokens. This is the URL that the server redirects the browser to after the user logs in.
+// Handles the exchange of the authorization code for tokens.
+// This is the URL that the server redirects the browser to after the user logs in.
 func consumerExchangeHandler(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	authCode := queryParams.Get("code")
+	state := queryParams.Get("state")
 	redirectURL := *Server + "/oauth-landing/"
 	if authCode == "" {
-		http.Error(w, "Authorization Failed. Authorization code was not provided.", http.StatusBadRequest)
+		http.Error(w, "Authorization Failed. OAuth2 authorization code was not provided.", http.StatusBadRequest)
+		return
+	}
+	if state == "" {
+		http.Error(w, "Authorization Failed. OAuth2 state was not provided.", http.StatusBadRequest)
 		return
 	}
 
-	responseJSON, status, error := GetTokens(authCode, "")
+	OAuth2SessionsMux.Lock()
+	verificationData := OAuth2Sessions[state]
+	OAuth2SessionsMux.Unlock()
+	if verificationData.State != state {
+		http.Error(w, "Authorization Failed. OAuth2 state does not match.", http.StatusBadRequest)
+		return
+	}
+
+	responseJSON, status, error := GetTokens(authCode, "", verificationData)
 	if status == -1 {
 		text := "Authorization Failed. Server is not reachable. Response: " + error
 		http.Error(w, text, http.StatusBadRequest)
@@ -75,27 +93,33 @@ func consumerExchangeHandler(w http.ResponseWriter, r *http.Request) {
 // Parameter authCode is the authorization code - if it's not empty, it's used to get the tokens in grant_type "authorization_code".
 // Parameter refreshToken is the refresh token - if it's not empty, it's used to get the tokens in grant_type "refresh_token".
 // Must be called with either authCode or refreshToken, not both.
-func GetTokens(authCode string, refreshToken string) (map[string]interface{}, int, string) {
+func GetTokens(authCode string, refreshToken string, verificationData OAuth2VerificationData) (map[string]interface{}, int, string) {
+	if authCode == "" && refreshToken == "" {
+		return nil, -1, "No authCode or refreshToken provided"
+	}
+	if authCode != "" && refreshToken != "" {
+		return nil, -1, "Both authCode and refreshToken provided"
+	}
 	data := url.Values{}
-	var grantType string
+
+	// If authCode is not empty, we are getting tokens for the first time.
 	if authCode != "" {
-		grantType = "authorization_code"
+		data.Set("grant_type", "authorization_code")
 		data.Set("code", authCode)
-		CodeVerifierMux.Lock()
-		defer CodeVerifierMux.Unlock()
-		if CodeVerifier != "" {
-			data.Set("code_verifier", CodeVerifier)
+
+		if verificationData.CodeVerifier != "" {
+			data.Set("code_verifier", verificationData.CodeVerifier)
 		} else {
 			return nil, -1, "Could not find code_verifier."
 		}
-	} else if refreshToken != "" {
-		grantType = "refresh_token"
-		data.Set("refresh_token", refreshToken)
-	} else {
-		return nil, -1, "No authCode or refreshToken provided"
 	}
 
-	data.Set("grant_type", grantType)
+	// If refreshToken is not empty, we are refreshing the tokens.
+	if refreshToken != "" {
+		data.Set("grant_type", "refresh_token")
+		data.Set("refresh_token", refreshToken)
+	}
+
 	data.Set("client_id", OAUTH_CLIENT_ID)
 	data.Set("scopes", "read write")
 	data.Set("redirect_uri", fmt.Sprintf("http://localhost:%s/consumer/exchange/", *Port))
@@ -104,9 +128,10 @@ func GetTokens(authCode string, refreshToken string) (map[string]interface{}, in
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Fatalf("Error creating request: %v", err)
+		return nil, -1, "Failed to create request"
 	}
 
-	req.Header = getHeaders("", *SystemID, "", "")                      // Request comes from the browser, so we cannot set addonVersion and platformVersion
+	req.Header = getHeaders("", *SystemID, verificationData.AddonVersion, verificationData.PlatformVersion)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // Overwrite Content-Type to "application/x-www-form-urlencoded"
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
@@ -132,13 +157,13 @@ func GetTokens(authCode string, refreshToken string) (map[string]interface{}, in
 		return nil, resp.StatusCode, "Failed to decode response JSON"
 	}
 
-	log.Printf("Token retrieval OK (grant type: %s)", grantType)
+	BKLog.Printf("%s Token retrieval OK (grant type: %s)", EmoIdentity, data.Get("grant_type"))
 	return respJSON, resp.StatusCode, ""
 }
 
 type RefreshTokenData struct {
-	RefreshToken string `json:"refresh_token"`
-	OldAPIKey    string `json:"old_api_key"`
+	MinimalTaskData
+	RefreshToken string `json:"refresh_token"` // Refresh token to be used to get new tokens
 }
 
 // RefreshTokenHandler handles the request to refresh the access token.
@@ -167,7 +192,17 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 // If the request is successful, it creates Tasks with status finished for all appIDs with the response JSON -> refreshing the token in all add-ons.
 // If the request fails, it creates Tasks with status error for all appIDs -> logout in all add-ons.
 func RefreshToken(data RefreshTokenData) {
-	rJSON, status, errMsg := GetTokens("", data.RefreshToken)
+	verificationData := OAuth2VerificationData{
+		State:        "",
+		CodeVerifier: "",
+		MinimalTaskData: MinimalTaskData{
+			AppID:           data.AppID,
+			APIKey:          data.APIKey,
+			AddonVersion:    data.AddonVersion,
+			PlatformVersion: data.PlatformVersion,
+		},
+	}
+	rJSON, status, errMsg := GetTokens("", data.RefreshToken, verificationData)
 	TasksMux.Lock()
 	for appID := range Tasks {
 		taskID := uuid.New().String()

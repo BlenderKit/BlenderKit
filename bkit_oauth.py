@@ -21,6 +21,7 @@ import base64
 import hashlib
 import logging
 import random
+import secrets
 import string
 import time
 from urllib.parse import quote as urlquote
@@ -102,8 +103,9 @@ def login(signup: bool) -> None:
     """
     local_landing_URL = f"http://localhost:{daemon_lib.get_port()}/consumer/exchange/"
     code_verifier, code_challenge = generate_pkce_pair()
-    daemon_lib.send_code_verifier(code_verifier)
-    authorize_url = f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state=random_state_string&redirect_uri={local_landing_URL}&code_challenge={code_challenge}&code_challenge_method=S256"
+    state = secrets.token_urlsafe()
+    daemon_lib.send_oauth_verification_data(code_verifier, state)
+    authorize_url = f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state={state}&redirect_uri={local_landing_URL}&code_challenge={code_challenge}&code_challenge_method=S256"
     if signup:
         authorize_url = urlquote(authorize_url)
         authorize_url = f"{global_vars.SERVER}/accounts/register/?next={authorize_url}"
