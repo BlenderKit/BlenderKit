@@ -379,6 +379,8 @@ func GetDownloadFilepaths(data DownloadData, filename string) []string {
 	return filePaths
 }
 
+// Get the download URL for the asset file.
+// Returns: canDownload, downloadURL, error.
 func GetDownloadURL(data DownloadData) (bool, string, error) {
 	reqData := url.Values{}
 	reqData.Set("scene_uuid", data.SceneID)

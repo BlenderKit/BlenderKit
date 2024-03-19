@@ -34,10 +34,12 @@ def ensure_minimal_data(data: dict = {}) -> dict:
     - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
     - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
     """
-    prefs = bpy.context.preferences.addons["blenderkit"].preferences
     av = global_vars.VERSION
+    if "api_key" not in data:  # for BG instances, where preferences are not available
+        data.setdefault(
+            "api_key", bpy.context.preferences.addons["blenderkit"].preferences.api_key
+        )
     data.setdefault("app_id", os.getpid())
-    data.setdefault("api_key", prefs.api_key)
     data.setdefault("platform_version", platform.platform())
     data.setdefault(
         "addon_version",
@@ -307,12 +309,15 @@ def get_bookmarks():
 
 ### BLOCKING WRAPPERS
 def get_download_url(asset_data, scene_id, api_key):
-    """Get download url from server. This is a blocking wrapper, will not return until results are available."""
+    """Get download url from server. This is a blocking wrapper, will not return until results are available.
+    Returns: (bool, str, str) - can_download, download_url, filename.
+    """
     data = {
         "resolution": "blend",
         "asset_data": asset_data,
+        "api_key": api_key,  # needs to be here, because prefs are not available in BG instances
         "PREFS": {
-            "api_key": api_key,  # TODO: remove this, it is already available via ensure_minimal_data
+            "api_key": api_key,
             "scene_id": scene_id,
         },
     }
@@ -325,7 +330,7 @@ def get_download_url(asset_data, scene_id, api_key):
             proxies=NO_PROXIES,
         )
         resp = resp.json()
-        return (resp["has_url"], resp["asset_data"])
+        return (resp["can_download"], resp["download_url"], resp["filename"])
 
 
 def blocking_file_upload(url: str, filepath: str) -> requests.Response:

@@ -710,7 +710,7 @@ func CancelDownloadHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetDownloadURLWrapper Handle get_download_url request. This serves as a wrapper around get_download_url so this can be called from addon.
 // Returns the results directly so it is a blocking on add-on side (as add-on uses blocking Requests for this).
-// TODO: NEDS TESTING AND TUNING ON THE ADD-ON SIDE
+// It adds filename to the response, because BG scripts need it.
 func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 	data := DownloadData{}
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -725,11 +725,16 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: this is probably different implementation than in the original code, but it does not make sense to send asset_data back, it is already there!
-	// needs testing and tuning on the add-on side - do not know now how to trigger this func right now
+	fileName, err := ExtractFilenameFromURL(URL)
+	if err != nil {
+		http.Error(w, "Error extracting filename from URL: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	responseJSON, err := json.Marshal(map[string]interface{}{
 		"can_download": canDownload,
 		"download_url": URL,
+		"filename":     fileName,
 	})
 	if err != nil {
 		http.Error(w, "Error converting to JSON: "+err.Error(), http.StatusInternalServerError)

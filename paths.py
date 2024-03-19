@@ -366,21 +366,23 @@ def delete_asset_debug(asset_data):
     user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
     api_key = user_preferences.api_key
 
-    _, asset_data = daemon_lib.get_download_url(
+    _, download_url, file_name = daemon_lib.get_download_url(
         asset_data, utils.get_scene_id(), api_key
     )
+    asset_data["files"][0]["url"] = download_url
+    asset_data["files"][0]["file_name"] = file_name
 
-    file_names = get_download_filepaths(asset_data)
-    for f in file_names:
-        asset_dir = os.path.dirname(f)
-
-        if os.path.isdir(asset_dir):
-            try:
-                bk_logger.info(f"{asset_dir}")
-                shutil.rmtree(asset_dir)
-            except:
-                e = sys.exc_info()[0]
-                bk_logger.error(f"{e}")
+    filepaths = get_download_filepaths(asset_data)
+    for file in filepaths:
+        asset_dir = os.path.dirname(file)
+        if os.path.isdir(asset_dir) is False:
+            continue
+        try:
+            shutil.rmtree(asset_dir)
+            bk_logger.info(f"deleted {asset_dir}")
+        except Exception as err:
+            e = sys.exc_info()[0]
+            bk_logger.error(f"{e} - {err}")
 
 
 def get_clean_filepath():
