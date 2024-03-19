@@ -2382,11 +2382,15 @@ def register():
     for w in bpy.context.window_manager.windows:
         for a in w.screen.areas:
             if a.type == "PREFERENCES":
-                tasks_queue.add_task(
-                    (bpy.ops.wm.blenderkit_welcome, ("INVOKE_DEFAULT",)),
-                    fake_context=True,
-                    fake_context_area="PREFERENCES",
-                )
+                # DISABLED because causes crashes in Blender 4.1
+                # TODO: investigate
+                # tasks_queue.add_task(
+                #    (bpy.ops.wm.blenderkit_welcome, ("INVOKE_DEFAULT",)),
+                #    fake_context=True,
+                #    fake_context_area="PREFERENCES",
+                #    wait=1,
+                # )
+
                 # save preferences after manually enabling the addon
                 tasks_queue.add_task(
                     (bpy.ops.wm.save_userpref, ()),
