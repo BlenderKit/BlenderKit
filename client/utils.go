@@ -99,8 +99,11 @@ func ExtractFilenameFromURL(urlStr string) (string, error) {
 // Returns error if the file exists but is not a file.
 func FileExists(filePath string) (bool, fs.FileInfo, error) {
 	info, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		return false, info, nil
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, info, nil
+		}
+		return false, info, err
 	}
 	if info.IsDir() {
 		return false, info, fmt.Errorf("file is a directory")

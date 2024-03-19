@@ -95,6 +95,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 			TaskID: taskID,
 			Error:  err,
 		}
+		return
 	}
 	// GET FILEPATHS TO WHICH WE DOWNLOAD
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
