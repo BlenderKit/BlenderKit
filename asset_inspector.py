@@ -16,6 +16,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# This module is for analyzing the asset and filling the tags automatically.
+# 1 part of the module effectively fills tags for the assets,
+# the 2nd part finds possible problems in the asset.
 
 import addon_utils
 import bpy
@@ -24,6 +27,7 @@ from . import utils
 
 
 RENDER_OBTYPES = ["MESH", "CURVE", "SURFACE", "METABALL", "TEXT"]
+
 
 
 def check_material(props, mat):
