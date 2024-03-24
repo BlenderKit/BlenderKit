@@ -72,8 +72,9 @@ def add_version(data):
 def write_to_report(props, text):
     props.report = props.report + " - " + text + "\n\n"
 
+
 def prevalidate_model(props):
-    """"Check model for possible problems"""
+    """ "Check model for possible problems"""
     ob = utils.get_active_model()
     obs = utils.get_hierarchy(ob)
     # check scaling of objects, if anything is assymetrical, it's a big problem,
@@ -85,22 +86,27 @@ def prevalidate_model(props):
                 "Assymetrical scaling in the object - please apply scale on all models",
             )
 
+
 def prevalidate_scene(props):
     # check scene for possible problems
     s = bpy.context.scene
     other_authors = []
     # Check if user is author of all assets in scene.
     for ob in bpy.context.scene.objects:
-        if ob.get("asset_data") is not None and not utils.user_is_owner(ob['asset_data']):
-            fn = ob['asset_data']['author']['fullName']
+        if ob.get("asset_data") is not None and not utils.user_is_owner(
+            ob["asset_data"]
+        ):
+            fn = ob["asset_data"]["author"]["fullName"]
             other_authors.append(f"     - {fn}\n")
-    if len(other_authors)>0:
+    if len(other_authors) > 0:
         oa_string = "".join(other_authors)
-        write_to_report(props,
+        write_to_report(
+            props,
             f"Other author's assets are present in scene \n"
             f"Remove assets by these authors before uploading the scene:\n"
-            f"{oa_string}"
-            )
+            f"{oa_string}",
+        )
+
 
 def check_missing_data_model(props):
     autothumb.update_upload_model_preview(None, None)
