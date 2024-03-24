@@ -29,7 +29,6 @@ from . import utils
 RENDER_OBTYPES = ["MESH", "CURVE", "SURFACE", "METABALL", "TEXT"]
 
 
-
 def check_material(props, mat):
     e = bpy.context.scene.render.engine
     shaders = []
