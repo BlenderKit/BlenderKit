@@ -232,6 +232,10 @@ def handle_task(task: daemon_tasks.Task):
     if task.task_type == "token_refresh":
         return bkit_oauth.handle_token_refresh_task(task)
 
+    # HANDLE OAUTH LOGOUT
+    if task.task_type == "oauth2/logout":
+        return bkit_oauth.handle_logout_task(task)
+
     # HANDLE CLIENT STATUS REPORT
     if task.task_type == "client_status":
         return daemon_lib.handle_client_status_task(task)
