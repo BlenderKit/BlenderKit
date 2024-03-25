@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 )
@@ -218,4 +219,109 @@ func RefreshToken(data RefreshTokenData) {
 		Tasks[appID][task.TaskID] = task
 	}
 	TasksMux.Unlock()
+}
+
+// OAuth2LogoutHandler handles the request signaling that the user has logged out.
+// It devalidates the
+func OAuth2LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var data RefreshTokenData
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	go OAuth2Logout(data)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// OAuth2Logout sends revocation request to the server to revoke the tokens.
+// It logs out the user from all add-ons.
+func OAuth2Logout(data RefreshTokenData) {
+	var wg sync.WaitGroup
+	var ch = make(chan error, 2)
+	wg.Add(2)
+	go RevokeOAuth2Token(data, "api_key", ch, &wg)
+	go RevokeOAuth2Token(data, "refresh_token", ch, &wg)
+	wg.Wait()
+	close(ch)
+	var errors []error
+	for err := range ch {
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	var message, status string
+	if len(errors) == 0 {
+		message = "Logout OK, tokens successfully revoked on the server"
+		status = "finished"
+	} else if len(errors) == 1 {
+		message = fmt.Sprintf("Logout partially OK, failed to revoke token: %v", errors[0])
+		status = "error"
+	} else {
+		message = fmt.Sprintf("Logout partially OK, failed to revoke tokens: %v", errors)
+		status = "error"
+	}
+
+	for appID := range Tasks {
+		task := NewTask(data, appID, uuid.New().String(), "oauth2/logout")
+		task.Message = message
+		task.Status = status
+		task.Error = fmt.Errorf(message) // just to print it into console
+		AddTaskCh <- task
+	}
+}
+
+// RevokeOAuth2Token revokes api_key or refresh_token according to RFC 7009: https://www.rfc-editor.org/rfc/rfc7009.html#section-2.1.
+// Token type is either "api_key" or "refresh_token".
+func RevokeOAuth2Token(data RefreshTokenData, tokenType string, ch chan error, wg *sync.WaitGroup) {
+	defer wg.Done()
+	rData := url.Values{}
+	rData.Set("client_id", OAUTH_CLIENT_ID)
+	if tokenType == "api_key" {
+		rData.Set("token", data.APIKey)
+	} else if tokenType == "refresh_token" {
+		rData.Set("token", data.RefreshToken)
+		rData.Set("token_type_hint", "refresh_token")
+	} else {
+		ch <- fmt.Errorf("invalid token type: %s", tokenType)
+		return
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/o/revoke_token/", *Server), strings.NewReader(rData.Encode()))
+	if err != nil {
+		ch <- fmt.Errorf("'%v: %v'", tokenType, err)
+		return
+	}
+
+	req.Header = getHeaders("", *SystemID, data.AddonVersion, data.PlatformVersion)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // Overwrite Content-Type to "application/x-www-form-urlencoded"
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		ch <- fmt.Errorf("'%v: %v'", tokenType, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		ch <- fmt.Errorf("'%v: %v'", tokenType, err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		ch <- fmt.Errorf("'%v: error response (%v) from server: %s'", tokenType, resp.StatusCode, string(body))
+		return
+	}
+
+	BKLog.Printf("%v %v revoked successfully", EmoIdentity, tokenType)
+	ch <- nil
 }

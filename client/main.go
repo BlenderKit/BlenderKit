@@ -188,6 +188,7 @@ func main() {
 	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
 	mux.HandleFunc("/oauth2/verification_data", OAuth2VerificationDataHandler)
+	mux.HandleFunc("/oauth2/logout", OAuth2LogoutHandler)
 
 	// BLENDER SPECIFIC HANDLERS
 	mux.HandleFunc("/blender/unsubscribe_addon", blenderUnsubscribeAddonHandler)

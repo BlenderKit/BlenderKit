@@ -83,9 +83,21 @@ def handle_token_refresh_task(task: daemon_tasks.Task):
         reports.add_report(task.message, 5, "ERROR")
 
 
-def logout() -> None:
-    """Logs out user from add-on."""
-    bk_logger.info("Logging out.")
+def handle_logout_task(task: daemon_tasks.Task):
+    """Handles incoming task of type oauth2/logout. This could be triggered from another add-on also.
+    Shows messages depending on result of tokens revocation.
+    Regardless of revocation results, it also cleans login data if needed."""
+    if task.status == "finished":
+        reports.add_report(task.message, 3, "INFO")
+    elif task.status == "error":
+        reports.add_report(task.message, 5, "ERROR")
+
+    # login could happen in another add-on instance, so we need to check whether login data are cleaned
+    if global_vars.DATA.get("bkit profile") is not None:
+        clean_login_data()
+
+
+def clean_login_data():
     preferences = bpy.context.preferences.addons["blenderkit"].preferences
     preferences.login_attempt = False
     preferences.api_key_refresh = ""
@@ -93,6 +105,13 @@ def logout() -> None:
     preferences.api_key_timeout = 0
     if global_vars.DATA.get("bkit profile"):
         del global_vars.DATA["bkit profile"]
+
+
+def logout() -> None:
+    """Logs out user from add-on. Also calls BlenderKit-client to revoke the tokens."""
+    bk_logger.info("Logging out.")
+    daemon_lib.oauth2_logout()
+    clean_login_data()
 
 
 def login(signup: bool) -> None:

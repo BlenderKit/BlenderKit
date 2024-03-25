@@ -456,6 +456,16 @@ def refresh_token(refresh_token, old_api_key):
         return resp
 
 
+def oauth2_logout():
+    """Logout from OAUTH2. BlenderKit-Client will revoke the token on the server."""
+    data = ensure_minimal_data()
+    data["refresh_token"] = global_vars.PREFS["api_key_refresh"]
+    with requests.Session() as session:
+        url = get_address() + "/oauth2/logout"
+        resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        return resp
+
+
 def unsubscribe_addon():
     """Unsubscribe the add-on from the BlenderKit-Client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
     address = get_address()
