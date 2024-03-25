@@ -34,7 +34,7 @@ pending_tasks = (
 
 def handle_failed_reports(exception: Exception) -> float:
     bk_logger.warning(
-        f"Request for daemon reports failed: {type(exception)} {exception}"
+        f"Request for BlenderKit-Client reports failed: {type(exception)} {exception}"
     )
     global_vars.CLIENT_ACCESSIBLE = False
     if global_vars.CLIENT_FAILED_REPORTS in (0, 10):
