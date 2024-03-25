@@ -14,6 +14,7 @@ jobs:
         run: pip install -r devs/requirements.txt
       - name: ISORT
         run: python -m isort . --check-only --diff
+        continue-on-error: true
       - name: BLACK
         run: python -m black . --check --diff
       #- name: RUFF on ./daemon

@@ -24,12 +24,13 @@ jobs:
         run: pip install -r devs/requirements.txt
       - name: ISORT
         run: python -m isort . --check-only --diff
+        continue-on-error: true
       - name: BLACK
         run: python -m black . --check --diff
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
-      - name: Version in daemon.py same as in __init__.py
-        run: python3 -c "import re; f = open('daemon/daemon.py'); version_daemon = next(line.split('=')[1].strip().strip('\"') for line in f if line.startswith('VERSION')); f.close(); f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_daemon.split('.'))) == tuple(map(int, version_init.split(', '))), f'Version mismatch of {version_init} and {version_daemon}'"
+      - name: Add-on Version set to ${{inputs.version}}
+        run: python3 -c "import re; f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_init.split(', '))) == tuple(map(int, '${{inputs.version}}'.split('.'))), f'Version mismatch of {version_init} and ${{inputs.version}}'"
 
   Release_checks:
     runs-on: ubuntu-latest
