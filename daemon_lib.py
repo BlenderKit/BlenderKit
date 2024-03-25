@@ -1,6 +1,7 @@
 import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
 from os import path
@@ -590,8 +591,14 @@ def get_client_version() -> str:
     """
     addon_dir = path.dirname(__file__)
     client_bundled_dir = path.join(addon_dir, "client")
-    version_dir = next(os.scandir(client_bundled_dir)).name
-    return version_dir
+    version_pattern = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)?$")
+    for entry in os.scandir(client_bundled_dir):
+        if entry.is_dir() and version_pattern.match(entry.name):
+            return entry.name
+
+    raise AssertionError(
+        "Directory with preinstalled blenderkit-client binaries not found."
+    )
 
 
 def get_preinstalled_client_path() -> str:
