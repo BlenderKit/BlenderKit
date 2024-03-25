@@ -99,7 +99,8 @@ func handleChannels() {
 			TasksMux.Lock()
 			if Tasks[task.AppID] == nil {
 				BKLog.Printf("%s Unexpected: AppID %d not in Tasks! Add-on should first make report requst, then shedule tasks, fix this!", EmoWarning, task.AppID)
-				SubscribeNewApp(task.AppID, "")
+				data := MinimalTaskData{AppID: task.AppID}
+				SubscribeNewApp(data)
 			}
 			Tasks[task.AppID][task.TaskID] = task
 			TasksMux.Unlock()
@@ -267,7 +268,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] == nil { // New add-on connected
-		SubscribeNewApp(data.AppID, data.APIKey)
+		SubscribeNewApp(data)
 	}
 
 	taskID := uuid.New().String()
@@ -300,14 +301,13 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 // SubscribeNewApp adds new App into Tasks[AppID].
 // This is called when new AppID appears - meeaning new add-on or other app wants to communicate with Client.
-func SubscribeNewApp(appID int, APIKey string) {
-	BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, appID)
-	Tasks[appID] = make(map[string]*Task)
+func SubscribeNewApp(data MinimalTaskData) {
+	BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, data.AppID)
+	Tasks[data.AppID] = make(map[string]*Task)
 
-	data := MinimalTaskData{AppID: appID, APIKey: APIKey}
 	go FetchDisclaimer(data)
 	go FetchCategories(data)
-	if APIKey != "" {
+	if data.APIKey != "" {
 		go FetchUnreadNotifications(data)
 		go GetBookmarks(data)
 		go GetUserProfile(data)
@@ -416,7 +416,7 @@ func doAssetSearch(data SearchTaskData, taskID string) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
-	req.Header = getHeaders(data.PREFS.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
