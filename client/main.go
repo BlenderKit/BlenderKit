@@ -1492,7 +1492,7 @@ func doAssetUpload(data AssetUploadRequestData) {
 }
 
 func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) error {
-	for _, file := range files {
+	for _, file := range files { // will be empty if only metadata is uploaded
 		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
 		if err != nil {
 			return err
@@ -1549,7 +1549,8 @@ func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadata
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+		errResp := ExtractErrorMessage(resp)
+		err = fmt.Errorf("status code error (%d): %v (on %s)", resp.StatusCode, errResp.Detail, resp.Status)
 		return err
 	}
 
@@ -1764,11 +1765,11 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				}
 			}
 		}
-	}
 
-	exists, _, _ := FileExists(fpath)
-	if !exists {
-		return files, fmt.Errorf("packed file (%s) does not exist, please try manual packing first", fpath)
+		exists, _, _ := FileExists(fpath)
+		if !exists {
+			return files, fmt.Errorf("packed file (%s) does not exist, please try manual packing first", fpath)
+		}
 	}
 
 	for _, filetype := range upload_set {
@@ -1842,7 +1843,7 @@ func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) 
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
-	headers := getHeaders(data.Preferences.APIKey, "", data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	headers := getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
@@ -1868,7 +1869,8 @@ func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error updating asset - %v: %v", resp.Status, url)
+		errResp := ExtractErrorMessage(resp)
+		return nil, fmt.Errorf("error updating asset - %v: %v (on %v)", resp.Status, errResp.Detail, url)
 	}
 
 	respData := new(AssetsCreateResponse)
@@ -1877,6 +1879,26 @@ func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) 
 	}
 
 	return respData, nil
+}
+
+// ExtractErrorMessage extracts the error message from the response body of a failed request.
+// TODO: Make this function more generic and reusable. Implement it on all API calls.
+func ExtractErrorMessage(resp *http.Response) ServerErrorResponse {
+	// Read the response body
+	var errResp ServerErrorResponse
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// Handle the error
+		fmt.Println("Failed to read response body:", err)
+	}
+
+	// PARSE
+	err = json.Unmarshal(bodyBytes, &errResp)
+	if err != nil {
+		fmt.Println("Failed to unmarshal response body:", err)
+	}
+
+	return errResp
 }
 
 // DictToParams (in Python terminology) converts a map of inputs into a slice of parameter objects.

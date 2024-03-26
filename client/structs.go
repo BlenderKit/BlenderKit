@@ -314,7 +314,7 @@ type AssetUploadData struct {
 	IsFree           bool        `json:"isFree"`
 	IsPrivate        bool        `json:"isPrivate"`
 	License          string      `json:"license"`
-	Name             string      `json:"name"`
+	Name             string      `json:"name,omitempty"` // has to be ommited for metadata reupload
 	Parameters       interface{} `json:"parameters"`
 	SourceAppName    string      `json:"sourceAppName"`
 	SourceAppVersion string      `json:"sourceAppVersion"`
@@ -552,4 +552,12 @@ type SearchTaskData struct {
 
 type ReportData struct {
 	AppID int `json:"app_id"` // AppID is PID of Blender in which add-on runs
+}
+
+// This is the response from the server when there is an error.
+// We need to parse it to get the error message to get to meaningful information about reason of the error.
+// E.g.: {"detail":{"name":["This field may not be blank."]},"statusCode":400}
+type ServerErrorResponse struct {
+	Detail     map[string]interface{} `json:"detail"`
+	StatusCode int                    `json:"statusCode"`
 }
