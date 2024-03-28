@@ -1209,7 +1209,7 @@ def is_upload_old(asset_data):
     estimates if the asset is far too long in the 'uploaded' state
     This returns the number of days the validation is over the limit.
     """
-    date_time_str = asset_data["created"][:10]
+    date_time_str = asset_data["lastBlendUpload"][:10]
     # date_time_str = 'Jun 28 2018 7:40AM'
     date_time_obj = datetime.datetime.strptime(date_time_str, "%Y-%m-%d")
     today = date_time_obj.today()

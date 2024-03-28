@@ -661,9 +661,9 @@ def query_to_url(query={}, params={}):
         # orders by last core file upload
         if query.get("verification_status") == "uploaded":
             # for validators, sort uploaded from oldest
-            order.append("created")
+            order.append("last_blend_upload")
         else:
-            order.append("-last_upload")
+            order.append("-last_blend_upload")
     elif query.get("author_id") is not None and utils.profile_is_validator():
         order.append("-created")
     else:

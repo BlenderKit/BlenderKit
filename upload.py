@@ -74,7 +74,8 @@ def write_to_report(props, text):
 
 
 def prevalidate_model(props):
-    """ "Check model for possible problems"""
+    """Check model for possible problems:
+    - check if all objects have not asymetrical scaling."""
     ob = utils.get_active_model()
     obs = utils.get_hierarchy(ob)
     # check scaling of objects, if anything is assymetrical, it's a big problem,
@@ -87,8 +88,22 @@ def prevalidate_model(props):
             )
 
 
+def get_model_materials():
+    """get all materials in the asset hierarchy, will be used to validate materials in future"""
+    ob = utils.get_active_model()
+    obs = utils.get_hierarchy(ob)
+    materials = []
+    for ob in obs:
+        if ob.type in ("MESH", "CURVE"):
+            for mat in ob.data.materials:
+                if mat not in materials:
+                    materials.append(mat)
+    return materials
+
+
 def prevalidate_scene(props):
-    # check scene for possible problems
+    """Check scene for possible problems:
+    - check if user is author of all assets in scene"""
     s = bpy.context.scene
     other_authors = []
     # Check if user is author of all assets in scene.
