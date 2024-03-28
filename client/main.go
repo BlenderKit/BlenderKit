@@ -267,6 +267,13 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if data.AddonVersion == "" {
+		msg := fmt.Sprintf("BlenderKit-Client running on port %s", *Port)
+		BKLog.Printf("%v Add-on (probably v3.11 or less) requesting /report rejected.", EmoWarning)
+		http.Error(w, msg, http.StatusForbidden) // 403
+		return
+	}
+
 	TasksMux.Lock()
 	if Tasks[data.AppID] == nil { // New add-on connected
 		SubscribeNewApp(data)
