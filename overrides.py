@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import bpy
 import mathutils
 from bpy.types import Operator
