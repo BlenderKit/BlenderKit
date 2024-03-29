@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import ctypes
 import logging
 import os

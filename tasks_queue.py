@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import logging
 import queue
 from typing import Tuple
