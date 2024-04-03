@@ -988,7 +988,14 @@ func SendRating(data SendRatingData) {
 		return
 	}
 
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(reqBody))
+	var method string
+	if data.RatingValue == 0 {
+		method = http.MethodDelete
+	} else {
+		method = http.MethodPut
+	}
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
@@ -1001,6 +1008,21 @@ func SendRating(data SendRatingData) {
 		return
 	}
 	defer resp.Body.Close()
+
+	if method == http.MethodDelete {
+		if resp.StatusCode != http.StatusNoContent {
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error rating asset - %v: %v", resp.Status, url)}
+			return
+		}
+
+		TaskFinishCh <- &TaskFinish{
+			AppID:   data.AppID,
+			TaskID:  taskID,
+			Message: fmt.Sprintf("Removed %s rating successfully", data.RatingType),
+			Result:  map[string]string{},
+		}
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error rating asset - %v: %v", resp.Status, url)}
@@ -1016,7 +1038,7 @@ func SendRating(data SendRatingData) {
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
 		TaskID:  taskID,
-		Message: fmt.Sprintf("Rated %s=%d successfully", data.RatingType, data.RatingValue),
+		Message: fmt.Sprintf("Rated %s=%.1f successfully", data.RatingType, data.RatingValue),
 		Result:  respData,
 	}
 }

@@ -437,13 +437,13 @@ type GetCommentsData struct {
 }
 
 type SendRatingData struct {
-	AddonVersion    string `json:"addon_version"`
-	PlatformVersion string `json:"platform_version"`
-	AppID           int    `json:"app_id"`
-	APIKey          string `json:"api_key"`
-	AssetID         string `json:"asset_id"`
-	RatingType      string `json:"rating_type"`
-	RatingValue     int    `json:"rating_value"`
+	AddonVersion    string  `json:"addon_version"`
+	PlatformVersion string  `json:"platform_version"`
+	AppID           int     `json:"app_id"`
+	APIKey          string  `json:"api_key"`
+	AssetID         string  `json:"asset_id"`
+	RatingType      string  `json:"rating_type"`
+	RatingValue     float32 `json:"rating_value"`
 }
 
 type FetchGravatarData struct {

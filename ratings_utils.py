@@ -392,6 +392,8 @@ class RatingProperties(PropertyGroup):
             self.rating_work_hours = round(rating_work_hours, 2)
             try:
                 # when the value is not in the enum, it throws an error
+                if whs == "0.0":
+                    whs = "0"
                 self.rating_work_hours_ui = whs
             except Exception as e:
                 bk_logger.warn(f"exception setting rating_work_hours_ui: {e}")
