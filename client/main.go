@@ -192,7 +192,7 @@ func main() {
 	BKLog.Printf("BlenderKit-Client v%s starting from add-on v%s\n   port=%s\n   server=%s\n   proxy_which=%s\n   proxy_address=%s\n   trusted_ca_certs=%s\n   ssl_context=%s",
 		ClientVersion, *addon_version, *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context)
 
-	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context)
+	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context, *trusted_ca_certs)
 	go monitorReportAccess()
 	go handleChannels()
 

@@ -20,8 +20,10 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -33,38 +35,10 @@ func DebugNetworkHandler(w http.ResponseWriter, r *http.Request) {
 
 // CreateHTTPClients creates HTTP clients with proxy settings, assings them to global variables.
 // Handles errors gracefully - if any error occurs setting up proxy, it will just default to no proxy.
-func CreateHTTPClients(proxyURL, proxyWhich, sslContext string) {
-	var proxy func(*http.Request) (*url.URL, error)
-	switch proxyWhich {
-	case "SYSTEM":
-		proxy = http.ProxyFromEnvironment
-		BKLog.Printf("%s Using system proxy settings", EmoOK)
-	case "CUSTOM":
-		pURL, err := url.Parse(proxyURL)
-		if err != nil {
-			BKLog.Printf("%s Defaulting to no proxy due to - error parsing proxy URL: %v", EmoWarning, err)
-		} else {
-			proxy = http.ProxyURL(pURL)
-			BKLog.Printf("%s Using custom proxy: %v", EmoOK, proxyURL)
-		}
-	case "NONE":
-		BKLog.Printf("%s Using no proxy", EmoOK)
-	default:
-		BKLog.Printf("%s Defaulting to no proxy due to - unrecognized proxy_which parameter: %v", EmoOK, proxyWhich)
-	}
-
-	var tlsConfig *tls.Config
-	switch sslContext {
-	case "ENABLED":
-		tlsConfig = &tls.Config{}
-		BKLog.Printf("%s SSL verification is enabled", EmoSecure)
-	case "DISABLED":
-		tlsConfig = &tls.Config{InsecureSkipVerify: true}
-		BKLog.Printf("%s SSL verification disabled, insecure!", EmoInsecure)
-	default:
-		tlsConfig = &tls.Config{}
-		BKLog.Printf("%s Defaulting to enabled SSL verification due to - unrecognized ssl_context parameter: %v", EmoSecure, sslContext)
-	}
+func CreateHTTPClients(proxyURL, proxyWhich, sslContext, trustedCACerts string) {
+	proxy := GetProxyFunc(proxyURL, proxyWhich)
+	tlsConfig := GetTLSConfig(sslContext)
+	tlsConfig.RootCAs = GetCACertPool(trustedCACerts)
 
 	tAPI := http.DefaultTransport.(*http.Transport).Clone()
 	tAPI.TLSClientConfig = tlsConfig
@@ -105,4 +79,64 @@ func CreateHTTPClients(proxyURL, proxyWhich, sslContext string) {
 		Transport: tSmallThumbs,
 		Timeout:   time.Minute,
 	}
+}
+
+// GetProxyFunc returns a function that can be used as a proxy for HTTP client.
+func GetProxyFunc(proxyURL, proxyWhich string) func(*http.Request) (*url.URL, error) {
+	switch proxyWhich {
+	case "SYSTEM":
+		BKLog.Printf("%s Using system proxy settings", EmoOK)
+		return http.ProxyFromEnvironment
+	case "CUSTOM":
+		pURL, err := url.Parse(proxyURL)
+		if err != nil {
+			BKLog.Printf("%s Defaulting to no proxy settings, error parsing custom proxy URL: %v", EmoWarning, err)
+			break
+		}
+		BKLog.Printf("%s Using custom proxy: %v", EmoOK, proxyURL)
+		return http.ProxyURL(pURL)
+	case "NONE":
+		BKLog.Printf("%s Using no proxy", EmoOK)
+	default:
+		BKLog.Printf("%s Defaulting to no proxy due to - unrecognized proxy_which parameter: %v", EmoOK, proxyWhich)
+	}
+
+	var proxy func(*http.Request) (*url.URL, error)
+	return proxy
+}
+
+func GetTLSConfig(sslContext string) *tls.Config {
+	switch sslContext {
+	case "ENABLED":
+		BKLog.Printf("%s SSL verification is enabled", EmoSecure)
+		return &tls.Config{}
+	case "DISABLED":
+		BKLog.Printf("%s SSL verification disabled, insecure!", EmoInsecure)
+		return &tls.Config{InsecureSkipVerify: true}
+	default:
+		BKLog.Printf("%s Defaulting to enabled SSL verification due to - unrecognized ssl_context parameter: %v", EmoSecure, sslContext)
+		return &tls.Config{}
+	}
+}
+
+func GetCACertPool(caFilePath string) *x509.CertPool {
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		BKLog.Printf("%s Error loading system cert pool of CA certificates: %v", EmoWarning, err)
+		caCertPool = x509.NewCertPool()
+	}
+
+	if caFilePath == "" {
+		return caCertPool
+	}
+
+	caCert, err := os.ReadFile(caFilePath)
+	if err != nil {
+		BKLog.Printf("%s Error reading CA certificate: %v", EmoWarning, err)
+		return caCertPool
+	}
+
+	BKLog.Printf("%s Loaded CA certificate from file: %v", EmoOK, caFilePath)
+	caCertPool.AppendCertsFromPEM(caCert)
+	return caCertPool
 }
