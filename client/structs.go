@@ -278,18 +278,22 @@ type AssetParameterData struct {
 }
 
 type AssetUploadExportData struct {
-	Models            []string `json:"models"`
-	ThumbnailPath     string   `json:"thumbnail_path"`
-	AssetBaseID       string   `json:"assetBaseId"`
-	ID                string   `json:"id"`
-	EvalPathComputing string   `json:"eval_path_computing"`
-	EvalPathState     string   `json:"eval_path_state"`
-	EvalPath          string   `json:"eval_path"`
-	TempDir           string   `json:"temp_dir"`
-	SourceFilePath    string   `json:"source_filepath"`
-	BinaryPath        string   `json:"binary_path"`
-	DebugValue        int      `json:"debug_value"`
-	HDRFilepath       string   `json:"hdr_filepath,omitempty"`
+	Models   []string `json:"models,omitempty"`   // Only for models upload
+	Material string   `json:"material,omitempty"` // Only for material upload
+	Scene    string   `json:"scene,omitempty"`    // Only for scene upload
+	Brush    string   `json:"brush,omitempty"`    // Only for brush upload
+	// Common parameters
+	ThumbnailPath     string `json:"thumbnail_path"`
+	AssetBaseID       string `json:"assetBaseId"`
+	ID                string `json:"id"`
+	EvalPathComputing string `json:"eval_path_computing"`
+	EvalPathState     string `json:"eval_path_state"`
+	EvalPath          string `json:"eval_path"`
+	TempDir           string `json:"temp_dir"`
+	SourceFilePath    string `json:"source_filepath"`
+	BinaryPath        string `json:"binary_path"`
+	DebugValue        int    `json:"debug_value"`
+	HDRFilepath       string `json:"hdr_filepath,omitempty"`
 }
 
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
