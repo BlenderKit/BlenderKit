@@ -31,33 +31,38 @@ type MinimalTaskData struct {
 // TaskStatusUpdate is a struct for updating the status of a task through a channel.
 // Message is optional and should be set to "" if update is not needed.
 type TaskProgressUpdate struct {
-	AppID    int
-	TaskID   string
-	Progress int
-	Message  string
+	AppID           int
+	TaskID          string
+	Progress        int
+	Message         string
+	MessageDetailed string
 }
 
 // TaskMessageUpdate is a struct for updating the message of a task through a channel.
 type TaskMessageUpdate struct {
-	AppID   int
-	TaskID  string
-	Message string
+	AppID           int
+	TaskID          string
+	Message         string
+	MessageDetailed string
 }
 
 // TaskError is a struct for reporting an error in a task through a channel.
 // Error will be converted to string and stored in the task's Message field.
 type TaskError struct {
-	AppID  int
-	TaskID string
-	Error  error
+	AppID           int
+	TaskID          string
+	Error           error
+	Result          interface{}
+	MessageDetailed string
 }
 
 // TaskProgressUpdate is a struct for updating the progress of a task through a channel.
 type TaskFinish struct {
-	AppID   int
-	TaskID  string
-	Message string
-	Result  interface{}
+	AppID           int
+	TaskID          string
+	Message         string
+	MessageDetailed string
+	Result          interface{}
 }
 
 type TaskCancel struct {
@@ -78,7 +83,7 @@ type Task struct {
 	Progress        int                `json:"progress"`         // 0-100
 	Status          string             `json:"status"`           // created, finished, error
 	Result          interface{}        `json:"result"`           // Result to be used by the add-on
-	Error           error              `json:"-"`                // Internal: error in the task
+	Error           error              `json:"-"`                // Internal: error in the task, not to be sent to the add-on
 	Ctx             context.Context    `json:"-"`                // Internal: Context for canceling the task, use in long running functions which support it
 	Cancel          context.CancelFunc `json:"-"`                // Internal: Function for canceling the task
 }
@@ -574,12 +579,4 @@ type SearchTaskData struct {
 
 type ReportData struct {
 	AppID int `json:"app_id"` // AppID is PID of Blender in which add-on runs
-}
-
-// This is the response from the server when there is an error.
-// We need to parse it to get the error message to get to meaningful information about reason of the error.
-// E.g.: {"detail":{"name":["This field may not be blank."]},"statusCode":400}
-type ServerErrorResponse struct {
-	Detail     map[string]interface{} `json:"detail"`
-	StatusCode int                    `json:"statusCode"`
 }

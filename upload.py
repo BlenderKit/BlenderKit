@@ -1249,7 +1249,31 @@ def handle_asset_upload(task: daemon_tasks.Task):
     asset.upload_state = task.message
     if task.status == "error":
         asset.uploading = False
-        return reports.add_report(task.message, type="ERROR")
+        if task.result == {}:
+            return reports.add_report(
+                task.message, type="ERROR", details=task.message_detailed
+            )
+
+        # crazy shit to parse stupid Django incosistent error messages
+        if "detail" in task.result:
+            for key in task.result["detail"]:
+                if type(task.result["detail"][key]) == list:
+                    for item in task.result["detail"][key]:
+                        asset.upload_state += f"\n- {key}: {item}"
+                else:
+                    asset.upload_state += f"\n- {key}: {task.result['detail'][key]}"
+            return reports.add_report(
+                f"{task.message}: {task.result['detail']}",
+                type="ERROR",
+                details=task.message_detailed,
+            )
+        else:
+            asset.upload_state += f"\n {task.result}"
+            return reports.add_report(
+                f"{task.message}: {task.result}",
+                type="ERROR",
+                details=task.message_detailed,
+            )
 
     if task.status == "finished":
         asset.uploading = False
