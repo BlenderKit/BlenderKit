@@ -2051,7 +2051,7 @@ In this case you should also set path to your system CA bundle containing proxy'
     trusted_ca_certs: StringProperty(
         name="Custom CA certificates path",
         description=(
-            "Specify a path to a custom bundle of trusted certificates in .pem or .crt format.\n\n"
+            "Specify a path to a custom bundle of trusted certificates in .PEM format.\n\n"
             "If you're on corporate/institutional networks, using a VPN, or behind intermediaries like proxies, firewalls, antiviruses that manipulate HTTPS traffic, "
             "the add-on might struggle to verify encrypted communication as signed by the BlenderKit server leading to CERTIFICATE_VERIFY_FAILED error. "
             "This is because the traffic could be decrypted, possibly altered or logged, and then re-encrypted by the intermediary's certificate and not by BlenderKit certificate. "
