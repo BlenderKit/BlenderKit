@@ -292,7 +292,8 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		err := fmt.Errorf("server returned non-OK status: %d", resp.StatusCode)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
 		e := DeleteFile(filePath)
 		if e != nil {
 			return fmt.Errorf("%v, failed to delete file: %v", err, e)
@@ -419,7 +420,8 @@ func GetDownloadURL(data DownloadData) (bool, string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, "", fmt.Errorf("server returned non-OK status: %d", resp.StatusCode)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		return false, "", fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)

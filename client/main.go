@@ -137,11 +137,17 @@ func handleChannels() {
 			if u.Message != "" {
 				task.Message = u.Message
 			}
+			if u.MessageDetailed != "" {
+				task.MessageDetailed = u.MessageDetailed
+			}
 			TasksMux.Unlock()
 		case m := <-TaskMessageCh:
 			TasksMux.Lock()
 			task := Tasks[m.AppID][m.TaskID]
 			task.Message = m.Message
+			if m.MessageDetailed != "" {
+				task.MessageDetailed = m.MessageDetailed
+			}
 			TasksMux.Unlock()
 			ChanLog.Printf("%s %s (%s): %s\n", EmoInfo, task.TaskType, task.TaskID, m.Message)
 		case f := <-TaskFinishCh:
@@ -151,6 +157,9 @@ func handleChannels() {
 			task.Result = f.Result
 			if f.Message != "" {
 				task.Message = f.Message
+			}
+			if f.MessageDetailed != "" {
+				task.MessageDetailed = f.MessageDetailed
 			}
 			TasksMux.Unlock()
 			ChanLog.Printf("%s %s (%s)\n", EmoOK, task.TaskType, task.TaskID)
@@ -164,6 +173,12 @@ func handleChannels() {
 				continue
 			}
 			task.Message = fmt.Sprintf("%v", e.Error)
+			if e.Result != nil {
+				task.Result = e.Result
+			}
+			if e.MessageDetailed != "" {
+				task.MessageDetailed = e.MessageDetailed
+			}
 			task.Status = "error"
 			TasksMux.Unlock()
 			ChanLog.Printf("%s in %s (%s): %v\n", EmoError, task.TaskType, task.TaskID, e.Error)
@@ -1011,7 +1026,9 @@ func SendRating(data SendRatingData) {
 
 	if method == http.MethodDelete {
 		if resp.StatusCode != http.StatusNoContent {
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error rating asset - %v: %v", resp.Status, url)}
+			_, respString, _ := ParseFailedHTTPResponse(resp)
+			err := fmt.Errorf("error removing rating (%v): %s at URL: %v", resp.Status, respString, url)
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 			return
 		}
 
@@ -1025,7 +1042,9 @@ func SendRating(data SendRatingData) {
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error rating asset - %v: %v", resp.Status, url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error rating asset (%v): %s at URL %v", resp.Status, respString, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1078,7 +1097,9 @@ func GetBookmarks(data MinimalTaskData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error getting bookmarks - %v: %v", resp.Status, url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error getting bookmarks (%v): %v at URL %v", resp.Status, respString, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1134,7 +1155,9 @@ func GetComments(data GetCommentsData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error getting comments - %v: %v", resp.Status, url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error getting comments (%v): %v at URL %v", resp.Status, respString, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1194,7 +1217,9 @@ func CreateComment(data CreateCommentData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error getting comments - %v: %v", resp.Status, get_url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error getting comments (%v): %v at URL %v", resp.Status, respString, get_url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1312,7 +1337,9 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment feedback - %v: %v", resp.Status, url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error creating comment feedback (%v): %v at URL %v", resp.Status, respString, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1379,7 +1406,9 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment feedback - %v: %v", resp.Status, url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error creating comment feedback (%v): %v at URL %v", resp.Status, respString, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1439,7 +1468,9 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment feedback - %v: %v", resp.Status, url)}
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("error creating comment feedback (%v): %v at URL %v", resp.Status, respString, url)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
 
@@ -1501,21 +1532,22 @@ func doAssetUpload(data AssetUploadRequestData) {
 	AddTaskCh <- NewTask(data, data.AppID, metadataID, "asset_metadata_upload")
 
 	if data.ExportData.AssetBaseID == "" { // 1.A NEW ASSET
-		metadataResp, err = CreateMetadata(data)
+		var respErrorJSON json.RawMessage
+		metadataResp, respErrorJSON, err = CreateMetadata(data)
 		if err != nil {
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err}
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err, Result: respErrorJSON}
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err, Result: respErrorJSON}
 			return
 		}
 	} else { // 1.B UPDATE OF ASSET
 		if isMainFileUpload { // UPDATE OF MAINFILE -> DEVALIDATE ASSET
 			data.UploadData.VerificationStatus = "uploading"
 		}
-
-		metadataResp, err = UpdateMetadata(data)
+		var respErrorJSON json.RawMessage
+		metadataResp, respErrorJSON, err = UpdateMetadata(data)
 		if err != nil {
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err}
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err, Result: respErrorJSON}
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err, Result: respErrorJSON}
 			return
 		}
 	}
@@ -1529,9 +1561,9 @@ func doAssetUpload(data AssetUploadRequestData) {
 	}
 
 	// 3. UPLOAD
-	err = asset_upload_data(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
+	errJSON, err := asset_upload_data(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err, Result: errJSON}
 		return
 	}
 
@@ -1539,16 +1571,17 @@ func doAssetUpload(data AssetUploadRequestData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp, Message: "Upload successful!"}
 }
 
-func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) error {
+// AssetUploadData uploads asset data to S3. If response is not OK, it will return the JSON of the error response and error.
+func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) (json.RawMessage, error) {
 	for _, file := range files { // will be empty if only metadata is uploaded
 		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = uploadFileToS3(file, data, upload_info_json, taskID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -1573,36 +1606,39 @@ func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadata
 	}
 
 	if !set_uploaded_status {
-		return nil
+		return nil, nil
 	}
 
 	// mark on server as uploaded
 	confirm_data := map[string]string{"verificationStatus": "uploaded"}
 	confirm_data_json, err := json.Marshal(confirm_data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, metadataResp.ID)
 	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(confirm_data_json))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		errResp := ExtractErrorMessage(resp)
-		err = fmt.Errorf("status code error (%d): %v (on %s)", resp.StatusCode, errResp.Detail, resp.Status)
-		return err
+		msg := "asset status update failed"
+		respJSON, respString, respErr := ParseFailedHTTPResponse(resp)
+		if respErr != nil || respJSON == nil {
+			return nil, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
+		}
+		return respJSON, fmt.Errorf("%s (%s)", msg, resp.Status)
 	}
 
-	return nil
+	return nil, nil
 }
 
 func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse) (S3UploadInfoResponse, error) {
@@ -1633,7 +1669,8 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
-		err = fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("status code error (%d) %s: %v", resp.StatusCode, resp.Status, respString)
 		return resp_JSON, err
 	}
 
@@ -1713,7 +1750,8 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("S3 upload failed with status code: %d", resp.StatusCode)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		return fmt.Errorf("S3 upload failed (%d): %s", resp.StatusCode, respString)
 	}
 
 	// UPLOAD VALIDATION
@@ -1848,105 +1886,122 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 
 // CreateMetadata creates metadata on the server, so it can be saved inside the current file.
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
-func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
+func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.RawMessage, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
 	headers := getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("parameters is not a map[string]interface{}")
+		return nil, nil, fmt.Errorf("parameters is not a map[string]interface{}")
 	}
 	data.UploadData.Parameters = DictToParams(parameters)
 
 	JSON, err := json.Marshal(data.UploadData)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("error creating asset - %v: %v", resp.Status, url)
+		msg := "error creating asset"
+		respJSON, respString, err := ParseFailedHTTPResponse(resp)
+		if err != nil || respJSON == nil {
+			return nil, nil, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
+		}
+		return nil, respJSON, fmt.Errorf("%s (%s)", msg, resp.Status)
 	}
 
 	respData := new(AssetsCreateResponse)
 	if err := json.NewDecoder(resp.Body).Decode(respData); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return respData, nil
+	return respData, nil, nil
 }
 
 // UploadMetadata uploads metadata to the server, so it can be saved inside the current file.
 // API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
-func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, error) {
+func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.RawMessage, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
 	headers := getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 
 	parameters, ok := data.UploadData.Parameters.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("parameters is not a map[string]interface{}")
+		return nil, nil, fmt.Errorf("parameters is not a map[string]interface{}")
 	}
 	data.UploadData.Parameters = DictToParams(parameters)
 
 	JSON, err := json.Marshal(data.UploadData)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(JSON))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		errResp := ExtractErrorMessage(resp)
-		return nil, fmt.Errorf("error updating asset - %v: %v (on %v)", resp.Status, errResp.Detail, url)
+		msg := "metadata update failed"
+		respJSON, respString, respErr := ParseFailedHTTPResponse(resp)
+		if respErr != nil || respJSON == nil {
+			return nil, nil, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
+		}
+		return nil, respJSON, fmt.Errorf("%s (%s)", msg, resp.Status)
 	}
 
 	respData := new(AssetsCreateResponse)
 	if err := json.NewDecoder(resp.Body).Decode(respData); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return respData, nil
+	return respData, nil, nil
 }
 
-// ExtractErrorMessage extracts the error message from the response body of a failed request.
-// TODO: Make this function more generic and reusable. Implement it on all API calls.
-func ExtractErrorMessage(resp *http.Response) ServerErrorResponse {
-	// Read the response body
-	var errResp ServerErrorResponse
+// Try to parse the error response from the server.
+// Returns:
+// - json.RawMessage: the json response from the server, if it was valid JSON.
+// - string: the response from the server as string, for json and non-json responses.
+// - error: the error which occurred while parsing the response (resp could not be read)
+func ParseFailedHTTPResponse(resp *http.Response) (json.RawMessage, string, error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		// Handle the error
-		fmt.Println("Failed to read response body:", err)
+		BKLog.Printf("%v Failed request on %v, error response: %v", EmoWarning, resp.Request.URL, err)
+		return nil, "", err
+	}
+	bodyString := string(bodyBytes)
+	if !json.Valid(bodyBytes) {
+		BKLog.Printf("%v Failed request on %v, error response: %v", EmoWarning, resp.Request.URL, bodyString)
+		return nil, bodyString, fmt.Errorf("invalid json")
 	}
 
-	// PARSE
-	err = json.Unmarshal(bodyBytes, &errResp)
-	if err != nil {
-		fmt.Println("Failed to unmarshal response body:", err)
+	var JSON json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &JSON); err != nil {
+
+		BKLog.Printf("%v Failed request on %v, error response: %v", EmoWarning, resp.Request.URL, bodyString)
+		return nil, bodyString, fmt.Errorf("error unmarshalling error response: %w", err)
 	}
 
-	return errResp
+	BKLog.Printf("%v Failed request on %v, error response: %v", EmoWarning, resp.Request.URL, string(JSON))
+	return JSON, bodyString, nil
 }
 
 // DictToParams (in Python terminology) converts a map of inputs into a slice of parameter objects.
