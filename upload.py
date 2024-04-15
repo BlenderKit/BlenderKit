@@ -53,6 +53,7 @@ from . import (
 NAME_MINIMUM = 3
 NAME_MAXIMUM = 40
 TAGS_MINIMUM = 3
+TAGS_MAXIMUM = 10
 DESCRIPTION_MINIMUM = 20
 
 BLENDERKIT_EXPORT_DATA_FILE = "data.json"
@@ -174,6 +175,23 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
             f"   Please ensure your asset name is no more than {NAME_MAXIMUM} characters long.",
         )
 
+    tags_length = len(props.tags.split(","))
+    if tags_length > TAGS_MAXIMUM:
+        write_to_report(
+            props,
+            f"Too many tags ({tags_length}) have been provided for your asset.\n"
+            f"   Please ensure you have no more than {TAGS_MAXIMUM} tags.",
+        )
+
+    ok, problematic = check_tags_format(props.tags)
+    if ok == False:
+        write_to_report(
+            props,
+            f"Format of tags is not valid.\n"
+            f"   Please ensure your tags are comma-separated list of tags consisting of only alphanumeric characters and underscores.\n"
+            f"   The following tags are problematic: {problematic}",
+        )
+
     if props.is_private == "PUBLIC":
         category_ok = props.category == "NONE"
         subcategory_ok = props.subcategory != "EMPTY" and props.subcategory == "NONE"
@@ -239,7 +257,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
         )
 
 
-def check_public_requirements(props: str):
+def check_public_requirements(props):
     """Check requirements for public upload. Add error message into props.report if needed."""
     if props.description == "":
         write_to_report(
@@ -272,6 +290,23 @@ def check_public_requirements(props: str):
             f"   Please ensure you have at least {TAGS_MINIMUM} tags to improve its discoverability.\n"
             "   Tags enhance your asset's visibility in relevant search results.",
         )
+
+
+def check_tags_format(tags_string: str):
+    """Check if tags string is a comma-separated list of tags consisting of only alphanumeric characters and underscores.
+    Returns a bool and list of tags that do not meet the format requirement.
+    """
+    tags = tags_string.split(",")
+    problematic_tags = []
+    for tag in tags:
+        tag = tag.strip()
+        if tag == "" or not re.match("^[0-9a-zA-Z_]+$", tag):
+            problematic_tags.append(tag)
+
+    if len(problematic_tags) > 0:
+        return False, problematic_tags
+
+    return True, problematic_tags
 
 
 def sub_to_camel(content):
@@ -687,20 +722,38 @@ class FastMetadata(bpy.types.Operator):
     asset_type: StringProperty(name="Asset Type", description="Asset Type", default="")
     name: StringProperty(
         name="Name",
-        description="Main name of the asset",
+        description="Provide name of your asset, choose a few descriptive English words that clearly identify and distinguish your asset. Good naming helps your asset to be found on the search engine. Follow these tips:\n\n"
+        "Use Descriptive Terms:\nInclude specific details such as the brand, material, or distinct features of the asset.\n\n"
+        "Avoid Generic or Vague Terms:\nNames like 'Sky 01' or 'Big Tree' are too general and not helpful for search optimization. Instead, use names that provide meaningful information about the asset.\n\n"
+        "Highlight Key Attributes:\nIncorporate important attributes that are likely to be used in search queries, such as the model in vehicles or the designer in furniture.\n\n"
+        "Bad names: Chair 01, Nice Car, Statue\n"
+        "Good names: Knoll Steel Chair, Skoda Kodiaq, Statue of Liberty",
         default="",
     )
     description: StringProperty(
-        name="Description", description="Description of the asset", default=""
+        name="Description",
+        description="Provide a clear and concise description of your asset in English. To enhance searchability and discoverability of your asset, follow these tips:\n\n"
+        "Be Specific:\nUse precise terms that accurately reflect the asset. Include key characteristics such as material, color, function, or designer/brand.\n\n"
+        "Use Recognizable Keywords:\nIncorporate well-known and relevant keywords that users are likely to search for. This includes brand names, designer names, common usage, and industry-specific terms.\n\n"
+        "Avoid Jargon:\nUnless industry-specific terms are widely understood by your target audience, use simple language that is easy to understand.\n\n"
+        "Highlight Unique Features:\nMention any distinctive features that set the asset apart from others, such as a unique design, special function, or notable collaboration.\n\n"
+        "Keep it Brief:\nAim for a short description that captures the essence of the asset without unnecessary details. A concise description makes it easier for Elasticsearch to process and for users to scan",
+        default="",
     )
     tags: StringProperty(
         name="Tags",
-        description="List of tags, separated by commas (optional)",
+        description="Enter up to 10 tags, separated by commas. Tags may include alphanumeric characters and underscores only. For better discoverability, follow these tips:\n\n"
+        "Choose Relevant Keywords:\nSelect tags that closely relate to the asset’s features, usage, or industry terms. This increases the chances that your asset appears in relevant searches.\n\n"
+        "Include Synonyms:\nAdd variations or synonyms to cover different ways users might search for similar items. Especially consider synonyms for terms used in the asset's name or description to broaden search relevancy.\n\n"
+        "Prioritize Common Terms:\nUse commonly searched terms within your target audience. This helps connect your assets to the most likely queries.\n\n"
+        "Enhance with Specificity: While common terms are essential, adding specific tags can help in uniquely identifying and categorizing the asset. This is particularly useful for users looking for particular features or attributes.",
         default="",
     )
     category: EnumProperty(
         name="Category",
-        description="Select the main category for the uploaded asset",
+        description="Select the main category for the uploaded asset. "
+        "Choose the most accurate category to enhance visibility and download rates. "
+        "Proper categorization ensures your asset reaches people actively searching for assets like yours",
         items=categories.get_category_enums,
         update=categories.update_category_enums,
     )
