@@ -28,6 +28,7 @@ suite = unittest.TestSuite()
 testLoader = unittest.TestLoader()
 
 suite.addTests(testLoader.discover(".", "test_init.py"))
+suite.addTests(testLoader.discover(".", "test_upload.py"))
 suite.addTests(testLoader.discover(".", "test_timer.py"))
 suite.addTests(testLoader.discover(".", "test_paths.py"))
 suite.addTests(testLoader.discover(".", "test_daemon_lib.py"))
