@@ -912,7 +912,7 @@ def search(get_next=False, query=None, author_id=""):
     """
     if global_vars.CLIENT_ACCESSIBLE != True:
         reports.add_report(
-            "Cannot search, daemon is not accessible.", timeout=2, type="ERROR"
+            "Cannot search, Client is not accessible.", timeout=2, type="ERROR"
         )
         return
 
@@ -987,15 +987,8 @@ def search(get_next=False, query=None, author_id=""):
         query["free_first"] = ui_props.free_only
 
         if not get_next:
-            # write to search history and check history length
-            if (
-                len(global_vars.DATA["search history"]) > 0
-                and global_vars.DATA["search history"][-1] == query
-            ):
-                # don't send same query again, when user clicks multiple times and waits e.t.c.
-                return
-
             global_vars.DATA["search history"].append(query)
+
     # utils.p('searching')
     props.is_searching = True
 
