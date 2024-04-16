@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/rapid7/go-get-proxied/proxy"
 )
 
 func DebugNetworkHandler(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +85,17 @@ func CreateHTTPClients(proxyURL, proxyWhich, sslContext, trustedCACerts string) 
 
 // GetProxyFunc returns a function that can be used as a proxy for HTTP client.
 func GetProxyFunc(proxyURL, proxyWhich string) func(*http.Request) (*url.URL, error) {
+	var noProxy func(*http.Request) (*url.URL, error)
 	switch proxyWhich {
 	case "SYSTEM":
-		BKLog.Printf("%s Using system proxy settings", EmoOK)
+		BKLog.Printf("%s Using proxy settings from system network settings", EmoOK)
+		p := proxy.NewProvider("").GetProxy("https", "https://blenderkit.com")
+		if p == nil {
+			return noProxy
+		}
+		return http.ProxyURL(p.URL())
+	case "ENVIRONMENT":
+		BKLog.Printf("%s Using proxy settings only from environment variables HTTP_PROXY and HTTPS_PROXY", EmoOK)
 		return http.ProxyFromEnvironment
 	case "CUSTOM":
 		pURL, err := url.Parse(proxyURL)
@@ -101,8 +111,7 @@ func GetProxyFunc(proxyURL, proxyWhich string) func(*http.Request) (*url.URL, er
 		BKLog.Printf("%s Defaulting to no proxy due to - unrecognized proxy_which parameter: %v", EmoOK, proxyWhich)
 	}
 
-	var proxy func(*http.Request) (*url.URL, error)
-	return proxy
+	return noProxy
 }
 
 func GetTLSConfig(sslContext string) *tls.Config {

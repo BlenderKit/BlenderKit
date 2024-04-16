@@ -2032,24 +2032,32 @@ class BlenderKitAddonPreferences(AddonPreferences):
         items=(
             (
                 "SYSTEM",
-                "SYSTEM: use system proxy settings",
-                "Add-on will use system-wide proxy settings, custom proxy settings in addon preferences will be ignored. Please note that the HTTPS proxies are not supported by BlenderKit addon right now.",
+                "SYSTEM: use system's networking settings",
+                "The add-on will detect the proxy address from the operating system's networking settings "
+                "with fallback to HTTPS_PROXY environment variable. "
+                "Custom proxy settings in the add-on preferences will be ignored.",
+            ),
+            (
+                "ENVIRONMENT",
+                "ENVIRONMENT: use environment variable HTTPS_PROXY",
+                "The add-on will detect the proxy address from the environment variable HTTPS_PROXY. "
+                "Operating system's networking settings and custom proxy settings in the add-on preferences will be ignored.",
             ),
             (
                 "NONE",
-                "NONE: ignore system and custom proxy setting",
-                "Add-on will ignore both system-wide proxy settings and custom proxy settings defined in addon preferences. "
-                "All addon HTTP requests will not go through any proxy server",
+                "NONE: ignore all proxy settings",
+                "The add-on will ignore operating system's networking settings, the environment variable HTTPS_PROXY, "
+                "and custom proxy settings defined in the add-on preferences. "
+                "No add-on HTTPS requests will go through any proxy server.",
             ),
             (
                 "CUSTOM",
                 "CUSTOM: use custom proxy settings",
-                "Add-on will use specified custom proxy settings, system proxy settings will be ignored."
-                'Please set the address in the add-on preferences below in the field "Custom proxy address". '
-                "This is an experimental feature, might not work on some systems",
+                "The add-on will use specified custom proxy settings; system's and environment proxy settings will be ignored. "
+                'Please set the address in the "Custom proxy address" field below. ',
             ),
         ),
-        description="Which directories will be used for storing downloaded data",
+        description="Configure proxy settings for all outgoing HTTPS requests",
         default="SYSTEM",
         update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
     )
