@@ -47,7 +47,7 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	var downloadData DownloadData
 	err = json.Unmarshal(body, &downloadData)
 	if err != nil {
-		fmt.Println(">>> Error parsing DownloadRequest:", err)
+		fmt.Println(">> Error parsing DownloadRequest:", err)
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -55,7 +55,7 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	var rJSON map[string]interface{}
 	err = json.Unmarshal(body, &rJSON)
 	if err != nil {
-		fmt.Println(">>> Error parsing JSON:", err)
+		fmt.Println(">> Error parsing JSON:", err)
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -269,6 +269,13 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 }
 
 func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx context.Context) error {
+	TaskProgressUpdateCh <- &TaskProgressUpdate{
+		AppID:    data.AppID,
+		TaskID:   taskID,
+		Progress: 0,
+		Message:  "Downloading",
+	}
+
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -454,9 +461,9 @@ func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) 
 	var originalFile, closest AssetFile
 	var targetResInt, mindist = resolutionsMap[targetRes], 100000000
 
-	fmt.Println(">>> Target resolution:", targetRes)
+	fmt.Println(">> Target resolution:", targetRes)
 	for _, f := range files {
-		fmt.Println(">>> File type:", f.FileType)
+		fmt.Println(">> File type:", f.FileType)
 		if f.FileType == "thumbnail" {
 			continue
 		}

@@ -62,6 +62,7 @@ const (
 	EmoUpload        = "⬆️ "
 	EmoDownload      = "⬇️ "
 	EmoIdentity      = "🆔"
+	EmoUpdate        = "🔜"
 )
 
 var (
@@ -130,7 +131,11 @@ func handleChannels() {
 				ChanLog.Printf("%s %s (%s)\n", EmoOK, task.TaskType, task.TaskID)
 			}
 		case u := <-TaskProgressUpdateCh:
-			fmt.Printf("Updating progres on app %d task %s - %d%%\n", u.AppID, u.TaskID, u.Progress)
+			if u.Message != "" {
+				ChanLog.Printf("%s progress on task %s (%d) - %d%%: %s\n", EmoUpdate, u.TaskID, u.AppID, u.Progress, u.Message)
+			} else {
+				ChanLog.Printf("%s progress on task %s (%d) - %d%%\n", EmoUpdate, u.TaskID, u.AppID, u.Progress)
+			}
 			TasksMux.Lock()
 			task := Tasks[u.AppID][u.TaskID]
 			task.Progress = u.Progress
@@ -429,7 +434,7 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 	var rJSON map[string]interface{}
 	err = json.Unmarshal(body, &rJSON)
 	if err != nil {
-		fmt.Println(">>> Error parsing JSON:", err)
+		fmt.Println(">> Error parsing JSON:", err)
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
