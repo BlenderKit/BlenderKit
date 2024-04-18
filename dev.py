@@ -77,7 +77,7 @@ def blenderkit_client_build(abs_build_dir: str):
         build["process"] = process
 
     print(
-        f"BlenderKit-client v{client_version} build started for {len(builds)} platforms."
+        f"BlenderKit-Client v{client_version} build started for {len(builds)} platforms."
     )
     builds_ok = True
     for build in builds:
@@ -88,18 +88,134 @@ def blenderkit_client_build(abs_build_dir: str):
 
     if not builds_ok:
         exit(1)
-    print(f"BlenderKit-client v{client_version} builds completed.")
+    print(f"BlenderKit-Client v{client_version} builds completed.")
 
 
-def do_build(install_at=None, include_tests=False, clean_dir=None):
+def verify_client_binaries(binaries_path: str):
+    """Verify client binaries tha they were signed correctly.
+    - osslsigncode needs to be on PATH (https://github.com/mtrojnar/osslsigncode)
+    -
+    """
+    print("===== VERIFYING CLIENT BINARIES =====")
+    signatures_ok = True
+    files = os.listdir(binaries_path)
+    client_files = [f for f in files if f.startswith("blenderkit-client")]
+    for file_name in client_files:
+        print(f"\n\n==={file_name}")
+        file_path = os.path.join(binaries_path, file_name)
+
+        # WINDOWS
+        if file_path.endswith(".exe"):
+            process = subprocess.Popen(
+                ["osslsigncode", "verify", "-in", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            output, error = process.communicate()
+            # print(f"out:{output}, err:{error}")
+            expected = "Subject: /C=CZ/ST=Praha/L=Praha/O=Blender Kit s.r.o./CN=Blender Kit s.r.o."
+            if expected in str(output):
+                print(f">>> OK!")
+            elif expected in str(error):
+                print(f">>> WARNING")
+            else:
+                print(f">>> ERROR")
+                signatures_ok = False
+            continue
+
+        # MACOS
+        if "macos" in file_path:
+            # validate codesigning
+            process = subprocess.Popen(
+                ["codesign", "--verify", "-vvvv", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            output, error = process.communicate()
+            print(f"out:{output}, err:{error}")
+            expected = "satisfies its Designated Requirement"
+            if expected in str(output) or expected in str(error):
+                print(">>> OK on codesigning")
+            else:
+                print(f">>> ERROR on codesigning")
+                signatures_ok = False
+
+            # validate notarization
+            process = subprocess.Popen(
+                ["spctl", "--assess", "-vvv", "--ignore-cache", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            output, error = process.communicate()
+            print(f"out:{output}, err:{error}")
+            expected = "origin=Developer ID Application: BlenderKit s.r.o. (A839AY9877)"
+            if expected in str(output):
+                print(f">>> OK notarization!")
+            elif expected in str(error):
+                print(f">>> WARNING notarization")
+            else:
+                print(f">>> ERROR notarization")
+                signatures_ok = False
+
+            continue
+
+    if signatures_ok == False:
+        print("\n>>>>> Verification failed for one or more files, exiting.")
+        exit(1)
+
+    print("\n>>>>> Verification OK for all files!\n\n")
+
+
+def copy_client_binaries(binaries_path: str, addon_build_dir: str):
+    if not os.path.exists(binaries_path):
+        print(f"Client binaries path {binaries_path} does not exist, exiting.")
+        exit(1)
+    if not os.path.isdir(binaries_path):
+        print(f"Client binaries path {binaries_path} is not a directory, exiting.")
+        exit(1)
+
+    with open("client/VERSION", "r") as f:
+        expected_client_version = f"v{f.read().strip()}"
+
+    client_version = os.path.basename(os.path.normpath(binaries_path))
+    if client_version != expected_client_version:
+        print(
+            f"Client binaries version {client_version} does not match expected version {expected_client_version}, exiting."
+        )
+        exit(1)
+
+    target_dir = os.path.join(addon_build_dir, "client", expected_client_version)
+    os.makedirs(target_dir)
+
+    files = os.listdir(binaries_path)
+    client_files = [f for f in files if f.startswith("blenderkit-client")]
+    for file_name in client_files:
+        source_file = os.path.join(binaries_path, file_name)
+        target_file = os.path.join(target_dir, file_name)
+        shutil.copy2(source_file, target_file)
+        print(f"Copied {source_file} to {target_file}")
+
+    print(f"BlenderKit-Client binaries copied from {binaries_path} to {target_dir}")
+
+
+def do_build(
+    install_at=None, include_tests=False, clean_dir=None, client_binaries_path=None
+):
     """Build addon by copying relevant addon directories and files to ./out/blenderkit directory.
     Create zip in ./out/blenderkit.zip.
+    - install_at: also copy the zip to install location if specified, e.g. /path/to/addons folder.
+    - include_tests: include test files into .zip file, so tests can be run with this .zip
+    - clean_dir: if specified, clean that directory before building the add-on, e.g. clean client bin in blenderkit_data: "/Users/username/blenderkit_data/client/bin"
+    - client_binaries_path: if specified, use client (signed) binaries from that path instead of building new ones, e.g. "./client_builds/v1.0.0" containing client binaries for different platforms
     """
     out_dir = os.path.abspath("out")
     addon_build_dir = os.path.join(out_dir, "blenderkit")
     shutil.rmtree(out_dir, True)
 
-    blenderkit_client_build(addon_build_dir)
+    if client_binaries_path == None:
+        blenderkit_client_build(addon_build_dir)
+    else:
+        copy_client_binaries(client_binaries_path, addon_build_dir)
 
     ignore_files = [".gitignore", "dev.py", "README.md", "CONTRIBUTING.md", "setup.cfg"]
 
@@ -179,31 +295,59 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "command",
     default="build",
-    choices=["format", "build", "test"],
+    choices=["format", "build", "test", "release"],
     help="""
   FORMAT = isort imports, format code with Black and lint it with Ruff.
   TEST = build with test files and run tests
   BUILD = copy relevant files into ./out/blenderkit.
+  RELEASE = build the add-on .zip with already built client binaries.
   """,
 )
 parser.add_argument(
     "--install-at",
     type=str,
     default=None,
-    help="If path is specified, then builded addon will be copied to that location.",
+    help="If path is specified, then builded addon will be also copied to that location.",
 )
 parser.add_argument(
     "--clean-dir",
     type=str,
     default=None,
-    help="Specify path to global_dir or other dir to be cleaned.",
+    help="Specify path to global_dir/client/bin or other dir which should be cleaned.",
+)
+parser.add_argument(
+    "--client-build",
+    type=str,
+    default=None,
+    help="Specify path client_builds/vX.Y.Z. Binaries in this directory will be used instead of building new ones.",
 )
 args = parser.parse_args()
 
 if args.command == "build":
-    do_build(args.install_at, clean_dir=args.clean_dir)
+    do_build(
+        args.install_at,
+        clean_dir=args.clean_dir,
+        client_binaries_path=args.client_build,
+    )
+elif args.command == "release":
+    if args.client_build is None:
+        print(
+            "Error: Client binaries path (containing signed binaries) is required for release"
+        )
+        exit(1)
+    verify_client_binaries(args.client_build)
+    do_build(
+        args.install_at,
+        clean_dir=args.clean_dir,
+        client_binaries_path=args.client_build,
+    )
 elif args.command == "test":
-    do_build(args.install_at, include_tests=True)
+    do_build(
+        args.install_at,
+        include_tests=True,
+        clean_dir=args.clean_dir,
+        client_binaries_path=args.client_build,
+    )
     run_tests()
 elif args.command == "format":
     format_code()
