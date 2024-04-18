@@ -410,7 +410,8 @@ def handle_thumbnail_download_task(task: daemon_tasks.Task) -> None:
         global_vars.DATA["images available"][task.data["image_path"]] = True
     elif task.status == "error":
         global_vars.DATA["images available"][task.data["image_path"]] = False
-        reports.add_report(task.message, 3, "ERROR")
+        if task.message != "":
+            reports.add_report(task.message, 3, "ERROR")
     else:
         return
     if asset_bar_op.asset_bar_operator is None:
