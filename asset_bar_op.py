@@ -1164,6 +1164,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if search_results is None:
             return
 
+        if self.active_index == -1:  # prev search got no results
+            return
+
         if self.active_index >= len(search_results):
             return
 
