@@ -1555,8 +1555,9 @@ func doAssetUpload(data AssetUploadRequestData) {
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err, Result: respErrorJSON}
 			return
 		}
+		metadataResp = FixAssetsUpdateResponse(metadataResp, data.ExportData.ID, data.UploadData.AssetType)
 	}
-	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: metadataID, Result: metadataResp}
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: metadataID, Result: metadataResp} // Assigns AssetID and AssetBaseID on the asset in Blender
 
 	// 2. PACKING
 	filesToUpload, err := PackBlendFile(data, *metadataResp, isMainFileUpload)
