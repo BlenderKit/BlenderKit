@@ -1341,8 +1341,21 @@ def handle_asset_metadata_upload(task: daemon_tasks.Task):
         return
 
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
-    asset.asset_base_id = task.result["assetBaseId"]
-    asset.id = task.result["id"]
+    new_asset_base_id = task.result.get("assetBaseId", "")
+    if new_asset_base_id != "":
+        asset.asset_base_id = new_asset_base_id
+        bk_logger.info(f"Assigned new asset.asset_base_id: {new_asset_base_id}")
+    else:
+        asset.asset_base_id = task.data["export_data"]["assetBaseId"]
+        bk_logger.info(f"Assigned original asset.asset_base_id: {asset.asset_base_id}")
+
+    new_asset_id = task.result.get("id", "")
+    if new_asset_id != "":
+        asset.id = new_asset_id
+        bk_logger.info(f"Assigned new asset.id: {new_asset_id}")
+    else:
+        asset.id = task.data["export_data"]["id"]
+        bk_logger.info(f"Assigned original asset.id: {asset.id}")
 
     return reports.add_report("Metadata upload successfull")
 

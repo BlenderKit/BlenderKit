@@ -253,3 +253,26 @@ func GetSafeTempPath() (string, error) {
 
 	return safeTempPath, nil
 }
+
+// FixAssetsUpdateResponse updates the response to contain the asset ID and AssetType.
+// It has to be done because API returns different data response when asset is created and when it is updated.
+// API assets_update returns different set of data, asset_type are missing.
+// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create - provides ID and AssetType
+// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update - does not provide ID and AssetType
+func FixAssetsUpdateResponse(data *AssetsCreateResponse, assetID, assetType string) *AssetsCreateResponse {
+	if data.ID == "" {
+		fmt.Printf("FixAssetsUpdateResponse: assetID is empty, replacing with assetID: %v\n", assetID)
+		data.ID = assetID
+	} else {
+		fmt.Println("FixAssetsUpdateResponse: assetID is not empty")
+	}
+
+	if data.AssetType == "" {
+		fmt.Printf("FixAssetsUpdateResponse: assetType is empty, replacing with assetType: %v\n", assetType)
+		data.AssetType = assetType
+	} else {
+		fmt.Println("FixAssetsUpdateResponse: assetType is not empty")
+	}
+
+	return data
+}
