@@ -296,7 +296,10 @@ def check_tags_format(tags_string: str):
     """Check if tags string is a comma-separated list of tags consisting of only alphanumeric characters and underscores.
     Returns a bool and list of tags that do not meet the format requirement.
     """
-    tags = tags_string.split(",")
+    tags = tags_string.strip()
+    if tags == "":
+        return True, []
+    tags = tags.split(",")
     problematic_tags = []
     for tag in tags:
         tag = tag.strip()
