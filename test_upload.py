@@ -22,6 +22,13 @@ class TestCheckTagsFormat(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(problematic_tags, [])
 
+    def test_empty_tag_string(self):
+        """This is valid, because empty tag string is allowed for private assets."""
+        tags_string = ""
+        result, problematic_tags = upload.check_tags_format(tags_string)
+        self.assertTrue(result)
+        self.assertEqual(problematic_tags, [])
+
     def test_empty_tag1(self):
         tags_string = "a1b2c3,,d4e5f6"
         result, problematic_tags = upload.check_tags_format(tags_string)
