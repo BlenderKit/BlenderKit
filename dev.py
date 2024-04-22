@@ -217,16 +217,33 @@ def do_build(
     else:
         copy_client_binaries(client_binaries_path, addon_build_dir)
 
-    ignore_files = [".gitignore", "dev.py", "README.md", "CONTRIBUTING.md", "setup.cfg"]
+    ignore_files = [
+        ".gitignore",
+        "dev.py",
+        "README.md",
+        "CONTRIBUTING.md",
+        "setup.cfg",
+        ".DS_Store",
+    ]
 
     shutil.copytree(
         "bl_ui_widgets",
         f"{addon_build_dir}/bl_ui_widgets",
-        ignore=shutil.ignore_patterns("__pycache__"),
+        ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
     )
-    shutil.copytree("blendfiles", f"{addon_build_dir}/blendfiles")
-    shutil.copytree("data", f"{addon_build_dir}/data")
-    shutil.copytree("thumbnails", f"{addon_build_dir}/thumbnails")
+    shutil.copytree(
+        "blendfiles",
+        f"{addon_build_dir}/blendfiles",
+        ignore=shutil.ignore_patterns(".DS_Store"),
+    )
+    shutil.copytree(
+        "data", f"{addon_build_dir}/data", ignore=shutil.ignore_patterns(".DS_Store")
+    )
+    shutil.copytree(
+        "thumbnails",
+        f"{addon_build_dir}/thumbnails",
+        ignore=shutil.ignore_patterns(".DS_Store"),
+    )
 
     for item in os.listdir():
         if os.path.isdir(item):
