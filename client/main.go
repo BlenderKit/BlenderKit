@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -2027,6 +2028,12 @@ func DictToParams(inputs map[string]interface{}) []map[string]string {
 			}
 		case bool:
 			value = fmt.Sprintf("%t", v)
+		case int, int32, int64: // Integers has to be converted via %d to avoid scientific notation
+			value = fmt.Sprintf("%d", v)
+		case float32: // Floats has to be converted via FormatFloat to avoid scientific notation and trailing zeros
+			value = strconv.FormatFloat(float64(v), 'f', -1, 32)
+		case float64:
+			value = strconv.FormatFloat(v, 'f', -1, 64)
 		default:
 			value = fmt.Sprintf("%v", v)
 		}
