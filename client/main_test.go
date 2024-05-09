@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -72,6 +73,101 @@ func TestParseFailedHTTPResponse(t *testing.T) {
 			}
 			if bodyString == "" {
 				t.Errorf("ParseFailedHTTPResponse() got empty bodyString")
+			}
+		})
+	}
+}
+
+func TestDictToParams(t *testing.T) {
+	tests := []struct {
+		name     string
+		inputs   map[string]interface{}
+		expected []map[string]string
+	}{
+		{
+			name:     "Empty input",
+			inputs:   map[string]interface{}{},
+			expected: []map[string]string{},
+		},
+		{
+			name: "String input",
+			inputs: map[string]interface{}{
+				"key": "value",
+			},
+			expected: []map[string]string{
+				{"parameterType": "key", "value": "value"},
+			},
+		},
+		{
+			name: "String slice input",
+			inputs: map[string]interface{}{
+				"key": []string{"value1", "value2"},
+			},
+			expected: []map[string]string{
+				{"parameterType": "key", "value": "value1,value2"},
+			},
+		},
+		{
+			name: "Bool input",
+			inputs: map[string]interface{}{
+				"key": true,
+			},
+			expected: []map[string]string{
+				{"parameterType": "key", "value": "true"},
+			},
+		},
+		{
+			name: "Int input",
+			inputs: map[string]interface{}{
+				"int": int(42),
+			},
+			expected: []map[string]string{
+				{"parameterType": "int", "value": "42"},
+			},
+		},
+		{
+			name: "Int input - negative",
+			inputs: map[string]interface{}{
+				"int32": int32(-42 * 1000 * 1000),
+			},
+			expected: []map[string]string{
+				{"parameterType": "int32", "value": "-42000000"},
+			},
+		},
+		{
+			name: "Int input - huge",
+			inputs: map[string]interface{}{
+				"int64": int(42 * 1000 * 1000 * 1000 * 1000 * 1000),
+			},
+			expected: []map[string]string{
+				{"parameterType": "int64", "value": "42000000000000000"},
+			},
+		},
+		{
+			name: "Float inputs",
+			inputs: map[string]interface{}{
+				"float32": float32(-3.000),
+			},
+			expected: []map[string]string{
+				{"parameterType": "float32", "value": "-3"},
+			},
+		},
+		{
+			name: "Float input - with trailing zeros",
+			inputs: map[string]interface{}{
+				"float64": float64(3.123456789000),
+			},
+			expected: []map[string]string{
+				{"parameterType": "float64", "value": "3.123456789"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := DictToParams(tt.inputs)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("DictToParams(%v) = %v, expected %v", tt.inputs, result, tt.expected)
 			}
 		})
 	}
