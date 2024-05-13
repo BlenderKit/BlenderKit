@@ -199,7 +199,6 @@ func handleChannels() {
 }
 
 func main() {
-	var err error
 	Port = flag.String("port", "62485", "port to listen on")
 	Server = flag.String("server", server_default, "server to connect to")
 	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use") // possible values: "DEFAULT", "PRECONFIGURED", "DISABLED"
@@ -257,9 +256,29 @@ func main() {
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
 	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
 
-	err = http.ListenAndServe(fmt.Sprintf("localhost:%s", *Port), mux)
-	if err != nil {
-		log.Fatalf("Failed to start server: %v\n", err)
+	StartClient(mux)
+}
+
+// Start Client server on localhost, if this address cannot be used then it falls back to IPv4 127.0.0.1.
+func StartClient(mux *http.ServeMux) {
+	var addrs = []string{
+		fmt.Sprintf("localhost:%s", *Port),
+		fmt.Sprintf("127.0.0.1:%s", *Port),
+	}
+	for i, addr := range addrs {
+		err := http.ListenAndServe(addr, mux)
+		if err == nil {
+			BKLog.Printf("%s Server finished %s\n", EmoOK, addr)
+			return
+		}
+
+		var emo string
+		if i < len(addrs)-1 {
+			emo = EmoWarning
+		} else {
+			emo = EmoError
+		}
+		BKLog.Printf("%s Failed to start Client server on %s: %v\n", emo, addr, err)
 	}
 }
 
