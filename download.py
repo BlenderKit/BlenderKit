@@ -846,9 +846,14 @@ def download(asset_data, **kwargs):
         asset_data = copy.deepcopy(asset_data)
     else:
         asset_data = asset_data.to_dict()
+
+    #inject resolution into prefs.
+    PREFS = utils.get_preferences_as_dict()
+    PREFS["resolution"] = kwargs.get("resolution", "original")
+
     data = {
         "asset_data": asset_data,
-        "PREFS": utils.get_preferences_as_dict(),
+        "PREFS": PREFS,
         "progress": 0,
         "text": f'downloading {asset_data["name"]}',
     }
@@ -1358,6 +1363,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "replace_resolution": self.replace_resolution,
             "resolution": resolution,
         }
+        print(kwargs)
 
         start_download(self.asset_data, **kwargs)
         return {"FINISHED"}
