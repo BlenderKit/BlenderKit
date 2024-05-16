@@ -259,7 +259,7 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 		"--",
 		dataFile,
 	)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=\"%v\"", blenderUserScripts))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=%v", blenderUserScripts))
 	out, err := cmd.CombinedOutput()
 	color.FgGray.Println("(Background) Unpacking logs:\n", string(out))
 	if err != nil {
