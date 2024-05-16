@@ -352,21 +352,29 @@ def get_download_url(asset_data, scene_id, api_key):
         return (resp["can_download"], resp["download_url"], resp["filename"])
 
 
-def blocking_file_upload(url: str, filepath: str) -> requests.Response:
-    """Upload file to server. This is a blocking wrapper, will not return until results are available."""
+def complete_upload_file_blocking(
+    api_key, asset_id, filepath, filetype: str, fileindex: int
+) -> bool:
+    """Complete file upload in just one step, blocks until upload is finished. Useful for background scripts."""
     data = {
-        "url": url,
-        "filepath": filepath,
+        "api_key": api_key,
+        "assetId": asset_id,
+        "fileType": filetype,
+        "fileIndex": fileindex,
+        "filePath": filepath,
+        "originalFilename": os.path.basename(filepath),  # teoreticky asi nemusi byt
     }
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.get(
-            f"{get_address()}/wrappers/blocking_file_upload",
+            f"{get_address()}/wrappers/complete_upload_file_blocking",
             json=data,
-            timeout=(1, 180),
+            timeout=(1, 600),
             proxies=NO_PROXIES,
         )
-        return resp
+
+        print("complete_upload_file_blocking resp:", resp)
+        return resp.ok
 
 
 def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Response:
@@ -380,7 +388,7 @@ def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Re
         resp = session.get(
             f"{get_address()}/wrappers/blocking_file_download",
             json=data,
-            timeout=(1, 180),
+            timeout=(1, 600),
             proxies=NO_PROXIES,
         )
         return resp

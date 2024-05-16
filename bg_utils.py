@@ -22,62 +22,13 @@ Not used directly in BlenderKit addon, but in BlenderKit background processes.
 
 import logging
 import os
-from time import sleep
 
 import addon_utils
 
-from . import daemon_lib, download, paths, reports, utils
+from . import daemon_lib, download, paths
 
 
 bk_logger = logging.getLogger(__name__)
-
-
-def upload_file(upload_data, f):
-    """Upload file to BlenderKit server. Only for background uploads!
-    - autothumb_material_bg.py
-    - autothumb_model_bg.py
-    """
-    message = f"uploading {f['type']} {os.path.basename(f['file_path'])}"
-    reports.add_report(message)
-    headers = utils.get_headers(upload_data["token"])
-    version_id = upload_data["id"]
-    upload_info = {
-        "assetId": version_id,
-        "fileType": f["type"],
-        "fileIndex": f["index"],
-        "originalFilename": os.path.basename(f["file_path"]),
-    }
-    url = f"{paths.BLENDERKIT_API}/uploads/"
-    upload = daemon_lib.blocking_request(url, "POST", headers, upload_info)
-    upload = upload.json()
-    for _ in range(0, 5):
-        try:
-            upload_response = daemon_lib.blocking_file_upload(
-                upload["s3UploadUrl"], f["file_path"]
-            )
-            status_code = upload_response.status_code
-            if 250 > status_code > 199:
-                upload_done_url = (
-                    paths.BLENDERKIT_API
-                    + "/uploads_s3/"
-                    + upload["id"]
-                    + "/upload-file/"
-                )
-                upload_response = daemon_lib.blocking_request(
-                    upload_done_url, "POST", headers, timeout=(1, 10)
-                )
-                reports.add_report(
-                    f"Finished file upload: {os.path.basename(f['file_path'])}"
-                )
-                return True
-            message = f"Upload of {f['type']} {os.path.basename(f['file_path'])} failed ({status_code})"
-            reports.add_report(message)
-        except Exception as e:
-            reports.add_report(
-                f"Upload of {f['type']} {os.path.basename(f['file_path'])} failed, err:{e}"
-            )
-            sleep(1)
-    return False
 
 
 def download_asset_file(asset_data, resolution="blend", api_key=""):

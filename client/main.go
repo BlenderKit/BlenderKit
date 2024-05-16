@@ -252,7 +252,7 @@ func main() {
 
 	// WRAPPERS
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
-	mux.HandleFunc("/wrappers/blocking_file_upload", BlockingFileUploadHandler)
+	mux.HandleFunc("/wrappers/complete_upload_file_blocking", CompleteUploadFileBlocking)
 	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
 	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
@@ -1597,15 +1597,70 @@ func doAssetUpload(data AssetUploadRequestData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: *metadataResp, Message: "Upload successful!"}
 }
 
+type CompleteUploadFileBlockingData struct {
+	AppID           int    `json:"app_id"`
+	APIKey          string `json:"api_key"`
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+
+	AssetID          string `json:"assetId"`
+	FileType         string `json:"fileType"`
+	FileIndex        int    `json:"fileIndex"`
+	FilePath         string `json:"filePath"`
+	OriginalFilename string `json:"originalFilename"`
+}
+
+// Complete upload file in one blocking request. Used by background scripts.
+func CompleteUploadFileBlocking(w http.ResponseWriter, r *http.Request) {
+	var data CompleteUploadFileBlockingData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var minimalData = MinimalTaskData{
+		APIKey:          data.APIKey,
+		AddonVersion:    data.AddonVersion,
+		PlatformVersion: data.PlatformVersion,
+	}
+
+	fileData := UploadFile{
+		Type:     data.FileType,
+		Index:    data.FileIndex,
+		FilePath: data.FilePath,
+	}
+
+	uploadInfo, err := get_S3_upload_JSON(fileData, minimalData, data.AssetID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println("CompleteUploadFileBlocking uploading file to S3")
+	err = uploadFileToS3(fileData, uploadInfo, 0, "", data.APIKey, data.AddonVersion, data.PlatformVersion)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	fmt.Println("CompleteUploadFileBlocking S3 upload complete")
+	w.WriteHeader(http.StatusOK)
+}
+
 // AssetUploadData uploads asset data to S3. If response is not OK, it will return the JSON of the error response and error.
 func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) (json.RawMessage, error) {
 	for _, file := range files { // will be empty if only metadata is uploaded
-		upload_info_json, err := get_S3_upload_JSON(file, data, metadataResp)
+		var minimalTaskData = MinimalTaskData{
+			AppID:           data.AppID,
+			APIKey:          data.Preferences.APIKey,
+			AddonVersion:    data.UploadData.AddonVersion,
+			PlatformVersion: data.UploadData.PlatformVersion,
+		}
+		upload_info_json, err := get_S3_upload_JSON(file, minimalTaskData, metadataResp.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = uploadFileToS3(file, data, upload_info_json, taskID)
+		err = uploadFileToS3(file, upload_info_json, data.AppID, taskID, data.Preferences.APIKey, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -1667,10 +1722,10 @@ func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadata
 	return nil, nil
 }
 
-func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse) (S3UploadInfoResponse, error) {
+func get_S3_upload_JSON(file UploadFile, data MinimalTaskData, assetID string) (S3UploadInfoResponse, error) {
 	var resp_JSON S3UploadInfoResponse
 	upload_info := map[string]interface{}{
-		"assetId":          metadataResp.ID,
+		"assetId":          assetID,
 		"fileType":         file.Type,
 		"fileIndex":        file.Index,
 		"originalFilename": filepath.Base(file.FilePath),
@@ -1685,7 +1740,7 @@ func get_S3_upload_JSON(file UploadFile, data AssetUploadRequestData, metadataRe
 	if err != nil {
 		return resp_JSON, err
 	}
-	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := ClientAPI.Do(req)
@@ -1731,7 +1786,10 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
 	// Calculate and send the progress percentage
 	percentage := float64(pr.n) / float64(pr.total) * 100
 	msg := fmt.Sprintf("%s: %d%%", pr.preMessage, int(percentage))
-	TaskMessageCh <- &TaskMessageUpdate{AppID: pr.appID, TaskID: pr.taskID, Message: msg}
+
+	if pr.appID != 0 || pr.taskID != "" { // bg_scripts don't have access to TaskMessageCh now, TODO: implement Task to be used with BG_scripts
+		TaskMessageCh <- &TaskMessageUpdate{AppID: pr.appID, TaskID: pr.taskID, Message: msg}
+	}
 
 	return read, err
 }
@@ -1740,7 +1798,7 @@ type UploadValidationResponse struct {
 	Detail string `json:"detail"`
 }
 
-func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3UploadInfoResponse, taskID string) error {
+func uploadFileToS3(file UploadFile, uploadInfo S3UploadInfoResponse, appID int, taskID, apiKey, addonVersion, platformVersion string) error {
 	fileInfo, err := os.Stat(file.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file: %w", err)
@@ -1757,7 +1815,7 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	progressReader := &ProgressReader{
 		r:          fileContent,
 		total:      fileSize,
-		appID:      data.AppID,
+		appID:      appID,
 		taskID:     taskID,
 		preMessage: fmt.Sprintf("Uploading %s", file.Type),
 	}
@@ -1785,7 +1843,7 @@ func uploadFileToS3(file UploadFile, data AssetUploadRequestData, uploadInfo S3U
 	if err != nil {
 		return fmt.Errorf("failed to create upload validation request: %w", err)
 	}
-	valReq.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	valReq.Header = getHeaders(apiKey, *SystemID, addonVersion, platformVersion)
 
 	valResp, err := ClientAPI.Do(valReq)
 	if err != nil {
