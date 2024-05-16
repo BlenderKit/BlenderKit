@@ -1845,7 +1845,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				datafile,
 			)
 
-			cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=\"%v\"", blenderUserScripts))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=%v", blenderUserScripts))
 			out, err := cmd.CombinedOutput()
 			color.FgGray.Println("(Background) Packing logs:\n", string(out))
 			if err != nil {
