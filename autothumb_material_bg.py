@@ -183,20 +183,27 @@ if __name__ == "__main__":
         # bpy.ops.wm.save_as_mainfile(filepath='C:/tmp/test.blend')
         # fal
         render_thumbnails()
-        if data.get("upload_after_render") and data.get("asset_data"):
-            bg_blender.progress("uploading thumbnail")
-            file = {
-                "type": "thumbnail",
-                "index": 0,
-                "file_path": data["thumbnail_path"] + ".png",
-            }
-            upload_data = {
-                "name": data["asset_data"]["name"],
-                "token": BLENDERKIT_EXPORT_API_KEY,
-                "id": data["asset_data"]["id"],
-            }
-            bg_utils.upload_file(upload_data, file)
-        bg_blender.progress("background autothumbnailer finished successfully")
+        if not data.get("upload_after_render") or not data.get("asset_data"):
+            bg_blender.progress(
+                "background autothumbnailer finished successfully (no upload)"
+            )
+            sys.exit(0)
+
+        bg_blender.progress("uploading thumbnail")
+        ok = daemon_lib.complete_upload_file_blocking(
+            api_key=BLENDERKIT_EXPORT_API_KEY,
+            asset_id=data["asset_data"]["id"],
+            filepath=f"{data['thumbnail_path']}.png",
+            filetype=f"thumbnail",
+            fileindex=0,
+        )
+        if not ok:
+            bg_blender.progress("thumbnail upload failed, exiting")
+            sys.exit(1)
+
+        bg_blender.progress(
+            "background autothumbnailer finished successfully (with upload)"
+        )
 
     except Exception as e:
         bk_logger.fatal(f"{e}")

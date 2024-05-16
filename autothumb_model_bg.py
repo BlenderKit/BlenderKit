@@ -202,21 +202,29 @@ if __name__ == "__main__":
 
         bg_blender.progress("rendering thumbnail")
         render_thumbnails()
-        fpath = data["thumbnail_path"] + ".jpg"
-        if data.get("upload_after_render") and data.get("asset_data"):
-            # try to patch for the sake of older assets where thumbnail update doesn't work for the reasont
-            # that original thumbnail files aren't available.
-            # upload.patch_individual_metadata(data['asset_data']['id'], {}, user_preferences)
-            bg_blender.progress("uploading thumbnail")
-            file = {"type": "thumbnail", "index": 0, "file_path": fpath}
-            upload_data = {
-                "name": data["asset_data"]["name"],
-                "token": BLENDERKIT_EXPORT_API_KEY,
-                "id": data["asset_data"]["id"],
-            }
-            bg_utils.upload_file(upload_data, file)
 
-        bg_blender.progress("background autothumbnailer finished successfully")
+        if not data.get("upload_after_render") or not data.get("asset_data"):
+            bg_blender.progress(
+                "background autothumbnailer finished successfully (no upload)"
+            )
+            sys.exit(0)
+
+        bg_blender.progress("uploading thumbnail")
+        fpath = data["thumbnail_path"] + ".jpg"
+        ok = daemon_lib.complete_upload_file_blocking(
+            api_key=BLENDERKIT_EXPORT_API_KEY,
+            asset_id=data["asset_data"]["id"],
+            filepath=fpath,
+            filetype=f"thumbnail",
+            fileindex=0,
+        )
+        if not ok:
+            bg_blender.progress("thumbnail upload failed, exiting")
+            sys.exit(1)
+
+        bg_blender.progress(
+            "background autothumbnailer finished successfully (with upload)"
+        )
 
     except Exception as e:
         print(f"background autothumbnailer failed: {e}")
