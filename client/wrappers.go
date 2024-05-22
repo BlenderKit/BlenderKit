@@ -33,66 +33,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// BlockingFileUploadTaskData is expected from the add-on.
-type BlockingFileUploadTaskData struct {
-	URL      string `json:"url"`
-	Filepath string `json:"filepath"`
-	AppID    int    `json:"app_id"`
-}
-
-// BlockingFileUploadHandler uploads file to a URL. It is a blocking call by design.
-// It handles the upload of a single file, then returns.
-func BlockingFileUploadHandler(w http.ResponseWriter, r *http.Request) {
-	var data BlockingFileUploadTaskData
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		es := fmt.Sprintf("error parsing JSON: %v", err)
-		fmt.Print(es)
-		http.Error(w, es, http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	file, err := os.Open(data.Filepath)
-	if err != nil {
-		log.Print("Opening file failed", err)
-		http.Error(w, "File opening failed", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
-	req, err := http.NewRequest("PUT", data.URL, file)
-	if err != nil {
-		log.Println("Creating request failed", err)
-		http.Error(w, "Creating PUT request failed", http.StatusInternalServerError)
-		return
-	}
-
-	resp, err := ClientUploads.Do(req)
-	if err != nil {
-		log.Println("PUT request failed", err)
-		http.Error(w, "PUT request failed", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Reading response body failed", err)
-		http.Error(w, "Reading response failed", http.StatusInternalServerError)
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		log.Print("Non-OK response from server", nil)
-		http.Error(w, string(respBody), resp.StatusCode)
-		return
-	}
-
-	w.WriteHeader(resp.StatusCode)
-	w.Write(respBody)
-}
-
 // BlockingFileDownloadTaskData is expected from the add-on.
 type BlockingFileDownloadTaskData struct {
 	AppID    int    `json:"app_id"`
@@ -176,6 +116,7 @@ type BlockingRequestData struct {
 func BlockingRequestHandler(w http.ResponseWriter, r *http.Request) {
 	var data BlockingRequestData
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		log.Printf("Error decoding request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
