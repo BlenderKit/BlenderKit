@@ -216,7 +216,8 @@ type DownloadAssetData struct {
 	ID                   string      `json:"id"`
 	AvailableResolutions []int       `json:"available_resolutions"`
 	Files                []AssetFile `json:"files"`
-	AssetType            string      `json:"assetType"` // needed for unpacking
+	AssetType            string      `json:"assetType"`  // needed for unpacking
+	Resolution           string      `json:"resolution"` // needed for unpacking
 }
 
 type DownloadData struct {
