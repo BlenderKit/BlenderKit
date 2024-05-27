@@ -887,6 +887,8 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
                 bpy.context.space_data.region_3d,
                 self.downloader["location"],
             )
+            if loc is None:
+                loc = Vector((0, 0))
         else:
             loc = Vector((0, 0))
 
@@ -974,6 +976,8 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
                 bpy.context.space_data.region_3d,
                 self.downloader["location"],
             )
+            if loc is None:
+                loc = Vector((0, 0))
         else:
             loc = Vector((0, 0))
 
