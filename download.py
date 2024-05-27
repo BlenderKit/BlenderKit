@@ -847,7 +847,7 @@ def download(asset_data, **kwargs):
     else:
         asset_data = asset_data.to_dict()
 
-    #inject resolution into prefs.
+    # inject resolution into prefs.
     prefs = utils.get_preferences_as_dict()
     prefs["resolution"] = kwargs.get("resolution", "original")
 
