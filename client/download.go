@@ -236,7 +236,8 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 	process_data := map[string]interface{}{
 		"fpath":      blendPath,
 		"asset_data": data.DownloadAssetData,
-		"commannd":   "unpack",
+		"command":    "unpack",
+		"PREFS":      data.PREFS,
 		//"debug_value": data.PREFS.DebugValue,
 	}
 	jsonData, err := json.Marshal(process_data)
@@ -424,7 +425,7 @@ func GetDownloadURL(data DownloadData) (bool, string, error) {
 	reqData := url.Values{}
 	reqData.Set("scene_uuid", data.SceneID)
 
-	file, _ := GetResolutionFile(data.Files, data.Resolution)
+	file, _ := GetResolutionFile(data.Files, data.PREFS.Resolution)
 
 	req, err := http.NewRequest("GET", file.DownloadURL, nil)
 	if err != nil {
