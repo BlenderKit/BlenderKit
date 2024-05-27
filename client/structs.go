@@ -105,6 +105,7 @@ type SocialNetwork struct {
 // Author represents an author of an Asset.
 type Author struct {
 	AboutMe        string          `json:"aboutMe"`
+	AboutMeURL     string          `json:"aboutMeUrl"` // URL to the author's portfolio on BlenderKit
 	Avatar128      string          `json:"avatar128"`
 	FirstName      string          `json:"firstName"`
 	FullName       string          `json:"fullName"`
