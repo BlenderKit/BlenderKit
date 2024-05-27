@@ -74,11 +74,12 @@ def get_resolution_from_file_path(file_path):
             return possible_resolutions[res]
     return "blend"
 
+
 def unpack_asset(data):
     utils.p("unpacking asset")
     asset_data = data["asset_data"]
     resolution = get_resolution_from_file_path(bpy.data.filepath)
-    
+
     # TODO - passing resolution inside asset data might not be the best solution
     tex_dir_path = paths.get_texture_directory(asset_data, resolution=resolution)
     tex_dir_abs = bpy.path.abspath(tex_dir_path)
