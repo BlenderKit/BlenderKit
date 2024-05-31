@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	ReportTimeout    = 3 * time.Minute
-	OAUTH_CLIENT_ID  = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
-	WindowsPathLimit = 250
+	ReportTimeout   = 3 * time.Minute
+	OAUTH_CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 
 	// PATHS
 	server_default     = "https://www.blenderkit.com" // default address to production blenderkit server

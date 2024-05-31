@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -401,8 +402,20 @@ func GetDownloadFilepaths(data DownloadData, filename string) []string {
 		filePath := filepath.Join(assetDirPath, filename)
 		filePaths = append(filePaths, filePath)
 	}
-	// TODO: check on Windows if path is not too long
-	return filePaths
+
+	// For Mac and Linux, we can return the file paths as they are.
+	if runtime.GOOS != "windows" {
+		return filePaths
+	}
+
+	// On Windows we need to check if path is not too long
+	var filteredWinPaths []string
+	for _, filePath := range filePaths {
+		if len(filePath) < 259 {
+			filteredWinPaths = append(filteredWinPaths, filePath)
+		}
+	}
+	return filteredWinPaths
 }
 
 // Get the download URL for the asset file.
