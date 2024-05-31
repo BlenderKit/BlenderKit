@@ -49,6 +49,7 @@ BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
 WINDOWS_PATH_LIMIT = 250
 
+
 def cleanup_old_folders():
     """function to clean up any historical folders for BlenderKit. By now removes the temp folder."""
     orig_temp = os.path.join(os.path.expanduser("~"), "blenderkit_data", "temp")
@@ -162,15 +163,22 @@ def get_download_dirs(asset_type):
             os.makedirs(subdir)
         dirs.append(subdir)
 
-    if global_vars.PREFS["directory_behaviour"] in ("BOTH", "LOCAL") and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
+    if (
+        global_vars.PREFS["directory_behaviour"] in ("BOTH", "LOCAL")
+        and bpy.data.is_saved
+    ):  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
         ddir = global_vars.PREFS["project_subdir"]
         ddir = bpy.path.abspath(ddir)
         subdir = os.path.join(ddir, subdmapping[asset_type])
         if sys.platform == "win32" and len(subdir) > WINDOWS_PATH_LIMIT:
-            bk_logger.warning(f"Skipping LOCAL download directory. Over 250 characters: {ddir}")
-            return dirs # project subdir is over 250, no space for adding filenames later
+            bk_logger.warning(
+                f"Skipping LOCAL download directory. Over 250 characters: {ddir}"
+            )
+            return (
+                dirs  # project subdir is over 250, no space for adding filenames later
+            )
         if not os.path.exists(subdir):
-            os.makedirs(subdir) # this would fail if path was over 260
+            os.makedirs(subdir)  # this would fail if path was over 260
         dirs.append(subdir)
 
     return dirs
@@ -193,7 +201,7 @@ def slugify(input: str) -> str:
     # Replace multiple hyphens with a single one
     slug = re.sub(r"[-]+", "-", slug)
 
-	# Ensure the slug does not exceed 50 characters
+    # Ensure the slug does not exceed 50 characters
     if len(slug) > 50:
         slug = slug[:50]
 
@@ -207,7 +215,7 @@ def extract_filename_from_url(url):
     """Mirrors utils.go/ExtractFilenameFromURL()"""
     if url is None:
         return ""
-    
+
     filename = url.split("/")[-1]
     filename = filename.split("?")[0]
     return filename
@@ -289,7 +297,7 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
 def server_to_local_filename(server_filename: str, asset_name: str) -> str:
     """
     Convert server format filename to human readable local filename. Function mirrors: utils.go/ServerToLocalFilename()
-    
+
     "resolution_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend" > "asset-name_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend"
 
     "blend_d5368c9d-092e-4319-afe1-dd765de6da01.blend" > "asset-name_d5368c9d-092e-4319-afe1-dd765de6da01.blend"
