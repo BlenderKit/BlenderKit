@@ -19,6 +19,7 @@
 import getpass
 import logging
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -181,36 +182,41 @@ def get_download_dirs(asset_type):
     return dirs
 
 
-def slugify(slug):
+def slugify(input: str) -> str:
     """
-    Normalizes string, converts to lowercase, removes non-alpha characters,
-    and converts spaces to hyphens.
+    Slugify converts a string to a URL-friendly slug.
+    Converts to lowercase, replaces non-alphanumeric characters with hyphens.
+    Ensures only one hyphen between words and that string starts and ends with a letter or number.
+    It also ensures that the slug does not exceed 50 characters.
+    Same as: utils.go/Slugify()
     """
-    import re
+    # Normalize string: convert to lowercase
+    slug = input.lower()
 
-    slug = slug.lower()
+    # Remove non-alpha characters, and convert spaces to hyphens.
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
 
-    characters = '<>:"/\\|?\*., ()#'
-    for ch in characters:
-        slug = slug.replace(ch, "_")
-    # import re
-    # slug = unicodedata.normalize('NFKD', slug)
-    # slug = slug.encode('ascii', 'ignore').lower()
-    slug = re.sub(r"[^a-z0-9]+.- ", "-", slug).strip("-")
+    # Replace multiple hyphens with a single one
     slug = re.sub(r"[-]+", "-", slug)
-    slug = re.sub(r"/", "_", slug)
-    slug = re.sub(r"\\\'\"", "_", slug)
+
+	# Ensure the slug does not exceed 50 characters
     if len(slug) > 50:
         slug = slug[:50]
+
+    # Ensure slug starts and ends with alphanum character
+    slug = slug.strip("-")
+
     return slug
 
 
 def extract_filename_from_url(url):
-    if url is not None:
-        imgname = url.split("/")[-1]
-        imgname = imgname.split("?")[0]
-        return imgname
-    return ""
+    """Mirrors utils.go/ExtractFilenameFromURL()"""
+    if url is None:
+        return ""
+    
+    filename = url.split("/")[-1]
+    filename = filename.split("?")[0]
+    return filename
 
 
 resolution_suffix = {
@@ -286,16 +292,18 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
     return closest, closest["fileType"]
 
 
-def server_2_local_filename(asset_data, filename):
+def server_to_local_filename(server_filename: str, asset_name: str) -> str:
     """
-    Convert file name on server to file name local.
-    This should get replaced
-    """
+    Convert server format filename to human readable local filename. Function mirrors: utils.go/ServerToLocalFilename()
+    
+    "resolution_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend" > "asset-name_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend"
 
-    fn = filename.replace("blend_", "")
+    "blend_d5368c9d-092e-4319-afe1-dd765de6da01.blend" > "asset-name_d5368c9d-092e-4319-afe1-dd765de6da01.blend"
+    """
+    fn = server_filename.replace("blend_", "")
     fn = fn.replace("resolution_", "")
-    n = slugify(asset_data["name"]) + "_" + fn
-    return n
+    local_filename = slugify(asset_name) + "_" + fn
+    return local_filename
 
 
 def get_texture_directory(asset_data, resolution="blend"):
@@ -324,10 +332,10 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
         # Tweak the names a bit:
         # remove resolution and blend words in names
         #
-        fn = extract_filename_from_url(res_file["url"])
-        n = server_2_local_filename(asset_data, fn)
-        for d in dirs:
-            asset_folder_path = os.path.join(d, asset_folder_name)
+        serverFilename = extract_filename_from_url(res_file["url"])
+        localFilename = server_to_local_filename(serverFilename, asset_data["name"])
+        for dir in dirs:
+            asset_folder_path = os.path.join(dir, asset_folder_name)
             if sys.platform == "win32" and len(asset_folder_path) > windows_path_limit:
                 reports.add_report(
                     "The path to assets is too long, "
@@ -342,7 +350,7 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
             if not os.path.exists(asset_folder_path):
                 os.makedirs(asset_folder_path)
 
-            file_name = os.path.join(asset_folder_path, n)
+            file_name = os.path.join(asset_folder_path, localFilename)
             file_names.append(file_name)
 
     utils.p("file paths", file_names)

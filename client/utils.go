@@ -100,6 +100,7 @@ type AddonVersion struct {
 }
 
 // Extract the filename from a URL, used for thumbnails.
+// Mirrors utils.py/extract_filename_from_url()
 func ExtractFilenameFromURL(urlStr string) (string, error) {
 	if urlStr == "" {
 		return "", fmt.Errorf("empty URL")
@@ -160,30 +161,30 @@ func DeleteFileAndParentIfEmpty(filePath string) {
 	}
 }
 
-// Files on server are saved in format: "resolution_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend" for resolution files, or "blend_d5368c9d-092e-4319-afe1-dd765de6da01.blend" for original files,
-// but locally we want to store them as "asset-name_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend".
-// This is for better human readability.
-func ServerToLocalFilename(filename, assetName string) string {
-	filename = strings.Replace(filename, "blend_", "", -1)
-	filename = strings.Replace(filename, "resolution_", "", -1)
-	lfn := Slugify(assetName) + "_" + filename
-	return lfn
+// Convert server format filename to human readable local filename. Function mirrors: paths.py/serverToLocalFilename()
+//
+// "resolution_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend" > "asset-name_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend"
+//
+// "blend_d5368c9d-092e-4319-afe1-dd765de6da01.blend" > "asset-name_d5368c9d-092e-4319-afe1-dd765de6da01.blend"
+func ServerToLocalFilename(serverFilename, assetName string) string {
+	serverFilename = strings.Replace(serverFilename, "blend_", "", -1)
+	serverFilename = strings.Replace(serverFilename, "resolution_", "", -1)
+	localFilename := Slugify(assetName) + "_" + serverFilename
+
+	return localFilename
 }
 
 // Slugify converts a string to a URL-friendly slug.
-// It removes non-alphanumeric characters, and replaces spaces with hyphens.
+// Converts to lowercase, replaces non-alphanumeric characters with hyphens.
+// Ensures only one hyphen between words and that string starts and ends with a letter or number.
 // It also ensures that the slug does not exceed 50 characters.
 func Slugify(slug string) string {
-	slug = strings.ToLower(slug) // Normalize string: convert to lowercase
-	characters := "<>:\"/\\|?*., ()#"
-	for _, ch := range characters {
-		slug = strings.ReplaceAll(slug, string(ch), "_")
-	}
+	// Normalize string: convert to lowercase
+	slug = strings.ToLower(slug)
 
 	// Remove non-alpha characters, and convert spaces to hyphens.
 	reg := regexp.MustCompile(`[^a-z0-9]+`)
 	slug = reg.ReplaceAllString(slug, "-")
-	slug = strings.Trim(slug, "-")
 
 	// Replace multiple hyphens with a single one
 	reg = regexp.MustCompile(`[-]+`)
@@ -193,6 +194,9 @@ func Slugify(slug string) string {
 	if len(slug) > 50 {
 		slug = slug[:50]
 	}
+
+	// Ensure the slug starts and ends with a letter or number.
+	slug = strings.Trim(slug, "-")
 
 	return slug
 }
