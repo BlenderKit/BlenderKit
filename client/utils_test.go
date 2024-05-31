@@ -101,7 +101,7 @@ func TestSlugify(t *testing.T) {
 		{"My--Username", "my-username"},
 		{"My__Username, 123", "my-username-123"},
 		{"My? Name! Is: Dada", "my-name-is-dada"},
-		{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit.", "lorem-ipsum-dolor-sit-amet-consectetur-adipiscing-"},
+		{"Lorem ipsum dolor sit amet, consectetur adipiscing <-50th char is space, ending hyphen will be remove, leading to 49chars. Consectetur ante hendrerit.", "lorem-ipsum-dolor-sit-amet-consectetur-adipiscing"},
 	}
 
 	for _, test := range tests {
@@ -149,10 +149,12 @@ func TestServerToLocalFilename(t *testing.T) {
 		assetName string
 		expected  string
 	}{
-		{"2K_a5cbcda4-d00c-4494-bbbc-be205a9eb5ca.blend", "Cat on Books Statue 3D Scan", "cat-on-books-statue-3d-scan_2K_a5cbcda4-d00c-4494-bbbc-be205a9eb5ca.blend"},
-		{"2K_0d0e0897-8649-4c8d-8b0c-296b15c3f7a8.blend", "Apple iPad With Keyboard", "apple-ipad-with-keyboard_2K_0d0e0897-8649-4c8d-8b0c-296b15c3f7a8.blend"},
-		{"934e424b-d890-4ba7-98c3-85b733cdc94a.blend", "Gray Carpet (Procedural)", "gray-carpet-procedural_934e424b-d890-4ba7-98c3-85b733cdc94a.blend"},
-		{"6ab98d58-8502-4087-a007-f3bd23f393a7.blend", "White minimal product mockups", "white-minimal-product-mockups_6ab98d58-8502-4087-a007-f3bd23f393a7.blend"},
+		{"resolution_2K_a5cbcda4-d00c-4494-bbbc-be205a9eb5ca.blend", "Cat on Books Statue 3D Scan", "cat-on-books-statue-3d-scan_2K_a5cbcda4-d00c-4494-bbbc-be205a9eb5ca.blend"},
+		{"resolution_2K_0d0e0897-8649-4c8d-8b0c-296b15c3f7a8.blend", "Apple iPad With Keyboard", "apple-ipad-with-keyboard_2K_0d0e0897-8649-4c8d-8b0c-296b15c3f7a8.blend"},
+		{"resolution_0_5K_0ee98e49-98be-4b38-8c5e-a0eb4d99766d.blend", "Ikea pendant light", "ikea-pendant-light_0_5K_0ee98e49-98be-4b38-8c5e-a0eb4d99766d.blend"},
+		{"resolution_1K_e4248d23-fedb-4aa4-ac4d-b824bc5d0da2.blend", "Ikea pendant light", "ikea-pendant-light_1K_e4248d23-fedb-4aa4-ac4d-b824bc5d0da2.blend"},
+		{"blend_934e424b-d890-4ba7-98c3-85b733cdc94a.blend", "Gray Carpet (Procedural)", "gray-carpet-procedural_934e424b-d890-4ba7-98c3-85b733cdc94a.blend"},
+		{"blend_6ab98d58-8502-4087-a007-f3bd23f393a7.blend", "White minimal product mockups", "white-minimal-product-mockups_6ab98d58-8502-4087-a007-f3bd23f393a7.blend"},
 		{"blend_1234567890.blend", "Some Very Very Extremely Long Asset Name Which Needs To Be Shortened In the Final Blend File Name Or It Will Cause Problems on Windows", "some-very-very-extremely-long-asset-name-which-nee_1234567890.blend"},
 	}
 
