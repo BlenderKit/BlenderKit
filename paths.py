@@ -47,6 +47,7 @@ BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading
 BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
 BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
+WINDOWS_PATH_LIMIT = 250
 
 def cleanup_old_folders():
     """function to clean up any historical folders for BlenderKit. By now removes the temp folder."""
@@ -154,29 +155,22 @@ def get_download_dirs(asset_type):
         ddir = global_vars.PREFS["global_dir"]
         if ddir.startswith("//"):
             ddir = bpy.path.abspath(ddir)
-        if not os.path.exists(ddir):
-            os.makedirs(ddir)
 
         subd = subdmapping[asset_type]
         subdir = os.path.join(ddir, subd)
         if not os.path.exists(subdir):
             os.makedirs(subdir)
         dirs.append(subdir)
-    if (
-        global_vars.PREFS["directory_behaviour"] == "BOTH"
-        or global_vars.PREFS["directory_behaviour"] == "LOCAL"
-    ) and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
+
+    if global_vars.PREFS["directory_behaviour"] in ("BOTH", "LOCAL") and bpy.data.is_saved:  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
         ddir = global_vars.PREFS["project_subdir"]
-        if ddir.startswith("//"):
-            ddir = bpy.path.abspath(ddir)
-            if not os.path.exists(ddir):
-                os.makedirs(ddir)
-
-        subd = subdmapping[asset_type]
-
-        subdir = os.path.join(ddir, subd)
+        ddir = bpy.path.abspath(ddir)
+        subdir = os.path.join(ddir, subdmapping[asset_type])
+        if sys.platform == "win32" and len(subdir) > WINDOWS_PATH_LIMIT:
+            bk_logger.warning(f"Skipping LOCAL download directory. Over 250 characters: {ddir}")
+            return dirs # project subdir is over 250, no space for adding filenames later
         if not os.path.exists(subdir):
-            os.makedirs(subdir)
+            os.makedirs(subdir) # this would fail if path was over 260
         dirs.append(subdir)
 
     return dirs
@@ -313,7 +307,6 @@ def get_texture_directory(asset_data, resolution="blend"):
 
 def get_download_filepaths(asset_data, resolution="blend", can_return_others=False):
     """Get all possible paths of the asset and resolution. Usually global and local directory."""
-    windows_path_limit = 250
     dirs = get_download_dirs(asset_data["assetType"])
     res_file, resolution = get_res_file(
         asset_data, resolution, find_closest_with_url=can_return_others
@@ -336,7 +329,7 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
         localFilename = server_to_local_filename(serverFilename, asset_data["name"])
         for dir in dirs:
             asset_folder_path = os.path.join(dir, asset_folder_name)
-            if sys.platform == "win32" and len(asset_folder_path) > windows_path_limit:
+            if sys.platform == "win32" and len(asset_folder_path) > WINDOWS_PATH_LIMIT:
                 reports.add_report(
                     "The path to assets is too long, "
                     "only Global folder can be used. "
@@ -355,7 +348,7 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
 
     utils.p("file paths", file_names)
     for f in file_names:
-        if len(f) > windows_path_limit:
+        if sys.platform == "win32" and len(f) > WINDOWS_PATH_LIMIT:
             reports.add_report(
                 "The path to assets is too long, "
                 "only Global folder can be used. "
