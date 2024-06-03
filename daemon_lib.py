@@ -58,7 +58,7 @@ def ensure_minimal_data(data: dict = None) -> dict:
     av = global_vars.VERSION
     if "api_key" not in data:  # for BG instances, where preferences are not available
         data.setdefault(
-            "api_key", bpy.context.preferences.addons["blenderkit"].preferences.api_key
+            "api_key", bpy.context.preferences.addons[__package__].preferences.api_key
         )
     data.setdefault("app_id", os.getpid())
     data.setdefault("platform_version", platform.platform())
@@ -616,7 +616,7 @@ def decide_client_binary_name() -> str:
 
 def get_client_directory() -> str:
     """Get the path to the BlenderKit-Client directory located in global_dir."""
-    global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
+    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
     directory = path.join(global_dir, "client")
     return directory
 

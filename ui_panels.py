@@ -554,7 +554,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
     def draw_header(self, context):
         layout = self.layout
         layout.emboss = "NORMAL"
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         if user_preferences.api_key != "":
             layout.label(text="BlenderKit Profile", icon="USER")
         else:
@@ -568,7 +568,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
             layout.label(text="Client not running")
             return
 
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
 
         if user_preferences.login_attempt:
             draw_login_progress(layout)
@@ -749,7 +749,7 @@ class UpvoteComment(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         api_key = user_preferences.api_key
         comments = comments_utils.get_comments_local(self.asset_id)
         if comments is not None:
@@ -797,7 +797,7 @@ class SetPrivateComment(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         api_key = user_preferences.api_key
         comments = comments_utils.get_comments_local(self.asset_id)
         if comments is not None:
@@ -872,7 +872,7 @@ class PostComment(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         ui_props = bpy.context.window_manager.blenderkitUI
         api_key = user_preferences.api_key
         daemon_lib.create_comment(
@@ -1025,7 +1025,7 @@ class VIEW3D_PT_blenderkit_login(Panel):
         if not global_vars.CLIENT_RUNNING:
             layout.label(text="Client not running")
             return
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         if user_preferences.login_attempt:
             draw_login_progress(layout)
             return
@@ -1131,7 +1131,7 @@ def draw_panel_brush_search(self, context):
 
 
 def draw_login_buttons(layout, invoke=False):
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
 
     if user_preferences.login_attempt:
         draw_login_progress(layout)
@@ -1466,7 +1466,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
         s = context.scene
         wm = bpy.context.window_manager
         ui_props = bpy.context.window_manager.blenderkitUI
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
 
         if ui_props.asset_type == "MODEL":
             # noinspection PyCallByClass
@@ -1522,7 +1522,7 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
     def draw(self, context):
         ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
 
         layout = self.layout
         # layout.prop_tabs_enum(ui_props, "asset_type", icon_only = True)
@@ -1689,7 +1689,7 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         if self.step == 0:
-            user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+            user_preferences = bpy.context.preferences.addons[__package__].preferences
 
             # message = "BlenderKit connects from Blender to an online, " \
             #           "community built shared library of models, " \
@@ -1724,7 +1724,7 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         if user_preferences.welcome_operator_counter > 10:
             return {"FINISHED"}
         user_preferences.welcome_operator_counter += 1
@@ -2963,7 +2963,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             # pre-fill ratings
             self.prefill_ratings()
 
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         if (
             user_preferences.asset_popup_counter
             < user_preferences.asset_popup_counter_max
@@ -3198,7 +3198,7 @@ class LoginPopupDialog(bpy.types.Operator):
 
 def draw_panel_categories(layout, context):
     ui_props = bpy.context.window_manager.blenderkitUI
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
 
     search_props = utils.get_search_props()
     acat_search = search_props.search_category
@@ -3320,7 +3320,7 @@ def header_search_draw(self, context):
     if not utils.guard_from_crash():
         return
 
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     if not preferences.search_in_header:
         return
     if context.mode not in ("PAINT_TEXTURE", "OBJECT", "SCULPT", "POSE"):
@@ -3401,7 +3401,7 @@ def header_search_draw(self, context):
     if (context.region.width) > 700:
         row.ui_units_x = 5 + int(context.region.width / 200)
     search_field_width = bpy.context.preferences.addons[
-        "blenderkit"
+        __package__
     ].preferences.search_field_width
     if search_field_width > 0:
         row.ui_units_x = search_field_width
@@ -3563,7 +3563,7 @@ def header_draw(self, context):
 
 
 def object_context_draw(self, context):
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     layout = self.layout
     pcoll = icons.icon_collections["main"]
     if not preferences.show_VIEW3D_MT_blenderkit_model_properties:

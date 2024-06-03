@@ -76,7 +76,7 @@ supported_material_drag = (
 
 def experimental_enabled() -> bool:
     """Check if experimental features are enabled. Experimental features are always be enabled for staff and validators."""
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     return preferences.experimental_features or profile_is_validator()
 
 
@@ -388,7 +388,7 @@ def get_scene_id():
 
 
 def get_preferences_as_dict():
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     prefs = {
         # SYSTEM STUFF - TODO: is this needed in here? (Why to save this into JSON?) But is used for sending data to client.
         "debug_value": bpy.app.debug_value,
@@ -1008,7 +1008,7 @@ def update_tags(self, context):
 
 def user_logged_in():
     """User is currently logged in successfully"""
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     a = global_vars.DATA.get("bkit profile")
     # Check both profile and token, profile sometimes isn't cleaned up after logout
     # vilem - removed (a is not None) - the profile isn't always ready on start of blender,
@@ -1020,7 +1020,7 @@ def user_logged_in():
 
 def profile_is_validator():
     """currently logged in profile is validator"""
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     profile = global_vars.DATA.get("bkit profile")
     if profile is None or user_preferences.api_key == "":
         return False
@@ -1030,7 +1030,7 @@ def profile_is_validator():
 
 def user_is_owner(asset_data=None):
     """Checks if the current logged in user is owner of the asset"""
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     profile = global_vars.DATA.get("bkit profile")
     if profile is None or user_preferences.api_key == "":
         return False
@@ -1067,9 +1067,9 @@ def guard_from_crash():
      This function is used in these functions (like draw callbacks)
      so these don't run during unregistration.
     """
-    if bpy.context.preferences.addons.get("blenderkit") is None:
+    if bpy.context.preferences.addons.get(__package__) is None:
         return False
-    if bpy.context.preferences.addons["blenderkit"].preferences is None:
+    if bpy.context.preferences.addons[__package__].preferences is None:
         return False
     return True
 
@@ -1284,7 +1284,7 @@ def list2string(lst: list) -> str:
 
 def check_globaldir_permissions():
     """Check if the user has the required permissions to upload assets."""
-    global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
+    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
     if os.path.isfile(global_dir):
         reports.add_report(
             "Global dir is a file. Please remove it or change global dir path in preferences.",

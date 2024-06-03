@@ -61,7 +61,7 @@ def load_preferences_from_JSON():
         os.remove(preferences_path)
         return utils.get_preferences_as_dict()
 
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     user_preferences.preferences_lock = True
 
     # STATISTICS

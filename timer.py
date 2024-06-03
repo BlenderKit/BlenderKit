@@ -194,7 +194,7 @@ def cancel_all_tasks(self, context):
 def task_error_overdrive(task: daemon_tasks.Task) -> None:
     """Handle error task - overdrive some error messages, trigger functions common for all errors."""
     if task.message.count("Invalid token.") > 0 and utils.user_logged_in():
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
 
         # Invalid token and api_key_refresh present -> trying to refresh the token
         if preferences.api_key_refresh != "":
@@ -343,7 +343,7 @@ def on_startup_daemon_online_timer():
     if not global_vars.CLIENT_RUNNING:
         return 1
 
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     refresh_needed = bkit_oauth.ensure_token_refresh()
     if refresh_needed:  # called for new API token, lets wait for a while
         return 1

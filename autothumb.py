@@ -175,7 +175,7 @@ def start_model_thumbnailer(
         props.thumbnail_generating_state = "Saving .blend file"
 
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
     if user_preferences.thumbnail_use_gpu is True:
         json_args["cycles_compute_device_type"] = bpy.context.preferences.addons[
@@ -250,7 +250,7 @@ def start_material_thumbnailer(
         props.thumbnail_generating_state = "Saving .blend file"
 
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
     if user_preferences.thumbnail_use_gpu is True:
         json_args["cycles_compute_device_type"] = bpy.context.preferences.addons[
@@ -328,7 +328,7 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(props, "thumbnail_samples")
         layout.prop(props, "thumbnail_resolution")
         layout.prop(props, "thumbnail_denoising")
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         layout.prop(preferences, "thumbnail_use_gpu")
 
     def execute(self, context):
@@ -484,7 +484,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(props, "thumbnail_samples")
         layout.prop(props, "thumbnail_resolution")
         layout.prop(props, "thumbnail_denoising")
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         layout.prop(preferences, "thumbnail_use_gpu")
 
     def execute(self, context):
@@ -562,7 +562,7 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout.prop(props, "thumbnail_samples")
         layout.prop(props, "thumbnail_denoising")
         layout.prop(props, "adaptive_subdivision")
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         layout.prop(preferences, "thumbnail_use_gpu")
 
     def execute(self, context):
@@ -726,7 +726,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout.prop(props, "thumbnail_samples")
         layout.prop(props, "thumbnail_denoising")
         layout.prop(props, "adaptive_subdivision")
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         layout.prop(preferences, "thumbnail_use_gpu")
 
     def execute(self, context):

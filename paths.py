@@ -97,7 +97,7 @@ dirs_exist_dict = {}  # cache these results since this is used very often
 # this causes the function to fail if user deletes the directory while blender is running,
 # but comes back when blender is restarted.
 def get_temp_dir(subdir=None):
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     # first try cached results
     if subdir is not None:
         d = dirs_exist_dict.get(subdir)
@@ -387,7 +387,7 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
 
 def delete_asset_debug(asset_data):
     """TODO fix this for resolutions - should get ALL files from ALL resolutions."""
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     api_key = user_preferences.api_key
 
     _, download_url, file_name = daemon_lib.get_download_url(
@@ -460,7 +460,7 @@ def get_addon_thumbnail_path(name):
 
 def get_config_dir_path() -> str:
     """Get the path to the config directory in global_dir."""
-    global_dir = bpy.context.preferences.addons["blenderkit"].preferences.global_dir
+    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
     directory = os.path.join(global_dir, "config")
     return os.path.abspath(directory)
 

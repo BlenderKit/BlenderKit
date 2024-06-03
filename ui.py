@@ -132,7 +132,7 @@ def is_rating_possible():
     # TODO remove this, but first check and reuse the code for new rating system...
     ao = bpy.context.active_object
     ui = bpy.context.window_manager.blenderkitUI
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     # first test if user is logged in.
     if preferences.api_key == "":
         return False, False, None, None
@@ -472,7 +472,7 @@ def pre_load(context):
     ui_props.assetbar_on = False
     ui_props.turn_off = True
     # TODO: is this needed?
-    # preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    # preferences = bpy.context.preferences.addons[__package__].preferences
     # preferences.login_attempt = False
 
 

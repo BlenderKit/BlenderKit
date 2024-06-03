@@ -23,7 +23,7 @@ import sys
 
 import bpy
 
-from blenderkit import append_link
+from . import append_link
 
 
 BLENDERKIT_EXPORT_DATA = sys.argv[-1]

@@ -61,7 +61,7 @@ def handle_token_refresh_task(task: daemon_tasks.Task):
     """Handle incoming task of type token_refresh. If the new token is meant for the current user, calls handle_login_task.
     Otherwise it ignores the incoming task.
     """
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     if task.data.get("old_api_key") != preferences.api_key:
         bk_logger.info("Refreshed token is not meant for current user. Ignoring.")
         return
@@ -98,7 +98,7 @@ def handle_logout_task(task: daemon_tasks.Task):
 
 
 def clean_login_data():
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     preferences.login_attempt = False
     preferences.api_key_refresh = ""
     preferences.api_key = ""
@@ -148,7 +148,7 @@ def generate_pkce_pair() -> tuple[str, str]:
 
 
 def write_tokens(auth_token, refresh_token, oauth_response):
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     preferences.api_key_timeout = int(time.time() + oauth_response["expires_in"])
     preferences.login_attempt = False
     preferences.api_key_refresh = refresh_token
@@ -159,7 +159,7 @@ def ensure_token_refresh() -> bool:
     """Check if API token needs refresh, call refresh and return True if so.
     Otherwise do nothing and return False.
     """
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     if preferences.api_key == "":  # Not logged in
         return False
 
@@ -203,14 +203,14 @@ class LoginOnline(bpy.types.Operator):
         utils.label_multiline(layout, text=self.message, width=300)
 
     def execute(self, context):
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         preferences.login_attempt = True
         login(self.signup)
         return {"FINISHED"}
 
     def invoke(self, context, event):
         wm = bpy.context.window_manager
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         preferences.api_key_refresh = ""
         preferences.api_key = ""
         return wm.invoke_props_dialog(self)
@@ -244,7 +244,7 @@ class CancelLoginOnline(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         preferences.login_attempt = False
         return {"FINISHED"}
 

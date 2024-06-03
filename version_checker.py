@@ -22,6 +22,7 @@ import os
 import bpy
 
 from . import paths
+from . import global_vars
 
 
 def get_blender_version() -> str:
@@ -32,9 +33,7 @@ def get_blender_version() -> str:
 
 def get_addon_version() -> str:
     """Get BlenderKit addon version as string."""
-    import blenderkit
-
-    ver = blenderkit.bl_info["version"]
+    ver = global_vars.VERSION
     return "%i.%i.%i" % (ver[0], ver[1], ver[2])
 
 

@@ -72,7 +72,7 @@ BL_UI_Widget.get_area_height = get_area_height
 def modal_inside(self, context, event):
     try:
         ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
 
         if ui_props.turn_off:
             ui_props.turn_off = False
@@ -466,7 +466,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(quality_label)
         self.quality_label = quality_label
 
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         offset = 0
         if (
             user_preferences.asset_popup_counter
@@ -602,7 +602,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         area = context.area
 
         ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         ui_scale = bpy.context.preferences.view.ui_scale
 
         # assetbar scaling

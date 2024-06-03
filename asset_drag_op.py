@@ -764,7 +764,7 @@ class AssetDragOperator(bpy.types.Operator):
             return {"CANCELLED"}
 
         dir_behaviour = bpy.context.preferences.addons[
-            "blenderkit"
+            __package__
         ].preferences.directory_behaviour
         if dir_behaviour == "LOCAL" and bpy.data.filepath == "":
             message = "Save the project to download in local directory mode."
