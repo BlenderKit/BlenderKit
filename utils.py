@@ -575,13 +575,49 @@ def get_thumbnail(name):
     return img
 
 
-def files_size_to_text(size):
-    fsmb = size / (1024 * 1024)
-    fskb = size % 1024
-    if fsmb == 0:
-        return f"{round(fskb)}KB"
-    else:
-        return f"{round(fsmb, 1)}MB"
+def files_size_to_text(size: int) -> str:
+    """
+    Convert a file size in bytes to a human-readable string in bytes, KiB, MiB, GiB or TiB.
+
+    Args:
+    size (int): The size in bytes.
+
+    Returns:
+    str: The human-readable file size string. E.g.: "18.9 MiB", "1.2 GiB", "1 GiB" etc.
+    """
+    if size < 0:
+        print("Size must be non-negative")
+        return "0"
+
+    kib = 1024
+    mib = kib * 1024
+    gib = mib * 1024
+    tib = gib * 1024
+
+    if size >= tib:
+        rounded = round(size / tib, 1)
+        if rounded.is_integer():
+            rounded = int(rounded)
+        return f"{rounded} TiB"
+    elif size >= gib:
+        rounded = round(size / gib, 1)
+        if rounded.is_integer():
+            rounded = int(rounded)
+        return f"{rounded} GiB"
+    elif size >= mib:
+        rounded = round(size / mib, 1)
+        if rounded.is_integer():
+            rounded = int(rounded)
+        return f"{rounded} MiB"
+    elif size >= kib:
+        rounded = round(size / kib, 1)
+        if rounded.is_integer():
+            rounded = int(rounded)
+        return f"{rounded} KiB"
+
+    if size == 1:
+        return "1 byte"
+    return f"{size} bytes"
 
 
 def get_brush_props(context):
