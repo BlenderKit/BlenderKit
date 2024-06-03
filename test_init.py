@@ -32,7 +32,7 @@ class Test01Registration(unittest.TestCase):
 
     def test02_global_vars_PREFS_set(self):
         assert global_vars.PREFS != {}
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         prefs = {
             # SYSTEM STUFF
             "debug_value": bpy.app.debug_value,

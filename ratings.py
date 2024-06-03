@@ -59,7 +59,7 @@ def draw_ratings_menu(self, context, layout):
     pcoll = icons.icon_collections["main"]
 
     if not utils.user_logged_in():
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         if user_preferences.login_attempt:
             ui_panels.draw_login_progress(layout)
         else:

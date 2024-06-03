@@ -338,7 +338,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     upload_data - asset_data generated from the ui properties
 
     """
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     export_data = {
         # "type": asset_type,
     }

@@ -937,7 +937,7 @@ def search(get_next=False, query=None, author_id=""):
         )
         return
 
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
 
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI

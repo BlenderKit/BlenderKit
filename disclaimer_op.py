@@ -273,7 +273,7 @@ def handle_disclaimer_task(task: daemon_tasks.Task):
             return show_random_tip()
 
         disclaimer = task.result["results"][0]
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if preferences.announcements_on_start is False:
             bk_logger.warning(
                 f"Online announcements are disabled! Message hidden from GUI: {disclaimer['message']}"
@@ -295,7 +295,7 @@ def handle_disclaimer_task(task: daemon_tasks.Task):
 
 def show_random_tip():
     """Shows random tip in the disclaimer popup if tips_on_start are enabled."""
-    preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     if preferences.tips_on_start is False:
         return
     tip = random.choice(global_vars.TIPS)

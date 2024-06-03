@@ -292,7 +292,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     # link the group we are interested in( there are more groups in File!!!! , have to get the correct one!)
     s = bpy.context.scene
     wm = bpy.context.window_manager
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     user_preferences.download_counter += 1
 
     if asset_data["assetType"] == "scene":
@@ -1282,7 +1282,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
         # when not in scene nor in search results, we need to get it from the server
         params = {"asset_base_id": self.asset_base_id}
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         results = search.get_search_simple(
             params, page_size=1, max_results=1, api_key=preferences.api_key
         )
@@ -1290,7 +1290,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return asset_data
 
     def execute(self, context):
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         self.asset_data = self.get_asset_data(context)
 
         if not has_asset_files(self.asset_data):
@@ -1381,7 +1381,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         # only make a pop up in case of switching resolutions
         if self.invoke_resolution:
             self.asset_data = self.get_asset_data(context)
-            preferences = bpy.context.preferences.addons["blenderkit"].preferences
+            preferences = bpy.context.preferences.addons[__package__].preferences
 
             # set initial resolutions enum activation
             if preferences.resolution != "ORIGINAL" and int(

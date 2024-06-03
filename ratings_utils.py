@@ -176,7 +176,7 @@ def update_ratings_work_hours(self, context):
 
 def update_quality_ui(self, context):
     """Converts the _ui the enum into actual quality number."""
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     # we need to check for matching value not to update twice/call the popup twice.
     if user_preferences.api_key == "" and self.rating_quality != int(
         self.rating_quality_ui
@@ -191,7 +191,7 @@ def update_quality_ui(self, context):
 
 
 def update_ratings_work_hours_ui(self, context):
-    user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
     if user_preferences.api_key == "" and self.rating_work_hours != float(
         self.rating_work_hours_ui
     ):

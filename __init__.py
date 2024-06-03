@@ -27,6 +27,7 @@ bl_info = {
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
+VERSION = (3, 12, 1, 240520)
 
 import logging
 import sys
@@ -189,7 +190,7 @@ def scene_load(context):
     if (
         bpy.app.factory_startup is False
     ):  # factory_start is used in bg blender runs, but we want to run for tests in background mode
-        preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         preferences.login_attempt = False
 
 
@@ -1853,7 +1854,7 @@ def update_unpack(self, context):
 
 
 class BlenderKitAddonPreferences(AddonPreferences):
-    bl_idname = __name__
+    bl_idname = __package__
     default_global_dict = paths.default_global_dict()
 
     preferences_lock: BoolProperty(
@@ -2334,7 +2335,7 @@ def register():
     reload(global_vars)
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
-    addon_updater_ops.register(bl_info)
+    addon_updater_ops.register({"version": VERSION})
     for cls in classes:
         bpy.utils.register_class(cls)
 
@@ -2382,9 +2383,9 @@ def register():
         type=BlenderKitBrushUploadProps
     )
 
-    global_vars.VERSION = bl_info["version"]
+    global_vars.VERSION = VERSION
     if bpy.app.factory_startup is False:
-        user_preferences = bpy.context.preferences.addons["blenderkit"].preferences
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
         daemon_lib.reorder_ports(user_preferences.daemon_port)
         timer.update_trusted_CA_certs(user_preferences.trusted_ca_certs)
