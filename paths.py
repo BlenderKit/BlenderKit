@@ -313,6 +313,20 @@ def get_texture_directory(asset_data, resolution="blend"):
     return tex_dir_path
 
 
+def get_asset_directories(asset_data):
+    """only get path where all asset files are stored"""
+    name_slug = slugify(asset_data["name"])
+    if len(name_slug) > 16:
+        name_slug = name_slug[:16]
+    asset_folder_name = f"{name_slug}_{asset_data['id']}"
+    dirs = get_download_dirs(asset_data["assetType"])
+    asset_dirs = []
+    for d in dirs:
+        asset_folder_path = os.path.join(d, asset_folder_name)
+        asset_dirs.append(asset_folder_path)
+    return asset_dirs
+
+
 def get_download_filepaths(asset_data, resolution="blend", can_return_others=False):
     """Get all possible paths of the asset and resolution. Usually global and local directory."""
     dirs = get_download_dirs(asset_data["assetType"])
@@ -456,3 +470,13 @@ def ensure_config_dir_exists():
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
     return config_dir
+
+
+def open_path_in_file_browser(folder_path):
+    """Open the path in the file browser."""
+    if sys.platform == "win32":
+        os.startfile(folder_path)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", folder_path])
+    else:
+        subprocess.Popen(["xdg-open", folder_path])
