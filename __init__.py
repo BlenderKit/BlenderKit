@@ -2244,6 +2244,9 @@ In this case you should also set path to your system CA bundle containing proxy'
         layout = self.layout
         if self.api_key.strip() == "":
             ui_panels.draw_login_buttons(layout)
+            layout.label(
+                text="Sign up to bookmark your favourite assets. Get 200 MiB of private storage in Free Plan."
+            )
         else:
             layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
         layout.prop(self, "api_key", text="Your API Key")

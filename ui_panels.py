@@ -600,38 +600,47 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                 # layout.label(text='Email: %s' % (me['email']))
 
                 # plan information
-
-                if me.get("currentPlanName") is not None:
-                    pn = me["currentPlanName"]
+                plan = me.get("currentPlanName")
+                if plan is not None:
                     pcoll = icons.icon_collections["main"]
-                    if pn == "Free":
+                    if plan == "Free":
                         my_icon = pcoll["free"]
                     else:
                         my_icon = pcoll["full"]
 
                     row = layout.row()
                     row.label(text="My plan:")
-                    row.label(text="%s plan" % pn, icon_value=my_icon.icon_id)
-                    if pn == "Free":
+                    row.label(text="%s plan" % plan, icon_value=my_icon.icon_id)
+                    if plan == "Free":
                         layout.operator(
                             "wm.url_open", text="Change plan", icon="URL"
                         ).url = paths.BLENDERKIT_PLANS_URL
 
-                # storage statistics
-                # if me.get('sumAssetFilesSize') is not None:  # TODO remove this when production server has these too.
-                #     layout.label(text='My public assets: %i MiB' % (me['sumAssetFilesSize']))
-                # if me.get('sumPrivateAssetFilesSize') is not None:
-                #     layout.label(text='My private assets: %i MiB' % (me['sumPrivateAssetFilesSize']))
-                if me.get("remainingPrivateQuota") is not None:
-                    layout.label(
-                        text="My free storage: %i MiB" % (me["remainingPrivateQuota"])
+                # STORAGE STATISTICS
+                if (
+                    me.get("sumPrivateAssetFilesSize") != None
+                    and me.get("remainingPrivateQuota") != None
+                ):
+                    plan_storage = me.get("sumPrivateAssetFilesSize") + me.get(
+                        "remainingPrivateQuota"
                     )
+                    sum_str = utils.files_size_to_text(plan_storage)
+                    row = layout.row()
+                    row.label(text=f"Plan storage:")
+                    row.label(text=sum_str)
+                if me.get("remainingPrivateQuota") is not None:
+                    row = layout.row()
+                    size_str = utils.files_size_to_text(me["remainingPrivateQuota"])
+                    row.label(text=f"Remaining:")
+                    row.label(text=size_str)
 
             layout.operator("wm.url_open", text="See my uploads", icon="URL").url = (
                 paths.BLENDERKIT_USER_ASSETS_URL
             )
 
         draw_login_buttons(layout)
+        if user_preferences.api_key == "":
+            layout.label(text="Logged users can bookmark assets.")
 
         addon_updater_ops.update_notice_box_ui(self, context)
 
