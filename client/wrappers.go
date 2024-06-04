@@ -84,7 +84,8 @@ func BlockingFileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		es := fmt.Sprintf("server responded with status: %v", resp.Status)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		es := fmt.Sprintf("server responded with status: %v, %v", resp.Status, respString)
 		log.Print(es)
 		http.Error(w, es, resp.StatusCode)
 		DeleteFileAndParentIfEmpty(data.Filepath)
@@ -217,7 +218,8 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		es := fmt.Errorf("%v: %v", data.Messages.Error, resp.Status)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		es := fmt.Errorf("%v: %v (%v)", data.Messages.Error, respString, resp.Status)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return
 	}
