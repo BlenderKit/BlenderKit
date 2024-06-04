@@ -172,7 +172,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 
         download.start_download(
             asset_data,
-            resolution=512,
+            resolution="resolution_0_5K",
             model_location=(0.0, 0.0, 0.0),
             model_rotation=(0.0, 0.0, 0.0),
         )
