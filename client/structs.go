@@ -209,7 +209,7 @@ type AssetFile struct {
 	FileThumbnailLarge string `json:"fileThumbnailLarge"`
 	FileType           string `json:"fileType"`
 	Modified           string `json:"modified"`
-	Resolution         string `json:"resolution"`
+	Resolution         int    `json:"resolution"` // null for asset (resolution) files, thumbnails, but is integer for videos
 }
 
 type DownloadAssetData struct {
