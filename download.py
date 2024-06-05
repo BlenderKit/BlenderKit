@@ -1042,7 +1042,7 @@ def asset_in_scene(asset_data):
                             fi1["url"] = fi["url"]
 
                             # browse all collections since linked collections can have same name.
-                            if asset_data["assetType"] == "MODEL":
+                            if asset_data["assetType"] == "model":
                                 for c in bpy.data.collections:
                                     if c.name == ad["name"]:
                                         # there can also be more linked collections with same name, we need to check id.
@@ -1054,7 +1054,7 @@ def asset_in_scene(asset_data):
                                         ):
                                             bk_logger.info("asset linked")
                                             return "LINKED", ad.get("resolution")
-                            elif asset_data["assetType"] == "MATERIAL":
+                            elif asset_data["assetType"] == "material":
                                 for m in bpy.data.materials:
                                     if not m.get("asset_data"):
                                         continue
