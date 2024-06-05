@@ -640,7 +640,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
 
         draw_login_buttons(layout)
         if user_preferences.api_key == "":
-            layout.label(text="Logged users can bookmark assets.")
+            layout.label(text="Log in to bookmark assets.")
 
         addon_updater_ops.update_notice_box_ui(self, context)
 
