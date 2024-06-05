@@ -56,7 +56,7 @@ def download_asset_file(asset_data, resolution="blend", api_key=""):
 
 
 def delete_unfinished_file(file_name):
-    """Deletes download if it wasn't finished. If the folder it's containing is empty, it also removes the directory."""
+    """Deletes download if it wasn't finished. If the directory it's containing is empty, it also removes the directory."""
     try:
         os.remove(file_name)
     except Exception as e:

@@ -203,7 +203,7 @@ def do_build(
 ):
     """Build addon by copying relevant addon directories and files to ./out/blenderkit directory.
     Create zip in ./out/blenderkit.zip.
-    - install_at: also copy the zip to install location if specified, e.g. /path/to/addons folder.
+    - install_at: also copy the zip to install location if specified, e.g. /path/to/addons directory.
     - include_tests: include test files into .zip file, so tests can be run with this .zip
     - clean_dir: if specified, clean that directory before building the add-on, e.g. clean client bin in blenderkit_data: "/Users/username/blenderkit_data/client/bin"
     - client_binaries_path: if specified, use client (signed) binaries from that path instead of building new ones, e.g. "./client_builds/v1.0.0" containing client binaries for different platforms
