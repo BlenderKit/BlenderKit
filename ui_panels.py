@@ -1846,14 +1846,14 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                         "scene.blenderkit_download", text="Replace asset resolution"
                     )
                     op.asset_base_id = asset_data["assetBaseId"]
-                    if asset_data["assetType"] == "MODEL":
+                    if asset_data["assetType"] == "model":
                         o = utils.get_active_model()
                         op.model_location = o.location
                         op.model_rotation = o.rotation_euler
                         op.target_object = o.name
                         op.material_target_slot = o.active_material_index
 
-                    elif asset_data["assetType"] == "MATERIAL":
+                    elif asset_data["assetType"] == "material":
                         aob = bpy.context.active_object
                         op.model_location = aob.location
                         op.model_rotation = aob.rotation_euler

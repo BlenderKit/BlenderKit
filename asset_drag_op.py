@@ -92,7 +92,7 @@ def draw_callback_3d_dragging(self, context):
         return
     ui_props = context.window_manager.blenderkitUI
     # print(self.asset_data["assetType"], self.has_hit, self.snapped_location)
-    if self.asset_data["assetType"] == "MODEL":
+    if self.asset_data["assetType"] == "model":
         if self.has_hit:
             draw_bbox(
                 self.snapped_location,
@@ -480,7 +480,7 @@ class AssetDragOperator(bpy.types.Operator):
         scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        if self.asset_data["assetType"] == "MODEL":
+        if self.asset_data["assetType"] == "model":
             if not self.drag:
                 self.snapped_location = scene.cursor.location
                 self.snapped_rotation = (0, 0, 0)
@@ -507,7 +507,7 @@ class AssetDragOperator(bpy.types.Operator):
                     model_rotation=self.snapped_rotation,
                     target_object=target_object,
                 )
-        if self.asset_data["assetType"] == "MATERIAL":
+        if self.asset_data["assetType"] == "material":
             object = None
             target_object = ""
             target_slot = ""
@@ -593,7 +593,7 @@ class AssetDragOperator(bpy.types.Operator):
                     material_target_slot=target_slot,
                 )
 
-        if self.asset_data["assetType"] == "HDR":
+        if self.asset_data["assetType"] == "hdr":
             bpy.ops.scene.blenderkit_download(
                 "INVOKE_DEFAULT",
                 asset_index=self.asset_search_index,
@@ -603,7 +603,7 @@ class AssetDragOperator(bpy.types.Operator):
                 max_resolution=self.asset_data.get("max_resolution", 0),
             )
 
-        if self.asset_data["assetType"] == "SCENE":
+        if self.asset_data["assetType"] == "scene":
             bpy.ops.scene.blenderkit_download(
                 "INVOKE_DEFAULT",
                 asset_index=self.asset_search_index,
@@ -612,12 +612,12 @@ class AssetDragOperator(bpy.types.Operator):
                 invoke_scene_settings=True,
             )
 
-        if self.asset_data["assetType"] == "BRUSH":
+        if self.asset_data["assetType"] == "brush":
             bpy.ops.scene.blenderkit_download(  # asset_type=self.asset_data["assetType"],
                 asset_index=self.asset_search_index,
             )
 
-        if self.asset_data["assetType"] in ["MATERIAL", "MODEL"]:
+        if self.asset_data["assetType"] in ["material", "model"]:
             bpy.ops.view3d.blenderkit_download_gizmo_widget(
                 "INVOKE_REGION_WIN",
                 asset_base_id=self.asset_data["assetBaseId"],
@@ -692,7 +692,7 @@ class AssetDragOperator(bpy.types.Operator):
                 self.object_name = object.name
 
             # MODELS can be dragged on scene floor
-            if not self.has_hit and self.asset_data["assetType"] == "MODEL":
+            if not self.has_hit and self.asset_data["assetType"] == "model":
                 (
                     self.has_hit,
                     self.snapped_location,
@@ -705,7 +705,7 @@ class AssetDragOperator(bpy.types.Operator):
                 if object is not None:
                     self.object_name = object.name
 
-            if self.asset_data["assetType"] == "MODEL":
+            if self.asset_data["assetType"] == "model":
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
                 self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
             # return {'RUNNING_MODAL'}
