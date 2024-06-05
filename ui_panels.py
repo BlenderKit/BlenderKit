@@ -1734,24 +1734,24 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
         return wm.invoke_props_dialog(self, width=500)
 
 
-class OpenSystemFolder(bpy.types.Operator):
-    """Open system folder"""
+class OpenSystemDirectory(bpy.types.Operator):
+    """Open system directory"""
 
-    bl_idname = "wm.blenderkit_open_system_folder"
-    bl_label = "Open system folder"
+    bl_idname = "wm.blenderkit_open_system_directory"
+    bl_label = "Open system directory"
     bl_options = {"REGISTER", "UNDO"}
 
-    folder: StringProperty(name="folder", default="")
+    directory: StringProperty(name="directory", default="")
 
     @classmethod
     def poll(cls, context):
         return True
 
     def execute(self, context):
-        if not os.path.exists(self.folder):
-            self.report({"ERROR"}, "Folder not found. Asset not downloaded yet.")
+        if not os.path.exists(self.directory):
+            self.report({"ERROR"}, "Directory not found. Asset not downloaded yet.")
             return {"CANCELLED"}
-        paths.open_path_in_file_browser(self.folder)
+        paths.open_path_in_file_browser(self.directory)
         return {"FINISHED"}
 
 
@@ -1826,13 +1826,15 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
         # by now there's nowhere to go.
 
     # if asset_data["downloaded"] == 100:
-    # enable opening the folder on drive
-    folder_paths = paths.get_asset_directories(asset_data)
-    if len(folder_paths) > 0 and os.path.exists(folder_paths[-1]):
+    # enable opening the directory on drive
+    dir_paths = paths.get_asset_directories(asset_data)
+    if len(dir_paths) > 0 and os.path.exists(dir_paths[-1]):
         op = layout.operator(
-            "wm.blenderkit_open_system_folder", text="Open Folder", icon="FILE_FOLDER"
+            "wm.blenderkit_open_system_directory",
+            text="Open Directory",
+            icon="FILE_FOLDER",
         )
-        op.folder = folder_paths[-1]
+        op.directory = dir_paths[-1]
 
     if asset_data.get("canDownload") != 0:
         if len(bpy.context.selected_objects) > 0 and ui_props.asset_type == "MODEL":
@@ -3500,7 +3502,7 @@ classes = (
     VIEW3D_MT_blenderkit_model_properties,
     NODE_PT_blenderkit_material_properties,
     OpenBlenderKitDiscord,
-    OpenSystemFolder,
+    OpenSystemDirectory,
     # VIEW3D_PT_blenderkit_ratings,
     VIEW3D_PT_blenderkit_downloads,
     # OBJECT_MT_blenderkit_resolution_menu,

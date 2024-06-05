@@ -102,8 +102,8 @@ def register_icons():
 
     pcoll = bpy.utils.previews.new()
 
-    # path to the folder where the icon is
-    # the path is calculated relative to this py file inside the addon folder
+    # path to the directory where the icon is
+    # the path is calculated relative to this py file inside the addon directory
     icons_dir = os.path.join(os.path.dirname(__file__), "thumbnails")
 
     # load a preview thumbnail of a file and store in the previews collection

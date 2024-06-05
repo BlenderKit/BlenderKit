@@ -22,6 +22,7 @@ import os
 import re
 import shutil
 import sys
+import subprocess
 import tempfile
 
 import bpy
@@ -50,8 +51,8 @@ BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 WINDOWS_PATH_LIMIT = 250
 
 
-def cleanup_old_folders():
-    """function to clean up any historical folders for BlenderKit. By now removes the temp folder."""
+def cleanup_old_directories():
+    """function to clean up any historical directories for BlenderKit. By now removes the temp directory."""
     orig_temp = os.path.join(os.path.expanduser("~"), "blenderkit_data", "temp")
     if os.path.isdir(orig_temp):
         try:
@@ -122,9 +123,9 @@ def get_temp_dir(subdir=None):
                 os.makedirs(tempdir)
             dirs_exist_dict[subdir] = tempdir
 
-        cleanup_old_folders()
+        cleanup_old_directories()
     except Exception as e:
-        reports.add_report("Cache directory not found. Resetting Cache folder path.")
+        reports.add_report("Cache directory not found. Resetting Cache directory path.")
         bk_logger.warning(f"due to exception: {e}")
 
         p = default_global_dict()
@@ -314,16 +315,16 @@ def get_texture_directory(asset_data, resolution="blend"):
 
 
 def get_asset_directories(asset_data):
-    """only get path where all asset files are stored"""
+    """Only get path where all asset files are stored."""
     name_slug = slugify(asset_data["name"])
     if len(name_slug) > 16:
         name_slug = name_slug[:16]
-    asset_folder_name = f"{name_slug}_{asset_data['id']}"
+    asset_dir_name = f"{name_slug}_{asset_data['id']}"
     dirs = get_download_dirs(asset_data["assetType"])
     asset_dirs = []
     for d in dirs:
-        asset_folder_path = os.path.join(d, asset_folder_name)
-        asset_dirs.append(asset_folder_path)
+        asset_dir_path = os.path.join(d, asset_dir_name)
+        asset_dirs.append(asset_dir_path)
     return asset_dirs
 
 
@@ -336,7 +337,7 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
     name_slug = slugify(asset_data["name"])
     if len(name_slug) > 16:
         name_slug = name_slug[:16]
-    asset_folder_name = f"{name_slug}_{asset_data['id']}"
+    asset_dir_name = f"{name_slug}_{asset_data['id']}"
 
     file_names = []
 
@@ -350,22 +351,22 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
         serverFilename = extract_filename_from_url(res_file["url"])
         localFilename = server_to_local_filename(serverFilename, asset_data["name"])
         for dir in dirs:
-            asset_folder_path = os.path.join(dir, asset_folder_name)
-            if sys.platform == "win32" and len(asset_folder_path) > WINDOWS_PATH_LIMIT:
+            asset_dir_path = os.path.join(dir, asset_dir_name)
+            if sys.platform == "win32" and len(asset_dir_path) > WINDOWS_PATH_LIMIT:
                 reports.add_report(
                     "The path to assets is too long, "
-                    "only Global folder can be used. "
+                    "only Global directory can be used. "
                     "Move your .blend file to another "
-                    "folder with shorter path to "
-                    "store assets in a subfolder of your project.",
+                    "directory with shorter path to "
+                    "store assets in a subdirectory of your project.",
                     60,
                     "ERROR",
                 )
                 continue
-            if not os.path.exists(asset_folder_path):
-                os.makedirs(asset_folder_path)
+            if not os.path.exists(asset_dir_path):
+                os.makedirs(asset_dir_path)
 
-            file_name = os.path.join(asset_folder_path, localFilename)
+            file_name = os.path.join(asset_dir_path, localFilename)
             file_names.append(file_name)
 
     utils.p("file paths", file_names)
@@ -373,10 +374,10 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
         if sys.platform == "win32" and len(f) > WINDOWS_PATH_LIMIT:
             reports.add_report(
                 "The path to assets is too long, "
-                "only Global folder can be used. "
+                "only Global directory can be used. "
                 "Move your .blend file to another "
-                "folder with shorter path to "
-                "store assets in a subfolder of your project.",
+                "directory with shorter path to "
+                "store assets in a subdirectory of your project.",
                 60,
                 "ERROR",
             )
@@ -472,11 +473,11 @@ def ensure_config_dir_exists():
     return config_dir
 
 
-def open_path_in_file_browser(folder_path):
+def open_path_in_file_browser(dir_path):
     """Open the path in the file browser."""
     if sys.platform == "win32":
-        os.startfile(folder_path)
+        os.startfile(dir_path)
     elif sys.platform == "darwin":
-        subprocess.Popen(["open", folder_path])
+        subprocess.Popen(["open", dir_path])
     else:
-        subprocess.Popen(["xdg-open", folder_path])
+        subprocess.Popen(["xdg-open", dir_path])

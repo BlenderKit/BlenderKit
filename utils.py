@@ -644,7 +644,7 @@ def p(text, text1="", text2="", text3="", text4="", text5="", level="DEBUG"):
 
 
 def copy_asset(fp1, fp2):
-    """synchronizes the asset between folders, including it's texture subdirectories"""
+    """Synchronizes the asset between directories, including it's texture subdirectories."""
     if 1:
         bk_logger.debug("copy asset")
         bk_logger.debug(fp1 + " " + fp2)
