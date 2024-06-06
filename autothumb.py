@@ -346,17 +346,21 @@ class GenerateThumbnailOperator(bpy.types.Operator):
             path_can_be_relative = False
 
         an_slug = paths.slugify(asset.name)
+
         thumb_path = os.path.join(thumb_dir, an_slug)
 
         if path_can_be_relative:
-            rel_thumb_path = os.path.join("//", an_slug)
+            rel_thumb_path = f"//{an_slug}"
         else:
             rel_thumb_path = thumb_path
 
         i = 0
         while os.path.isfile(thumb_path + ".jpg"):
-            thumb_path = os.path.join(thumb_dir, an_slug + "_" + str(i).zfill(4))
-            rel_thumb_path = os.path.join("//", an_slug + "_" + str(i).zfill(4))
+            thumb_name = f"{an_slug}_{str(i).zfill(4)}"
+            thumb_path = os.path.join(thumb_dir, thumb_name)
+            if path_can_be_relative:
+                rel_thumb_path = f"//{thumb_name}"
+
             i += 1
         bkit = asset.blenderkit
 
