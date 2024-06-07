@@ -24,7 +24,16 @@ import time
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from . import comments_utils, global_vars, paths, ratings_utils, search, ui, utils
+from . import (
+    comments_utils,
+    global_vars,
+    paths,
+    ratings_utils,
+    search,
+    ui,
+    utils,
+    ui_panels,
+)
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
@@ -1293,6 +1302,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.update_bookmark_icon(widget)
 
     def drag_drop_asset(self, widget):
+
+        now = time.time()
+        # avoid double click to download assets under panels, mainly category panel
+        if now - ui_panels.last_time_dropdown_active < 0.5:
+            return
+        # start drag drop
         bpy.ops.view3d.asset_drag_drop(
             "INVOKE_DEFAULT",
             asset_search_index=widget.search_index + self.scroll_offset,
