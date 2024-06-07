@@ -21,6 +21,7 @@ import logging
 import os
 import platform
 import random
+import time
 from webbrowser import open_new_tab
 
 import bpy
@@ -48,6 +49,8 @@ from . import (
 
 
 bk_logger = logging.getLogger(__name__)
+
+last_time_dropdown_active = 0.0
 
 
 def draw_not_logged_in(source, message="Please Login/Signup to use this feature"):
@@ -1421,6 +1424,10 @@ class VIEW3D_PT_blenderkit_categories(Panel):
         return ui_props.down_up == "SEARCH"
 
     def draw(self, context):
+        # measure time since last dropdown activation/ mouse hover e.t.c.
+        # this is then used in asset_bar_op.py to cancel asset drag drop if the time is too small and thus means double clicking.
+        global last_time_dropdown_active
+        last_time_dropdown_active = time.time()
         draw_panel_categories(self.layout, context)
 
 
