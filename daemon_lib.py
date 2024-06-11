@@ -47,12 +47,15 @@ def get_port() -> str:
     return global_vars.CLIENT_PORTS[0]
 
 
-def ensure_minimal_data(data: dict = {}) -> dict:
+def ensure_minimal_data(data: dict = None) -> dict:
     """Ensure that the data send to the BlenderKit-Client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
     - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
     - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
     """
+    if data == None:
+        data = {}
+
     av = global_vars.VERSION
     if "api_key" not in data:  # for BG instances, where preferences are not available
         data.setdefault(
@@ -397,18 +400,20 @@ def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Re
 def blocking_request(
     url: str,
     method: str = "GET",
-    headers: dict = {},
-    json_data: dict = {},
+    headers: dict = None,
+    json_data: dict = None,
     timeout: tuple = TIMEOUT,
 ) -> requests.Response:
     """Make blocking HTTP request through BlenderKit-Client.
     Will not return until results are available."""
+    if headers is None:
+        headers = {}
     data = {
         "url": url,
         "method": method,
         "headers": headers,
     }
-    if json_data != {}:
+    if json_data != None:
         data["json"] = json_data
     with requests.Session() as session:
         return session.get(
@@ -421,11 +426,19 @@ def blocking_request(
 
 ### REQUEST WRAPPERS
 def nonblocking_request(
-    url: str, method: str, headers: dict = {}, json_data: dict = {}, messages: dict = {}
+    url: str,
+    method: str,
+    headers: dict = None,
+    json_data: dict = None,
+    messages: dict = None,
 ) -> requests.Response:
     """Make non-blocking HTTP request through BlenderKit-Client.
     This function will return ASAP, not returning any actual data.
     """
+    if headers is None:
+        headers = {}
+    if messages is None:
+        messages = {}
     data = {
         "url": url,
         "method": method,
@@ -433,7 +446,7 @@ def nonblocking_request(
         "messages": messages,
     }
     data = ensure_minimal_data(data)
-    if json_data != {}:
+    if json_data != None:
         data["json"] = json_data
     with requests.Session() as session:
         return session.get(
