@@ -20,6 +20,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -68,7 +69,7 @@ func StringToAddonVersion(s string) (*AddonVersion, error) {
 
 	_, err := fmt.Sscanf(s, "%d.%d.%d", &adVer.Major, &adVer.Minor, &adVer.Patch)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing add-on version: %v", err)
+		return nil, fmt.Errorf("error parsing add-on version: %w", err)
 	}
 
 	return adVer, nil
@@ -82,7 +83,7 @@ func StringToBlenderVersion(s string) (*BlenderVersion, error) {
 
 	_, err := fmt.Sscanf(s, "%d.%d.%d", &blVer.Major, &blVer.Minor, &blVer.Patch)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing blender version: %v", err)
+		return nil, fmt.Errorf("error parsing blender version: %w", err)
 	}
 	return blVer, nil
 }
@@ -279,4 +280,24 @@ func FixAssetsUpdateResponse(data *AssetsCreateResponse, assetID, assetType stri
 	}
 
 	return data
+}
+
+// Check if the HTTP response is of content type application/json.
+// Return nil error if response is JSON.
+// If response is not JSON, try to extract the error message and return readable error.
+func RespIsJSON(resp *http.Response) error {
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		return nil
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("expected application/json, got %s and cannot read response body: %w", contentType, err)
+	}
+	bodyString := string(body)
+	if strings.Contains(bodyString, "error code: 1015") {
+		return fmt.Errorf("API rate limit exceeded, wait for a while (%s)", bodyString)
+	}
+
+	return fmt.Errorf("invalid response Content-Type: %s, resp: %s", contentType, bodyString)
 }
