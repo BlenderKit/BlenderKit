@@ -47,6 +47,7 @@ from . import (
     utils,
 )
 
+ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 
 bk_logger = logging.getLogger(__name__)
 
@@ -231,7 +232,7 @@ def draw_panel_model_upload(self, context):
     draw_thumbnail_upload_panel(col, props)
 
     prop_needed(col, props, "thumbnail", props.thumbnail)
-    if bpy.context.scene.render.engine in ("CYCLES", "BLENDER_EEVEE"):
+    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
         col.operator(
             "object.blenderkit_generate_thumbnail",
             text="Generate thumbnail",
@@ -1050,7 +1051,7 @@ def draw_panel_material_upload(self, context):
 
     prop_needed(row, props, "thumbnail", props.has_thumbnail, False)
 
-    if bpy.context.scene.render.engine in ("CYCLES", "BLENDER_EEVEE"):
+    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
         layout.operator(
             "object.blenderkit_generate_material_thumbnail",
             text="Render thumbnail with Cycles",
@@ -1628,9 +1629,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         # op.keep_running = False
         # op.do_search = False
         # op.tooltip = 'Show/Hide asset preview'
-        if context.scene.render.engine not in ("CYCLES", "BLENDER_EEVEE"):
+        if context.scene.render.engine not in ACCEPTABLE_ENGINES:
             rtext = (
-                "Only Cycles and EEVEE render engines are currently supported. "
+                "Only Cycles, EEVEE and EEVEE (Legacy) render engines are currently supported. "
                 "Please use Cycles for all assets you upload to BlenderKit."
             )
             utils.label_multiline(

@@ -232,6 +232,7 @@ search_material_styles = (
 engines = (
     ("CYCLES", "Cycles", "Blender Cycles"),
     ("EEVEE", "Eevee", "Blender eevee renderer"),
+    ("EEEVE_NEXT", "Eevee Next", "Blender eevee renderer (new)"),
     ("OCTANE", "Octane", "Octane render enginge"),
     ("ARNOLD", "Arnold", "Arnold render engine"),
     ("V-RAY", "V-Ray", "V-Ray renderer"),
