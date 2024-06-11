@@ -177,7 +177,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	if action == "download" {
 		err = downloadAsset(downloadURL, fp, data, taskID, task.Ctx)
 		if err != nil {
-			e := fmt.Errorf("error downloading asset: %v", err)
+			e := fmt.Errorf("error downloading asset: %w", err)
 			TaskErrorCh <- &TaskError{
 				AppID:  data.AppID,
 				TaskID: taskID,
@@ -193,7 +193,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	if data.UnpackFiles {
 		err := UnpackAsset(fp, data, taskID)
 		if err != nil {
-			e := fmt.Errorf("error unpacking asset: %v", err)
+			e := fmt.Errorf("error unpacking asset: %w", err)
 			TaskErrorCh <- &TaskError{
 				AppID:  data.AppID,
 				TaskID: taskID,
@@ -294,7 +294,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 	if err != nil {
 		e := DeleteFile(filePath)
 		if e != nil {
-			return fmt.Errorf("request failed: %v, failed to delete file: %v", err, e)
+			return fmt.Errorf("request failed: %w, failed to delete file: %w", err, e)
 		}
 		return err
 	}
@@ -305,7 +305,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 		err := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
 		e := DeleteFile(filePath)
 		if e != nil {
-			return fmt.Errorf("%v, failed to delete file: %v", err, e)
+			return fmt.Errorf("%w, failed to delete file: %w", err, e)
 		}
 		return err
 	}
@@ -314,7 +314,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 	if totalLength == "" {
 		e := DeleteFile(filePath)
 		if e != nil {
-			return fmt.Errorf("request failed: %v, failed to delete file: %v", err, e)
+			return fmt.Errorf("request failed: %w, failed to delete file: %w", err, e)
 		}
 		return fmt.Errorf("Content-Length header is missing")
 	}
@@ -323,7 +323,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 	if err != nil {
 		e := DeleteFile(filePath)
 		if e != nil {
-			return fmt.Errorf("length conversion failed: %v, failed to delete file: %v", err, e)
+			return fmt.Errorf("length conversion failed: %w, failed to delete file: %w", err, e)
 		}
 		return err
 	}
@@ -357,7 +357,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 			close(progress)
 			err = DeleteFile(filePath)
 			if err != nil {
-				return fmt.Errorf("%v, failed to delete file: %v", ctx.Err(), err)
+				return fmt.Errorf("%w, failed to delete file: %w", ctx.Err(), err)
 			}
 			return ctx.Err()
 		default:
@@ -368,7 +368,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 					close(progress)
 					err = DeleteFile(filePath) // Clean up; ignore error from DeleteFile to focus on writeErr
 					if err != nil {
-						return fmt.Errorf("%v, failed to delete file: %v", writeErr, err)
+						return fmt.Errorf("%w, failed to delete file: %w", writeErr, err)
 					}
 					return writeErr
 				}
@@ -382,7 +382,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 				}
 				err := DeleteFile(filePath) // Clean up; ignore error from DeleteFile to focus on readErr
 				if err != nil {
-					return fmt.Errorf("%v, failed to delete file: %v", readErr, err)
+					return fmt.Errorf("%w, failed to delete file: %w", readErr, err)
 				}
 				return readErr
 			}

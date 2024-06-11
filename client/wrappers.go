@@ -200,7 +200,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 	reqBody := bytes.NewBuffer(data.JSON)
 	req, err := http.NewRequest(data.Method, data.URL, reqBody)
 	if err != nil {
-		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+		es := fmt.Errorf("%v: %w", data.Messages.Error, err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return
 	}
@@ -211,7 +211,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+		es := fmt.Errorf("%v: %w", data.Messages.Error, err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return
 	}
@@ -226,7 +226,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+		es := fmt.Errorf("%v: %w", data.Messages.Error, err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 		return
 	}
@@ -237,7 +237,7 @@ func NonblockingRequest(data NonblockingRequestTaskData) {
 		var j interface{}
 		err = json.Unmarshal(respBody, &j)
 		if err != nil {
-			es := fmt.Errorf("%v: %v", data.Messages.Error, err)
+			es := fmt.Errorf("%v: %w", data.Messages.Error, err)
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: es}
 			return
 		}

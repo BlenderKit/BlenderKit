@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -473,30 +474,47 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-func doAssetSearch(data SearchTaskData, taskID string) {
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "search")
+func doAssetSearch(data SearchTaskData, taskUUID string) {
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
 
 	req, err := http.NewRequest("GET", data.URLQuery, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("search - creating request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("search - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
-	var searchResult SearchResults
-	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("search: %s, status (%s), query: %v", respString, resp.Status, data.URLQuery)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
-	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskID, Result: searchResult}
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("search: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	var searchResult SearchResults
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		err = fmt.Errorf("search - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Result: searchResult}
 	go parseThumbnails(searchResult, data)
 }
 
@@ -621,9 +639,10 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 		return
 	}
 	defer resp.Body.Close()
-
+	//MARK: TODO check status code
 	if resp.StatusCode != http.StatusOK {
-		t.Message = "Error downloading thumbnail"
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		t.Message = fmt.Sprintf("search: %s, status (%s), url: %v", respString, resp.Status, data.ImageURL)
 		t.Status = "error"
 		AddTaskCh <- t
 		return
@@ -665,6 +684,7 @@ func FetchCategories(data MinimalTaskData) {
 	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		err = fmt.Errorf("categories - making request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -672,13 +692,29 @@ func FetchCategories(data MinimalTaskData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
+		err = fmt.Errorf("categories - performing request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("categories: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("categories: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
 	var respData CategoriesData
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		err = fmt.Errorf("categories - decoding response: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -699,19 +735,36 @@ func FetchDisclaimer(data MinimalTaskData) {
 	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		err = fmt.Errorf("disclaimer - making request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
+		err = fmt.Errorf("disclaimer - performing request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("disclaimer: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("disclaimer: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
 	var respData DisclaimerData
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		err = fmt.Errorf("disclaimer - decoding response: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -730,19 +783,36 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		err = fmt.Errorf("notifications - making request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
+		err = fmt.Errorf("notifications - performing request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("notifications: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("notifications: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
 	var respData NotificationData
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		err = fmt.Errorf("notifications - decoding response: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -875,7 +945,8 @@ func DownloadGravatarImage(data FetchGravatarData) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("error downloading gravatar image - %v: %v", resp.Status, url)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("gravatar image download: %s, status (%s), query: %v", respString, resp.Status, url)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
 		return
 	}
@@ -919,32 +990,49 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetUserProfile(data MinimalTaskData) {
 	url := *Server + "/api/v1/me/"
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "profiles/get_user_profile")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "profiles/get_user_profile")
 
 	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get profile - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get profile - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("get profile: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("get profile: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get profile - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "data suceessfully fetched",
 		Result:  respData,
 	}
@@ -965,32 +1053,49 @@ func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
 // Re-implements: file://daemon/daemon_ratings.py : get_rating()
 func GetRating(data GetRatingData) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/", *Server, data.AssetID)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/get_rating")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "ratings/get_rating")
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get rating - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get rating - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("get rating: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("get rating: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get rating - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "Rating data obtained",
 		Result:  respData,
 	}
@@ -1017,13 +1122,14 @@ func SendRatingHandler(w http.ResponseWriter, r *http.Request) {
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_update
 func SendRating(data SendRatingData) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/%s/", *Server, data.AssetID, data.RatingType)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/send_rating")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "ratings/send_rating")
 
 	reqData := map[string]interface{}{"score": data.RatingValue}
 	reqBody, err := json.Marshal(reqData)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("send rating - encoding: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
@@ -1036,14 +1142,16 @@ func SendRating(data SendRatingData) {
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(reqBody))
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("send rating - making %v request: %w", method, err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("send rating - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
@@ -1051,14 +1159,14 @@ func SendRating(data SendRatingData) {
 	if method == http.MethodDelete {
 		if resp.StatusCode != http.StatusNoContent {
 			_, respString, _ := ParseFailedHTTPResponse(resp)
-			err := fmt.Errorf("error removing rating (%v): %s at URL: %v", resp.Status, respString, url)
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+			err := fmt.Errorf("remove rating - response (%v): %s at URL: %v", resp.Status, respString, url)
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 			return
 		}
 
 		TaskFinishCh <- &TaskFinish{
 			AppID:   data.AppID,
-			TaskID:  taskID,
+			TaskID:  taskUUID,
 			Message: fmt.Sprintf("Removed %s rating successfully", data.RatingType),
 			Result:  map[string]string{},
 		}
@@ -1067,20 +1175,28 @@ func SendRating(data SendRatingData) {
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error rating asset (%v): %s at URL %v", resp.Status, respString, url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err := fmt.Errorf("send rating: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("send rating: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("send rating - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: fmt.Sprintf("Rated %s=%.1f successfully", data.RatingType, data.RatingValue),
 		Result:  respData,
 	}
@@ -1103,40 +1219,49 @@ func GetBookmarksHandler(w http.ResponseWriter, r *http.Request) {
 // GetBookmarks is a function for fetching the user's bookmarks.
 func GetBookmarks(data MinimalTaskData) {
 	url := fmt.Sprintf("%s/api/v1/search/?query=bookmarks_rating:1", *Server)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "ratings/get_bookmarks")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "ratings/get_bookmarks")
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get boomarks - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get bookmarks - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error getting bookmarks (%v): %v at URL %v", resp.Status, respString, url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err := fmt.Errorf("get bookmarks: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("get bookmarks: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
-
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get bookmarks - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "Bookmarks data obtained",
 		Result:  respData,
 	}
@@ -1161,39 +1286,49 @@ func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
 // API documentation: https://www.blenderkit.com/api/v1/docs/#operation/comments_read
 func GetComments(data GetCommentsData) {
 	url := fmt.Sprintf("%s/api/v1/comments/assets-uuidasset/%s/", *Server, data.AssetID)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/get_comments")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "comments/get_comments")
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get comments - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get comments - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error getting comments (%v): %v at URL %v", resp.Status, respString, url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err := fmt.Errorf("get comments: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("get comments: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("get comments - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "comments downloaded",
 		Result:  respData,
 	}
@@ -1222,12 +1357,13 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 func CreateComment(data CreateCommentData) {
 	get_url := fmt.Sprintf("%s/api/v1/comments/asset-comment/%s/", *Server, data.AssetID)
 	post_url := fmt.Sprintf("%s/api/v1/comments/comment/", *Server)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/create_comment")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "comments/create_comment")
 
 	req, err := http.NewRequest("GET", get_url, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - making GET request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
@@ -1235,21 +1371,30 @@ func CreateComment(data CreateCommentData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - performing GET request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error getting comments (%v): %v at URL %v", resp.Status, respString, get_url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err := fmt.Errorf("create comment - GET: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("create comment - GET: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var commentsData GetCommentsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&commentsData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - decoding GET response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
@@ -1268,39 +1413,51 @@ func CreateComment(data CreateCommentData) {
 	}
 	uploadDataJSON, err := json.Marshal(uploadData)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - encoding POST data: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	post_req, err := http.NewRequest("POST", post_url, bytes.NewBuffer(uploadDataJSON))
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - making POST request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	post_req.Header = headers
 	post_resp, err := ClientAPI.Do(post_req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - performing POST request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("create comment - POST: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
-	defer resp.Body.Close()
-
-	if post_resp.StatusCode != http.StatusCreated {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: fmt.Errorf("error creating comment - %v: %v", post_resp.Status, post_url)}
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("create comment - POST: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
 	if err := json.NewDecoder(post_resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("create comment - decoding POST response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "Comment created",
 		Result:  respData,
 	}
@@ -1331,8 +1488,8 @@ func FeedbackCommentHandler(w http.ResponseWriter, r *http.Request) {
 // API docs: https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
 func FeedbackComment(data FeedbackCommentTaskData) {
 	url := fmt.Sprintf("%s/api/v1/comments/feedback/", *Server)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/feedback_comment")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "comments/feedback_comment")
 
 	upload_data := FeedbackCommentData{
 		CommentID: data.CommentID,
@@ -1341,41 +1498,51 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 
 	JSON, err := json.Marshal(upload_data)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment feedback - encoding data: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment feedback - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment feedback - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error creating comment feedback (%v): %v at URL %v", resp.Status, respString, url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err := fmt.Errorf("comment feedback: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("comment feedback: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment feedback - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "flag uploaded",
 		Result:  respData,
 	}
@@ -1399,52 +1566,62 @@ func MarkCommentPrivateHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// MarkCommentPrivate marks comment as private or public.
+// MarkCommentPrivate marks comment as private or public. Reported to user as "comment privacy".
 //
 // API docs: # https://www.blenderkit.com/api/v1/docs/#operation/comments_is_private_create
 func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 	url := fmt.Sprintf("%s/api/v1/comments/is_private/%d/", *Server, data.CommentID)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "comments/mark_comment_private")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "comments/mark_comment_private")
 
 	uploadData := MarkCommentPrivateData{IsPrivate: data.IsPrivate}
 	JSON, err := json.Marshal(uploadData)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment privacy - encoding data: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment privacy - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment privacy - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("comment privacy: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error creating comment feedback (%v): %v at URL %v", resp.Status, respString, url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("comment privacy: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("comment privacy - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "comment visibility updated",
 		Result:  respData,
 	}
@@ -1473,39 +1650,48 @@ func MarkNotificationReadHandler(w http.ResponseWriter, r *http.Request) {
 // API docs: https://www.blenderkit.com/api/v1/docs/#operation/notifications_mark-as-read_read
 func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	url := fmt.Sprintf("%s/api/v1/notifications/mark-as-read/%d/", *Server, data.Notification)
-	taskID := uuid.New().String()
-	AddTaskCh <- NewTask(data, data.AppID, taskID, "notifications/mark_notification_read")
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "notifications/mark_notification_read")
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("mark notification read - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("mark notification read - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("error creating comment feedback (%v): %v at URL %v", resp.Status, respString, url)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err := fmt.Errorf("mark notification read: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("mark notification read: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 
 	var respData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err}
+		err = fmt.Errorf("mark notification read - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
-		TaskID:  taskID,
+		TaskID:  taskUUID,
 		Message: "notification marked as read",
 		Result:  respData,
 	}
@@ -1586,7 +1772,7 @@ func doAssetUpload(data AssetUploadRequestData) {
 	}
 
 	// 3. UPLOAD
-	errJSON, err := asset_upload_data(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
+	errJSON, err := UploadAssetData(filesToUpload, data, *metadataResp, isMainFileUpload, taskID)
 	if err != nil {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err, Result: errJSON}
 		return
@@ -1646,7 +1832,7 @@ func CompleteUploadFileBlocking(w http.ResponseWriter, r *http.Request) {
 }
 
 // AssetUploadData uploads asset data to S3. If response is not OK, it will return the JSON of the error response and error.
-func asset_upload_data(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) (json.RawMessage, error) {
+func UploadAssetData(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) (json.RawMessage, error) {
 	for _, file := range files { // will be empty if only metadata is uploaded
 		var minimalTaskData = MinimalTaskData{
 			AppID:           data.AppID,
@@ -1746,8 +1932,8 @@ func get_S3_upload_JSON(file UploadFile, data MinimalTaskData, assetID string) (
 	if err != nil {
 		return resp_JSON, err
 	}
-
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusCreated {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
 		err := fmt.Errorf("status code error (%d) %s: %v", resp.StatusCode, resp.Status, respString)
@@ -1930,7 +2116,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 					exitCode := exitErr.ExitCode()
 					return files, fmt.Errorf("command exited with code %d\nOutput: %s", exitCode, out)
 				} else {
-					return files, fmt.Errorf("command execution failed: %v\nOutput: %s", err, out)
+					return files, fmt.Errorf("command execution failed: %w\nOutput: %s", err, out)
 				}
 			}
 		}
@@ -2061,9 +2247,12 @@ func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.Ra
 
 // Try to parse the error response from the server.
 // Returns:
-// - json.RawMessage: the json response from the server, if it was valid JSON.
-// - string: the response from the server as string, for json and non-json responses.
-// - error: the error which occurred while parsing the response (resp could not be read)
+//
+// json.RawMessage: the json response from the server, if it was valid JSON.
+//
+// string: the response from the server as string, for json and non-json responses.
+//
+// error: the error which occurred while parsing the response (resp could not be read)
 func ParseFailedHTTPResponse(resp *http.Response) (json.RawMessage, string, error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -2072,13 +2261,19 @@ func ParseFailedHTTPResponse(resp *http.Response) (json.RawMessage, string, erro
 	}
 	bodyString := string(bodyBytes)
 	if !json.Valid(bodyBytes) {
+		// API rate limit exceeded
+		if strings.Contains(bodyString, "error code: 1015") {
+			msg := fmt.Sprintf("API rate limit exceeded, wait for a while [%v]", bodyString)
+			return nil, msg, fmt.Errorf("invalid json")
+		}
+
+		// General error
 		BKLog.Printf("%v Failed request on %v, error response: %v", EmoWarning, resp.Request.URL, bodyString)
 		return nil, bodyString, fmt.Errorf("invalid json")
 	}
 
 	var JSON json.RawMessage
 	if err := json.Unmarshal(bodyBytes, &JSON); err != nil {
-
 		BKLog.Printf("%v Failed request on %v, error response: %v", EmoWarning, resp.Request.URL, bodyString)
 		return nil, bodyString, fmt.Errorf("error unmarshalling error response: %w", err)
 	}

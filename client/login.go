@@ -316,7 +316,7 @@ func RevokeOAuth2Token(data RefreshTokenData, tokenType string, ch chan error, w
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/o/revoke_token/", *Server), strings.NewReader(rData.Encode()))
 	if err != nil {
-		ch <- fmt.Errorf("'%v: %v'", tokenType, err)
+		ch <- fmt.Errorf("'%v: %w'", tokenType, err)
 		return
 	}
 
@@ -324,14 +324,14 @@ func RevokeOAuth2Token(data RefreshTokenData, tokenType string, ch chan error, w
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // Overwrite Content-Type to "application/x-www-form-urlencoded"
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		ch <- fmt.Errorf("'%v: %v'", tokenType, err)
+		ch <- fmt.Errorf("'%v: %w'", tokenType, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		ch <- fmt.Errorf("'%v: %v'", tokenType, err)
+		ch <- fmt.Errorf("'%v: %w'", tokenType, err)
 		return
 	}
 
