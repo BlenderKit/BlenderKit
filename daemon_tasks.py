@@ -32,7 +32,7 @@ class Task:
         message_detailed: str = "",
         progress: int = 0,
         status: str = "created",
-        result: dict = {},
+        result: dict = None,
     ):
         if task_id == "":
             task_id = str(uuid.uuid4())
@@ -48,8 +48,7 @@ class Task:
         self.status = status  # created / finished / error
         if result != None:
             self.result = result.copy()
-        else:  # to be extra safe
-            print("result is None", self.task_type)
+        else:
             self.result = {}
 
     def __str__(self):
