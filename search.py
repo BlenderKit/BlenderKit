@@ -132,22 +132,44 @@ def check_clipboard():
     The string is generated on www.blenderkit.com as for example here:
     https://www.blenderkit.com/get-blenderkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
     """
-    # clipboard monitoring to search assets from web
-    if platform.system() != "Linux":
-        global last_clipboard
-        if bpy.context.window_manager.clipboard != last_clipboard:
-            last_clipboard = bpy.context.window_manager.clipboard
-            instr = "asset_base_id:"
-            # first check if contains asset id, then asset type
-            if last_clipboard[: len(instr)] == instr:
-                atstr = "asset_type:"
-                ati = last_clipboard.find(atstr)
-                # this only checks if the asset_type keyword is there but let's the keywords update function do the parsing.
-                if ati > -1:
-                    search_props = utils.get_search_props()
-                    search_props.search_keywords = last_clipboard
-                    # don't run search after this - assigning to keywords runs the search_update function.
-                # bpy.context.window_manager.clipboard = ''
+    # is this still relevant?
+    if platform.system() == "Linux":
+        return
+
+    global last_clipboard
+    current_clipboard = bpy.context.window_manager.clipboard
+    if current_clipboard == last_clipboard:
+        return
+    last_clipboard = current_clipboard
+
+    asset_base_str = "asset_base_id:"
+    asset_type_str = "asset_type:"
+
+    asset_type_index = last_clipboard.find(asset_type_str)
+    if asset_type_index == -1:
+        return
+
+    if not last_clipboard.startswith(asset_base_str):
+        return
+
+    asset_type_string = current_clipboard[asset_type_index:].lower()
+    if asset_type_string.find("model") > -1:
+        target_asset_type = "MODEL"
+    elif asset_type_string.find("material") > -1:
+        target_asset_type = "MATERIAL"
+    elif asset_type_string.find("brush") > -1:
+        target_asset_type = "BRUSH"
+    elif asset_type_string.find("scene") > -1:
+        target_asset_type = "SCENE"
+    elif asset_type_string.find("hdr") > -1:
+        target_asset_type = "HDR"
+    ui_props = bpy.context.window_manager.blenderkitUI
+    if ui_props.asset_type != target_asset_type:
+        ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type
+
+    # all modifications in
+    search_props = utils.get_search_props()
+    search_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
 
 
 def parse_result(r):
@@ -1031,7 +1053,13 @@ def clean_filters():
         sprops.property_unset("search_animated")
         sprops.property_unset("search_geometry_nodes")
     if ui_props.asset_type == "HDR":
-        sprops.true_hdr = False
+        # Set without triggering update functions:
+        sprops["true_hdr"] = False
+        while True:  # Wait until true_hdr is updated
+            sprops = utils.get_search_props()
+            if sprops["true_hdr"] == False:
+                break
+            print("waiting for sprops.true_hdr to be updated")
 
 
 def update_filters():
@@ -1107,7 +1135,8 @@ def search_update(self, context):
     if ui_props.down_up != "SEARCH":
         ui_props.down_up = "SEARCH"
 
-    # here we tweak the input if it comes form the clipboard. we need to get rid of asset type and set it in UI
+    # Input tweaks if user manually placed asset-link from website -> we need to get rid of asset type and set it in UI.
+    # This is not normally needed as check_clipboard() asset_type switching but without recursive shit.
     sprops = utils.get_search_props()
     instr = "asset_base_id:"
     atstr = "asset_type:"
