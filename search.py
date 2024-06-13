@@ -132,24 +132,22 @@ def check_clipboard():
     The string is generated on www.blenderkit.com as for example here:
     https://www.blenderkit.com/get-blenderkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
     """
-    # is this still relevant?
-    if platform.system() == "Linux":
+    global last_clipboard
+    try:  # could be problematic on Linux
+        current_clipboard = bpy.context.window_manager.clipboard
+    except Exception as e:
+        bk_logger.warning(f"Failed to get clipboard: {e}")
         return
 
-    global last_clipboard
-    current_clipboard = bpy.context.window_manager.clipboard
     if current_clipboard == last_clipboard:
         return
     last_clipboard = current_clipboard
 
-    asset_base_str = "asset_base_id:"
-    asset_type_str = "asset_type:"
-
-    asset_type_index = last_clipboard.find(asset_type_str)
+    asset_type_index = last_clipboard.find("asset_type:")
     if asset_type_index == -1:
         return
 
-    if not last_clipboard.startswith(asset_base_str):
+    if not last_clipboard.startswith("asset_base_id:"):
         return
 
     asset_type_string = current_clipboard[asset_type_index:].lower()
