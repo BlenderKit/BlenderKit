@@ -19,7 +19,6 @@
 import logging
 import os
 import platform
-import re
 import shutil
 import subprocess
 from os import path
@@ -543,8 +542,8 @@ def check_blenderkit_client_exit_code() -> tuple[int, str]:
 
 def start_blenderkit_client():
     """Start BlenderKit-client in separate process.
-    1. Check if binary is available at global_dir/client/vX.Y.Z.YYMMDD/blenderkit-client-<os>-<arch>(.exe)
-    2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z.YYMMDD/
+    1. Check if binary is available at global_dir/client/vX.Y.Z/blenderkit-client-<os>-<arch>(.exe)
+    2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z/
     3. Start the BlenderKit-Client process which serves as bridge between BlenderKit add-on and BlenderKit server.
     """
     ensure_client_binary_installed()
@@ -581,7 +580,9 @@ def start_blenderkit_client():
             )
     except Exception as e:
         reports.add_report(
-            f"Error: BlenderKit-Client failed to start - {e}", 10, "ERROR"
+            f"Error: BlenderKit-Client {client_version} failed to start - {e}",
+            10,
+            "ERROR",
         )
         raise (e)
 
@@ -633,51 +634,35 @@ def get_client_log_path() -> str:
     return path.abspath(log_path)
 
 
-def get_client_version() -> str:
-    """Get the version of the BlenderKit-Client binary bundled within the add-on.
-    Binaries are located in blenderkit/client/vX.Y.Z.YYMMDD/ directory.
-    From this directory name, we get the version of the client binary.
-    """
-    addon_dir = path.dirname(__file__)
-    client_bundled_dir = path.join(addon_dir, "client")
-    version_pattern = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)?$")
-    for entry in os.scandir(client_bundled_dir):
-        if entry.is_dir() and version_pattern.match(entry.name):
-            return entry.name
-
-    raise AssertionError(
-        "Directory with preinstalled blenderkit-client binaries not found."
-    )
-
-
 def get_preinstalled_client_path() -> str:
     """Get the path to the preinstalled BlenderKit-Client binary - located in add-on directory.
-    This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z.YYMMDD on first run.
+    This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z on first run.
     """
     addon_dir = path.dirname(__file__)
-    client_version = get_client_version()
     binary_name = decide_client_binary_name()
-    binary_path = path.join(addon_dir, "client", client_version, binary_name)
+    binary_path = path.join(
+        addon_dir, "client", global_vars.CLIENT_VERSION, binary_name
+    )
     return path.abspath(binary_path)
 
 
 def get_client_binary_path():
-    """Get the path to the BlenderKit-Client binary located in global_dir/client/bin/vX.Y.Z.YYMMDD.
+    """Get the path to the BlenderKit-Client binary located in global_dir/client/bin/vX.Y.Z.
     This is the binary that is used to start the client process.
     We do not start from the add-on because it might block update or delete of the add-on.
     Returns: (str, str) - path to the Client binary, version of the Client binary
     """
     client_dir = get_client_directory()
     binary_name = decide_client_binary_name()
-    ver_string = get_client_version()
+    ver_string = global_vars.CLIENT_VERSION
     binary_path = path.join(client_dir, "bin", ver_string, binary_name)
     return path.abspath(binary_path), ver_string
 
 
 def ensure_client_binary_installed():
-    """Ensure that the BlenderKit-Client binary is installed in global_dir/client/bin/vX.Y.Z.YYMMDD.
+    """Ensure that the BlenderKit-Client binary is installed in global_dir/client/bin/vX.Y.Z.
     If not, copy the binary from the add-on directory blenderkit/client.
-    As side effect, this function also creates the global_dir/client/bin/vX.Y.Z.YYMMDD directory.
+    As side effect, this function also creates the global_dir/client/bin/vX.Y.Z directory.
     """
     client_binary_path, _ = get_client_binary_path()
     if path.exists(client_binary_path):
