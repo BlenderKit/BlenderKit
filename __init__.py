@@ -27,7 +27,7 @@ bl_info = {
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
-VERSION = (3, 12, 1, 240520)
+VERSION = (3, 12, 1, 240614)
 
 import logging
 import sys
@@ -2333,6 +2333,7 @@ classes = (
 
 def register():
     reload(global_vars)
+    global_vars.VERSION = VERSION
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
     addon_updater_ops.register({"version": VERSION})
@@ -2383,7 +2384,6 @@ def register():
         type=BlenderKitBrushUploadProps
     )
 
-    global_vars.VERSION = VERSION
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
