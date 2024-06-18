@@ -17,8 +17,6 @@ jobs:
         continue-on-error: true
       - name: BLACK
         run: python -m black . --check --diff
-      #- name: RUFF on ./daemon
-      #  run: python -m ruff daemon
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
 
@@ -28,6 +26,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check CLIENT_VERSION
         run: python -c 'from global_vars import CLIENT_VERSION; VERSION = open("client/VERSION").read().strip(); assert CLIENT_VERSION == f"v{VERSION}", "CLIENT_VERSION does not match the content of client/VERSION"'
+      - name: Check add-on VERSION
+        run: python -c "import re; f = open('__init__.py'); bl_info_version = re.search(r'\"version\":\s*(\(.*?\))', f.read()).group(1); f.seek(0); VERSION = re.search(r'VERSION =\s*(\(.*?\))', f.read()).group(1); f.close(); assert bl_info_version == VERSION"
 
   Build:
     runs-on: ubuntu-latest
