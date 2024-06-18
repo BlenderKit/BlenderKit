@@ -28,6 +28,8 @@ jobs:
         run: python -c 'from global_vars import CLIENT_VERSION; VERSION = open("client/VERSION").read().strip(); assert CLIENT_VERSION == f"v{VERSION}", "CLIENT_VERSION does not match the content of client/VERSION"'
       - name: Check add-on VERSION
         run: python -c "import re; f = open('__init__.py'); bl_info_version = re.search(r'\"version\":\s*(\(.*?\))', f.read()).group(1); f.seek(0); VERSION = re.search(r'VERSION =\s*(\(.*?\))', f.read()).group(1); f.close(); assert bl_info_version == VERSION"
+      - name: Check blender_manifest.toml
+        run: python -c "import re; f = open('__init__.py'); match = re.search(r'VERSION\s+=\s+\((\d+),\s+(\d+),\s+(\d+),\s+(\d{6})\)', f.read()); VERSION = (match.group(1), match.group(2), match.group(3), match.group(4)); f.close(); m = open('blender_manifest.toml'); match = re.search(r'version\s+=\s+\"(\d+)\.(\d+)\.(\d+)-(\d{6})\"', m.read()); manifest_version = (match.group(1), match.group(2), match.group(3), match.group(4)); m.close(); assert manifest_version == VERSION"
 
   Build:
     runs-on: ubuntu-latest
