@@ -1,0 +1,34 @@
+name: Win7
+# This workflow builds Windows7 compatible binaries using go1.20.
+# It packs the add-on with just these binaries. A workaround for users on Windows 7.
+
+on:
+  pull_request:
+    branches: [ '**' ]
+  workflow_dispatch:
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache-dependency-path: './client/go.sum'
+        id: go
+      - name: Set version=1.20 in go.mod
+        run: go mod edit -go=1.17
+        working-directory: client
+      - name: Build add-on
+        run: python dev.py build
+      - name: Remove-binaries
+        run: rm -rf out/blenderkit/client/v*/blenderkit-client-{linux-arm64,linux-x86_64,macos-arm64,macos-x86_64,windows-arm64.exe}
+      - name: Store the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: blenderkit-windows7-only-${{ github.sha }}
+          path: |
+            out
+            !out/blenderkit.zip
