@@ -21,6 +21,7 @@ import logging
 import os
 import shutil
 import traceback
+import time
 
 from . import (
     append_link,
@@ -1368,6 +1369,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return {"FINISHED"}
 
     def draw(self, context):
+        # this timer is there to not let double clicks thorugh the popups down to the asset bar.
+        ui_panels.last_time_dropdown_active = time.time()
         layout = self.layout
         if self.invoke_resolution:
             layout.prop(self, "resolution", expand=True, icon_only=False)
