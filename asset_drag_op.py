@@ -23,12 +23,11 @@ import random
 
 import bpy
 import mathutils
-from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
+from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
 
 from . import (
-    asset_bar_op,
     bg_blender,
     colors,
     download,
@@ -37,6 +36,7 @@ from . import (
     reports,
     ui,
     ui_bgl,
+    ui_panels,
     utils,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
