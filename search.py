@@ -654,11 +654,14 @@ def query_to_url(query={}, params={}):
     #
     if query.get("query") not in ("", None):
         requeststring += query["query"]  # .lower()
+    print(f"1 requeststring={requeststring}")
     for i, q in enumerate(query):
         if q != "query" and q != "free_first":
             requeststring += "+"
             requeststring += q + ":" + str(query[q])  # .lower()
+            print(f"requeststring={requeststring}")
 
+    print(f"2 requeststring={requeststring}")
     # add dict_parameters to make results smaller
     # result ordering: _score - relevance, score - BlenderKit score
     order = []
@@ -736,6 +739,14 @@ def build_query_common(query, props):
 
     if ui_props.search_license != "ANY":
         query["license"] = ui_props.search_license
+
+    if ui_props.search_blender_version == True:
+        query["blender_version_max"] = ui_props.search_blender_version_max
+        query["blender_version_min"] = ui_props.search_blender_version_min
+        print(
+            "SEARCH QUERY", query["blender_version_max"], query["blender_version_min"]
+        )
+
     query.update(query_common)
 
 

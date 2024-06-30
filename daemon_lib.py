@@ -115,7 +115,7 @@ def request_report(url: str, data: dict):
 # SEARCH
 def asset_search(data):
     """Search for specified asset."""
-    bk_logger.debug("Starting search request")
+    bk_logger.info(f"Starting search request: {data['urlquery']}")
     address = get_address()
     data = ensure_minimal_data(data)
     with requests.Session() as session:

@@ -416,6 +416,21 @@ class BlenderKitUIProps(PropertyGroup):
         update=search.search_update,
     )
 
+    # BLENDER VERSION of ASSET
+    search_blender_version: BoolProperty(
+        name="Blender Version",
+    )
+    search_blender_version_max: StringProperty(
+        name="Max ddd",
+        default="4.99",
+        description="Asset's minor version of Blender",
+    )
+    search_blender_version_min: StringProperty(
+        name="Min ddd",
+        default="2.93",
+        description="Asset's major version of Blender",
+    )
+
     logo_status: StringProperty(name="", default="logo_offline")
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
