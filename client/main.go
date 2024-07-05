@@ -78,9 +78,6 @@ var (
 	lastReportAccess    time.Time
 	lastReportAccessMux sync.Mutex
 
-	ActiveAppsMux sync.Mutex
-	ActiveApps    []int
-
 	Tasks                map[int]map[string]*Task
 	TasksMux             sync.Mutex
 	AddTaskCh            chan *Task
@@ -256,6 +253,10 @@ func main() {
 	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
 	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
+
+	// WEB BROWSER - bkclient.js
+	mux.HandleFunc("/bkclientjs/status", bkclientjsStatusHandler)
+	mux.HandleFunc("/bkclientjs/download", bkclientjsDownloadHandler)
 
 	StartClient(mux)
 }
@@ -2319,4 +2320,76 @@ func DictToParams(inputs map[string]interface{}) []map[string]string {
 		parameters = append(parameters, param)
 	}
 	return parameters
+}
+
+type ClientStatus struct {
+	Version string `json:"version"`
+}
+
+// Browser (via bkclient-js) gets status of the Client and all connected softwares.
+func bkclientjsStatusHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("🌐 Status")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	data := ClientStatus{
+		Version: ClientVersion,
+	}
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
+}
+
+type bkclientDownloadData struct {
+	Target      string `json:"target"`
+	AssetBaseID string `json:"asset_base_id"`
+}
+
+// Browser (via bkclient-js) orders the Client to download the specified asset to specified software.
+func bkclientjsDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		fmt.Println("🌐 Download - preflight")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	fmt.Print("🌐 Download:")
+	var data bkclientDownloadData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fmt.Println(data)
+
+	go bkclientDownload(data.Target, data.AssetBaseID)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func bkclientDownload(target, assetBaseID string) {
+	url := fmt.Sprintf("%s/api/v1/downloads/%s/", *Server, assetBaseID)
+	fmt.Println("🌐 Downloading:", url)
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("🌐 Download failed:", resp.Status)
+		return
+	}
+	fmt.Println("🌐 Downloading resp:", resp)
 }
