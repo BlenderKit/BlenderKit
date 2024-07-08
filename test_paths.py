@@ -54,6 +54,47 @@ class TestGlobalDict(unittest.TestCase):
         self.assertTrue(path.is_dir(), msg=path)
 
 
+class TestGetAssetDirectoryName(unittest.TestCase):
+    """Same test data as in utils_test.go/TestGetAssetDirectoryName()"""
+
+    data = (
+        (
+            "CAT",
+            "953ae6c1-7fcd-4521-8924-a092b5022a0a",
+            "cat_953ae6c1-7fcd-4521-8924-a092b5022a0a",
+        ),
+        (
+            "Soap Dispenser_2",
+            "2cf7c1b7-ada9-421e-b5de-cf674b646893",
+            "soap-dispenser-2_2cf7c1b7-ada9-421e-b5de-cf674b646893",
+        ),
+        (
+            "domain.com",
+            "5a5ab3b0-818a-4229-b39d-bd4d83272ad5",
+            "domain-com_5a5ab3b0-818a-4229-b39d-bd4d83272ad5",
+        ),
+        (
+            "Happy? Sad!",
+            "c181edbd-de56-418b-ab7f-120c06ded48f",
+            "happy-sad_c181edbd-de56-418b-ab7f-120c06ded48f",
+        ),
+        (
+            "Beautiful Car With Very Long Name",
+            "47992e4f-1091-46d2-aed0-2dd52b573411",
+            "beautiful-car-wi_47992e4f-1091-46d2-aed0-2dd52b573411",
+        ),
+    )
+
+    def test_get_asset_directory_name(self):
+        for asset_name, asset_id, expected in self.data:
+            result = paths.get_asset_directory_name(asset_name, asset_id)
+            self.assertEqual(
+                result,
+                expected,
+                msg=f'get_asset_directory_name("{asset_name}", "{asset_id}")="{result}"; expected: "{expected}"',
+            )
+
+
 class TestSlugify(unittest.TestCase):
     """Same test data as in utils_test.go/TestSlugify()"""
 

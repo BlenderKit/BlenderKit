@@ -175,6 +175,17 @@ func ServerToLocalFilename(serverFilename, assetName string) string {
 	return localFilename
 }
 
+// GetAssetDirectoryName returns the name of the directory in which resolution files will be stored.
+// Function mirrors: paths.py/get_asset_directory_name()
+func GetAssetDirectoryName(assetName, assetID string) string {
+	slugifiedName := Slugify(assetName)
+	if len(slugifiedName) > 16 {
+		slugifiedName = slugifiedName[:16]
+	}
+
+	return fmt.Sprintf("%s_%s", slugifiedName, assetID)
+}
+
 // Slugify converts a string to a URL-friendly slug.
 // Converts to lowercase, replaces non-alphanumeric characters with hyphens.
 // Ensures only one hyphen between words and that string starts and ends with a letter or number.

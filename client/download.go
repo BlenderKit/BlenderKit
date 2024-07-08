@@ -394,7 +394,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 func GetDownloadFilepaths(data DownloadData, filename string) []string {
 	filePaths := []string{}
 	filename = ServerToLocalFilename(filename, data.DownloadAssetData.Name)
-	assetDirName := fmt.Sprintf("%s_%s", Slugify(data.DownloadAssetData.Name), data.DownloadAssetData.ID)
+	assetDirName := GetAssetDirectoryName(data.DownloadAssetData.Name, data.DownloadAssetData.ID)
 	for _, dir := range data.DownloadDirs {
 		assetDirPath := filepath.Join(dir, assetDirName)
 		if _, err := os.Stat(assetDirPath); os.IsNotExist(err) {
