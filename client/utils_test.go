@@ -89,6 +89,27 @@ func TestStringToBlenderVersion(t *testing.T) {
 	}
 }
 
+func TestGetAssetDirectoryName(t *testing.T) {
+	tests := []struct {
+		asset_name string
+		asset_id   string
+		expected   string
+	}{
+		{"CAT", "953ae6c1-7fcd-4521-8924-a092b5022a0a", "cat_953ae6c1-7fcd-4521-8924-a092b5022a0a"},
+		{"Soap Dispenser_2", "2cf7c1b7-ada9-421e-b5de-cf674b646893", "soap-dispenser-2_2cf7c1b7-ada9-421e-b5de-cf674b646893"},
+		{"domain.com", "5a5ab3b0-818a-4229-b39d-bd4d83272ad5", "domain-com_5a5ab3b0-818a-4229-b39d-bd4d83272ad5"},
+		{"Happy? Sad!", "c181edbd-de56-418b-ab7f-120c06ded48f", "happy-sad_c181edbd-de56-418b-ab7f-120c06ded48f"},
+		{"Beautiful Car With Very Long Name", "47992e4f-1091-46d2-aed0-2dd52b573411", "beautiful-car-wi_47992e4f-1091-46d2-aed0-2dd52b573411"},
+	}
+
+	for _, test := range tests {
+		actual := GetAssetDirectoryName(test.asset_name, test.asset_id)
+		if actual != test.expected {
+			t.Errorf("GetAssetDirectoryName(%q, %q) = %q; want %q", test.asset_name, test.asset_id, actual, test.expected)
+		}
+	}
+}
+
 func TestSlugify(t *testing.T) {
 	tests := []struct {
 		input    string

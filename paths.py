@@ -314,12 +314,18 @@ def get_texture_directory(asset_data, resolution="blend"):
     return tex_dir_path
 
 
-def get_asset_directories(asset_data):
-    """Only get path where all asset files are stored."""
-    name_slug = slugify(asset_data["name"])
+def get_asset_directory_name(asset_name: str, asset_id: str) -> str:
+    """Get name of the directory for the asset."""
+    name_slug = slugify(asset_name)
     if len(name_slug) > 16:
         name_slug = name_slug[:16]
-    asset_dir_name = f"{name_slug}_{asset_data['id']}"
+
+    return f"{name_slug}_{asset_id}"
+
+
+def get_asset_directories(asset_data):
+    """Only get path where all asset files are stored."""
+    asset_dir_name = get_asset_directory_name(asset_data["name"], asset_data["id"])
     dirs = get_download_dirs(asset_data["assetType"])
     asset_dirs = []
     for d in dirs:
@@ -334,10 +340,7 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
     res_file, resolution = get_res_file(
         asset_data, resolution, find_closest_with_url=can_return_others
     )
-    name_slug = slugify(asset_data["name"])
-    if len(name_slug) > 16:
-        name_slug = name_slug[:16]
-    asset_dir_name = f"{name_slug}_{asset_data['id']}"
+    asset_dir_name = get_asset_directory_name(asset_data["name"], asset_data["id"])
 
     file_names = []
 
