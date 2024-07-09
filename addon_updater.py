@@ -142,7 +142,7 @@ class SingletonUpdater:
         """Print out a verbose logging message if verbose is true."""
         if not self._verbose:
             return
-        print("{} addon: ".format(self.addon) + msg)
+        print("🔄 {}: ".format(self.addon) + msg)
 
     # -------------------------------------------------------------------------
     # Getters and setters
