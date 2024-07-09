@@ -97,6 +97,16 @@ def draw_upload_common(layout, props, asset_type, context):
     # if props.upload_state.find('Error') > -1:
     #     layout.label(text = props.upload_state)
 
+    # PRE-RELEASED WARNING
+    if props.is_private == "PUBLIC" and bpy.app.version_cycle != "release":
+        layout.row()
+        utils.label_multiline(
+            layout,
+            text="Uploading from Alpha, Beta, or Release Candidate versions of Blender is not recommended. Please use a Stable version.",
+            icon="ERROR",
+            width=210,
+        )
+
     if props.asset_base_id == "":
         optext = "Upload %s" % asset_type.lower()
         op = layout.operator("object.blenderkit_upload", text=optext, icon="EXPORT")
