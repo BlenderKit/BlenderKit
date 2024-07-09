@@ -26,11 +26,40 @@ from . import global_vars
 bk_logger = logging.getLogger(__name__)
 
 
-class SensitiveFormatter(logging.Formatter):
-    """Formatter that masks API key tokens. Replace temporary tokens with *** and permanent tokens with *****."""
+class BlenderKitFormatter(logging.Formatter):
+    """Add emojis for logging level and mask API key tokens.
+    Replace temporary tokens with *** and permanent tokens with *****.
+    """
+
+    EMOJIS = {
+        logging.DEBUG: "🐞",
+        logging.INFO: "ℹ️ ",
+        logging.WARNING: "⚠️ ",
+        logging.ERROR: "❌",
+        logging.CRITICAL: "🔥",
+    }
 
     def format(self, record):
-        msg = logging.Formatter.format(self, record)
+        record.levelname = self.EMOJIS.get(record.levelno, "")
+        msg = super().format(record)
+        msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{30}\b(?=["\'\s])', r"***", msg)
+        msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{40}\b(?=["\'\s])', r"*****", msg)
+        return msg
+
+
+def get_blenderkit_formatter():
+    """Get default sensitive formatter for BlenderKit loggers."""
+    return BlenderKitFormatter(
+        fmt="%(levelname)s blenderkit: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
+        datefmt="%H:%M:%S",
+    )
+
+
+class SensitiveFormatter(logging.Formatter):
+    """Mask API key tokens. Replace temporary tokens with *** and permanent tokens with *****."""
+
+    def format(self, record):
+        msg = super().format(record)
         msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{30}\b(?=["\'\s])', r"***", msg)
         msg = re.sub(r'(?<=["\'\s])\b[A-Za-z0-9]{40}\b(?=["\'\s])', r"*****", msg)
         return msg
@@ -48,14 +77,14 @@ def configure_bk_logger():
     """Configure 'blenderkit' logger to which all other logs defined as `bk_logger = logging.getLogger(__name__)` writes.
     Sets it logging level to `global_vars.LOGGING_LEVEL_BLENDERKIT`.
     """
-    bk_logger = logging.getLogger("blenderkit")
+    bk_logger = logging.getLogger(__name__.removesuffix(".log"))
     bk_logger.setLevel(global_vars.LOGGING_LEVEL_BLENDERKIT)
     bk_logger.propagate = False
     bk_logger.handlers = []
 
     stream_handler = logging.StreamHandler()
     stream_handler.stream = sys.stdout  # 517
-    stream_handler.setFormatter(get_sensitive_formatter())
+    stream_handler.setFormatter(get_blenderkit_formatter())
     bk_logger.addHandler(stream_handler)
 
 
