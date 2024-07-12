@@ -173,6 +173,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		}
 		return
 	}
+
 	// GET FILEPATHS TO WHICH WE DOWNLOAD
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
 		AppID:    data.AppID,
@@ -302,7 +303,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 
 	}
 
-	result := map[string]interface{}{"file_paths": downloadFilePaths}
+	result := map[string]interface{}{"file_paths": downloadFilePaths, "url": downloadURL}
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
 		TaskID:  taskID,

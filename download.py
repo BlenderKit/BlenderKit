@@ -273,6 +273,7 @@ def udpate_asset_data_in_dicts(asset_data):
     sr = global_vars.DATA["search results"]
     if not sr:
         return
+
     for i, r in enumerate(sr):
         if r["assetBaseId"] == asset_data["assetBaseId"]:
             for f in asset_data["files"]:
@@ -443,9 +444,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             lib["asset_data"] = asset_data
 
     elif asset_data["assetType"] == "brush":
-        # TODO if already in scene, should avoid reappending.
         inscene = False
         for b in bpy.data.brushes:
+
             if b.blenderkit.id == asset_data["id"]:
                 inscene = True
                 brush = b
@@ -463,13 +464,14 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             shutil.copy(thumbpath, asset_thumb_path)
             brush.icon_filepath = asset_thumb_path
 
+        # set the brush active
         if bpy.context.view_layer.objects.active.mode == "SCULPT":
             bpy.context.tool_settings.sculpt.brush = brush
         elif (
             bpy.context.view_layer.objects.active.mode == "TEXTURE_PAINT"
         ):  # could be just else, but for future possible more types...
             bpy.context.tool_settings.image_paint.brush = brush
-        # TODO set brush by by asset data(user can be downloading while switching modes.)
+        # TODO add grease pencil brushes!
 
         # bpy.context.tool_settings.image_paint.brush = brush
         props = brush.blenderkit
@@ -478,7 +480,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     elif asset_data["assetType"] == "material":
         inscene = False
         sprops = wm.blenderkit_mat
-
         for m in bpy.data.materials:
             if m.blenderkit.id == asset_data["id"]:
                 inscene = True
@@ -764,6 +765,12 @@ def download_post(task: daemon_tasks.Task):
         bk_logger.debug("library names not found in asset data after download")
         done = True
 
+    # SUPER IMPORTANT CODE HERE
+    # Writing this back into the asset file data means it can be reused in the scene or file.
+    rf = paths.get_res_file(task.data["asset_data"], task.data["resolution"])[0]
+    rf["file_name"] = file_paths[-1]
+    rf["url"] = task.result.get("url")
+
     wm = bpy.context.window_manager
     at = task.data["asset_data"]["assetType"]
     if not (
@@ -927,7 +934,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
     Returns Exception if append_asset() failed.
     """
     file_names = kwargs.get("file_paths")
-    if file_names is None:
+    if file_names is None or len(file_names) == 0:
         file_names = paths.get_download_filepaths(asset_data, kwargs["resolution"])
 
     bk_logger.debug("try to append already existing asset")
@@ -935,9 +942,11 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         return False
 
     if not os.path.isfile(file_names[-1]):
+        bk_logger.debug("library file doesnt exist", file_names[-1])
         return False
 
     kwargs["name"] = asset_data["name"]
+
     try:
         append_asset(asset_data, **kwargs)
         return True
@@ -945,7 +954,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         # TODO: this should distinguis if the appending failed (wrong file)
         # or something else happened(shouldn't delete the files)
         traceback.print_exc(limit=20)
-        # reports.add_report(f"Append failed: {e}", 15, "ERROR")
+        reports.add_report(f"Append failed: {e}", 15, "ERROR")
         for f in file_names:
             try:
                 os.remove(f)
@@ -1087,10 +1096,11 @@ def start_download(asset_data, **kwargs) -> bool:
 
     if ain and not kwargs.get("replace_resolution"):
         # this goes to appending asset - where it should duplicate the original asset already in scene.
+        print("try append or asset from drive without download")
         append_ok = try_finished_append(asset_data, **kwargs)
         if append_ok:
             return False
-        bk_logger.info("Failed to append asset: {append_ok}")
+        bk_logger.info(f"Failed to append asset: {append_ok}")
 
     if asset_data["assetType"] in ("model", "material"):
         downloader = {
