@@ -146,6 +146,9 @@ def update_upload_brush_preview(self, context):
 
 
 def get_thumbnailer_args(script_name, thumbnailer_filepath, datafile, api_key):
+    """Get the arguments to start Blender in background to render model or material thumbnails.
+    Watch out: the ending arguments must match order of those in: autothumb_model_bg.py and autothumb_material_bg.py.
+    """
     script_path = os.path.dirname(os.path.realpath(__file__))
     script_path = os.path.join(script_path, script_name)
     args = [
@@ -153,7 +156,7 @@ def get_thumbnailer_args(script_name, thumbnailer_filepath, datafile, api_key):
         "--background",
         "--factory-startup",
         "--addons",
-        "blenderkit",
+        __package__,
         "-noaudio",
         thumbnailer_filepath,
         "--python",
@@ -161,6 +164,7 @@ def get_thumbnailer_args(script_name, thumbnailer_filepath, datafile, api_key):
         "--",
         datafile,
         api_key,
+        __package__,  # Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
     ]
     return args
 

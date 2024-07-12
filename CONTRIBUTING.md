@@ -74,10 +74,16 @@ Script `dev.py` provides handy option `--install-at` to copy the `out/blenderkit
 Just specify path to addons directory in `--install-at` flag.
 Script will then remove old `blenderkit` directory in addons location and replace it with current build.
 
-To build and copy to Blender 4.0.x addons directory and also clean blenderkit_data, run:
+To build and copy to Blender 4.2.x addons directory and also clean blenderkit_data, run:
 
 ```
-python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir /Users/username/blenderkit_data
+python dev.py build --install-at /path/to/blender/4.2/scripts/addons --clean-dir /Users/username/blenderkit_data
+```
+
+To build and copy to Blender 4.2.x as extension, run:
+
+```
+python dev.py build --install-at /path/to/blender/4.2/extensions/user_default --clean-dir /Users/username/blenderkit_data
 ```
 
 NOTE: --clean-dir is required if you change anything in the blenderkit-client, otherwise add-on will not copy the new binaries over the old ones.
@@ -89,10 +95,10 @@ python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir
 
 ## Releasing
 
-Before release update the add-on version in `__init__.py` and `client/VERSION`, make sure it is merged in `main` branch.
+Before release update the add-on version in `__init__.py` (in bl_info and VERSION variable) and `client/VERSION`, make sure it is merged in `main` branch.
 
 1. go to Github Actions, choose `Release` workflow
-2. insert the version in format `X.Y.Z.YYMMDD` (e.g. `3.8.0.2306220`), this has to be same as in `__init__.py`.
+2. insert the version in format `X.Y.Z.YYMMDD` (e.g. `3.12.2.240722`), this has to be same as in `__init__.py`.
 3. set Release Stage to `alpha`, `beta`, `rc` or `gold` for final release
 4. once finished, the release draft is available in Github Releases
 
@@ -107,14 +113,20 @@ The tests are defined in files `test_<name-of-tested-file>.py` and their startin
 ### Local testing
 
 To test the add-on locally, make sure you have a Blender on your PATH.
-Then run:
+Then run to test as legacy add-on:
 
 ```
-python dev.py test --install-at /path/to/blender/3.2/scripts/addons
+python dev.py test --install-at /path/to/blender/4.2/scripts/addons
+```
+
+Or to test as extension:
+
+```
+python dev.py test --install-at /path/to/blender/4.2/extensions/user_default
 ```
 
 NOTE: please make sure that version in the `--install-at` path must match the version of the Blender version you have on your PATH.
-Otherwise the add-on with test files will be copied to Blender version 3.x, but tests will run on different Blender version 3.a with outdated BlenderKit build.
+Otherwise the add-on with test files will be copied to Blender version 4.x, but tests will run on different Blender version 4.a with outdated (or missing) BlenderKit build.
 
 ### Pull Requests
 

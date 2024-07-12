@@ -19,7 +19,13 @@
 import pathlib
 import unittest
 
-from blenderkit import paths
+import bpy
+
+for addon in bpy.context.preferences.addons:
+    if "blenderkit" in addon.module:
+        __package__ = addon.module
+        break
+from . import paths
 
 
 class TestDownloadDirs(unittest.TestCase):

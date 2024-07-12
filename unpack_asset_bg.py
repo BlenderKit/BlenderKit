@@ -21,14 +21,8 @@ import json
 import logging
 import os
 import sys
-import time
 
 import bpy
-
-from blenderkit import paths, utils
-
-
-bk_logger = logging.getLogger(__name__)
 
 
 def get_texture_filepath(tex_dir_path, image, resolution="blend"):
@@ -38,8 +32,6 @@ def get_texture_filepath(tex_dir_path, image, resolution="blend"):
         image_file_name = bpy.path.basename(image.filepath)
     if image_file_name == "":
         image_file_name = image.name.split(".")[0]
-
-    suffix = paths.resolution_suffix[resolution]
 
     fp = os.path.join(tex_dir_path, image_file_name)
     # check if there is allready an image with same name and thus also assigned path
@@ -76,7 +68,7 @@ def get_resolution_from_file_path(file_path):
 
 
 def unpack_asset(data):
-    utils.p("unpacking asset")
+    print("🗃️  unpacking asset")
     asset_data = data["asset_data"]
     resolution = get_resolution_from_file_path(bpy.data.filepath)
 
@@ -93,8 +85,7 @@ def unpack_asset(data):
         if image.name != "Render Result":
             # suffix = paths.resolution_suffix(data['suffix'])
             fp = get_texture_filepath(tex_dir_path, image, resolution=resolution)
-            utils.p("unpacking file", image.name)
-            utils.p(image.filepath, fp)
+            print(f"🖼️  unpacking file: {image.name} - {image.filepath}, {fp}")
 
             for pf in image.packed_files:
                 pf.filepath = fp  # bpy.path.abspath(fp)
@@ -153,8 +144,11 @@ def unpack_asset(data):
     sys.exit()
 
 
-with open(sys.argv[-1], "r", encoding="utf-8") as f:
-    data = json.load(f)
-
 if __name__ == "__main__":
+    JSON_PATH = sys.argv[-2]
+    __package__ = sys.argv[-1]
+    from . import paths
+
+    with open(JSON_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
     unpack_asset(data)

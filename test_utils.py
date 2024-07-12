@@ -1,6 +1,12 @@
 import unittest
 
-from blenderkit import utils
+import bpy
+
+for addon in bpy.context.preferences.addons:
+    if "blenderkit" in addon.module:
+        __package__ = addon.module
+        break
+from . import utils
 
 
 class FileSizeToTextTestCase(unittest.TestCase):

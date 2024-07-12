@@ -1,6 +1,12 @@
 import unittest
 
-from blenderkit import upload
+import bpy
+
+for addon in bpy.context.preferences.addons:
+    if "blenderkit" in addon.module:
+        __package__ = addon.module
+        break
+from . import upload
 
 
 class TestCheckTagsFormat(unittest.TestCase):

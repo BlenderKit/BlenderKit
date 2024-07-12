@@ -2052,6 +2052,7 @@ func uploadFileToS3(file UploadFile, uploadInfo S3UploadInfoResponse, appID int,
 	return nil
 }
 
+// TODO: do not pass whole AssetUploadRequestData, just the fields that are needed
 func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, isMainFileUpload bool) ([]UploadFile, error) {
 	files := []UploadFile{}
 	addon_path := data.Preferences.AddonDir
@@ -2062,6 +2063,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 	upload_data := metadata
 	export_data := data.ExportData
 	upload_set := data.UploadSet
+	addon_module_name := data.Preferences.AddonModuleName
 
 	if export_data.AssetBaseID == "" {
 		export_data.AssetBaseID = metadata.AssetBaseID
@@ -2097,20 +2099,22 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 			cmd := exec.Command(
 				export_data.BinaryPath,
 				"--background",
-				"--factory-startup", // disables user preferences, addons, etc.
-				"--addons",
-				"blenderkit",
+				"--factory-startup",
+				"--addons", addon_module_name, // In extensions we need to enable as bl_ext.user_default.blenderkit or similar
 				"-noaudio",
 				cleanfile_path,
-				"--python",
-				script_path,
+				"--python", script_path,
 				"--",
 				datafile,
+				addon_module_name, // Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
 			)
 
 			cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=%v", blenderUserScripts))
 			out, err := cmd.CombinedOutput()
-			color.FgGray.Println("(Background) Packing logs:\n", string(out))
+			color.FgGray.Printf("└> background packing '%+v' logs:\n", cmd)
+			for _, line := range strings.Split(string(out), "\n") {
+				color.FgGray.Printf("   %s\n", line)
+			}
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					exitCode := exitErr.ExitCode()

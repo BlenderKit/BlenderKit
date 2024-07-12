@@ -23,12 +23,15 @@ import sys
 
 import bpy
 
-from . import append_link
-
-
-BLENDERKIT_EXPORT_DATA = sys.argv[-1]
 
 if __name__ == "__main__":
+    # args order must match the order in blenderkit/client/main.go:PackBlendFile()!
+    BLENDERKIT_EXPORT_DATA = sys.argv[-2]
+    __package__ = sys.argv[-1]  # otherwise would be None -> relative import fails
+    from . import (
+        append_link,
+    )  # we can do relative import because we set the __package__
+
     try:
         # bg_blender.progress('preparing scene - append data')
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
