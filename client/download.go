@@ -77,6 +77,62 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	// Ensure the target directory exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+
+	destinationFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	return err
+}
+
+func syncDirs(sourceDir, targetDir string) error {
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories directly, but ensure they exist in the target
+		if info.IsDir() {
+			var targetPath string
+			if len(path) > len(sourceDir) {
+				targetPath = filepath.Join(targetDir, path[len(sourceDir):])
+			} else {
+				targetPath = targetDir
+			}
+			return os.MkdirAll(targetPath, info.Mode())
+		}
+
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(targetDir, relPath)
+
+		// Check if the file exists in the target directory and if it needs updating
+		targetInfo, err := os.Stat(targetPath)
+		if os.IsNotExist(err) || info.ModTime().After(targetInfo.ModTime()) {
+			if err := copyFile(path, targetPath); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID string) {
 	TasksMux.Lock()
 	task := NewTask(origJSON, data.AppID, taskID, "asset_download")
@@ -133,7 +189,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		Progress: 0,
 		Message:  "Checking files on disk",
 	}
-	existingFiles := 0
+	existingFiles := []string{}
 	for _, filePath := range downloadFilePaths {
 		exists, info, err := FileExists(filePath)
 		if err != nil {
@@ -149,22 +205,25 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 			continue
 		}
 		if exists {
-			existingFiles++
+			existingFiles = append(existingFiles, filePath)
 		}
 	}
 
 	action := ""
-	if existingFiles == 0 { // No existing files -> download
+	switch len(existingFiles) {
+	case 0: // No existing files -> download
 		action = "download"
-	} else if existingFiles == 2 { // Both files exist -> skip download
+	case 2: // Both files exist -> skip download
 		action = "place"
-	} else if existingFiles == 1 && len(downloadFilePaths) == 2 { // One file exists, but there are two download paths -> sync the missing file
-		// TODO: sync the missing file
-		action = "sync"
-	} else if existingFiles == 1 && len(downloadFilePaths) == 1 { // One file exists, and there is only one download path -> skip download
-		action = "place"
-	} else { // Something unexpected happened -> delete and download
-		log.Println("Unexpected number of existing files:", existingFiles)
+	case 1:
+		if len(downloadFilePaths) == 2 { // One file exists, but there are two download paths -> sync the missing file
+			// TODO: sync the missing file
+			action = "sync"
+		} else if len(downloadFilePaths) == 1 { // One file exists, and there is only one download path -> skip download
+			action = "place"
+		}
+	default: // Something unexpected happened -> delete and download
+		log.Println("Unexpected number of existing files:", len(existingFiles))
 		for _, file := range downloadFilePaths {
 			err := DeleteFile(file)
 			if err != nil {
@@ -190,8 +249,13 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		fmt.Println("PLACING THE FILE")
 	}
 
-	// UNPACKING
+	// UNPACKING (Only after download)
 	if data.UnpackFiles {
+		// If there was no download, there's risk that the file to be unpacked
+		// is only in local, but not in global directory
+		if action != "download" {
+			fp = existingFiles[0]
+		}
 		err := UnpackAsset(fp, data, taskID)
 		if err != nil {
 			e := fmt.Errorf("error unpacking asset: %w", err)
@@ -202,6 +266,40 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 			}
 			return
 		}
+	}
+
+	// SYNC FILES IF NEEDED
+	if action == "sync" || (action == "download" && len(downloadFilePaths) == 2) {
+		//Synchronize both folders - we need to synchronize both sides.
+		// In both folders there can be different resolutions, packed or unpacked with subfolders.
+
+		// get directory filepaths from the downloadFilePaths
+		globalAssetDir := filepath.Dir(downloadFilePaths[0])
+		localAssetDir := filepath.Dir(downloadFilePaths[1])
+		// Synchronize from global to local
+		err := syncDirs(globalAssetDir, localAssetDir)
+		if err != nil {
+			e := fmt.Errorf("error synchronizing from global folder to local: %w", err)
+			TaskErrorCh <- &TaskError{
+				AppID:  data.AppID,
+				TaskID: taskID,
+				Error:  e,
+			}
+			return
+		}
+
+		// Synchronize from local to global
+		err = syncDirs(localAssetDir, globalAssetDir)
+		if err != nil {
+			e := fmt.Errorf("error synchronizing from local folder to global : %w", err)
+			TaskErrorCh <- &TaskError{
+				AppID:  data.AppID,
+				TaskID: taskID,
+				Error:  e,
+			}
+			return
+		}
+
 	}
 
 	result := map[string]interface{}{"file_paths": downloadFilePaths}
