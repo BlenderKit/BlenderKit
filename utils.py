@@ -390,10 +390,11 @@ def get_scene_id():
 def get_preferences_as_dict():
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     prefs = {
-        # SYSTEM STUFF - TODO: is this needed in here? (Why to save this into JSON?) But is used for sending data to client.
+        # SYSTEM STUFF - TODO: is this needed in here? (Why to save this into JSON?) Is used for sending data to client, but really should be separate parameter.
         "debug_value": bpy.app.debug_value,
         "binary_path": bpy.app.binary_path,
         "addon_dir": os.path.dirname(__file__),
+        "addon_module_name": __package__,  # refers to name of the add-on, legacy=blenderkit, extensions=bl_ext.user_default.blenderkit or anything else
         "app_id": os.getpid(),
         # STATISTICS
         "download_counter": user_preferences.download_counter,

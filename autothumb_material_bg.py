@@ -21,16 +21,10 @@ import json
 import logging
 import os
 import sys
+from traceback import print_exc
 from pathlib import Path
 
 import bpy
-
-from blenderkit import append_link, bg_blender, bg_utils, daemon_lib, utils
-
-
-BLENDERKIT_EXPORT_DATA = sys.argv[-2]
-BLENDERKIT_EXPORT_API_KEY = sys.argv[-1]
-bk_logger = logging.getLogger(__name__)
 
 
 def render_thumbnails():
@@ -46,6 +40,14 @@ def unhide_collection(cname):
 
 if __name__ == "__main__":
     try:
+        # args order must match the order in blenderkit/autothumb.py:get_thumbnailer_args()!
+        BLENDERKIT_EXPORT_DATA = sys.argv[-3]
+        BLENDERKIT_EXPORT_API_KEY = sys.argv[-2]
+        __package__ = sys.argv[
+            -1
+        ]  # otherwise would be None -> aaand relative import fails
+        from . import append_link, bg_blender, bg_utils, daemon_lib, utils
+
         bg_blender.progress("preparing thumbnail scene")
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
@@ -206,9 +208,6 @@ if __name__ == "__main__":
         )
 
     except Exception as e:
-        bk_logger.fatal(f"{e}")
-        import traceback
-
-        traceback.print_exc()
-
+        print(f"background autothumbnailer failed: {e}")
+        print_exc()
         sys.exit(1)

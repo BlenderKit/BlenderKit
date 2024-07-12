@@ -1,3 +1,5 @@
+print("authothum_model_bg.py STARTED")
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -25,14 +27,8 @@ from traceback import print_exc
 
 import bpy
 
-from blenderkit import append_link, bg_blender, bg_utils, daemon_lib, utils
 
-
-BLENDERKIT_EXPORT_DATA = sys.argv[-2]
-BLENDERKIT_EXPORT_API_KEY = sys.argv[-1]
-
-
-def get_obnames():
+def get_obnames(BLENDERKIT_EXPORT_DATA: str):
     with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
         data = json.load(s)
     obnames = eval(data["models"])
@@ -85,6 +81,14 @@ def render_thumbnails():
 
 if __name__ == "__main__":
     try:
+        # args order must match the order in blenderkit/autothumb.py:get_thumbnailer_args()!
+        BLENDERKIT_EXPORT_DATA = sys.argv[-3]
+        BLENDERKIT_EXPORT_API_KEY = sys.argv[-2]
+        __package__ = sys.argv[
+            -1
+        ]  # otherwise would be None -> aaand relative import fails
+        from . import append_link, bg_blender, bg_utils, daemon_lib, utils
+
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
         thumbnail_use_gpu = data.get("thumbnail_use_gpu")
@@ -125,7 +129,7 @@ if __name__ == "__main__":
             allobs = [main_object]
         else:
             bg_blender.progress("preparing thumbnail scene")
-            obnames = get_obnames()
+            obnames = get_obnames(BLENDERKIT_EXPORT_DATA)
             main_object, allobs = append_link.append_objects(
                 file_name=data["filepath"], obnames=obnames, link=True
             )

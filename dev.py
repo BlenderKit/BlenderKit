@@ -271,13 +271,17 @@ def do_build(
     print("Build done!")
 
 
-def run_tests():
+def run_tests(extension_format=False):
     print("\n=== Running Client Go unit tests ===")
     gotest = subprocess.Popen(["go", "test"], cwd="client")
     gotest.wait()
     if gotest.returncode != 0:
         exit(1)
     print("Go tests passed.\n")
+
+    addon_package_name = "blenderkit"
+    if extension_format:  # Here we expect default settings
+        addon_package_name = "bl_ext.user_default.blenderkit"
 
     print("=== Running add-on integration tests in Blender tests ===")
     test = subprocess.Popen(
@@ -289,6 +293,8 @@ def run_tests():
             "1",
             "--python",
             "test.py",
+            "--",
+            addon_package_name,
         ]
     )
     test.wait()
@@ -365,7 +371,12 @@ elif args.command == "test":
         clean_dir=args.clean_dir,
         client_binaries_path=args.client_build,
     )
-    run_tests()
+    # Best effort here to keep it simple and detect automatically, other option would be to add it as a flag
+    if "extensions/user_default" in args.install_at:
+        extension_format = True
+    else:
+        extension_format = False
+    run_tests(extension_format)
 elif args.command == "format":
     format_code()
 else:

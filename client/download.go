@@ -31,6 +31,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gookit/color"
@@ -252,17 +253,21 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 	cmd := exec.Command(
 		data.BinaryPath,
 		"--background",
-		"--factory-startup", // disables user preferences, addons, etc.
-		"--addons", "blenderkit",
+		"--factory-startup",                    // disables user preferences, addons, etc.
+		"--addons", data.PREFS.AddonModuleName, // For extensions we need to enable by dynamic bl_ext.user_default.blenderkit
 		"-noaudio",
 		blendPath,
 		"--python", unpackScriptPath,
 		"--",
 		dataFile,
+		data.PREFS.AddonModuleName, // Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
 	)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=%v", blenderUserScripts))
 	out, err := cmd.CombinedOutput()
-	color.FgGray.Println("(Background) Unpacking logs:\n", string(out))
+	color.FgGray.Printf("└> backgroung unpacking '%+v' logs:\n", cmd)
+	for _, line := range strings.Split(string(out), "\n") {
+		color.FgGray.Printf("   %s\n", line)
+	}
 	if err != nil {
 		return err
 	}

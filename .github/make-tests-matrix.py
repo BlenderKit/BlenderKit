@@ -46,10 +46,10 @@ jobs = [
         "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.0-linux-x64.tar.xz",
     },
     {
-        "version": "3.3.10",
+        "version": "3.3.20",
         "version_x_y": "3.3",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.10-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.20-linux-x64.tar.xz",
     },
     {
         "version": "3.4.0",
@@ -82,10 +82,34 @@ jobs = [
         "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.0-linux-x64.tar.xz",
     },
     {
-        "version": "3.6.2",
+        "version": "3.6.13",
         "version_x_y": "3.6",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.2-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.13-linux-x64.tar.xz",
+    },
+    {
+        "version": "4.0.0",
+        "version_x_y": "4.0",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender4.0/blender-4.0.0-linux-x64.tar.xz",
+    },
+    {
+        "version": "4.0.2",
+        "version_x_y": "4.0",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender4.0/blender-4.0.2-linux-x64.tar.xz",
+    },
+    {
+        "version": "4.1.0",
+        "version_x_y": "4.1",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender4.1/blender-4.1.0-linux-x64.tar.xz",
+    },
+    {
+        "version": "4.1.1",
+        "version_x_y": "4.1",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender4.1/blender-4.1.1-linux-x64.tar.xz",
     },
     # {'version': '', 'version_x_y': '', 'download_url': ''},
 ]

@@ -194,10 +194,11 @@ type PREFS struct {
 	UnpackFiles   bool   `json:"unpack_files"`
 	Resolution    string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
 	// PATHS
-	ProjectSubdir string `json:"project_subdir"`
-	GlobalDir     string `json:"global_dir"`
-	BinaryPath    string `json:"binary_path"`
-	AddonDir      string `json:"addon_dir"`
+	ProjectSubdir   string `json:"project_subdir"`
+	GlobalDir       string `json:"global_dir"`
+	BinaryPath      string `json:"binary_path"`
+	AddonDir        string `json:"addon_dir"`
+	AddonModuleName string `json:"addon_module_name"` // __package__ of the add-on, for legacy addons was "blenderkit", extensions "bl_ext.user_default.blenderkit" or anything else!
 }
 
 // AssetFile represents a file in an asset.

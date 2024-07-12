@@ -17,11 +17,13 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import unittest
+import sys
 
 import addon_utils
 
-
-addon_utils.enable("blenderkit", default_set=True)
+print("----- Tests preparation -----")
+addon_utils.enable(sys.argv[-1], default_set=True)
+print(f"- addon enabled: {sys.argv[-1]}")
 
 runner = unittest.TextTestRunner()
 suite = unittest.TestSuite()
@@ -33,7 +35,9 @@ suite.addTests(testLoader.discover(".", "test_timer.py"))
 suite.addTests(testLoader.discover(".", "test_paths.py"))
 suite.addTests(testLoader.discover(".", "test_utils.py"))
 suite.addTests(testLoader.discover(".", "test_daemon_lib.py"))
+print(f"- {len(suite._tests)} tests discovered and loaded")
 
+print(f"----- Running tests --------------------------------------------------")
 result = runner.run(suite)
 errors = len(result.errors)
 failures = len(result.failures)
