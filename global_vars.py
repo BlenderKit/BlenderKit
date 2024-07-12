@@ -20,7 +20,7 @@ from collections import deque
 from logging import INFO, WARN
 from os import environ
 
-CLIENT_VERSION = "v1.1.1"
+CLIENT_VERSION = "v1.1.2"
 CLIENT_ACCESSIBLE = False
 CLIENT_FAILED_REPORTS = 0
 """Number of failed requests to get reports from the BlenderKit-Client. If too many, something is wrong."""
