@@ -218,7 +218,6 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		action = "place"
 	case 1:
 		if len(downloadFilePaths) == 2 { // One file exists, but there are two download paths -> sync the missing file
-			// TODO: sync the missing file
 			action = "sync"
 		} else if len(downloadFilePaths) == 1 { // One file exists, and there is only one download path -> skip download
 			action = "place"
@@ -250,7 +249,8 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		fmt.Println("PLACING THE FILE")
 	}
 
-	// UNPACKING (Only after download)
+	// UNPACKING (Only after download? By now unpack is triggered always,
+	// to ensure assets that weren't unpacked get unpacked for resolution switching )
 	if data.UnpackFiles {
 		// If there was no download, there's risk that the file to be unpacked
 		// is only in local, but not in global directory
