@@ -205,12 +205,15 @@ type PREFS struct {
 // Used in Download (downloading .blend file) and Search (downloading thumbnails).
 type AssetFile struct {
 	Created            string `json:"created"`
-	DownloadURL        string `json:"downloadUrl"`
+	DownloadURL        string `json:"downloadUrl"` // URL from which the real download URL can be retrieved
 	FileThumbnail      string `json:"fileThumbnail"`
 	FileThumbnailLarge string `json:"fileThumbnailLarge"`
 	FileType           string `json:"fileType"`
 	Modified           string `json:"modified"`
 	Resolution         int    `json:"resolution"` // null for asset (resolution) files, thumbnails, but is integer for videos
+
+	URL      string `json:"url"`      // retrieved URL to the actual file
+	Filename string `json:"filename"` // filename of the file to be saved.
 }
 
 type DownloadAssetData struct {
