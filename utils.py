@@ -125,6 +125,12 @@ def get_active_HDR():
     return image
 
 
+def get_active_nodegroup():
+    ui_props = bpy.context.window_manager.blenderkitUI
+    nodegroup = ui_props.geonode_tool_upload
+    return nodegroup
+
+
 def get_selected_models():
     """
     Detect all hierarchies that contain asset data from selection. Only parents that have actual ['asset data'] get returned
@@ -276,6 +282,11 @@ def get_search_props():
         if not hasattr(wm, "blenderkit_brush"):
             return
         props = wm.blenderkit_brush
+
+    if uiprops.asset_type == "NODEGROUP":
+        if not hasattr(wm, "blenderkit_nodegroup"):
+            return
+        props = wm.blenderkit_nodegroup
     return props
 
 
@@ -299,8 +310,10 @@ def get_active_asset_by_type(asset_type="model"):
         return None
     if asset_type == "brush":
         b = get_active_brush()
-        if b is not None:
-            return b
+        return b
+    if asset_type == "nodegroup":
+        b = get_active_nodegroup()
+        return b
     return None
 
 
@@ -324,9 +337,10 @@ def get_active_asset():
     elif ui_props.asset_type == "TEXTURE":
         return None
     elif ui_props.asset_type == "BRUSH":
-        b = get_active_brush()
-        if b is not None:
-            return b
+        return get_active_brush()
+    elif ui_props.asset_type == "NODEGROUP":
+        return get_active_nodegroup()
+
     return None
 
 
@@ -357,6 +371,10 @@ def get_upload_props():
         return None
     elif ui_props.asset_type == "BRUSH":
         b = get_active_brush()
+        if b is not None:
+            return b.blenderkit
+    elif ui_props.asset_type == "NODEGROUP":
+        b = get_active_nodegroup()
         if b is not None:
             return b.blenderkit
     return None
@@ -493,6 +511,8 @@ def uploadable_asset_poll():
         )
     if ui_props.asset_type == "HDR":
         return ui_props.hdr_upload_image is not None
+    if ui_props.asset_type == "NODEGROUP":
+        return ui_props.geonode_tool_upload is not None
     return True
 
 

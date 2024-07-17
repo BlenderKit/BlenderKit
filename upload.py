@@ -635,6 +635,36 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             pt = pt.lower()
             upload_data["pbrType"] = pt
 
+    elif asset_type == "NODEGROUP":
+        ui_props = bpy.context.window_manager.blenderkitUI
+        bk_logger.info("preparing nodegroup upload")
+        asset = ui_props.geonode_tool_upload
+        bk_logger.info("asset:" + str(asset))
+        if not asset:
+            return None, None
+
+        props = asset.blenderkit
+
+        export_data["nodegroup"] = str(asset.name)
+        export_data["thumbnail_path"] = bpy.path.abspath(props.thumbnail)
+        eval_path_computing = (
+            f"bpy.data.node_groups['{asset.name}'].blenderkit.uploading"
+        )
+        eval_path_state = (
+            f"bpy.data.node_groups['{asset.name}'].blenderkit.upload_state"
+        )
+        eval_path = f"bpy.data.node_groups['{asset.name}']"
+
+        # mat analytics happen here, since they don't take up any time...
+
+        upload_params = {
+            # "textureResolutionMax": props.texture_resolution_max,
+            # "trueHDR": props.true_hdr,
+        }
+
+        upload_data = {
+            "assetType": "nodegroup",
+        }
     add_version(upload_data)
 
     # caller can be upload operator, but also asset bar called from tooltip generator
@@ -677,6 +707,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     export_data["eval_path_computing"] = eval_path_computing
     export_data["eval_path_state"] = eval_path_state
     export_data["eval_path"] = eval_path
+    bk_logger.info("export_data:" + str(export_data))
 
     return export_data, upload_data
 
@@ -1033,6 +1064,7 @@ asset_types = (
     ("MATERIAL", "Material", "Any .blend Material"),
     ("TEXTURE", "Texture", "A texture, or texture set"),
     ("BRUSH", "Brush", "Brush, can be any type of blender brush"),
+    ("NODEGROUP", "Tool", "Geometry nodes tool"),
     ("ADDON", "Addon", "Addon"),
 )
 
@@ -1313,6 +1345,8 @@ def handle_asset_upload(task: daemon_tasks.Task):
         # crazy shit to parse stupid Django incosistent error messages
         if "detail" in task.result:
             for key in task.result["detail"]:
+                print(key)
+                bk_logger.info("detai key " + str(key))
                 if type(task.result["detail"][key]) == list:
                     for item in task.result["detail"][key]:
                         asset.upload_state += f"\n- {key}: {item}"

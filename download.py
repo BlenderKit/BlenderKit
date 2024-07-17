@@ -289,6 +289,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     if file_names is None:
         file_names = paths.get_download_filepaths(asset_data, kwargs["resolution"])
     props = None
+    print("append asset", asset_data["name"])
     #####
     # how to do particle  drop:
     # link the group we are interested in( there are more groups in File!!!! , have to get the correct one!)
@@ -480,10 +481,11 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     elif asset_data["assetType"] == "material":
         inscene = False
         sprops = wm.blenderkit_mat
-        for m in bpy.data.materials:
-            if m.blenderkit.id == asset_data["id"]:
+
+        for g in bpy.data.materials:
+            if g.blenderkit.id == asset_data["id"]:
                 inscene = True
-                material = m
+                material = g
                 break
         if not inscene:
             link = sprops.import_method == "LINK"
@@ -500,6 +502,25 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             )
 
         asset_main = material
+
+    elif asset_data["assetType"] == "nodegroup":
+        print("geonode tool append")
+        inscene = False
+        sprops = wm.blenderkit_nodegroup
+        for g in bpy.data.node_groups:
+            if hasattr(g, "blenderkit") and g.blenderkit.id == asset_data["id"]:
+                inscene = True
+                geonode = g
+                break
+        if not inscene:
+            geonode = append_link.append_nodegroup(
+                file_names[-1],
+                toolname=asset_data["name"],
+                link=False,
+                fake_user=False,
+            )
+        print("appended geonode", geonode)
+        asset_main = geonode
 
     asset_data["resolution"] = kwargs["resolution"]
     udpate_asset_data_in_dicts(asset_data)
@@ -778,6 +799,7 @@ def download_post(task: daemon_tasks.Task):
         or ((at == "brush") and wm.get("appendable") == True)
         or at == "scene"
         or at == "hdr"
+        or at == "nodegroup"
     ):
         return done
     if (
@@ -785,6 +807,7 @@ def download_post(task: daemon_tasks.Task):
         or ((at == "brush") and wm.get("appendable") == True)
         or at == "scene"
         or at == "hdr"
+        or at == "nodegroup"
     ):
         # don't do this stuff in editmode and other modes, just wait...
         # we don't remove the task before it's actually possible to remove it.
