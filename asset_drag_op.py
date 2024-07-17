@@ -622,6 +622,16 @@ class AssetDragOperator(bpy.types.Operator):
                 "INVOKE_REGION_WIN",
                 asset_base_id=self.asset_data["assetBaseId"],
             )
+        if self.asset_data["assetType"] == "nodegroup":
+            bpy.ops.scene.blenderkit_download(  # asset_type=ui_props.asset_type,
+                asset_index=self.asset_search_index,
+            )
+
+        if self.asset_data["assetType"] in ["model", "material"]:
+            bpy.ops.view3d.blenderkit_download_gizmo_widget(
+                "INVOKE_REGION_WIN",
+                asset_base_id=self.asset_data["assetBaseId"],
+            )
 
     def modal(self, context, event):
         scene = bpy.context.scene

@@ -321,7 +321,6 @@ def asset_type_callback(self, context):
     Returns
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
     """
-
     if self.down_up == "SEARCH":
         items = (
             ("MODEL", "Models", "Find models", "OBJECT_DATAMODE", 0),
@@ -329,6 +328,7 @@ def asset_type_callback(self, context):
             ("SCENE", "Scenes", "Find scenes", "SCENE_DATA", 3),
             ("HDR", "HDRs", "Find HDRs", "WORLD", 4),
             ("BRUSH", "Brushes", "Find brushes", "BRUSH_DATA", 5),
+            ("NODEGROUP", "Node Groups", "Find tools", "NODETREE", 6),
         )
     else:
         items = (
@@ -337,6 +337,7 @@ def asset_type_callback(self, context):
             ("SCENE", "Scene", "Upload a scene", "SCENE_DATA", 3),
             ("HDR", "HDR", "Upload a HDR", "WORLD", 4),
             ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 5),
+            ("NODEGROUP", "Node Groups", "Upload a tool", "NODETREE", 6),
         )
 
     return items
@@ -546,6 +547,12 @@ class BlenderKitUIProps(PropertyGroup):
 
     hdr_upload_image: PointerProperty(
         name="Upload HDR", type=bpy.types.Image, description="Pick an image to upload"
+    )
+
+    geonode_tool_upload: PointerProperty(
+        name="Upload Tool",
+        type=bpy.types.GeometryNodeTree,
+        description="Pick the geometry node tool to upload",
     )
 
     new_comment: StringProperty(
@@ -1105,6 +1112,10 @@ class BlenderKitBrushSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     pass
 
 
+class BlenderKitGeoToolSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
+    pass
+
+
 class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     texture_resolution_max: IntProperty(
         name="Texture Resolution Max",
@@ -1129,6 +1140,28 @@ class BlenderKitBrushUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Mode where the brush works",
         default="SCULPT",
     )
+
+
+class BlenderKitNodeGroulUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
+    thumbnail: StringProperty(
+        name="Thumbnail",
+        description="Thumbnail path - minimum 1024x1024 square .jpg\n"
+        "And make it beautiful!",
+        subtype="FILE_PATH",
+        default="",
+        # update=autothumb.update_upload_model_preview,
+    )
+    # mode: EnumProperty(
+    #     name="Mode",
+    #     items=(
+    #         ("IMAGE", "Texture paint", "Texture brush"),
+    #         ("SCULPT", "Sculpt", "Sculpt brush"),
+    #         ("VERTEX", "Vertex paint", "Vertex paint brush"),
+    #         ("WEIGHT", "Weight paint", "Weight paint brush"),
+    #     ),
+    #     description="Mode where the brush works",
+    #     default="SCULPT",
+    # )
 
 
 # upload properties
@@ -2328,6 +2361,8 @@ classes = (
     BlenderKitTextureUploadProps,
     BlenderKitBrushSearchProps,
     BlenderKitBrushUploadProps,
+    BlenderKitGeoToolSearchProps,
+    BlenderKitNodeGroulUploadProps,
 )
 
 
@@ -2384,6 +2419,16 @@ def register():
         type=BlenderKitBrushUploadProps
     )
 
+    # NodeGroups
+    bpy.types.WindowManager.blenderkit_nodegroup = PointerProperty(
+        type=BlenderKitGeoToolSearchProps
+    )
+    bpy.types.NodeGroup.blenderkit = PointerProperty(  # for uploads, not now...
+        type=BlenderKitNodeGroulUploadProps
+    )
+    bpy.types.NodeTree.blenderkit = PointerProperty(  # for uploads, not now...
+        type=BlenderKitNodeGroulUploadProps
+    )
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
@@ -2462,6 +2507,7 @@ def unregister():
     del bpy.types.WindowManager.blenderkit_HDR
     del bpy.types.WindowManager.blenderkit_brush
     del bpy.types.WindowManager.blenderkit_mat
+    del bpy.types.WindowManager.blenderkit_nodegroup
 
     del bpy.types.Scene.blenderkit
     del bpy.types.Object.blenderkit

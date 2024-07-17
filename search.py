@@ -674,6 +674,7 @@ def query_to_url(query={}, params={}):
         "scene",
         "brush",
         "hdr",
+        "nodegroup",
     ):
         query["category_subtree"] = None
 
@@ -849,6 +850,22 @@ def build_query_brush():
     return query
 
 
+def build_query_nodegroup():
+    props = bpy.context.window_manager.blenderkit_nodegroup
+    query = {"asset_type": "nodegroup"}
+
+    build_query_common(query, props)
+    return query
+
+
+def build_query_nodegroup():
+    props = bpy.context.window_manager.blenderkit_nodegroup
+    query = {"asset_type": "nodegroup"}
+
+    build_query_common(query, props)
+    return query
+
+
 def add_search_process(query, params):
     global search_tasks
     if len(search_tasks) > 0:
@@ -859,7 +876,7 @@ def add_search_process(query, params):
         search_tasks = dict()
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
-    if params.get("get_next"):
+    if params.get("get_next") and params.get("next"):
         urlquery = params["next"]
     else:
         urlquery = query_to_url(query, params)
@@ -979,6 +996,11 @@ def search(get_next=False, query=None, author_id=""):
             if not hasattr(wm, "blenderkit_brush"):
                 return
             query = build_query_brush()
+
+        if ui_props.asset_type == "NODEGROUP":
+            if not hasattr(wm, "blenderkit_nodegroup"):
+                return
+            query = build_query_nodegroup()
 
         # crop long searches
         if query.get("query"):
@@ -1112,6 +1134,8 @@ def update_filters():
         sprops.use_filters = fcommon
     elif ui_props.asset_type == "HDR":
         sprops.use_filters = sprops.true_hdr
+    elif ui_props.asset_type == "NODEGROUP":
+        sprops.use_filters = fcommon
     return True
 
 
@@ -1157,6 +1181,9 @@ def search_update(self, context):
                 target_asset_type = "SCENE"
             elif asset_type_string.find("hdr") > -1:
                 target_asset_type = "HDR"
+            elif asset_type_string.find("nodegroup") > -1:
+                target_asset_type = "NODEGROUP"
+
             if ui_props.asset_type != target_asset_type:
                 sprops.search_keywords = ""
                 ui_props.asset_type = target_asset_type

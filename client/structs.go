@@ -289,10 +289,11 @@ type AssetParameterData struct {
 }
 
 type AssetUploadExportData struct {
-	Models   []string `json:"models,omitempty"`   // Only for models upload
-	Material string   `json:"material,omitempty"` // Only for material upload
-	Scene    string   `json:"scene,omitempty"`    // Only for scene upload
-	Brush    string   `json:"brush,omitempty"`    // Only for brush upload
+	Models    []string `json:"models,omitempty"`    // Only for models upload
+	Material  string   `json:"material,omitempty"`  // Only for material upload
+	Scene     string   `json:"scene,omitempty"`     // Only for scene upload
+	Brush     string   `json:"brush,omitempty"`     // Only for brush upload
+	NodeGroup string   `json:"nodegroup,omitempty"` // Only for node group upload
 	// Common parameters
 	ThumbnailPath     string `json:"thumbnail_path"`
 	AssetBaseID       string `json:"assetBaseId"`

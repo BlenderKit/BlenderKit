@@ -78,6 +78,9 @@ def draw_upload_common(layout, props, asset_type, context):
     if asset_type == "HDR":
         asset_type_text = asset_type
         url = paths.BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL
+    if asset_type == "NODEGROUP":
+        asset_type_text = asset_type
+        url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
     op = layout.operator(
         "wm.url_open", text=f"Read {asset_type} upload instructions", icon="QUESTION"
     )
@@ -190,7 +193,6 @@ def draw_panel_hdr_upload(self, context):
     layout = self.layout
     ui_props = bpy.context.window_manager.blenderkitUI
 
-    # layout.prop_search(ui_props, "hdr_upload_image", bpy.data, "images")
     layout.prop(ui_props, "hdr_upload_image")
 
     hdr = utils.get_active_HDR()
@@ -208,6 +210,36 @@ def draw_panel_hdr_search(self, context):
     wm = context.window_manager
     props = wm.blenderkit_HDR
     ui_props = wm.blenderkitUI
+
+    layout = self.layout
+    row = layout.row()
+    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    draw_assetbar_show_hide(row, props)
+
+    utils.label_multiline(layout, text=props.report)
+
+
+def draw_panel_nodegroup_upload(self, context):
+    layout = self.layout
+    ui_props = bpy.context.window_manager.blenderkitUI
+    layout.enabled = True
+
+    layout.template_ID(ui_props, "geonode_tool_upload")
+    nodegroup = utils.get_active_nodegroup()
+
+    if nodegroup is not None:
+        props = nodegroup.blenderkit
+
+        layout = self.layout
+
+        draw_upload_common(layout, props, "NODEGROUP", context)
+        layout.prop(props, "thumbnail")
+
+
+def draw_panel_nodegroup_search(self, context):
+    s = context.scene
+    wm = context.window_manager
+    props = wm.blenderkit_nodegroup
 
     layout = self.layout
     row = layout.row()
@@ -442,6 +474,42 @@ class VIEW3D_MT_blenderkit_model_properties(Menu):
         draw_model_context_menu(self, context)
 
 
+class NODE_PT_blenderkit_nodegroup_properties(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "NODE_PT_blenderkit_nodegroup_properties"
+    bl_space_type = "NODE_EDITOR"
+    bl_region_type = "UI"
+    bl_label = "Selected Geonode tool"
+    # bl_context = "editmode"
+
+    @classmethod
+    def poll(cls, context):
+        if bpy.context.space_data.tree_type != "GeometryNodeTree":
+            return False
+        if not bpy.context.space_data.edit_tree:
+            return False
+        return bpy.context.space_data.edit_tree.is_tool
+
+    def draw(self, context):
+        # draw asset properties here
+        layout = self.layout
+
+        et = bpy.context.space_data.edit_tree
+        if et.get("asset_data") is None:
+            utils.label_multiline(
+                layout,
+                text="To upload this asset to BlenderKit, go to the Find and Upload Assets panel.",
+            )
+            layout.prop(et, "name")
+
+        if et.get("asset_data") is not None:
+            ad = et["asset_data"]
+            layout.label(text=str(ad["name"]))
+
+            layout.label(text="Asset tools:")
+            draw_asset_context_menu(self.layout, context, ad, from_panel=True)
+
+
 class NODE_PT_blenderkit_material_properties(Panel):
     bl_category = "BlenderKit"
     bl_idname = "NODE_PT_blenderkit_material_properties"
@@ -452,6 +520,8 @@ class NODE_PT_blenderkit_material_properties(Panel):
 
     @classmethod
     def poll(cls, context):
+        if bpy.context.space_data.tree_type != "ShaderNodeTree":
+            return False
         p = (
             bpy.context.view_layer.objects.active is not None
             and bpy.context.active_object.active_material is not None
@@ -477,9 +547,7 @@ class NODE_PT_blenderkit_material_properties(Panel):
 
             layout.label(text="Asset tools:")
             draw_asset_context_menu(self.layout, context, ad, from_panel=True)
-            # if 'rig' in ad['tags']:
-            #     # layout.label(text = 'can make proxy')
-            #     layout.operator('object.blenderkit_make_proxy', text = 'Make Armature proxy')
+
         # fast upload, blocked by now
         # else:
         #     op = layout.operator("object.blenderkit_upload", text='Store as private', icon='EXPORT')
@@ -1630,6 +1698,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             )
             return
 
+        if ui_props.asset_type == "NODEGROUP":
+            return draw_panel_nodegroup_search(self, context)
+
     def draw_upload(self, context, layout, ui_props):
         # if not ui_props.assetbar_on:
         #     text = 'Show asset preview - ;'
@@ -1679,6 +1750,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
                 return draw_panel_brush_upload(self, context)
             layout.label(text="Switch to paint or sculpt mode.")
             return
+
+        if ui_props.asset_type == "NODEGROUP":
+            return draw_panel_nodegroup_upload(self, context)
 
 
 class BlenderKitWelcomeOperator(bpy.types.Operator):
@@ -2596,12 +2670,17 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # op = row.operator('view3d.asset_drag_drop', text='Drag & Drop from here', depress=True)
         # From here on, only ratings are drawn, which won't be displayed for private assets from now on.
 
-        if not self.asset_data["isPrivate"]:
+        rc = self.asset_data.get("ratingsCount")
+
+        if (
+            not self.asset_data["isPrivate"]
+            and rc.get("quality") is not None
+            and rc.get("workingHours") is not None
+        ):
             row = box_thumbnail.row()
             row.alignment = "EXPAND"
 
             # display_ratings = can_display_ratings(self.asset_data)
-            rc = self.asset_data.get("ratingsCount")
             show_rating_threshold = 0
             show_rating_prompt_threshold = 5
 
@@ -3344,22 +3423,26 @@ def header_search_draw(self, context):
     layout = self.layout
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.asset_type == "MODEL":
-        props = wm.blenderkit_models
-        asset_type_icon = "OBJECT_DATAMODE"
-    if ui_props.asset_type == "MATERIAL":
-        props = wm.blenderkit_mat
-        asset_type_icon = "MATERIAL"
-    if ui_props.asset_type == "BRUSH":
-        props = wm.blenderkit_brush
-        asset_type_icon = "BRUSH_DATA"
-    if ui_props.asset_type == "HDR":
-        props = wm.blenderkit_HDR
-        asset_type_icon = "WORLD"
-    if ui_props.asset_type == "SCENE":
-        props = wm.blenderkit_scene
-        asset_type_icon = "SCENE_DATA"
 
+    props_dict = {
+        "MODEL": wm.blenderkit_models,
+        "MATERIAL": wm.blenderkit_mat,
+        "BRUSH": wm.blenderkit_brush,
+        "HDR": wm.blenderkit_HDR,
+        "SCENE": wm.blenderkit_scene,
+        "NODEGROUP": wm.blenderkit_nodegroup,
+    }
+    props = props_dict[ui_props.asset_type]
+    icons_dict = {
+        "MODEL": "OBJECT_DATAMODE",
+        "MATERIAL": "MATERIAL",
+        "BRUSH": "BRUSH_DATA",
+        "HDR": "WORLD",
+        "SCENE": "SCENE_DATA",
+        "NODEGROUP": "NODETREE",
+    }
+
+    asset_type_icon = icons_dict[ui_props.asset_type]
     pcoll = icons.icon_collections["main"]
 
     # the center snap menu is in edit and object mode if tool settings are off.
@@ -3402,8 +3485,8 @@ def header_search_draw(self, context):
     layout.prop(
         ui_props,
         "asset_type",
-        expand=True,
-        icon_only=True,
+        expand=False,
+        icon_only=False,
         text="",
         icon=asset_type_icon,
     )
@@ -3439,7 +3522,11 @@ def header_search_draw(self, context):
     else:
         icon_id = pcoll["filter"].icon_id
 
-    if ui_props.asset_type == "MODEL":
+    if context.mode == "EDIT_MESH":
+        # geo node tools right now.
+        pass
+
+    elif ui_props.asset_type == "MODEL":
         layout.popover(
             panel="VIEW3D_PT_blenderkit_advanced_model_search",
             text="",

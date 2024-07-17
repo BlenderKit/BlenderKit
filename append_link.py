@@ -39,9 +39,27 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
                 data_to.brushes = [m]
                 brushname = m
     brush = bpy.data.brushes[brushname]
-    if fake_user:
-        brush.use_fake_user = True
+    brush.use_fake_user = fake_user
     return brush
+
+
+def append_nodegroup(file_name, toolname=None, link=False, fake_user=True):
+    """append a geonode tool"""
+    with bpy.data.libraries.load(file_name, link=link, relative=True) as (
+        data_from,
+        data_to,
+    ):
+        for g in data_from.node_groups:
+            print(g)
+            if g == toolname or toolname is None:
+                data_to.node_groups = [g]
+                toolname = g
+    print("shoudl be in here", toolname)
+    for t in bpy.data.node_groups:
+        print("inside blend", t)
+    tool = bpy.data.node_groups[toolname]
+    tool.use_fake_user = fake_user
+    return tool
 
 
 def append_material(file_name, matname=None, link=False, fake_user=True):

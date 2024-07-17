@@ -54,6 +54,7 @@ mappingdict = {
     "MATERIAL": "material",
     "TEXTURE": "texture",
     "BRUSH": "brush",
+    "NODEGROUP": "nodegroup",
 }
 
 verification_icons = {
