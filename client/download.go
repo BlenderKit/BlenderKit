@@ -133,6 +133,14 @@ func syncDirs(sourceDir, targetDir string) error {
 	})
 }
 
+func syncDirsBidirectional(sourceDir, targetDir string) error {
+	err := syncDirs(sourceDir, targetDir)
+	if err != nil {
+		return err
+	}
+	return syncDirs(targetDir, sourceDir)
+}
+
 func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID string) {
 	TasksMux.Lock()
 	task := NewTask(origJSON, data.AppID, taskID, "asset_download")
@@ -277,22 +285,11 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		// get directory filepaths from the downloadFilePaths
 		globalAssetDir := filepath.Dir(downloadFilePaths[0])
 		localAssetDir := filepath.Dir(downloadFilePaths[1])
-		// Synchronize from global to local
-		err := syncDirs(globalAssetDir, localAssetDir)
-		if err != nil {
-			e := fmt.Errorf("error synchronizing from global folder to local: %w", err)
-			TaskErrorCh <- &TaskError{
-				AppID:  data.AppID,
-				TaskID: taskID,
-				Error:  e,
-			}
-			return
-		}
 
-		// Synchronize from local to global
-		err = syncDirs(localAssetDir, globalAssetDir)
+		// Synchronize bidirectional
+		err := syncDirsBidirectional(localAssetDir, globalAssetDir)
 		if err != nil {
-			e := fmt.Errorf("error synchronizing from local folder to global : %w", err)
+			e := fmt.Errorf("error synchronizing global and local folders: %w", err)
 			TaskErrorCh <- &TaskError{
 				AppID:  data.AppID,
 				TaskID: taskID,
