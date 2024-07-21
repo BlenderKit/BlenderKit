@@ -54,12 +54,29 @@ def append_nodegroup(file_name, toolname=None, link=False, fake_user=True):
             if g == toolname or toolname is None:
                 data_to.node_groups = [g]
                 toolname = g
-    print("shoudl be in here", toolname)
-    for t in bpy.data.node_groups:
-        print("inside blend", t)
-    tool = bpy.data.node_groups[toolname]
-    tool.use_fake_user = fake_user
-    return tool
+    nodegroup = bpy.data.node_groups[toolname]
+    nodegroup.use_fake_user = fake_user
+    # if there's an open node editor, let's find if it matches the type of the asset group and insert it
+    # in middle of the area.
+    # mapping dict for editor type to node group node types
+    sdict = {
+        "GeometryNodeTree": "GeometryNodeGroup",
+        "ShaderNodeTree": "ShaderNodeGroup",
+        "CompositorNodeTree": "CompositorNodeGroup",
+    }
+    # Add the nodegroup into the active node editor, if there is one with the same type.
+    for area in bpy.context.screen.areas:
+        if area.type == "NODE_EDITOR":
+            if area.spaces.active.tree_type == nodegroup.bl_rna.identifier:
+                nt = area.spaces.active.edit_tree
+                # deselect all nodes
+                for n in nt.nodes:
+                    n.select = False
+                node = nt.nodes.new(sdict[area.spaces.active.tree_type])
+                node.node_tree = nodegroup
+                area.spaces.active.node_tree = nodegroup
+                break
+    return nodegroup
 
 
 def append_material(file_name, matname=None, link=False, fake_user=True):

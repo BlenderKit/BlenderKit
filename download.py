@@ -504,23 +504,23 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         asset_main = material
 
     elif asset_data["assetType"] == "nodegroup":
-        print("geonode tool append")
+        print("node group append")
         inscene = False
         sprops = wm.blenderkit_nodegroup
         for g in bpy.data.node_groups:
             if hasattr(g, "blenderkit") and g.blenderkit.id == asset_data["id"]:
                 inscene = True
-                geonode = g
+                nodegroup = g
                 break
         if not inscene:
-            geonode = append_link.append_nodegroup(
+            nodegroup = append_link.append_nodegroup(
                 file_names[-1],
                 toolname=asset_data["name"],
                 link=False,
                 fake_user=False,
             )
-        print("appended geonode", geonode)
-        asset_main = geonode
+        print("appended nodegroup", nodegroup)
+        asset_main = nodegroup
 
     asset_data["resolution"] = kwargs["resolution"]
     udpate_asset_data_in_dicts(asset_data)
