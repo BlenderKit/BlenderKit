@@ -44,7 +44,7 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
 
 
 def append_nodegroup(file_name, toolname=None, link=False, fake_user=True):
-    """append a geonode tool"""
+    """append a node group"""
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
         data_to,

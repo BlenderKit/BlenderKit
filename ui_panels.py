@@ -224,7 +224,7 @@ def draw_panel_nodegroup_upload(self, context):
     ui_props = bpy.context.window_manager.blenderkitUI
     layout.enabled = True
 
-    layout.template_ID(ui_props, "geonode_tool_upload")
+    layout.template_ID(ui_props, "nodegroup_upload")
     nodegroup = utils.get_active_nodegroup()
 
     if nodegroup is not None:
