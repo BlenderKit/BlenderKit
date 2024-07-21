@@ -127,7 +127,7 @@ def get_active_HDR():
 
 def get_active_nodegroup():
     ui_props = bpy.context.window_manager.blenderkitUI
-    nodegroup = ui_props.geonode_tool_upload
+    nodegroup = ui_props.nodegroup_upload
     return nodegroup
 
 
@@ -512,7 +512,7 @@ def uploadable_asset_poll():
     if ui_props.asset_type == "HDR":
         return ui_props.hdr_upload_image is not None
     if ui_props.asset_type == "NODEGROUP":
-        return ui_props.geonode_tool_upload is not None
+        return ui_props.nodegroup_upload is not None
     return True
 
 

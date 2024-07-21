@@ -549,7 +549,7 @@ class BlenderKitUIProps(PropertyGroup):
         name="Upload HDR", type=bpy.types.Image, description="Pick an image to upload"
     )
 
-    geonode_tool_upload: PointerProperty(
+    nodegroup_upload: PointerProperty(
         name="Upload Tool",
         type=bpy.types.GeometryNodeTree,
         description="Pick the geometry node tool to upload",

@@ -638,7 +638,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     elif asset_type == "NODEGROUP":
         ui_props = bpy.context.window_manager.blenderkitUI
         bk_logger.info("preparing nodegroup upload")
-        asset = ui_props.geonode_tool_upload
+        asset = ui_props.nodegroup_upload
         bk_logger.info("asset:" + str(asset))
         if not asset:
             return None, None
