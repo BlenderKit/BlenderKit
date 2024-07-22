@@ -21,6 +21,9 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,9 +33,10 @@ import (
 )
 
 func DebugNetworkHandler(w http.ResponseWriter, r *http.Request) {
-	text := "Network Debug not implemented now."
-	w.Write([]byte(text))
-	w.WriteHeader(http.StatusOK)
+	report := NetworkDebug()
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(report))
 }
 
 // CreateHTTPClients creates HTTP clients with proxy settings, assings them to global variables.
@@ -42,44 +46,23 @@ func CreateHTTPClients(proxyURL, proxyWhich, sslContext, trustedCACerts string) 
 	tlsConfig := GetTLSConfig(sslContext)
 	tlsConfig.RootCAs = GetCACertPool(trustedCACerts)
 
-	tAPI := http.DefaultTransport.(*http.Transport).Clone()
-	tAPI.TLSClientConfig = tlsConfig
-	tAPI.Proxy = proxy
-	ClientAPI = &http.Client{
-		Transport: tAPI,
-		Timeout:   time.Minute,
-	}
+	ClientAPI = GetHTTPClient(nil, tlsConfig, proxy, time.Minute)
+	ClientDownloads = GetHTTPClient(nil, tlsConfig, proxy, 1*time.Hour)
+	ClientUploads = GetHTTPClient(nil, tlsConfig, proxy, 24*time.Hour)
+	ClientBigThumbs = GetHTTPClient(nil, tlsConfig, proxy, time.Minute)
+	ClientSmallThumbs = GetHTTPClient(nil, tlsConfig, proxy, time.Minute)
+}
 
-	tDownloads := http.DefaultTransport.(*http.Transport).Clone()
-	tDownloads.TLSClientConfig = tlsConfig
-	tDownloads.Proxy = proxy
-	ClientDownloads = &http.Client{
-		Transport: tDownloads,
-		Timeout:   1 * time.Hour,
+func GetHTTPClient(transport *http.Transport, tlsConfig *tls.Config, proxy func(*http.Request) (*url.URL, error), timeout time.Duration) *http.Client {
+	if transport == nil {
+		transport = http.DefaultTransport.(*http.Transport).Clone()
 	}
+	transport.TLSClientConfig = tlsConfig
+	transport.Proxy = proxy
 
-	tUploads := http.DefaultTransport.(*http.Transport).Clone()
-	tUploads.TLSClientConfig = tlsConfig
-	tUploads.Proxy = proxy
-	ClientUploads = &http.Client{
-		Transport: tUploads,
-		Timeout:   24 * time.Hour,
-	}
-
-	tBigThumbs := http.DefaultTransport.(*http.Transport).Clone()
-	tBigThumbs.TLSClientConfig = tlsConfig
-	tBigThumbs.Proxy = proxy
-	ClientBigThumbs = &http.Client{
-		Transport: tBigThumbs,
-		Timeout:   time.Minute,
-	}
-
-	tSmallThumbs := http.DefaultTransport.(*http.Transport).Clone()
-	tSmallThumbs.TLSClientConfig = tlsConfig
-	tSmallThumbs.Proxy = proxy
-	ClientSmallThumbs = &http.Client{
-		Transport: tSmallThumbs,
-		Timeout:   time.Minute,
+	return &http.Client{
+		Transport: http.DefaultTransport,
+		Timeout:   timeout,
 	}
 }
 
@@ -148,4 +131,137 @@ func GetCACertPool(caFilePath string) *x509.CertPool {
 	BKLog.Printf("%s Loaded CA certificate from file: %v", EmoOK, caFilePath)
 	caCertPool.AppendCertsFromPEM(caCert)
 	return caCertPool
+}
+
+func GetIP() (string, error) {
+	resp, err := http.Get("https://api.ipify.org?format=json")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var ip struct {
+		IP string `json:"ip"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&ip)
+	if err != nil {
+		return "127.0.0.1", err
+	}
+	return ip.IP, nil
+}
+
+var UserAgentList = []string{
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+	//"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
+	//"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+	//"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+	"",
+}
+
+//"headers": {
+//    "Accept": "application/json",
+//    "Accept-Encoding": "gzip, deflate",
+//    "Accept-Language": "en-US,en;q=0.5",
+//    "Host": "httpbin.org",
+//    "Priority": "u=0",
+//    "Referer": "http://httpbin.org/",
+//    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0",
+//    "X-Amzn-Trace-Id": "Root=1-669e49f6-6a223d0b7b77e869286d13fe"
+//  },
+
+var sslOptions = []string{
+	"ENABLED",
+	"DISABLED",
+}
+
+var proxyOptions = []string{
+	"SYSTEM",
+	"ENVIRONMENT",
+	"NONE",
+}
+
+var TimeoutCoefficient = []int{1, 10}
+
+func NetworkDebug() string {
+	report := fmt.Sprintf("NETWORK DEBUG REPORT\nPlatform: %s\nClientVersion: %s\nSystemID %s\n", GetPlatformVersion(), ClientVersion, *getSystemID())
+	BKLog.Printf("%s Network debug has started", EmoDebug)
+
+	ip, err := GetIP()
+	if err != nil {
+		fmt.Println(err)
+		return fmt.Sprintf("Error getting client's IP: %v", err)
+	}
+	BKLog.Printf("%s Client's IP: %s", EmoDebug, ip)
+	report += fmt.Sprintf("Client's IP: %s\n", ip)
+	report += "-----------------------------------\n\n"
+
+	for tCoefficient := range TimeoutCoefficient {
+		tq := time.Duration(TimeoutCoefficient[tCoefficient])
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.IdleConnTimeout = 90 * time.Second * tq
+		transport.TLSHandshakeTimeout = 10 * time.Second * tq
+		transport.ExpectContinueTimeout = 1 * time.Second * tq
+		transport.DialContext = (&net.Dialer{
+			Timeout:   30 * time.Second * tq,
+			KeepAlive: 30 * time.Second * tq,
+		}).DialContext
+
+		for sslOption := range sslOptions {
+			tlsConfig := GetTLSConfig(sslOptions[sslOption])
+
+			for proxyOption := range proxyOptions {
+				proxy := GetProxyFunc("", proxyOptions[proxyOption])
+				timeout := time.Duration(1 * time.Minute * tq)
+				client := GetHTTPClient(transport, tlsConfig, proxy, timeout)
+
+				for agent := range UserAgentList {
+					agentString := UserAgentList[agent]
+					report += DebugRequest(client, agentString, TimeoutCoefficient[tCoefficient], sslOptions[sslOption], proxyOptions[proxyOption])
+				}
+			}
+		}
+	}
+
+	return report
+}
+
+func DebugRequest(client *http.Client, agent string, tCoeff int, sslOption string, proxyOption string) string {
+	report := fmt.Sprintf("=== DEBUG REQUEST (timeCoef=%d, sslOption=\"%s\", proxyOption=\"%s\", agent=\"%s\")\n", tCoeff, sslOption, proxyOption, agent)
+	req, err := http.NewRequest("GET", "https://www.blenderkit.com/api/v1/search/?query=kitten", nil)
+	if err != nil {
+		msg := fmt.Sprintf("Error creating request: %v", err)
+		return report + msg
+	}
+
+	platformVersion := GetPlatformVersion()
+	req.Header = getHeaders("", *SystemID, *AddonVersion, platformVersion)
+	if agent != "" {
+		req.Header.Set("User-Agent", agent)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		msg := fmt.Sprintf("Error doing request: %v", err)
+		return report + msg
+	}
+	defer resp.Body.Close()
+
+	BKLog.Printf(`%s %s
+timeQ=%v
+sslOption=%s,
+proxyOption=%s,
+agent=%s`,
+		EmoDebug,
+		resp.Status,
+		tCoeff,
+		sslOption,
+		proxyOption,
+		agent,
+	)
+
+	report += fmt.Sprintf("    %s\n\n", resp.Status)
+
+	return report
 }

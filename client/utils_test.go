@@ -37,13 +37,13 @@ func TestGetSystemID(t *testing.T) {
 func TestStringToAddonVersion(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected *AddonVersion
+		expected *AddonVersionStruct
 		err      error
 	}{
-		{"0.0.0", &AddonVersion{Major: 0, Minor: 0, Patch: 0}, nil},
-		{"1.2.3", &AddonVersion{Major: 1, Minor: 2, Patch: 3}, nil},
-		{"3.12.11", &AddonVersion{Major: 3, Minor: 12, Patch: 11}, nil},
-		{"3.13.5.241206", &AddonVersion{Major: 3, Minor: 13, Patch: 5}, nil},
+		{"0.0.0", &AddonVersionStruct{Major: 0, Minor: 0, Patch: 0}, nil},
+		{"1.2.3", &AddonVersionStruct{Major: 1, Minor: 2, Patch: 3}, nil},
+		{"3.12.11", &AddonVersionStruct{Major: 3, Minor: 12, Patch: 11}, nil},
+		{"3.13.5.241206", &AddonVersionStruct{Major: 3, Minor: 13, Patch: 5}, nil},
 		{"", nil, fmt.Errorf("add-on version is empty string")},
 		{"4", nil, fmt.Errorf("error parsing add-on version: unexpected EOF")},
 		{"4.2", nil, fmt.Errorf("error parsing add-on version: unexpected EOF")},
@@ -64,14 +64,14 @@ func TestStringToAddonVersion(t *testing.T) {
 func TestStringToBlenderVersion(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected *BlenderVersion
+		expected *BlenderVersionStruct
 		err      error
 	}{
-		{"2.92.0", &BlenderVersion{Major: 2, Minor: 92, Patch: 0}, nil},
-		{"3.3.15", &BlenderVersion{Major: 3, Minor: 3, Patch: 15}, nil},
-		{"4.0.1", &BlenderVersion{Major: 4, Minor: 0, Patch: 1}, nil},
-		{"4.1.21", &BlenderVersion{Major: 4, Minor: 1, Patch: 21}, nil},
-		{"4.1.21.241206", &BlenderVersion{Major: 4, Minor: 1, Patch: 21}, nil},
+		{"2.92.0", &BlenderVersionStruct{Major: 2, Minor: 92, Patch: 0}, nil},
+		{"3.3.15", &BlenderVersionStruct{Major: 3, Minor: 3, Patch: 15}, nil},
+		{"4.0.1", &BlenderVersionStruct{Major: 4, Minor: 0, Patch: 1}, nil},
+		{"4.1.21", &BlenderVersionStruct{Major: 4, Minor: 1, Patch: 21}, nil},
+		{"4.1.21.241206", &BlenderVersionStruct{Major: 4, Minor: 1, Patch: 21}, nil},
 		{"", nil, fmt.Errorf("blender version is empty string")},
 		{"4", nil, fmt.Errorf("error parsing blender version: unexpected EOF")},
 		{"4.2", nil, fmt.Errorf("error parsing blender version: unexpected EOF")},

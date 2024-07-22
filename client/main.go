@@ -64,13 +64,16 @@ const (
 	EmoDownload      = "⬇️ "
 	EmoIdentity      = "🆔"
 	EmoUpdate        = "🔜"
+	EmoDebug         = "🪲"
 )
 
 var (
-	ClientVersion = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
-	SystemID      *string   // Unique ID of the current system (string of 15 integers)
-	Port          *string
-	Server        *string
+	ClientVersion   = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
+	SystemID        *string   // Unique ID of the current system (string of 15 integers)
+	Port            *string
+	Server          *string
+	AddonVersion    *string
+	PlatformVersion *string
 
 	OAuth2Sessions    map[string]OAuth2VerificationData // Map of OAuth2 sessions, key is the state string
 	OAuth2SessionsMux sync.Mutex
@@ -203,11 +206,11 @@ func main() {
 	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")        // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
-	addon_version := flag.String("version", "", "addon version")
+	AddonVersion = flag.String("version", "", "addon version")
 	flag.Parse()
 	fmt.Print("\n\n")
 	BKLog.Printf("BlenderKit-Client v%s starting from add-on v%s\n   port=%s\n   server=%s\n   proxy_which=%s\n   proxy_address=%s\n   trusted_ca_certs=%s\n   ssl_context=%s",
-		ClientVersion, *addon_version, *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context)
+		ClientVersion, *AddonVersion, *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context)
 
 	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context, *trusted_ca_certs)
 	go monitorReportAccess()
