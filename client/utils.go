@@ -30,6 +30,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
@@ -51,7 +52,7 @@ func getHeaders(apiKey, systemID, addonVersion, platformVersion string) http.Hea
 }
 
 // GetSystemID returns the NodeID of the machine as string of 15 integers.
-// It is the same format as platform.platform() produces in Python.
+// It is the same format as uuid.getnode() produces in Python.
 func getSystemID() *string {
 	var nodeInt uint64
 	for _, b := range uuid.NodeID() {
@@ -61,8 +62,8 @@ func getSystemID() *string {
 	return &nodeStr
 }
 
-func StringToAddonVersion(s string) (*AddonVersion, error) {
-	adVer := &AddonVersion{}
+func StringToAddonVersion(s string) (*AddonVersionStruct, error) {
+	adVer := &AddonVersionStruct{}
 	if s == "" {
 		return nil, fmt.Errorf("add-on version is empty string")
 	}
@@ -75,8 +76,8 @@ func StringToAddonVersion(s string) (*AddonVersion, error) {
 	return adVer, nil
 }
 
-func StringToBlenderVersion(s string) (*BlenderVersion, error) {
-	blVer := &BlenderVersion{}
+func StringToBlenderVersion(s string) (*BlenderVersionStruct, error) {
+	blVer := &BlenderVersionStruct{}
 	if s == "" {
 		return nil, fmt.Errorf("blender version is empty string")
 	}
@@ -88,13 +89,13 @@ func StringToBlenderVersion(s string) (*BlenderVersion, error) {
 	return blVer, nil
 }
 
-type BlenderVersion struct {
+type BlenderVersionStruct struct {
 	Major int
 	Minor int
 	Patch int
 }
 
-type AddonVersion struct {
+type AddonVersionStruct struct {
 	Major int
 	Minor int
 	Patch int
@@ -311,4 +312,8 @@ func RespIsJSON(resp *http.Response) error {
 	}
 
 	return fmt.Errorf("invalid response Content-Type: %s, resp: %s", contentType, bodyString)
+}
+
+func GetPlatformVersion() string {
+	return runtime.GOOS + "_" + runtime.GOARCH
 }
