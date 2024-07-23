@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -231,11 +230,11 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 			action = "place"
 		}
 	default: // Something unexpected happened -> delete and download
-		log.Println("Unexpected number of existing files:", len(existingFiles))
+		BKLog.Printf("%s Unexpected number of existing files: %s", EmoWarning, existingFiles)
 		for _, file := range downloadFilePaths {
 			err := DeleteFile(file)
 			if err != nil {
-				log.Println("Error deleting file:", err)
+				BKLog.Printf("%s Error deleting file: %v", EmoWarning, err)
 			}
 		}
 	}
