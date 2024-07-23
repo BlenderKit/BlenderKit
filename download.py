@@ -1096,7 +1096,7 @@ def start_download(asset_data, **kwargs) -> bool:
 
     if ain and not kwargs.get("replace_resolution"):
         # this goes to appending asset - where it should duplicate the original asset already in scene.
-        print("try append or asset from drive without download")
+        bk_logger.info("try append or asset from drive without download")
         append_ok = try_finished_append(asset_data, **kwargs)
         if append_ok:
             return False
