@@ -151,26 +151,6 @@ func GetIP() (string, error) {
 	return ip.IP, nil
 }
 
-var UserAgentList = []string{
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-	//"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
-	//"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-	//"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-	"",
-}
-
-//"headers": {
-//    "Accept": "application/json",
-//    "Accept-Encoding": "gzip, deflate",
-//    "Accept-Language": "en-US,en;q=0.5",
-//    "Host": "httpbin.org",
-//    "Priority": "u=0",
-//    "Referer": "http://httpbin.org/",
-//    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0",
-//    "X-Amzn-Trace-Id": "Root=1-669e49f6-6a223d0b7b77e869286d13fe"
-//  },
-
 var sslOptions = []string{
 	"ENABLED",
 	"DISABLED",
@@ -178,11 +158,18 @@ var sslOptions = []string{
 
 var proxyOptions = []string{
 	"SYSTEM",
-	"ENVIRONMENT",
 	"NONE",
 }
 
 var TimeoutCoefficient = []int{1, 10}
+
+var testURLs = []string{
+	"https://www.blenderkit.com/api/v1/search/?query=kitten",
+	"https://api.blenderkit.com/api/v1/search/?query=kitten",
+	"https://public.blenderkit.com/robots.txt",
+	"https://status.blenderkit.com/",
+	"https://www.blenderkit.com/disclaimer/",
+}
 
 func NetworkDebug() string {
 	report := fmt.Sprintf("NETWORK DEBUG REPORT\nPlatform: %s\nClientVersion: %s\nSystemID %s\n", GetPlatformVersion(), ClientVersion, *getSystemID())
@@ -216,9 +203,11 @@ func NetworkDebug() string {
 				timeout := time.Duration(1 * time.Minute * tq)
 				client := GetHTTPClient(transport, tlsConfig, proxy, timeout)
 
-				for agent := range UserAgentList {
-					agentString := UserAgentList[agent]
-					report += DebugRequest(client, agentString, TimeoutCoefficient[tCoefficient], sslOptions[sslOption], proxyOptions[proxyOption])
+				for i := range fakeHeaders {
+					headers := fakeHeaders[i]
+					for x := range testURLs {
+						report += DebugRequest(client, testURLs[x], headers, TimeoutCoefficient[tCoefficient], sslOptions[sslOption], proxyOptions[proxyOption])
+					}
 				}
 			}
 		}
@@ -227,9 +216,9 @@ func NetworkDebug() string {
 	return report
 }
 
-func DebugRequest(client *http.Client, agent string, tCoeff int, sslOption string, proxyOption string) string {
-	report := fmt.Sprintf("=== DEBUG REQUEST (timeCoef=%d, sslOption=\"%s\", proxyOption=\"%s\", agent=\"%s\")\n", tCoeff, sslOption, proxyOption, agent)
-	req, err := http.NewRequest("GET", "https://www.blenderkit.com/api/v1/search/?query=kitten", nil)
+func DebugRequest(client *http.Client, url string, headers [][]string, tCoeff int, sslOption string, proxyOption string) string {
+	report := fmt.Sprintf("=== DEBUG REQUEST\nurl=%s, \ntimeCoef=%d, \nsslOption=\"%s\", \nproxyOption=\"%s\", \nheaders=\"%s\"\n", url, tCoeff, sslOption, proxyOption, headers)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Error creating request: %v", err)
 		return report + msg
@@ -237,31 +226,70 @@ func DebugRequest(client *http.Client, agent string, tCoeff int, sslOption strin
 
 	platformVersion := GetPlatformVersion()
 	req.Header = getHeaders("", *SystemID, *AddonVersion, platformVersion)
-	if agent != "" {
-		req.Header.Set("User-Agent", agent)
+
+	for i := range headers {
+		if len(headers[i]) < 2 {
+			continue
+		}
+		fmt.Printf("Setting %s=%s", headers[i][0], headers[i][1])
+		req.Header.Set(headers[i][0], headers[i][1])
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		msg := fmt.Sprintf("Error doing request: %v", err)
+		msg := fmt.Sprintf("--> Error doing request: %v\n\n", err)
 		return report + msg
 	}
 	defer resp.Body.Close()
 
 	BKLog.Printf(`%s %s
+url=%s
 timeQ=%v
 sslOption=%s,
 proxyOption=%s,
-agent=%s`,
+headers=%s`,
 		EmoDebug,
 		resp.Status,
+		url,
 		tCoeff,
 		sslOption,
 		proxyOption,
-		agent,
+		req.Header,
 	)
 
-	report += fmt.Sprintf("    %s\n\n", resp.Status)
+	report += fmt.Sprintf("--> %s\n\n", resp.Status)
 
 	return report
+}
+
+var fakeHeaders = [][][]string{
+	{{}},
+	{
+		{"User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"},
+	},
+	{
+		{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"},
+	},
+	{
+		{"Host", "www.blenderkit.com"},
+		{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0"},
+		{"Accept", "*/*"},
+		{"Accept-Language", "en-US,en;q=0.5"},
+		{"Accept-Encoding", "gzip, deflate, br, zstd"},
+		{"Referer", "https://www.blenderkit.com/asset-gallery?query=category_subtree:model%20order:-created"},
+		{"Sec-Fetch-Dest", "empty"},
+		{"Sec-Fetch-Mode", "cors"},
+		{"Sec-Fetch-Site", "same-origin"},
+		{"Connection", "keep-alive"},
+	},
+	{
+		{"Accept", "application/json"},
+		{"Accept-Encoding", "gzip, deflate"},
+		{"Accept-Language", "en-US,en;q=0.5"},
+		{"Host", "www.blenderkit.com"},
+		{"Priority", "u=0"},
+		{"Referer", "http://httpbin.org/"},
+		{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0"},
+		{"X-Amzn-Trace-Id", "Root=1-669e49f6-6a223d0b7b77e869286d13fe"},
+	},
 }
