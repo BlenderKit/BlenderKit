@@ -82,6 +82,9 @@ def get_reports(app_id: str):
     If few last calls failed, then try to get reports also from other than default ports.
     """
     data = ensure_minimal_data({"app_id": app_id})
+    data["blender_version"] = (
+        f"{bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}"
+    )
     if (
         global_vars.CLIENT_FAILED_REPORTS < 10
     ):  # on 10, there is second BlenderKit-Client start

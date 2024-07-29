@@ -300,6 +300,10 @@ def handle_task(task: daemon_tasks.Task):
     if task.task_type == "wrappers/nonblocking_request":
         return utils.handle_nonblocking_request_task(task)
 
+    # BKCLIENTJS - Download from web
+    if task.task_type == "bkclientjs/get_asset":
+        return download.handle_bkclientjs_get_asset(task)
+
     # HANDLE MESSAGE FROM DAEMON
     if task.task_type == "message_from_daemon":
         level = task.result.get("level", "INFO").upper()

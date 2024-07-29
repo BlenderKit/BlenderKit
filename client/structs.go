@@ -20,12 +20,15 @@ package main
 
 import "context"
 
-// MinimalTaskData is minimal data needed from add-on to schedule a task.
+// MinimalTaskData is minimal data needed from Blender add-on to schedule a task.
+// This is used only for communication with Blender add-on. Other add-on will not schedule a tasks.
+// From this also Software
 type MinimalTaskData struct {
-	AppID           int    `json:"app_id"`  // AppID is PID of Blender in which add-on runs
-	APIKey          string `json:"api_key"` // Can be empty for non-logged users
-	AddonVersion    string `json:"addon_version"`
-	PlatformVersion string `json:"platform_version"`
+	AppID           int    `json:"app_id"`           // AppID is PID of Blender in which add-on runs
+	APIKey          string `json:"api_key"`          // Can be empty for non-logged users
+	AddonVersion    string `json:"addon_version"`    // X.Y.Z version of add-on
+	BlenderVersion  string `json:"blender_version"`  // X.Y.X version of the Blender
+	PlatformVersion string `json:"platform_version"` // Result of platform.platform() in Python
 }
 
 // TaskStatusUpdate is a struct for updating the status of a task through a channel.
