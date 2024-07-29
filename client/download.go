@@ -62,7 +62,22 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskID := uuid.New().String()
-	go doAssetDownload(rJSON, downloadData, taskID)
+
+	go doAssetDownload(
+		rJSON,
+		taskID,
+		downloadData.AppID,
+		downloadData.SceneID,
+		downloadData.APIKey,
+		downloadData.AddonVersion,
+		downloadData.PlatformVersion,
+		downloadData.DownloadAssetData,
+		downloadData.DownloadDirs,
+		downloadData.UnpackFiles,
+		downloadData.BinaryPath,
+		downloadData.AddonDir,
+		downloadData.AddonModuleName,
+	)
 
 	// Response to add-on
 	resData := map[string]string{"task_id": taskID}
@@ -140,25 +155,39 @@ func syncDirsBidirectional(sourceDir, targetDir string) error {
 	return syncDirs(targetDir, sourceDir)
 }
 
-func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID string) {
+func doAssetDownload(
+	origJSON map[string]interface{},
+	taskID string,
+	appID int,
+	sceneID string,
+	apiKey string,
+	addonVersion string,
+	platformVersion string,
+	downloadAssetData DownloadAssetData,
+	downloadDirs []string,
+	unpackFiles bool,
+	binaryPath string,
+	addonDir string,
+	addonModuleName string,
+) {
 	TasksMux.Lock()
-	task := NewTask(origJSON, data.AppID, taskID, "asset_download")
+	task := NewTask(origJSON, appID, taskID, "asset_download")
 	task.Message = "Getting download URL"
 	Tasks[task.AppID][taskID] = task
 	TasksMux.Unlock()
 
 	// GET URL FOR BLEND FILE WITH CORRECT RESOLUTION
-	canDownload, downloadURL, err := GetDownloadURL(data)
+	canDownload, downloadURL, err := GetDownloadURL(sceneID, downloadAssetData.Files, downloadAssetData.Resolution, apiKey, addonVersion, platformVersion)
 	if err != nil {
 		TaskErrorCh <- &TaskError{
-			AppID:  data.AppID,
+			AppID:  appID,
 			TaskID: taskID,
 			Error:  err}
 		return
 	}
 	if !canDownload {
 		TaskErrorCh <- &TaskError{
-			AppID:  data.AppID,
+			AppID:  appID,
 			TaskID: taskID,
 			Error:  fmt.Errorf("user cannot download this file")}
 		return
@@ -166,7 +195,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 
 	// EXTRACT FILENAME FROM URL
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
-		AppID:    data.AppID,
+		AppID:    appID,
 		TaskID:   taskID,
 		Progress: 0,
 		Message:  "Extracting filename",
@@ -174,7 +203,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	fileName, err := ExtractFilenameFromURL(downloadURL)
 	if err != nil {
 		TaskErrorCh <- &TaskError{
-			AppID:  data.AppID,
+			AppID:  appID,
 			TaskID: taskID,
 			Error:  err,
 		}
@@ -183,16 +212,16 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 
 	// GET FILEPATHS TO WHICH WE DOWNLOAD
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
-		AppID:    data.AppID,
+		AppID:    appID,
 		TaskID:   taskID,
 		Progress: 0,
 		Message:  "Getting filepaths",
 	}
-	downloadFilePaths := GetDownloadFilepaths(data, fileName)
+	downloadFilePaths := GetDownloadFilepaths(downloadAssetData, downloadDirs, fileName)
 
 	// CHECK IF FILE EXISTS ON HARD DRIVE
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
-		AppID:    data.AppID,
+		AppID:    appID,
 		TaskID:   taskID,
 		Progress: 0,
 		Message:  "Checking files on disk",
@@ -242,11 +271,11 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 	// START DOWNLOAD IF NEEDED
 	fp := downloadFilePaths[0]
 	if action == "download" {
-		err = downloadAsset(downloadURL, fp, data, taskID, task.Ctx)
+		err = downloadAsset(downloadURL, fp, appID, addonVersion, platformVersion, taskID, task.Ctx)
 		if err != nil {
 			e := fmt.Errorf("error downloading asset: %w", err)
 			TaskErrorCh <- &TaskError{
-				AppID:  data.AppID,
+				AppID:  appID,
 				TaskID: taskID,
 				Error:  e,
 			}
@@ -258,17 +287,28 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 
 	// UNPACKING (Only after download? By now unpack is triggered always,
 	// to ensure assets that weren't unpacked get unpacked for resolution switching )
-	if data.UnpackFiles {
+	if unpackFiles {
 		// If there was no download, there's risk that the file to be unpacked
 		// is only in local, but not in global directory
 		if action != "download" {
 			fp = existingFiles[0]
 		}
-		err := UnpackAsset(fp, data, taskID)
+		//err := UnpackAsset(fp, data, taskID)
+		err := UnpackAsset(
+			fp,
+			taskID,
+			appID,
+			downloadAssetData.AssetType,
+			binaryPath,
+			addonDir,
+			addonModuleName,
+			downloadAssetData,
+			//prefs,
+		)
 		if err != nil {
 			e := fmt.Errorf("error unpacking asset: %w", err)
 			TaskErrorCh <- &TaskError{
-				AppID:  data.AppID,
+				AppID:  appID,
 				TaskID: taskID,
 				Error:  e,
 			}
@@ -290,7 +330,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 		if err != nil {
 			e := fmt.Errorf("error synchronizing global and local folders: %w", err)
 			TaskErrorCh <- &TaskError{
-				AppID:  data.AppID,
+				AppID:  appID,
 				TaskID: taskID,
 				Error:  e,
 			}
@@ -301,7 +341,7 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 
 	result := map[string]interface{}{"file_paths": downloadFilePaths, "url": downloadURL}
 	TaskFinishCh <- &TaskFinish{
-		AppID:   data.AppID,
+		AppID:   appID,
 		TaskID:  taskID,
 		Message: "Asset downloaded and ready",
 		Result:  result,
@@ -310,10 +350,20 @@ func doAssetDownload(origJSON map[string]interface{}, data DownloadData, taskID 
 
 // UnpackAsset unpacks the downloaded asset (.blend file).
 // It skips unpacking for HDRi files and returns nil immediately.
-func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
-	if data.AssetType == "hdr" { // Skip unpacking for HDRi files
+func UnpackAsset(
+	blendPath string,
+	taskID string,
+	appID int,
+	assetType string,
+	binaryPath string,
+	addonDir string,
+	addonModuleName string,
+	downloadAssetData DownloadAssetData,
+	//prefs PREFS,
+) error {
+	if assetType == "hdr" { // Skip unpacking for HDRi files
 		TaskMessageCh <- &TaskMessageUpdate{
-			AppID:   data.AppID,
+			AppID:   appID,
 			TaskID:  taskID,
 			Message: "HDRi file doesn't need unpacking",
 		}
@@ -321,19 +371,19 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 	}
 
 	TaskMessageCh <- &TaskMessageUpdate{
-		AppID:   data.AppID,
+		AppID:   appID,
 		TaskID:  taskID,
 		Message: "Unpacking files",
 	}
-	blenderUserScripts := filepath.Dir(filepath.Dir(data.PREFS.AddonDir)) // e.g.: /Users/username/Library/Application Support/Blender/4.1/scripts"
-	unpackScriptPath := filepath.Join(data.PREFS.AddonDir, "unpack_asset_bg.py")
+	blenderUserScripts := filepath.Dir(filepath.Dir(addonDir)) // e.g.: /Users/username/Library/Application Support/Blender/4.1/scripts"
+	unpackScriptPath := filepath.Join(addonDir, "unpack_asset_bg.py")
 	dataFile := filepath.Join(os.TempDir(), "resdata.json")
 
 	process_data := map[string]interface{}{
 		"fpath":      blendPath,
-		"asset_data": data.DownloadAssetData,
+		"asset_data": downloadAssetData,
 		"command":    "unpack",
-		"PREFS":      data.PREFS,
+		//"PREFS":      prefs,
 		//"debug_value": data.PREFS.DebugValue,
 	}
 	jsonData, err := json.Marshal(process_data)
@@ -346,16 +396,16 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 	}
 
 	cmd := exec.Command(
-		data.BinaryPath,
+		binaryPath,
 		"--background",
-		"--factory-startup",                    // disables user preferences, addons, etc.
-		"--addons", data.PREFS.AddonModuleName, // For extensions we need to enable by dynamic bl_ext.user_default.blenderkit
+		"--factory-startup",         // disables user preferences, addons, etc.
+		"--addons", addonModuleName, // For extensions we need to enable by dynamic bl_ext.user_default.blenderkit
 		"-noaudio",
 		blendPath,
 		"--python", unpackScriptPath,
 		"--",
 		dataFile,
-		data.PREFS.AddonModuleName, // Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
+		addonModuleName, // Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
 	)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=%v", blenderUserScripts))
 	out, err := cmd.CombinedOutput()
@@ -370,9 +420,9 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 	return nil
 }
 
-func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx context.Context) error {
+func downloadAsset(url, filePath string, appID int, addonVersion, platformVersion, taskID string, ctx context.Context) error {
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
-		AppID:    data.AppID,
+		AppID:    appID,
 		TaskID:   taskID,
 		Progress: 0,
 		Message:  "Downloading",
@@ -389,7 +439,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 		return err
 	}
 
-	req.Header = getHeaders("", *SystemID, data.AddonVersion, data.PlatformVersion) // download needs no API key in headers
+	req.Header = getHeaders("", *SystemID, addonVersion, platformVersion) // download needs no API key in headers
 	resp, err := ClientDownloads.Do(req)
 	if err != nil {
 		e := DeleteFile(filePath)
@@ -442,7 +492,7 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, progress)
 			}
 			TaskProgressUpdateCh <- &TaskProgressUpdate{
-				AppID:    data.AppID,
+				AppID:    appID,
 				TaskID:   taskID,
 				Progress: progress,
 				Message:  downloadMessage,
@@ -491,11 +541,11 @@ func downloadAsset(url, filePath string, data DownloadData, taskID string, ctx c
 }
 
 // should return ['/Users/ag/blenderkit_data/models/kitten_0992088b-fb84-4c69-bb6e-426272970c8b/kitten_2K_d5368c9d-092e-4319-afe1-dd765de6da01.blend']
-func GetDownloadFilepaths(data DownloadData, filename string) []string {
+func GetDownloadFilepaths(downloadAssetData DownloadAssetData, downloadDirs []string, filename string) []string {
 	filePaths := []string{}
-	filename = ServerToLocalFilename(filename, data.DownloadAssetData.Name)
-	assetDirName := GetAssetDirectoryName(data.DownloadAssetData.Name, data.DownloadAssetData.ID)
-	for _, dir := range data.DownloadDirs {
+	filename = ServerToLocalFilename(filename, downloadAssetData.Name)
+	assetDirName := GetAssetDirectoryName(downloadAssetData.Name, downloadAssetData.ID)
+	for _, dir := range downloadDirs {
 		assetDirPath := filepath.Join(dir, assetDirName)
 		if _, err := os.Stat(assetDirPath); os.IsNotExist(err) {
 			os.MkdirAll(assetDirPath, os.ModePerm)
@@ -521,17 +571,17 @@ func GetDownloadFilepaths(data DownloadData, filename string) []string {
 
 // Get the download URL for the asset file.
 // Returns: canDownload, downloadURL, error.
-func GetDownloadURL(data DownloadData) (bool, string, error) {
+func GetDownloadURL(sceneID string, files []AssetFile, resolution string, apiKey, addonVersion, platformVersion string) (bool, string, error) {
 	reqData := url.Values{}
-	reqData.Set("scene_uuid", data.SceneID)
+	reqData.Set("scene_uuid", sceneID)
 
-	file, _ := GetResolutionFile(data.Files, data.PREFS.Resolution)
+	file, _ := GetResolutionFile(files, resolution)
 
 	req, err := http.NewRequest("GET", file.DownloadURL, nil)
 	if err != nil {
 		return false, "", err
 	}
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+	req.Header = getHeaders(apiKey, *SystemID, addonVersion, platformVersion)
 	req.URL.RawQuery = reqData.Encode()
 
 	resp, err := ClientAPI.Do(req)

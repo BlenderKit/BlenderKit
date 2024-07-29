@@ -64,6 +64,7 @@ const (
 	EmoDownload      = "⬇️ "
 	EmoIdentity      = "🆔"
 	EmoUpdate        = "🔜"
+	EmoBKClientJS    = "🌐"
 )
 
 var (
@@ -78,8 +79,8 @@ var (
 	lastReportAccess    time.Time
 	lastReportAccessMux sync.Mutex
 
-	ActiveAppsMux sync.Mutex
-	ActiveApps    []int
+	AvailableSoftwares    map[int]Software // Available Softwares which are connected to the Client
+	AvailableSoftwaresMux sync.Mutex
 
 	Tasks                map[int]map[string]*Task
 	TasksMux             sync.Mutex
@@ -100,6 +101,7 @@ func init() {
 	SystemID = getSystemID()
 	OAuth2Sessions = make(map[string]OAuth2VerificationData)
 	Tasks = make(map[int]map[string]*Task)
+	AvailableSoftwares = make(map[int]Software)
 	AddTaskCh = make(chan *Task, 1000)
 	TaskProgressUpdateCh = make(chan *TaskProgressUpdate, 1000)
 	TaskMessageCh = make(chan *TaskMessageUpdate, 1000)
@@ -257,6 +259,10 @@ func main() {
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
 	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
 
+	// WEB BROWSER - bkclient.js
+	mux.HandleFunc("/bkclientjs/status", bkclientjsStatusHandler)
+	mux.HandleFunc("/bkclientjs/get_asset", bkclientjsGetAssetHandler)
+
 	StartClient(mux)
 }
 
@@ -366,11 +372,12 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // SubscribeNewApp adds new App into Tasks[AppID].
-// This is called when new AppID appears - meeaning new add-on or other app wants to communicate with Client.
+// This is called when new AppID appears - meaning new add-on or other app wants to communicate with Client.
 func SubscribeNewApp(data MinimalTaskData) {
 	BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, data.AppID)
 	Tasks[data.AppID] = make(map[string]*Task)
 
+	go SubscribeAvailableSoftware(data.AppID, "Blender", data.BlenderVersion, data.AddonVersion)
 	go FetchDisclaimer(data)
 	go FetchCategories(data)
 	if data.APIKey != "" {
@@ -413,6 +420,8 @@ func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	BKLog.Printf("%s Add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
+
+	go UnsubscribeAvailableSoftware(data.AppID)
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] != nil {
@@ -854,7 +863,7 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canDownload, URL, err := GetDownloadURL(data)
+	canDownload, URL, err := GetDownloadURL(data.SceneID, data.Files, data.PREFS.Resolution, data.APIKey, data.AddonVersion, data.PlatformVersion)
 	if err != nil {
 		http.Error(w, "Error getting download URL: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -2319,4 +2328,196 @@ func DictToParams(inputs map[string]interface{}) []map[string]string {
 		parameters = append(parameters, param)
 	}
 	return parameters
+}
+
+// Browser (via bkclient-js) gets status of the Client and all connected softwares.
+func bkclientjsStatusHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	data := ClientStatus{
+		ClientVersion: ClientVersion,
+		Softwares:     GetAvailableSoftwares(AvailableSoftwares),
+	}
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
+}
+
+// Status report for the bkclientjs library. Contains information about
+// compatible software and its currently running instances.
+type ClientStatus struct {
+	ClientVersion string     `json:"clientVersion"`
+	Softwares     []Software `json:"softwares"`
+}
+
+// Connected and running compatible software.
+// Right now this can be just instance of Blender.
+type Software struct {
+	Name            string `json:"name"`            // Name of the software
+	Version         string `json:"version"`         // Version of the Software
+	AppID           int    `json:"appID"`           // PID of the process
+	AddonVersion    string `json:"addonVersion"`    // Version of the add-on
+	PlatformVersion string `json:"platformVersion"` // Python's platform.platform()
+}
+
+// Data needed from the browser (with bkclientjs lib) to ask for Download of an asset.
+type bkclientjsDownloadData struct {
+	AssetID     string `json:"asset_id"`      // With ID client can directly get asset data on api/v1/assets
+	AssetBaseID string `json:"asset_base_id"` // Unused now. With Base ID add-on can search for the asset on api/v1/search
+	Resolution  string `json:"resolution"`    // Selected resolution - we ideally wants the user to decide on the web
+	APIKey      string `json:"api_key"`       // APIKey to be used (user is logged in on the web, so Client/addon can use this)
+	AppID       int    `json:"app_id"`        // AppID (PID) of the software to which we will download - detailed data in AvailableSoftwares
+}
+
+// User has clicked on Get This Model, or another words browser (via bkclientjs)
+// orders the Client to download the specified asset to specified software.
+func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		// The browser performs what is called a "preflight" request using the OPTIONS method
+		// to check if the actual request is safe to send. This preflight request is part of the CORS protocol
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var data bkclientjsDownloadData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	targetSoftware, exists := AvailableSoftwares[data.AppID]
+	if !exists {
+		BKLog.Printf("%s Could not find software (appID %d) for JS download", EmoWarning, data.AppID)
+		w.WriteHeader(http.StatusExpectationFailed)
+		w.Write([]byte("Software not Found"))
+		return
+	}
+
+	BKLog.Printf("%s Get Asset to %s (%d): %s %s, %s", EmoBKClientJS, targetSoftware.Name, data.AppID, data.AssetID, data.AssetBaseID, data.Resolution)
+	go bkclientjsGetAsset(data.AppID, data.APIKey, data.AssetBaseID, data.AssetID, data.Resolution, targetSoftware)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+type GetThisModelData struct {
+	ApiKey      string `json:"api_key"`
+	AssetID     string `json:"asset_id"`
+	AssetBaseID string `json:"asset_base_id"`
+	Resolution  string `json:"resolution"`
+	AssetData   Asset  `json:"asset_data"`
+}
+
+func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution string, targetSoftware Software) {
+	assetData, err := GetAssetInstance(assetID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// BLENDER -> send data to add-on, it will then make a search and ask for download
+	if targetSoftware.Name == "Blender" {
+		AddTaskCh <- &Task{
+			AppID:    appID,
+			TaskID:   uuid.New().String(),
+			TaskType: "bkclientjs/get_asset",
+			Message:  "Download requested from browser.",
+			Status:   "finished",
+			Result: GetThisModelData{
+				ApiKey:      apiKey,
+				AssetID:     assetID,
+				AssetBaseID: assetBaseID,
+				Resolution:  resolution,
+				AssetData:   assetData,
+			},
+		}
+		return
+	}
+
+	// OTHER SOFTWARES
+	file, _ := GetResolutionFile(assetData.Files, resolution)
+	fmt.Print("🌐 File to download:", file)
+
+	fmt.Println("🌐 Downloading:", file.DownloadURL)
+	resp, err := ClientDownloads.Get(file.DownloadURL)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("🌐 Download failed:", resp.Status)
+		return
+	}
+	fmt.Println("🌐 Downloading resp:", resp)
+	//TODO: to be continued with Godot add-on
+}
+
+// Get data for single Asset instance by assetID.
+// https://www.blenderkit.com/api/v1/assets/{assetID}/
+func GetAssetInstance(assetID string) (Asset, error) {
+	data := Asset{}
+	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, assetID)
+	resp, err := http.Get(url)
+	if err != nil {
+		return data, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		msg := "error getting asset"
+		respJSON, respString, err := ParseFailedHTTPResponse(resp)
+		if err != nil || respJSON == nil {
+			return data, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
+		}
+		return data, fmt.Errorf("%s (%s)", msg, resp.Status)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return data, err
+	}
+
+	return data, nil
+}
+
+// Subscribe available software. This can be a Blender add-on, or add-on in any other compatible software, e.g. Godot in future.
+func SubscribeAvailableSoftware(appID int, name, version, addonVersion string) {
+	software := Software{
+		AppID:        appID,
+		Name:         name,
+		Version:      version,
+		AddonVersion: addonVersion,
+	}
+	AvailableSoftwaresMux.Lock()
+	AvailableSoftwares[appID] = software
+	AvailableSoftwaresMux.Unlock()
+}
+
+// Unscubscribe available software. This can be Blender add-on, or any other add-on in compatible software.
+func UnsubscribeAvailableSoftware(appID int) {
+	AvailableSoftwaresMux.Lock()
+	delete(AvailableSoftwares, appID)
+	AvailableSoftwaresMux.Unlock()
+}
+
+// Get AvailableSoftwares as a slice.
+func GetAvailableSoftwares(softwareMap map[int]Software) []Software {
+	var softwares []Software
+	for i := range softwareMap {
+		softwares = append(softwares, softwareMap[i])
+	}
+
+	return softwares
 }
