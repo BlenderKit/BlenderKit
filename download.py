@@ -889,6 +889,44 @@ def download(asset_data, **kwargs):
     download_tasks[response["task_id"]] = data
 
 
+def handle_bkclientjs_get_asset(task: daemon_tasks.Task):
+    """Handle incoming bkclientjs/get_asset task. User asked for download in online gallery. How it goes:
+    1. Webpage tries to connect to Client, gets data about connected Softwares
+    2. User choosed Blender with appID of this Blender
+    2. Client gets asset data from API
+    3. Client creates finished task bkclientjs/get_asset containing asset data
+    4. We handle the task in here
+    5. We request the download of the asset as if user has clicked it inside Blender
+
+    TODO: #1262Implement append to universal search results instead.
+    """
+    """ UNUSED CODE for direct download:
+    prefs = utils.get_preferences_as_dict()
+    prefs["resolution"] = task.result["resolution"]
+    prefs["scene_id"] = utils.get_scene_id()
+    download_dirs = paths.get_download_dirs(task.result["asset_data"]["assetType"])
+    data = {
+        "asset_data": task.result["asset_data"],
+        "download_dirs": download_dirs,
+        "PREFS": prefs,
+        "progress": 0,
+        "text": f'Getting asset {task.result["asset_data"]["name"]}',
+        "downloaders": [{'location': (0.0, 0.0, 0.0), 'rotation': (0.0, 0.0, 0.0)}],
+        "cast_parent": "",
+        "target_object": task.result["asset_data"]["name"],
+        "material_target_slot": 0,
+        "model_location": (0.0, 0.0, 0.0),
+        "model_rotation": (0.0, 0.0, 0.0),
+        "replace": False,
+        "replace_resolution": False,
+        "resolution": task.result["resolution"],
+    }
+
+    response = daemon_lib.asset_download(data)
+    download_tasks[response["task_id"]] = data
+    """
+
+
 def check_downloading(asset_data, **kwargs) -> bool:
     """Check if the asset is already being downloaded.
     If not, return False.
