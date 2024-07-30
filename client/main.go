@@ -215,6 +215,7 @@ func main() {
 
 	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context, *trusted_ca_certs)
 	go monitorReportAccess()
+	go monitorAvailableSoftwares()
 	go handleChannels()
 
 	mux := http.NewServeMux()
@@ -261,6 +262,9 @@ func main() {
 	// WEB BROWSER - bkclient.js
 	mux.HandleFunc("/bkclientjs/status", bkclientjsStatusHandler)
 	mux.HandleFunc("/bkclientjs/get_asset", bkclientjsGetAssetHandler)
+
+	// OTHER SOFTWARES
+	mux.HandleFunc("/godot/report", godotReportHandler)
 
 	StartClient(mux)
 }
@@ -337,6 +341,14 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	software := Software{
+		AppID:        data.AppID,
+		Name:         "Blender",
+		Version:      data.BlenderVersion,
+		AddonVersion: data.AddonVersion,
+	}
+	updateAvailableSoftware(software)
+
 	TasksMux.Lock()
 	if Tasks[data.AppID] == nil { // New add-on connected
 		SubscribeNewApp(data)
@@ -373,10 +385,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 // SubscribeNewApp adds new App into Tasks[AppID].
 // This is called when new AppID appears - meaning new add-on or other app wants to communicate with Client.
 func SubscribeNewApp(data MinimalTaskData) {
-	BKLog.Printf("%s New add-on connected: %d", EmoNewConnection, data.AppID)
 	Tasks[data.AppID] = make(map[string]*Task)
-
-	go SubscribeAvailableSoftware(data.AppID, "Blender", data.BlenderVersion, data.AddonVersion)
 	go FetchDisclaimer(data)
 	go FetchCategories(data)
 	if data.APIKey != "" {
@@ -418,9 +427,7 @@ func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	BKLog.Printf("%s Add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
-
-	go UnsubscribeAvailableSoftware(data.AppID)
+	//BKLog.Printf("%s Add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] != nil {
@@ -431,10 +438,6 @@ func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	TasksMux.Unlock()
 
-	if len(Tasks) == 0 {
-		BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
-		go delayedExit(0.1)
-	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -2358,11 +2361,13 @@ type ClientStatus struct {
 // Connected and running compatible software.
 // Right now this can be just instance of Blender.
 type Software struct {
-	Name            string `json:"name"`            // Name of the software
-	Version         string `json:"version"`         // Version of the Software
-	AppID           int    `json:"appID"`           // PID of the process
-	AddonVersion    string `json:"addonVersion"`    // Version of the add-on
-	PlatformVersion string `json:"platformVersion"` // Python's platform.platform()
+	Name         string `json:"name"`         // Name of the software
+	Version      string `json:"version"`      // Version of the Software
+	AppID        int    `json:"appID"`        // PID of the process
+	AddonVersion string `json:"addonVersion"` // Version of the add-on
+	AssetsPath   string `json:"assetsPath"`   // Where to download assets, only for non-Blender add-ons
+
+	lastTimeConnected time.Time // To handle unsubscribe in softwares which does not allow it
 }
 
 // Data needed from the browser (with bkclientjs lib) to ask for Download of an asset.
@@ -2503,13 +2508,6 @@ func SubscribeAvailableSoftware(appID int, name, version, addonVersion string) {
 	AvailableSoftwaresMux.Unlock()
 }
 
-// Unscubscribe available software. This can be Blender add-on, or any other add-on in compatible software.
-func UnsubscribeAvailableSoftware(appID int) {
-	AvailableSoftwaresMux.Lock()
-	delete(AvailableSoftwares, appID)
-	AvailableSoftwaresMux.Unlock()
-}
-
 // Get AvailableSoftwares as a slice.
 func GetAvailableSoftwares(softwareMap map[int]Software) []Software {
 	var softwares []Software
@@ -2518,4 +2516,105 @@ func GetAvailableSoftwares(softwareMap map[int]Software) []Software {
 	}
 
 	return softwares
+}
+
+// Monitor AvailableSoftwares (connected Blender, Godot, etc) for those which are inactive for defined period of time.
+// If they are found to be inactive, function removes them from the AvailableSoftwares map and if it was last software there
+// we shutdown the Client. We handle removal/unsubscription via checking lastTimeConected because not all softwares are able
+// to send Request during unregistration/closing of the host software.
+func monitorAvailableSoftwares() {
+	pause := 250 * time.Millisecond
+	tolerance := 999 * time.Millisecond
+	for {
+		time.Sleep(pause)
+		AvailableSoftwaresMux.Lock()
+		now := time.Now()
+		for i := range AvailableSoftwares {
+			software := AvailableSoftwares[i]
+			if now.Sub(software.lastTimeConnected) < tolerance {
+				continue // Software is active
+			}
+
+			// Software found to be inactive
+			delete(AvailableSoftwares, software.AppID)
+			BKLog.Printf("%s %s unsubscribed: %d", EmoDisconnecting, software.Name, software.AppID)
+
+			// Software removed and nothing is left. We shutdown Client.
+			if len(AvailableSoftwares) == 0 {
+				BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
+				go delayedExit(0.1)
+			}
+		}
+		AvailableSoftwaresMux.Unlock()
+	}
+}
+
+// When software sends data to Client, we want to update the details in AvailableSoftwares map.
+// Especially we want to update the lastTimeConnected, because this time parameter is used to
+// monitor active and inactive softwares in order to unsubscribe them.
+func updateAvailableSoftware(data Software) bool {
+	new := false
+	if _, ok := AvailableSoftwares[data.AppID]; !ok { // New add-on connected
+		BKLog.Printf("%s %s (v%s, add-on v%s) subscribed: %d", EmoNewConnection, data.Name, data.Version, data.AddonVersion, data.AppID)
+		new = true
+	}
+
+	data.lastTimeConnected = time.Now()
+	AvailableSoftwaresMux.Lock()
+	AvailableSoftwares[data.AppID] = data
+	AvailableSoftwaresMux.Unlock()
+
+	return new
+}
+
+// General response data to non-Blender softwares.
+type SoftwareResponse struct {
+	ClientVersion string `json:"client_version"`
+	Message       string `json:"message"`       // What to show to user
+	MessageLevel  int    `json:"message_level"` // 0=Debug, 10=Info, 20=Warning, 30=Error, 40=Fatal
+}
+
+func godotReportHandler(w http.ResponseWriter, r *http.Request) {
+	lastReportAccessMux.Lock()
+	lastReportAccess = time.Now()
+	lastReportAccessMux.Unlock()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading search request body: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var data Software
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	new := updateAvailableSoftware(data)
+	var response SoftwareResponse
+	if new {
+		response = SoftwareResponse{
+			ClientVersion: ClientVersion,
+			Message:       "Connected to Client",
+			MessageLevel:  10,
+		}
+	} else {
+		response = SoftwareResponse{
+			ClientVersion: ClientVersion,
+			Message:       "",
+			MessageLevel:  0,
+		}
+	}
+
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Error converting to JSON: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//BKLog.Printf("%s %s (v%s, %d) add-on(v%s) report: assetsPath=%s", EmoInfo, data.Name, data.Version, data.AppID, data.AddonVersion, data.AssetsPath)
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseJSON)
 }
