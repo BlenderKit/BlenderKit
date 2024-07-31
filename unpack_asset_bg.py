@@ -144,11 +144,47 @@ def unpack_asset(data):
     sys.exit()
 
 
+def patch_imports(addon_module_name: str):
+    """Patch the python configuration, so the relative imports work as expected. There are few problems to fix:
+    1. Script is not recognized as module which would break at relative import. We need to set __package__ = "blenderkit" for legacy addon.
+    Or __package__ = "bl_ext.user_default.blenderkit"/"bl_ext.blenderkit_com.blenderkit_com". Otherwise we would see:
+       from . import paths
+       ImportError: attempted relative import with no known parent package
+    2. External repository (e.g. blenderkit_com) is not available as we start with --factory-startup, we need to enable it.
+    We can add it as LOCAL repo as the add-on is installed and we do not care about updates or anything in this BG script. Otherwise we would see:
+       from . import paths
+       ModuleNotFoundError: No module named 'bl_ext.blenderkit_com'; 'bl_ext' is not a package
+    """
+    print(f"- Setting __package__ = '{addon_module_name}'")
+    global __package__
+    __package__ = addon_module_name
+
+    if bpy.app.version < (4, 2, 0):
+        print(
+            f"- Skipping, Blender version {bpy.app.version} < (4,2,0), no need to handle repositories"
+        )
+        return
+
+    parts = addon_module_name.split(".")
+    if len(parts) != 3:
+        print("- Skipping, addon_module_name does not contain 3 parts")
+        return
+
+    bpy.ops.preferences.extension_repo_add(
+        name=parts[1], type="LOCAL"
+    )  # Local is enough
+    print(f"- Local repository {parts[1]} added")
+
+
 if __name__ == "__main__":
-    JSON_PATH = sys.argv[-2]
-    __package__ = sys.argv[-1]
+    # args order must match the order in blenderkit/client/download.go:UnpackAsset()!
+    json_path = sys.argv[-2]
+    patch_imports(
+        sys.argv[-1]
+    )  # will be something like: "bl_ext.user_default.blenderkit" or "bl_ext.blenderkit_com.blenderkit", or just "blenderkit" on Blender < 4.2
+
     from . import paths
 
-    with open(JSON_PATH, "r", encoding="utf-8") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     unpack_asset(data)
