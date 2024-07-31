@@ -348,8 +348,7 @@ func UnpackAsset(blendPath string, data DownloadData, taskID string) error {
 	cmd := exec.Command(
 		data.BinaryPath,
 		"--background",
-		"--factory-startup",                    // disables user preferences, addons, etc.
-		"--addons", data.PREFS.AddonModuleName, // For extensions we need to enable by dynamic bl_ext.user_default.blenderkit
+		"--factory-startup", // disables user preferences, addons, etc.
 		"-noaudio",
 		blendPath,
 		"--python", unpackScriptPath,

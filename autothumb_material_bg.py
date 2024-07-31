@@ -38,14 +38,46 @@ def unhide_collection(cname):
     collection.hide_select = False
 
 
+def patch_imports(addon_module_name: str):
+    """Patch the python configuration, so the relative imports work as expected. There are few problems to fix:
+    1. Script is not recognized as module which would break at relative import. We need to set __package__ = "blenderkit" for legacy addon.
+    Or __package__ = "bl_ext.user_default.blenderkit"/"bl_ext.blenderkit_com.blenderkit_com". Otherwise we would see:
+       from . import paths
+       ImportError: attempted relative import with no known parent package
+    2. External repository (e.g. blenderkit_com) is not available as we start with --factory-startup, we need to enable it.
+    We can add it as LOCAL repo as the add-on is installed and we do not care about updates or anything in this BG script. Otherwise we would see:
+       from . import paths
+       ModuleNotFoundError: No module named 'bl_ext.blenderkit_com'; 'bl_ext' is not a package
+    """
+    print(f"- Setting __package__ = '{addon_module_name}'")
+    global __package__
+    __package__ = addon_module_name
+
+    if bpy.app.version < (4, 2, 0):
+        print(
+            f"- Skipping, Blender version {bpy.app.version} < (4,2,0), no need to handle repositories"
+        )
+        return
+
+    parts = addon_module_name.split(".")
+    if len(parts) != 3:
+        print("- Skipping, addon_module_name does not contain 3 parts")
+        return
+
+    bpy.ops.preferences.extension_repo_add(
+        name=parts[1], type="LOCAL"
+    )  # Local is enough
+    print(f"- Local repository {parts[1]} added")
+
+
 if __name__ == "__main__":
     try:
         # args order must match the order in blenderkit/autothumb.py:get_thumbnailer_args()!
         BLENDERKIT_EXPORT_DATA = sys.argv[-3]
         BLENDERKIT_EXPORT_API_KEY = sys.argv[-2]
-        __package__ = sys.argv[
-            -1
-        ]  # otherwise would be None -> aaand relative import fails
+        patch_imports(sys.argv[-1])
+        bpy.ops.preferences.addon_enable(module=sys.argv[-1])
+
         from . import append_link, bg_blender, bg_utils, daemon_lib, utils
 
         bg_blender.progress("preparing thumbnail scene")

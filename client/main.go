@@ -44,10 +44,9 @@ const (
 	OAUTH_CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 
 	// PATHS
-	server_default     = "https://www.blenderkit.com" // default address to production blenderkit server
-	gravatar_dirname   = "bkit_g"                     // directory in safeTempDir() for gravatar images
-	cleanfile_path     = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
-	upload_script_path = "upload_bg.py"               // relative path to upload script in add-on directory
+	server_default   = "https://www.blenderkit.com" // default address to production blenderkit server
+	gravatar_dirname = "bkit_g"                     // directory in safeTempDir() for gravatar images
+	cleanfile_path   = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
 
 	// EMOJIS
 	EmoOK            = "✅"
@@ -2100,7 +2099,6 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				export_data.BinaryPath,
 				"--background",
 				"--factory-startup",
-				"--addons", addon_module_name, // In extensions we need to enable as bl_ext.user_default.blenderkit or similar
 				"-noaudio",
 				cleanfile_path,
 				"--python", script_path,
