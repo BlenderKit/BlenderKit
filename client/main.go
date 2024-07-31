@@ -2450,22 +2450,161 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	}
 
 	// OTHER SOFTWARES
-	file, _ := GetResolutionFile(assetData.Files, resolution)
-	fmt.Print("🌐 File to download:", file)
-
-	fmt.Println("🌐 Downloading:", file.DownloadURL)
-	resp, err := ClientDownloads.Get(file.DownloadURL)
+	sceneID := uuid.New().String()
+	// TODO: Here we need to define
+	canDownload, downloadURL, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
 	if err != nil {
-		fmt.Println(err)
+		BKLog.Printf("%s GetDownloadURL error %v", EmoBKClientJS, err)
+		return
+	}
+	if !canDownload {
+		BKLog.Println("Cannot download asset")
+		return
+	}
+
+	// TODO: Here we need to define human readable name for GLTF
+	fileName, err := ExtractFilenameFromURL(downloadURL)
+	fileName = fileName + ".gltf" // HACK just for presentation
+	if err != nil {
+		BKLog.Printf("%s ExtractFilenameFromURL error %v", EmoBKClientJS, err)
+		return
+	}
+
+	downloadDir := filepath.Join(targetSoftware.AssetsPath, assetData.AssetType)
+	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
+		os.MkdirAll(downloadDir, os.ModePerm)
+	}
+
+	downloadPath := filepath.Join(downloadDir, fileName)
+	fmt.Println("download path:", downloadPath)
+
+	exists, info, err := FileExists(downloadPath)
+	if err != nil {
+		if info.IsDir() {
+			fmt.Println("Deleting directory:", downloadPath)
+			err := os.RemoveAll(downloadPath)
+			if err != nil {
+				fmt.Println("Error deleting directory:", err)
+			}
+		} else {
+			fmt.Println("Error checking if file exists:", err)
+		}
+	}
+	if exists {
+		fmt.Printf("file %s exists", downloadPath)
+		return
+	}
+
+	file, err := os.Create(downloadPath)
+	if err != nil {
+		fmt.Println("error creating file", err)
+		return
+	}
+	defer file.Close()
+	fmt.Println("-> file has been created")
+
+	req, err := http.NewRequest("GET", downloadURL, nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
+	req.Header = getHeaders("", *SystemID, targetSoftware.AddonVersion, "")
+	fmt.Println("-> making the request")
+	resp, err := ClientDownloads.Do(req)
+	if err != nil {
+		e := DeleteFile(downloadPath)
+		if e != nil {
+			fmt.Printf("request failed: %v, failed to delete file: %v", err, e)
+			return
+		}
+		fmt.Printf("request failed: %v", err)
 		return
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("🌐 Download failed:", resp.Status)
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
+		e := DeleteFile(downloadPath)
+		if e != nil {
+			fmt.Printf("%v, failed to delete file: %v", err, e)
+			return
+		}
+		fmt.Println(err)
+	}
+
+	totalLength := resp.Header.Get("Content-Length")
+	if totalLength == "" {
+		e := DeleteFile(downloadPath)
+		if e != nil {
+			fmt.Printf("request failed: %v, failed to delete file: %v", err, e)
+			return
+		}
+		fmt.Println("Content-Length header is missing")
 		return
 	}
-	fmt.Println("🌐 Downloading resp:", resp)
-	//TODO: to be continued with Godot add-on
+
+	fileSize, err := strconv.ParseInt(totalLength, 10, 64)
+	if err != nil {
+		e := DeleteFile(downloadPath)
+		if e != nil {
+			fmt.Printf("length conversion failed: %v, failed to delete file: %v", err, e)
+			return
+		}
+		fmt.Println(err)
+		return
+	}
+
+	// Setup for monitoring progress and cancellation
+	sizeInMB := float64(fileSize) / 1024 / 1024
+	var downloaded int64 = 0
+	progress := make(chan int64)
+	go func() {
+		var downloadMessage string
+		for p := range progress {
+			progress := int(100 * p / fileSize)
+			if sizeInMB < 1 { // If the size is less than 1MB, show in KB
+				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), progress)
+			} else { // If the size is not a whole number, show one decimal place
+				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, progress)
+			}
+			fmt.Println(downloadMessage)
+		}
+	}()
+
+	buffer := make([]byte, 32*1024) // 32KB buffer
+	for {
+		n, readErr := resp.Body.Read(buffer)
+		if n > 0 {
+			_, writeErr := file.Write(buffer[:n])
+			if writeErr != nil {
+				close(progress)
+				err = DeleteFile(downloadPath) // Clean up; ignore error from DeleteFile to focus on writeErr
+				if err != nil {
+					fmt.Printf("%v, failed to delete file: %v", writeErr, err)
+					return
+				}
+				fmt.Print("writeErr", writeErr)
+				return
+			}
+			downloaded += int64(n)
+			progress <- downloaded
+		}
+		if readErr != nil {
+			close(progress)
+			if readErr == io.EOF {
+				fmt.Println("Download completed successfully")
+				return // Download completed successfully
+			}
+			err := DeleteFile(downloadPath) // Clean up; ignore error from DeleteFile to focus on readErr
+			if err != nil {
+				fmt.Printf("%v, failed to delete file: %v", readErr, err)
+				return
+			}
+			fmt.Println("readErr", readErr)
+			return
+		}
+	}
 }
 
 // Get data for single Asset instance by assetID.
@@ -2614,7 +2753,7 @@ func godotReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//BKLog.Printf("%s %s (v%s, %d) add-on(v%s) report: assetsPath=%s", EmoInfo, data.Name, data.Version, data.AppID, data.AddonVersion, data.AssetsPath)
+	BKLog.Printf("%s %s (v%s, %d) add-on(v%s) report: assetsPath=%s", EmoInfo, data.Name, data.Version, data.AppID, data.AddonVersion, data.AssetsPath)
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
 }
