@@ -172,6 +172,11 @@ def check_render_engine(props, obs):
         props.shaders += s + ", "
 
 
+""" ISSUE:https://github.com/BlenderKit/BlenderKit/issues/1251 #1258
+Commenting this function out, some user has reported this function got executed and failed due to missing add-on in Blender 4.2.
+Even though it is not called from anywhere, Python somehow went in here. So we are just commenting it out. In order to enable the func:
+1. add-on object_print3d_utils had some bug in it, needs to be checked if it was fixed (are there any other better add-on for it?)
+2. add-on object_print3d_utils is no longer preinstalled in Blender 4.2+, needs to be installed from extensions.blender.org -> "3D-Print Toolbox"
 def check_printable(props, obs):
     if len(obs) != 1:
         return
@@ -204,6 +209,7 @@ def check_printable(props, obs):
     props.printable_3d = printable
     if not was_enabled:
         addon_utils.disable(addon_name)
+"""
 
 
 def check_rig(props, obs):
@@ -372,9 +378,13 @@ def get_autotags():
         # reset some properties here, because they might not get re-filled at all when they aren't needed anymore.
         props.texture_resolution_max = 0
         props.texture_resolution_min = 0
+
         # disabled printing checking, some 3d print addon bug.
         # bug fixed, could be enabled in the future
+        # also disable because add-on is not installed in Blender 4.2+, has to be installed from extensions.blender.org
+        # check the commented out function for more details
         # check_printable( props, obs)
+
         check_render_engine(props, obs)
 
         dim, bbox_min, bbox_max = utils.get_dimensions(obs)
