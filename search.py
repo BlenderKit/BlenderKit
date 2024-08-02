@@ -642,6 +642,8 @@ def handle_get_user_profile(task: daemon_tasks.Task):
         ]
         # after profile arrives, we can check for gravatar image
         daemon_lib.download_gravatar_image(user_data["user"])
+        if user_data.get("canEditAllAssets", False):  # IS VALIDATOR
+            utils.enforce_prerelease_update_check()
 
 
 def query_to_url(query={}, params={}):

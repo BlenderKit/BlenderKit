@@ -1334,3 +1334,13 @@ def remove_url_protocol(text: str) -> str:
     text = text.lstrip("https://")
     text = text.lstrip("http://")
     return text
+
+
+def enforce_prerelease_update_check():
+    """Enforce prerelease update check, used for validators and staff accounts.
+    All staff should be aware of available (pre)releases ASAP to help finding bugs.
+    """
+    bk_logger.info("Triggering (pre)release update check for validators account")
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    preferences.enable_prereleases = True
+    bpy.ops.blenderkit.updater_check_now()
