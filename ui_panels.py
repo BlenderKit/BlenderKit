@@ -3485,11 +3485,12 @@ def header_search_draw(self, context):
     layout.prop(
         ui_props,
         "asset_type",
-        expand=False,
-        icon_only=False,
+        expand=True,
+        icon_only=True,
         text="",
         icon=asset_type_icon,
     )
+
     row = layout.row()
     if (context.region.width) > 700:
         row.ui_units_x = 5 + int(context.region.width / 200)

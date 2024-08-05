@@ -339,6 +339,10 @@ def asset_type_callback(self, context):
             ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 5),
             ("NODEGROUP", "Node Groups", "Upload a tool", "NODETREE", 6),
         )
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    if not preferences.experimental_features:
+        # remove nodegroups - last item from the list
+        items = items[:-1]
 
     return items
 
