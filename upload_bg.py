@@ -76,6 +76,7 @@ if __name__ == "__main__":
         upload_data = data["upload_data"]
 
         bpy.data.scenes.new("upload")
+        print("test")
         for s in bpy.data.scenes:
             if s.name != "upload":
                 bpy.data.scenes.remove(s)
@@ -109,6 +110,18 @@ if __name__ == "__main__":
             main_source = append_link.append_brush(
                 file_name=export_data["source_filepath"], brushname=brushname
             )
+        elif upload_data["assetType"] == "nodegroup":
+            print(upload_data)
+            print(export_data)
+            toolname = export_data["nodegroup"]
+            main_source = append_link.append_nodegroup(
+                file_name=export_data["source_filepath"], toolname=toolname
+            )
+        if main_source.asset_data is None:
+            main_source.asset_mark()
+
+        print("test1")
+
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,
             # and we want to ignore that. Blender sometimes wants to pack textures that aren't actually needed

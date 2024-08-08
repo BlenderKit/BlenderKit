@@ -147,6 +147,7 @@ def get_download_dirs(asset_type):
         "scene": "scenes",
         "material": "materials",
         "hdr": "hdrs",
+        "nodegroup": "nodegroups",
     }
 
     dirs = []

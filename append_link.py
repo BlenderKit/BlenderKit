@@ -39,9 +39,44 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
                 data_to.brushes = [m]
                 brushname = m
     brush = bpy.data.brushes[brushname]
-    if fake_user:
-        brush.use_fake_user = True
+    brush.use_fake_user = fake_user
     return brush
+
+
+def append_nodegroup(file_name, toolname=None, link=False, fake_user=True):
+    """append a node group"""
+    with bpy.data.libraries.load(file_name, link=link, relative=True) as (
+        data_from,
+        data_to,
+    ):
+        for g in data_from.node_groups:
+            print(g)
+            if g == toolname or toolname is None:
+                data_to.node_groups = [g]
+                toolname = g
+    nodegroup = bpy.data.node_groups[toolname]
+    nodegroup.use_fake_user = fake_user
+    # if there's an open node editor, let's find if it matches the type of the asset group and insert it
+    # in middle of the area.
+    # mapping dict for editor type to node group node types
+    sdict = {
+        "GeometryNodeTree": "GeometryNodeGroup",
+        "ShaderNodeTree": "ShaderNodeGroup",
+        "CompositorNodeTree": "CompositorNodeGroup",
+    }
+    # Add the nodegroup into the active node editor, if there is one with the same type.
+    for area in bpy.context.screen.areas:
+        if area.type == "NODE_EDITOR":
+            if area.spaces.active.tree_type == nodegroup.bl_rna.identifier:
+                nt = area.spaces.active.edit_tree
+                # deselect all nodes
+                for n in nt.nodes:
+                    n.select = False
+                node = nt.nodes.new(sdict[area.spaces.active.tree_type])
+                node.node_tree = nodegroup
+                area.spaces.active.node_tree = nodegroup
+                break
+    return nodegroup
 
 
 def append_material(file_name, matname=None, link=False, fake_user=True):
