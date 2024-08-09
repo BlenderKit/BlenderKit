@@ -2424,7 +2424,7 @@ type GetThisModelData struct {
 }
 
 func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution string, targetSoftware Software) {
-	assetData, err := GetAssetInstance(assetID)
+	assetData, err := GetAssetInstance(assetID) // TODO: use assetBaseID and get the asset via /api/v1/search as advised by Petr
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -2609,6 +2609,7 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 // Get data for single Asset instance by assetID.
 // https://www.blenderkit.com/api/v1/assets/{assetID}/
+// // TODO: use assetBaseID and get the asset via /api/v1/search as advised by Petr
 func GetAssetInstance(assetID string) (Asset, error) {
 	data := Asset{}
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, assetID)
