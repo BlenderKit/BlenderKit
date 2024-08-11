@@ -1345,7 +1345,6 @@ def handle_asset_upload(task: daemon_tasks.Task):
         # crazy shit to parse stupid Django incosistent error messages
         if "detail" in task.result:
             for key in task.result["detail"]:
-                print(key)
                 bk_logger.info("detai key " + str(key))
                 if type(task.result["detail"][key]) == list:
                     for item in task.result["detail"][key]:
