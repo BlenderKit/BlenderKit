@@ -799,7 +799,7 @@ def download_post(task: daemon_tasks.Task):
         return done
 
     # don't append brushes if not in sculpt/paint mode
-    if ((at == "brush") and wm.get("appendable") == False):
+    if (at == "brush") and wm.get("appendable") == False:
         return done
 
     # duplicate file if the global and subdir are used in prefs
