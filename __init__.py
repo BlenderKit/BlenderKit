@@ -305,6 +305,13 @@ def switch_search_results(self, context):
             reports.add_report(
                 "Switch to paint or sculpt mode to search in BlenderKit brushes."
             )
+    elif props.asset_type == "NODEGROUP":
+        global_vars.DATA["search results"] = global_vars.DATA.get(
+            "bkit nodegroup search"
+        )
+        global_vars.DATA["search results orig"] = global_vars.DATA.get(
+            "bkit nodegroup search orig"
+        )
 
     if asset_bar_op.asset_bar_operator is not None:
         asset_bar_op.asset_bar_operator.scroll_update(always=True)

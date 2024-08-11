@@ -289,7 +289,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     if file_names is None:
         file_names = paths.get_download_filepaths(asset_data, kwargs["resolution"])
     props = None
-    print("append asset", asset_data["name"])
     #####
     # how to do particle  drop:
     # link the group we are interested in( there are more groups in File!!!! , have to get the correct one!)
@@ -504,7 +503,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         asset_main = material
 
     elif asset_data["assetType"] == "nodegroup":
-        print("node group append")
         inscene = False
         sprops = wm.blenderkit_nodegroup
         for g in bpy.data.node_groups:
@@ -515,7 +513,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         if not inscene:
             nodegroup = append_link.append_nodegroup(
                 file_names[-1],
-                toolname=asset_data["name"],
+                nodegroupname=asset_data["name"],
                 link=False,
                 fake_user=False,
             )
@@ -794,66 +792,58 @@ def download_post(task: daemon_tasks.Task):
 
     wm = bpy.context.window_manager
     at = task.data["asset_data"]["assetType"]
-    if not (
-        ((bpy.context.mode == "OBJECT" and (at == "model" or at == "material")))
-        or ((at == "brush") and wm.get("appendable") == True)
-        or at == "scene"
-        or at == "hdr"
-        or at == "nodegroup"
-    ):
+
+    # don't do this stuff in editmode and other modes, just wait...
+    # we don't remove the task before it's actually possible to remove it.
+    if bpy.context.mode != "OBJECT" and (at == "model" or at == "material"):
         return done
+
+    # don't append brushes if not in sculpt/paint mode
+    if ((at == "brush") and wm.get("appendable") == False):
+        return done
+
+    # duplicate file if the global and subdir are used in prefs
     if (
-        ((bpy.context.mode == "OBJECT" and (at == "model" or at == "material")))
-        or ((at == "brush") and wm.get("appendable") == True)
-        or at == "scene"
-        or at == "hdr"
-        or at == "nodegroup"
-    ):
-        # don't do this stuff in editmode and other modes, just wait...
-        # we don't remove the task before it's actually possible to remove it.
+        len(file_paths) == 2
+    ):  # todo this should try to check if both files exist and are ok.
+        utils.copy_asset(file_paths[0], file_paths[1])
+        # shutil.copyfile(file_paths[0], file_paths[1])
 
-        # duplicate file if the global and subdir are used in prefs
-        if (
-            len(file_paths) == 2
-        ):  # todo this should try to check if both files exist and are ok.
-            utils.copy_asset(file_paths[0], file_paths[1])
-            # shutil.copyfile(file_paths[0], file_paths[1])
+    bk_logger.debug("appending asset")
+    # progress bars:
 
-        bk_logger.debug("appending asset")
-        # progress bars:
+    # we need to check if mouse isn't down, which means an operator can be running.
+    # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
+    #
+    # TODO use redownload in data, this is used for downloading/ copying missing libraries.
+    if task.data.get("redownload"):
+        # handle lost libraries here:
+        for l in bpy.data.libraries:
+            if (
+                l.get("asset_data") is not None
+                and l["asset_data"]["id"] == task.data["asset_data"]["id"]
+            ):
+                l.filepath = file_paths[-1]
+                l.reload()
 
-        # we need to check if mouse isn't down, which means an operator can be running.
-        # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
-        #
-        # TODO use redownload in data, this is used for downloading/ copying missing libraries.
-        if task.data.get("redownload"):
-            # handle lost libraries here:
-            for l in bpy.data.libraries:
-                if (
-                    l.get("asset_data") is not None
-                    and l["asset_data"]["id"] == task.data["asset_data"]["id"]
-                ):
-                    l.filepath = file_paths[-1]
-                    l.reload()
+    if task.data.get("replace_resolution"):
+        # try to relink
+        # HDRs are always swapped, so their swapping is handled without the replace_resolution option
+        ain, _ = asset_in_scene(task.data["asset_data"])
+        if ain == "LINKED":
+            replace_resolution_linked(file_paths, task.data["asset_data"])
+        elif ain == "APPENDED":
+            replace_resolution_appended(
+                file_paths, task.data["asset_data"], task.data["resolution"]
+            )
+        return True
 
-        if task.data.get("replace_resolution"):
-            # try to relink
-            # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-            ain, _ = asset_in_scene(task.data["asset_data"])
-            if ain == "LINKED":
-                replace_resolution_linked(file_paths, task.data["asset_data"])
-            elif ain == "APPENDED":
-                replace_resolution_appended(
-                    file_paths, task.data["asset_data"], task.data["resolution"]
-                )
-            return True
-
-        orig_task.update(task.data)
-        return try_finished_append(file_paths=file_paths, **task.data)
-        # TODO add back re-download capability for deamon - used for lost libraries
-        # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
-        # download(asset_data, **tcom.passargs)
-        #
+    orig_task.update(task.data)
+    return try_finished_append(file_paths=file_paths, **task.data)
+    # TODO add back re-download capability for deamon - used for lost libraries
+    # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
+    # download(asset_data, **tcom.passargs)
+    #
 
     # utils.p('end download timer')
     return done
