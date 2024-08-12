@@ -77,6 +77,9 @@ def append_nodegroup(file_name, nodegroupname=None, link=False, fake_user=True):
 
         nt = area.spaces.active.edit_tree
 
+        if nt is None:
+            continue
+
         # deselect all nodes
         for n in nt.nodes:
             n.select = False

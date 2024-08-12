@@ -657,10 +657,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
 
         # mat analytics happen here, since they don't take up any time...
 
-        upload_params = {
-            # "textureResolutionMax": props.texture_resolution_max,
-            # "trueHDR": props.true_hdr,
-        }
+        upload_params = {"nodeType": asset.type.lower()}
 
         upload_data = {
             "assetType": "nodegroup",

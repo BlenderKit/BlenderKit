@@ -1209,6 +1209,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             max_name_length = 30
             if len(an) > max_name_length + 3:
                 an = an[:30] + "..."
+
+            search_props = utils.get_search_props()
+
+            # if in top nodegroup category, show which type the nodegroup is
+            if (
+                asset_data["assetType"] == "nodegroup"
+                and search_props.search_category == "nodegroup"
+            ):
+                an = f"{an} - {asset_data['dictParameters']['nodeType']} nodes"
+
             self.asset_name.text = an
             self.authors_name.text = asset_data["tooltip_data"]["author_text"]
             quality_text = asset_data["tooltip_data"]["quality"]
