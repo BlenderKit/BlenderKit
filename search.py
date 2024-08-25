@@ -33,6 +33,7 @@ from bpy.types import Operator
 
 from . import (
     asset_bar_op,
+    comments_utils,
     daemon_lib,
     daemon_tasks,
     global_vars,
@@ -380,6 +381,16 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
         asset_data = parse_result(r)
         if asset_data is not None:
             result_field.append(asset_data)
+        # fetch all comments if user is validator to preview them faster
+        # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
+        if utils.profile_is_validator():
+            comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
+            if comments is None:
+                user_preferences = bpy.context.preferences.addons[
+                    __package__
+                ].preferences
+                api_key = user_preferences.api_key
+                daemon_lib.get_comments(asset_data["assetBaseId"])
 
     # Get ratings from BlenderKit server TODO: do this in daemon
     if utils.profile_is_validator():
