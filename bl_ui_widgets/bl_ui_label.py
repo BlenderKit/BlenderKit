@@ -13,6 +13,9 @@ class BL_UI_Label(BL_UI_Widget):
         self._text_size = 16
         self._halign = "LEFT"
         self._valign = "TOP"
+        # multiline
+        self.multiline = False
+        self.row_height = 20
 
     @property
     def text_color(self):
@@ -73,8 +76,16 @@ class BL_UI_Label(BL_UI_Widget):
             if self._valign == "CENTER":
                 y -= height // 2
             # bottom could be here but there's no reason for it
-        blf.position(font_id, x, y, 0)
+        if not self.multiline:
+            blf.position(font_id, x, y, 0)
 
-        blf.color(font_id, r, g, b, a)
+            blf.color(font_id, r, g, b, a)
 
-        blf.draw(font_id, self._text)
+            blf.draw(font_id, self._text)
+        else:
+            lines = self._text.split("\n")
+            for line in lines:
+                blf.position(font_id, x, y, 0)
+                blf.color(font_id, r, g, b, a)
+                blf.draw(font_id, line)
+                y -= self.row_height

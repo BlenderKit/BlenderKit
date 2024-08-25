@@ -471,7 +471,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if (
             user_preferences.asset_popup_counter
             < user_preferences.asset_popup_counter_max
-        ):
+        ) or utils.profile_is_validator():
             # this is shown only to users who don't know yet about the popup card.
             label = self.new_text(
                 "Right click for menu.",
@@ -481,7 +481,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 text_size=self.author_text_size,
             )
             self.tooltip_widgets.append(label)
+            self.comments = label
             offset += 1
+            if utils.profile_is_validator():
+                label.multiline = True
+                label.text = "No comments yet."
         # version warning
         version_warning = self.new_text(
             "",
@@ -850,6 +854,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             red_alert.active = False
             new_button.red_alert = red_alert
             self.red_alerts.append(red_alert)
+
         # if result['downloaded'] > 0:
         #     ui_bgl.draw_rect(x, y, int(ui_props.thumb_size * result['downloaded'] / 100.0), 2, green)
 
@@ -1225,6 +1230,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if utils.profile_is_validator():
                 quality_text += f" / {int(asset_data['score'])}"
             self.quality_label.text = quality_text
+
+            # preview comments for validators
+            if utils.profile_is_validator():
+                comments = global_vars.DATA.get("asset comments", {})
+                comments = comments.get(asset_data["assetBaseId"], [])
+                comment_text = "No comments yet."
+                comment_text = "It's updating"
+                if comments is not None:
+                    comment_text = ""
+                    for comment in comments:
+                        comment_text += (
+                            f"{comment['userName']}:\n{comment['comment']}\n\n"
+                        )
+                self.comments.text = comment_text
 
             from_newer, difference = utils.asset_from_newer_blender_version(asset_data)
             if from_newer:
