@@ -2204,7 +2204,7 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="""Enable experimental features of BlenderKit. There are no experimental features available in this version.""",
+        description="""Enable experimental features of BlenderKit: \n - Node grups asset type""",
         default=False,
         update=utils.save_prefs,
     )
