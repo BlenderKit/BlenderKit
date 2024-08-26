@@ -1236,13 +1236,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 comments = global_vars.DATA.get("asset comments", {})
                 comments = comments.get(asset_data["assetBaseId"], [])
                 comment_text = "No comments yet."
-                comment_text = "It's updating"
                 if comments is not None:
                     comment_text = ""
+                    # iterate comments from last to first
+                    comments = comments[::-1]
                     for comment in comments:
-                        comment_text += (
-                            f"{comment['userName']}:\n{comment['comment']}\n\n"
-                        )
+                        comment_text += f"{comment['userName']}:\n"
+                        # strip urls and stuff
+                        comment_lines = comment["comment"].split("\n")
+                        for line in comment_lines:
+                            urls, text = utils.has_url(line)
+                            if urls:
+                                comment_text += f"{text}{urls[0][0]}\n"
+                            else:
+                                comment_text += f"{text}\n"
+                        comment_text += "\n"
+
                 self.comments.text = comment_text
 
             from_newer, difference = utils.asset_from_newer_blender_version(asset_data)
