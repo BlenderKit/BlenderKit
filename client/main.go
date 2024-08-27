@@ -130,6 +130,7 @@ func handleChannels() {
 			if task.Status == "finished" {
 				ChanLog.Printf("%s %s (%s)\n", EmoOK, task.TaskType, task.TaskID)
 			}
+
 		case u := <-TaskProgressUpdateCh:
 			if u.Message != "" {
 				ChanLog.Printf("%s progress on task %s (%d) - %d%%: %s\n", EmoUpdate, u.TaskID, u.AppID, u.Progress, u.Message)
@@ -138,6 +139,11 @@ func handleChannels() {
 			}
 			TasksMux.Lock()
 			task := Tasks[u.AppID][u.TaskID]
+			if task == nil {
+				ChanLog.Printf("%s TaskProgressUpdateCh: task[%d][%s] is nil", EmoWarning, u.AppID, u.TaskID)
+				continue
+			}
+
 			task.Progress = u.Progress
 			if u.Message != "" {
 				task.Message = u.Message
@@ -146,18 +152,30 @@ func handleChannels() {
 				task.MessageDetailed = u.MessageDetailed
 			}
 			TasksMux.Unlock()
+
 		case m := <-TaskMessageCh:
 			TasksMux.Lock()
 			task := Tasks[m.AppID][m.TaskID]
+			if task == nil {
+				ChanLog.Printf("%s TaskMessageCh: task[%d][%s] is nil", EmoWarning, m.AppID, m.TaskID)
+				continue
+			}
+
 			task.Message = m.Message
 			if m.MessageDetailed != "" {
 				task.MessageDetailed = m.MessageDetailed
 			}
 			TasksMux.Unlock()
 			ChanLog.Printf("%s %s (%s): %s\n", EmoInfo, task.TaskType, task.TaskID, m.Message)
+
 		case f := <-TaskFinishCh:
 			TasksMux.Lock()
 			task := Tasks[f.AppID][f.TaskID]
+			if task == nil {
+				ChanLog.Printf("%s TaskFinishCh: task[%d][%s] is nil", EmoWarning, f.AppID, f.TaskID)
+				continue
+			}
+
 			task.Status = "finished"
 			task.Result = f.Result
 			if f.Message != "" {
@@ -171,6 +189,11 @@ func handleChannels() {
 		case e := <-TaskErrorCh:
 			TasksMux.Lock()
 			task := Tasks[e.AppID][e.TaskID]
+			if task == nil {
+				ChanLog.Printf("%s TaskErrorCh: task[%d][%s] is nil", EmoWarning, e.AppID, e.TaskID)
+				continue
+			}
+
 			if task.Status == "cancelled" {
 				delete(Tasks[e.AppID], e.TaskID)
 				TasksMux.Unlock()
@@ -187,13 +210,19 @@ func handleChannels() {
 			task.Status = "error"
 			TasksMux.Unlock()
 			ChanLog.Printf("%s in %s (%s): %v\n", EmoError, task.TaskType, task.TaskID, e.Error)
-		case k := <-TaskCancelCh:
+
+		case c := <-TaskCancelCh:
 			TasksMux.Lock()
-			task := Tasks[k.AppID][k.TaskID]
+			task := Tasks[c.AppID][c.TaskID]
+			if task == nil {
+				ChanLog.Printf("%s TaskCancelCh: task[%d][%s] is nil", EmoWarning, c.AppID, c.TaskID)
+				continue
+			}
+
 			task.Status = "cancelled"
 			task.Cancel()
 			TasksMux.Unlock()
-			ChanLog.Printf("%s %s (%s), reason: %s\n", EmoCancel, task.TaskType, task.TaskID, k.Reason)
+			ChanLog.Printf("%s %s (%s), reason: %s\n", EmoCancel, task.TaskType, task.TaskID, c.Reason)
 		}
 	}
 }
