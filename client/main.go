@@ -22,10 +22,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -33,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,6 +67,13 @@ const (
 	EmoIdentity      = "🆔"
 	EmoUpdate        = "🔜"
 	EmoBKClientJS    = "🌐"
+
+	// RETURN CODES
+	rcServerStartOtherError           = 40
+	rcServerStartOtherNetworkingError = 41
+	rcServerStartOtherSyscallError    = 42
+	rcServerStartSyscallEADDRINUSE    = 43
+	rcServerStartSyscallEACCES        = 44
 )
 
 var (
@@ -299,13 +309,15 @@ func main() {
 }
 
 // Start Client server on localhost, if this address cannot be used then it falls back to IPv4 127.0.0.1.
+// Function starts server and runs forever. If there is an error, it calls sys.exit().
 func StartClient(mux *http.ServeMux) {
 	var addrs = []string{
 		fmt.Sprintf("localhost:%s", *Port),
 		fmt.Sprintf("127.0.0.1:%s", *Port),
 	}
+	var err error
 	for i, addr := range addrs {
-		err := http.ListenAndServe(addr, mux)
+		err = http.ListenAndServe(addr, mux)
 		if err == nil {
 			BKLog.Printf("%s Server finished %s\n", EmoOK, addr)
 			return
@@ -317,8 +329,32 @@ func StartClient(mux *http.ServeMux) {
 		} else {
 			emo = EmoError
 		}
-		BKLog.Printf("%s Failed to start Client server on %s: %v\n", emo, addr, err)
+		BKLog.Printf("%s Failed to start Client server on %s: %v (%T)\n", emo, addr, err, err)
 	}
+
+	// HANDLE ERROR - be detailed here so we can signal problem to add-on via Return Code
+
+	var opErr *net.OpError
+	if errors.As(err, &opErr) && opErr.Op == "listen" {
+		if sysErr, ok := opErr.Err.(*os.SyscallError); ok {
+			BKLog.Printf("*os.SyscallError: %v (%T)\n", sysErr, sysErr)
+			if sysErr.Err == syscall.EADDRINUSE {
+				BKLog.Printf("- syscall.EADDRINUSE: %v %T\n", sysErr, sysErr)
+				os.Exit(rcServerStartSyscallEADDRINUSE)
+			}
+			if sysErr.Err == syscall.EACCES {
+				BKLog.Printf("- syscall.EACCES: %v %T\n", sysErr, sysErr)
+				os.Exit(rcServerStartOtherNetworkingError)
+			}
+			BKLog.Printf("- other syscall error: %v\n", sysErr.Err)
+			os.Exit(rcServerStartOtherSyscallError)
+		}
+		BKLog.Printf("Other network error: %v (%T)\n", opErr.Err, opErr.Err)
+		os.Exit(rcServerStartOtherNetworkingError)
+	}
+
+	BKLog.Printf("Other error: %v\n", err)
+	os.Exit(rcServerStartOtherError)
 }
 
 func monitorReportAccess() {

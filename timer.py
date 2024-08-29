@@ -63,14 +63,14 @@ def handle_failed_reports(exception: Exception) -> float:
         return 0.1 * global_vars.CLIENT_FAILED_REPORTS
 
     bk_logger.warning(f"Could not get reports: {exception}")
-    return_code, meaning = daemon_lib.check_blenderkit_client_exit_code()
+    return_code, meaning = daemon_lib.check_blenderkit_client_return_code()
     if return_code is None and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
             "Client is not responding, add-on will not work.", 10, "ERROR"
         )
     if return_code is not None and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
-            f"Client is not running, add-on will not work. Error({return_code}): {meaning}",
+            f"Client failed to start, add-on will not work. Error({return_code}): {meaning}",
             10,
             "ERROR",
         )
