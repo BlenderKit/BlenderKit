@@ -428,6 +428,29 @@ class BlenderKitUIProps(PropertyGroup):
         update=search.search_update,
     )
 
+    # BLENDER VERSION of ASSET
+    search_blender_version: BoolProperty(
+        name="Asset Blender Version",
+        description="Limit the assets by version of Blender (minimum, maximum) in which they were created. "
+        + "Use maximum version limit to exclude incompatible assets from newer Blender versions than yours. Or set the minumum version to exclude assets created in quite old Blender versions",
+    )
+    search_blender_version_min: StringProperty(
+        name="Minimal version (including, higher than or equal)",
+        default="0.0",
+        description="Limit the assets by minimum version of Blender in which they were created, including also the specified version and exluding all older versions from the search results. "
+        + "Only assets created in HIGHER THAN OR EQUAL (>= min) minimum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
+        + "E.g.: exclude all Blender 2 assets by specifying 3, 3.0, or 3.0.0. Assets created in 3.0 or higher will be shown",
+        update=search.search_update,
+    )
+    search_blender_version_max: StringProperty(
+        name="Maximum version (excluding, lower than)",
+        default="4.99",
+        description="Limit the assets by maximum version of Blender in which they were created, exluding the specified version and all newer versions from the search results. "
+        + "Only assets created in LOWER THAN (< max) maximum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
+        + "E.g.: exclude all Blender 4 assets by specifying 4, 4.0, or 4.0.0. Assets created in 3.6 and lower will be shown",
+        update=search.search_update,
+    )
+
     logo_status: StringProperty(name="", default="logo_offline")
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
