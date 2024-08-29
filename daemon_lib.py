@@ -534,12 +534,43 @@ def handle_client_status_task(task):
     global_vars.CLIENT_RUNNING = True
 
 
-def check_blenderkit_client_exit_code() -> tuple[int, str]:
+def check_blenderkit_client_return_code() -> tuple[int, str]:
+    """Check the return code for the started BlenderKit-Client. If the return code is None, it means Client still runs - we consider this a success!
+    However if the return code is present, it failed to start and we check the return code value. If the return code is known,
+    we print information to user about the reason. So they do not need to dig in the Client log.
+    """
+    # Return codes - as defined in main.go
+    rcServerStartOtherError = 40
+    rcServerStartOtherNetworkingError = 41
+    rcServerStartOtherSyscallError = 42
+    rcServerStartSyscallEADDRINUSE = 43
+    rcServerStartSyscallEACCES = 44
+
     exit_code = global_vars.client_process.poll()
     if exit_code is None:
         return exit_code, "BlenderKit-Client process is running."
 
-    message = f"BlenderKit-Client process exited with code {exit_code}. Please report a bug and paste content of log {get_client_log_path()}"
+    if exit_code == rcServerStartOtherError:
+        msg = f"Other starting problem."
+    if exit_code == rcServerStartOtherNetworkingError:
+        msg = f"Other networking problem."
+    if exit_code == rcServerStartOtherSyscallError:
+        msg = f"Other syscall error."
+
+    if exit_code == rcServerStartSyscallEADDRINUSE:  # This is known solution
+        return (
+            exit_code,
+            "Address already in use: please change the port in add-on preferences.",
+        )
+    if exit_code == rcServerStartSyscallEACCES:  # This needs verification
+        return (
+            exit_code,
+            "Access denied: change port in preferences, check permissions and antivirus rights.",
+        )
+
+    message = (
+        f"{msg} Please report a bug and paste content of log {get_client_log_path()}"
+    )
     return exit_code, message
 
 
