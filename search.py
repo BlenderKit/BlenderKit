@@ -739,6 +739,11 @@ def build_query_common(query, props):
 
     if ui_props.search_license != "ANY":
         query["license"] = ui_props.search_license
+
+    if ui_props.search_blender_version == True:
+        query["source_app_version_gte"] = ui_props.search_blender_version_min
+        query["source_app_version_lt"] = ui_props.search_blender_version_max
+
     query.update(query_common)
 
 

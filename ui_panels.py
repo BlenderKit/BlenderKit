@@ -1325,7 +1325,15 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         )  # , text ='condition of object new/old e.t.c.')
 
         # layout.prop(props, "search_procedural", expand=True)
+        # LICENSE
         layout.prop(ui_props, "search_license")
+
+        # LIMIT BLENDER VERSION
+        layout.prop(ui_props, "search_blender_version", text="Asset's Blender Version")
+        if ui_props.search_blender_version:
+            row = layout.row(align=True)
+            row.prop(ui_props, "search_blender_version_min", text="Min")
+            row.prop(ui_props, "search_blender_version_max", text="Max")
 
     def draw(self, context):
         self.draw_layout(self.layout)
