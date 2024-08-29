@@ -2342,20 +2342,36 @@ In this case you should also set path to your system CA bundle containing proxy'
         addon_updater_ops.update_settings_ui(self, context)
 
         # RUNTIME INFO
-        addondir_row = layout.row()
-        addondir_row.label(text=f"Installed at: {path.dirname(__file__)}")
-        addondir_row.enabled = False
-        globdir_row = layout.row()
-        globdir_row.label(text=f"Global directory: {self.global_dir}")
-        globdir_row.enabled = False
-        dlog_row = layout.row()
-        dlog_row.label(
-            text=f"BlenderKit-client log: {daemon_lib.get_client_log_path()}"
+        globdir_op = layout.operator(
+            "wm.blenderkit_open_global_directory",
+            text=f"Global directory: {self.global_dir}",
+            icon="FILE_FOLDER",
         )
-        dlog_row.enabled = False
-        tmpdir_row = layout.row()
-        tmpdir_row.label(text=f"Temp directory: {paths.get_temp_dir()}")
-        tmpdir_row.enabled = False
+        globdir_op.directory = self.global_dir
+
+        clientlog_path = daemon_lib.get_client_log_path()
+        clientlog_op = layout.operator(
+            "wm.blenderkit_open_client_log",
+            text=f"Client log: {clientlog_path}",
+            icon="FILE_FOLDER",
+        )
+        clientlog_op.directory = clientlog_path
+
+        addondir = path.dirname(__file__)
+        addondir_op = layout.operator(
+            "wm.blenderkit_open_addon_directory",
+            text=f"Installed at: {addondir}",
+            icon="FILE_FOLDER",
+        )
+        addondir_op.directory = addondir
+
+        tempdir = paths.get_temp_dir()
+        tempdir_op = layout.operator(
+            "wm.blenderkit_open_temp_directory",
+            text=f"Temp directory: {tempdir}",
+            icon="FILE_FOLDER",
+        )
+        tempdir_op.directory = tempdir
 
 
 # registration
