@@ -1835,12 +1835,11 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
 
 
 class OpenSystemDirectory(bpy.types.Operator):
-    """Open system directory"""
+    """Open directory in default system file explorer"""
 
     bl_idname = "wm.blenderkit_open_system_directory"
     bl_label = "Open system directory"
     bl_options = {"REGISTER", "UNDO"}
-
     directory: StringProperty(name="directory", default="")
 
     @classmethod
@@ -1849,10 +1848,52 @@ class OpenSystemDirectory(bpy.types.Operator):
 
     def execute(self, context):
         if not os.path.exists(self.directory):
+            self.report({"ERROR"}, "Directory not found.")
+            return {"CANCELLED"}
+        paths.open_path_in_file_browser(self.directory)
+        return {"FINISHED"}
+
+
+class OpenAssetDirectory(OpenSystemDirectory):
+    """Open directory containing the asset data"""
+
+    bl_idname = "wm.blenderkit_open_asset_directory"
+    bl_label = "Open asset directory"
+
+    def execute(self, context):
+        if not os.path.exists(self.directory):
             self.report({"ERROR"}, "Directory not found. Asset not downloaded yet.")
             return {"CANCELLED"}
         paths.open_path_in_file_browser(self.directory)
         return {"FINISHED"}
+
+
+class OpenAddonDirectory(OpenSystemDirectory):
+    """Open the directory in which the BlenderKit add-on is installed. Move one level up and delete it to hard-uninstall the add-on"""
+
+    bl_idname = "wm.blenderkit_open_addon_directory"
+    bl_label = "Open global directory"
+
+
+class OpenGlobalDirectory(OpenSystemDirectory):
+    """Open the BlenderKit's Global directory. This is the directory where BlenderKit stores downloaded assets. It also contains Client binary and log files"""
+
+    bl_idname = "wm.blenderkit_open_global_directory"
+    bl_label = "Open global directory"
+
+
+class OpenClientLog(OpenSystemDirectory):
+    """Open Log file of currently running Client. Client logs errors and other message in here. Inspect to see what is wrong with Client. Copy the contents when you make a bug report"""
+
+    bl_idname = "wm.blenderkit_open_client_log"
+    bl_label = "Open Client log"
+
+
+class OpenTempDirectory(OpenSystemDirectory):
+    """Open BlenderKit's temporary directory. This is the directory where thumbnails and other temporary files are stored"""
+
+    bl_idname = "wm.blenderkit_open_temp_directory"
+    bl_label = "Open temp directory"
 
 
 def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
@@ -1930,7 +1971,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
     dir_paths = paths.get_asset_directories(asset_data)
     if len(dir_paths) > 0 and os.path.exists(dir_paths[-1]):
         op = layout.operator(
-            "wm.blenderkit_open_system_directory",
+            "wm.blenderkit_open_asset_directory",
             text="Open Directory",
             icon="FILE_FOLDER",
         )
@@ -3617,6 +3658,11 @@ classes = (
     NODE_PT_blenderkit_material_properties,
     OpenBlenderKitDiscord,
     OpenSystemDirectory,
+    OpenAssetDirectory,
+    OpenAddonDirectory,
+    OpenGlobalDirectory,
+    OpenClientLog,
+    OpenTempDirectory,
     # VIEW3D_PT_blenderkit_ratings,
     VIEW3D_PT_blenderkit_downloads,
     # OBJECT_MT_blenderkit_resolution_menu,
