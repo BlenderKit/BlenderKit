@@ -149,20 +149,27 @@ def timer_image_cleanup():
 
 
 def save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context):
-    """Save preferences, cancel all blenderkit-client tasks and shutdown the blenderkit-client.
-    The daemon_communication_timer will soon take care of starting the daemon again leading to a restart.
+    """Save preferences, cancel all blenderkit-client tasks, shutdown the blenderkit-client and reorder ports.
+    Unset the CLIENT_FAILED_REPORTS and restart daemon_communication_timer() so add-on will check for the reports ASAP.
+    Timer func daemon_communication_timer() will take care of starting the Client and checking the reports.
     """
     utils.save_prefs(user_preferences, context)
     if user_preferences.preferences_lock == True:
         return
 
-    reports.add_report("Restarting client server", 5, "INFO")
-    daemon_lib.reorder_ports(user_preferences.daemon_port)
+    reports.add_report("Restarting Client server", 2, "INFO")
     try:
         cancel_all_tasks(user_preferences, context)
         daemon_lib.shutdown_client()
     except Exception as e:
         bk_logger.warning(str(e))
+
+    daemon_lib.reorder_ports(
+        user_preferences.daemon_port
+    )  # reorder after shutdown was requested
+    global_vars.CLIENT_FAILED_REPORTS = 0  # reset failed reports so next attempt to get report or start client is immediate
+    bpy.app.timers.unregister(daemon_communication_timer)
+    bpy.app.timers.register(daemon_communication_timer, persistent=True)
 
 
 def trusted_CA_certs_property_updated(user_preferences, context):
