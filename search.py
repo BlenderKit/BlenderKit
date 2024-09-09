@@ -20,7 +20,7 @@ import json
 import logging
 import math
 import os
-import platform
+import urllib.parse
 import unicodedata
 
 import bpy
@@ -658,19 +658,21 @@ def handle_get_user_profile(task: daemon_tasks.Task):
 
 
 def query_to_url(query={}, params={}):
-    # build a new request
+    """Build a new search request by parsing query dictionaty into appropriate URL.
+    Also modifies query and params and adds some stuff in there which is very misleading anti-patter.
+    TODO: just convert to URL here and move the sorting and adding of params to separate function.
+    https://www.blenderkit.com/api/v1/search/
+    """
     url = f"{paths.BLENDERKIT_API}/search/"
 
-    # build request manually
-    # TODO use real queries
     requeststring = "?query="
-    #
     if query.get("query") not in ("", None):
-        requeststring += query["query"]  # .lower()
-    for i, q in enumerate(query):
+        requeststring += urllib.parse.quote_plus(query["query"])  # .lower()
+    for q in query:
         if q != "query" and q != "free_first":
-            requeststring += "+"
-            requeststring += q + ":" + str(query[q])  # .lower()
+            requeststring += (
+                f"+{q}:{urllib.parse.quote_plus(str(query[q]))}"  # .lower()
+            )
 
     # add dict_parameters to make results smaller
     # result ordering: _score - relevance, score - BlenderKit score
@@ -711,11 +713,12 @@ def query_to_url(query={}, params={}):
     requeststring += "&dict_parameters=1"
 
     requeststring += "&page_size=" + str(params["page_size"])
-    requeststring += "&addon_version=%s" % params["addon_version"]
+    requeststring += f"&addon_version={params['addon_version']}"
     if not (query.get("query") and query.get("query").find("asset_base_id") > -1):
-        requeststring += "&blender_version=%s" % params["blender_version"]
+        requeststring += f"&blender_version={params['blender_version']}"
     if params.get("scene_uuid") is not None:
-        requeststring += "&scene_uuid=%s" % params["scene_uuid"]
+        requeststring += f"&scene_uuid={params['scene_uuid']}"
+
     urlquery = url + requeststring
     return urlquery
 
@@ -1101,10 +1104,12 @@ def clean_filters():
 
 
 def update_filters():
-    # update filters for 2 reasons
-    # - first to show if filters are active
-    # - second to show login popup if user needs to log in
-    # returns True if search should proceed, False to bounce search(like in the case of bookmarks)
+    """Update filters for 2 reasons
+    - first to show if filters are active
+    - second to show login popup if user needs to log in
+
+    returns True if search should proceed, False to bounce search(like in the case of bookmarks)
+    """
 
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
