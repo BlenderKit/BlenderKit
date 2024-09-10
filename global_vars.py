@@ -102,15 +102,31 @@ TIPS = [
     ),
     ("Support the authors by subscribing to Full plan.", f"{SERVER}/plans/pricing/"),
     (
-        "Use the W key over the asset bar to open the Author's webpage.",
+        "Use the 'P' key over the asset bar to open the Author's profile on BlenderKit.",
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
     ),
     (
-        "Use the R key over the asset bar for fast rating of assets.",
+        "Use the 'W' key over the asset bar to open Author's personal webpage.",
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
     ),
     (
-        "Use the X key over the asset bar to delete the asset from your hard drive.",
+        "Use the 'R' key over the asset bar for fast rating of assets.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
+    (
+        "Use the 'X' key over the asset bar to delete the asset from your hard drive.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
+    (
+        "Use the 'S' key over the asset bar to search similar assets.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
+    (
+        "Use the 'C' key over the asset bar to search assets in same subcategory.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
+    (
+        "Use the 'B' key over the asset bar to bookmark the asset.",
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
     ),
     (

@@ -183,7 +183,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
 
 
 class SetBookmark(bpy.types.Operator):
-    """Add or remove bookmarking of the asset"""
+    """Add or remove bookmarking of the asset.\nShortcut: hover over asset in the asset bar and press 'B'."""
 
     bl_idname = "wm.blenderkit_bookmark_asset"
     bl_label = "BlenderKit bookmark assest"

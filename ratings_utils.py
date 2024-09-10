@@ -329,9 +329,9 @@ class RatingProperties(PropertyGroup):
 
     # the following enum is only to ease interaction - enums support 'drag over' and enable to draw the stars easily.
     rating_quality_ui: EnumProperty(
-        name="rating_quality_ui",
+        name="Quality",
         items=stars_enum_callback,
-        description="Rating stars 0 - 10",
+        description="Rate the quality of the asset from 1 to 10 stars.\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu",
         default=0,
         update=update_quality_ui,
         options={"SKIP_SAVE"},
@@ -346,7 +346,7 @@ class RatingProperties(PropertyGroup):
     )
     rating_work_hours: FloatProperty(
         name="Work Hours",
-        description="How many hours did this work take?",
+        description="How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu.",
         default=0.00,
         min=0.0,
         max=300,
@@ -355,7 +355,7 @@ class RatingProperties(PropertyGroup):
     )
     rating_work_hours_ui: EnumProperty(
         name="Work Hours",
-        description="How many hours did this work take?",
+        description="How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu",
         items=wh_enum_callback,
         default=0,
         update=update_ratings_work_hours_ui,
