@@ -1239,11 +1239,16 @@ func SendRating(data SendRatingData) {
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 			return
 		}
-
+		var msg string
+		if data.RatingType == "bookmarks" {
+			msg = "Bookmark removal successful"
+		} else {
+			msg = fmt.Sprintf("Removed %s rating successfully", data.RatingType)
+		}
 		TaskFinishCh <- &TaskFinish{
 			AppID:   data.AppID,
 			TaskID:  taskUUID,
-			Message: fmt.Sprintf("Removed %s rating successfully", data.RatingType),
+			Message: msg,
 			Result:  map[string]string{},
 		}
 		return
@@ -1269,11 +1274,17 @@ func SendRating(data SendRatingData) {
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
+	var msg string
+	if data.RatingType == "bookmarks" {
+		msg = "Bookmarked successfully"
+	} else {
+		msg = fmt.Sprintf("Rated %s=%.1f successfully", data.RatingType, data.RatingValue)
+	}
 
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
 		TaskID:  taskUUID,
-		Message: fmt.Sprintf("Rated %s=%.1f successfully", data.RatingType, data.RatingValue),
+		Message: msg,
 		Result:  respData,
 	}
 }
