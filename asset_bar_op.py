@@ -1197,8 +1197,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if comments is not None:
                 comment_text = ""
                 # iterate comments from last to first
-                comments = comments[::-1]
-                for comment in comments:
+                for comment in reversed(comments):
                     comment_text += f"{comment['userName']}:\n"
                     # strip urls and stuff
                     comment_lines = comment["comment"].split("\n")
