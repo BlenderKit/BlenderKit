@@ -1369,6 +1369,17 @@ class TooltipLabelOperator(Operator):
         return {"FINISHED"}
 
 
+def get_search_similar_keywords(asset_data: dict) -> str:
+    """Generate search similar keywords from the given asset_data.
+    Could be tuned in the future to provide better search results.
+    """
+    keywords = asset_data["name"]
+    if asset_data.get("description"):
+        keywords += f" {asset_data.get('description')} "
+    keywords += " ".join(asset_data.get("tags"))
+    return keywords
+
+
 classes = [SearchOperator, UrlOperator, TooltipLabelOperator]
 
 

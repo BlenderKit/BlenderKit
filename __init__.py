@@ -507,7 +507,7 @@ class BlenderKitUIProps(PropertyGroup):
     drag_init_button: BoolProperty(
         name="Drag Initialisation from button",
         default=False,
-        description="Click or drag into scene for download",
+        description="Click or drag into scene for download.\nUse mouse wheel during drag to rotate the asset. Cancel the drag by pressing 'Esc'.",
         update=run_drag_drop_update,
     )
     drag_length: IntProperty(name="Drag length", default=0)

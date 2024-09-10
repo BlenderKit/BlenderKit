@@ -1548,10 +1548,31 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             search.search(author_id=a)
         return True
 
+    def search_similar(self, asset_index):
+        sr = global_vars.DATA["search results"]
+        asset_data = sr[asset_index]
+        keywords = search.get_search_similar_keywords(asset_data)
+        sprops = utils.get_search_props()
+        sprops.search_keywords = keywords
+        search.search()
+
+    def search_in_category(self, asset_index):
+        sr = global_vars.DATA["search results"]
+        asset_data = sr[asset_index]
+        category = asset_data.get("category")
+        if category is None:
+            return True
+        sprops = utils.get_search_props()
+        sprops.search_category = category
+        search.search()
+
     def handle_key_input(self, event):
+        # Shortcut: Search by author
         if event.type == "A":
             self.search_by_author(self.active_index)
             return True
+
+        # Shortcut: Delete asset from harddrive
         if event.type == "X" and self.active_index > -1:
             # delete downloaded files for this asset
             sr = global_vars.DATA["search results"]
@@ -1560,14 +1581,48 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             paths.delete_asset_debug(asset_data)
             asset_data["downloaded"] = 0
             return True
+
+        # Shortcut: Open Author's personal Webpage
         if event.type == "W" and self.active_index > -1:
             sr = global_vars.DATA["search results"]
             asset_data = sr[self.active_index]
-            a = global_vars.DATA["bkit authors"].get(asset_data["author"]["id"])
-            if a is not None:
-                utils.p("author:", a)
-                if a.get("aboutMeUrl") is not None:
-                    bpy.ops.wm.url_open(url=a["aboutMeUrl"])
+            author = global_vars.DATA["bkit authors"].get(asset_data["author"]["id"])
+            if author is None:
+                print("author is none")
+                return True
+            utils.p("author:", author)
+            url = author.get("aboutMeUrl")
+            if url is None:
+                print("url is none")
+                return True
+            bpy.ops.wm.url_open(url=url)
+            return True
+
+        # Shortcut: Search Similar
+        if event.type == "S" and self.active_index > -1:
+            self.search_similar(self.active_index)
+            return True
+
+        if event.type == "C" and self.active_index > -1:
+            self.search_in_category(self.active_index)
+            return True
+
+        if event.type == "B" and self.active_index > -1:
+            sr = global_vars.DATA["search results"]
+            asset_data = sr[self.active_index]
+            bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
+            return True
+
+        # Shortcut: Open Author's profile on BlenderKit
+        if event.type == "P" and self.active_index > -1:
+            sr = global_vars.DATA["search results"]
+            asset_data = sr[self.active_index]
+            author = global_vars.DATA["bkit authors"].get(asset_data["author"]["id"])
+            if author is None:
+                return True
+            utils.p("author:", author)
+            url = paths.get_author_gallery_url(author["id"])
+            bpy.ops.wm.url_open(url=url)
             return True
 
         # FastRateMenu

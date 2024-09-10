@@ -372,10 +372,10 @@ def draw_assetbar_show_hide(layout, props):
 
     if ui_props.assetbar_on:
         icon = "HIDE_OFF"
-        ttip = "Click to Hide Asset Bar"
+        ttip = "Click to Hide Asset Bar.\nShortcut: ;"
     else:
         icon = "HIDE_ON"
-        ttip = "Click to Show Asset Bar"
+        ttip = "Click to Show Asset Bar.\nShortcut: ;"
 
     op = layout.operator("view3d.blenderkit_asset_bar_widget", text="", icon=icon)
     op.keep_running = False
@@ -1945,15 +1945,10 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
 
     op = layout.operator("view3d.blenderkit_search", text="Search Similar")
     op.esc = True
-    op.tooltip = "Search for similar assets in the library"
-    # build search string from description and tags:
-    op.keywords = asset_data["name"]
-    if asset_data.get("description"):
-        op.keywords += " " + asset_data.get("description") + " "
-    op.keywords += " ".join(asset_data.get("tags"))
+    op.tooltip = "Search for similar assets in the library.\nShortcut: hover over asset in asset bar and press 'S'."
+    op.keywords = search.get_search_similar_keywords(asset_data)
 
     op = layout.operator("wm.url_open", text="See online", icon="URL")
-
     if (
         utils.user_is_owner(asset_data)
         and asset_data["verificationStatus"] != "validated"
@@ -2722,6 +2717,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         op = button_row.operator(
             "view3d.blenderkit_search", text="Find Assets By Author", icon="VIEWZOOM"
         )
+        op.tooltip = "Search all assets by this author.\nShortcut: Hover over the asset in the asset bar and press 'A'."
         op.esc = True
         op.keywords = ""
         op.author_id = self.asset_data["author"]["id"]
@@ -2730,7 +2726,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         # AUTHOR's BLENDERKIT PROFILE
         url = paths.get_author_gallery_url(author["id"])
-        tooltip = "Go to author's profile on BlenderKit webpage"
+        tooltip = "Go to author's profile on BlenderKit web.\nShortcut: Hover over asset in the asset bar and press 'P'."
         icon_value = pcoll["logo"].icon_id
         op = button_row.operator("wm.blenderkit_url", text="", icon_value=icon_value)
         op.url = url
@@ -2743,7 +2739,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             text = utils.shorten_text(text, 45)
             op = button_row.operator("wm.blenderkit_url", text="", icon="URL")
             op.url = url
-            op.tooltip = f"Go to author's personal web page: \n\n{url}\n"
+            op.tooltip = f"Go to author's personal Webpage: {url}\nShortcut: Hover over asset in the asset bar and press 'W'."
 
         # SOCIAL NETWORKS
         social_networks = author.get("socialNetworks", [])
@@ -2922,11 +2918,12 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         for i, c in enumerate(cat_path):
             cat_name = cat_path_names[i]
-
             ui_props = bpy.context.window_manager.blenderkitUI
-            op = name_row.operator(
-                "view3d.blenderkit_set_category", text=cat_name + "     >", emboss=True
-            )
+            if i < len(cat_path) - 1:
+                bl_id = "view3d.blenderkit_set_category_in_popup_card"
+            else:
+                bl_id = "view3d.blenderkit_set_category_in_popup_card_last"
+            op = name_row.operator(bl_id, text=cat_name + "     >", emboss=True)
             op.asset_type = ui_props.asset_type
             # this gets filled not to change anything in browsing categories
             op.category_browse = global_vars.DATA["active_category_browse"][
@@ -3211,10 +3208,8 @@ class SetCommentReplyId(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class SetCategoryOperator(bpy.types.Operator):
-    """Visit subcategory"""
-
-    bl_idname = "view3d.blenderkit_set_category"
+class SetCategoryOperatorOrigin(bpy.types.Operator):
+    bl_idname = "view3d.blenderkit_set_category_origin"
     bl_label = "BlenderKit Set Active Category"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
@@ -3251,6 +3246,26 @@ class SetCategoryOperator(bpy.types.Operator):
         # we have to write back to wm. Thought this should happen with original list.
         global_vars.DATA["active_category_browse"][self.asset_type] = acat
         return {"FINISHED"}
+
+
+# TODO: Handle here SelectSubcategory/SelectCategory
+# and VisitSubcategory/VisitCategory and VisitUpperCategory/VisitUpperSubcategory
+class SetCategoryOperator(SetCategoryOperatorOrigin):
+    """Visit subcategory"""
+
+    bl_idname = "view3d.blenderkit_set_category"
+
+
+class SetCategoryOperatorInPopupCard(SetCategoryOperatorOrigin):
+    """Subcategory of the asset. Click to search this subcategory."""
+
+    bl_idname = "view3d.blenderkit_set_category_in_popup_card"
+
+
+class SetCategoryOperatorLastInPopupCard(SetCategoryOperatorOrigin):
+    """Subcategory of the asset. Click to search this subcategory. Shortcut: Hover over asset in the asset bar and press 'C'."""
+
+    bl_idname = "view3d.blenderkit_set_category_in_popup_card_last"
 
 
 class ClosePopupButton(bpy.types.Operator):
@@ -3698,7 +3713,10 @@ def ui_message(title, message):
 preview_collections = {}
 
 classes = (
+    SetCategoryOperatorOrigin,
     SetCategoryOperator,
+    SetCategoryOperatorInPopupCard,
+    SetCategoryOperatorLastInPopupCard,
     SetCommentReplyId,
     VIEW3D_PT_blenderkit_profile,
     # VIEW3D_PT_blenderkit_login,
