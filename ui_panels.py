@@ -2224,17 +2224,20 @@ def label_or_url_or_operator(
     operator_kwargs={},
     icon_value=None,
     icon=None,
+    emboss=False,
 ):
     """automatically switch between different layout options for linking or tooltips"""
-    layout.emboss = "NONE"
+    layout.emboss = "NORMAL" if emboss else "NONE"
 
     if operator is not None:
         if icon:
-            op = layout.operator(operator, text=text, icon=icon)
+            op = layout.operator(operator, text=text, icon=icon, emboss=emboss)
         elif icon_value:
-            op = layout.operator(operator, text=text, icon_value=icon_value)
+            op = layout.operator(
+                operator, text=text, icon_value=icon_value, emboss=emboss
+            )
         else:
-            op = layout.operator(operator, text=text)
+            op = layout.operator(operator, text=text, emboss=emboss)
         for kwarg in operator_kwargs.keys():
             if type(operator_kwargs[kwarg]) == str:
                 quoatation = '"'
@@ -2247,11 +2250,15 @@ def label_or_url_or_operator(
         return
     if url != "":
         if icon:
-            op = layout.operator("wm.blenderkit_url", text=text, icon=icon)
+            op = layout.operator(
+                "wm.blenderkit_url", text=text, icon=icon, emboss=emboss
+            )
         elif icon_value:
-            op = layout.operator("wm.blenderkit_url", text=text, icon_value=icon_value)
+            op = layout.operator(
+                "wm.blenderkit_url", text=text, icon_value=icon_value, emboss=emboss
+            )
         else:
-            op = layout.operator("wm.blenderkit_url", text=text)
+            op = layout.operator("wm.blenderkit_url", text=text, emboss=emboss)
         op.url = url
         op.tooltip = tooltip
         push_op_left(layout, strength=5)
@@ -2259,13 +2266,15 @@ def label_or_url_or_operator(
         return
     if tooltip != "":
         if icon:
-            op = layout.operator("wm.blenderkit_tooltip", text=text, icon=icon)
+            op = layout.operator(
+                "wm.blenderkit_tooltip", text=text, icon=icon, emboss=emboss
+            )
         elif icon_value:
             op = layout.operator(
-                "wm.blenderkit_tooltip", text=text, icon_value=icon_value
+                "wm.blenderkit_tooltip", text=text, icon_value=icon_value, emboss=emboss
             )
         else:
-            op = layout.operator("wm.blenderkit_tooltip", text=text)
+            op = layout.operator("wm.blenderkit_tooltip", text=text, emboss=emboss)
         op.tooltip = tooltip
 
         # these are here to move the text to left, since operators can only center text by default
@@ -2306,6 +2315,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         tooltip="",
         operator=None,
         operator_kwargs={},
+        emboss=False,
     ):
         right = str(right)
         row = layout.row()
@@ -2315,8 +2325,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         split = split.split()
         split.alignment = "LEFT"
         # split for questionmark:
-        if url != "":
-            split = split.split(factor=0.6)
+        # if url != "" and not emboss:
+        split = split.split(factor=0.9)
+        split.alignment = "LEFT"
         label_or_url_or_operator(
             split,
             text=right,
@@ -2326,9 +2337,11 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             operator_kwargs=operator_kwargs,
             icon_value=icon_value,
             icon=icon,
+            emboss=emboss,
         )
         # additional questionmark icon where it's important?
-        if url != "":
+        # Embossed elements are visibly clickable, so we don't need the questionmark icon
+        if url != "" and not emboss:
             split = split.split()
             op = split.operator("wm.blenderkit_url", text="", icon="QUESTION")
             op.url = url
@@ -2353,12 +2366,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 "keywords": f"+{key}:{parameter}",
                 "tooltip": f"search by {parameter}",
             }
+            # search gets auto emboss
             self.draw_property(
                 layout,
                 pretext,
                 parameter,
                 operator="view3d.blenderkit_search",
                 operator_kwargs=kwargs,
+                emboss=True,
             )
         else:
             self.draw_property(layout, pretext, parameter)
@@ -2393,7 +2408,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         box = layout.box()
 
-        box.scale_y = 0.4
+        box.scale_y = 0.6
         box.label(text="Properties")
         box.separator()
 
@@ -2609,6 +2624,49 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 # icon='ERROR',
                 # tooltip='The version this asset was created in.',
             )
+
+        # Add TwinBru specific parameters for material assets
+        # only if they have twinbruReference in the dictparameters
+        if self.asset_data.get("dictParameters").get("twinbruReference"):
+            box.separator()
+            box.label(text="TwinBru physical material categories")
+
+            self.draw_asset_parameter(
+                box,
+                key="twinBruCatEndUse",
+                pretext="End Use",
+                do_search=True,
+            )
+            self.draw_asset_parameter(
+                box,
+                key="twinBruColourType",
+                pretext="Colour Type",
+                do_search=True,
+            )
+            self.draw_asset_parameter(
+                box,
+                key="twinBruCharacteristics",
+                pretext="Characteristics",
+                do_search=True,
+            )
+            self.draw_asset_parameter(
+                box,
+                key="twinBruDesignType",
+                pretext="Design Type",
+                do_search=True,
+            )
+
+        # Product Link for assets that have it.
+        if self.asset_data.get("dictParameters").get("productLink"):
+            self.draw_property(
+                box,
+                "Product Link",
+                "View on manufacturer's website",
+                url=self.asset_data["dictParameters"]["productLink"],
+                icon="URL",
+                emboss=True,
+            )
+
         box.separator()
 
     def draw_author_area(self, context, layout, width=330):
