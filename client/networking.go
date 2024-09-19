@@ -32,11 +32,28 @@ import (
 	"github.com/rapid7/go-get-proxied/proxy"
 )
 
-func DebugNetworkHandler(w http.ResponseWriter, r *http.Request) {
-	report := NetworkDebug()
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(report))
+// Handler for the index of the Client.
+// In future we can add here links to /debug or other useful endpoints.
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	pid := os.Getpid()
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>BlenderKit-Client</title>
+</head>
+<body>
+	<h1>BlenderKit-Client</h1>
+	<div>Client PID: %d</div>
+	<div>Client Version: v%s</div>
+	<div>Platform: %s</div>
+	<div>System ID: %s</div>
+	<div>Started from: %s</div>
+</body>
+</html>`, pid, ClientVersion, GetPlatformVersion(), *SystemID, *AddonVersion)
 }
 
 // CreateHTTPClients creates HTTP clients with proxy settings, assings them to global variables.
@@ -171,6 +188,12 @@ var testURLs = []string{
 	"https://www.blenderkit.com/disclaimer/",
 }
 
+func DebugNetworkHandler(w http.ResponseWriter, r *http.Request) {
+	report := NetworkDebug()
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(report))
+}
+
 func NetworkDebug() string {
 	report := fmt.Sprintf("NETWORK DEBUG REPORT\nPlatform: %s\nClientVersion: %s\nSystemID %s\n", GetPlatformVersion(), ClientVersion, *getSystemID())
 	BKLog.Printf("%s Network debug has started", EmoDebug)
@@ -231,7 +254,6 @@ func DebugRequest(client *http.Client, url string, headers [][]string, tCoeff in
 		if len(headers[i]) < 2 {
 			continue
 		}
-		fmt.Printf("Setting %s=%s", headers[i][0], headers[i][1])
 		req.Header.Set(headers[i][0], headers[i][1])
 	}
 
@@ -242,12 +264,7 @@ func DebugRequest(client *http.Client, url string, headers [][]string, tCoeff in
 	}
 	defer resp.Body.Close()
 
-	BKLog.Printf(`%s %s
-url=%s
-timeQ=%v
-sslOption=%s,
-proxyOption=%s,
-headers=%s`,
+	BKLog.Printf("%s %s\nurl=%s\ntimeQ=%v\nsslOption=%s,\nproxyOption=%s,\nheaders=%s\n\n",
 		EmoDebug,
 		resp.Status,
 		url,
