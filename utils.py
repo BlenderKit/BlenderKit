@@ -438,7 +438,7 @@ def get_preferences_as_dict():
         "tips_on_start": user_preferences.tips_on_start,
         "announcements_on_start": user_preferences.announcements_on_start,
         # NETWORK
-        "daemon_port": user_preferences.daemon_port,
+        "client_port": user_preferences.client_port,
         "ip_version": user_preferences.ip_version,
         "ssl_context": user_preferences.ssl_context,
         "proxy_which": user_preferences.proxy_which,

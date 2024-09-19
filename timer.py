@@ -165,7 +165,7 @@ def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
         bk_logger.warning(str(e))
 
     client_lib.reorder_ports(
-        user_preferences.daemon_port
+        user_preferences.client_port
     )  # reorder after shutdown was requested
     global_vars.CLIENT_FAILED_REPORTS = 0  # reset failed reports so next attempt to get report or start client is immediate
     bpy.app.timers.unregister(client_communication_timer)
