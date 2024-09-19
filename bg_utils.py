@@ -25,7 +25,7 @@ import os
 
 import addon_utils
 
-from . import daemon_lib, download, paths
+from . import client_lib, download, paths
 
 
 bk_logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def download_asset_file(asset_data, resolution="blend", api_key=""):
         return file_name
 
     res_file_info, resolution = paths.get_res_file(asset_data, resolution)
-    response = daemon_lib.blocking_file_download(
+    response = client_lib.blocking_file_download(
         str(res_file_info["url"]), filepath=file_name, api_key=api_key
     )
     return file_name

@@ -29,7 +29,7 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import daemon_lib, daemon_tasks, global_vars, icons, reports, tasks_queue, utils
+from . import client_lib, daemon_tasks, global_vars, icons, reports, tasks_queue, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ def ensure_rating(asset_id):
     """
     r = global_vars.DATA["asset ratings"].get(asset_id, {})
     if "quality" not in r.keys() or "working_hours " not in r.keys():
-        daemon_lib.get_rating(asset_id)
+        client_lib.get_rating(asset_id)
 
 
 def update_ratings_quality(self, context):
@@ -139,7 +139,7 @@ def update_ratings_quality(self, context):
         return
 
     args = (asset_id, "quality", bkit_ratings.rating_quality)
-    tasks_queue.add_task((daemon_lib.send_rating, args), wait=0.5, only_last=True)
+    tasks_queue.add_task((client_lib.send_rating, args), wait=0.5, only_last=True)
 
 
 def update_ratings_work_hours(self, context):
@@ -171,7 +171,7 @@ def update_ratings_work_hours(self, context):
         return
 
     args = (asset_id, "working_hours", bkit_ratings.rating_work_hours)
-    tasks_queue.add_task((daemon_lib.send_rating, args), wait=0.5, only_last=True)
+    tasks_queue.add_task((client_lib.send_rating, args), wait=0.5, only_last=True)
 
 
 def update_quality_ui(self, context):

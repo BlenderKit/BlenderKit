@@ -33,8 +33,8 @@ from . import (
     asset_bar_op,
     autothumb,
     categories,
+    client_lib,
     comments_utils,
-    daemon_lib,
     download,
     global_vars,
     icons,
@@ -748,7 +748,7 @@ class MarkNotificationRead(bpy.types.Operator):
             if n["id"] == self.notification_id:
                 n["unread"] = 0
         comments_utils.check_notifications_read()
-        daemon_lib.mark_notification_read(self.notification_id)
+        client_lib.mark_notification_read(self.notification_id)
         return {"FINISHED"}
 
 
@@ -768,7 +768,7 @@ class MarkAllNotificationsRead(bpy.types.Operator):
         for n in notifications.get("results"):
             if n["unread"] == 1:
                 n["unread"] = 0
-                daemon_lib.mark_notification_read(n["id"])
+                client_lib.mark_notification_read(n["id"])
 
         comments_utils.check_notifications_read()
         return {"FINISHED"}
@@ -844,7 +844,7 @@ class UpvoteComment(bpy.types.Operator):
                         ):
                             comment["flags"].remove(flag)
                             break
-        daemon_lib.feedback_comment(self.asset_id, self.comment_id, api_key, self.flag)
+        client_lib.feedback_comment(self.asset_id, self.comment_id, api_key, self.flag)
         return {"FINISHED"}
 
 
@@ -882,7 +882,7 @@ class SetPrivateComment(bpy.types.Operator):
             for comment in comments:
                 if comment["id"] == self.comment_id:
                     comment["isPrivate"] = self.is_private
-        daemon_lib.mark_comment_private(
+        client_lib.mark_comment_private(
             self.asset_id, self.comment_id, api_key, self.is_private
         )
         return {"FINISHED"}
@@ -953,7 +953,7 @@ class PostComment(bpy.types.Operator):
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         ui_props = bpy.context.window_manager.blenderkitUI
         api_key = user_preferences.api_key
-        daemon_lib.create_comment(
+        client_lib.create_comment(
             self.asset_id, ui_props.new_comment, api_key, self.comment_id
         )
         ui_props.new_comment = ""
@@ -3166,7 +3166,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         api_key = user_preferences.api_key
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         # if comments is None:
-        daemon_lib.get_comments(asset_data["assetBaseId"], api_key)
+        client_lib.get_comments(asset_data["assetBaseId"], api_key)
 
         # TODO: SHOULD BE DONE ONCE COMMENTS TASK IS RETURNED - HOW TO INVOKE REFRESH FROM HANDLE_GET_COMMENTS_TASK
         comments = global_vars.DATA.get("asset comments", {})

@@ -27,7 +27,7 @@ import tempfile
 
 import bpy
 
-from . import daemon_lib, global_vars, reports, utils
+from . import client_lib, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -394,7 +394,7 @@ def delete_asset_debug(asset_data):
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     api_key = user_preferences.api_key
 
-    _, download_url, file_name = daemon_lib.get_download_url(
+    _, download_url, file_name = client_lib.get_download_url(
         asset_data, utils.get_scene_id(), api_key
     )
     asset_data["files"][0]["url"] = download_url

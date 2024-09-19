@@ -33,8 +33,8 @@ from bpy.types import Operator
 
 from . import (
     asset_bar_op,
+    client_lib,
     comments_utils,
-    daemon_lib,
     daemon_tasks,
     global_vars,
     image_utils,
@@ -390,7 +390,7 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
                     __package__
                 ].preferences
                 api_key = user_preferences.api_key
-                daemon_lib.get_comments(asset_data["assetBaseId"])
+                client_lib.get_comments(asset_data["assetBaseId"])
 
     # Get ratings from BlenderKit server TODO: do this in daemon
     if utils.profile_is_validator():
@@ -636,7 +636,7 @@ def generate_author_profile(author_data):
     author_id = str(author_data["id"])
     if author_id in global_vars.DATA["bkit authors"]:
         return
-    daemon_lib.download_gravatar_image(author_data)
+    client_lib.download_gravatar_image(author_data)
     author_data["tooltip"] = generate_author_textblock(author_data)
     global_vars.DATA["bkit authors"][author_id] = author_data
     return
@@ -652,7 +652,7 @@ def handle_get_user_profile(task: daemon_tasks.Task):
             "user"
         ]
         # after profile arrives, we can check for gravatar image
-        daemon_lib.download_gravatar_image(user_data["user"])
+        client_lib.download_gravatar_image(user_data["user"])
         if user_data.get("canEditAllAssets", False):  # IS VALIDATOR
             utils.enforce_prerelease_update_check()
 
@@ -909,7 +909,7 @@ def add_search_process(query, params):
         "asset_type": query["asset_type"],
     }
     data.update(params)
-    response = daemon_lib.asset_search(data)
+    response = client_lib.asset_search(data)
     search_tasks[response["task_id"]] = data
 
 
@@ -940,7 +940,7 @@ def get_search_simple(
     requeststring += "&dict_parameters=1"
 
     bk_logger.debug(requeststring)
-    response = daemon_lib.blocking_request(requeststring, "GET", headers)
+    response = client_lib.blocking_request(requeststring, "GET", headers)
 
     # print(response.json())
     search_results = response.json()
@@ -951,7 +951,7 @@ def get_search_simple(
     page_count = math.ceil(search_results["count"] / page_size)
     while search_results.get("next") and len(results) < max_results:
         bk_logger.info(f"getting page {page_index} , total pages {page_count}")
-        response = daemon_lib.blocking_request(search_results["next"], "GET", headers)
+        response = client_lib.blocking_request(search_results["next"], "GET", headers)
         search_results = response.json()
         results.extend(search_results["results"])
         page_index += 1

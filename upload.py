@@ -37,7 +37,7 @@ from . import (
     asset_inspector,
     autothumb,
     categories,
-    daemon_lib,
+    client_lib,
     daemon_tasks,
     global_vars,
     image_utils,
@@ -883,7 +883,7 @@ class FastMetadata(bpy.types.Operator):
             "success": "Metadata upload succeded",
             "error": "Metadata upload failed",
         }
-        daemon_lib.nonblocking_request(url, "PATCH", {}, metadata, messages)
+        client_lib.nonblocking_request(url, "PATCH", {}, metadata, messages)
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -1131,7 +1131,7 @@ class UploadOperator(Operator):
         props.upload_state = "Upload initiating..."
         props.uploading = True
 
-        daemon_lib.asset_upload(upload_data, export_data, upload_set)
+        client_lib.asset_upload(upload_data, export_data, upload_set)
         return {"FINISHED"}
 
     def draw(self, context):
@@ -1315,7 +1315,7 @@ class AssetVerificationStatusChange(Operator):
             "success": "Verification status changed",
             "error": "Verification status change failed",
         }
-        daemon_lib.nonblocking_request(url, "PATCH", {}, upload_data, messages)
+        client_lib.nonblocking_request(url, "PATCH", {}, upload_data, messages)
 
         if asset_bar_op.asset_bar_operator is not None:
             asset_bar_op.asset_bar_operator.update_layout(context, None)

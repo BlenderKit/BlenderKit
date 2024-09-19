@@ -30,7 +30,7 @@ from webbrowser import open_new_tab
 import bpy
 from bpy.props import BoolProperty
 
-from . import daemon_lib, daemon_tasks, global_vars, reports, tasks_queue, utils
+from . import client_lib, daemon_tasks, global_vars, reports, tasks_queue, utils
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
@@ -110,7 +110,7 @@ def clean_login_data():
 def logout() -> None:
     """Logs out user from add-on. Also calls BlenderKit-client to revoke the tokens."""
     bk_logger.info("Logging out.")
-    daemon_lib.oauth2_logout()
+    client_lib.oauth2_logout()
     clean_login_data()
 
 
@@ -120,10 +120,10 @@ def login(signup: bool) -> None:
     Using the access_code Client then requests api_token and handles the results as a task with status finished/error.
     This is handled by function handle_login_task which saves tokens, or shows error message.
     """
-    local_landing_URL = f"http://localhost:{daemon_lib.get_port()}/consumer/exchange/"
+    local_landing_URL = f"http://localhost:{client_lib.get_port()}/consumer/exchange/"
     code_verifier, code_challenge = generate_pkce_pair()
     state = secrets.token_urlsafe()
-    daemon_lib.send_oauth_verification_data(code_verifier, state)
+    client_lib.send_oauth_verification_data(code_verifier, state)
     authorize_url = f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state={state}&redirect_uri={local_landing_URL}&code_challenge={code_challenge}&code_challenge_method=S256"
     if signup:
         authorize_url = urlquote(authorize_url)
@@ -170,7 +170,7 @@ def ensure_token_refresh() -> bool:
         return False
 
     # Token is at the end of life, refresh token exists, it is time to refresh
-    daemon_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
+    client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
     return True
 
 
