@@ -28,8 +28,8 @@ from . import (
     bkit_oauth,
     categories,
     client_lib,
+    client_tasks,
     comments_utils,
-    daemon_tasks,
     disclaimer_op,
     download,
     global_vars,
@@ -110,7 +110,7 @@ def daemon_communication_timer():
 
     # convert to task type
     for task in results:
-        task = daemon_tasks.Task(
+        task = client_tasks.Task(
             data=task["data"],
             task_id=task["task_id"],
             app_id=task["app_id"],
@@ -198,7 +198,7 @@ def cancel_all_tasks(self, context):
     # TODO: should add uploads
 
 
-def task_error_overdrive(task: daemon_tasks.Task) -> None:
+def task_error_overdrive(task: client_tasks.Task) -> None:
     """Handle error task - overdrive some error messages, trigger functions common for all errors."""
     if task.message.count("Invalid token.") > 0 and utils.user_logged_in():
         preferences = bpy.context.preferences.addons[__package__].preferences
@@ -222,7 +222,7 @@ def task_error_overdrive(task: daemon_tasks.Task) -> None:
         )
 
 
-def handle_task(task: daemon_tasks.Task):
+def handle_task(task: client_tasks.Task):
     """Handle incomming task information. Sort tasks by type and call apropriate functions."""
     if task.status == "error":
         task_error_overdrive(task)

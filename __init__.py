@@ -76,7 +76,7 @@ if "bpy" in locals():
     categories = reload(categories)
     colors = reload(colors)
     client_lib = reload(client_lib)
-    daemon_tasks = reload(daemon_tasks)
+    client_tasks = reload(client_tasks)
     disclaimer_op = reload(disclaimer_op)
     download = reload(download)
     icons = reload(icons)
@@ -127,7 +127,7 @@ else:
     from . import categories
     from . import colors
     from . import client_lib
-    from . import daemon_tasks
+    from . import client_tasks
     from . import disclaimer_op
     from . import download
     from . import icons
