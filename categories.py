@@ -24,7 +24,7 @@ import shutil
 
 import bpy
 
-from . import daemon_tasks, global_vars, paths
+from . import client_tasks, global_vars, paths
 
 
 bk_logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def get_category(categories, cat_path=()):
                 break
 
 
-def handle_categories_task(task: daemon_tasks.Task):
+def handle_categories_task(task: client_tasks.Task):
     """Handle incomming categories_update task which contains information about fetching updated categories.
     TODO: would be ideal if the file handling (saving, reading fallback JSON) would be done on the Client side.
     """

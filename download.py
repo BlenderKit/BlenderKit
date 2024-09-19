@@ -26,7 +26,7 @@ import time
 from . import (
     append_link,
     client_lib,
-    daemon_tasks,
+    client_tasks,
     global_vars,
     paths,
     reports,
@@ -712,7 +712,7 @@ def replace_resolution_appended(file_paths, asset_data, resolution):
 #     return .5
 
 
-def handle_download_task(task: daemon_tasks.Task):
+def handle_download_task(task: client_tasks.Task):
     """Handle incoming task information.
     Update progress. Print messages. Fire post-download functions.
     """
@@ -764,7 +764,7 @@ def download_write_progress(task_id, task):
 
 
 # TODO might get moved to handle all blenderkit stuff, not to slow down.
-def download_post(task: daemon_tasks.Task):
+def download_post(task: client_tasks.Task):
     """
     Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.
@@ -889,7 +889,7 @@ def download(asset_data, **kwargs):
     download_tasks[response["task_id"]] = data
 
 
-def handle_bkclientjs_get_asset(task: daemon_tasks.Task):
+def handle_bkclientjs_get_asset(task: client_tasks.Task):
     """Handle incoming bkclientjs/get_asset task. User asked for download in online gallery. How it goes:
     1. Webpage tries to connect to Client, gets data about connected Softwares
     2. User choosed Blender with appID of this Blender
@@ -900,6 +900,7 @@ def handle_bkclientjs_get_asset(task: daemon_tasks.Task):
 
     TODO: #1262Implement append to universal search results instead.
     """
+    pass
     """ UNUSED CODE for direct download:
     prefs = utils.get_preferences_as_dict()
     prefs["resolution"] = task.result["resolution"]

@@ -32,7 +32,7 @@ from mathutils import Vector
 
 from . import (
     client_lib,
-    daemon_tasks,
+    client_tasks,
     global_vars,
     image_utils,
     paths,
@@ -1277,7 +1277,7 @@ def is_upload_old(asset_data):
     return 0
 
 
-def handle_nonblocking_request_task(task: daemon_tasks.Task):
+def handle_nonblocking_request_task(task: client_tasks.Task):
     if task.status == "finished":
         reports.add_report(task.message)
     if task.status == "error":

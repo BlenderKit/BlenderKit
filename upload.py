@@ -38,7 +38,7 @@ from . import (
     autothumb,
     categories,
     client_lib,
-    daemon_tasks,
+    client_tasks,
     global_vars,
     image_utils,
     overrides,
@@ -1329,7 +1329,7 @@ class AssetVerificationStatusChange(Operator):
         return {"RUNNING_MODAL"}
 
 
-def handle_asset_upload(task: daemon_tasks.Task):
+def handle_asset_upload(task: client_tasks.Task):
     asset = eval(f"{task.data['export_data']['eval_path']}.blenderkit")
     asset.upload_state = task.message
     if task.status == "error":
@@ -1366,7 +1366,7 @@ def handle_asset_upload(task: daemon_tasks.Task):
         return reports.add_report("Upload successfull")
 
 
-def handle_asset_metadata_upload(task: daemon_tasks.Task):
+def handle_asset_metadata_upload(task: client_tasks.Task):
     if task.status != "finished":
         return
 

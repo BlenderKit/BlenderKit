@@ -29,13 +29,13 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import client_lib, daemon_tasks, global_vars, icons, reports, tasks_queue, utils
+from . import client_lib, client_tasks, global_vars, icons, reports, tasks_queue, utils
 
 
 bk_logger = logging.getLogger(__name__)
 
 
-def handle_get_rating_task(task: daemon_tasks.Task):
+def handle_get_rating_task(task: client_tasks.Task):
     """Handle incomming get_rating task by saving the results into global_vars."""
     if task.status == "created":
         return
@@ -53,7 +53,7 @@ def handle_get_rating_task(task: daemon_tasks.Task):
         store_rating_local(asset_id, rating["ratingType"], rating["score"])
 
 
-def handle_get_bookmarks_task(task: daemon_tasks.Task):
+def handle_get_bookmarks_task(task: client_tasks.Task):
     """Handle incomming get_bookmarks task by saving the results into global_vars.
     This is different from standard ratings - the results come from elastic search API
     instead of ratings API.
@@ -68,7 +68,7 @@ def handle_get_bookmarks_task(task: daemon_tasks.Task):
         store_rating_local(asset_data["id"], "bookmarks", 1)
 
 
-def handle_send_rating_task(task: daemon_tasks.Task):
+def handle_send_rating_task(task: client_tasks.Task):
     """Handle send rating task."""
     if task.status == "created":
         return

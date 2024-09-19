@@ -23,7 +23,7 @@ import time
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from . import daemon_tasks, global_vars, paths, reports, tasks_queue, utils
+from . import client_tasks, global_vars, paths, reports, tasks_queue, utils
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
@@ -262,7 +262,7 @@ def run_disclaimer_task(message: str, url: str, tip: bool):
             )
 
 
-def handle_disclaimer_task(task: daemon_tasks.Task):
+def handle_disclaimer_task(task: client_tasks.Task):
     """Handles incoming disclaimer task. If there are any results, it shows them in disclaimer popup.
     If the results are empty, it shows random tip in the disclaimer popup.
     """

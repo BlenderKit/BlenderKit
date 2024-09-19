@@ -30,7 +30,7 @@ from webbrowser import open_new_tab
 import bpy
 from bpy.props import BoolProperty
 
-from . import client_lib, daemon_tasks, global_vars, reports, tasks_queue, utils
+from . import client_lib, client_tasks, global_vars, reports, tasks_queue, utils
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
@@ -39,7 +39,7 @@ active_authenticator = None
 bk_logger = logging.getLogger(__name__)
 
 
-def handle_login_task(task: daemon_tasks.Task):
+def handle_login_task(task: client_tasks.Task):
     """Handles incoming task of type Login. Writes tokens if it finished successfully, logouts the user on error."""
     if task.status == "finished":
         tasks_queue.add_task(
@@ -57,7 +57,7 @@ def handle_login_task(task: daemon_tasks.Task):
         reports.add_report(task.message, 5, "ERROR")
 
 
-def handle_token_refresh_task(task: daemon_tasks.Task):
+def handle_token_refresh_task(task: client_tasks.Task):
     """Handle incoming task of type token_refresh. If the new token is meant for the current user, calls handle_login_task.
     Otherwise it ignores the incoming task.
     """
@@ -83,7 +83,7 @@ def handle_token_refresh_task(task: daemon_tasks.Task):
         reports.add_report(task.message, 5, "ERROR")
 
 
-def handle_logout_task(task: daemon_tasks.Task):
+def handle_logout_task(task: client_tasks.Task):
     """Handles incoming task of type oauth2/logout. This could be triggered from another add-on also.
     Shows messages depending on result of tokens revocation.
     Regardless of revocation results, it also cleans login data if needed."""

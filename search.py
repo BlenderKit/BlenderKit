@@ -34,8 +34,8 @@ from bpy.types import Operator
 from . import (
     asset_bar_op,
     client_lib,
+    client_tasks,
     comments_utils,
-    daemon_tasks,
     global_vars,
     image_utils,
     paths,
@@ -322,7 +322,7 @@ def cleanup_search_results():
     clear_searches()
 
 
-def handle_search_task_error(task: daemon_tasks.Task) -> None:
+def handle_search_task_error(task: client_tasks.Task) -> None:
     """Handle incomming search task error."""
     if len(search_tasks) == 0:
         props = utils.get_search_props()
@@ -330,7 +330,7 @@ def handle_search_task_error(task: daemon_tasks.Task) -> None:
     return reports.add_report(task.message, 5, "ERROR")
 
 
-def handle_search_task(task: daemon_tasks.Task) -> bool:
+def handle_search_task(task: client_tasks.Task) -> bool:
     """Parse search results, try to load all available previews."""
     global search_tasks
     if len(search_tasks) == 0:
@@ -436,7 +436,7 @@ def handle_search_task(task: daemon_tasks.Task) -> bool:
     return True
 
 
-def handle_thumbnail_download_task(task: daemon_tasks.Task) -> None:
+def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
     if task.status == "finished":
         global_vars.DATA["images available"][task.data["image_path"]] = True
     elif task.status == "error":
@@ -622,7 +622,7 @@ def generate_author_textblock(adata):
     return t
 
 
-def handle_fetch_gravatar_task(task: daemon_tasks.Task):
+def handle_fetch_gravatar_task(task: client_tasks.Task):
     """Handle incomming fetch_gravatar_task which contains path to author's image on the disk."""
     if task.status == "finished":
         author_id = str(task.data["id"])
@@ -642,7 +642,7 @@ def generate_author_profile(author_data):
     return
 
 
-def handle_get_user_profile(task: daemon_tasks.Task):
+def handle_get_user_profile(task: client_tasks.Task):
     """Handle incomming get_user_profile task which contains data about current logged-in user."""
     if task.status == "finished":
         user_data = task.result
