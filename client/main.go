@@ -1126,7 +1126,6 @@ func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetRating is a function for fetching the rating of the asset.
-// Re-implements: file://daemon/daemon_ratings.py : get_rating()
 func GetRating(data GetRatingData) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/", *Server, data.AssetID)
 	taskUUID := uuid.New().String()

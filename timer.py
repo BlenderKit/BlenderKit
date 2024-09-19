@@ -83,12 +83,12 @@ def handle_failed_reports(exception: Exception) -> float:
 
 
 @bpy.app.handlers.persistent
-def daemon_communication_timer():
-    """Recieve all responses from daemon and run according followup commands.
-    This function is the only one responsible for keeping the daemon up and running.
+def client_communication_timer():
+    """Recieve all responses from Client and run according followup commands.
+    This function is the only one responsible for keeping the Client up and running.
     """
     global pending_tasks
-    bk_logger.debug("Getting tasks from daemon")
+    bk_logger.debug("Getting tasks from Client")
     search.check_clipboard()
     results = list()
     try:
@@ -148,10 +148,10 @@ def timer_image_cleanup():
     return 60
 
 
-def save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context):
+def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
     """Save preferences, cancel all blenderkit-client tasks, shutdown the blenderkit-client and reorder ports.
-    Unset the CLIENT_FAILED_REPORTS and restart daemon_communication_timer() so add-on will check for the reports ASAP.
-    Timer func daemon_communication_timer() will take care of starting the Client and checking the reports.
+    Unset the CLIENT_FAILED_REPORTS and restart client_communication_timer() so add-on will check for the reports ASAP.
+    Timer func client_communication_timer() will take care of starting the Client and checking the reports.
     """
     utils.save_prefs(user_preferences, context)
     if user_preferences.preferences_lock == True:
@@ -168,14 +168,14 @@ def save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context):
         user_preferences.daemon_port
     )  # reorder after shutdown was requested
     global_vars.CLIENT_FAILED_REPORTS = 0  # reset failed reports so next attempt to get report or start client is immediate
-    bpy.app.timers.unregister(daemon_communication_timer)
-    bpy.app.timers.register(daemon_communication_timer, persistent=True)
+    bpy.app.timers.unregister(client_communication_timer)
+    bpy.app.timers.register(client_communication_timer, persistent=True)
 
 
 def trusted_CA_certs_property_updated(user_preferences, context):
     """Update trusted CA certs environment variables and call save_prefs()."""
     update_trusted_CA_certs(user_preferences.trusted_ca_certs)
-    return save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context)
+    return save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context)
 
 
 def update_trusted_CA_certs(certs: str):
@@ -311,8 +311,11 @@ def handle_task(task: client_tasks.Task):
     if task.task_type == "bkclientjs/get_asset":
         return download.handle_bkclientjs_get_asset(task)
 
-    # HANDLE MESSAGE FROM DAEMON
-    if task.task_type == "message_from_daemon":
+    # HANDLE MESSAGE FROM CLIENT
+    if (
+        task.task_type == "message_from_daemon"  # TODO: depracate message_from_daemon
+        or task.task_type == "message_from_client"
+    ):
         level = task.result.get("level", "INFO").upper()
         duration = task.result.get("duration", 5)
         destination = task.result.get("destination", "GUI")
@@ -333,8 +336,8 @@ def check_timers_timer():
         bpy.app.timers.register(tasks_queue.queue_worker)
     if not bpy.app.timers.is_registered(bg_blender.bg_update):
         bpy.app.timers.register(bg_blender.bg_update)
-    if not bpy.app.timers.is_registered(daemon_communication_timer):
-        bpy.app.timers.register(daemon_communication_timer, persistent=True)
+    if not bpy.app.timers.is_registered(client_communication_timer):
+        bpy.app.timers.register(client_communication_timer, persistent=True)
     if not bpy.app.timers.is_registered(timer_image_cleanup):
         bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
     return 5.0
@@ -349,8 +352,8 @@ def on_startup_timer():
     return None
 
 
-def on_startup_daemon_online_timer():
-    """Run once when daemon is online after startup."""
+def on_startup_client_online_timer():
+    """Run once when Client is online after startup."""
     if not global_vars.CLIENT_RUNNING:
         return 1
 
@@ -380,7 +383,7 @@ def register_timers():
 
     # ONETIMERS
     bpy.app.timers.register(on_startup_timer)
-    bpy.app.timers.register(on_startup_daemon_online_timer, first_interval=1)
+    bpy.app.timers.register(on_startup_client_online_timer, first_interval=1)
     bpy.app.timers.register(disclaimer_op.show_disclaimer_timer, first_interval=1)
 
 
@@ -397,14 +400,14 @@ def unregister_timers():
         bpy.app.timers.unregister(tasks_queue.queue_worker)
     if bpy.app.timers.is_registered(bg_blender.bg_update):
         bpy.app.timers.unregister(bg_blender.bg_update)
-    if bpy.app.timers.is_registered(daemon_communication_timer):
-        bpy.app.timers.unregister(daemon_communication_timer)
+    if bpy.app.timers.is_registered(client_communication_timer):
+        bpy.app.timers.unregister(client_communication_timer)
     if bpy.app.timers.is_registered(timer_image_cleanup):
         bpy.app.timers.unregister(timer_image_cleanup)
 
     if bpy.app.timers.is_registered(on_startup_timer):
         bpy.app.timers.unregister(on_startup_timer)
-    if bpy.app.timers.is_registered(on_startup_daemon_online_timer):
-        bpy.app.timers.unregister(on_startup_daemon_online_timer)
+    if bpy.app.timers.is_registered(on_startup_client_online_timer):
+        bpy.app.timers.unregister(on_startup_client_online_timer)
     if bpy.app.timers.is_registered(disclaimer_op.show_disclaimer_timer):
         bpy.app.timers.unregister(disclaimer_op.show_disclaimer_timer)

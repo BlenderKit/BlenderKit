@@ -392,7 +392,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
                 api_key = user_preferences.api_key
                 client_lib.get_comments(asset_data["assetBaseId"])
 
-    # Get ratings from BlenderKit server TODO: do this in daemon
+    # Get ratings from BlenderKit server TODO: do this in client
     if utils.profile_is_validator():
         for result in task.result["results"]:
             ratings_utils.ensure_rating(result["id"])
@@ -1244,7 +1244,7 @@ def refresh_search():
     if ui_props.assetbar_on:
         ui_props.turn_off = True
         ui_props.assetbar_on = False
-    cleanup_search_results()  # TODO: is it possible to start this from daemon automatically? probably YEA
+    cleanup_search_results()  # TODO: is it possible to start this from Client automatically? probably YEA
     history = global_vars.DATA["search history"]
     if len(history) > 0:
         search(query=history[-1])
