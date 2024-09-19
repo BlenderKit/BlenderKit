@@ -78,12 +78,11 @@ const (
 )
 
 var (
-	ClientVersion   = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
-	SystemID        *string   // Unique ID of the current system (string of 15 integers)
-	Port            *string
-	Server          *string
-	AddonVersion    *string
-	PlatformVersion *string
+	ClientVersion = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
+	SystemID      *string   // Unique ID of the current system (string of 15 integers)
+	Port          *string
+	Server        *string
+	AddonVersion  *string
 
 	OAuth2Sessions    map[string]OAuth2VerificationData // Map of OAuth2 sessions, key is the state string
 	OAuth2SessionsMux sync.Mutex
@@ -370,11 +369,6 @@ func monitorReportAccess() {
 		}
 		lastReportAccessMux.Unlock()
 	}
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	pid := os.Getpid()
-	fmt.Fprintf(w, "%d", pid)
 }
 
 func shutdownHandler(w http.ResponseWriter, r *http.Request) {
