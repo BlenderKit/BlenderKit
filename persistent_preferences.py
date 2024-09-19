@@ -123,8 +123,8 @@ def load_preferences_from_JSON():
     )
 
     # NETWORK
-    user_preferences.daemon_port = prefs.get(
-        "daemon_port", user_preferences.daemon_port
+    user_preferences.client_port = prefs.get(
+        "client_port", user_preferences.client_port
     )
     user_preferences.ip_version = prefs.get("ip_version", user_preferences.ip_version)
     try:

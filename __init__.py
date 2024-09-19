@@ -2013,7 +2013,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=fix_subdir,
     )
 
-    daemon_port: EnumProperty(
+    client_port: EnumProperty(
         name="Client port",
         description="Port to be used for startup and communication with BlenderKit-Client. Changing the port will cancel all running downloads and searches",
         items=(
@@ -2353,7 +2353,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         network_settings = layout.box()
         network_settings.alignment = "EXPAND"
         network_settings.label(text="Networking settings")
-        network_settings.prop(self, "daemon_port")
+        network_settings.prop(self, "client_port")
         network_settings.prop(self, "ip_version")
         network_settings.prop(self, "ssl_context")
         network_settings.prop(self, "proxy_which")
@@ -2482,7 +2482,7 @@ def register():
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
-        client_lib.reorder_ports(user_preferences.daemon_port)
+        client_lib.reorder_ports(user_preferences.client_port)
         timer.update_trusted_CA_certs(user_preferences.trusted_ca_certs)
 
     search.register_search()
