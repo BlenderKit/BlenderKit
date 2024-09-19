@@ -75,7 +75,7 @@ if "bpy" in locals():
     bkit_oauth = reload(bkit_oauth)
     categories = reload(categories)
     colors = reload(colors)
-    daemon_lib = reload(daemon_lib)
+    client_lib = reload(client_lib)
     daemon_tasks = reload(daemon_tasks)
     disclaimer_op = reload(disclaimer_op)
     download = reload(download)
@@ -126,7 +126,7 @@ else:
     from . import bkit_oauth
     from . import categories
     from . import colors
-    from . import daemon_lib
+    from . import client_lib
     from . import daemon_tasks
     from . import disclaimer_op
     from . import download
@@ -2372,7 +2372,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         )
         globdir_op.directory = self.global_dir
 
-        clientlog_path = daemon_lib.get_client_log_path()
+        clientlog_path = client_lib.get_client_log_path()
         clientlog_op = layout.operator(
             "wm.blenderkit_open_client_log",
             text=f"Client log: {clientlog_path}",
@@ -2482,7 +2482,7 @@ def register():
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
-        daemon_lib.reorder_ports(user_preferences.daemon_port)
+        client_lib.reorder_ports(user_preferences.daemon_port)
         timer.update_trusted_CA_certs(user_preferences.trusted_ca_certs)
 
     search.register_search()
@@ -2546,7 +2546,7 @@ def unregister():
 
     if bpy.app.background is False:
         try:
-            daemon_lib.unsubscribe_addon()
+            client_lib.unsubscribe_addon()
             bk_logger.info("Reported Blender quit to Client.")
         except Exception as e:
             bk_logger.error(e)

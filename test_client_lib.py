@@ -28,16 +28,16 @@ for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
-from . import daemon_lib, download, global_vars, paths, utils
+from . import client_lib, download, global_vars, paths, utils
 
 
 def client_is_responding() -> tuple[bool, str]:
     """Check whether blenderkit-client is responding."""
-    address = daemon_lib.get_address()
+    address = client_lib.get_address()
     try:
         with requests.Session() as session:
             with session.get(
-                address, timeout=daemon_lib.TIMEOUT, proxies=daemon_lib.NO_PROXIES
+                address, timeout=client_lib.TIMEOUT, proxies=client_lib.NO_PROXIES
             ) as resp:
                 if resp.status_code != 200:
                     return False, f"Server response not 200: {resp.status_code}"
@@ -63,7 +63,7 @@ class Test01ClientNotRunning(unittest.TestCase):
     def test02_get_reports_not_running(self):
         app_id = os.getpid()
         try:
-            daemon_lib.get_reports(app_id)
+            client_lib.get_reports(app_id)
             self.fail("got report but blenderkit-client should be offline")
         except requests.exceptions.ConnectionError as err:
             type(err)
@@ -77,7 +77,7 @@ class Test01ClientNotRunning(unittest.TestCase):
 
 class Test02ClientRunning(unittest.TestCase):
     def test01_start_daemon_server(self):
-        daemon_lib.start_blenderkit_client()
+        client_lib.start_blenderkit_client()
         for i in range(10):
             time.sleep(i * 0.5)
             alive, _ = client_is_responding()
@@ -89,17 +89,17 @@ class Test02ClientRunning(unittest.TestCase):
 class Test03ClientUtilFunctions(unittest.TestCase):
     def test_get_port(self):
         ports = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
-        self.assertIn(daemon_lib.get_port(), ports)
+        self.assertIn(client_lib.get_port(), ports)
 
     def test_get_address(self):
-        address = daemon_lib.get_address()
+        address = client_lib.get_address()
         parsed = urlparse(address)
         self.assertEqual(parsed.scheme, "http")
         self.assertEqual(parsed.hostname, "127.0.0.1")
-        self.assertEqual(parsed.port, int(daemon_lib.get_port()))
+        self.assertEqual(parsed.port, int(client_lib.get_port()))
 
     def test_daemon_directory_path(self):
-        dir_path = daemon_lib.get_client_directory()
+        dir_path = client_lib.get_client_directory()
         self.assertTrue(os.path.exists(dir_path))
 
 
@@ -107,7 +107,7 @@ class Test04GetReportsClientRunning(unittest.TestCase):
     def test_get_reports_running(self):
         """Get reports for current Blender PID (app_id)."""
         app_id = os.getpid()
-        reports = daemon_lib.get_reports(app_id)
+        reports = client_lib.get_reports(app_id)
         self.assertEqual(1, len(reports))
         self.assertEqual(reports[0]["app_id"], app_id)
         self.assertEqual(reports[0]["task_type"], "client_status")
@@ -115,7 +115,7 @@ class Test04GetReportsClientRunning(unittest.TestCase):
     def test_get_reports_another_app_id(self):
         """Get reports for non-existing Blender PID (app_id)."""
         app_id = os.getpid() + 10
-        reports = daemon_lib.get_reports(app_id)
+        reports = client_lib.get_reports(app_id)
         self.assertEqual(1, len(reports))
         self.assertEqual(reports[0]["app_id"], app_id)
         self.assertEqual(reports[0]["task_type"], "client_status")
@@ -138,12 +138,12 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
             "asset_type": asset_type,
             "blender_version": blender_version,
         }
-        response = daemon_lib.asset_search(data)
+        response = client_lib.asset_search(data)
         search_task_id = response["task_id"]
 
         to_download = None
         for i in range(10):
-            reports = daemon_lib.get_reports(os.getpid())
+            reports = client_lib.get_reports(os.getpid())
             for task in reports:
                 if search_task_id != task["task_id"]:
                     continue
@@ -182,7 +182,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
         )
 
         for _ in range(100):
-            reports = daemon_lib.get_reports(os.getpid())
+            reports = client_lib.get_reports(os.getpid())
             for task in reports:
                 if task["task_type"] != "asset_download":
                     continue
@@ -249,7 +249,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 
 class Test99ClientStopped(unittest.TestCase):
     def test_shutdown_client(self):
-        daemon_lib.shutdown_client()
+        client_lib.shutdown_client()
         for _ in range(5):
             alive, _ = client_is_responding()
             if alive == False:

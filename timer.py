@@ -27,8 +27,8 @@ from . import (
     bg_blender,
     bkit_oauth,
     categories,
+    client_lib,
     comments_utils,
-    daemon_lib,
     daemon_tasks,
     disclaimer_op,
     download,
@@ -56,14 +56,14 @@ def handle_failed_reports(exception: Exception) -> float:
     )
     global_vars.CLIENT_ACCESSIBLE = False
     if global_vars.CLIENT_FAILED_REPORTS in (0, 10):
-        daemon_lib.start_blenderkit_client()
+        client_lib.start_blenderkit_client()
 
     global_vars.CLIENT_FAILED_REPORTS += 1
     if global_vars.CLIENT_FAILED_REPORTS < 15:
         return 0.1 * global_vars.CLIENT_FAILED_REPORTS
 
     bk_logger.warning(f"Could not get reports: {exception}")
-    return_code, meaning = daemon_lib.check_blenderkit_client_return_code()
+    return_code, meaning = client_lib.check_blenderkit_client_return_code()
     if return_code is None and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
             "Client is not responding, add-on will not work.", 10, "ERROR"
@@ -78,7 +78,7 @@ def handle_failed_reports(exception: Exception) -> float:
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"
     global_vars.CLIENT_RUNNING = False
-    daemon_lib.start_blenderkit_client()
+    client_lib.start_blenderkit_client()
     return 30.0
 
 
@@ -92,7 +92,7 @@ def daemon_communication_timer():
     search.check_clipboard()
     results = list()
     try:
-        results = daemon_lib.get_reports(os.getpid())
+        results = client_lib.get_reports(os.getpid())
         global_vars.CLIENT_FAILED_REPORTS = 0
     except Exception as e:
         return handle_failed_reports(e)
@@ -160,11 +160,11 @@ def save_prefs_cancel_all_tasks_and_restart_daemon(user_preferences, context):
     reports.add_report("Restarting Client server", 2, "INFO")
     try:
         cancel_all_tasks(user_preferences, context)
-        daemon_lib.shutdown_client()
+        client_lib.shutdown_client()
     except Exception as e:
         bk_logger.warning(str(e))
 
-    daemon_lib.reorder_ports(
+    client_lib.reorder_ports(
         user_preferences.daemon_port
     )  # reorder after shutdown was requested
     global_vars.CLIENT_FAILED_REPORTS = 0  # reset failed reports so next attempt to get report or start client is immediate
@@ -205,7 +205,7 @@ def task_error_overdrive(task: daemon_tasks.Task) -> None:
 
         # Invalid token and api_key_refresh present -> trying to refresh the token
         if preferences.api_key_refresh != "":
-            daemon_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
+            client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
             reports.add_report(
                 "Invalid API key token. Refreshing the token now. If problem persist, please log-out and log-in.",
                 5,
@@ -263,7 +263,7 @@ def handle_task(task: daemon_tasks.Task):
 
     # HANDLE CLIENT STATUS REPORT
     if task.task_type == "client_status":
-        return daemon_lib.handle_client_status_task(task)
+        return client_lib.handle_client_status_task(task)
 
     # HANDLE DISCLAIMER
     if task.task_type == "disclaimer":

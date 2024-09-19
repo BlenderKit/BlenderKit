@@ -31,7 +31,7 @@ import bpy
 from mathutils import Vector
 
 from . import (
-    daemon_lib,
+    client_lib,
     daemon_tasks,
     global_vars,
     image_utils,
@@ -484,7 +484,7 @@ def api_key_property_updated(user_preferences, context):
     """
     if len(user_preferences.api_key) >= 25:
         if user_preferences.preferences_lock == False:
-            daemon_lib.get_user_profile()
+            client_lib.get_user_profile()
         search.refresh_search()
         return save_prefs(user_preferences, context)
 

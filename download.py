@@ -25,7 +25,7 @@ import time
 
 from . import (
     append_link,
-    daemon_lib,
+    client_lib,
     daemon_tasks,
     global_vars,
     paths,
@@ -127,7 +127,7 @@ def scene_save(context):
         get_asset_usages()
     )  # TODO: FIX OR REMOVE THIS (now returns empty dict all the time) https://github.com/BlenderKit/blenderkit/issues/1013
     if report_data != {}:
-        daemon_lib.report_usages(report_data)
+        client_lib.report_usages(report_data)
 
 
 @persistent
@@ -746,7 +746,7 @@ def clear_downloads():
 
 
 def download_write_progress(task_id, task):
-    """writes progress from daemon_lib reports to addon tasks list"""
+    """writes progress from client_lib reports to addon tasks list"""
     global download_tasks
     task_addon = download_tasks.get(task.task_id)
     if task_addon is None:
@@ -884,7 +884,7 @@ def download(asset_data, **kwargs):
     data["download_dirs"] = paths.get_download_dirs(asset_data["assetType"])
     if "downloaders" in kwargs:
         data["downloaders"] = kwargs["downloaders"]
-    response = daemon_lib.asset_download(data)
+    response = client_lib.asset_download(data)
 
     download_tasks[response["task_id"]] = data
 
@@ -922,7 +922,7 @@ def handle_bkclientjs_get_asset(task: daemon_tasks.Task):
         "resolution": task.result["resolution"],
     }
 
-    response = daemon_lib.asset_download(data)
+    response = client_lib.asset_download(data)
     download_tasks[response["task_id"]] = data
     """
 
@@ -1190,7 +1190,7 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     def execute(self, context):
         global download_tasks
         download_tasks.pop(self.task_id)
-        daemon_lib.cancel_download(self.task_id)
+        client_lib.cancel_download(self.task_id)
         return {"FINISHED"}
 
 

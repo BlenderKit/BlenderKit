@@ -27,7 +27,7 @@ import traceback
 import bpy
 from bpy.app.handlers import persistent
 
-from . import daemon_lib
+from . import client_lib
 
 
 # Safely import the updater.
@@ -497,7 +497,7 @@ class AddonUpdaterUpdatedSuccessful(bpy.types.Operator):
     def invoke(self, context, event):
         # we need to restart BlenderKit-Client after update
         try:
-            daemon_lib.shutdown_client()
+            client_lib.shutdown_client()
         except:
             pass
         return context.window_manager.invoke_props_popup(self, event)

@@ -119,7 +119,7 @@ if __name__ == "__main__":
         patch_imports(sys.argv[-1])
         bpy.ops.preferences.addon_enable(module=sys.argv[-1])
 
-        from . import append_link, bg_blender, bg_utils, daemon_lib, utils
+        from . import append_link, bg_blender, bg_utils, client_lib, utils
 
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
             bg_blender.progress("Downloading asset")
             asset_data = data["asset_data"]
-            has_url, download_url, file_name = daemon_lib.get_download_url(
+            has_url, download_url, file_name = client_lib.get_download_url(
                 asset_data, utils.get_scene_id(), BLENDERKIT_EXPORT_API_KEY
             )
             asset_data["files"][0]["url"] = download_url
@@ -247,7 +247,7 @@ if __name__ == "__main__":
 
         bg_blender.progress("uploading thumbnail")
         fpath = data["thumbnail_path"] + ".jpg"
-        ok = daemon_lib.complete_upload_file_blocking(
+        ok = client_lib.complete_upload_file_blocking(
             api_key=BLENDERKIT_EXPORT_API_KEY,
             asset_id=data["asset_data"]["id"],
             filepath=fpath,
