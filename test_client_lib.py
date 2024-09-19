@@ -46,13 +46,13 @@ def client_is_responding() -> tuple[bool, str]:
         return False, f'EXCEPTION OCCURED:", {err}, {type(err)}'
 
 
-### DAEMON IS NOT RUNNING ###
+### CLIENT IS NOT RUNNING ###
 
 
 class Test01ClientNotRunning(unittest.TestCase):
     def test01_client_not_running(self):
         """Tests run in background (bpy.app.background == True), so blednerkit-client is not started during registration.
-        Also the daemon_communication_timer() and all other timers are not registered.
+        Also the client_communication_timer() and all other timers are not registered.
         So we expect blenderkit-client to be not running.
         """
         alive, pid = client_is_responding()
@@ -76,7 +76,7 @@ class Test01ClientNotRunning(unittest.TestCase):
 
 
 class Test02ClientRunning(unittest.TestCase):
-    def test01_start_daemon_server(self):
+    def test01_start_client_server(self):
         client_lib.start_blenderkit_client()
         for i in range(10):
             time.sleep(i * 0.5)
@@ -98,7 +98,7 @@ class Test03ClientUtilFunctions(unittest.TestCase):
         self.assertEqual(parsed.hostname, "127.0.0.1")
         self.assertEqual(parsed.port, int(client_lib.get_port()))
 
-    def test_daemon_directory_path(self):
+    def test_client_directory_path(self):
         dir_path = client_lib.get_client_directory()
         self.assertTrue(os.path.exists(dir_path))
 

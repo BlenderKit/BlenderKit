@@ -2027,7 +2027,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
             ("1234", "1234", ""),
         ),
         default="62485",
-        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
+        update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
 
     unpack_files: BoolProperty(
@@ -2074,7 +2074,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         ),
         description="Which address family add-on should use for connection",
         default="BOTH",
-        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
+        update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
 
     ssl_context: EnumProperty(
@@ -2093,7 +2093,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         ),
         description="Secure communication between BlenderKit-client and blenderkit.com server by SSL",
         default="ENABLED",
-        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
+        update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
 
     proxy_which: EnumProperty(
@@ -2128,7 +2128,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         ),
         description="Configure proxy settings for all outgoing HTTPS requests",
         default="SYSTEM",
-        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
+        update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
 
     proxy_address: StringProperty(
@@ -2140,7 +2140,7 @@ If you use simple HTTP proxy, set in format http://ip:port, or http://username:p
 HTTPS proxies are not supported! We wait for support in Python 3.11 and in aiohttp module. You can specify the HTTPS proxy with https:// prefix for hacking around and development purposes, but functionality cannot be guaranteed.
 In this case you should also set path to your system CA bundle containing proxy's certificates in the field "Custom CA certificates path" below""",
         default="",
-        update=timer.save_prefs_cancel_all_tasks_and_restart_daemon,
+        update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
 
     trusted_ca_certs: StringProperty(
