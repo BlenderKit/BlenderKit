@@ -1072,7 +1072,7 @@ class UploadOperator(Operator):
     bl_idname = "object.blenderkit_upload"
     bl_description = "Upload or re-upload asset + thumbnail + metadata"
 
-    bl_label = "BlenderKit asset upload"
+    bl_label = "BlenderKit Asset Upload"
     bl_options = {"REGISTER", "INTERNAL"}
 
     # type of upload - model, material, textures, e.t.c.
@@ -1206,6 +1206,13 @@ class UploadOperator(Operator):
                     "-   Check if it works as expected\n",
                     width=500,
                 )
+
+        if props.is_private == "PRIVATE":
+            utils.label_multiline(
+                layout,
+                width=500,
+                text="Would you like tu upload your asset to BlenderKit?",
+            )
 
     def invoke(self, context, event):
         if not utils.user_logged_in():
