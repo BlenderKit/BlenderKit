@@ -127,9 +127,9 @@ def unpack_asset(data):
         tags = data_block.asset_data.tags
         for t in tags:
             tags.remove(t)
-        tags.new("description: " + asset_data["description"])
-        tags.new("tags: " + ",".join(asset_data["tags"]))
-    #
+        tags.new("description: " + asset_data.get("description", ""))
+        tags.new("tags: " + ",".join(asset_data.get("tags", [])))
+
     # if this isn't here, blender crashes when saving file.
     if bpy.app.version >= (3, 0, 0):
         bpy.context.preferences.filepaths.file_preview_type = "NONE"
