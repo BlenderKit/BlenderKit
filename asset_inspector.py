@@ -235,70 +235,76 @@ def check_anim(props, obs):
 
 def check_meshprops(props, obs):
     """checks polycount, manifold, mesh parts (not implemented)"""
-    fc = 0
-    fcr = 0
+    face_count = 0
+    face_count_render = 0
     tris = 0
     quads = 0
     ngons = 0
-    vc = 0
+    vertices_count = 0
 
     edges_counts = {}
     manifold = True
 
     for ob in obs:
-        if ob.type == "MESH" or ob.type == "CURVE":
-            ob_eval = None
-            if ob.type == "CURVE":
-                # depsgraph = bpy.context.evaluated_depsgraph_get()
-                # object_eval = ob.evaluated_get(depsgraph)
-                mesh = ob.to_mesh()
-            else:
-                mesh = ob.data
-            fco = len(mesh.polygons)
-            fc += fco
-            vc += len(mesh.vertices)
-            fcor = fco
-            for f in mesh.polygons:
-                # face sides counter
-                if len(f.vertices) == 3:
-                    tris += 1
-                elif len(f.vertices) == 4:
-                    quads += 1
-                elif len(f.vertices) > 4:
-                    ngons += 1
+        if ob.type != "MESH" and ob.type != "CURVE":
+            continue
 
-                # manifold counter
-                for i, v in enumerate(f.vertices):
-                    v1 = f.vertices[i - 1]
-                    e = (min(v, v1), max(v, v1))
-                    edges_counts[e] = edges_counts.get(e, 0) + 1
+        ob_eval = None
+        if ob.type == "CURVE":
+            # depsgraph = bpy.context.evaluated_depsgraph_get()
+            # object_eval = ob.evaluated_get(depsgraph)
+            mesh = ob.to_mesh()
+        else:
+            mesh = ob.data
 
-            # all meshes have to be manifold for this to work.
-            manifold = manifold and not any(
-                i in edges_counts.values() for i in [0, 1, 3, 4]
-            )
+        if mesh == None:  # One-point CURVE, can happen sometimes #1318
+            continue
 
-            for m in ob.modifiers:
-                if m.type == "SUBSURF" or m.type == "MULTIRES":
-                    fcor *= 4**m.render_levels
-                if (
-                    m.type == "SOLIDIFY"
-                ):  # this is rough estimate, not to waste time with evaluating all nonmanifold edges
-                    fcor *= 2
-                if m.type == "ARRAY":
-                    fcor *= m.count
-                if m.type == "MIRROR":
-                    fcor *= 2
-                if m.type == "DECIMATE":
-                    fcor *= m.ratio
-            fcr += fcor
+        fco = len(mesh.polygons)
+        face_count += fco
+        vertices_count += len(mesh.vertices)
+        fcor = fco
+        for f in mesh.polygons:
+            # face sides counter
+            if len(f.vertices) == 3:
+                tris += 1
+            elif len(f.vertices) == 4:
+                quads += 1
+            elif len(f.vertices) > 4:
+                ngons += 1
 
-            if ob_eval:
-                ob_eval.to_mesh_clear()
+            # manifold counter
+            for i, v in enumerate(f.vertices):
+                v1 = f.vertices[i - 1]
+                e = (min(v, v1), max(v, v1))
+                edges_counts[e] = edges_counts.get(e, 0) + 1
+
+        # all meshes have to be manifold for this to work.
+        manifold = manifold and not any(
+            i in edges_counts.values() for i in [0, 1, 3, 4]
+        )
+
+        for m in ob.modifiers:
+            if m.type == "SUBSURF" or m.type == "MULTIRES":
+                fcor *= 4**m.render_levels
+            if (
+                m.type == "SOLIDIFY"
+            ):  # this is rough estimate, not to waste time with evaluating all nonmanifold edges
+                fcor *= 2
+            if m.type == "ARRAY":
+                fcor *= m.count
+            if m.type == "MIRROR":
+                fcor *= 2
+            if m.type == "DECIMATE":
+                fcor *= m.ratio
+        face_count_render += fcor
+
+        if ob_eval:
+            ob_eval.to_mesh_clear()
 
     # write out props
-    props.face_count = int(fc)
-    props.face_count_render = int(fcr)
+    props.face_count = int(face_count)
+    props.face_count_render = int(face_count_render)
     if quads > 0 and tris == 0 and ngons == 0:
         props.mesh_poly_type = "QUAD"
     elif quads > tris and quads > ngons:
