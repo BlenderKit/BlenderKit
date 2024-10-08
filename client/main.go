@@ -2715,7 +2715,7 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 // Get data for single Asset instance by assetID.
 // https://www.blenderkit.com/api/v1/assets/{assetID}/
-// // TODO: use assetBaseID and get the asset via /api/v1/search as advised by Petr
+// TODO: use assetBaseID and get the asset via /api/v1/search as advised by Petr
 func GetAssetInstance(assetID string) (Asset, error) {
 	data := Asset{}
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, assetID)
@@ -2739,19 +2739,6 @@ func GetAssetInstance(assetID string) (Asset, error) {
 	}
 
 	return data, nil
-}
-
-// Subscribe available software. This can be a Blender add-on, or add-on in any other compatible software, e.g. Godot in future.
-func SubscribeAvailableSoftware(appID int, name, version, addonVersion string) {
-	software := Software{
-		AppID:        appID,
-		Name:         name,
-		Version:      version,
-		AddonVersion: addonVersion,
-	}
-	AvailableSoftwaresMux.Lock()
-	AvailableSoftwares[appID] = software
-	AvailableSoftwaresMux.Unlock()
 }
 
 // Get AvailableSoftwares as a slice.
