@@ -1090,45 +1090,52 @@ def duplicate_asset(source, **kwargs):
 def asset_in_scene(asset_data):
     """checks if the asset is already in scene. If yes, modifies asset data so the asset can be reached again."""
     scene = bpy.context.scene
-    au = scene.get("assets used", {})
+    assets_used = scene.get("assets used", {})
 
-    id = asset_data["assetBaseId"]
-    if id in au.keys():
-        ad = au[id]
-        if ad.get("files"):
-            for fi in ad["files"]:
-                if fi.get("file_name") != None:
-                    for fi1 in asset_data["files"]:
-                        if fi["fileType"] == fi1["fileType"]:
-                            fi1["file_name"] = fi["file_name"]
-                            fi1["url"] = fi["url"]
+    base_id = asset_data["assetBaseId"]
+    if base_id not in assets_used.keys():
+        return False, None
 
-                            # browse all collections since linked collections can have same name.
-                            if asset_data["assetType"] == "model":
-                                for c in bpy.data.collections:
-                                    if c.name == ad["name"]:
-                                        # there can also be more linked collections with same name, we need to check id.
-                                        if (
-                                            c.library
-                                            and c.library.get("asset_data")
-                                            and c.library["asset_data"]["assetBaseId"]
-                                            == id
-                                        ):
-                                            bk_logger.info("asset linked")
-                                            return "LINKED", ad.get("resolution")
-                            elif asset_data["assetType"] == "material":
-                                for m in bpy.data.materials:
-                                    if not m.get("asset_data"):
-                                        continue
-                                    if (
-                                        m["asset_data"]["assetBaseId"]
-                                        == asset_data["assetBaseId"]
-                                        and bpy.context.active_object.active_material.library
-                                    ):
-                                        return "LINKED", ad.get("resolution")
+    ad = assets_used[base_id]
+    if not ad.get("files"):
+        return False, None
 
-                            bk_logger.info("asset appended")
-                            return "APPENDED", ad.get("resolution")
+    for fi in ad["files"]:
+        if fi.get("file_name") == None:
+            continue
+
+        for fi1 in asset_data["files"]:
+            if fi["fileType"] != fi1["fileType"]:
+                continue
+
+            fi1["file_name"] = fi["file_name"]
+            fi1["url"] = fi["url"]
+
+            # browse all collections since linked collections can have same name.
+            if asset_data["assetType"] == "model":
+                for c in bpy.data.collections:
+                    if c.name != ad["name"]:
+                        continue
+
+                    # there can also be more linked collections with same name, we need to check base_id.
+                    if not c.library.get("asset_data"):
+                        continue
+                    if (
+                        c.library
+                        and c.library["asset_data"].get("assetBaseId") == base_id
+                    ):
+                        bk_logger.info("asset found linked in the scene")
+                        return "LINKED", ad.get("resolution")
+            elif asset_data["assetType"] == "material":
+                for m in bpy.data.materials:
+                    if not m.get("asset_data"):
+                        continue
+                    if m.library and m["asset_data"].get("assetBaseId") == base_id:
+                        bk_logger.info("asset found linked in the scene")
+                        return "LINKED", ad.get("resolution")
+
+            bk_logger.info("asset found appended in the scene")
+            return "APPENDED", ad.get("resolution")
     return False, None
 
 
