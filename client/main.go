@@ -75,14 +75,20 @@ const (
 	rcServerStartOtherSyscallError    = 42
 	rcServerStartSyscallEADDRINUSE    = 43
 	rcServerStartSyscallEACCES        = 44
+
+	// SOFTWARE NAMES
+	blender = "Blender"
+	godot   = "Godot"
 )
 
 var (
-	ClientVersion = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
-	SystemID      *string   // Unique ID of the current system (string of 15 integers)
-	Port          *string
-	Server        *string
-	AddonVersion  *string
+	ClientVersion        = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
+	SystemID             *string   // Unique ID of the current system (string of 15 integers)
+	Port                 *string   // Port on which Client should listen for HTTP requests
+	Server               *string   // Address of BlenderKit server to which Client should connect
+	StartingAddonVersion *string   // Version of the add-on which has started the Client
+	StartingSoftwareName *string   // Name of the software whose add-on has started the Client
+	StartingPID          *string   // Process ID of the software whose add-on has started the Client
 
 	OAuth2Sessions    map[string]OAuth2VerificationData // Map of OAuth2 sessions, key is the state string
 	OAuth2SessionsMux sync.Mutex
@@ -248,11 +254,28 @@ func main() {
 	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")        // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
-	AddonVersion = flag.String("version", "", "addon version")
+	StartingAddonVersion = flag.String("version", "", "version of the add-on which starts the Client")
+	StartingSoftwareName = flag.String("software", "", "name of the software whose add-on starts the Client")
+	StartingPID = flag.String("pid", "", "PID of the process (running software) whose add-on starts the Client")
 	flag.Parse()
+
 	fmt.Print("\n\n")
-	BKLog.Printf("BlenderKit-Client v%s starting from add-on v%s\n   port=%s\n   server=%s\n   proxy_which=%s\n   proxy_address=%s\n   trusted_ca_certs=%s\n   ssl_context=%s",
-		ClientVersion, *AddonVersion, *Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context)
+	startMessage := fmt.Sprintf("BlenderKit-Client v%s ", ClientVersion)
+	if *StartingAddonVersion == "" { // manual start - we could also check StartingSoftwareName
+		startMessage += "started manually"
+	} else { // proper start from Blender or other add-on
+		startMessage += fmt.Sprintf("started from %v add-on v%s", *StartingSoftwareName, *StartingAddonVersion)
+	}
+	startMessage += fmt.Sprintf(`
+	port=%s
+	server=%s
+	proxy_which=%s
+	proxy_address=%s
+	trusted_ca_certs=%s
+	ssl_context=%s
+	pid=%s`,
+		*Port, *Server, *proxy_which, *proxy_address, *trusted_ca_certs, *ssl_context, *StartingPID)
+	BKLog.Print(startMessage)
 
 	CreateHTTPClients(*proxy_address, *proxy_which, *ssl_context, *trusted_ca_certs)
 	go monitorReportAccess()
@@ -376,6 +399,8 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Handles report for subscribed Blender add-ons.
+// TODO: reject unsupported versions of the add-on.
 func reportHandler(w http.ResponseWriter, r *http.Request) {
 	lastReportAccessMux.Lock()
 	lastReportAccess = time.Now()
@@ -405,7 +430,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	software := Software{
 		AppID:        data.AppID,
-		Name:         "Blender",
+		Name:         blender,
 		Version:      data.BlenderVersion,
 		AddonVersion: data.AddonVersion,
 	}
@@ -489,7 +514,7 @@ func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	//BKLog.Printf("%s Add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
+	BKLog.Printf("%s Blender add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] != nil {
@@ -499,6 +524,15 @@ func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 		delete(Tasks, data.AppID)
 	}
 	TasksMux.Unlock()
+
+	// Remove from AvailableSoftwares so Client shutdowns correctly
+	AvailableSoftwaresMux.Lock()
+	delete(AvailableSoftwares, data.AppID)
+	if len(AvailableSoftwares) == 0 {
+		BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
+		go delayedExit(0.1)
+	}
+	AvailableSoftwaresMux.Unlock()
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -2503,7 +2537,7 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	}
 
 	// BLENDER -> send data to add-on, it will then make a search and ask for download
-	if targetSoftware.Name == "Blender" {
+	if targetSoftware.Name == blender {
 		AddTaskCh <- &Task{
 			AppID:    appID,
 			TaskID:   uuid.New().String(),
@@ -2746,12 +2780,19 @@ func monitorAvailableSoftwares() {
 			if now.Sub(software.lastTimeConnected) < tolerance {
 				continue // Software is active
 			}
+			if software.Name == blender {
+				// Blender add-on unsubscribes itself, so we them remove only in extreme cases
+				if now.Sub(software.lastTimeConnected) < 120*time.Second {
+					continue
+				}
+			}
 
 			// Software found to be inactive
 			delete(AvailableSoftwares, software.AppID)
 			BKLog.Printf("%s %s unsubscribed: %d", EmoDisconnecting, software.Name, software.AppID)
 
-			// Software removed and nothing is left. We shutdown Client.
+			// Software removed and nothing is left. We shutdown Client. We do not check outside for
+			// as it could shutdown Client right after start, as availableSoftware is filled on first reports request.
 			if len(AvailableSoftwares) == 0 {
 				BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
 				go delayedExit(0.1)

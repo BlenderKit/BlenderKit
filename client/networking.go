@@ -51,9 +51,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	<div>Client Version: v%s</div>
 	<div>Platform: %s</div>
 	<div>System ID: %s</div>
-	<div>Started from: %s</div>
+	<div>Started from %s add-on: v%s</div>
 </body>
-</html>`, pid, ClientVersion, GetPlatformVersion(), *SystemID, *AddonVersion)
+</html>`, pid, ClientVersion, GetPlatformVersion(), *SystemID, *StartingSoftwareName, *StartingAddonVersion)
 }
 
 // CreateHTTPClients creates HTTP clients with proxy settings, assings them to global variables.
@@ -248,7 +248,7 @@ func DebugRequest(client *http.Client, url string, headers [][]string, tCoeff in
 	}
 
 	platformVersion := GetPlatformVersion()
-	req.Header = getHeaders("", *SystemID, *AddonVersion, platformVersion)
+	req.Header = getHeaders("", *SystemID, *StartingAddonVersion, platformVersion)
 
 	for i := range headers {
 		if len(headers[i]) < 2 {
