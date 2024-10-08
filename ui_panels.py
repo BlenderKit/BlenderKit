@@ -2234,12 +2234,7 @@ def label_or_url_or_operator(
         else:
             op = layout.operator(operator, text=text, emboss=emboss)
         for kwarg in operator_kwargs.keys():
-            if type(operator_kwargs[kwarg]) == str:
-                quoatation = '"'
-                operator_kwargs[kwarg] = operator_kwargs[kwarg].replace('"', "'")
-            else:
-                quoatation = ""
-            exec(f"op.{kwarg} = {quoatation}{operator_kwargs[kwarg]}{quoatation}")
+            setattr(op, kwarg, operator_kwargs[kwarg])
         push_op_left(layout, strength=2)
 
         return
