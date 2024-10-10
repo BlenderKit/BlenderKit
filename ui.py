@@ -17,26 +17,17 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
-import math
 import os
-import random
 
 import bpy
-import mathutils
 from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
-from mathutils import Vector
 
 from . import (
-    asset_bar_op,
-    bg_blender,
     colors,
-    download,
     global_vars,
     paths,
-    reports,
     search,
     ui_bgl,
-    ui_panels,
     utils,
 )
 
@@ -189,19 +180,19 @@ class ParticlesDropDialog(bpy.types.Operator):
     bl_label = "BlenderKit particle plants object drop"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    asset_search_index: IntProperty(
+    asset_search_index: IntProperty(  # type: ignore[valid-type]
         name="Asset index",
         description="Index of the asset in asset bar",
         default=0,
     )
 
-    model_location: FloatVectorProperty(name="Location", default=(0, 0, 0))
+    model_location: FloatVectorProperty(name="Location", default=(0, 0, 0))  # type: ignore[valid-type]
 
-    model_rotation: FloatVectorProperty(
+    model_rotation: FloatVectorProperty(  # type: ignore[valid-type]
         name="Rotation", default=(0, 0, 0), subtype="QUATERNION"
     )
 
-    target_object: StringProperty(
+    target_object: StringProperty(  # type: ignore[valid-type]
         name="Target object",
         description="The object to which the particles will get applied",
         default="",
@@ -375,10 +366,10 @@ class AssetBarModalStarter(bpy.types.Operator):
     bl_description = "Assetbar modal starter"
     bl_options = {"INTERNAL"}
 
-    keep_running: BoolProperty(
+    keep_running: BoolProperty(  # type: ignore[valid-type]
         name="Keep Running", description="", default=True, options={"SKIP_SAVE"}
     )
-    do_search: BoolProperty(
+    do_search: BoolProperty(  # type: ignore[valid-type]
         name="Run Search", description="", default=False, options={"SKIP_SAVE"}
     )
     _timer = None
@@ -424,10 +415,10 @@ class RunAssetBarWithContext(bpy.types.Operator):
     bl_description = "Run assetbar with fixed context"
     bl_options = {"INTERNAL"}
 
-    keep_running: BoolProperty(
+    keep_running: BoolProperty(  # type: ignore[valid-type]
         name="Keep Running", description="", default=True, options={"SKIP_SAVE"}
     )
-    do_search: BoolProperty(
+    do_search: BoolProperty(  # type: ignore[valid-type]
         name="Run Search", description="", default=False, options={"SKIP_SAVE"}
     )
 

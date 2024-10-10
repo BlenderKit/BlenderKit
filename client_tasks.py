@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import uuid
+from typing import Optional
 
 
 class Task:
@@ -32,7 +33,7 @@ class Task:
         message_detailed: str = "",
         progress: int = 0,
         status: str = "created",
-        result: dict = None,
+        result: Optional[dict] = None,
     ):
         if task_id == "":
             task_id = str(uuid.uuid4())
@@ -46,10 +47,10 @@ class Task:
         self.message_detailed = message_detailed
         self.progress = progress
         self.status = status  # created / finished / error
-        if result != None:
-            self.result = result.copy()
-        else:
+        if result is None:
             self.result = {}
+        else:
+            self.result = result.copy()
 
     def __str__(self):
         return f"ID={self.task_id}, APP_ID={self.app_id}"

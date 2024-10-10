@@ -18,7 +18,6 @@
 
 
 import json
-import logging
 import os
 import sys
 
@@ -177,7 +176,7 @@ def patch_imports(addon_module_name: str):
         print("- Skipping, addon_module_name does not contain 3 parts")
         return
 
-    bpy.ops.preferences.extension_repo_add(
+    bpy.ops.preferences.extension_repo_add(  # type: ignore[attr-defined]
         name=parts[1], type="LOCAL"
     )  # Local is enough
     print(f"- Local repository {parts[1]} added")

@@ -656,19 +656,14 @@ class VIEW3D_PT_blenderkit_profile(Panel):
             return
 
         if user_preferences.api_key != "":
-            me = global_vars.DATA.get("bkit profile")
+            me = global_vars.BKIT_PROFILE
             if me is not None:
-                me = me["user"]
-
                 # profile picture is retrieved from author's list, for coherency we store the profile images there.
-                authors = global_vars.DATA["bkit authors"]
-                a_id = str(me["id"])
-                if (
-                    authors.get(a_id) is not None
-                    and authors[a_id].get("gravatarImg") is not None
-                ):
+                authors = global_vars.BKIT_AUTHORS
+                me_id = int(me.id)
+                if authors.get(me_id) is not None and authors[me_id].gravatarImg:
                     profile_img = autothumb.get_texture_ui(
-                        authors[a_id].get("gravatarImg"), ".blenderkit_profile_picture"
+                        authors[me_id].gravatarImg, ".blenderkit_profile_picture"
                     )
                     if profile_img and profile_img.image:
                         # draw the profile picture
@@ -678,44 +673,45 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                         )
 
                 # user name
-                if len(me["firstName"]) > 0 or len(me["lastName"]) > 0:
-                    layout.label(text=f"Me: {me['firstName']} {me['lastName']}")
+                if len(me.firstName) > 0 or len(me.lastName) > 0:
+                    layout.label(text=f"Me: {me.firstName} {me.lastName}")
                 else:
-                    layout.label(text=f"Me: {me['email']}")
+                    layout.label(text=f"Me: {me.email}")
                 # layout.label(text='Email: %s' % (me['email']))
 
                 # plan information
-                plan = me.get("currentPlanName")
-                if plan is not None:
+                if me.currentPlanName is not None:
                     pcoll = icons.icon_collections["main"]
-                    if plan == "Free":
+                    if me.currentPlanName == "Free":
                         my_icon = pcoll["free"]
                     else:
                         my_icon = pcoll["full"]
 
                     row = layout.row()
                     row.label(text="My plan:")
-                    row.label(text="%s plan" % plan, icon_value=my_icon.icon_id)
-                    if plan == "Free":
+                    row.label(
+                        text=f"{me.currentPlanName} plan", icon_value=my_icon.icon_id
+                    )
+                    if me.currentPlanName == "Free":
                         layout.operator(
                             "wm.url_open", text="Change plan", icon="URL"
                         ).url = paths.BLENDERKIT_PLANS_URL
 
                 # STORAGE STATISTICS
                 if (
-                    me.get("sumPrivateAssetFilesSize") != None
-                    and me.get("remainingPrivateQuota") != None
+                    me.sumPrivateAssetFilesSize != None
+                    and me.remainingPrivateQuota != None
                 ):
-                    plan_storage = me.get("sumPrivateAssetFilesSize") + me.get(
-                        "remainingPrivateQuota"
+                    plan_storage = (
+                        me.sumPrivateAssetFilesSize + me.remainingPrivateQuota
                     )
                     sum_str = utils.files_size_to_text(plan_storage)
                     row = layout.row()
                     row.label(text=f"Plan storage:")
                     row.label(text=sum_str)
-                if me.get("remainingPrivateQuota") is not None:
+                if me.remainingPrivateQuota is not None:
                     row = layout.row()
-                    size_str = utils.files_size_to_text(me["remainingPrivateQuota"])
+                    size_str = utils.files_size_to_text(me.remainingPrivateQuota)
                     row.label(text=f"Remaining:")
                     row.label(text=size_str)
 
@@ -737,7 +733,7 @@ class MarkNotificationRead(bpy.types.Operator):
     bl_label = "Mark notification as read"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    notification_id: bpy.props.IntProperty(
+    notification_id: bpy.props.IntProperty(  # type: ignore[valid-type]
         name="Id", description="notification id", default=-1
     )
 
@@ -785,11 +781,11 @@ class NotificationOpenTarget(bpy.types.Operator):
     bl_description = "Open notification target and mark notification as read"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    tooltip: bpy.props.StringProperty(default="Open a web page")
-    url: bpy.props.StringProperty(
+    tooltip: bpy.props.StringProperty(default="Open a web page")  # type: ignore[valid-type]
+    url: bpy.props.StringProperty(  # type: ignore[valid-type]
         default="Runs search and displays the asset bar at the same time"
     )
-    notification_id: bpy.props.IntProperty(
+    notification_id: bpy.props.IntProperty(  # type: ignore[valid-type]
         name="Id", description="notification id", default=-1
     )
 
@@ -812,16 +808,16 @@ class UpvoteComment(bpy.types.Operator):
     bl_label = "BlenderKit up-downvote comment"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="Asset Base Id",
         description="Unique id of the asset (hidden)",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    comment_id: bpy.props.IntProperty(name="Id", description="comment id", default=-1)
+    comment_id: bpy.props.IntProperty(name="Id", description="comment id", default=-1)  # type: ignore[valid-type]
 
-    flag: bpy.props.StringProperty(
+    flag: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="flag", description="Upvote/downvote comment", default="like"
     )
 
@@ -858,16 +854,16 @@ class SetPrivateComment(bpy.types.Operator):
     bl_label = "BlenderKit set comment or thread private or public"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="Asset Base Id",
         description="Unique id of the asset (hidden)",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    comment_id: bpy.props.IntProperty(name="Id", description="comment id", default=-1)
+    comment_id: bpy.props.IntProperty(name="Id", description="comment id", default=-1)  # type: ignore[valid-type]
 
-    is_private: bpy.props.BoolProperty(
+    is_private: bpy.props.BoolProperty(  # type: ignore[valid-type]
         name="Is private",
         description="set comment/thread private or public",
         default=False,
@@ -932,14 +928,14 @@ class PostComment(bpy.types.Operator):
     bl_label = "BlenderKit post a new comment"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="Asset Base Id",
         description="Unique id of the asset (hidden)",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    comment_id: bpy.props.IntProperty(
+    comment_id: bpy.props.IntProperty(  # type: ignore[valid-type]
         name="Reply to Id", description="reply to comment id", default=0
     )
 
@@ -1044,7 +1040,7 @@ class LogoStatus(bpy.types.Operator):
     bl_label = "BLENDERKIT STATUS"
     bl_options = {"REGISTER", "UNDO"}
 
-    logo: StringProperty(name="logo", default="logo_offline")
+    logo: StringProperty(name="logo", default="logo_offline")  # type: ignore[valid-type]
 
 
 class ShowNotifications(bpy.types.Operator):
@@ -1054,7 +1050,7 @@ class ShowNotifications(bpy.types.Operator):
     bl_label = "Show BlenderKit notifications"
     bl_options = {"REGISTER", "UNDO"}
 
-    notification_id: bpy.props.IntProperty(
+    notification_id: bpy.props.IntProperty(  # type: ignore[valid-type]
         name="Id", description="notification id", default=-1
     )
 
@@ -1776,7 +1772,7 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
     bl_label = "Welcome to BlenderKit!"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    step: IntProperty(
+    step: IntProperty(  # type: ignore[valid-type]
         name="step", description="Tutorial Step", default=0, options={"SKIP_SAVE"}
     )
 
@@ -1846,7 +1842,7 @@ class OpenSystemDirectory(bpy.types.Operator):
     bl_idname = "wm.blenderkit_open_system_directory"
     bl_label = "Open system directory"
     bl_options = {"REGISTER", "UNDO"}
-    directory: StringProperty(name="directory", default="")
+    directory: StringProperty(name="directory", default="")  # type: ignore[valid-type]
 
     @classmethod
     def poll(cls, context):
@@ -1904,7 +1900,7 @@ class OpenTempDirectory(OpenSystemDirectory):
 
 def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
     ui_props = context.window_manager.blenderkitUI
-    author_id = str(asset_data["author"].get("id"))
+    author_id = int(asset_data["author"].get("id"))
     layout.operator_context = "INVOKE_DEFAULT"
 
     if utils.user_logged_in():
@@ -1930,19 +1926,15 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
         op.asset_id = asset_data["id"]
         op.asset_type = asset_data["assetType"]
 
-    if (
-        from_panel
-        and global_vars.DATA.get("bkit authors") is not None
-        and author_id is not None
-    ):
-        a = global_vars.DATA["bkit authors"].get(author_id)
-        if a is not None:
+    if from_panel and global_vars.BKIT_AUTHORS is not None and author_id is not None:
+        author = global_vars.BKIT_AUTHORS.get(author_id)
+        if author is not None:
             # utils.p('author:', a)
             op = layout.operator("wm.url_open", text="Open Author's Website")
-            if a.get("aboutMeUrl") is not None:
-                op.url = a["aboutMeUrl"]
+            if author.aboutMeUrl:
+                op.url = author.aboutMeUrl
             else:
-                op.url = paths.get_author_gallery_url(a["id"])
+                op.url = paths.get_author_gallery_url(author.id)
             op = layout.operator(
                 "view3d.blenderkit_search", text="Show Assets By Author"
             )
@@ -2673,11 +2665,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
     def draw_author_area(self, context, layout, width=330):
         self.draw_author(context, layout, width=width)
 
-    def draw_author(self, context, layout, width=330):
+    def draw_author(
+        self, context: bpy.types.Context, layout: bpy.types.UILayout, width: int = 330
+    ):
         image_split = 0.25
         text_width = width
-        authors = global_vars.DATA["bkit authors"]
-        author = authors.get(self.asset_data["author"]["id"])
+        authors = global_vars.BKIT_AUTHORS
+        author_id = int(self.asset_data["author"]["id"])
+        author = authors.get(author_id)
         if author is None:
             return
 
@@ -2699,20 +2694,16 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         row = author_right.row()
         col = row.column()
 
-        utils.label_multiline(col, text=author["tooltip"], width=text_width)
+        utils.label_multiline(col, text=author.tooltip, width=text_width)
         # check if author didn't fill any data about himself and prompt him if that's the case
-        if (
-            utils.user_is_owner(asset_data=self.asset_data)
-            and author.get("aboutMe") is not None
-            and len(author.get("aboutMe", "")) == 0
-        ):
+        if utils.user_is_owner(asset_data=self.asset_data) and not author.aboutMe:
             row = col.row()
             row.enabled = False
             row.label(text="Please introduce yourself to the community!")
 
             op = col.operator("wm.blenderkit_url", text="Edit your profile")
-            op.url = f"{global_vars.SERVER}/profile"
-            op.tooltip = "Edit your profile on BlenderKit webpage"
+            op.url = f"{global_vars.SERVER}/profile"  # type: ignore[attr-defined]
+            op.tooltip = "Edit your profile on BlenderKit webpage"  # type: ignore[attr-defined]
 
         pcoll = icons.icon_collections["main"]
 
@@ -2723,47 +2714,44 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         op = button_row.operator(
             "view3d.blenderkit_search", text="Find Assets By Author", icon="VIEWZOOM"
         )
-        op.tooltip = "Search all assets by this author.\nShortcut: Hover over the asset in the asset bar and press 'A'."
-        op.esc = True
-        op.keywords = ""
-        op.author_id = self.asset_data["author"]["id"]
+        op.tooltip = "Search all assets by this author.\nShortcut: Hover over the asset in the asset bar and press 'A'."  # type: ignore[attr-defined]
+        op.esc = True  # type: ignore[attr-defined]
+        op.keywords = ""  # type: ignore[attr-defined]
+        op.author_id = self.asset_data["author"]["id"]  # type: ignore[attr-defined]
 
         button_row = button_row.row(align=True)
 
         # AUTHOR's BLENDERKIT PROFILE
-        url = paths.get_author_gallery_url(author["id"])
+        url = paths.get_author_gallery_url(author.id)
         tooltip = "Go to author's profile on BlenderKit web.\nShortcut: Hover over asset in the asset bar and press 'P'."
         icon_value = pcoll["logo"].icon_id
         op = button_row.operator("wm.blenderkit_url", text="", icon_value=icon_value)
-        op.url = url
-        op.tooltip = tooltip
+        op.url = url  # type: ignore[attr-defined]
+        op.tooltip = tooltip  # type: ignore[attr-defined]
 
         # ABOUT ME WEBPAGE
-        if author.get("aboutMeUrl") is not None:
-            url = author["aboutMeUrl"]
-            text = utils.remove_url_protocol(url)
+        if author.aboutMeUrl:
+            text = utils.remove_url_protocol(author.aboutMeUrl)
             text = utils.shorten_text(text, 45)
             op = button_row.operator("wm.blenderkit_url", text="", icon="URL")
-            op.url = url
-            op.tooltip = f"Go to author's personal Webpage: {url}\nShortcut: Hover over asset in the asset bar and press 'W'."
+            op.url = author.aboutMeUrl  # type: ignore[attr-defined]
+            op.tooltip = f"Go to author's personal Webpage: {author.aboutMeUrl}\nShortcut: Hover over asset in the asset bar and press 'W'."  # type: ignore[attr-defined]
 
         # SOCIAL NETWORKS
-        social_networks = author.get("socialNetworks", [])
-
+        social_networks = author.socialNetworks
         for social_network in social_networks:
-            url = social_network.get("url")
-            text = social_network.get("socialNetwork", {}).get("name")
-            tooltip = f"Go to {text} profile"
+            url = social_network.url
+            tooltip = f"Go to {social_network.name} profile"
 
-            icon_value = pcoll[f"logo_{text.lower()}"].icon_id
+            icon_value = pcoll[f"logo_{social_network.name.lower()}"].icon_id
             if url is None or text is None:
                 continue
 
             op = button_row.operator(
                 "wm.blenderkit_url", text="", icon_value=icon_value
             )
-            op.url = url
-            op.tooltip = tooltip
+            op.url = url  # type: ignore[attr-defined]
+            op.tooltip = tooltip  # type: ignore[attr-defined]
 
     def draw_thumbnail_box(self, layout, width=250):
         layout.emboss = "NORMAL"
@@ -3145,15 +3133,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # self.tex = utils.get_hidden_texture(self.img)
         # self.tex.update_tag()
 
-        authors = global_vars.DATA["bkit authors"]
-        a = authors.get(asset_data["author"]["id"])
-
-        if (
-            a is not None
-            and a.get("gravatarImg") is not None
-            and a.get("gravatarHash") is not None
-        ):
-            self.gimg = utils.get_hidden_image(a["gravatarImg"], a["gravatarHash"])
+        author_id = int(asset_data["author"]["id"])
+        author = global_vars.BKIT_AUTHORS.get(author_id)
+        if author and author.gravatarImg and author.gravatarHash:
+            self.gimg = utils.get_hidden_image(author.gravatarImg, author.gravatarHash)
 
         self.tip = f"Tip: {random.choice(global_vars.TIPS)[0]}"
 
@@ -3199,7 +3182,7 @@ class SetCommentReplyId(bpy.types.Operator):
     bl_label = "BlenderKit Set Comment reply ID"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    comment_id: bpy.props.IntProperty(
+    comment_id: bpy.props.IntProperty(  # type: ignore[valid-type]
         name="Category", description="set this category active", default=0
     )
 
@@ -3219,18 +3202,18 @@ class SetCategoryOperatorOrigin(bpy.types.Operator):
     bl_label = "BlenderKit Set Active Category"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    category_browse: bpy.props.StringProperty(
+    category_browse: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="Category browse",
         description="set this category active for browsing",
         default="",
     )
-    category_search: bpy.props.StringProperty(
+    category_search: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="Category search",
         description="set this category active for search",
         default="",
     )
 
-    asset_type: bpy.props.StringProperty(
+    asset_type: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="Asset Type", description="asset type", default="MODEL"
     )
 
@@ -3314,8 +3297,8 @@ class PopupDialog(bpy.types.Operator):
     bl_label = "BlenderKit message:"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    message: bpy.props.StringProperty(default="")
-    width: bpy.props.IntProperty(default=300)
+    message: bpy.props.StringProperty(default="")  # type: ignore[valid-type]
+    width: bpy.props.IntProperty(default=300)  # type: ignore[valid-type]
 
     def draw(self, context):
         layout = self.layout
@@ -3336,13 +3319,13 @@ class UrlPopupDialog(bpy.types.Operator):
     bl_label = "BlenderKit message:"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    url: bpy.props.StringProperty(name="Url", description="url", default="")
+    url: bpy.props.StringProperty(name="Url", description="url", default="")  # type: ignore[valid-type]
 
-    link_text: bpy.props.StringProperty(
+    link_text: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="Url", description="url", default="Go to website"
     )
 
-    message: bpy.props.StringProperty(name="Text", description="text", default="")
+    message: bpy.props.StringProperty(name="Text", description="text", default="")  # type: ignore[valid-type]
 
     # @classmethod
     # def poll(cls, context):
@@ -3381,13 +3364,13 @@ class LoginPopupDialog(bpy.types.Operator):
     bl_label = "BlenderKit login"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    message: bpy.props.StringProperty(
+    message: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="Message",
         description="",
         default="Your were logged out from . Please login again. ",
     )
 
-    link_text: bpy.props.StringProperty(
+    link_text: bpy.props.StringProperty(  # type: ignore[valid-type]
         name="Url", description="url", default="Login to BlenderKit"
     )
 
@@ -3726,10 +3709,6 @@ def ui_message(title, message):
 
     bpy.context.window_manager.popup_menu(draw_message, title=title, icon="INFO")
 
-
-# We can store multiple preview collections here,
-# however in this example we only store "main"
-preview_collections = {}
 
 classes = (
     SetCategoryOperatorOrigin,

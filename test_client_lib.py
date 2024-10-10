@@ -28,7 +28,7 @@ for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
-from . import client_lib, download, global_vars, paths, utils
+from . import client_lib, download, paths, utils, datas
 
 
 def client_is_responding() -> tuple[bool, str]:
@@ -130,19 +130,20 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
     assets_to_download = []
 
     def _asset_search(self, search_word, asset_type):
-        addon_version = f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}"
-        blender_version = (
-            f"{bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}"
-        )
+        addon_version = utils.get_addon_version()
+        blender_version = utils.get_blender_version()
         urlquery = f"https://www.blenderkit.com/api/v1/search/?query={search_word}+asset_type:{asset_type}+order:_score&dict_parameters=1&page_size=15&addon_version={addon_version}&blender_version={blender_version}"
         tempdir = paths.get_temp_dir(f"{asset_type}_search")
-        data = {
-            "PREFS": utils.get_preferences_as_dict(),
-            "tempdir": tempdir,
-            "urlquery": urlquery,
-            "asset_type": asset_type,
-            "blender_version": blender_version,
-        }
+        data = datas.SearchData(
+            PREFS=utils.get_preferences(),
+            tempdir=tempdir,
+            urlquery=urlquery,
+            asset_type=asset_type,
+            blender_version=blender_version,
+            page_size=15,
+            get_next=False,
+            scene_uuid="",
+        )
         response = client_lib.asset_search(data)
         search_task_id = response["task_id"]
 

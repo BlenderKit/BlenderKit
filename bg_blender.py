@@ -210,14 +210,14 @@ class KillBgProcess(bpy.types.Operator):
     bl_label = "Kill Background Process"
     bl_options = {"REGISTER"}
 
-    process_type: EnumProperty(
+    process_type: EnumProperty(  # type: ignore[valid-type]
         name="Type",
         items=process_types,
         description="Type of process",
         default="UPLOAD",
     )
 
-    process_source: EnumProperty(
+    process_source: EnumProperty(  # type: ignore[valid-type]
         name="Source",
         items=process_sources,
         description="Source of process",

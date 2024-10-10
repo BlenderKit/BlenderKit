@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import base64
 import hashlib
 import logging
@@ -61,8 +60,8 @@ def handle_token_refresh_task(task: client_tasks.Task):
     """Handle incoming task of type token_refresh. If the new token is meant for the current user, calls handle_login_task.
     Otherwise it ignores the incoming task.
     """
-    preferences = bpy.context.preferences.addons[__package__].preferences
-    if task.data.get("old_api_key") != preferences.api_key:
+    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    if task.data.get("old_api_key") != preferences.api_key:  # type: ignore
         bk_logger.info("Refreshed token is not meant for current user. Ignoring.")
         return
 
@@ -93,7 +92,7 @@ def handle_logout_task(task: client_tasks.Task):
         reports.add_report(task.message, 5, "ERROR")
 
     # login could happen in another add-on instance, so we need to check whether login data are cleaned
-    if global_vars.DATA.get("bkit profile") is not None:
+    if global_vars.BKIT_PROFILE is not None:
         clean_login_data()
 
 
@@ -103,8 +102,8 @@ def clean_login_data():
     preferences.api_key_refresh = ""
     preferences.api_key = ""
     preferences.api_key_timeout = 0
-    if global_vars.DATA.get("bkit profile"):
-        del global_vars.DATA["bkit profile"]
+    if global_vars.BKIT_PROFILE:
+        del global_vars.BKIT_PROFILE
 
 
 def logout() -> None:
@@ -159,18 +158,20 @@ def ensure_token_refresh() -> bool:
     """Check if API token needs refresh, call refresh and return True if so.
     Otherwise do nothing and return False.
     """
-    preferences = bpy.context.preferences.addons[__package__].preferences
-    if preferences.api_key == "":  # Not logged in
+    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    if preferences.api_key == "":  # type: ignore
+        return False  # not logged in
+
+    if preferences.api_key_refresh == "":  # type: ignore
+        # Using manually inserted permanent token
         return False
 
-    if preferences.api_key_refresh == "":  # Using manually inserted permanent token
-        return False
-
-    if time.time() + REFRESH_RESERVE < preferences.api_key_timeout:  # Token is not old
+    if time.time() + REFRESH_RESERVE < preferences.api_key_timeout:  # type: ignore
+        # Token is not old
         return False
 
     # Token is at the end of life, refresh token exists, it is time to refresh
-    client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
+    client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)  # type: ignore
     return True
 
 
@@ -181,14 +182,14 @@ class LoginOnline(bpy.types.Operator):
     bl_label = "BlenderKit login/signup"
     bl_options = {"REGISTER", "UNDO"}
 
-    signup: BoolProperty(
+    signup: BoolProperty(  # type: ignore
         name="create a new account",
         description="True for register, otherwise login",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    message: bpy.props.StringProperty(
+    message: bpy.props.StringProperty(  # type: ignore
         name="Message",
         description="",
         default="You were logged out from BlenderKit.\n Clicking OK takes you to web login. ",
