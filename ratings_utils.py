@@ -284,40 +284,40 @@ def wh_enum_callback(self, context):
 
 
 class RatingProperties(PropertyGroup):
-    message: StringProperty(
+    message: StringProperty(  # type: ignore
         name="message",
         description="message",
         default="Rating asset",
         options={"SKIP_SAVE"},
     )
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore
         name="Asset Base Id",
         description="Unique id of the asset (hidden)",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    asset_name: StringProperty(
+    asset_name: StringProperty(  # type: ignore
         name="Asset Name",
         description="Name of the asset (hidden)",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    asset_type: StringProperty(
+    asset_type: StringProperty(  # type: ignore
         name="Asset type", description="asset type", default="", options={"SKIP_SAVE"}
     )
 
     ### QUALITY RATING
-    rating_quality_lock: BoolProperty(
+    rating_quality_lock: BoolProperty(  # type: ignore
         name="Quality Lock",
         description="Quality is locked -> rating is not sent online",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    rating_quality: IntProperty(
+    rating_quality: IntProperty(  # type: ignore
         name="Quality",
         description="quality of the material",
         default=0,
@@ -328,7 +328,7 @@ class RatingProperties(PropertyGroup):
     )
 
     # the following enum is only to ease interaction - enums support 'drag over' and enable to draw the stars easily.
-    rating_quality_ui: EnumProperty(
+    rating_quality_ui: EnumProperty(  # type: ignore
         name="Quality",
         items=stars_enum_callback,
         description="Rate the quality of the asset from 1 to 10 stars.\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu",
@@ -338,13 +338,13 @@ class RatingProperties(PropertyGroup):
     )
 
     ### WORK HOURS RATING
-    rating_work_hours_lock: BoolProperty(
+    rating_work_hours_lock: BoolProperty(  # type: ignore
         name="Work Hours Lock",
         description="Work hours are locked -> rating is not sent online",
         default=False,
         options={"SKIP_SAVE"},
     )
-    rating_work_hours: FloatProperty(
+    rating_work_hours: FloatProperty(  # type: ignore
         name="Work Hours",
         description="How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu.",
         default=0.00,
@@ -353,7 +353,7 @@ class RatingProperties(PropertyGroup):
         update=update_ratings_work_hours,
         options={"SKIP_SAVE"},
     )
-    rating_work_hours_ui: EnumProperty(
+    rating_work_hours_ui: EnumProperty(  # type: ignore
         name="Work Hours",
         description="How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu",
         items=wh_enum_callback,

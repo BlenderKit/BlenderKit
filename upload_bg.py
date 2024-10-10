@@ -16,13 +16,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import json
 import os
 import sys
 
 import bpy
-import addon_utils
+import addon_utils  # type: ignore[import-not-found]
 
 
 def patch_imports(addon_module_name: str):
@@ -51,7 +50,7 @@ def patch_imports(addon_module_name: str):
         print("- Skipping, addon_module_name does not contain 3 parts")
         return
 
-    bpy.ops.preferences.extension_repo_add(
+    bpy.ops.preferences.extension_repo_add(  # type: ignore[attr-defined]
         name=parts[1], type="LOCAL"
     )  # Local is enough
     print(f"- Local repository {parts[1]} added")
@@ -75,10 +74,10 @@ if __name__ == "__main__":
         export_data = data["export_data"]
         upload_data = data["upload_data"]
 
-        bpy.data.scenes.new("upload")
-        for s in bpy.data.scenes:
+        bpy.data.scenes.new("upload")  # type: ignore[union-attr]
+        for s in bpy.data.scenes:  # type: ignore
             if s.name != "upload":
-                bpy.data.scenes.remove(s)
+                bpy.data.scenes.remove(s)  # type: ignore
 
         if upload_data["assetType"] == "model":
             obnames = export_data["models"]
@@ -87,16 +86,16 @@ if __name__ == "__main__":
                 obnames=obnames,
                 rotation=(0, 0, 0),
             )
-            g = bpy.data.collections.new(upload_data["name"])
+            g = bpy.data.collections.new(upload_data["name"])  # type: ignore
             for o in allobs:
-                g.objects.link(o)
-            bpy.context.scene.collection.children.link(g)
+                g.objects.link(o)  # type: ignore
+            bpy.context.scene.collection.children.link(g)  # type: ignore
         elif upload_data["assetType"] == "scene":
             sname = export_data["scene"]
             main_source = append_link.append_scene(
                 file_name=export_data["source_filepath"], scenename=sname
             )
-            bpy.data.scenes.remove(bpy.data.scenes["upload"])
+            bpy.data.scenes.remove(bpy.data.scenes["upload"])  # type: ignore
             main_source.name = sname
         elif upload_data["assetType"] == "material":
             matname = export_data["material"]
