@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import datetime
 import json
 import logging
@@ -39,6 +38,7 @@ from . import (
     persistent_preferences,
     reports,
     search,
+    datas,
 )
 
 
@@ -76,8 +76,8 @@ supported_material_drag = (
 
 def experimental_enabled() -> bool:
     """Check if experimental features are enabled. Experimental features are always be enabled for staff and validators."""
-    preferences = bpy.context.preferences.addons[__package__].preferences
-    return preferences.experimental_features or profile_is_validator()
+    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    return preferences.experimental_features or profile_is_validator()  # type: ignore
 
 
 def get_process_flags():
@@ -455,6 +455,57 @@ def get_preferences_as_dict():
     return prefs
 
 
+def get_preferences() -> datas.Prefs:
+    """Get preferences as dataclass object."""
+    user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    prefs = datas.Prefs(
+        # SYSTEM STUFF - TODO: is this needed in here? (Why to save this into JSON?) Is used for sending data to client, but really should be separate parameter.
+        debug_value=bpy.app.debug_value,
+        binary_path=bpy.app.binary_path,
+        addon_dir=os.path.dirname(__file__),
+        addon_module_name=__package__,  # refers to name of the add-on, legacy=blenderkit, extensions=bl_ext.user_default.blenderkit or anything else
+        app_id=os.getpid(),
+        # STATISTICS
+        download_counter=user_preferences.download_counter,  # type: ignore[union-attr]
+        asset_popup_counter=user_preferences.asset_popup_counter,  # type: ignore[union-attr]
+        welcome_operator_counter=user_preferences.welcome_operator_counter,  # type: ignore[union-attr]
+        # MAIN PREFERENCES
+        api_key=user_preferences.api_key,  # type: ignore[union-attr]
+        api_key_refresh=user_preferences.api_key_refresh,  # type: ignore[union-attr]
+        api_key_timeout=user_preferences.api_key_timeout,  # type: ignore[union-attr]
+        experimental_features=user_preferences.experimental_features,  # type: ignore[union-attr]
+        keep_preferences=user_preferences.keep_preferences,  # type: ignore[union-attr]
+        # FILE PATHS
+        directory_behaviour=user_preferences.directory_behaviour,  # type: ignore[union-attr]
+        global_dir=user_preferences.global_dir,  # type: ignore[union-attr]
+        project_subdir=user_preferences.project_subdir,  # type: ignore[union-attr]
+        unpack_files=user_preferences.unpack_files,  # type: ignore[union-attr]
+        # GUI
+        show_on_start=user_preferences.show_on_start,  # type: ignore[union-attr]
+        thumb_size=user_preferences.thumb_size,  # type: ignore[union-attr]
+        max_assetbar_rows=user_preferences.max_assetbar_rows,  # type: ignore[union-attr]
+        search_field_width=user_preferences.search_field_width,  # type: ignore[union-attr]
+        search_in_header=user_preferences.search_in_header,  # type: ignore[union-attr]
+        tips_on_start=user_preferences.tips_on_start,  # type: ignore[union-attr]
+        announcements_on_start=user_preferences.announcements_on_start,  # type: ignore[union-attr]
+        # NETWORK
+        client_port=user_preferences.client_port,  # type: ignore[union-attr]
+        ip_version=user_preferences.ip_version,  # type: ignore[union-attr]
+        ssl_context=user_preferences.ssl_context,  # type: ignore[union-attr]
+        proxy_which=user_preferences.proxy_which,  # type: ignore[union-attr]
+        proxy_address=user_preferences.proxy_address,  # type: ignore[union-attr]
+        trusted_ca_certs=user_preferences.trusted_ca_certs,  # type: ignore[union-attr]
+        # UPDATES
+        auto_check_update=user_preferences.auto_check_update,  # type: ignore[union-attr]
+        enable_prereleases=user_preferences.enable_prereleases,  # type: ignore[union-attr]
+        updater_interval_months=user_preferences.updater_interval_months,  # type: ignore[union-attr]
+        updater_interval_days=user_preferences.updater_interval_days,  # type: ignore[union-attr]
+        # IMPORT SETTINGS
+        resolution=user_preferences.resolution,  # type: ignore[union-attr]
+    )
+    return prefs
+
+
 def save_prefs_without_save_userpref(user_preferences, context):
     """Save preferences (update global_vars.PREFS, write to JSON if needed) without calling bpy.ops.wm.save_userpref()."""
     save_prefs(user_preferences, context, save_userprefs=False)
@@ -548,21 +599,21 @@ def get_hidden_image(
         hidden_name = bdata_name
     else:
         hidden_name = ".%s" % bdata_name
-    img = bpy.data.images.get(hidden_name)
+    img = bpy.data.images.get(hidden_name)  # type: ignore[union-attr]
 
     if tpath.startswith("//"):
         tpath = bpy.path.abspath(tpath)
 
-    if img == None or (img.filepath != tpath):
+    if img is None or (img.filepath != tpath):
         if tpath.startswith("//"):
             tpath = bpy.path.abspath(tpath)
         if not os.path.exists(tpath) or os.path.isdir(tpath):
             tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
 
         if img is None:
-            img = bpy.data.images.load(tpath, check_existing=True)
+            img = bpy.data.images.load(tpath, check_existing=True)  # type: ignore[union-attr]
             img_to_preview(img)
-            img.name = hidden_name
+            img.name = hidden_name  # type: ignore[union-attr]
         else:
             if img.filepath != tpath:
                 if img.packed_file is not None:
@@ -1173,7 +1224,7 @@ def has_url(text):
     name_regex = "[^]]+"
     # http:// or https:// followed by anything but a closing paren
     url_regex = "http[s]?://[^)]+"
-    markup_regex = f"\[({name_regex})]\(\s*({url_regex})\s*\)"
+    markup_regex = rf"\[({name_regex})]\(\s*({url_regex})\s*\)"
     urls = re.findall(markup_regex, text)
     replacechars = "[]()"
     for url in urls:
@@ -1364,3 +1415,15 @@ def enforce_prerelease_update_check():
     preferences = bpy.context.preferences.addons[__package__].preferences
     preferences.enable_prereleases = True
     bpy.ops.blenderkit.updater_check_now()
+
+
+def get_blender_version() -> str:
+    """Get Blender version as string in format X.Y.Z."""
+    ver = bpy.app.version
+    return f"{ver[0]}.{ver[1]}.{ver[2]}"
+
+
+def get_addon_version() -> str:
+    """Get BlenderKit addon version as string in format X.Y.Z."""
+    ver = global_vars.VERSION
+    return f"{ver[0]}.{ver[1]}.{ver[2]}"
