@@ -864,7 +864,8 @@ def automap(
 ):
     wm = bpy.context.window_manager
     mat_props = wm.blenderkit_mat
-    if mat_props.automap:
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    if preferences.automap:
         tob = bpy.data.objects[target_object]
         # only automap mesh models
         if tob.type == "MESH" and len(tob.data.polygons) > 0:

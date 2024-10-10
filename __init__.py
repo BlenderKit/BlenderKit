@@ -961,12 +961,6 @@ class BlenderKitMaterialSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         "aren't editable directly, but also don't increase your file size",
         default="APPEND",
     )
-    automap: BoolProperty(
-        name="Auto-Map",
-        description="reset object texture space and also add automatically a cube mapped UV "
-        "to the object. \n this allows most materials to apply instantly to any mesh",
-        default=True,
-    )
 
 
 class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -2056,6 +2050,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
             ("ORIGINAL", "ORIGINAL FILE", ""),
         ),
         default="2048",
+    )
+
+    automap: BoolProperty(
+        name="Auto-Map",
+        description="reset object texture space and also add automatically a cube mapped UV "
+        "to the object. \n this allows most materials to apply instantly to any mesh",
+        default=True,
     )
 
     ip_version: EnumProperty(
