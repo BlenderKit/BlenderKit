@@ -799,7 +799,7 @@ def download_post(task: client_tasks.Task):
         return done
 
     # don't append brushes if not in sculpt/paint mode
-    if (at == "brush") and wm.get("appendable") == False:
+    if (at == "brush") and wm.get("appendable") == False:  # type: ignore
         return done
 
     # duplicate file if the global and subdir are used in prefs
@@ -818,10 +818,12 @@ def download_post(task: client_tasks.Task):
     # TODO use redownload in data, this is used for downloading/ copying missing libraries.
     if task.data.get("redownload"):
         # handle lost libraries here:
-        for l in bpy.data.libraries:
+        for l in bpy.data.libraries:  # type: ignore
+            if not isinstance(l, bpy.types.Library):
+                continue
             if (
-                l.get("asset_data") is not None
-                and l["asset_data"]["id"] == task.data["asset_data"]["id"]
+                l.get("asset_data") is not None  # type: ignore[attr-defined]
+                and l["asset_data"]["id"] == task.data["asset_data"]["id"]  # type: ignore[index]
             ):
                 l.filepath = file_paths[-1]
                 l.reload()
@@ -1193,7 +1195,7 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     bl_label = "BlenderKit Kill Asset Download"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    task_id: StringProperty(
+    task_id: StringProperty(  # type: ignore[valid-type]
         name="Task ID", description="ID of the task to kill", default=""
     )
 
@@ -1245,64 +1247,64 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     #     description="Type of download",
     #     default="MODEL",
     # )
-    asset_index: IntProperty(
+    asset_index: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=-1
     )
 
-    asset_base_id: StringProperty(
+    asset_base_id: StringProperty(  # type: ignore[valid-type]
         name="Asset base Id",
         description="Asset base id, used instead of search result index",
         default="",
     )
 
-    target_object: StringProperty(
+    target_object: StringProperty(  # type: ignore[valid-type]
         name="Target Object",
         description="Material or object target for replacement",
         default="",
     )
 
-    material_target_slot: IntProperty(
+    material_target_slot: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=0
     )
-    model_location: FloatVectorProperty(name="Asset Location", default=(0, 0, 0))
-    model_rotation: FloatVectorProperty(name="Asset Rotation", default=(0, 0, 0))
+    model_location: FloatVectorProperty(name="Asset Location", default=(0, 0, 0))  # type: ignore[valid-type]
+    model_rotation: FloatVectorProperty(name="Asset Rotation", default=(0, 0, 0))  # type: ignore[valid-type]
 
-    replace: BoolProperty(
+    replace: BoolProperty(  # type: ignore[valid-type]
         name="Replace",
         description="replace selection with the asset",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    replace_resolution: BoolProperty(
+    replace_resolution: BoolProperty(  # type: ignore[valid-type]
         name="Replace resolution",
         description="replace resolution of the active asset",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    invoke_resolution: BoolProperty(
+    invoke_resolution: BoolProperty(  # type: ignore[valid-type]
         name="Replace resolution popup",
         description="pop up to ask which resolution to download",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    invoke_scene_settings: BoolProperty(
+    invoke_scene_settings: BoolProperty(  # type: ignore[valid-type]
         name="Scene import settings popup",
         description="pop up scene import settings",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    use_resolution_operator: BoolProperty(
+    use_resolution_operator: BoolProperty(  # type: ignore[valid-type]
         name="Use operator resolution set by the operator",
         description="Use resolution set by the operator",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    resolution: EnumProperty(
+    resolution: EnumProperty(  # type: ignore[valid-type]
         items=available_resolutions_callback,
         default=6,
         description="Replace resolution",
@@ -1310,11 +1312,11 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     )
 
     # needs to be passed to the operator to not show all resolution possibilities
-    max_resolution: IntProperty(name="Max resolution", description="", default=0)
+    max_resolution: IntProperty(name="Max resolution", description="", default=0)  # type: ignore[valid-type]
     # has_res_0_5k: BoolProperty(name='512',
     #                                 description='', default=False)
 
-    cast_parent: StringProperty(
+    cast_parent: StringProperty(  # type: ignore[valid-type]
         name="Particles Target Object", description="", default=""
     )
 
@@ -1324,7 +1326,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
     # @classmethod
     # def poll(cls, context):
     #     return bpy.context.window_manager.BlenderKitModelThumbnails is not ''
-    tooltip: bpy.props.StringProperty(
+    tooltip: bpy.props.StringProperty(  # type: ignore[valid-type]
         default="Download and link asset to scene. Only link if asset already available locally"
     )
 

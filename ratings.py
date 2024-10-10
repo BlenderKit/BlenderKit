@@ -80,9 +80,9 @@ def draw_ratings_menu(self, context, layout):
         return
 
     profile_name = ""
-    profile = global_vars.DATA.get("bkit profile")
-    if profile and len(profile["user"]["firstName"]) > 0:
-        profile_name = " " + profile["user"]["firstName"]
+    profile = global_vars.BKIT_PROFILE
+    if profile and len(profile.firstName) > 0:
+        profile_name = " " + profile.firstName
 
     row.label(text="Rate Quality:", icon="SOLO_ON")
     # row = col.row()
@@ -189,7 +189,7 @@ class SetBookmark(bpy.types.Operator):
     bl_label = "BlenderKit bookmark assest"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="Asset Base Id",
         description="Unique id of the asset (hidden)",
         default="",

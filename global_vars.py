@@ -19,6 +19,10 @@
 from collections import deque
 from logging import INFO, WARN
 from os import environ
+from typing import Optional
+from subprocess import Popen
+
+from . import datas
 
 CLIENT_VERSION = "v1.2.1"
 CLIENT_ACCESSIBLE = False
@@ -29,14 +33,19 @@ CLIENT_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1
 """Ports are ordered during the start, and later after malfunction."""
 
 CLIENT_RUNNING = False
-DATA = {
+DATA: dict = {  # TODO: move these
     "images available": {},
     "search history": deque(maxlen=20),
     "bkit notifications": None,
-    "bkit authors": {},
     "asset comments": {},
     "asset ratings": {},
 }
+
+BKIT_PROFILE: datas.MineProfile = datas.MineProfile()
+"""Profile of the current user."""
+BKIT_AUTHORS: dict[int, datas.UserProfile] = {}
+"""All loaded profiles of other users. Current user is also present in stripped down version. Key is the UserProfile.id."""
+
 LOGGING_LEVEL_BLENDERKIT = INFO
 LOGGING_LEVEL_IMPORTED = WARN
 PREFS = {}
@@ -142,7 +151,7 @@ TIPS = [
         "",
     ),
 ]
-VERSION = None  # filled in register()
+VERSION = [0, 0, 0, 0]  # filled in register()
 
-client_process = None
+client_process: Optional[Popen] = None
 """Holds return value of subprocess.Popen() which starts the BlenderKit-Client."""

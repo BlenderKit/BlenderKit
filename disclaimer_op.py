@@ -43,21 +43,21 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     bl_options = {"REGISTER"}
     instances = []
 
-    message: StringProperty(
+    message: StringProperty(  # type: ignore[valid-type]
         name="message",
         description="message",
         default="Welcome to BlenderKit!",
         options={"SKIP_SAVE"},
     )
 
-    url: StringProperty(
+    url: StringProperty(  # type: ignore[valid-type]
         name="url",
         description="ULR",
         default="www.blenderkit.com",
         options={"SKIP_SAVE"},
     )
 
-    fadeout_time: IntProperty(
+    fadeout_time: IntProperty(  # type: ignore[valid-type]
         name="Fadout time",
         description="after how many seconds do fadout",
         default=5,
@@ -65,7 +65,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
         max=50,
         options={"SKIP_SAVE"},
     )
-    tip: BoolProperty(
+    tip: BoolProperty(  # type: ignore[valid-type]
         name="Tip",
         description="Message is a tip, not from server",
         default=True,
@@ -243,7 +243,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 def run_disclaimer_task(message: str, url: str, tip: bool):
     fake_context = utils.get_fake_context(bpy.context)
     if bpy.app.version < (4, 0, 0):
-        bpy.ops.view3d.blenderkit_disclaimer_widget(
+        bpy.ops.view3d.blenderkit_disclaimer_widget(  # type: ignore[attr-defined]
             fake_context,
             "INVOKE_DEFAULT",
             message=message,
@@ -252,8 +252,8 @@ def run_disclaimer_task(message: str, url: str, tip: bool):
             tip=tip,
         )
     else:
-        with bpy.context.temp_override(**fake_context):
-            bpy.ops.view3d.blenderkit_disclaimer_widget(
+        with bpy.context.temp_override(**fake_context):  # type: ignore[attr-defined]
+            bpy.ops.view3d.blenderkit_disclaimer_widget(  # type: ignore[attr-defined]
                 "INVOKE_DEFAULT",
                 message=message,
                 url=url,
@@ -273,8 +273,8 @@ def handle_disclaimer_task(task: client_tasks.Task):
             return show_random_tip()
 
         disclaimer = task.result["results"][0]
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        if preferences.announcements_on_start is False:
+        preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+        if preferences.announcements_on_start is False:  # type: ignore[union-attr]
             bk_logger.warning(
                 f"Online announcements are disabled! Message hidden from GUI: {disclaimer['message']}"
             )

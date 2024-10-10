@@ -21,3 +21,10 @@ ignore = [
     "E501", #Line too long
     ]
 target-version = "py310"
+
+[tool.mypy]
+exclude = ['test_*', 'out', 'lib']
+disallow_untyped_globals = false # remove this in the future
+
+[[tool.mypy.overrides]]
+module = ["bpy", "bpy.*"]

@@ -1,5 +1,3 @@
-print("authothum_model_bg.py STARTED")
-
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -17,7 +15,9 @@ print("authothum_model_bg.py STARTED")
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
+# type: ignore
 
+print("authothum_model_bg.py STARTED")
 
 import json
 import math

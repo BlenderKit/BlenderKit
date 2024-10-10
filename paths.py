@@ -70,7 +70,7 @@ def find_in_local(text=""):
     return fs
 
 
-def get_author_gallery_url(author_id):
+def get_author_gallery_url(author_id: int):
     return f"{global_vars.SERVER}/asset-gallery?query=author_id:{author_id}"
 
 
@@ -467,7 +467,7 @@ def get_addon_thumbnail_path(name):
 
 def get_config_dir_path() -> str:
     """Get the path to the config directory in global_dir."""
-    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
+    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir  # type: ignore
     directory = os.path.join(global_dir, "config")
     return os.path.abspath(directory)
 

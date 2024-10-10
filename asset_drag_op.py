@@ -473,8 +473,8 @@ class AssetDragOperator(bpy.types.Operator):
     bl_idname = "view3d.asset_drag_drop"
     bl_label = "BlenderKit asset drag drop"
 
-    asset_search_index: IntProperty(name="Active Index", default=0)
-    drag_length: IntProperty(name="Drag_length", default=0)
+    asset_search_index: IntProperty(name="Active Index", default=0)  # type: ignore
+    drag_length: IntProperty(name="Drag_length", default=0)  # type: ignore
 
     object_name = None
 
@@ -834,7 +834,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
     bl_options = {"REGISTER"}
     instances = []
 
-    asset_base_id: StringProperty(name="asset base id", default="")
+    asset_base_id: StringProperty(name="asset base id", default="")  # type: ignore
 
     def cancel_press(self, widget):
         self.finish()

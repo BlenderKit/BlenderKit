@@ -429,11 +429,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
     bl_label = "BlenderKit Thumbnail Re-generate"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    asset_index: IntProperty(
+    asset_index: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=-1
     )
 
-    thumbnail_background_lightness: FloatProperty(
+    thumbnail_background_lightness: FloatProperty(  # type: ignore[valid-type]
         name="Thumbnail Background Lightness",
         description="Set to make your asset stand out",
         default=1.0,
@@ -441,35 +441,35 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         max=10,
     )
 
-    thumbnail_angle: EnumProperty(
+    thumbnail_angle: EnumProperty(  # type: ignore[valid-type]
         name="Thumbnail Angle",
         items=thumbnail_angles,
         default="DEFAULT",
         description="thumbnailer angle",
     )
 
-    thumbnail_snap_to: EnumProperty(
+    thumbnail_snap_to: EnumProperty(  # type: ignore[valid-type]
         name="Model Snaps To",
         items=thumbnail_snap,
         default="GROUND",
         description="typical placing of the interior. Leave on ground for most objects that respect gravity",
     )
 
-    thumbnail_resolution: EnumProperty(
+    thumbnail_resolution: EnumProperty(  # type: ignore[valid-type]
         name="Resolution",
         items=thumbnail_resolutions,
         description="Thumbnail resolution",
         default="1024",
     )
 
-    thumbnail_samples: IntProperty(
+    thumbnail_samples: IntProperty(  # type: ignore[valid-type]
         name="Cycles Samples",
         description="cycles samples setting",
         default=100,
         min=5,
         max=5000,
     )
-    thumbnail_denoising: BoolProperty(
+    thumbnail_denoising: BoolProperty(  # type: ignore[valid-type]
         name="Use Denoising", description="Use denoising", default=True
     )
 
@@ -645,11 +645,11 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
     bl_label = "BlenderKit Material Thumbnail Re-Generator"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    asset_index: IntProperty(
+    asset_index: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=-1
     )
 
-    thumbnail_scale: FloatProperty(
+    thumbnail_scale: FloatProperty(  # type: ignore[valid-type]
         name="Thumbnail Object Size",
         description="Size of material preview object in meters."
         "Change for materials that look better at sizes different than 1m",
@@ -657,44 +657,44 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         min=0.00001,
         max=10,
     )
-    thumbnail_background: BoolProperty(
+    thumbnail_background: BoolProperty(  # type: ignore[valid-type]
         name="Thumbnail Background (for Glass only)",
         description="For refractive materials, you might need a background.\n"
         "Don't use for other types of materials.\n"
         "Transparent background is preferred",
         default=False,
     )
-    thumbnail_background_lightness: FloatProperty(
+    thumbnail_background_lightness: FloatProperty(  # type: ignore[valid-type]
         name="Thumbnail Background Lightness",
         description="Set to make your material stand out with enough contrast",
         default=0.9,
         min=0.00001,
         max=1,
     )
-    thumbnail_samples: IntProperty(
+    thumbnail_samples: IntProperty(  # type: ignore[valid-type]
         name="Cycles Samples",
         description="Cycles samples",
         default=100,
         min=5,
         max=5000,
     )
-    thumbnail_denoising: BoolProperty(
+    thumbnail_denoising: BoolProperty(  # type: ignore[valid-type]
         name="Use Denoising", description="Use denoising", default=True
     )
-    adaptive_subdivision: BoolProperty(
+    adaptive_subdivision: BoolProperty(  # type: ignore[valid-type]
         name="Adaptive Subdivide",
         description="Use adaptive displacement subdivision",
         default=False,
     )
 
-    thumbnail_resolution: EnumProperty(
+    thumbnail_resolution: EnumProperty(  # type: ignore[valid-type]
         name="Resolution",
         items=thumbnail_resolutions,
         description="Thumbnail resolution",
         default="1024",
     )
 
-    thumbnail_generator_type: EnumProperty(
+    thumbnail_generator_type: EnumProperty(  # type: ignore[valid-type]
         name="Thumbnail Style",
         items=(
             ("BALL", "Ball", ""),

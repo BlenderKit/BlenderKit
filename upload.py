@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 import json
 import logging
 import os
@@ -46,7 +45,6 @@ from . import (
     reports,
     ui_panels,
     utils,
-    version_checker,
 )
 
 
@@ -66,8 +64,8 @@ licenses = (
 
 def add_version(data):
     data["sourceAppName"] = "blender"
-    data["sourceAppVersion"] = version_checker.get_blender_version()
-    data["addonVersion"] = version_checker.get_addon_version()
+    data["sourceAppVersion"] = utils.get_blender_version()
+    data["addonVersion"] = utils.get_addon_version()
 
 
 def write_to_report(props, text):
@@ -296,10 +294,10 @@ def check_tags_format(tags_string: str):
     """Check if tags string is a comma-separated list of tags consisting of only alphanumeric characters and underscores.
     Returns a bool and list of tags that do not meet the format requirement.
     """
-    tags = tags_string.strip()
-    if tags == "":
+    tags_string = tags_string.strip()
+    if tags_string == "":
         return True, []
-    tags = tags.split(",")
+    tags = tags_string.split(",")
     problematic_tags = []
     for tag in tags:
         tag = tag.strip()
@@ -747,13 +745,13 @@ class FastMetadata(bpy.types.Operator):
     bl_label = "Update metadata"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="Asset Base Id",
         description="Unique name of the asset (hidden)",
         default="",
     )
-    asset_type: StringProperty(name="Asset Type", description="Asset Type", default="")
-    name: StringProperty(
+    asset_type: StringProperty(name="Asset Type", description="Asset Type", default="")  # type: ignore[valid-type]
+    name: StringProperty(  # type: ignore[valid-type]
         name="Name",
         description="Provide name of your asset, choose a few descriptive English words that clearly identify and distinguish your asset. Good naming helps your asset to be found on the search engine. Follow these tips:\n\n"
         "Use Descriptive Terms:\nInclude specific details such as the brand, material, or distinct features of the asset.\n\n"
@@ -763,7 +761,7 @@ class FastMetadata(bpy.types.Operator):
         "Good names: Knoll Steel Chair, Skoda Kodiaq, Statue of Liberty",
         default="",
     )
-    description: StringProperty(
+    description: StringProperty(  # type: ignore[valid-type]
         name="Description",
         description="Provide a clear and concise description of your asset in English. To enhance searchability and discoverability of your asset, follow these tips:\n\n"
         "Be Specific:\nUse precise terms that accurately reflect the asset. Include key characteristics such as material, color, function, or designer/brand.\n\n"
@@ -773,7 +771,7 @@ class FastMetadata(bpy.types.Operator):
         "Keep it Brief:\nAim for a short description that captures the essence of the asset without unnecessary details. A concise description makes it easier for Elasticsearch to process and for users to scan",
         default="",
     )
-    tags: StringProperty(
+    tags: StringProperty(  # type: ignore[valid-type]
         name="Tags",
         description="Enter up to 10 tags, separated by commas. Tags may include alphanumeric characters and underscores only. For better discoverability, follow these tips:\n\n"
         "Choose Relevant Keywords:\nSelect tags that closely relate to the asset’s features, usage, or industry terms. This increases the chances that your asset appears in relevant searches.\n\n"
@@ -782,7 +780,7 @@ class FastMetadata(bpy.types.Operator):
         "Enhance with Specificity: While common terms are essential, adding specific tags can help in uniquely identifying and categorizing the asset. This is particularly useful for users looking for particular features or attributes.",
         default="",
     )
-    category: EnumProperty(
+    category: EnumProperty(  # type: ignore[valid-type]
         name="Category",
         description="Select the main category for the uploaded asset. "
         "Choose the most accurate category to enhance visibility and download rates. "
@@ -790,23 +788,23 @@ class FastMetadata(bpy.types.Operator):
         items=categories.get_category_enums,
         update=categories.update_category_enums,
     )
-    subcategory: EnumProperty(
+    subcategory: EnumProperty(  # type: ignore[valid-type]
         name="Subcategory",
         description="Select a subcategory within the chosen main category",
         items=categories.get_subcategory_enums,
         update=categories.update_subcategory_enums,
     )
-    subcategory1: EnumProperty(
+    subcategory1: EnumProperty(  # type: ignore[valid-type]
         name="Sub-subcategory",
         description="Select a further subcategory within the chosen subcategory",
         items=categories.get_subcategory1_enums,
     )
-    license: EnumProperty(
+    license: EnumProperty(  # type: ignore[valid-type]
         items=licenses,
         default="royalty_free",
         description="License. Please read our help for choosing the right licenses",
     )
-    is_private: EnumProperty(
+    is_private: EnumProperty(  # type: ignore[valid-type]
         name="Thumbnail Style",
         items=(
             (
@@ -825,7 +823,7 @@ class FastMetadata(bpy.types.Operator):
         default="PUBLIC",
     )
 
-    free_full: EnumProperty(
+    free_full: EnumProperty(  # type: ignore[valid-type]
         name="Free or Full Plan",
         items=(
             (
@@ -965,7 +963,7 @@ def get_upload_location(props):
 
 def storage_quota_available(props) -> bool:
     """Check the storage quota if there is available space to upload."""
-    profile = global_vars.DATA.get("bkit profile")
+    profile = global_vars.BKIT_PROFILE
     if profile is None:
         props.report = "Please log-in first."
         return False
@@ -973,7 +971,7 @@ def storage_quota_available(props) -> bool:
     if props.is_private == "PUBLIC":
         return True
 
-    quota = profile["user"].get("remainingPrivateQuota", 0)
+    quota = profile.remainingPrivateQuota
     if quota > 0:
         return True
 
@@ -1078,25 +1076,25 @@ class UploadOperator(Operator):
     bl_options = {"REGISTER", "INTERNAL"}
 
     # type of upload - model, material, textures, e.t.c.
-    asset_type: EnumProperty(
+    asset_type: EnumProperty(  # type: ignore[valid-type]
         name="Type",
         items=asset_types,
         description="Type of upload",
         default="MODEL",
     )
 
-    reupload: BoolProperty(
+    reupload: BoolProperty(  # type: ignore[valid-type]
         name="reupload",
         description="reupload but also draw so that it asks what to reupload",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    metadata: BoolProperty(name="metadata", default=True, options={"SKIP_SAVE"})
+    metadata: BoolProperty(name="metadata", default=True, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
-    thumbnail: BoolProperty(name="thumbnail", default=False, options={"SKIP_SAVE"})
+    thumbnail: BoolProperty(name="thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
-    main_file: BoolProperty(name="main file", default=False, options={"SKIP_SAVE"})
+    main_file: BoolProperty(name="main file", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
     @classmethod
     def poll(cls, context):
@@ -1243,7 +1241,7 @@ class AssetDebugPrint(Operator):
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     # type of upload - model, material, textures, e.t.c.
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="asset id",
     )
 
@@ -1282,13 +1280,13 @@ class AssetVerificationStatusChange(Operator):
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     # type of upload - model, material, textures, e.t.c.
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="asset id",
     )
 
-    state: StringProperty(name="verification_status", default="uploaded")
+    state: StringProperty(name="verification_status", default="uploaded")  # type: ignore[valid-type]
 
-    original_state: StringProperty(name="verification_status", default="uploaded")
+    original_state: StringProperty(name="verification_status", default="uploaded")  # type: ignore[valid-type]
 
     @classmethod
     def poll(cls, context):
