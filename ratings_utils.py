@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
+from typing import Optional, Union
 
 # mainly update functions and callbacks for ratings properties, here to avoid circular imports.
 import bpy
@@ -27,9 +28,18 @@ from bpy.props import (
     IntProperty,
     StringProperty,
 )
-from bpy.types import PropertyGroup
+from bpy.types import PropertyGroup, Context
 
-from . import client_lib, client_tasks, global_vars, icons, reports, tasks_queue, utils
+from . import (
+    client_lib,
+    client_tasks,
+    global_vars,
+    icons,
+    reports,
+    tasks_queue,
+    utils,
+    datas,
+)
 
 
 bk_logger = logging.getLogger(__name__)
@@ -45,8 +55,8 @@ def handle_get_rating_task(task: client_tasks.Task):
     asset_id = task.data["asset_id"]
     ratings = task.result["results"]
     if len(ratings) == 0:
-        store_rating_local_empty(asset_id, "quality")
-        store_rating_local_empty(asset_id, "working_hours")
+        store_rating_local(asset_id, "quality", None)
+        store_rating_local(asset_id, "working_hours", None)
         return
 
     for rating in ratings:
@@ -63,9 +73,8 @@ def handle_get_bookmarks_task(task: client_tasks.Task):
     if task.status == "error":
         return bk_logger.warning(f"{task.task_type} task failed: {task.message}")
 
-    ratings = task.result["results"]
-    for asset_data in ratings:
-        store_rating_local(asset_data["id"], "bookmarks", 1)
+    for asset in task.result["results"]:
+        store_rating_local(asset["id"], "bookmarks", 1)
 
 
 def handle_send_rating_task(task: client_tasks.Task):
@@ -81,39 +90,44 @@ def handle_send_rating_task(task: client_tasks.Task):
             return reports.add_report(task.message, type="INFO", timeout=3)
 
 
-def store_rating_local_empty(asset_id, rating_type):
-    """Store the empty rating results to the global_vars so add-on does not search it again.
-    This function could be replaced with store_rating_local(asset_id, rating_type, None)
-    but it is more readable this way."""
-    ratings = global_vars.DATA["asset ratings"]
-    ratings[asset_id] = ratings.get(asset_id, {})
-    if rating_type not in ratings[asset_id].keys():
-        ratings[asset_id][rating_type] = None
-
-
-def store_rating_local(asset_id, type="quality", value=0):
-    """Store the rating locally in the global_vars."""
-    ratings = global_vars.DATA["asset ratings"]
-    ratings[asset_id] = ratings.get(asset_id, {})
-    ratings[asset_id][type] = value
-
-
-def get_rating_local(asset_id, rating_type):
-    """Get the rating locally from global_vars."""
-    r = global_vars.DATA["asset ratings"].get(asset_id, {})
-    return r.get(rating_type)
-
-
-def ensure_rating(asset_id):
-    """Ensure rating is available. First check locally.
-    If not available then download from server.
+def store_rating_local(
+    asset_id: str, rating_type: str = "quality", value: Optional[int] = None
+):
+    """Store the rating locally in the global_vars.
+    - rating_type can be: "quality", "working_hours", "bookmarks"
+    - value set None to create empty rating and prevent add-on from fetching it again next time
     """
-    r = global_vars.DATA["asset ratings"].get(asset_id, {})
-    if "quality" not in r.keys() or "working_hours " not in r.keys():
+    allowed_rating_types = ["quality", "working_hours", "bookmarks"]
+    if rating_type not in allowed_rating_types:
+        raise ValueError(f"rating_type must be one of {allowed_rating_types}")
+
+    rating = global_vars.RATINGS.get(asset_id, datas.AssetRating())
+    rating.working_hours_fetched = True
+    rating.quality_fetched = True
+    setattr(rating, rating_type, value)
+    global_vars.RATINGS[asset_id] = rating
+
+
+def get_rating_local(asset_id: str) -> Optional[datas.AssetRating]:
+    """Get the rating locally from global_vars.RATINGS."""
+    return global_vars.RATINGS.get(asset_id)
+
+
+def ensure_rating(asset_id: str):
+    """Ensure the rating is available. First check if it is available in local cache. If it is not then download it from the server.
+    If the rating is present, we need to check if rating.quality_fetched and rating.working_hours_fetched are not False
+    because bookmarked assets will have rating created, but for them the quality and wh was not fetched (bookmarked are get from search
+    and these data does not contain quality and working_hours - and even bookmarked but that can be deduced from searching for bookmarked).
+    """
+    rating = get_rating_local(asset_id)
+    if rating is None:
+        client_lib.get_rating(asset_id)
+        return
+    if not rating.quality_fetched or rating.working_hours_fetched:
         client_lib.get_rating(asset_id)
 
 
-def update_ratings_quality(self, context):
+def update_ratings_quality(self, context: Context):
     if not (hasattr(self, "rating_quality")):
         # first option is for rating of assets that are from scene
         asset = self.id_data
@@ -124,17 +138,17 @@ def update_ratings_quality(self, context):
         bkit_ratings = self
         asset_id = self.asset_id
 
-    local_rating = get_rating_local(self.asset_id, "quality")
-    if local_rating == self.rating_quality:
+    local_rating = get_rating_local(self.asset_id)
+    if local_rating is None:
+        local_rating = datas.AssetRating(quality=0)
+    if local_rating.quality == self.rating_quality:
         return store_rating_local(
-            asset_id, type="quality", value=bkit_ratings.rating_quality
-        )
-    if local_rating is None and self.rating_quality == 0:
-        return store_rating_local(
-            asset_id, type="quality", value=bkit_ratings.rating_quality
+            asset_id, rating_type="quality", value=bkit_ratings.rating_quality
         )
 
-    store_rating_local(asset_id, type="quality", value=bkit_ratings.rating_quality)
+    store_rating_local(
+        asset_id, rating_type="quality", value=bkit_ratings.rating_quality
+    )
     if self.rating_quality_lock is True:
         return
 
@@ -142,7 +156,7 @@ def update_ratings_quality(self, context):
     tasks_queue.add_task((client_lib.send_rating, args), wait=0.5, only_last=True)
 
 
-def update_ratings_work_hours(self, context):
+def update_ratings_work_hours(self, context: Context):
     if not (hasattr(self, "rating_work_hours")):
         # first option is for rating of assets that are from scene
         asset = self.id_data
@@ -153,19 +167,17 @@ def update_ratings_work_hours(self, context):
         bkit_ratings = self
         asset_id = self.asset_id
 
-    local_rating = get_rating_local(self.asset_id, "working_hours")
-    if local_rating == self.rating_work_hours:
-        return store_rating_local(
-            asset_id, type="working_hours", value=bkit_ratings.rating_work_hours
-        )
+    local_rating = get_rating_local(self.asset_id)
+    if local_rating is None:  # rating was not available online
+        local_rating = datas.AssetRating(working_hours=0)
 
-    if local_rating is None and self.rating_work_hours == 0:
+    if local_rating.working_hours == self.rating_work_hours:
         return store_rating_local(
-            asset_id, type="working_hours", value=bkit_ratings.rating_work_hours
+            asset_id, rating_type="working_hours", value=bkit_ratings.rating_work_hours
         )
 
     store_rating_local(
-        asset_id, type="working_hours", value=bkit_ratings.rating_work_hours
+        asset_id, rating_type="working_hours", value=bkit_ratings.rating_work_hours
     )
     if self.rating_work_hours_lock is True:
         return
@@ -174,14 +186,13 @@ def update_ratings_work_hours(self, context):
     tasks_queue.add_task((client_lib.send_rating, args), wait=0.5, only_last=True)
 
 
-def update_quality_ui(self, context):
+def update_quality_ui(self, context: Context):
     """Converts the _ui the enum into actual quality number."""
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
+    user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    api_key = user_preferences.api_key  # type: ignore
     # we need to check for matching value not to update twice/call the popup twice.
-    if user_preferences.api_key == "" and self.rating_quality != int(
-        self.rating_quality_ui
-    ):
-        bpy.ops.wm.blenderkit_login(
+    if api_key == "" and self.rating_quality != int(self.rating_quality_ui):
+        bpy.ops.wm.blenderkit_login(  # type: ignore
             "INVOKE_DEFAULT",
             message="Please login/signup to rate assets. Clicking OK takes you to web login.",
         )
@@ -190,12 +201,11 @@ def update_quality_ui(self, context):
     self.rating_quality = int(self.rating_quality_ui)
 
 
-def update_ratings_work_hours_ui(self, context):
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    if user_preferences.api_key == "" and self.rating_work_hours != float(
-        self.rating_work_hours_ui
-    ):
-        bpy.ops.wm.blenderkit_login(
+def update_ratings_work_hours_ui(self, context: Context):
+    user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    api_key = user_preferences.api_key  # type: ignore
+    if api_key == "" and self.rating_work_hours != float(self.rating_work_hours_ui):
+        bpy.ops.wm.blenderkit_login(  # type: ignore
             "INVOKE_DEFAULT",
             message="Please login/signup to rate assets. Clicking OK takes you to web login.",
         )
@@ -346,7 +356,7 @@ class RatingProperties(PropertyGroup):
     )
     rating_work_hours: FloatProperty(  # type: ignore
         name="Work Hours",
-        description="How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu.",
+        description="nonUI How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu.",
         default=0.00,
         min=0.0,
         max=300,
@@ -355,50 +365,52 @@ class RatingProperties(PropertyGroup):
     )
     rating_work_hours_ui: EnumProperty(  # type: ignore
         name="Work Hours",
-        description="How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu",
+        description="UI How many hours did this work take?\nShortcut: Hover over asset in the asset bar and press 'R' to show rating menu",
         items=wh_enum_callback,
         default=0,
         update=update_ratings_work_hours_ui,
         options={"SKIP_SAVE"},
     )
 
-    def prefill_ratings(self):
+    def prefill_ratings(self) -> None:
         """Pre-fill the quality and work hours ratings if available.
         Locks the ratings locks so that the update function is not called and ratings are not sent online.
         """
         if not utils.user_logged_in():
             return
-        rating_quality = get_rating_local(self.asset_id, "quality")
-        rating_work_hours = get_rating_local(self.asset_id, "working_hours")
-        if rating_quality is None and rating_work_hours is None:
+        rating = get_rating_local(self.asset_id)
+        if rating is None:
+            return
+        if rating.quality is None and rating.working_hours is None:
             return
         if self.rating_quality != 0:
             return  # return if the rating was already filled
         if self.rating_work_hours != 0:
-            return
+            return  # return if the rating was already filled
 
-        if rating_quality is not None:
+        if rating.quality is not None:
             self.rating_quality_lock = True
-            self.rating_quality = int(rating_quality)
+            self.rating_quality = int(rating.quality)
             self.rating_quality_lock = False
 
-        if rating_work_hours is not None:
-            if rating_work_hours >= 1:
-                wh = int(rating_work_hours)
+        if rating.working_hours is not None:
+            wh: Union[float, int]
+            if rating.working_hours >= 1:
+                wh = int(rating.working_hours)
             else:
-                wh = round(rating_work_hours, 1)
+                wh = round(rating.working_hours, 1)
             whs = str(wh)
             self.rating_work_hours_lock = True
-            self.rating_work_hours = round(rating_work_hours, 2)
+            self.rating_work_hours = round(rating.working_hours, 2)
             try:
                 # when the value is not in the enum, it throws an error
                 if whs == "0.0":
                     whs = "0"
                 self.rating_work_hours_ui = whs
             except Exception as e:
-                bk_logger.warn(f"exception setting rating_work_hours_ui: {e}")
+                bk_logger.warning(f"exception setting rating_work_hours_ui: {e}")
 
-            self.rating_work_hours = round(rating_work_hours, 2)
+            self.rating_work_hours = round(rating.working_hours, 2)
             self.rating_work_hours_lock = False
 
         bpy.context.area.tag_redraw()

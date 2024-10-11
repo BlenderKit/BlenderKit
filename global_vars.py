@@ -38,9 +38,9 @@ DATA: dict = {  # TODO: move these
     "search history": deque(maxlen=20),
     "bkit notifications": None,
     "asset comments": {},
-    "asset ratings": {},
 }
 
+RATINGS: dict[str, datas.AssetRating] = {}
 BKIT_PROFILE: datas.MineProfile = datas.MineProfile()
 """Profile of the current user."""
 BKIT_AUTHORS: dict[int, datas.UserProfile] = {}

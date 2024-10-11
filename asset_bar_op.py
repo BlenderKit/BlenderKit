@@ -1375,15 +1375,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         search.search(get_next=True)
 
-    def update_bookmark_icon(self, bookmark_button):
-        asset_data = global_vars.DATA["search results"][bookmark_button.asset_index]
-        r = ratings_utils.get_rating_local(asset_data["id"], "bookmarks")
-        if r == 1:
+    def update_bookmark_icon(self, bookmark_button: BL_UI_Button):
+        asset_index = bookmark_button.asset_index  # type: ignore
+        asset_data = global_vars.DATA["search results"][asset_index]
+        rating = ratings_utils.get_rating_local(asset_data["id"])
+        if rating is not None and rating.bookmarks == 1:
             icon = "bookmark_full.png"
             visible = True
         else:
             icon = "bookmark_empty.png"
-            if self.active_index == bookmark_button.asset_index:
+            if self.active_index == bookmark_button.asset_index:  # type: ignore
                 visible = True
             else:
                 visible = False
@@ -1401,14 +1402,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             asset_button.progress_bar.visible = False
 
-    def update_validation_icon(self, asset_button, asset_data):
+    def update_validation_icon(self, asset_button, asset_data: dict):
         if utils.profile_is_validator():
-            ar = global_vars.DATA.get("asset ratings", {})
-
-            rating = ar.get(asset_data["id"])
-            # if rating is not None:
-            #     rating = rating.to_dict()
-
+            rating = global_vars.RATINGS.get(asset_data["id"])
             v_icon = ui.verification_icons[
                 asset_data.get("verificationStatus", "validated")
             ]
@@ -1416,7 +1412,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 img_fp = paths.get_addon_thumbnail_path(v_icon)
                 asset_button.validation_icon.set_image(img_fp)
                 asset_button.validation_icon.visible = True
-            elif rating is None or rating.get("quality") is None:
+            elif rating is None or rating.quality is None:
                 v_icon = "star_grey.png"
                 img_fp = paths.get_addon_thumbnail_path(v_icon)
                 asset_button.validation_icon.set_image(img_fp)
@@ -1428,7 +1424,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 img_fp = paths.get_addon_thumbnail_path("locked.png")
                 asset_button.validation_icon.set_image(img_fp)
                 asset_button.validation_icon.visible = True
-
             else:
                 asset_button.validation_icon.visible = False
 
