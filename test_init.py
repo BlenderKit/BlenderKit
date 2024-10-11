@@ -31,6 +31,7 @@ from . import client_lib, global_vars
 class Test01Registration(unittest.TestCase):
     def test01_global_vars_VERSION_set(self):
         assert global_vars.VERSION is not None
+        assert global_vars.VERSION != [0, 0, 0, 0]
         if __package__ == "blenderkit":
             import blenderkit  # relative import .. would go outside the package, so we need to import oldschool here
 

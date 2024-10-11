@@ -18,6 +18,7 @@
 
 import logging
 import os
+from typing import Any
 
 import bpy
 from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
@@ -120,20 +121,20 @@ def get_large_thumbnail_image(asset_data):
     return img
 
 
-def is_rating_possible():
+def is_rating_possible() -> tuple[bool, bool, Any, Any]:
     # TODO remove this, but first check and reuse the code for new rating system...
     ao = bpy.context.active_object
-    ui = bpy.context.window_manager.blenderkitUI
-    preferences = bpy.context.preferences.addons[__package__].preferences
+    ui = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
+    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
     # first test if user is logged in.
-    if preferences.api_key == "":
+    if preferences.api_key == "":  # type: ignore
         return False, False, None, None
-    if global_vars.DATA.get("asset ratings") is not None and ui.down_up == "SEARCH":
+    if global_vars.RATINGS is not None and ui.down_up == "SEARCH":
         if bpy.context.mode in ("SCULPT", "PAINT_TEXTURE"):
             b = utils.get_active_brush()
             ad = b.get("asset_data")
             if ad is not None:
-                rated = bpy.context.scene["assets rated"].get(ad["assetBaseId"])
+                rated = bpy.context.scene["assets rated"].get(ad["assetBaseId"])  # type: ignore
                 return True, rated, b, ad
         if ao is not None:
             ad = None
@@ -141,10 +142,10 @@ def is_rating_possible():
             ao_check = ao
             while ad is None or (ad is None and ao_check.parent is not None):
                 s = bpy.context.scene
-                ad = ao_check.get("asset_data")
+                ad = ao_check.get("asset_data")  # type: ignore[attr-defined]
                 if ad is not None and ad.get("assetBaseId") is not None:
-                    s["assets rated"] = s.get("assets rated", {})
-                    rated = s["assets rated"].get(ad["assetBaseId"])
+                    s["assets rated"] = s.get("assets rated", {})  # type: ignore
+                    rated = s["assets rated"].get(ad["assetBaseId"])  # type: ignore
                     # originally hidden for already rated assets
                     return True, rated, ao_check, ad
                 elif ao_check.parent is not None:
@@ -154,10 +155,10 @@ def is_rating_possible():
             # check also materials
             m = ao.active_material
             if m is not None:
-                ad = m.get("asset_data")
+                ad = m.get("asset_data")  # type: ignore
 
                 if ad is not None and ad.get("assetBaseId"):
-                    rated = bpy.context.scene["assets rated"].get(ad["assetBaseId"])
+                    rated = bpy.context.scene["assets rated"].get(ad["assetBaseId"])  # type: ignore
                     return True, rated, m, ad
 
         # if t>2 and t<2.5:

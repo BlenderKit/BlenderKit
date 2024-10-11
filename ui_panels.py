@@ -45,6 +45,7 @@ from . import (
     ui,
     upload,
     utils,
+    datas,
 )
 
 ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
@@ -828,21 +829,18 @@ class UpvoteComment(bpy.types.Operator):
     def execute(self, context):
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         api_key = user_preferences.api_key
-        comments = comments_utils.get_comments_local(self.asset_id)
-        if comments is not None:
-            for comment in comments:
-                if comment["id"] == self.comment_id:
-                    profile = global_vars.DATA.get("bkit profile")
-                    comment["flags"].append(
-                        {"flag": self.flag, "user": "", "id": profile["user"]["id"]}
-                    )
-                    for flag in comment["flags"]:
-                        if (
-                            flag["id"] == profile["user"]["id"]
-                            and flag["flag"] != self.flag
-                        ):
-                            comment["flags"].remove(flag)
-                            break
+        comments = comments_utils.get_comments_local(self.asset_id, [])
+        for comment in comments:
+            if comment["id"] != self.comment_id:
+                continue
+            profile = global_vars.DATA.get("bkit profile")
+            comment["flags"].append(
+                {"flag": self.flag, "user": "", "id": profile["user"]["id"]}
+            )
+            for flag in comment["flags"]:
+                if flag["id"] == profile["user"]["id"] and flag["flag"] != self.flag:
+                    comment["flags"].remove(flag)
+                    break
         client_lib.feedback_comment(self.asset_id, self.comment_id, api_key, self.flag)
         return {"FINISHED"}
 
@@ -1904,8 +1902,10 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
     layout.operator_context = "INVOKE_DEFAULT"
 
     if utils.user_logged_in():
-        r = ratings_utils.get_rating_local(asset_data["id"], "bookmarks")
-        if r == 1:
+        rating = ratings_utils.get_rating_local(asset_data["id"])
+        if rating is None:
+            rating = datas.AssetRating()
+        if rating.bookmarks == 1:
             text = "Delete Bookmark"
             icon = "bookmark_full"
         else:
@@ -2730,6 +2730,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         op.tooltip = tooltip  # type: ignore[attr-defined]
 
         # ABOUT ME WEBPAGE
+        text = None
         if author.aboutMeUrl:
             text = utils.remove_url_protocol(author.aboutMeUrl)
             text = utils.shorten_text(text, 45)
