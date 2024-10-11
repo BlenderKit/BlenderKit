@@ -173,8 +173,10 @@ def check_clipboard():
     search_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
 
 
-def parse_result(r):
-    """Needed to generate some extra data in the result (by now). Return None if there is not 'files' key in incoming r (asset_data).
+# TODO: type annotate and check this crazy function!
+# Are we sure it behaves correctly on network issues, malfunctioning search etc?
+def parse_result(r) -> dict:
+    """Needed to generate some extra data in the result(by now)
     Parameters
     ----------
     r - search result, also called asset_data
@@ -189,119 +191,119 @@ def parse_result(r):
         utils.p("asset with no files-size")
 
     asset_type = r["assetType"]
-    # TODO: REVERSE THIS CONDITION AND RETURN
-    if len(r["files"]) > 0:  # TODO remove this condition so all assets are parsed.
-        adata = r["author"]
-        social_networks = datas.parse_social_networks(adata.pop("socialNetworks", []))
-        author = datas.UserProfile(**adata, socialNetworks=social_networks)
-        generate_author_profile(author)
+    # TODO remove this condition so all assets are parsed?
+    if len(r["files"]) == 0:
+        return {}
 
-        r["available_resolutions"] = []
-        use_webp = True
-        if bpy.app.version < (3, 4, 0) or r.get("webpGeneratedTimestamp", 0) == 0:
-            use_webp = False  # WEBP was optimized in Blender 3.4.0
+    adata = r["author"]
+    social_networks = datas.parse_social_networks(adata.pop("socialNetworks", []))
+    author = datas.UserProfile(**adata, socialNetworks=social_networks)
+    generate_author_profile(author)
 
-        # BIG THUMB - HDR CASE
-        if r["assetType"] == "hdr":
-            if use_webp:
-                thumb_url = r.get("thumbnailLargeUrlNonsquaredWebp")
-            else:
-                thumb_url = r.get("thumbnailLargeUrlNonsquared")
-        # BIG THUMB - NON HDR CASE
-        else:
-            if use_webp:
-                thumb_url = r.get("thumbnailMiddleUrlWebp")
-            else:
-                thumb_url = r.get("thumbnailMiddleUrl")
+    r["available_resolutions"] = []
+    use_webp = True
+    if bpy.app.version < (3, 4, 0) or r.get("webpGeneratedTimestamp", 0) == 0:
+        use_webp = False  # WEBP was optimized in Blender 3.4.0
 
-        # SMALL THUMB
+    # BIG THUMB - HDR CASE
+    if r["assetType"] == "hdr":
         if use_webp:
-            small_thumb_url = r.get("thumbnailSmallUrlWebp")
+            thumb_url = r.get("thumbnailLargeUrlNonsquaredWebp")
         else:
-            small_thumb_url = r.get("thumbnailSmallUrl")
+            thumb_url = r.get("thumbnailLargeUrlNonsquared")
+    # BIG THUMB - NON HDR CASE
+    else:
+        if use_webp:
+            thumb_url = r.get("thumbnailMiddleUrlWebp")
+        else:
+            thumb_url = r.get("thumbnailMiddleUrl")
 
-        tname = paths.extract_filename_from_url(thumb_url)
-        small_tname = paths.extract_filename_from_url(small_thumb_url)
-        for f in r["files"]:
-            # if f['fileType'] == 'thumbnail':
-            #     tname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
-            #     small_tname = paths.extract_filename_from_url(f['fileThumbnail'])
-            #     allthumbs.append(tname)  # TODO just first thumb is used now.
+    # SMALL THUMB
+    if use_webp:
+        small_thumb_url = r.get("thumbnailSmallUrlWebp")
+    else:
+        small_thumb_url = r.get("thumbnailSmallUrl")
 
-            if f["fileType"] == "blend":
-                durl = f["downloadUrl"].split("?")[0]
-                # fname = paths.extract_filename_from_url(f['filePath'])
+    tname = paths.extract_filename_from_url(thumb_url)
+    small_tname = paths.extract_filename_from_url(small_thumb_url)
+    for f in r["files"]:
+        # if f['fileType'] == 'thumbnail':
+        #     tname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
+        #     small_tname = paths.extract_filename_from_url(f['fileThumbnail'])
+        #     allthumbs.append(tname)  # TODO just first thumb is used now.
 
-            if f["fileType"].find("resolution") > -1:
-                r["available_resolutions"].append(
-                    resolutions.resolutions[f["fileType"]]
-                )
+        if f["fileType"] == "blend":
+            durl = f["downloadUrl"].split("?")[0]
+            # fname = paths.extract_filename_from_url(f['filePath'])
 
-        # code for more thumbnails
-        # tdict = {}
-        # for i, t in enumerate(allthumbs):
-        #     tdict['thumbnail_%i'] = t
+        if f["fileType"].find("resolution") > -1:
+            r["available_resolutions"].append(resolutions.resolutions[f["fileType"]])
 
-        r["max_resolution"] = 0
-        if r["available_resolutions"]:  # should check only for non-empty sequences
-            r["max_resolution"] = max(r["available_resolutions"])
+    # code for more thumbnails
+    # tdict = {}
+    # for i, t in enumerate(allthumbs):
+    #     tdict['thumbnail_%i'] = t
 
-        # tooltip = generate_tooltip(r)
-        # for some reason, the id was still int on some occurances. investigate this.
-        r["author"]["id"] = str(r["author"]["id"])
+    r["max_resolution"] = 0
+    if r["available_resolutions"]:  # should check only for non-empty sequences
+        r["max_resolution"] = max(r["available_resolutions"])
 
-        # some helper props, but generally shouldn't be renaming/duplifiying original properties,
-        # so blender's data is same as on server.
-        asset_data = {
-            "thumbnail": tname,
-            "thumbnail_small": small_tname,
-            # 'tooltip': tooltip,
-        }
-        asset_data["downloaded"] = 0
+    # tooltip = generate_tooltip(r)
+    # for some reason, the id was still int on some occurances. investigate this.
+    r["author"]["id"] = str(r["author"]["id"])
 
-        # parse extra params needed for blender here
-        params = r["dictParameters"]  # utils.params_to_dict(r['parameters'])
+    # some helper props, but generally shouldn't be renaming/duplifiying original properties,
+    # so blender's data is same as on server.
+    asset_data = {
+        "thumbnail": tname,
+        "thumbnail_small": small_tname,
+        # 'tooltip': tooltip,
+    }
+    asset_data["downloaded"] = 0
 
-        if asset_type == "model":
-            if params.get("boundBoxMinX") != None:
-                bbox = {
-                    "bbox_min": (
-                        float(params["boundBoxMinX"]),
-                        float(params["boundBoxMinY"]),
-                        float(params["boundBoxMinZ"]),
-                    ),
-                    "bbox_max": (
-                        float(params["boundBoxMaxX"]),
-                        float(params["boundBoxMaxY"]),
-                        float(params["boundBoxMaxZ"]),
-                    ),
-                }
+    # parse extra params needed for blender here
+    params = r["dictParameters"]  # utils.params_to_dict(r['parameters'])
 
-            else:
-                bbox = {"bbox_min": (-0.5, -0.5, 0), "bbox_max": (0.5, 0.5, 1)}
-            asset_data.update(bbox)
-        if asset_type == "material":
-            asset_data["texture_size_meters"] = params.get("textureSizeMeters", 1.0)
+    if asset_type == "model":
+        if params.get("boundBoxMinX") != None:
+            bbox = {
+                "bbox_min": (
+                    float(params["boundBoxMinX"]),
+                    float(params["boundBoxMinY"]),
+                    float(params["boundBoxMinZ"]),
+                ),
+                "bbox_max": (
+                    float(params["boundBoxMaxX"]),
+                    float(params["boundBoxMaxY"]),
+                    float(params["boundBoxMaxZ"]),
+                ),
+            }
 
-        # asset_data.update(tdict)
+        else:
+            bbox = {"bbox_min": (-0.5, -0.5, 0), "bbox_max": (0.5, 0.5, 1)}
+        asset_data.update(bbox)
+    if asset_type == "material":
+        asset_data["texture_size_meters"] = params.get("textureSizeMeters", 1.0)
 
-        au = scene.get("assets used", {})
-        if au == {}:
-            scene["assets used"] = au
-        if r["assetBaseId"] in au.keys():
-            asset_data["downloaded"] = 100
-            # transcribe all urls already fetched from the server
-            r_previous = au[r["assetBaseId"]]
-            if r_previous.get("files"):
-                for f in r_previous["files"]:
-                    if f.get("url"):
-                        for f1 in r["files"]:
-                            if f1["fileType"] == f["fileType"]:
-                                f1["url"] = f["url"]
+    # asset_data.update(tdict)
 
-        # attempt to switch to use original data gradually, since the parsing as itself should become obsolete.
-        asset_data.update(r)
-        return asset_data
+    au = scene.get("assets used", {})  # type: ignore
+    if au == {}:
+        scene["assets used"] = au  # type: ignore
+    if r["assetBaseId"] in au.keys():
+        asset_data["downloaded"] = 100
+        # transcribe all urls already fetched from the server
+        r_previous = au[r["assetBaseId"]]
+        if r_previous.get("files"):
+            for f in r_previous["files"]:
+                if f.get("url"):
+                    for f1 in r["files"]:
+                        if f1["fileType"] == f["fileType"]:
+                            f1["url"] = f["url"]
+
+    # attempt to switch to use original data gradually, since the parsing as itself should become obsolete.
+    asset_data.update(r)
+    return asset_data
 
 
 def clear_searches():
@@ -382,30 +384,23 @@ def handle_search_task(task: client_tasks.Task) -> bool:
             result_field.append(r)
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
-    for ri, r in enumerate(task.result["results"]):
-        asset_data = parse_result(r)
-        if asset_data is None:
-            bk_logger.debug(
-                f"parsing of search result no. {ri} has failed, result data: {r}"
-            )
+    for result in task.result["results"]:
+        asset_data = parse_result(result)
+        if not asset_data:
+            bk_logger.warning("Parsed asset data are empty for search result", result)
             continue
 
         result_field.append(asset_data)
+        if not utils.profile_is_validator():
+            continue
+        # VALIDATORS
         # fetch all comments if user is validator to preview them faster
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
-        if utils.profile_is_validator():
-            comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
-            if comments is None:
-                user_preferences = bpy.context.preferences.addons[
-                    __package__
-                ].preferences  # type: ignore
-                api_key = user_preferences.api_key  # type: ignore[union-attr]
-                client_lib.get_comments(asset_data["assetBaseId"])
-
-    # Get ratings from BlenderKit server TODO: do this in client
-    if utils.profile_is_validator():
-        for result in task.result["results"]:
-            ratings_utils.ensure_rating(result["id"])
+        comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
+        if comments is None:
+            client_lib.get_comments(asset_data["assetBaseId"])
+        # fetch ratings
+        ratings_utils.ensure_rating(asset_data["id"])
 
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f"{search_name} orig"] = task.result
@@ -667,10 +662,16 @@ def handle_get_user_profile(task: client_tasks.Task):
             bk_logger.warning("Got empty user profile")
             return
 
+        can_edit_all_assets = task.result.get("canEditAllAssets", False)
         social_networks = datas.parse_social_networks(
             user_data.pop("socialNetworks", [])
         )
-        user = datas.MineProfile(socialNetworks=social_networks, **user_data)
+
+        user = datas.MineProfile(
+            socialNetworks=social_networks,
+            canEditAllAssets=can_edit_all_assets,
+            **user_data,
+        )
         user.tooltip = generate_author_textblock(
             user.firstName, user.lastName, user.aboutMe
         )
@@ -697,7 +698,7 @@ def handle_get_user_profile(task: client_tasks.Task):
         if resp.status_code != 200:
             bk_logger.warning(resp.text)
 
-        if user_data.get("canEditAllAssets", False):  # IS VALIDATOR
+        if user.canEditAllAssets:  # IS VALIDATOR
             utils.enforce_prerelease_update_check()
 
 

@@ -22,6 +22,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import bpy
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
@@ -722,10 +723,10 @@ def update_free_full(self, context):
             )
 
 
-def can_edit_asset(active_index=-1, asset_data=None):
+def can_edit_asset(active_index: int = -1, asset_data: Optional[dict] = None):
     if active_index < 0 and not asset_data:
         return False
-    profile = global_vars.DATA.get("bkit profile")
+    profile = global_vars.BKIT_PROFILE
     if profile is None:
         return False
     if utils.profile_is_validator():
@@ -733,7 +734,7 @@ def can_edit_asset(active_index=-1, asset_data=None):
     if not asset_data:
         sr = global_vars.DATA["search results"]
         asset_data = dict(sr[active_index])
-    if int(asset_data["author"]["id"]) == int(profile["user"]["id"]):
+    if int(asset_data["author"]["id"]) == profile.id:
         return True
     return False
 
