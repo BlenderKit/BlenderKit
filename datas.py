@@ -1,5 +1,5 @@
 import dataclasses
-from typing import List, Dict
+from typing import Optional
 
 
 def asdict(data_class) -> dict:
@@ -98,7 +98,7 @@ class UserProfile:
     gravatarHash: str
     id: int
     lastName: str
-    socialNetworks: List[SocialNetwork] = dataclasses.field(default_factory=list)
+    socialNetworks: list[SocialNetwork] = dataclasses.field(default_factory=list)
     avatar256: str = ""
     gravatarImg: str = ""  # filled later from getGravatar task
     tooltip: str = ""  # generated later from Name and AboutMe etc.
@@ -125,6 +125,16 @@ class MineProfile:
     sumAssetFilesSize: int = 0
     sumPrivateAssetFilesSize: int = 0
     username: str = ""
-    socialNetworks: List[SocialNetwork] = dataclasses.field(default_factory=list)
+    socialNetworks: list[SocialNetwork] = dataclasses.field(default_factory=list)
     gravatarImg: str = ""  # filled later from getGravatar task
     tooltip: str = ""  # generated later from Name and AboutMe etc.
+
+
+@dataclasses.dataclass
+class AssetRating:
+    bookmarks: Optional[int] = None  # name kept as comes from API
+    quality: Optional[int] = None
+    quality_fetched: bool = False
+    working_hours: Optional[float] = None  # name kept as comes from API
+    working_hours_fetched: bool = False
+    # TODO: Add last time ratings checked to improve caching
