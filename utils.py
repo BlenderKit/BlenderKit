@@ -25,6 +25,7 @@ import re
 import shutil
 import sys
 import uuid
+from typing import Optional
 
 import bpy
 from mathutils import Vector
@@ -1078,35 +1079,36 @@ def update_tags(self, context):
         props.tags = ns
 
 
-def user_logged_in():
+def user_logged_in() -> bool:
     """User is currently logged in successfully"""
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    a = global_vars.DATA.get("bkit profile")
-    # Check both profile and token, profile sometimes isn't cleaned up after logout
-    # vilem - removed (a is not None) - the profile isn't always ready on start of blender,
-    # it can take a while, and e.g. bookmark popup could be spawned.
-    if user_preferences.api_key != "":
-        return True
-    return False
+    user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    if user_preferences.api_key == "":  # type: ignore
+        return False
+    return True
 
 
-def profile_is_validator():
+def profile_is_validator() -> bool:
     """currently logged in profile is validator"""
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    profile = global_vars.DATA.get("bkit profile")
-    if profile is None or user_preferences.api_key == "":
+    user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    api_key = user_preferences.api_key  # type: ignore
+    profile = global_vars.BKIT_PROFILE
+    if profile is None or api_key == "":
         return False
-    result = profile.get("canEditAllAssets", False)
-    return result
+    return profile.canEditAllAssets
 
 
-def user_is_owner(asset_data=None):
+def user_is_owner(asset_data: Optional[dict] = None) -> bool:
     """Checks if the current logged in user is owner of the asset"""
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    profile = global_vars.DATA.get("bkit profile")
-    if profile is None or user_preferences.api_key == "":
+    user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    api_key = user_preferences.api_key  # type: ignore
+    profile = global_vars.BKIT_PROFILE
+    if asset_data is None:
+        bk_logger.warning("user_is_owner called with asset_data=None")
         return False
-    if int(asset_data["author"]["id"]) == int(profile["user"]["id"]):
+
+    if profile is None or api_key == "":
+        return False
+    if int(asset_data["author"].get("id")) == profile.id:
         return True
     return False
 

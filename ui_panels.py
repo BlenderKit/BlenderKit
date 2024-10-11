@@ -830,15 +830,13 @@ class UpvoteComment(bpy.types.Operator):
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         api_key = user_preferences.api_key
         comments = comments_utils.get_comments_local(self.asset_id, [])
+        profile = global_vars.BKIT_PROFILE
         for comment in comments:
             if comment["id"] != self.comment_id:
                 continue
-            profile = global_vars.DATA.get("bkit profile")
-            comment["flags"].append(
-                {"flag": self.flag, "user": "", "id": profile["user"]["id"]}
-            )
+            comment["flags"].append({"flag": self.flag, "user": "", "id": profile.id})
             for flag in comment["flags"]:
-                if flag["id"] == profile["user"]["id"] and flag["flag"] != self.flag:
+                if flag["id"] == profile.id and flag["flag"] != self.flag:
                     comment["flags"].remove(flag)
                     break
         client_lib.feedback_comment(self.asset_id, self.comment_id, api_key, self.flag)
@@ -1896,7 +1894,11 @@ class OpenTempDirectory(OpenSystemDirectory):
     bl_label = "Open temp directory"
 
 
-def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
+def draw_asset_context_menu(
+    layout, context, asset_data: dict, from_panel: bool = False
+):
+    print("drawing asset context menu", type(context))
+
     ui_props = context.window_manager.blenderkitUI
     author_id = int(asset_data["author"].get("id"))
     layout.operator_context = "INVOKE_DEFAULT"
@@ -1991,7 +1993,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             # op.asset_type = ui_props.asset_type
             op.model_location = aob.location
             op.model_rotation = aob.rotation_euler
-            op.target_object = aob.name
+            op.target_object = aob.name  # type: ignore
             op.material_target_slot = aob.active_material_index
             op.replace = True
             op.replace_resolution = False
@@ -2033,7 +2035,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                         aob = bpy.context.active_object
                         op.model_location = aob.location
                         op.model_rotation = aob.rotation_euler
-                        op.target_object = aob.name
+                        op.target_object = aob.name  # type: ignore
                         op.material_target_slot = aob.active_material_index
                     op.replace_resolution = True
                     op.replace = False
@@ -2045,7 +2047,7 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
                     )  # str(utils.get_param(asset_data, 'textureResolutionMax'))
 
             elif (
-                asset_data["assetBaseId"] in s["assets used"].keys()
+                asset_data["assetBaseId"] in s["assets used"].keys()  # type: ignore
                 and asset_data["assetType"] != "hdr"
                 and (
                     asset_data.get("resolution")
@@ -2081,62 +2083,66 @@ def draw_asset_context_menu(layout, context, asset_data, from_panel=False):
             # print('operator res ', resolution)
             # op.resolution = resolution
 
-    profile = global_vars.DATA.get("bkit profile")
-    if profile is not None:
-        # validation
+    profile = global_vars.BKIT_PROFILE
+    if profile is None:
+        return
 
-        if author_id == str(profile["user"]["id"]) or utils.profile_is_validator():
-            layout.label(text="Management tools:")
+    print(f"profile.id={type(profile.id)}, author_id={type(author_id)}")
+    # validation
+    if author_id == str(profile.id) or utils.profile_is_validator():
+        layout.label(text="Management tools:")
 
-            row = layout.row()
-            row.operator_context = "INVOKE_DEFAULT"
+        row = layout.row()
+        row.operator_context = "INVOKE_DEFAULT"
+        op = layout.operator(
+            "wm.blenderkit_fast_metadata", text="Edit Metadata", icon="GREASEPENCIL"
+        )
+        op.asset_id = asset_data["id"]
+        op.asset_type = asset_data["assetType"]
+
+        if author_id == str(profile.id):
+            row.operator_context = "EXEC_DEFAULT"
             op = layout.operator(
-                "wm.blenderkit_fast_metadata", text="Edit Metadata", icon="GREASEPENCIL"
+                "wm.blenderkit_url",
+                text="Edit Metadata (browser)",
+                icon="GREASEPENCIL",
             )
-            op.asset_id = asset_data["id"]
-            op.asset_type = asset_data["assetType"]
+            op.url = (
+                f'{paths.BLENDERKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?edit#'
+            )
 
-            if author_id == str(profile["user"]["id"]):
-                row.operator_context = "EXEC_DEFAULT"
-                op = layout.operator(
-                    "wm.blenderkit_url",
-                    text="Edit Metadata (browser)",
-                    icon="GREASEPENCIL",
-                )
-                op.url = f'{paths.BLENDERKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?edit#'
+        row.operator_context = "INVOKE_DEFAULT"
 
-            row.operator_context = "INVOKE_DEFAULT"
-
-            if asset_data["assetType"] == "model":
-                op = layout.operator(
-                    "object.blenderkit_regenerate_thumbnail",
-                    text="Regenerate thumbnail",
-                )
-                op.asset_index = ui_props.active_index
-            elif asset_data["assetType"] == "material":
-                op = layout.operator(
-                    "object.blenderkit_regenerate_material_thumbnail",
-                    text="Regenerate thumbnail",
-                )
-                op.asset_index = ui_props.active_index
-                # op.asset_id = asset_data['id']
-                # op.asset_type = asset_data['assetType']
-
-        if author_id == str(profile["user"]["id"]):
-            row = layout.row()
-            row.operator_context = "INVOKE_DEFAULT"
-            op = row.operator("object.blenderkit_change_status", text="Delete")
-            op.asset_id = asset_data["id"]
-            op.state = "deleted"
-            op.original_state = asset_data["verificationStatus"]
-
-        if utils.profile_is_validator():
-            layout.label(text="Dev Tools:")
-
+        if asset_data["assetType"] == "model":
             op = layout.operator(
-                "object.blenderkit_print_asset_debug", text="Print asset debug"
+                "object.blenderkit_regenerate_thumbnail",
+                text="Regenerate thumbnail",
             )
-            op.asset_id = asset_data["id"]
+            op.asset_index = ui_props.active_index
+        elif asset_data["assetType"] == "material":
+            op = layout.operator(
+                "object.blenderkit_regenerate_material_thumbnail",
+                text="Regenerate thumbnail",
+            )
+            op.asset_index = ui_props.active_index
+            # op.asset_id = asset_data['id']
+            # op.asset_type = asset_data['assetType']
+
+    if author_id == str(profile.id):
+        row = layout.row()
+        row.operator_context = "INVOKE_DEFAULT"
+        op = row.operator("object.blenderkit_change_status", text="Delete")
+        op.asset_id = asset_data["id"]
+        op.state = "deleted"
+        op.original_state = asset_data["verificationStatus"]
+
+    if utils.profile_is_validator():
+        layout.label(text="Dev Tools:")
+
+        op = layout.operator(
+            "object.blenderkit_print_asset_debug", text="Print asset debug"
+        )
+        op.asset_id = asset_data["id"]
 
 
 # def draw_asset_resolution_replace(self, context, resolution):
@@ -2955,7 +2961,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         layout.separator()
 
-    def draw_comment(self, context, layout, comment, width=330):
+    def draw_comment(self, context, layout, comment, width: int = 330):
+        print("draw_comment", type(context), type(layout), type(comment))
         row = layout.row()
         if comment["level"] > 0:
             split = row.split(factor=0.05 * comment["level"])
@@ -2999,18 +3006,18 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         dislikes = 0
         user_liked = False
         user_disliked = False
-        profile = global_vars.DATA.get("bkit profile")
+        profile = global_vars.BKIT_PROFILE
 
         for l in comment["flags"]:
             if l["flag"] == "like":
                 likes += 1
                 if profile is not None:
-                    if l["id"] == profile["user"]["id"]:
+                    if l["id"] == profile.id:
                         user_liked = True
             if l["flag"] == "dislike":
                 dislikes += 1
                 if profile is not None:
-                    if l["id"] == profile["user"]["id"]:
+                    if l["id"] == profile.id:
                         user_disliked = True
 
             if l["flag"] == "removal":
