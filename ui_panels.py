@@ -26,7 +26,7 @@ from webbrowser import open_new_tab
 
 import bpy
 from bpy.props import IntProperty, StringProperty
-from bpy.types import Menu, Panel
+from bpy.types import Menu, Panel, Context, UILayout
 
 from . import (
     addon_updater_ops,
@@ -1889,11 +1889,9 @@ class OpenTempDirectory(OpenSystemDirectory):
 
 
 def draw_asset_context_menu(
-    layout, context, asset_data: dict, from_panel: bool = False
+    layout, context: Context, asset_data: dict, from_panel: bool = False
 ):
-    print("drawing asset context menu", type(context))
-
-    ui_props = context.window_manager.blenderkitUI
+    ui_props = context.window_manager.blenderkitUI  # type: ignore
     author_id = int(asset_data["author"].get("id"))
     layout.operator_context = "INVOKE_DEFAULT"
 
@@ -2081,9 +2079,10 @@ def draw_asset_context_menu(
     if profile is None:
         return
 
-    print(f"profile.id={type(profile.id)}, author_id={type(author_id)}")
     # validation
-    if author_id == str(profile.id) or utils.profile_is_validator():
+    if (
+        author_id == profile.id or utils.profile_is_validator()
+    ):  # was not working due to wrong types
         layout.label(text="Management tools:")
 
         row = layout.row()
@@ -2122,7 +2121,7 @@ def draw_asset_context_menu(
             # op.asset_id = asset_data['id']
             # op.asset_type = asset_data['assetType']
 
-    if author_id == str(profile.id):
+    if author_id == profile.id:  # was not working because of wrong types
         row = layout.row()
         row.operator_context = "INVOKE_DEFAULT"
         op = row.operator("object.blenderkit_change_status", text="Delete")
@@ -2132,7 +2131,6 @@ def draw_asset_context_menu(
 
     if utils.profile_is_validator():
         layout.label(text="Dev Tools:")
-
         op = layout.operator(
             "object.blenderkit_print_asset_debug", text="Print asset debug"
         )
@@ -2950,8 +2948,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         layout.separator()
 
-    def draw_comment(self, context, layout, comment, width: int = 330):
-        print("draw_comment", type(context), type(layout), type(comment))
+    def draw_comment(
+        self, context: Context, layout: UILayout, comment: dict, width: int = 330
+    ):
         row = layout.row()
         if comment["level"] > 0:
             split = row.split(factor=0.05 * comment["level"])
@@ -2986,9 +2985,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             op = split.operator(
                 "wm.blenderkit_is_private_comment", text=ptext
             )  # , icon='TRIA_DOWN')
-            op.asset_id = self.asset_data["assetBaseId"]
-            op.comment_id = comment["id"]
-            op.is_private = val
+            op.asset_id = self.asset_data["assetBaseId"]  # type: ignore
+            op.comment_id = comment["id"]  # type: ignore
+            op.is_private = val  # type: ignore
 
         removal = False
         likes = 0
@@ -3021,9 +3020,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         op = sub_like.operator(
             "wm.blenderkit_upvote_comment", text=str(likes), icon="TRIA_UP"
         )
-        op.asset_id = self.asset_data["assetBaseId"]
-        op.comment_id = comment["id"]
-        op.flag = "like"
+        op.asset_id = self.asset_data["assetBaseId"]  # type: ignore
+        op.comment_id = comment["id"]  # type: ignore
+        op.flag = "like"  # type: ignore
 
         split_dislike = split_like.split()
         split_dislike = split_dislike.row()
@@ -3031,9 +3030,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         op = split_dislike.operator(
             "wm.blenderkit_upvote_comment", text=str(dislikes), icon="TRIA_DOWN"
         )
-        op.asset_id = self.asset_data["assetBaseId"]
-        op.comment_id = comment["id"]
-        op.flag = "dislike"
+        op.asset_id = self.asset_data["assetBaseId"]  # type: ignore
+        op.comment_id = comment["id"]  # type: ignore
+        op.flag = "dislike"  # type: ignore
 
         if removal:
             row.alert = True
@@ -3052,7 +3051,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             split = split.split()
             row.alert = False
             op = row.operator("wm.url_open", text="", icon="GREASEPENCIL")
-            op.url = f'{global_vars.SERVER}/bksecretadmin/django_comments_xtd/xtdcomment/{comment["id"]}/change/'
+            op.url = f'{global_vars.SERVER}/bksecretadmin/django_comments_xtd/xtdcomment/{comment["id"]}/change/'  # type: ignore
             # row.alert = True
             # op = row.operator("wm.url_open", text="", icon='CANCEL')
             # op.url = f'{global_vars.SERVER}/bksecretadmin/django_comments_xtd/xtdcomment/{comment["id"]}/delete/'
@@ -3068,7 +3067,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 text="Reply",
                 icon="GREASEPENCIL",
             )
-            op.comment_id = comment["id"]
+            op.comment_id = comment["id"]  # type: ignore
 
         # box.label(text=str(comment['flags']))
 
