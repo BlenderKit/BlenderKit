@@ -66,7 +66,7 @@ def get_area_height(self):
     return 100
 
 
-BL_UI_Widget.get_area_height = get_area_height
+BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 
 
 def modal_inside(self, context, event):
@@ -253,8 +253,8 @@ def mouse_down_right(self, x, y):
     return False
 
 
-BL_UI_Button.mouse_down_right = mouse_down_right
-BL_UI_Button.set_mouse_down_right = set_mouse_down_right
+BL_UI_Button.mouse_down_right = mouse_down_right  # type: ignore[method-assign]
+BL_UI_Button.set_mouse_down_right = set_mouse_down_right  # type: ignore[attr-defined]
 
 asset_bar_operator = None
 
@@ -264,38 +264,38 @@ asset_bar_operator = None
 
 def get_tooltip_data(asset_data):
     tooltip_data = asset_data.get("tooltip_data")
-    if tooltip_data is None:
-        author_text = ""
+    if tooltip_data is not None:
+        return
 
-        if global_vars.DATA.get("bkit authors") is not None:
-            a = global_vars.DATA["bkit authors"].get(asset_data["author"]["id"])
-            if a is not None and a != "":
-                # if a.get('gravatarImg') is not None:
-                #     gimg = utils.get_hidden_image(a['gravatarImg'], a['gravatarHash']).name
+    author_text = ""
+    if global_vars.BKIT_AUTHORS:
+        author_id = int(asset_data["author"]["id"])
+        author = global_vars.BKIT_AUTHORS.get(author_id)
+        if author:
+            if len(author.firstName) > 0 or len(author.lastName) > 0:
+                author_text = f"by {author.firstName} {author.lastName}"
+        else:
+            print("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
 
-                if len(a["firstName"]) > 0 or len(a["lastName"]) > 0:
-                    author_text = f"by {a['firstName']} {a['lastName']}"
+    aname = asset_data["displayName"]
+    aname = aname[0].upper() + aname[1:]
+    if len(aname) > 36:
+        aname = f"{aname[:33]}..."
 
-        aname = asset_data["displayName"]
-        aname = aname[0].upper() + aname[1:]
-        if len(aname) > 36:
-            aname = f"{aname[:33]}..."
-
-        rc = asset_data.get("ratingsCount")
-        show_rating_threshold = 0
-        rcount = 0
-        quality = "-"
-        if rc:
-            rcount = min(rc.get("quality", 0), rc.get("workingHours", 0))
-        if rcount > show_rating_threshold:
-            quality = str(round(asset_data["ratingsAverage"].get("quality")))
-        tooltip_data = {
-            "aname": aname,
-            "author_text": author_text,
-            "quality": quality,
-            # 'gimg': gimg
-        }
-        asset_data["tooltip_data"] = tooltip_data
+    rc = asset_data.get("ratingsCount")
+    show_rating_threshold = 0
+    rcount = 0
+    quality = "-"
+    if rc:
+        rcount = min(rc.get("quality", 0), rc.get("workingHours", 0))
+    if rcount > show_rating_threshold:
+        quality = str(round(asset_data["ratingsAverage"].get("quality")))
+    tooltip_data = {
+        "aname": aname,
+        "author_text": author_text,
+        "quality": quality,
+    }
+    asset_data["tooltip_data"] = tooltip_data
 
 
 def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
@@ -328,21 +328,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     bl_options = {"REGISTER"}
     instances = []
 
-    do_search: BoolProperty(
+    do_search: BoolProperty(  # type: ignore[valid-type]
         name="Run Search", description="", default=True, options={"SKIP_SAVE"}
     )
-    keep_running: BoolProperty(
+    keep_running: BoolProperty(  # type: ignore[valid-type]
         name="Keep Running", description="", default=True, options={"SKIP_SAVE"}
     )
 
-    category: StringProperty(
+    category: StringProperty(  # type: ignore[valid-type]
         name="Category",
         description="search only subtree of this category",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    tooltip: bpy.props.StringProperty(
+    tooltip: bpy.props.StringProperty(  # type: ignore[valid-type]
         default="Runs search and displays the asset bar at the same time"
     )
 
@@ -1267,13 +1267,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Some features may not work."
             else:
                 self.version_warning.text = ""
-            authors = global_vars.DATA["bkit authors"]
-            a_id = asset_data["author"]["id"]
-            if (
-                authors.get(a_id) is not None
-                and authors[a_id].get("gravatarImg") is not None
-            ):
-                self.gravatar_image.set_image(authors[a_id].get("gravatarImg"))
+
+            author_id = int(asset_data["author"]["id"])
+            author = global_vars.BKIT_AUTHORS.get(author_id)
+            if author is None:
+                print("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
+
+            if author is not None and author.gravatarImg:
+                self.gravatar_image.set_image(author.gravatarImg)
             else:
                 img_path = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
                 self.gravatar_image.set_image(img_path)
@@ -1374,15 +1375,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         search.search(get_next=True)
 
-    def update_bookmark_icon(self, bookmark_button):
-        asset_data = global_vars.DATA["search results"][bookmark_button.asset_index]
-        r = ratings_utils.get_rating_local(asset_data["id"], "bookmarks")
-        if r == 1:
+    def update_bookmark_icon(self, bookmark_button: BL_UI_Button):
+        asset_index = bookmark_button.asset_index  # type: ignore
+        asset_data = global_vars.DATA["search results"][asset_index]
+        rating = ratings_utils.get_rating_local(asset_data["id"])
+        if rating is not None and rating.bookmarks == 1:
             icon = "bookmark_full.png"
             visible = True
         else:
             icon = "bookmark_empty.png"
-            if self.active_index == bookmark_button.asset_index:
+            if self.active_index == bookmark_button.asset_index:  # type: ignore
                 visible = True
             else:
                 visible = False
@@ -1400,14 +1402,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             asset_button.progress_bar.visible = False
 
-    def update_validation_icon(self, asset_button, asset_data):
+    def update_validation_icon(self, asset_button, asset_data: dict):
         if utils.profile_is_validator():
-            ar = global_vars.DATA.get("asset ratings", {})
-
-            rating = ar.get(asset_data["id"])
-            # if rating is not None:
-            #     rating = rating.to_dict()
-
+            rating = global_vars.RATINGS.get(asset_data["id"])
             v_icon = ui.verification_icons[
                 asset_data.get("verificationStatus", "validated")
             ]
@@ -1415,7 +1412,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 img_fp = paths.get_addon_thumbnail_path(v_icon)
                 asset_button.validation_icon.set_image(img_fp)
                 asset_button.validation_icon.visible = True
-            elif rating is None or rating.get("quality") is None:
+            elif rating is None or rating.quality is None:
                 v_icon = "star_grey.png"
                 img_fp = paths.get_addon_thumbnail_path(v_icon)
                 asset_button.validation_icon.set_image(img_fp)
@@ -1427,7 +1424,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 img_fp = paths.get_addon_thumbnail_path("locked.png")
                 asset_button.validation_icon.set_image(img_fp)
                 asset_button.validation_icon.visible = True
-
             else:
                 asset_button.validation_icon.visible = False
 
@@ -1545,7 +1541,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             sprops.search_keywords = ""
             sprops.search_verification_status = "ALL"
             # utils.p('author:', a)
-            search.search(author_id=a)
+            search.search(author_id=str(a))
         return True
 
     def search_similar(self, asset_index):
@@ -1586,7 +1582,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if event.type == "W" and self.active_index > -1:
             sr = global_vars.DATA["search results"]
             asset_data = sr[self.active_index]
-            author = global_vars.DATA["bkit authors"].get(asset_data["author"]["id"])
+            author_id = int(asset_data["author"]["id"])
+            author = global_vars.BKIT_AUTHORS.get(author_id)
             if author is None:
                 print("author is none")
                 return True
@@ -1617,11 +1614,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if event.type == "P" and self.active_index > -1:
             sr = global_vars.DATA["search results"]
             asset_data = sr[self.active_index]
-            author = global_vars.DATA["bkit authors"].get(asset_data["author"]["id"])
+            author_id = int(asset_data["author"]["id"])
+            author = global_vars.BKIT_AUTHORS.get(author_id)
             if author is None:
                 return True
             utils.p("author:", author)
-            url = paths.get_author_gallery_url(author["id"])
+            url = paths.get_author_gallery_url(author.id)
             bpy.ops.wm.url_open(url=url)
             return True
 
@@ -1717,8 +1715,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             cls.instances.remove(instance)
 
 
-BlenderKitAssetBarOperator.modal = asset_bar_modal
-BlenderKitAssetBarOperator.invoke = asset_bar_invoke
+BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]
+BlenderKitAssetBarOperator.invoke = asset_bar_invoke  # type: ignore[method-assign]
 
 
 def register():

@@ -22,11 +22,13 @@ import platform
 import shutil
 import subprocess
 from os import path
+import dataclasses
+from typing import Optional
 
 import bpy
 import requests
 
-from . import global_vars, reports, utils
+from . import datas, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -46,19 +48,19 @@ def get_port() -> str:
     return global_vars.CLIENT_PORTS[0]
 
 
-def ensure_minimal_data(data: dict = None) -> dict:
+def ensure_minimal_data(data: Optional[dict] = None) -> dict:
     """Ensure that the data send to the BlenderKit-Client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
     - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
     - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
     """
-    if data == None:
+    if data is None:
         data = {}
 
     av = global_vars.VERSION
     if "api_key" not in data:  # for BG instances, where preferences are not available
         data.setdefault(
-            "api_key", bpy.context.preferences.addons[__package__].preferences.api_key
+            "api_key", bpy.context.preferences.addons[__package__].preferences.api_key  # type: ignore
         )
     data.setdefault("app_id", os.getpid())
     data.setdefault("platform_version", platform.platform())
@@ -67,6 +69,26 @@ def ensure_minimal_data(data: dict = None) -> dict:
         f"{av[0]}.{av[1]}.{av[2]}.{av[3]}",
     )
     return data
+
+
+def ensure_minimal_data_class(data_class):
+    """Ensure that the data send to the BlenderKit-Client contains:
+    - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
+    - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
+    - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
+    """
+    if data_class == None:
+        data_class = dataclasses.dataclass()
+
+    av = global_vars.VERSION
+    if hasattr(data_class, "api_key"):
+        # for BG instances, where preferences are not available
+        api_key = bpy.context.preferences.addons[__package__].preferences.api_key
+        setattr(data_class, "api_key", api_key)
+    setattr(data_class, "app_id", os.getpid())
+    setattr(data_class, "platform_version", platform.platform())
+    setattr(data_class, "addon_version", f"{av[0]}.{av[1]}.{av[2]}.{av[3]}")
+    return data_class
 
 
 def reorder_ports(port: str):
@@ -82,9 +104,7 @@ def get_reports(app_id: str):
     If few last calls failed, then try to get reports also from other than default ports.
     """
     data = ensure_minimal_data({"app_id": app_id})
-    data["blender_version"] = (
-        f"{bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}"
-    )
+    data["blender_version"] = utils.get_blender_version()
     if (
         global_vars.CLIENT_FAILED_REPORTS < 10
     ):  # on 10, there is second BlenderKit-Client start
@@ -105,7 +125,8 @@ def get_reports(app_id: str):
         except Exception as e:
             bk_logger.info(f"Failed to get BlenderKit-Client reports: {e}")
             last_exception = e
-    raise last_exception
+    if last_exception is not None:
+        raise last_exception
 
 
 def request_report(url: str, data: dict):
@@ -116,14 +137,17 @@ def request_report(url: str, data: dict):
 
 ### ASSETS
 # SEARCH
-def asset_search(data):
+def asset_search(search_data: datas.SearchData):
     """Search for specified asset."""
-    bk_logger.info(f"Starting search request: {data['urlquery']}")
+    bk_logger.info(f"Starting search request: {search_data.urlquery}")
+
+    search_data = ensure_minimal_data_class(search_data)
     address = get_address()
-    data = ensure_minimal_data(data)
     with requests.Session() as session:
         url = address + "/blender/asset_search"
-        resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        resp = session.post(
+            url, json=datas.asdict(search_data), timeout=TIMEOUT, proxies=NO_PROXIES
+        )
         bk_logger.debug("Got search response")
         return resp.json()
 
@@ -139,7 +163,7 @@ def asset_download(data):
         return resp.json()
 
 
-def cancel_download(task_id):
+def cancel_download(task_id: str):
     """Cancel the specified task with ID on the BlenderKit-Client."""
     address = get_address()
     data = ensure_minimal_data({"task_id": task_id})
@@ -167,16 +191,15 @@ def asset_upload(upload_data, export_data, upload_set):
 
 
 ### PROFILES
-def download_gravatar_image(
-    author_data,
-):  # TODO: require avatar128 and gravatarHash and refuse directly
+def download_gravatar_image(author_data: datas.UserProfile) -> requests.Response:
     """Fetch gravatar image for specified user. Find it on disk or download it from server."""
     data = {
-        "id": author_data.get("id", ""),
-        "avatar128": author_data.get("avatar128", ""),
-        "gravatarHash": author_data.get("gravatarHash", ""),
+        "id": author_data.id,
+        "avatar128": author_data.avatar128,
+        "gravatarHash": author_data.gravatarHash,
     }
     data = ensure_minimal_data(data)
+
     with requests.Session() as session:
         return session.get(
             f"{get_address()}/profiles/download_gravatar_image",
@@ -186,7 +209,7 @@ def download_gravatar_image(
         )
 
 
-def get_user_profile():
+def get_user_profile() -> requests.Response:
     """Fetch profile of currently logged-in user.
     This creates task on BlenderKit-Client to fetch data which are later handled once available.
     """
@@ -402,8 +425,8 @@ def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Re
 def blocking_request(
     url: str,
     method: str = "GET",
-    headers: dict = None,
-    json_data: dict = None,
+    headers: Optional[dict] = None,
+    json_data: Optional[dict] = None,
     timeout: tuple = TIMEOUT,
 ) -> requests.Response:
     """Make blocking HTTP request through BlenderKit-Client.
@@ -415,7 +438,7 @@ def blocking_request(
         "method": method,
         "headers": headers,
     }
-    if json_data != None:
+    if json_data is not None:
         data["json"] = json_data
     with requests.Session() as session:
         return session.get(
@@ -430,9 +453,9 @@ def blocking_request(
 def nonblocking_request(
     url: str,
     method: str,
-    headers: dict = None,
-    json_data: dict = None,
-    messages: dict = None,
+    headers: Optional[dict] = None,
+    json_data: Optional[dict] = None,
+    messages: Optional[dict] = None,
 ) -> requests.Response:
     """Make non-blocking HTTP request through BlenderKit-Client.
     This function will return ASAP, not returning any actual data.
@@ -448,7 +471,7 @@ def nonblocking_request(
         "messages": messages,
     }
     data = ensure_minimal_data(data)
-    if json_data != None:
+    if json_data is not None:
         data["json"] = json_data
     with requests.Session() as session:
         return session.get(
@@ -535,8 +558,8 @@ def handle_client_status_task(task):
 
 
 def check_blenderkit_client_return_code() -> tuple[int, str]:
-    """Check the return code for the started BlenderKit-Client. If the return code is None, it means Client still runs - we consider this a success!
-    However if the return code is present, it failed to start and we check the return code value. If the return code is known,
+    """Check the return code for the started BlenderKit-Client. If the return code returned from process.poll() is None - returned by this func as -1, it means Client still runs - we consider this a success!
+    However if the return code from poll() is present, it failed to start and we check the return code value. If the return code is known,
     we print information to user about the reason. So they do not need to dig in the Client log.
     """
     # Return codes - as defined in main.go
@@ -545,10 +568,12 @@ def check_blenderkit_client_return_code() -> tuple[int, str]:
     rcServerStartOtherSyscallError = 42
     rcServerStartSyscallEADDRINUSE = 43
     rcServerStartSyscallEACCES = 44
+    if global_vars.client_process is None:
+        return -2, "Unexpectedly global_vars.client_process is None"
 
     exit_code = global_vars.client_process.poll()
     if exit_code is None:
-        return exit_code, "BlenderKit-Client process is running."
+        return -1, "BlenderKit-Client process is running."
 
     if exit_code == rcServerStartOtherError:
         msg = f"Other starting problem."
@@ -654,7 +679,7 @@ def decide_client_binary_name() -> str:
 
 def get_client_directory() -> str:
     """Get the path to the BlenderKit-Client directory located in global_dir."""
-    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
+    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir  # type: ignore
     directory = path.join(global_dir, "client")
     return directory
 

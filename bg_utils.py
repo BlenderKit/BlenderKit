@@ -23,7 +23,7 @@ Not used directly in BlenderKit addon, but in BlenderKit background processes.
 import logging
 import os
 
-import addon_utils
+import addon_utils  # type: ignore
 
 from . import client_lib, download, paths
 

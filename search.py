@@ -22,6 +22,7 @@ import math
 import os
 import urllib.parse
 import unicodedata
+from typing import Optional
 
 import bpy
 from bpy.app.handlers import persistent
@@ -36,6 +37,7 @@ from . import (
     client_lib,
     client_tasks,
     comments_utils,
+    datas,
     global_vars,
     image_utils,
     paths,
@@ -44,7 +46,6 @@ from . import (
     resolutions,
     tasks_queue,
     utils,
-    version_checker,
 )
 
 
@@ -171,7 +172,9 @@ def check_clipboard():
     search_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
 
 
-def parse_result(r):
+# TODO: type annotate and check this crazy function!
+# Are we sure it behaves correctly on network issues, malfunctioning search etc?
+def parse_result(r) -> dict:
     """Needed to generate some extra data in the result(by now)
     Parameters
     ----------
@@ -187,116 +190,119 @@ def parse_result(r):
         utils.p("asset with no files-size")
 
     asset_type = r["assetType"]
-    # TODO: REVERSE THIS CONDITION AND RETURN
-    if len(r["files"]) > 0:  # TODO remove this condition so all assets are parsed.
-        generate_author_profile(r["author"])
+    # TODO remove this condition so all assets are parsed?
+    if len(r["files"]) == 0:
+        return {}
 
-        r["available_resolutions"] = []
-        use_webp = True
-        if bpy.app.version < (3, 4, 0) or r.get("webpGeneratedTimestamp", 0) == 0:
-            use_webp = False  # WEBP was optimized in Blender 3.4.0
+    adata = r["author"]
+    social_networks = datas.parse_social_networks(adata.pop("socialNetworks", []))
+    author = datas.UserProfile(**adata, socialNetworks=social_networks)
+    generate_author_profile(author)
 
-        # BIG THUMB - HDR CASE
-        if r["assetType"] == "hdr":
-            if use_webp:
-                thumb_url = r.get("thumbnailLargeUrlNonsquaredWebp")
-            else:
-                thumb_url = r.get("thumbnailLargeUrlNonsquared")
-        # BIG THUMB - NON HDR CASE
-        else:
-            if use_webp:
-                thumb_url = r.get("thumbnailMiddleUrlWebp")
-            else:
-                thumb_url = r.get("thumbnailMiddleUrl")
+    r["available_resolutions"] = []
+    use_webp = True
+    if bpy.app.version < (3, 4, 0) or r.get("webpGeneratedTimestamp", 0) == 0:
+        use_webp = False  # WEBP was optimized in Blender 3.4.0
 
-        # SMALL THUMB
+    # BIG THUMB - HDR CASE
+    if r["assetType"] == "hdr":
         if use_webp:
-            small_thumb_url = r.get("thumbnailSmallUrlWebp")
+            thumb_url = r.get("thumbnailLargeUrlNonsquaredWebp")
         else:
-            small_thumb_url = r.get("thumbnailSmallUrl")
+            thumb_url = r.get("thumbnailLargeUrlNonsquared")
+    # BIG THUMB - NON HDR CASE
+    else:
+        if use_webp:
+            thumb_url = r.get("thumbnailMiddleUrlWebp")
+        else:
+            thumb_url = r.get("thumbnailMiddleUrl")
 
-        tname = paths.extract_filename_from_url(thumb_url)
-        small_tname = paths.extract_filename_from_url(small_thumb_url)
-        for f in r["files"]:
-            # if f['fileType'] == 'thumbnail':
-            #     tname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
-            #     small_tname = paths.extract_filename_from_url(f['fileThumbnail'])
-            #     allthumbs.append(tname)  # TODO just first thumb is used now.
+    # SMALL THUMB
+    if use_webp:
+        small_thumb_url = r.get("thumbnailSmallUrlWebp")
+    else:
+        small_thumb_url = r.get("thumbnailSmallUrl")
 
-            if f["fileType"] == "blend":
-                durl = f["downloadUrl"].split("?")[0]
-                # fname = paths.extract_filename_from_url(f['filePath'])
+    tname = paths.extract_filename_from_url(thumb_url)
+    small_tname = paths.extract_filename_from_url(small_thumb_url)
+    for f in r["files"]:
+        # if f['fileType'] == 'thumbnail':
+        #     tname = paths.extract_filename_from_url(f['fileThumbnailLarge'])
+        #     small_tname = paths.extract_filename_from_url(f['fileThumbnail'])
+        #     allthumbs.append(tname)  # TODO just first thumb is used now.
 
-            if f["fileType"].find("resolution") > -1:
-                r["available_resolutions"].append(
-                    resolutions.resolutions[f["fileType"]]
-                )
+        if f["fileType"] == "blend":
+            durl = f["downloadUrl"].split("?")[0]
+            # fname = paths.extract_filename_from_url(f['filePath'])
 
-        # code for more thumbnails
-        # tdict = {}
-        # for i, t in enumerate(allthumbs):
-        #     tdict['thumbnail_%i'] = t
+        if f["fileType"].find("resolution") > -1:
+            r["available_resolutions"].append(resolutions.resolutions[f["fileType"]])
 
-        r["max_resolution"] = 0
-        if r["available_resolutions"]:  # should check only for non-empty sequences
-            r["max_resolution"] = max(r["available_resolutions"])
+    # code for more thumbnails
+    # tdict = {}
+    # for i, t in enumerate(allthumbs):
+    #     tdict['thumbnail_%i'] = t
 
-        # tooltip = generate_tooltip(r)
-        # for some reason, the id was still int on some occurances. investigate this.
-        r["author"]["id"] = str(r["author"]["id"])
+    r["max_resolution"] = 0
+    if r["available_resolutions"]:  # should check only for non-empty sequences
+        r["max_resolution"] = max(r["available_resolutions"])
 
-        # some helper props, but generally shouldn't be renaming/duplifiying original properties,
-        # so blender's data is same as on server.
-        asset_data = {
-            "thumbnail": tname,
-            "thumbnail_small": small_tname,
-            # 'tooltip': tooltip,
-        }
-        asset_data["downloaded"] = 0
+    # tooltip = generate_tooltip(r)
+    # for some reason, the id was still int on some occurances. investigate this.
+    r["author"]["id"] = str(r["author"]["id"])
 
-        # parse extra params needed for blender here
-        params = r["dictParameters"]  # utils.params_to_dict(r['parameters'])
+    # some helper props, but generally shouldn't be renaming/duplifiying original properties,
+    # so blender's data is same as on server.
+    asset_data = {
+        "thumbnail": tname,
+        "thumbnail_small": small_tname,
+        # 'tooltip': tooltip,
+    }
+    asset_data["downloaded"] = 0
 
-        if asset_type == "model":
-            if params.get("boundBoxMinX") != None:
-                bbox = {
-                    "bbox_min": (
-                        float(params["boundBoxMinX"]),
-                        float(params["boundBoxMinY"]),
-                        float(params["boundBoxMinZ"]),
-                    ),
-                    "bbox_max": (
-                        float(params["boundBoxMaxX"]),
-                        float(params["boundBoxMaxY"]),
-                        float(params["boundBoxMaxZ"]),
-                    ),
-                }
+    # parse extra params needed for blender here
+    params = r["dictParameters"]  # utils.params_to_dict(r['parameters'])
 
-            else:
-                bbox = {"bbox_min": (-0.5, -0.5, 0), "bbox_max": (0.5, 0.5, 1)}
-            asset_data.update(bbox)
-        if asset_type == "material":
-            asset_data["texture_size_meters"] = params.get("textureSizeMeters", 1.0)
+    if asset_type == "model":
+        if params.get("boundBoxMinX") != None:
+            bbox = {
+                "bbox_min": (
+                    float(params["boundBoxMinX"]),
+                    float(params["boundBoxMinY"]),
+                    float(params["boundBoxMinZ"]),
+                ),
+                "bbox_max": (
+                    float(params["boundBoxMaxX"]),
+                    float(params["boundBoxMaxY"]),
+                    float(params["boundBoxMaxZ"]),
+                ),
+            }
 
-        # asset_data.update(tdict)
+        else:
+            bbox = {"bbox_min": (-0.5, -0.5, 0), "bbox_max": (0.5, 0.5, 1)}
+        asset_data.update(bbox)
+    if asset_type == "material":
+        asset_data["texture_size_meters"] = params.get("textureSizeMeters", 1.0)
 
-        au = scene.get("assets used", {})
-        if au == {}:
-            scene["assets used"] = au
-        if r["assetBaseId"] in au.keys():
-            asset_data["downloaded"] = 100
-            # transcribe all urls already fetched from the server
-            r_previous = au[r["assetBaseId"]]
-            if r_previous.get("files"):
-                for f in r_previous["files"]:
-                    if f.get("url"):
-                        for f1 in r["files"]:
-                            if f1["fileType"] == f["fileType"]:
-                                f1["url"] = f["url"]
+    # asset_data.update(tdict)
 
-        # attempt to switch to use original data gradually, since the parsing as itself should become obsolete.
-        asset_data.update(r)
-        return asset_data
+    au = scene.get("assets used", {})  # type: ignore
+    if au == {}:
+        scene["assets used"] = au  # type: ignore
+    if r["assetBaseId"] in au.keys():
+        asset_data["downloaded"] = 100
+        # transcribe all urls already fetched from the server
+        r_previous = au[r["assetBaseId"]]
+        if r_previous.get("files"):
+            for f in r_previous["files"]:
+                if f.get("url"):
+                    for f1 in r["files"]:
+                        if f1["fileType"] == f["fileType"]:
+                            f1["url"] = f["url"]
+
+    # attempt to switch to use original data gradually, since the parsing as itself should become obsolete.
+    asset_data.update(r)
+    return asset_data
 
 
 def clear_searches():
@@ -341,7 +347,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
     # causing a lot of throuble.
-    if bpy.context.window_manager.blenderkitUI.dragging:
+    if bpy.context.window_manager.blenderkitUI.dragging:  # type: ignore[attr-defined]
         # utils.p('end search timer')
         return False
     # if original task was already removed (because user initiated another search), results are dropped- Returns True
@@ -370,32 +376,30 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     search_name = f"bkit {asset_type} search"
 
     if not task.data.get("get_next"):
-        result_field = []
+        result_field = []  # type: ignore
     else:
         result_field = []
-        for r in global_vars.DATA[search_name]:
+        for r in global_vars.DATA[search_name]:  # type: ignore
             result_field.append(r)
 
-    ui_props = bpy.context.window_manager.blenderkitUI
-    for ri, r in enumerate(task.result["results"]):
-        asset_data = parse_result(r)
-        if asset_data is not None:
-            result_field.append(asset_data)
+    ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
+    for result in task.result["results"]:
+        asset_data = parse_result(result)
+        if not asset_data:
+            bk_logger.warning("Parsed asset data are empty for search result", result)
+            continue
+
+        result_field.append(asset_data)
+        if not utils.profile_is_validator():
+            continue
+        # VALIDATORS
         # fetch all comments if user is validator to preview them faster
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
-        if utils.profile_is_validator():
-            comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
-            if comments is None:
-                user_preferences = bpy.context.preferences.addons[
-                    __package__
-                ].preferences
-                api_key = user_preferences.api_key
-                client_lib.get_comments(asset_data["assetBaseId"])
-
-    # Get ratings from BlenderKit server TODO: do this in client
-    if utils.profile_is_validator():
-        for result in task.result["results"]:
-            ratings_utils.ensure_rating(result["id"])
+        comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
+        if comments is None:
+            client_lib.get_comments(asset_data["assetBaseId"])
+        # fetch ratings
+        ratings_utils.ensure_rating(asset_data["id"])
 
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f"{search_name} orig"] = task.result
@@ -412,7 +416,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get("get_next"):
-        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
 
     if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
         # jump back
@@ -429,7 +433,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         )
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get("get_next"):
-        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
 
     if len(search_tasks) == 0:
         props.is_searching = False
@@ -561,26 +565,28 @@ def writeblock(t, input, width=40):  # for longer texts
     return t
 
 
-def writeblockm(tooltip, mdata, key="", pretext=None, width=40):  # for longer texts
-    if mdata.get(key) == None:
+def write_block_from_value(tooltip, value, pretext="", width=2000):  # for longer texts
+    if not value:
         return tooltip
+
+    if type(value) == list:
+        intext = list_to_str(value)
+    elif type(value) == float:
+        intext = round(intext, 3)
     else:
-        intext = mdata[key]
-        if type(intext) == list:
-            intext = list_to_str(intext)
-        if type(intext) == float:
-            intext = round(intext, 3)
-        intext = str(intext)
-        if intext.rstrip() == "":
-            return tooltip
-        if pretext == None:
-            pretext = key
-        if pretext != "":
-            pretext = pretext + ": "
-        text = pretext + intext
-        dlines = split_subs(text, threshold=width)
-        for i, l in enumerate(dlines):
-            tooltip += "%s\n" % l
+        intext = value
+
+    intext = str(intext)
+    if intext.rstrip() == "":
+        return tooltip
+
+    if pretext != "":
+        pretext = pretext + ": "
+
+    text = pretext + intext
+    dlines = split_subs(text, threshold=width)
+    for _, line in enumerate(dlines):
+        tooltip += f"{line}\n"
 
     return tooltip
 
@@ -610,60 +616,106 @@ def generate_tooltip(mdata):
     return t
 
 
-def generate_author_textblock(adata):
-    t = ""
-    if adata not in (None, ""):
-        col_w = 2000
-        if len(adata["firstName"] + adata["lastName"]) > 0:
-            t = "%s %s\n" % (adata["firstName"], adata["lastName"])
-            t += "\n"
-            if adata.get("aboutMe") is not None:
-                t = writeblockm(t, adata, key="aboutMe", pretext="", width=col_w)
-    return t
+def generate_author_textblock(first_name: str, last_name: str, about_me: str):
+    if len(first_name + last_name) == 0:
+        return ""
+
+    text = f"{first_name} {last_name}\n"
+    if about_me:
+        text = write_block_from_value(text, about_me)
+
+    return text
 
 
 def handle_fetch_gravatar_task(task: client_tasks.Task):
     """Handle incomming fetch_gravatar_task which contains path to author's image on the disk."""
     if task.status == "finished":
-        author_id = str(task.data["id"])
+        author_id = int(task.data["id"])
         gravatar_path = task.result["gravatar_path"]
-        global_vars.DATA["bkit authors"][author_id]["gravatarImg"] = gravatar_path
+        global_vars.BKIT_AUTHORS[author_id].gravatarImg = gravatar_path
 
 
-def generate_author_profile(author_data):
+def generate_author_profile(author_data: datas.UserProfile):
     """Generate author profile by creating author textblock and fetching gravatar image if needed.
-    Gravatar download is started in BlenderKit-Download and handled later."""
-    author_id = str(author_data["id"])
-    if author_id in global_vars.DATA["bkit authors"]:
+    Gravatar download is started in BlenderKit-Client and handled later."""
+    author_id = int(author_data.id)
+    if author_id in global_vars.BKIT_AUTHORS:
         return
-    client_lib.download_gravatar_image(author_data)
-    author_data["tooltip"] = generate_author_textblock(author_data)
-    global_vars.DATA["bkit authors"][author_id] = author_data
+    resp = client_lib.download_gravatar_image(author_data)
+    if resp.status_code != 200:
+        bk_logger.warning(resp.text)
+
+    # TODO: tooltip generation could be part of the __init__, right?
+    author_data.tooltip = generate_author_textblock(
+        author_data.firstName, author_data.lastName, author_data.aboutMe
+    )
+    global_vars.BKIT_AUTHORS[author_id] = author_data
     return
 
 
 def handle_get_user_profile(task: client_tasks.Task):
     """Handle incomming get_user_profile task which contains data about current logged-in user."""
     if task.status == "finished":
-        user_data = task.result
-        user_data["user"]["tooltip"] = generate_author_textblock(user_data["user"])
-        global_vars.DATA["bkit profile"] = user_data
-        global_vars.DATA["bkit authors"][str(user_data["user"]["id"])] = user_data[
-            "user"
-        ]
+        user_data = task.result.get("user")
+        if not user_data:
+            bk_logger.warning("Got empty user profile")
+            return
+
+        can_edit_all_assets = task.result.get("canEditAllAssets", False)
+        social_networks = datas.parse_social_networks(
+            user_data.pop("socialNetworks", [])
+        )
+
+        user = datas.MineProfile(
+            socialNetworks=social_networks,
+            canEditAllAssets=can_edit_all_assets,
+            **user_data,
+        )
+        user.tooltip = generate_author_textblock(
+            user.firstName, user.lastName, user.aboutMe
+        )
+        global_vars.BKIT_PROFILE = user
+
+        public_user = datas.UserProfile(
+            aboutMe=user.aboutMe,
+            aboutMeUrl=user.aboutMeUrl,
+            avatar128=user.avatar128,
+            firstName=user.firstName,
+            fullName=user.fullName,
+            gravatarHash=user.gravatarHash,
+            id=user.id,
+            lastName=user.lastName,
+            socialNetworks=user.socialNetworks,
+            avatar256=user.avatar256,
+            gravatarImg=user.gravatarImg,
+            tooltip=user.tooltip,
+        )
+        global_vars.BKIT_AUTHORS[user.id] = public_user
+
         # after profile arrives, we can check for gravatar image
-        client_lib.download_gravatar_image(user_data["user"])
-        if user_data.get("canEditAllAssets", False):  # IS VALIDATOR
+        resp = client_lib.download_gravatar_image(public_user)
+        if resp.status_code != 200:
+            bk_logger.warning(resp.text)
+
+        if user.canEditAllAssets:  # IS VALIDATOR
             utils.enforce_prerelease_update_check()
 
 
-def query_to_url(query={}, params={}):
+def query_to_url(
+    query: Optional[dict] = None,
+    addon_version: str = "",
+    blender_version: str = "",
+    scene_uuid: str = "",
+    page_size: int = 15,
+) -> str:
     """Build a new search request by parsing query dictionaty into appropriate URL.
-    Also modifies query and params and adds some stuff in there which is very misleading anti-patter.
+    Also modifies query and adds some stuff in there which is very misleading anti-pattern.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
     https://www.blenderkit.com/api/v1/search/
     """
     url = f"{paths.BLENDERKIT_API}/search/"
+    if query is None:
+        query = {}
 
     requeststring = "?query="
     if query.get("query") not in ("", None):
@@ -712,12 +764,12 @@ def query_to_url(query={}, params={}):
         requeststring += "+order:" + ",".join(order)
     requeststring += "&dict_parameters=1"
 
-    requeststring += "&page_size=" + str(params["page_size"])
-    requeststring += f"&addon_version={params['addon_version']}"
-    if not (query.get("query") and query.get("query").find("asset_base_id") > -1):
-        requeststring += f"&blender_version={params['blender_version']}"
-    if params.get("scene_uuid") is not None:
-        requeststring += f"&scene_uuid={params['scene_uuid']}"
+    requeststring += "&page_size=" + str(page_size)
+    requeststring += f"&addon_version={addon_version}"
+    if not (query.get("query") and query.get("query", "").find("asset_base_id") > -1):
+        requeststring += f"&blender_version={blender_version}"
+    if scene_uuid:
+        requeststring += f"&scene_uuid={scene_uuid}"
 
     urlquery = url + requeststring
     return urlquery
@@ -879,16 +931,12 @@ def build_query_nodegroup():
     return query
 
 
-def build_query_nodegroup():
-    props = bpy.context.window_manager.blenderkit_nodegroup
-    query = {"asset_type": "nodegroup"}
-
-    build_query_common(query, props)
-    return query
-
-
-def add_search_process(query, params):
+def add_search_process(query, get_next: bool, page_size: int, next_url: str):
     global search_tasks
+    addon_version = utils.get_addon_version()
+    blender_version = utils.get_blender_version()
+    scene_uuid = bpy.context.scene.get("uuid", "")  # type: ignore[attr-defined]
+
     if len(search_tasks) > 0:
         # just remove all running search tasks.
         # we can also kill them in BlenderKit-Client, but not so urgent now
@@ -897,20 +945,25 @@ def add_search_process(query, params):
         search_tasks = dict()
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
-    if params.get("get_next") and params.get("next"):
-        urlquery = params["next"]
+    if get_next and next_url:
+        urlquery = next_url
     else:
-        urlquery = query_to_url(query, params)
+        urlquery = query_to_url(
+            query, addon_version, blender_version, scene_uuid, page_size
+        )
 
-    data = {
-        "PREFS": utils.get_preferences_as_dict(),
-        "tempdir": tempdir,
-        "urlquery": urlquery,
-        "asset_type": query["asset_type"],
-    }
-    data.update(params)
-    response = client_lib.asset_search(data)
-    search_tasks[response["task_id"]] = data
+    search_data = datas.SearchData(
+        PREFS=utils.get_preferences(),  # change this
+        tempdir=tempdir,
+        urlquery=urlquery,
+        asset_type=query["asset_type"],
+        scene_uuid=scene_uuid,
+        get_next=get_next,
+        page_size=page_size,
+        blender_version=blender_version,
+    )
+    response = client_lib.asset_search(search_data)
+    search_tasks[response["task_id"]] = search_data
 
 
 def get_search_simple(
@@ -1043,9 +1096,9 @@ def search(get_next=False, query=None, author_id=""):
 
         elif ui_props.own_only:
             # if user searches for [another] author, 'only my assets' is invalid. that's why in elif.
-            profile = global_vars.DATA.get("bkit profile")
+            profile = global_vars.BKIT_PROFILE
             if profile is not None:
-                query["author_id"] = str(profile["user"]["id"])
+                query["author_id"] = str(profile.id)
 
         # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
         query["free_first"] = ui_props.free_only
@@ -1057,21 +1110,14 @@ def search(get_next=False, query=None, author_id=""):
     props.is_searching = True
 
     page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
-    params = {
-        "scene_uuid": bpy.context.scene.get("uuid", None),
-        "addon_version": version_checker.get_addon_version(),
-        "blender_version": version_checker.get_blender_version(),
-        "api_key": user_preferences.api_key,
-        "get_next": get_next,
-        "page_size": page_size,
-    }
-
     orig_results = global_vars.DATA.get(
         f"bkit {ui_props.asset_type.lower()} search orig"
     )
+
+    next_url = ""
     if orig_results is not None and get_next:
-        params["next"] = orig_results["next"]
-    add_search_process(query, params)
+        next_url = orig_results["next"]
+    add_search_process(query, get_next, page_size, next_url)
     props.report = "BlenderKit searching...."
 
 
@@ -1259,14 +1305,14 @@ class SearchOperator(Operator):
     bl_description = "Search online for assets"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    esc: BoolProperty(
+    esc: BoolProperty(  # type: ignore[valid-type]
         name="Escape window",
         description="Escape window right after start",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    own: BoolProperty(
+    own: BoolProperty(  # type: ignore[valid-type]
         name="own assets only",
         description="Find all own assets",
         default=False,
@@ -1280,21 +1326,21 @@ class SearchOperator(Operator):
     #     options={"SKIP_SAVE"},
     # )
 
-    author_id: StringProperty(
+    author_id: StringProperty(  # type: ignore[valid-type]
         name="Author ID",
         description="Author ID - search only assets by this author",
         default="",
         options={"SKIP_SAVE"},
     )
 
-    get_next: BoolProperty(
+    get_next: BoolProperty(  # type: ignore[valid-type]
         name="next page",
         description="get next page from previous search",
         default=False,
         options={"SKIP_SAVE"},
     )
 
-    keywords: StringProperty(
+    keywords: StringProperty(  # type: ignore[valid-type]
         name="Keywords", description="Keywords", default="", options={"SKIP_SAVE"}
     )
 
@@ -1302,7 +1348,7 @@ class SearchOperator(Operator):
     #                            description='Try to close the window below mouse before download',
     #                            default=False)
 
-    tooltip: bpy.props.StringProperty(
+    tooltip: bpy.props.StringProperty(  # type: ignore[valid-type]
         default="Runs search and displays the asset bar at the same time"
     )
 
@@ -1337,8 +1383,8 @@ class UrlOperator(Operator):
     bl_description = "Search online for assets"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    tooltip: bpy.props.StringProperty(default="Open a web page")
-    url: bpy.props.StringProperty(
+    tooltip: bpy.props.StringProperty(default="Open a web page")  # type: ignore[valid-type]
+    url: bpy.props.StringProperty(  # type: ignore[valid-type]
         default="Runs search and displays the asset bar at the same time"
     )
 
@@ -1359,7 +1405,7 @@ class TooltipLabelOperator(Operator):
     bl_description = "Empty operator to be able to create tooltips on labels in UI"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    tooltip: bpy.props.StringProperty(default="Open a web page")
+    tooltip: bpy.props.StringProperty(default="Open a web page")  # type: ignore[valid-type]
 
     @classmethod
     def description(cls, context, properties):
@@ -1376,7 +1422,7 @@ def get_search_similar_keywords(asset_data: dict) -> str:
     keywords = asset_data["name"]
     if asset_data.get("description"):
         keywords += f" {asset_data.get('description')} "
-    keywords += " ".join(asset_data.get("tags"))
+    keywords += " ".join(asset_data.get("tags", []))
     return keywords
 
 

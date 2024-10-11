@@ -20,7 +20,6 @@
 # 1 part of the module effectively fills tags for the assets,
 # the 2nd part finds possible problems in the asset.
 
-import addon_utils
 import bpy
 
 from . import utils
@@ -444,4 +443,5 @@ def unregister_asset_inspector():
 
 
 if __name__ == "__main__":
-    register()  # TODO: fix call to missing function
+    register()  # type: ignore
+    # TODO: fix call to missing function

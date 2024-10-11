@@ -44,7 +44,7 @@ from . import (
 
 
 bk_logger = logging.getLogger(__name__)
-reports_queue = queue.Queue()
+reports_queue: queue.Queue = queue.Queue()
 pending_tasks = (
     list()
 )  # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
@@ -64,11 +64,11 @@ def handle_failed_reports(exception: Exception) -> float:
 
     bk_logger.warning(f"Could not get reports: {exception}")
     return_code, meaning = client_lib.check_blenderkit_client_return_code()
-    if return_code is None and global_vars.CLIENT_FAILED_REPORTS == 15:
+    if return_code == -1 and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
             "Client is not responding, add-on will not work.", 10, "ERROR"
         )
-    if return_code is not None and global_vars.CLIENT_FAILED_REPORTS == 15:
+    if return_code != -1 and global_vars.CLIENT_FAILED_REPORTS == 15:
         reports.add_report(
             f"Client failed to start, add-on will not work. Error({return_code}): {meaning}",
             10,
@@ -76,7 +76,7 @@ def handle_failed_reports(exception: Exception) -> float:
         )
 
     wm = bpy.context.window_manager
-    wm.blenderkitUI.logo_status = "logo_offline"
+    wm.blenderkitUI.logo_status = "logo_offline"  # type: ignore[attr-defined]
     global_vars.CLIENT_RUNNING = False
     client_lib.start_blenderkit_client()
     return 30.0
@@ -201,11 +201,11 @@ def cancel_all_tasks(self, context):
 def task_error_overdrive(task: client_tasks.Task) -> None:
     """Handle error task - overdrive some error messages, trigger functions common for all errors."""
     if task.message.count("Invalid token.") > 0 and utils.user_logged_in():
-        preferences = bpy.context.preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
 
         # Invalid token and api_key_refresh present -> trying to refresh the token
-        if preferences.api_key_refresh != "":
-            client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)
+        if preferences.api_key_refresh != "":  # type: ignore
+            client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)  # type: ignore
             reports.add_report(
                 "Invalid API key token. Refreshing the token now. If problem persist, please log-out and log-in.",
                 5,

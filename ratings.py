@@ -23,7 +23,7 @@ from bpy.props import StringProperty
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
 
-from . import client_lib, global_vars, icons, ratings_utils, ui, ui_panels, utils
+from . import client_lib, global_vars, icons, ratings_utils, ui, ui_panels, utils, datas
 
 
 bk_logger = logging.getLogger(__name__)
@@ -80,9 +80,9 @@ def draw_ratings_menu(self, context, layout):
         return
 
     profile_name = ""
-    profile = global_vars.DATA.get("bkit profile")
-    if profile and len(profile["user"]["firstName"]) > 0:
-        profile_name = " " + profile["user"]["firstName"]
+    profile = global_vars.BKIT_PROFILE
+    if profile and len(profile.firstName) > 0:
+        profile_name = " " + profile.firstName
 
     row.label(text="Rate Quality:", icon="SOLO_ON")
     # row = col.row()
@@ -189,7 +189,7 @@ class SetBookmark(bpy.types.Operator):
     bl_label = "BlenderKit bookmark assest"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    asset_id: StringProperty(
+    asset_id: StringProperty(  # type: ignore[valid-type]
         name="Asset Base Id",
         description="Unique id of the asset (hidden)",
         default="",
@@ -206,13 +206,15 @@ class SetBookmark(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        r = ratings_utils.get_rating_local(self.asset_id, "bookmarks")
-        if r == 1:
+        rating = ratings_utils.get_rating_local(self.asset_id)
+        if rating is None:
+            rating = datas.AssetRating()
+        if rating.bookmarks == 1:
             bookmark_value = 0
         else:
             bookmark_value = 1
         ratings_utils.store_rating_local(
-            self.asset_id, type="bookmarks", value=bookmark_value
+            self.asset_id, rating_type="bookmarks", value=bookmark_value
         )
         client_lib.send_rating(self.asset_id, "bookmarks", bookmark_value)
         return {"FINISHED"}
@@ -306,13 +308,9 @@ def should_be_rated(ob) -> bool:
     ad = ob.get("asset_data")
     if ad is None:
         return False
-    r = ratings_utils.get_rating_local(ad["id"], "quality")
-    if r == {}:
+    rating = ratings_utils.get_rating_local(ad["id"])
+    if rating is None:
         # is None would work too, but would show rating option and then hide it when the assets are already rated
-        return True
-
-    wh = ratings_utils.get_rating_local(ad["id"], "working_hours")
-    if wh == {}:
         return True
 
     return False
