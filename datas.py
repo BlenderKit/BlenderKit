@@ -128,6 +128,7 @@ class MineProfile:
     socialNetworks: list[SocialNetwork] = dataclasses.field(default_factory=list)
     gravatarImg: str = ""  # filled later from getGravatar task
     tooltip: str = ""  # generated later from Name and AboutMe etc.
+    canEditAllAssets: bool = False  # whether User is validator
 
 
 @dataclasses.dataclass
