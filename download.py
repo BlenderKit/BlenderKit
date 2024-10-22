@@ -1118,6 +1118,8 @@ def asset_in_scene(asset_data):
                         continue
 
                     # there can also be more linked collections with same name, we need to check base_id.
+                    if c.library is None:
+                        continue
                     if not c.library.get("asset_data"):
                         continue
                     if (
