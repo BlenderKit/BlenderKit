@@ -961,7 +961,7 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canDownload, URL, err := GetDownloadURL(data.SceneID, data.Files, data.PREFS.Resolution, data.APIKey, data.AddonVersion, data.PlatformVersion)
+	canDownload, URL, err := GetDownloadURL(data.Preferences.SceneID, data.DownloadAssetData.Files, data.Preferences.Resolution, data.Preferences.APIKey, data.AddonVersion, data.PlatformVersion)
 	if err != nil {
 		http.Error(w, "Error getting download URL: "+err.Error(), http.StatusInternalServerError)
 		return

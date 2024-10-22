@@ -229,12 +229,13 @@ type DownloadAssetData struct {
 }
 
 type DownloadData struct {
-	AddonVersion      string   `json:"addon_version"`
-	PlatformVersion   string   `json:"platform_version"`
-	AppID             int      `json:"app_id"`
-	DownloadDirs      []string `json:"download_dirs"`
-	DownloadAssetData `json:"asset_data"`
-	PREFS             `json:"PREFS"`
+	AddonVersion      string            `json:"addon_version"`
+	PlatformVersion   string            `json:"platform_version"`
+	AppID             int               `json:"app_id"`
+	DownloadDirs      []string          `json:"download_dirs"`
+	Resolution        string            `json:"resolution"` // used to populate DownloadAssetData.Resolution
+	DownloadAssetData DownloadAssetData `json:"asset_data"`
+	Preferences       PREFS             `json:"PREFS"`
 }
 
 type Category struct {
