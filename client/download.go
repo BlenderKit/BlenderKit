@@ -19,6 +19,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -52,6 +53,8 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Need to populate as DownloadAssetData is sent to bg_unpack.py
+	downloadData.DownloadAssetData.Resolution = downloadData.Resolution
 
 	var rJSON map[string]interface{}
 	err = json.Unmarshal(body, &rJSON)
@@ -67,16 +70,16 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		rJSON,
 		taskID,
 		downloadData.AppID,
-		downloadData.SceneID,
-		downloadData.APIKey,
+		downloadData.Preferences.SceneID,
+		downloadData.Preferences.APIKey,
 		downloadData.AddonVersion,
 		downloadData.PlatformVersion,
 		downloadData.DownloadAssetData,
 		downloadData.DownloadDirs,
-		downloadData.UnpackFiles,
-		downloadData.BinaryPath,
-		downloadData.AddonDir,
-		downloadData.AddonModuleName,
+		downloadData.Preferences.UnpackFiles,
+		downloadData.Preferences.BinaryPath,
+		downloadData.Preferences.AddonDir,
+		downloadData.Preferences.AddonModuleName,
 	)
 
 	// Response to add-on
@@ -303,7 +306,6 @@ func doAssetDownload(
 			addonDir,
 			addonModuleName,
 			downloadAssetData,
-			//prefs,
 		)
 		if err != nil {
 			e := fmt.Errorf("error unpacking asset: %w", err)
@@ -383,8 +385,6 @@ func UnpackAsset(
 		"fpath":      blendPath,
 		"asset_data": downloadAssetData,
 		"command":    "unpack",
-		//"PREFS":      prefs,
-		//"debug_value": data.PREFS.DebugValue,
 	}
 	jsonData, err := json.Marshal(process_data)
 	if err != nil {
@@ -407,9 +407,15 @@ func UnpackAsset(
 		addonModuleName, // Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
 	)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("BLENDER_USER_SCRIPTS=%v", blenderUserScripts))
-	out, err := cmd.CombinedOutput()
+
+	// Redirect both stdout and stderr to the buffer
+	var combinedOutput bytes.Buffer
+	cmd.Stdout = &combinedOutput
+	cmd.Stderr = &combinedOutput
+
+	err = cmd.Run()
 	color.FgGray.Printf("└> backgroung unpacking '%+v' logs:\n", cmd)
-	for _, line := range strings.Split(string(out), "\n") {
+	for _, line := range strings.Split(combinedOutput.String(), "\n") {
 		color.FgGray.Printf("   %s\n", line)
 	}
 	if err != nil {

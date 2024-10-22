@@ -27,30 +27,35 @@ import bpy
 
 def get_texture_filepath(tex_dir_path, image, resolution="blend"):
     if len(image.packed_files) > 0:
-        image_file_name = bpy.path.basename(image.packed_files[0].filepath)
+        path = image.packed_files[0].filepath
     else:
-        image_file_name = bpy.path.basename(image.filepath)
+        path = image.filepath
+    # backslashes needs to be replaced because bpy.path.basename(path)
+    # does not work on Mac for Windows paths
+    path = path.replace("\\", "/")
+    image_file_name = bpy.path.basename(path)
     if image_file_name == "":
         image_file_name = image.name.split(".")[0]
 
-    fp = os.path.join(tex_dir_path, image_file_name)
     # check if there is allready an image with same name and thus also assigned path
     # (can happen easily with genearted tex sets and more materials)
-    done = False
-    fpn = fp
+    file_path_original = os.path.join(tex_dir_path, image_file_name)
+    file_path_final = file_path_original
+
     i = 0
+    done = False
     while not done:
         is_solo = True
         for image1 in bpy.data.images:
-            if image != image1 and image1.filepath == fpn:
+            if image != image1 and image1.filepath == file_path_final:
                 is_solo = False
-                fpleft, fpext = os.path.splitext(fp)
-                fpn = fpleft + str(i).zfill(3) + fpext
+                fpleft, fpext = os.path.splitext(file_path_original)
+                file_path_final = fpleft + str(i).zfill(3) + fpext
                 i += 1
         if is_solo:
             done = True
 
-    return fpn
+    return file_path_final
 
 
 def get_resolution_from_file_path(file_path):
@@ -82,19 +87,21 @@ def unpack_asset(data):
             print(e)
     bpy.data.use_autopack = False
     for image in bpy.data.images:
-        if image.name != "Render Result":
-            # suffix = paths.resolution_suffix(data['suffix'])
-            fp = get_texture_filepath(tex_dir_path, image, resolution=resolution)
-            print(f"🖼️  unpacking file: {image.name} - {image.filepath}, {fp}")
+        if image.name == "Render Result":
+            continue  # skip rendered images
 
-            for pf in image.packed_files:
-                pf.filepath = fp  # bpy.path.abspath(fp)
-            image.filepath = fp  # bpy.path.abspath(fp)
-            image.filepath_raw = fp  # bpy.path.abspath(fp)
-            # image.save()
-            if len(image.packed_files) > 0:
-                # image.unpack(method='REMOVE')
-                image.unpack(method="WRITE_ORIGINAL")
+        # suffix = paths.resolution_suffix(data['suffix'])
+        fp = get_texture_filepath(tex_dir_path, image, resolution=resolution)
+        print(f"🖼️  unpacking file: {image.name} - {image.filepath}, {fp}")
+
+        for pf in image.packed_files:
+            pf.filepath = fp  # bpy.path.abspath(fp)
+        image.filepath = fp  # bpy.path.abspath(fp)
+        image.filepath_raw = fp  # bpy.path.abspath(fp)
+        # image.save()
+        if len(image.packed_files) > 0:
+            # image.unpack(method='REMOVE')
+            image.unpack(method="WRITE_ORIGINAL")
 
     # mark asset browser asset
     data_block = None
