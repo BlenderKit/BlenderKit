@@ -113,7 +113,7 @@ class BL_UI_Button(BL_UI_Widget):
                 self.__image.reload()
                 self.__image.gl_load()
         except Exception as e:
-            print(e)
+            print(f"BL_UI_BUTTON set_image() error: {e}")
             self.__image = None
 
     def get_image_path(self):

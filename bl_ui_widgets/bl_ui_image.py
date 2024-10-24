@@ -51,8 +51,7 @@ class BL_UI_Image(BL_UI_Widget):
                 self.__image.reload()
                 self.__image.gl_load()
         except Exception as e:
-            print("this is exception in set_image function")
-            print(e)
+            print(f"BL_UI_BUTTON: exception in set_image(): {e}")
             self.__image = None
 
     def set_image_colorspace(self, colorspace):
