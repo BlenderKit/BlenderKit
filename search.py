@@ -481,12 +481,11 @@ def load_preview(asset):
         # wrap into try statement since sometimes
         try:
             img = bpy.data.images.load(tpath, check_existing=True)
-
             img.name = iname
             if len(img.pixels) > 0:
                 return True
-        except:
-            pass
+        except Exception as e:
+            print(f"search.py: could not load image {iname}: {e}")
         return False
     elif img.filepath != tpath:
         if not tpath_exists:
@@ -499,7 +498,8 @@ def load_preview(asset):
         img.filepath = tpath
         try:
             img.reload()
-        except:
+        except Exception as e:
+            print(f"search.py: could not reload image {iname}: {e}")
             return False
 
     image_utils.set_colorspace(img)

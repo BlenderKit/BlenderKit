@@ -750,7 +750,7 @@ def download_write_progress(task_id, task):
     global download_tasks
     task_addon = download_tasks.get(task.task_id)
     if task_addon is None:
-        print("couldnt write progress", task.progress)
+        print("couldn't write download progress to ", task.progress)
         return
     task_addon["progress"] = task.progress
     task_addon["text"] = task.message

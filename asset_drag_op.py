@@ -54,12 +54,18 @@ handler_3d = None
 def draw_callback_dragging(self, context):
     try:
         img = bpy.data.images.get(self.iname)
+        if img is None:
+            # thumbnail can be sometimes missing (probably removed by Blender) so lets add it
+            directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
+            tpath = os.path.join(directory, self.asset_data["thumbnail_small"])
+            img = bpy.data.images.load(tpath)
+            img.name = self.iname
     except Exception as e:
         #  self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_dragging, args, 'WINDOW', 'POST_PIXEL')
         #  self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(draw_callback_3d_dragging, args, 'WINDOW',
         #   bpy.types.SpaceView3D.draw_handler_remove(self._handle,
         # bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, 'WINDOW')
-        print(e)
+        print("draw_callback_dragging error:", e)
         return
     linelength = 35
     scene = bpy.context.scene
@@ -462,7 +468,7 @@ def object_in_particle_collection(o):
 
 
 class AssetDragOperator(bpy.types.Operator):
-    """Drag & drop assets into scene"""
+    """Drag & drop assets into scene. Operator being drawn when dragging asset."""
 
     bl_idname = "view3d.asset_drag_drop"
     bl_label = "BlenderKit asset drag drop"
