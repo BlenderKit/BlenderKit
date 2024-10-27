@@ -1346,7 +1346,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     )
 
     adult: BoolProperty(
-        name="Adult Content", description="adult content", default=False
+        name="Adult/ NSFW Content", description="adult content", default=False
     )
 
     work_hours: FloatProperty(
@@ -1550,7 +1550,7 @@ class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     )
 
     adult: BoolProperty(
-        name="Adult Content", description="adult content", default=False
+        name="Adult/NSFW Content", description="adult content", default=False
     )
 
     work_hours: FloatProperty(
@@ -1691,7 +1691,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         update=search.search_update,
     )
     search_adult: BoolProperty(
-        name="Adult Content",
+        name="Adult/NSFW Content",
         description="You're adult and agree with searching adult content",
         default=False,
         update=search.search_update,
