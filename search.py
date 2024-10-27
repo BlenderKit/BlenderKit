@@ -787,6 +787,8 @@ def build_query_model():
         query["animated"] = True
     if props.search_geometry_nodes:
         query["modifiers"] = "nodes"
+    if not props.search_adult:
+        query["adult"] = "false"
 
     build_query_common(query, props)
 
@@ -1138,6 +1140,7 @@ def update_filters():
         or ui_props.quality_limit > 0
         or ui_props.search_bookmarks
         or ui_props.search_license != "ANY"
+        or ui_props.search_blender_version
     )
 
     if ui_props.asset_type == "MODEL":
@@ -1149,6 +1152,7 @@ def update_filters():
             or sprops.search_polycount
             or sprops.search_animated
             or sprops.search_geometry_nodes
+            or sprops.search_adult
         )
     elif ui_props.asset_type == "SCENE":
         sprops.use_filters = fcommon

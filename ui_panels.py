@@ -1328,6 +1328,9 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         # LICENSE
         layout.prop(ui_props, "search_license")
 
+        # adult filter
+        layout.prop(props, "search_adult")
+
         # LIMIT BLENDER VERSION
         layout.prop(ui_props, "search_blender_version", text="Asset's Blender Version")
         if ui_props.search_blender_version:
