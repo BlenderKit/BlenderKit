@@ -3514,10 +3514,10 @@ class VIEW3D_PT_blenderkit_downloads(Panel):
 
 
 def update_header_menu_fold(self, context):
-    ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.header_menu_fold and asset_bar_op.asset_bar_operator is not None:
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    if preferences.header_menu_fold and asset_bar_op.asset_bar_operator is not None:
         bpy.ops.view3d.run_assetbar_fix_context(keep_running=False, do_search=False)
-    elif not ui_props.header_menu_fold and asset_bar_op.asset_bar_operator is None:
+    elif not preferences.header_menu_fold and asset_bar_op.asset_bar_operator is None:
         bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
 
 
@@ -3568,10 +3568,12 @@ def header_search_draw(self, context):
     row = layout.row(align=True)
     row.scale_x = 0.9
 
-    if ui_props.header_menu_fold:
-        row.prop(ui_props, "header_menu_fold", text="", icon="RIGHTARROW", emboss=False)
+    if preferences.header_menu_fold:
         row.prop(
-            ui_props,
+            preferences, "header_menu_fold", text="", icon="RIGHTARROW", emboss=False
+        )
+        row.prop(
+            preferences,
             "header_menu_fold",
             text="",
             icon_value=pcoll[ui_props.logo_status].icon_id,
@@ -3580,12 +3582,12 @@ def header_search_draw(self, context):
         return
     else:
         row.prop(
-            ui_props, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False
+            preferences, "header_menu_fold", text="", icon="DOWNARROW_HLT", emboss=False
         )
 
     # draw logo as part of the folding UI, it is better clickable.
     row.prop(
-        ui_props,
+        preferences,
         "header_menu_fold",
         text="",
         icon_value=pcoll[ui_props.logo_status].icon_id,

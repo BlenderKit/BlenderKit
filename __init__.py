@@ -533,9 +533,6 @@ class BlenderKitUIProps(PropertyGroup):
     #### rating UI props
     rating_ui_scale = ui_scale
 
-    header_menu_fold: BoolProperty(
-        name="Header menu fold", default=False, update=ui_panels.update_header_menu_fold
-    )
     rating_button_on: BoolProperty(name="Rating Button On", default=True)
     rating_menu_on: BoolProperty(name="Rating Menu On", default=False)
     rating_on: BoolProperty(name="Rating on", default=True)
@@ -1990,6 +1987,10 @@ class BlenderKitAddonPreferences(AddonPreferences):
         description="Show BlenderKit search in 3D view header",
         default=True,
         update=utils.save_prefs,
+    )
+
+    header_menu_fold: BoolProperty(
+        name="Header menu fold", default=False, update=ui_panels.update_header_menu_fold
     )
 
     show_VIEW3D_MT_blenderkit_model_properties: bpy.props.BoolProperty(
