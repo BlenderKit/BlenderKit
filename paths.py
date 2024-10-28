@@ -107,7 +107,10 @@ def get_temp_dir(subdir=None):
         d = dirs_exist_dict.get("top")
         if d is not None:
             return d
-    username = getpass.getuser()
+    try:  # if USERNAME envvar is unset on Win, getuser() fallbacks to pwd module which is not available on Windows
+        username = getpass.getuser()
+    except ModuleNotFoundError as e:
+        username = "bkuser"
     safe_username = "".join(c for c in username if c.isalnum())
     tempdir = os.path.join(tempfile.gettempdir(), f"bktemp_{safe_username}")
     if tempdir.startswith("//"):
