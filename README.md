@@ -1,4 +1,22 @@
-# Blenderkit add-on
+<div align="center">
+  <img src="thumbnails/blenderkit_logo.png" alt="Logo" width="100" height="100"/>
+  <h3 align="center">BlenderKit</h3>
+
+  Quick and easy asset search, download and upload directly from Blender.
+
+  
+  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/blenderkit/blenderkit/total?color=blue)
+  ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/blenderkit/blenderkit/latest/total?color=blue)
+  [![GitHub Release](https://img.shields.io/github/v/release/blenderkit/blenderkit?color=green)](https://github.com/BlenderKit/BlenderKit/releases/latest)
+  [![Project license](https://img.shields.io/github/license/blenderkit/blenderkit.svg?color=orange)](LICENSE)
+  </br>
+  ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/blenderkit/blenderkit?color=blue)
+  ![GitHub branch check runs](https://img.shields.io/github/check-runs/blenderkit/blenderkit/main?color=green)
+
+
+</div>
+
+## About
 The BlenderKit add-on, an official and free open-source extension for Blender 3D, connects users to the [BlenderKit service](https://www.blenderkit.com/), allowing you to search, download, upload and rate a vast array of assets.
 Access over 10,000 models, 10,000 materials, 250+ scenes, 1,000+ HDRIs, and 300+ brushes for free, no login required.
 Or sign in with the Free Plan to bookmark and rate assets, for even faster workflow.
