@@ -1948,7 +1948,7 @@ func CompleteUploadFileBlocking(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// AssetUploadData uploads asset data to S3. If response is not OK, it will return the JSON of the error response and error.
+// UploadAssetData uploads asset data to S3. If response is not OK, it will return the JSON of the error response and error.
 func UploadAssetData(files []UploadFile, data AssetUploadRequestData, metadataResp AssetsCreateResponse, isMainFileUpload bool, taskID string) (json.RawMessage, error) {
 	for _, file := range files { // will be empty if only metadata is uploaded
 		var minimalTaskData = MinimalTaskData{

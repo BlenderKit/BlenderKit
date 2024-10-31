@@ -313,7 +313,11 @@ def draw_panel_model_upload(self, context):
     row = layout.row()
     row.prop(props, "work_hours")
 
-    layout.prop(props, "adult")
+    # CONTENT FLAGS
+    content_flag_box = layout.box()
+    content_flag_box.alignment = "EXPAND"
+    content_flag_box.label(text="Sensitive Content Flags:")
+    content_flag_box.prop(props, "sexualized_content")
 
 
 def draw_panel_scene_upload(self, context):
@@ -363,7 +367,6 @@ def draw_panel_scene_upload(self, context):
     layout.prop(props, "condition")
     row = layout.row()
     row.prop(props, "work_hours")
-    layout.prop(props, "adult")
 
 
 def draw_assetbar_show_hide(layout, props):
@@ -1266,9 +1269,9 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
 
     def draw_layout(self, layout):
         wm = bpy.context.window_manager
-
         props = wm.blenderkit_models
         ui_props = wm.blenderkitUI
+        preferences = bpy.context.preferences.addons[__package__].preferences
         layout.separator()
 
         # layout.label(text = "common searches keywords:")
@@ -1328,15 +1331,15 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         # LICENSE
         layout.prop(ui_props, "search_license")
 
-        # adult filter
-        layout.prop(props, "search_adult")
-
         # LIMIT BLENDER VERSION
         layout.prop(ui_props, "search_blender_version", text="Asset's Blender Version")
         if ui_props.search_blender_version:
             row = layout.row(align=True)
             row.prop(ui_props, "search_blender_version_min", text="Min")
             row.prop(ui_props, "search_blender_version_max", text="Max")
+
+        # NSFW filter - in future we might add more subsets of what defines NSFW so users can tweak it, rn it is just sexualized content
+        layout.prop(preferences, "nsfw_filter")
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -3640,6 +3643,7 @@ def header_search_draw(self, context):
         icon_value=icon_id,
     )
 
+    # FILTER ICON
     if props.use_filters:
         icon_id = pcoll["filter_active"].icon_id
     else:
@@ -3679,6 +3683,16 @@ def header_search_draw(self, context):
             panel="VIEW3D_PT_blenderkit_advanced_brush_search",
             text="",
             icon_value=icon_id,
+        )
+
+    # NSFW filter shield badge - only for models right now
+    if preferences.nsfw_filter and ui_props.asset_type == "MODEL":
+        layout.prop(
+            preferences,
+            "nsfw_filter",
+            text="",
+            icon_value=pcoll["nsfw"].icon_id,
+            emboss=False,
         )
 
     # elif ui_props.asset_type in ('BRUSH', 'SCENE'):

@@ -765,6 +765,7 @@ def build_query_common(query, props):
 def build_query_model():
     """Use all search input to request results from server."""
     props = bpy.context.window_manager.blenderkit_models
+    preferences = bpy.context.preferences.addons[__package__].preferences
     query = {"asset_type": "model"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
@@ -787,8 +788,13 @@ def build_query_model():
         query["animated"] = True
     if props.search_geometry_nodes:
         query["modifiers"] = "nodes"
-    if not props.search_adult:
-        query["adult"] = "false"
+    if (
+        preferences.nsfw_filter
+    ):  # nsfw_filter is toggle for predefined subsets (users could fine-tune in future)
+        query["sexualized_content"] = False
+        # TODO: add here more subsets, NSFW is general switch for subsets defined by user (sexualized, violence, etc)
+    else:
+        query["sexualized_content"] = ""
 
     build_query_common(query, props)
 
@@ -1141,6 +1147,7 @@ def update_filters():
         or ui_props.search_bookmarks
         or ui_props.search_license != "ANY"
         or ui_props.search_blender_version
+        # NSFW filter is signaled in a special way and should not affect the filter icon
     )
 
     if ui_props.asset_type == "MODEL":
@@ -1152,7 +1159,6 @@ def update_filters():
             or sprops.search_polycount
             or sprops.search_animated
             or sprops.search_geometry_nodes
-            or sprops.search_adult
         )
     elif ui_props.asset_type == "SCENE":
         sprops.use_filters = fcommon

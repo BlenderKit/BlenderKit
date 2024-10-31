@@ -393,6 +393,7 @@ class BlenderKitUIProps(PropertyGroup):
         default=False,
         update=search.search_update,
     )
+
     # moved from per-asset search properties
     own_only: BoolProperty(
         name="My Assets Only",
@@ -1345,9 +1346,21 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Condition of the object",
     )
 
-    adult: BoolProperty(
-        name="Adult/ NSFW Content", description="adult content", default=False
-    )
+    sexualized_content: BoolProperty(
+        name="Sexualized Content",
+        description=(
+            "Flag this asset if it includes explicit content, suggestive poses, or overemphasized secondary sexual characteristics. "
+            "This helps users filter content according to their preferences, creating a safe and inclusive browsing experience for all.\n\n"
+            "Flag not required:\n"
+            "- naked base mesh model,\n"
+            "- figure in underwear/swimwear in neutral position.\n\n"
+            "Flag required:\n"
+            "- figure in sexually suggestive pose,\n"
+            "- figure with over overemphasized sexual characteristics,\n"
+            "- objects related to sexual act."
+        ),
+        default=False,
+    )  # In future we can subsets like sexualized, pornography or violence subset. And allow users choose what is part of NSFW.
 
     work_hours: FloatProperty(
         name="Work Hours",
@@ -1549,8 +1562,10 @@ class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Condition of the object",
     )
 
-    adult: BoolProperty(
-        name="Adult/NSFW Content", description="adult content", default=False
+    sexualized_content: BoolProperty(
+        name="Sexualized content",
+        description="Scene contains sexualized content",
+        default=False,
     )
 
     work_hours: FloatProperty(
@@ -1688,12 +1703,6 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         items=conditions,
         default="UNSPECIFIED",
         description="Condition of the object",
-        update=search.search_update,
-    )
-    search_adult: BoolProperty(
-        name="Adult/NSFW Content",
-        description="You're adult and agree with searching adult content",
-        default=False,
         update=search.search_update,
     )
     search_design_year: BoolProperty(
@@ -2309,6 +2318,15 @@ In this case you should also set path to your system CA bundle containing proxy'
         min=0,
         update=utils.save_prefs,
     )
+
+    # NSFW FILTERS
+    # prepared to be shared across all asset types, because materials can be violent, HDRi can terrifying etc.
+    nsfw_filter: BoolProperty(
+        name="Hide Adult/NSFW Content",
+        description="Hide content intended for adults that may not be safe for work. This setting will be persisted between Blender sessions.\n\nBy disabling, you confirm that you are an adult.",
+        default=True,
+        update=search.search_update,
+    )  # In future we can subsets like sexualized, pornography or violence subset. And allow users choose what is part of NSFW.
 
     def draw(self, context):
         layout = self.layout
