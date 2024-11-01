@@ -172,7 +172,7 @@ def check_clipboard():
 
 
 def parse_result(r):
-    """Needed to generate some extra data in the result(by now)
+    """Needed to generate some extra data in the result (by now). Return None if there is not 'files' key in incoming r (asset_data).
     Parameters
     ----------
     r - search result, also called asset_data
@@ -379,17 +379,18 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     ui_props = bpy.context.window_manager.blenderkitUI
     for ri, r in enumerate(task.result["results"]):
         asset_data = parse_result(r)
-        if asset_data is not None:
-            result_field.append(asset_data)
+        if asset_data is None:
+            bk_logger.debug(
+                f"parsing of search result no. {ri} has failed, result data: {r}"
+            )
+            continue
+
+        result_field.append(asset_data)
         # fetch all comments if user is validator to preview them faster
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
         if utils.profile_is_validator():
             comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
             if comments is None:
-                user_preferences = bpy.context.preferences.addons[
-                    __package__
-                ].preferences
-                api_key = user_preferences.api_key
                 client_lib.get_comments(asset_data["assetBaseId"])
 
     # Get ratings from BlenderKit server TODO: do this in client
