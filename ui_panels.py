@@ -2411,11 +2411,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         if self.asset_data.get("license") == "cc_zero":
             t = "CC Zero          "
             icon = pcoll["cc0"]
-
         else:
             t = "Royalty free"
             icon = pcoll["royalty_free"]
-
         self.draw_property(
             box,
             "License",
@@ -2586,10 +2584,17 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 tooltip=plans_tooltip,
                 url=paths.BLENDERKIT_PLANS_URL,
             )
+
         if utils.profile_is_validator():
             date = self.asset_data["created"][:10]
             date = f"{date[8:10]}. {date[5:7]}. {date[:4]}"
             self.draw_property(box, "Created", date)
+            self.draw_property(
+                box,
+                "Sexualized:",
+                self.asset_data.get("dictParameters", {}).get("sexualizedContent"),
+            )
+
         from_newer, difference = utils.asset_from_newer_blender_version(self.asset_data)
         if from_newer:
             if difference == "major":
