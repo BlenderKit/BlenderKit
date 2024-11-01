@@ -37,6 +37,9 @@ icons_read = {
     "categories_active.png": "categories_active",
     "filter.png": "filter",
     "filter_active.png": "filter_active",
+    "filter_nsfw.png": "filter_active_nsfw",  # NFSW filter is on, but other filters are not
+    "filter_active_nsfw.png": "filter_nsfw",  # NSFW filter on, classic filters on
+    "nsfw.png": "nsfw",
     "bell.png": "bell",
     "post_comment.png": "post_comment",
     "blenderkit_logo.png": "logo",

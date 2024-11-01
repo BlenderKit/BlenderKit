@@ -122,7 +122,6 @@ type Author struct {
 // Represents a single asset returned from the search API at: https://www.blenderkit.com/api/v1/search/.
 type Asset struct {
 	AddonVersion                     string                 `json:"addonVersion"`
-	Adult                            bool                   `json:"adult"`
 	AssetBaseID                      string                 `json:"assetBaseId"`
 	AssetType                        string                 `json:"assetType"`
 	Author                           Author                 `json:"author"`
@@ -318,7 +317,6 @@ type AssetUploadExportData struct {
 // https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
 type AssetsCreateResponse struct {
 	AddonVersion       string      `json:"addonVersion"`
-	Adult              bool        `json:"adult"`
 	AssetBaseID        string      `json:"assetBaseId"`
 	AssetType          string      `json:"assetType"`
 	Category           string      `json:"category"`
