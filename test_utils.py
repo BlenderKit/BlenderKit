@@ -1,4 +1,4 @@
-import unittest
+import unittest, os
 
 import bpy
 

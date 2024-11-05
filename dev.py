@@ -271,19 +271,31 @@ def do_build(
     print("Build done!")
 
 
-def run_tests(extension_format=False):
-    print("\n=== Running Client Go unit tests ===")
-    gotest = subprocess.Popen(["go", "test"], cwd="client")
-    gotest.wait()
-    if gotest.returncode != 0:
-        exit(1)
-    print("Go tests passed.\n")
+def run_tests(args):
+    do_build(
+        args.install_at,
+        include_tests=True,
+        clean_dir=args.clean_dir,
+        client_binaries_path=args.client_build,
+    )
+    # Best effort here to keep it simple and detect automatically, other option would be to add it as a flag
+    if "extensions/user_default" in args.install_at:
+        extensions_format = True
+    else:
+        extensions_format = False
+    run_go_tests()
+    run_python_tests(extensions_format, fast=args.fast)
 
-    addon_package_name = "blenderkit"
+
+def run_python_tests(extension_format: bool, fast: bool):
+    print("=== Running add-on integration tests in Blender ===")
     if extension_format:  # Here we expect default settings
         addon_package_name = "bl_ext.user_default.blenderkit"
-
-    print("=== Running add-on integration tests in Blender tests ===")
+    else:  # legacy format
+        addon_package_name = "blenderkit"
+    env = os.environ.copy()
+    if fast:
+        env["TESTS_TYPE"] = "FAST"
     test = subprocess.Popen(
         [
             "blender",
@@ -295,12 +307,22 @@ def run_tests(extension_format=False):
             "test.py",
             "--",
             addon_package_name,
-        ]
+        ],
+        env=env,
     )
     test.wait()
     if test.returncode == 1:
         exit(1)
     print("=== Blender integration tests passed ===")
+
+
+def run_go_tests():
+    print("\n=== Running Client Go unit tests ===")
+    gotest = subprocess.Popen(["go", "test"], cwd="client")
+    gotest.wait()
+    if gotest.returncode != 0:
+        exit(1)
+    print("=== Go tests passed.\n")
 
 
 def format_code():
@@ -344,6 +366,12 @@ parser.add_argument(
     default=None,
     help="Specify path client_builds/vX.Y.Z. Binaries in this directory will be used instead of building new ones.",
 )
+parser.add_argument(
+    "--fast",
+    type=bool,
+    default=False,
+    help="Run just fast tests. These are Go unittests and Python fast tests (skips those which do requests).",
+)
 args = parser.parse_args()
 
 if args.command == "build":
@@ -365,18 +393,7 @@ elif args.command == "release":
         client_binaries_path=args.client_build,
     )
 elif args.command == "test":
-    do_build(
-        args.install_at,
-        include_tests=True,
-        clean_dir=args.clean_dir,
-        client_binaries_path=args.client_build,
-    )
-    # Best effort here to keep it simple and detect automatically, other option would be to add it as a flag
-    if "extensions/user_default" in args.install_at:
-        extension_format = True
-    else:
-        extension_format = False
-    run_tests(extension_format)
+    run_tests(args)
 elif args.command == "format":
     format_code()
 else:

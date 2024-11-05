@@ -49,6 +49,7 @@ def client_is_responding() -> tuple[bool, str]:
 ### CLIENT IS NOT RUNNING ###
 
 
+@unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test01ClientNotRunning(unittest.TestCase):
     def test01_client_not_running(self):
         """Tests run in background (bpy.app.background == True), so blednerkit-client is not started during registration.
@@ -75,6 +76,7 @@ class Test01ClientNotRunning(unittest.TestCase):
 ### CLIENT IS RUNNING ###
 
 
+@unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test02ClientRunning(unittest.TestCase):
     def test01_start_client_server(self):
         client_lib.start_blenderkit_client()
@@ -86,6 +88,7 @@ class Test02ClientRunning(unittest.TestCase):
         self.assertTrue(alive)
 
 
+@unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test03ClientUtilFunctions(unittest.TestCase):
     def test_get_port(self):
         ports = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
@@ -103,6 +106,7 @@ class Test03ClientUtilFunctions(unittest.TestCase):
         self.assertTrue(os.path.exists(dir_path))
 
 
+@unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test04GetReportsClientRunning(unittest.TestCase):
     def test_get_reports_running(self):
         """Get reports for current Blender PID (app_id)."""
@@ -121,6 +125,7 @@ class Test04GetReportsClientRunning(unittest.TestCase):
         self.assertEqual(reports[0]["task_type"], "client_status")
 
 
+@unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test05SearchAndDownloadAsset(unittest.TestCase):
     assets_to_download = []
 
@@ -247,6 +252,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 ### CLIENT IS NOT RUNNING ###
 
 
+@unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test99ClientStopped(unittest.TestCase):
     def test_shutdown_client(self):
         client_lib.shutdown_client()

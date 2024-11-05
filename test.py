@@ -18,14 +18,15 @@
 
 import unittest
 import sys
+import os
 
 import addon_utils
 
-print("----- Tests preparation -----")
+print(f"----- Tests preparation ----- (mode:{os.getenv('TESTS_TYPE', 'all')})")
 addon_utils.enable(sys.argv[-1], default_set=True)
 print(f"- addon enabled: {sys.argv[-1]}")
 
-runner = unittest.TextTestRunner()
+runner = unittest.TextTestRunner(buffer=False)
 suite = unittest.TestSuite()
 testLoader = unittest.TestLoader()
 
@@ -35,7 +36,8 @@ suite.addTests(testLoader.discover(".", "test_timer.py"))
 suite.addTests(testLoader.discover(".", "test_paths.py"))
 suite.addTests(testLoader.discover(".", "test_utils.py"))
 suite.addTests(testLoader.discover(".", "test_client_lib.py"))
-print(f"- {len(suite._tests)} tests discovered and loaded")
+suite.addTests(testLoader.discover(".", "test_search.py"))
+print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
 result = runner.run(suite)
