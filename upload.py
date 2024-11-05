@@ -421,7 +421,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             pt = pt.lower()
             upload_params["pbrType"] = pt
         if props.sexualized_content:
-            upload_params["sexualized_content"] = props.sexualized_content
+            upload_params["sexualizedContent"] = props.sexualized_content
 
         if props.texture_resolution_max > 0:
             upload_params["textureResolutionMax"] = props.texture_resolution_max

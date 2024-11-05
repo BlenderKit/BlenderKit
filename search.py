@@ -22,6 +22,7 @@ import math
 import os
 import urllib.parse
 import unicodedata
+import copy
 
 import bpy
 from bpy.app.handlers import persistent
@@ -658,12 +659,16 @@ def handle_get_user_profile(task: client_tasks.Task):
             utils.enforce_prerelease_update_check()
 
 
-def query_to_url(query={}, params={}):
+def query_to_url(query=None, params=None):
     """Build a new search request by parsing query dictionaty into appropriate URL.
     Also modifies query and params and adds some stuff in there which is very misleading anti-patter.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
     https://www.blenderkit.com/api/v1/search/
     """
+    if query is None:
+        query = {}
+    if params is None:
+        params = {}
     url = f"{paths.BLENDERKIT_API}/search/"
 
     requeststring = "?query="
@@ -724,8 +729,11 @@ def query_to_url(query={}, params={}):
     return urlquery
 
 
-def build_query_common(query, props):
-    """Add shared parameters to query."""
+def build_query_common(query: dict, props, ui_props) -> dict:
+    """Pure function to add shared parameters based on props to query dict.
+    Returns the updated version of the query dict.
+    """
+    query = copy.deepcopy(query)
     query_common = {}
     if props.search_keywords != "":
         keywords = props.search_keywords.replace("&", "%26")
@@ -744,8 +752,6 @@ def build_query_common(query, props):
         query_common["files_size_gte"] = props.search_file_size_min * 1024 * 1024
         query_common["files_size_lte"] = props.search_file_size_max * 1024 * 1024
 
-    ui_props = bpy.context.window_manager.blenderkitUI
-
     if ui_props.quality_limit > 0:
         query["quality_gte"] = ui_props.quality_limit
 
@@ -760,12 +766,13 @@ def build_query_common(query, props):
         query["source_app_version_lt"] = ui_props.search_blender_version_max
 
     query.update(query_common)
+    return query
 
 
-def build_query_model():
-    """Use all search input to request results from server."""
-    props = bpy.context.window_manager.blenderkit_models
-    preferences = bpy.context.preferences.addons[__package__].preferences
+def build_query_model(props, ui_props, preferences) -> dict:
+    """Use all search inputs (props) and add-on preferences
+    to build search query request to get results from server.
+    """
     query = {"asset_type": "model"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
@@ -791,29 +798,26 @@ def build_query_model():
     if (
         preferences.nsfw_filter
     ):  # nsfw_filter is toggle for predefined subsets (users could fine-tune in future)
-        query["sexualized_content"] = False
+        query["sexualizedContent"] = False
         # TODO: add here more subsets, NSFW is general switch for subsets defined by user (sexualized, violence, etc)
     else:
-        query["sexualized_content"] = ""
-
-    build_query_common(query, props)
-
-    return query
+        query["sexualizedContent"] = ""
+    return build_query_common(query, props, ui_props)
 
 
-def build_query_scene():
+def build_query_scene(
+    props,
+    ui_props,
+) -> dict:
     """Use all search input to request results from server."""
-    props = bpy.context.window_manager.blenderkit_scene
     query = {
         "asset_type": "scene",
     }
-    build_query_common(query, props)
-    return query
+    return build_query_common(query, props, ui_props)
 
 
-def build_query_HDR():
+def build_query_HDR(props, ui_props) -> dict:
     """Use all search input to request results from server."""
-    props = bpy.context.window_manager.blenderkit_HDR
     query = {
         "asset_type": "hdr",
     }
@@ -822,12 +826,13 @@ def build_query_HDR():
         query["textureResolutionMax_lte"] = props.search_texture_resolution_max
     if props.true_hdr:
         query["trueHDR"] = props.true_hdr
-    build_query_common(query, props)
-    return query
+    return build_query_common(query, props, ui_props)
 
 
-def build_query_material():
-    props = bpy.context.window_manager.blenderkit_mat
+def build_query_material(
+    props,
+    ui_props,
+) -> dict:
     query = {"asset_type": "material"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
@@ -845,55 +850,29 @@ def build_query_material():
         # todo this procedural hack should be replaced with the parameter
         query["files_size_lte"] = 1024 * 1024
         # query["procedural"] = True
-
-    build_query_common(query, props)
-    return query
+    return build_query_common(query, props, ui_props)
 
 
-def build_query_texture():
-    props = bpy.context.scene.blenderkit_tex
-    query = {"asset_type": "texture"}
-
-    if props.search_style != "ANY":
-        if props.search_style != "OTHER":
-            query["search_style"] = props.search_style
-        else:
-            query["search_style"] = props.search_style_other
-
-    build_query_common(query, props)
-    return query
-
-
-def build_query_brush():
+def build_query_brush(props, ui_props, image_paint_object) -> dict:
+    """Pure function to construct search query dict for brushes."""
     props = bpy.context.window_manager.blenderkit_brush
-    brush_type = ""
-
-    if bpy.context.image_paint_object:  # could be just else, but for future p
+    if image_paint_object:  # could be just else, but for future p
         brush_type = "texture_paint"
     # automatically fallback to sculpt since most brushes are sculpt anyway.
     else:  # if bpy.context.sculpt_object is not None:
         brush_type = "sculpt"
 
     query = {"asset_type": "brush", "mode": brush_type}
-
-    build_query_common(query, props)
-    return query
+    return build_query_common(query, props, ui_props)
 
 
-def build_query_nodegroup():
-    props = bpy.context.window_manager.blenderkit_nodegroup
+def build_query_nodegroup(
+    props,
+    ui_props,
+) -> dict:
+    """Pure function to construct search query dict for nodegroups."""
     query = {"asset_type": "nodegroup"}
-
-    build_query_common(query, props)
-    return query
-
-
-def build_query_nodegroup():
-    props = bpy.context.window_manager.blenderkit_nodegroup
-    query = {"asset_type": "nodegroup"}
-
-    build_query_common(query, props)
-    return query
+    return build_query_common(query, props, ui_props)
 
 
 def add_search_process(query, params):
@@ -999,22 +978,35 @@ def search(get_next=False, query=None, author_id=""):
         if ui_props.asset_type == "MODEL":
             if not hasattr(wm, "blenderkit_models"):
                 return
-            query = build_query_model()
+            query = build_query_model(
+                bpy.context.window_manager.blenderkit_models,
+                ui_props=bpy.context.window_manager.blenderkitUI,
+                preferences=bpy.context.preferences.addons[__package__].preferences,
+            )
 
         if ui_props.asset_type == "SCENE":
             if not hasattr(wm, "blenderkit_scene"):
                 return
-            query = build_query_scene()
+            query = build_query_scene(
+                bpy.context.window_manager.blenderkit_scene,
+                bpy.context.window_manager.blenderkitUI,
+            )
 
         if ui_props.asset_type == "HDR":
             if not hasattr(wm, "blenderkit_HDR"):
                 return
-            query = build_query_HDR()
+            query = build_query_HDR(
+                bpy.context.window_manager.blenderkit_HDR,
+                bpy.context.window_manager.blenderkitUI,
+            )
 
         if ui_props.asset_type == "MATERIAL":
             if not hasattr(wm, "blenderkit_mat"):
                 return
-            query = build_query_material()
+            query = build_query_material(
+                bpy.context.window_manager.blenderkit_mat,
+                bpy.context.window_manager.blenderkitUI,
+            )
 
         if ui_props.asset_type == "TEXTURE":
             if not hasattr(wm, "blenderkit_tex"):
@@ -1025,12 +1017,19 @@ def search(get_next=False, query=None, author_id=""):
         if ui_props.asset_type == "BRUSH":
             if not hasattr(wm, "blenderkit_brush"):
                 return
-            query = build_query_brush()
+            query = build_query_brush(
+                bpy.context.window_manager.blenderkit_brush,
+                bpy.context.window_manager.blenderkitUI,
+                bpy.context.image_paint_object,
+            )
 
         if ui_props.asset_type == "NODEGROUP":
             if not hasattr(wm, "blenderkit_nodegroup"):
                 return
-            query = build_query_nodegroup()
+            query = build_query_nodegroup(
+                props=bpy.context.window_manager.blenderkit_nodegroup,
+                ui_props=bpy.context.window_manager.blenderkitUI,
+            )
 
         # crop long searches
         if query.get("query"):
