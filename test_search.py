@@ -57,6 +57,9 @@ def mocked_ui_props() -> Mock:
     return ui_props
 
 
+# TODO: Add test for build_common_query()
+
+
 class TestBuildQueryModel(unittest.TestCase):
     def setUp(self):
         self.preferences = mocked_preferences()
@@ -161,4 +164,56 @@ class TestBuildQueryModel(unittest.TestCase):
         self.preferences.nsfw_filter = False
         query = search.build_query_model(self.props, self.ui_props, self.preferences)
         expected = expected = {"asset_type": "model", "sexualizedContent": ""}
+        self.assertEqual(query, expected)
+
+
+class TestBuildQueryScene(unittest.TestCase):
+    def setUp(self):
+        self.ui_props = mocked_ui_props()
+        self.props = mocked_common_props()
+
+    def test_default_scene_query(self):
+        query = search.build_query_scene(self.props, self.ui_props)
+        expected = {"asset_type": "scene"}
+        self.assertEqual(query, expected)
+
+
+class TestBuildQueryHDR(unittest.TestCase):
+    def setUp(self):
+        self.ui_props = mocked_ui_props()
+        self.props = mocked_common_props()
+        self.props.search_texture_resolution = False  # TODO: test alternations of this
+        self.props.true_hdr = True  # TODO: test alternations of this
+
+    def test_default_HDR_query(self):
+        query = search.build_query_HDR(self.props, self.ui_props)
+        expected = {"asset_type": "hdr", "trueHDR": True}
+        self.assertEqual(query, expected)
+
+
+# TODO: Add test for MATERIAL
+
+
+class TestBuildQueryBrush(unittest.TestCase):
+    def setUp(self):
+        self.ui_props = mocked_ui_props()
+        self.props = mocked_common_props()
+        self.image_paint_object = None  # TODO: test alternations of this
+
+    def test_default_brush_query(self):
+        query = search.build_query_brush(
+            self.props, self.ui_props, self.image_paint_object
+        )
+        expected = {"asset_type": "brush", "mode": "sculpt"}
+        self.assertEqual(query, expected)
+
+
+class TestBuildQueryNodegroup(unittest.TestCase):
+    def setUp(self):
+        self.ui_props = mocked_ui_props()
+        self.props = mocked_common_props()
+
+    def test_default_nodegroup_query(self):
+        query = search.build_query_nodegroup(self.props, self.ui_props)
+        expected = {"asset_type": "nodegroup"}
         self.assertEqual(query, expected)
