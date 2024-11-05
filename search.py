@@ -855,7 +855,6 @@ def build_query_material(
 
 def build_query_brush(props, ui_props, image_paint_object) -> dict:
     """Pure function to construct search query dict for brushes."""
-    props = bpy.context.window_manager.blenderkit_brush
     if image_paint_object:  # could be just else, but for future p
         brush_type = "texture_paint"
     # automatically fallback to sculpt since most brushes are sculpt anyway.
