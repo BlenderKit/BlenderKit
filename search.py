@@ -776,9 +776,9 @@ def build_query_model(props, ui_props, preferences) -> dict:
     query = {"asset_type": "model"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
-            query["model_style"] = props.search_style
+            query["modelStyle"] = props.search_style
         else:
-            query["model_style"] = props.search_style_other
+            query["modelStyle"] = props.search_style_other
 
     if props.search_condition != "UNSPECIFIED":
         query["condition"] = props.search_condition
