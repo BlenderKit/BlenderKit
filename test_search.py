@@ -192,6 +192,56 @@ class TestBuildQueryHDR(unittest.TestCase):
 
 
 # TODO: Add test for MATERIAL
+class TestBuildQueryMaterial(unittest.TestCase):
+    def setUp(self):
+        self.ui_props = mocked_ui_props()
+        self.props = mocked_common_props()
+        self.props.search_style = "ANY"
+        self.props.search_procedural = "BOTH"
+
+    def test_query_default(self):
+        query = search.build_query_material(self.props, self.ui_props)
+        expected = {"asset_type": "material"}
+        self.assertEqual(query, expected)
+
+    def test_query_search_style(self):
+        self.props.search_style = "REALISTIC"
+        query = search.build_query_material(self.props, self.ui_props)
+        expected = {"asset_type": "material", "style": "REALISTIC"}
+        self.assertEqual(query, expected)
+
+    def test_query_search_style_other(self):
+        self.props.search_style = "OTHER"
+        self.props.search_style_other = ""
+        query = search.build_query_material(self.props, self.ui_props)
+        expected = {"asset_type": "material", "style": ""}
+        self.assertEqual(query, expected)
+
+    def test_query_search_procedural_texture_based_default_resolution(self):
+        self.props.search_procedural = "TEXTURE_BASED"
+        self.props.search_texture_resolution = False
+        query = search.build_query_material(self.props, self.ui_props)
+        expected = {"asset_type": "material", "textureResolutionMax_gte": 0}
+        self.assertEqual(query, expected)
+
+    def test_query_search_procedural_texture_based_default(self):
+        self.props.search_procedural = "TEXTURE_BASED"
+        self.props.search_texture_resolution = True
+        self.props.search_texture_resolution_min = 256
+        self.props.search_texture_resolution_max = 4096
+        query = search.build_query_material(self.props, self.ui_props)
+        expected = {
+            "asset_type": "material",
+            "textureResolutionMax_gte": 256,
+            "textureResolutionMax_lte": 4096,
+        }
+        self.assertEqual(query, expected)
+
+    def test_query_search_procedural_procedural_based(self):
+        self.props.search_procedural = "PROCEDURAL"
+        query = search.build_query_material(self.props, self.ui_props)
+        expected = {"asset_type": "material", "files_size_lte": 1024 * 1024}
+        self.assertEqual(query, expected)
 
 
 class TestBuildQueryBrush(unittest.TestCase):
