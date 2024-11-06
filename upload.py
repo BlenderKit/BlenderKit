@@ -383,7 +383,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         }
         upload_params = {
             "productionLevel": props.production_level.lower(),
-            "model_style": style,
+            "modelStyle": style,
             "engines": engines,
             "modifiers": utils.string2list(props.modifiers),
             "materials": utils.string2list(props.materials),
@@ -471,7 +471,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         }
         upload_params = {
             "productionLevel": props.production_level.lower(),
-            "model_style": style,
+            "modelStyle": style,
             "engines": engines,
             "modifiers": utils.string2list(props.modifiers),
             "materials": utils.string2list(props.materials),
@@ -530,7 +530,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         }
 
         upload_params = {
-            "material_style": style,
+            "materialStyle": style,
             "engine": engine,
             "shaders": utils.string2list(props.shaders),
             "uv": props.uv,
