@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -362,18 +363,39 @@ func StartClient(mux *http.ServeMux) {
 	var opErr *net.OpError
 	if errors.As(err, &opErr) && opErr.Op == "listen" {
 		if sysErr, ok := opErr.Err.(*os.SyscallError); ok {
-			BKLog.Printf("*os.SyscallError: %v (%T)\n", sysErr, sysErr)
+			if errno, ok := sysErr.Err.(syscall.Errno); ok { // useful for identifying more specific errors from users logs
+				BKLog.Printf("*os.SyscallError %v (%T), errno:%d\n", sysErr, sysErr, errno)
+			} else {
+				BKLog.Printf("*os.SyscallError: %v (%T)\n", sysErr, sysErr)
+			}
+
+			// ADDRESS IN USE
+			const WSAEADDRINUSE = 10048 // windows.WSAEADDRINUSE
+			// not using windows package, as it's present on Windows targets only and it would require build tags
+			if runtime.GOOS == "windows" && sysErr.Err.(syscall.Errno) == WSAEADDRINUSE {
+				BKLog.Printf("- syscall.WSAEADDRINUSE: %v %T\n", sysErr, sysErr)
+				os.Exit(rcServerStartSyscallEADDRINUSE)
+			}
 			if sysErr.Err == syscall.EADDRINUSE {
 				BKLog.Printf("- syscall.EADDRINUSE: %v %T\n", sysErr, sysErr)
 				os.Exit(rcServerStartSyscallEADDRINUSE)
+			}
+
+			// ACCESS DENIED - unsure about reasons
+			const WSAEACCES = 10013 // windows.WSAEACCESS / syscall.WSAEACCES
+			if runtime.GOOS == "windows" && sysErr.Err.(syscall.Errno) == WSAEACCES {
+				BKLog.Printf("- syscall.WSAEACCES: %v %T\n", sysErr, sysErr)
+				os.Exit(rcServerStartOtherNetworkingError)
 			}
 			if sysErr.Err == syscall.EACCES {
 				BKLog.Printf("- syscall.EACCES: %v %T\n", sysErr, sysErr)
 				os.Exit(rcServerStartOtherNetworkingError)
 			}
+
 			BKLog.Printf("- other syscall error: %v\n", sysErr.Err)
 			os.Exit(rcServerStartOtherSyscallError)
 		}
+
 		BKLog.Printf("Other network error: %v (%T)\n", opErr.Err, opErr.Err)
 		os.Exit(rcServerStartOtherNetworkingError)
 	}
