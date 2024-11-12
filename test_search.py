@@ -22,7 +22,6 @@ from unittest.mock import Mock
 import bpy
 
 for addon in bpy.context.preferences.addons:
-    print(f"ADDON->{addon}")
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
@@ -85,7 +84,7 @@ class TestBuildQueryModel(unittest.TestCase):
         expected = {
             "asset_type": "model",
             "sexualizedContent": False,
-            "model_style": "custom_style",
+            "modelStyle": "custom_style",
         }
         self.assertEqual(query, expected)
 
@@ -95,7 +94,7 @@ class TestBuildQueryModel(unittest.TestCase):
         expected = {
             "asset_type": "model",
             "sexualizedContent": False,
-            "model_style": "REALISTIC",
+            "modelStyle": "REALISTIC",
         }
         self.assertEqual(query, expected)
 
