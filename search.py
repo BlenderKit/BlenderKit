@@ -716,8 +716,7 @@ def query_to_url(
     """
     if query is None:
         query = {}
-    if params is None:
-        params = {}
+
     url = f"{paths.BLENDERKIT_API}/search/"
     if query is None:
         query = {}
