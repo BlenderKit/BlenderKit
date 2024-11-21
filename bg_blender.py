@@ -87,7 +87,7 @@ def threadread(tcom: ThreadCom):
             tcom.outtext = inline[s + 9 : e]
             found = True
             if tcom.outtext.find("%") > -1:
-                tcom.progress = float(re.findall("\d+\.\d+|\d+", tcom.outtext)[0])
+                tcom.progress = float(re.findall(r"\d+\.\d+|\d+", tcom.outtext)[0])
             return
         if s == -1:
             s = inline.find("Remaining")

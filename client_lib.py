@@ -16,13 +16,13 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import dataclasses
 import logging
 import os
 import platform
 import shutil
 import subprocess
 from os import path
-import dataclasses
 from typing import Optional
 
 import bpy

@@ -28,17 +28,17 @@ from bpy.props import (
     IntProperty,
     StringProperty,
 )
-from bpy.types import PropertyGroup, Context
+from bpy.types import Context, PropertyGroup
 
 from . import (
     client_lib,
     client_tasks,
+    datas,
     global_vars,
     icons,
     reports,
     tasks_queue,
     utils,
-    datas,
 )
 
 

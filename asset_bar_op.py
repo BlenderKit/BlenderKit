@@ -31,8 +31,8 @@ from . import (
     ratings_utils,
     search,
     ui,
-    utils,
     ui_panels,
+    utils,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel

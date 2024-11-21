@@ -1,7 +1,8 @@
-import unittest
 import re
+import unittest
 
 import bpy
+
 
 # Dynamically set the package context for the BlenderKit add-on
 for addon in bpy.context.preferences.addons:

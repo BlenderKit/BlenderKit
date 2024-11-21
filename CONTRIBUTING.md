@@ -35,7 +35,8 @@ Communication between Client and Server currently happens in one way also Client
 
 We use `isort` for imports sorting.
 We use `black` for codestyle.
-We use `go fmt` for formatting Go code in `./client`
+We try to type statically with `mypy.`.
+We use `go fmt` for formatting Go code in `./client`.
 We will use `ruff` for linting.
 
 We define versions in `devs/requirements.txt` so the local development environment is consistent with CI/CD (Github Actions).
@@ -43,6 +44,14 @@ To install them in correct versions run: `pip3 install -U --user --r devs/requir
 
 Before committing your changes, please run:
 ```
+pdm run mypy .
+pdm run isort .
+pdm run black .
+```
+
+or if installed locally:
+```
+mypy .
 isort .
 black .
 ```
@@ -109,6 +118,17 @@ As the add-on and its submodules require `bpy` module and interaction with Blend
 This makes the tests to be on the edge between unit tests and integration tests.
 
 The tests are defined in files `test_<name-of-tested-file>.py` and their starting point is in file `test.py` which is executed from `dev.py` script.
+
+### Install dependencies
+
+1. install `pdm` package manager (https://pdm-project.org/en/latest/#installation)
+2. install developers dependencies `pdm install`
+3. Verify installation:
+```
+pdm run black --version
+pdm run isort --version
+pdm run mypy --version
+```
 
 ### Local testing
 

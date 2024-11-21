@@ -1,6 +1,7 @@
-import unittest, os
+import unittest
 
 import bpy
+
 
 for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:

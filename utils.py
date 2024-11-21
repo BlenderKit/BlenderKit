@@ -33,13 +33,13 @@ from mathutils import Vector
 from . import (
     client_lib,
     client_tasks,
+    datas,
     global_vars,
     image_utils,
     paths,
     persistent_preferences,
     reports,
     search,
-    datas,
 )
 
 

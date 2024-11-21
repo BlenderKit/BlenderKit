@@ -23,14 +23,7 @@ from typing import Any
 import bpy
 from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
 
-from . import (
-    colors,
-    global_vars,
-    paths,
-    search,
-    ui_bgl,
-    utils,
-)
+from . import colors, global_vars, paths, search, ui_bgl, utils
 
 
 draw_time = 0

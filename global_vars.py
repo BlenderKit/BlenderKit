@@ -19,10 +19,11 @@
 from collections import deque
 from logging import INFO, WARN
 from os import environ
-from typing import Optional
 from subprocess import Popen
+from typing import Optional
 
 from . import datas
+
 
 CLIENT_VERSION = "v1.2.1"
 CLIENT_ACCESSIBLE = False
