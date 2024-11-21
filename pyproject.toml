@@ -1,25 +1,32 @@
+[project]
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.18.4",
+    "types-requests>=2.31.0.5",
+    "numpy<2.0.0",
+    "black==24.1.0",
+    "isort==5.13.2",
+    "mypy==1.13.0",
+]
+
 [tool.isort]
 multi_line_output = 3
 lines_after_imports = 2
-skip = ["lib", "out"]
+skip = ["lib", "out", ".venv"]
 profile = "black"
 
 [tool.black]
 target-version = ['py310']
 include = '\.pyi?$'
 exclude = '''
-/(
-  | \.git
-  | lib
-  | out
-)/
+/(\.git|lib|out)/
 '''
 
 [tool.ruff]
 exclude = ["lib", "out", "addon_updater.py", "addon_updater_ops.py"]
-ignore = [ 
-    "E501", #Line too long
-    ]
+ignore = [
+    "E501", # Line too long
+]
 target-version = "py310"
 
 [tool.mypy]
@@ -27,4 +34,15 @@ exclude = ['test_*', 'out', 'lib']
 disallow_untyped_globals = false # remove this in the future
 
 [[tool.mypy.overrides]]
-module = ["bpy", "bpy.*"]
+module = [
+  "bpy",
+  "bpy.*",
+  "bpy_extras",
+  "mathutils",
+  "addonutils",
+  "blf",
+  "gpu",
+  "gpu_extras.*"
+]
+ignore_missing_imports = true  # Ignore missing type hints for bpy
+

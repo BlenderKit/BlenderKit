@@ -20,8 +20,8 @@ import json
 import os
 import sys
 
-import bpy
 import addon_utils  # type: ignore[import-not-found]
+import bpy
 
 
 def patch_imports(addon_module_name: str):
@@ -62,9 +62,9 @@ if __name__ == "__main__":
     patch_imports(sys.argv[-1])
     addon_utils.enable(sys.argv[-1])
 
-    from . import (
+    from . import (  # we can do relative import because we set the __package__
         append_link,
-    )  # we can do relative import because we set the __package__
+    )
 
     try:
         # bg_blender.progress('preparing scene - append data')

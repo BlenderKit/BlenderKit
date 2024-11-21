@@ -4,3 +4,4 @@ pyproject.toml
 client_builds
 .mypy_cache
 .venv
+.pdm-python

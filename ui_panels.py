@@ -26,7 +26,7 @@ from webbrowser import open_new_tab
 
 import bpy
 from bpy.props import IntProperty, StringProperty
-from bpy.types import Menu, Panel, Context, UILayout
+from bpy.types import Context, Menu, Panel, UILayout
 
 from . import (
     addon_updater_ops,
@@ -35,6 +35,7 @@ from . import (
     categories,
     client_lib,
     comments_utils,
+    datas,
     download,
     global_vars,
     icons,
@@ -45,8 +46,8 @@ from . import (
     ui,
     upload,
     utils,
-    datas,
 )
+
 
 ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 

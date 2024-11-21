@@ -16,11 +16,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import unittest
-import sys
 import os
+import sys
+import unittest
 
 import addon_utils
+
 
 print(f"----- Tests preparation ----- (mode:{os.getenv('TESTS_TYPE', 'all')})")
 addon_utils.enable(sys.argv[-1], default_set=True)

@@ -22,8 +22,8 @@ print("authothum_model_bg.py STARTED")
 import json
 import os
 import sys
-from traceback import print_exc
 from pathlib import Path
+from traceback import print_exc
 
 import bpy
 

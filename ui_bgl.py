@@ -17,7 +17,6 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import blf
-import bpy
 import gpu
 from bpy import app
 from gpu_extras.batch import batch_for_shader

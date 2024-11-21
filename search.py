@@ -16,14 +16,14 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import copy
 import json
 import logging
 import math
 import os
-import urllib.parse
 import unicodedata
-import copy
-from typing import Optional
+import urllib.parse
+from typing import Optional, Union
 
 import bpy
 from bpy.app.handlers import persistent
@@ -823,7 +823,7 @@ def build_query_model(props, ui_props, preferences) -> dict:
     """Use all search inputs (props) and add-on preferences
     to build search query request to get results from server.
     """
-    query = {"asset_type": "model"}
+    query: dict[str, Union[str, bool]] = {"asset_type": "model"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
             query["modelStyle"] = props.search_style
@@ -883,7 +883,7 @@ def build_query_material(
     props,
     ui_props,
 ) -> dict:
-    query = {"asset_type": "material"}
+    query: dict[str, Union[str, int]] = {"asset_type": "material"}
     if props.search_style != "ANY":
         if props.search_style != "OTHER":
             query["style"] = props.search_style

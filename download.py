@@ -20,8 +20,8 @@ import copy
 import logging
 import os
 import shutil
-import traceback
 import time
+import traceback
 
 from . import (
     append_link,

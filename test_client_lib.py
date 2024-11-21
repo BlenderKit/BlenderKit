@@ -24,11 +24,12 @@ from urllib.parse import urlparse
 import bpy
 import requests
 
+
 for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
-from . import client_lib, download, paths, utils, datas
+from . import client_lib, datas, download, paths, utils
 
 
 def client_is_responding() -> tuple[bool, str]:
