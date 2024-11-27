@@ -2040,6 +2040,15 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
 
+    client_polling: FloatProperty(
+        name="Client Polling",
+        description="Time interval in which add-on polls the BlenderKit-Client for updates on running requests and tasks. The lower the more responsive the add-on is, but it requires more resources.",
+        default=0.2,
+        min=0.1,
+        max=0.5,
+        update=utils.save_prefs,
+    )
+
     unpack_files: BoolProperty(
         name="Unpack Files",
         description="Unpack assets after download \n "
@@ -2373,6 +2382,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         network_settings.alignment = "EXPAND"
         network_settings.label(text="Networking settings")
         network_settings.prop(self, "client_port")
+        network_settings.prop(self, "client_polling")
         network_settings.prop(self, "ip_version")
         network_settings.prop(self, "ssl_context")
         network_settings.prop(self, "proxy_which")
