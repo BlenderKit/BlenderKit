@@ -1040,8 +1040,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (0, int((self.bar_height - self.button_size) / 2))
         )
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def on_init(self, context):
         self.tooltip_base_size_pixels = 512

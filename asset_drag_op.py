@@ -850,8 +850,8 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         if cancel_download:
             bpy.ops.scene.blenderkit_download_kill(task_id=self.task_key)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         # get downloader
         self.task = None
