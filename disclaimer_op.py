@@ -84,8 +84,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
         bpy.ops.wm.url_open(url=self.url)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         ui_scale = bpy.context.preferences.view.ui_scale
 
         text_size = int(14 * ui_scale)
