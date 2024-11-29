@@ -17,7 +17,6 @@
 # ##### END GPL LICENSE BLOCK #####
 # type: ignore
 
-print("authothum_model_bg.py STARTED")
 
 import json
 import math
