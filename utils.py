@@ -1429,3 +1429,10 @@ def get_addon_version() -> str:
     """Get BlenderKit addon version as string in format X.Y.Z."""
     ver = global_vars.VERSION
     return f"{ver[0]}.{ver[1]}.{ver[2]}"
+
+
+def get_project_name() -> str:
+    filename = bpy.path.basename(bpy.data.filepath)
+    if filename == "":
+        filename = "Untitled.blend"
+    return filename

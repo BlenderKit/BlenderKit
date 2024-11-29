@@ -31,6 +31,13 @@ type MinimalTaskData struct {
 	PlatformVersion string `json:"platform_version"` // Result of platform.platform() in Python
 }
 
+// Data required as part of the request for reports. There is extra field project_name expected, so
+// the running add-on (Blender, Godot) can be identified more easily if multiple windows are opened.
+type GetReportData struct {
+	MinimalTaskData
+	ProjectName string `json:"project_name,omitempty"` // Name of the currently opened project
+}
+
 // TaskStatusUpdate is a struct for updating the status of a task through a channel.
 // Message is optional and should be set to "" if update is not needed.
 type TaskProgressUpdate struct {

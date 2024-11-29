@@ -435,7 +435,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var data MinimalTaskData
+	var data GetReportData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		BKLog.Println("Error parsing ReportData:", err)
@@ -455,12 +455,20 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		Name:         blender,
 		Version:      data.BlenderVersion,
 		AddonVersion: data.AddonVersion,
+		ProjectName:  data.ProjectName,
 	}
 	updateAvailableSoftware(software)
 
 	TasksMux.Lock()
 	if Tasks[data.AppID] == nil { // New add-on connected
-		SubscribeNewApp(data)
+		mData := MinimalTaskData{
+			AppID:           data.AppID,
+			APIKey:          data.APIKey,
+			AddonVersion:    data.AddonVersion,
+			BlenderVersion:  data.BlenderVersion,
+			PlatformVersion: data.PlatformVersion,
+		}
+		SubscribeNewApp(mData)
 	}
 
 	taskID := uuid.New().String()
@@ -2489,12 +2497,12 @@ type ClientStatus struct {
 // Connected and running compatible software.
 // Right now this can be just instance of Blender.
 type Software struct {
-	Name         string `json:"name"`         // Name of the software
-	Version      string `json:"version"`      // Version of the Software
-	AppID        int    `json:"appID"`        // PID of the process
-	AddonVersion string `json:"addonVersion"` // Version of the add-on
-	AssetsPath   string `json:"assetsPath"`   // Where to download assets, only for non-Blender add-ons
-
+	Name              string    `json:"name"`         // Name of the software
+	Version           string    `json:"version"`      // Version of the Software
+	AppID             int       `json:"appID"`        // PID of the process
+	AddonVersion      string    `json:"addonVersion"` // Version of the add-on
+	AssetsPath        string    `json:"assetsPath"`   // Where to download assets, only for non-Blender add-ons
+	ProjectName       string    `json:"projectName"`  // Name of currently opened project, for better identification of the window.
 	lastTimeConnected time.Time // To handle unsubscribe in softwares which does not allow it
 }
 
@@ -2813,7 +2821,8 @@ func monitorAvailableSoftwares() {
 
 // When software sends data to Client, we want to update the details in AvailableSoftwares map.
 // Especially we want to update the lastTimeConnected, because this time parameter is used to
-// monitor active and inactive softwares in order to unsubscribe them.
+// monitor active and inactive softwares in order to unsubscribe them. Also we want to update
+// the name of currenly opened Project, so windows can be recognized by users.
 func updateAvailableSoftware(data Software) bool {
 	new := false
 	if _, ok := AvailableSoftwares[data.AppID]; !ok { // New add-on connected

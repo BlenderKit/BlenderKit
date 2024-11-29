@@ -104,6 +104,7 @@ def get_reports(app_id: str):
     If few last calls failed, then try to get reports also from other than default ports.
     """
     data = ensure_minimal_data({"app_id": app_id})
+    data["project_name"] = utils.get_project_name()
     data["blender_version"] = utils.get_blender_version()
     if (
         global_vars.CLIENT_FAILED_REPORTS < 10
