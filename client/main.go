@@ -1270,7 +1270,8 @@ func SendRating(data SendRatingData) {
 	}
 
 	var method string
-	if data.RatingValue == 0 {
+	// bookmarks should be removed via PUT value=0, strange inconsistency in the API ()
+	if data.RatingValue == 0 && data.RatingType != "bookmarks" {
 		method = http.MethodDelete
 	} else {
 		method = http.MethodPut
@@ -1292,23 +1293,18 @@ func SendRating(data SendRatingData) {
 	}
 	defer resp.Body.Close()
 
-	if method == http.MethodDelete {
+	if method == http.MethodDelete { // Only for Quality and Working Hours
 		if resp.StatusCode != http.StatusNoContent {
 			_, respString, _ := ParseFailedHTTPResponse(resp)
 			err := fmt.Errorf("remove rating - response (%v): %s at URL: %v", resp.Status, respString, url)
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 			return
 		}
-		var msg string
-		if data.RatingType == "bookmarks" {
-			msg = "Bookmark removal successful"
-		} else {
-			msg = fmt.Sprintf("Removed %s rating successfully", data.RatingType)
-		}
+
 		TaskFinishCh <- &TaskFinish{
 			AppID:   data.AppID,
 			TaskID:  taskUUID,
-			Message: msg,
+			Message: fmt.Sprintf("Removed %s rating successfully", data.RatingType),
 			Result:  map[string]string{},
 		}
 		return
@@ -1336,7 +1332,11 @@ func SendRating(data SendRatingData) {
 	}
 	var msg string
 	if data.RatingType == "bookmarks" {
-		msg = "Bookmarked successfully"
+		if data.RatingValue == 0 {
+			msg = "Bookmark removal successful"
+		} else {
+			msg = "Bookmarked successfully"
+		}
 	} else {
 		msg = fmt.Sprintf("Rated %s=%.1f successfully", data.RatingType, data.RatingValue)
 	}
