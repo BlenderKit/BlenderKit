@@ -653,6 +653,9 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Result: searchResult}
 	go parseThumbnails(searchResult, data)
+	if data.IsValidator { // if validator, go and directly request Ratings on search results
+		go GetRatings(searchResult, data)
+	}
 }
 
 func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
@@ -1186,7 +1189,7 @@ func GetRatingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// GetRating is a function for fetching the rating of the asset.
+// GetRating fetches the rating of a single asset.
 func GetRating(data GetRatingData) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/", *Server, data.AssetID)
 	taskUUID := uuid.New().String()
@@ -1222,7 +1225,7 @@ func GetRating(data GetRatingData) {
 		return
 	}
 
-	var respData map[string]interface{}
+	var respData GetRatingsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
 		err = fmt.Errorf("get rating - decoding response: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
@@ -1234,6 +1237,82 @@ func GetRating(data GetRatingData) {
 		TaskID:  taskUUID,
 		Message: "Rating data obtained",
 		Result:  respData,
+	}
+}
+
+// GetRatings fetches rating for multiple assets in a single request.
+func GetRatings(searchResults SearchResults, data SearchTaskData) {
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "ratings/get_ratings") // just to send errors effectively, but we do not use any data from this
+	query := ""
+	for i, result := range searchResults.Results {
+		if i == 0 {
+			query = fmt.Sprintf("?asset_uuid=%s", result.AssetBaseID)
+		} else {
+			query += fmt.Sprintf("&asset_uuid=%s", result.AssetBaseID)
+		}
+	}
+	url := fmt.Sprintf("%s/api/v1/ratings/%s", *Server, query)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		err = fmt.Errorf("get ratings - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		err = fmt.Errorf("get ratings - performing request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("get ratings: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("get ratings: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	var respData GetRatingsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		err = fmt.Errorf("get ratings - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskUUID,
+		Message: "Ratings data obtained",
+		Result:  nil, // no data needed to send, we will send individual ratings
+	}
+
+	for _, rating := range respData.Results {
+		taskUUID := uuid.New().String()
+		taskData := map[string]string{"asset_id": rating.Asset.AssetUUID} // because get_rating handler expects it in the data
+		taskResults := GetRatingsResponse{                                // again follow the format required by normal get_rating task and its handler
+			Count:   1,
+			Results: []Rating{rating},
+		}
+		AddTaskCh <- &Task{
+			AppID:    data.AppID,
+			TaskID:   taskUUID,
+			TaskType: "ratings/get_rating",
+			Data:     taskData,
+			Result:   taskResults,
+			Status:   "finished",
+		}
 	}
 }
 

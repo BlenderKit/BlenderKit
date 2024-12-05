@@ -297,6 +297,8 @@ def handle_task(task: client_tasks.Task):
     # HANDLE RATINGS
     if task.task_type == "ratings/get_rating":
         return ratings_utils.handle_get_rating_task(task)
+    if task.task_type == "ratings/get_ratings":
+        return ratings_utils.handle_get_ratings_task(task)
     if task.task_type == "ratings/send_rating":
         return ratings_utils.handle_send_rating_task(task)
 
