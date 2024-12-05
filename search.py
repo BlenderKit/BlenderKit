@@ -399,8 +399,6 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         if comments is None:
             client_lib.get_comments(asset_data["assetBaseId"])
-        # fetch ratings
-        ratings_utils.ensure_rating(asset_data["id"])
 
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f"{search_name} orig"] = task.result
@@ -954,6 +952,7 @@ def add_search_process(query, get_next: bool, page_size: int, next_url: str):
         get_next=get_next,
         page_size=page_size,
         blender_version=blender_version,
+        is_validator=utils.profile_is_validator(),
     )
     response = client_lib.asset_search(search_data)
     search_tasks[response["task_id"]] = search_data
