@@ -40,10 +40,6 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
                 brushname = m
     brush = bpy.data.brushes[brushname]
     brush.use_fake_user = fake_user
-    # re-mark as asset in blender version >= 4.3
-    if bpy.app.version >= (4, 3, 0):
-        brush.asset_clear()
-        brush.asset_mark()
     return brush
 
 

@@ -1113,23 +1113,26 @@ def user_is_owner(asset_data: Optional[dict] = None) -> bool:
     return False
 
 
-def asset_from_newer_blender_version(asset_data):
+def asset_from_newer_blender_version(asset_data, blender_version=None):
     """Check if asset is from a newer blender version, to avoid incompatibility. Give info if difference is in major, minor or patch version."""
     asset_ver = asset_data["sourceAppVersion"].split(".")
+    if blender_version is None:
+        blender_version = bpy.app.version
+
     while len(asset_ver) < 3:
         asset_ver.append("0")
 
-    if bpy.app.version[0] < int(asset_ver[0]):
+    if blender_version[0] < int(asset_ver[0]):
         return True, "major"
-    elif bpy.app.version[0] > int(asset_ver[0]):
+    elif blender_version[0] > int(asset_ver[0]):
         return False, ""
 
-    if bpy.app.version[1] < int(asset_ver[1]):
+    if blender_version[1] < int(asset_ver[1]):
         return True, "minor"
-    elif bpy.app.version[1] > int(asset_ver[1]):
+    elif blender_version[1] > int(asset_ver[1]):
         return False, ""
 
-    if bpy.app.version[2] < int(asset_ver[2]):
+    if blender_version[2] < int(asset_ver[2]):
         return True, "patch"
     return False, ""
 
