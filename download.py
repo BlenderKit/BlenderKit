@@ -462,6 +462,15 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             asset_thumbs_dir = paths.get_download_dirs("brush")[0]
             asset_thumb_path = os.path.join(asset_thumbs_dir, thumbnail_name)
             shutil.copy(thumbpath, asset_thumb_path)
+
+            # re-mark as asset in blender version >= 4.3
+            # but only if asset comes from a version older than that
+
+            if not utils.asset_from_newer_blender_version(
+                asset_data, blender_version=(4, 2, 9)
+            )[0] and bpy.app.version >= (4, 3, 0):
+                brush.asset_clear()
+                brush.asset_mark()
             brush.icon_filepath = asset_thumb_path
 
         # set the brush active
