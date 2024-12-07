@@ -83,6 +83,7 @@ if "bpy" in locals():
     icons = reload(icons)
     image_utils = reload(image_utils)
     overrides = reload(overrides)
+    override_extension_draw = reload(override_extension_draw)
     paths = reload(paths)
     ratings_utils = reload(ratings_utils)
     ratings = reload(ratings)
@@ -134,6 +135,7 @@ else:
     from . import icons
     from . import image_utils
     from . import overrides
+    from . import override_extension_draw
     from . import paths
     from . import ratings
     from . import ratings_utils
@@ -2524,6 +2526,8 @@ def register():
                     (bpy.ops.wm.save_userpref, ()),
                     fake_context=False,
                 )
+    # extension draw overrides,
+    override_extension_draw.register()
 
 
 def unregister():
