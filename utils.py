@@ -1137,6 +1137,12 @@ def asset_from_newer_blender_version(asset_data, blender_version=None):
     return False, ""
 
 
+def asset_version_as_tuple(asset_data) -> tuple[int, int, int]:
+    """Convert a version string to a tuple of integers. This way it can be compared to the blender version tuple."""
+    version = asset_data["sourceAppVersion"]
+    return tuple(map(int, version=asset_data["sourceAppVersion"].split(".")))
+
+
 def guard_from_crash():
     """
     Blender tends to crash when trying to run some functions
