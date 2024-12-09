@@ -130,9 +130,10 @@ def client_communication_timer():
         handle_task(task)
 
     bk_logger.debug("Task handling finished")
+    delay = bpy.context.preferences.addons[__package__].preferences.client_polling
     if len(download.download_tasks) > 0:
-        return 0.2
-    return 0.5
+        return min(0.2, delay)
+    return delay
 
 
 @bpy.app.handlers.persistent
