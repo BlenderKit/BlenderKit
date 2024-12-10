@@ -2544,7 +2544,7 @@ func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	BKLog.Printf("%s Get Asset to %s (%d): %s %s, %s", EmoBKClientJS, targetSoftware.Name, data.AppID, data.AssetID, data.AssetBaseID, data.Resolution)
+	BKLog.Printf("%s Get Asset to %s (%d): AssetID=%s, AssetBaseID=%s, Resolution=%s", EmoBKClientJS, targetSoftware.Name, data.AppID, data.AssetID, data.AssetBaseID, data.Resolution)
 	go bkclientjsGetAsset(data.AppID, data.APIKey, data.AssetBaseID, data.AssetID, data.Resolution, targetSoftware)
 
 	w.WriteHeader(http.StatusOK)
@@ -2560,9 +2560,9 @@ type GetThisModelData struct {
 }
 
 func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution string, targetSoftware Software) {
-	assetData, err := GetAssetInstance(assetID) // TODO: use assetBaseID and get the asset via /api/v1/search as advised by Petr
+	assetData, err := GetAssetInstance(assetBaseID)
 	if err != nil {
-		fmt.Println(err)
+		BKLog.Printf("%s GetAssetInstance error: %v", EmoBKClientJS, err)
 		return
 	}
 
@@ -2585,9 +2585,9 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		return
 	}
 
-	// OTHER SOFTWARES
+	// OTHER SOFTWARES - JUST GODOT NOW
 	sceneID := uuid.New().String()
-	// TODO: Here we need to define
+	resolution = "gltf" // TODO: change to new assetfile type introduced for Godot specifically
 	canDownload, downloadURL, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
 	if err != nil {
 		BKLog.Printf("%s GetDownloadURL error %v", EmoBKClientJS, err)
@@ -2600,7 +2600,6 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 	// TODO: Here we need to define human readable name for GLTF
 	fileName, err := ExtractFilenameFromURL(downloadURL)
-	fileName = fileName + ".gltf" // HACK just for presentation
 	if err != nil {
 		BKLog.Printf("%s ExtractFilenameFromURL error %v", EmoBKClientJS, err)
 		return
@@ -2743,15 +2742,13 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	}
 }
 
-// Get data for single Asset instance by assetID.
-// https://www.blenderkit.com/api/v1/assets/{assetID}/
-// TODO: use assetBaseID and get the asset via /api/v1/search as advised by Petr
-func GetAssetInstance(assetID string) (Asset, error) {
-	data := Asset{}
-	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, assetID)
+// Get data for single Asset instance by assetBaseID via Search on the API - as advised by Petr.
+// https://devel.blenderkit.com/api/v1/docs/#tag/search
+func GetAssetInstance(assetBaseID string) (Asset, error) {
+	url := fmt.Sprintf("%s/api/v1/search/?query=asset_base_id:%s", *Server, assetBaseID)
 	resp, err := http.Get(url)
 	if err != nil {
-		return data, err
+		return Asset{}, err
 	}
 	defer resp.Body.Close()
 
@@ -2759,16 +2756,26 @@ func GetAssetInstance(assetID string) (Asset, error) {
 		msg := "error getting asset"
 		respJSON, respString, err := ParseFailedHTTPResponse(resp)
 		if err != nil || respJSON == nil {
-			return data, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
+			return Asset{}, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
 		}
-		return data, fmt.Errorf("%s (%s)", msg, resp.Status)
+		return Asset{}, fmt.Errorf("%s (%s)", msg, resp.Status)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return data, err
+	var searchResult SearchResults
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		return Asset{}, err
 	}
 
-	return data, nil
+	if len(searchResult.Results) == 0 {
+		err = fmt.Errorf("0 assets found with asset_base_id=%s", assetBaseID)
+		return Asset{}, err
+	}
+
+	if len(searchResult.Results) != 1 {
+		BKLog.Printf("%s GetAssetInstance warning: expected 1 asset, found %d", EmoBKClientJS, len(searchResult.Results))
+	}
+
+	return searchResult.Results[0], nil
 }
 
 // Get AvailableSoftwares as a slice.
@@ -2885,7 +2892,6 @@ func godotReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	BKLog.Printf("%s %s (v%s, %d) add-on(v%s) report: assetsPath=%s", EmoInfo, data.Name, data.Version, data.AppID, data.AddonVersion, data.AssetsPath)
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
 }
