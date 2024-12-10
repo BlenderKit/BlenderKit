@@ -642,6 +642,9 @@ func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) 
 				return f, "blend"
 			}
 		}
+		if targetRes == "gltf" && f.FileType == "gltf" {
+			return f, "gltf"
+		}
 
 		r := strconv.Itoa(resolutionsMap[f.FileType])
 		if r == targetRes {
