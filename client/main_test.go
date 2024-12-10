@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -557,4 +558,129 @@ func TestNewTask(t *testing.T) {
 			}
 		})
 	}
+}
+func TestGetAssetInstance(t *testing.T) {
+	originalServer := Server
+	tempServer := "http://test-server.com"
+	Server = &tempServer
+	defer func() { Server = originalServer }()
+
+	tests := []struct {
+		name        string
+		assetBaseID string
+		mockResp    *http.Response
+		want        Asset
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "Successful asset retrieval",
+			assetBaseID: "abc123",
+			mockResp: &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(bytes.NewBufferString(`{
+					"results": [{
+						"id": "abc123",
+						"name": "Test Asset",
+						"description": "Test Description"
+					}]
+				}`)),
+			},
+			want: Asset{
+				ID:          "abc123",
+				Name:        "Test Asset",
+				Description: "Test Description",
+			},
+			wantErr: false,
+		},
+		{
+			name:        "Empty results",
+			assetBaseID: "nonexistent",
+			mockResp: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`{"results": []}`)),
+			},
+			wantErr:     true,
+			errContains: "0 assets found with asset_base_id=nonexistent",
+		},
+		{
+			name:        "Multiple results",
+			assetBaseID: "duplicate",
+			mockResp: &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(bytes.NewBufferString(`{
+					"results": [
+						{"id": "1", "name": "Asset 1"},
+						{"id": "2", "name": "Asset 2"}
+					]
+				}`)),
+			},
+			want: Asset{
+				ID:   "1",
+				Name: "Asset 1",
+			},
+			wantErr: false,
+		},
+		{
+			name:        "Invalid JSON response",
+			assetBaseID: "invalid",
+			mockResp: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`invalid json`)),
+			},
+			wantErr: true,
+		},
+		{
+			name:        "Server error",
+			assetBaseID: "error",
+			mockResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(bytes.NewBufferString(`{"detail": "Internal server error"}`)),
+			},
+			wantErr:     true,
+			errContains: "error getting asset",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalClient := http.DefaultClient
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					response: tt.mockResp,
+				},
+			}
+			http.DefaultClient = mockClient
+			defer func() { http.DefaultClient = originalClient }()
+
+			got, err := GetAssetInstance(tt.assetBaseID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAssetInstance() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr {
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("GetAssetInstance() error = %v, want error containing %v", err, tt.errContains)
+				}
+				return
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetAssetInstance() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type mockTransport struct {
+	response *http.Response
+}
+
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if m.response == nil {
+		return nil, fmt.Errorf("no response configured")
+	}
+	m.response.Request = req
+	return m.response, nil
 }
