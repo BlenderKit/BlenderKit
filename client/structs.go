@@ -461,16 +461,6 @@ type GetCommentsData struct {
 	AssetID         string `json:"asset_id"`
 }
 
-type SendRatingData struct {
-	AddonVersion    string  `json:"addon_version"`
-	PlatformVersion string  `json:"platform_version"`
-	AppID           int     `json:"app_id"`
-	APIKey          string  `json:"api_key"`
-	AssetID         string  `json:"asset_id"`
-	RatingType      string  `json:"rating_type"`
-	RatingValue     float32 `json:"rating_value"`
-}
-
 type FetchGravatarData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
@@ -485,12 +475,43 @@ type CancelDownloadData struct {
 	AppID  int    `json:"app_id"`
 }
 
+// MARK: RATINGS
+
 type GetRatingData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	AssetID         string `json:"asset_id"`
+}
+
+type GetRatingsResponse struct {
+	Count    int      `json:"count"`
+	Next     string   `json:"next"`
+	Previous string   `json:"previous"`
+	Results  []Rating `json:"results"`
+}
+
+// Rating data obtained from the server.
+type Rating struct {
+	Score      float32     `json:"score"`
+	RatingType string      `json:"ratingType"`
+	Asset      RatingAsset `json:"asset"`
+}
+
+type RatingAsset struct {
+	AssetUUID   string `json:"assetUuid"`   // aka assetBaseID
+	VersionUUID string `json:"versionUuid"` // aka ID
+}
+
+type SendRatingData struct {
+	AddonVersion    string  `json:"addon_version"`
+	PlatformVersion string  `json:"platform_version"`
+	AppID           int     `json:"app_id"`
+	APIKey          string  `json:"api_key"`
+	AssetID         string  `json:"asset_id"`
+	RatingType      string  `json:"rating_type"`
+	RatingValue     float32 `json:"rating_value"`
 }
 
 type Notification struct {
@@ -591,6 +612,7 @@ type SearchTaskData struct {
 	SceneUUID       string `json:"scene_uuid"`
 	TempDir         string `json:"tempdir"`
 	URLQuery        string `json:"urlquery"`
+	IsValidator     bool   `json:"is_validator"` // is true for validators, so we can do immediate hacks in the Client right after the search results come
 }
 
 type ReportData struct {

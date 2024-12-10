@@ -63,6 +63,15 @@ def handle_get_rating_task(task: client_tasks.Task):
         store_rating_local(asset_id, rating["ratingType"], rating["score"])
 
 
+def handle_get_ratings_task(task: client_tasks.Task):
+    """Handle incomming get_ratings task. This is a special task used only by validators which fetches the ratings
+    in big batch right after the search results come into the Client. This is used only to signal problems in the
+    Goroutine which fetches the ratings. The individual ratings are then sent as normal 'get_rating' tasks.
+    """
+    if task.status == "error":  # only reason this task type exists right now
+        return bk_logger.warning(f"{task.task_type} task failed: {task.message}")
+
+
 def handle_get_bookmarks_task(task: client_tasks.Task):
     """Handle incomming get_bookmarks task by saving the results into global_vars.
     This is different from standard ratings - the results come from elastic search API
