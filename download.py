@@ -463,9 +463,15 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             asset_thumb_path = os.path.join(asset_thumbs_dir, thumbnail_name)
             shutil.copy(thumbpath, asset_thumb_path)
 
+            asset_blender_version = utils.asset_version_as_tuple(asset_data)
+            # brushes from blender version < 3.5 have inverted texture bias
+            # so we need to invert it here
+            if asset_blender_version < (3, 5, 0):
+                brush.texture_sample_bias = -brush.texture_sample_bias
+
             # re-mark as asset in blender version >= 4.3
             # but only if asset comes from a version older than that
-            asset_blender_version = utils.asset_version_as_tuple(asset_data)
+
             if asset_blender_version < (4, 3, 0) and bpy.app.version >= (4, 3, 0):
                 brush.asset_clear()
                 brush.asset_mark()
