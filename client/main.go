@@ -2587,7 +2587,6 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 	// OTHER SOFTWARES - JUST GODOT NOW
 	sceneID := uuid.New().String()
-	resolution = "gltf" // TODO: change to new assetfile type introduced for Godot specifically
 	canDownload, downloadURL, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
 	if err != nil {
 		BKLog.Printf("%s GetDownloadURL error %v", EmoBKClientJS, err)
