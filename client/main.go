@@ -1240,7 +1240,9 @@ func GetRating(data GetRatingData) {
 	}
 }
 
-// GetRatings fetches rating for multiple assets in a single request.
+// GetRatings fetches rating for multiple assets in a single request (or more if there are more pages).
+// It constructs the ratings/get_ratings task and calls FetchRatings which recursively fetches 1st request
+// and if there are more pages it calls itself until all pages are loaded.
 func GetRatings(searchResults SearchResults, data SearchTaskData) {
 	taskUUID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "ratings/get_ratings") // just to send errors effectively, but we do not use any data from this
@@ -1253,40 +1255,8 @@ func GetRatings(searchResults SearchResults, data SearchTaskData) {
 		}
 	}
 	url := fmt.Sprintf("%s/api/v1/ratings/%s", *Server, query)
-
-	req, err := http.NewRequest("GET", url, nil)
+	err := FetchRatings(url, data)
 	if err != nil {
-		err = fmt.Errorf("get ratings - making request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-		return
-	}
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
-
-	resp, err := ClientAPI.Do(req)
-	if err != nil {
-		err = fmt.Errorf("get ratings - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("get ratings: %s (%s)", respString, resp.Status)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-		return
-	}
-
-	err = RespIsJSON(resp)
-	if err != nil {
-		err = fmt.Errorf("get ratings: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-		return
-	}
-
-	var respData GetRatingsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-		err = fmt.Errorf("get ratings - decoding response: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -1295,13 +1265,44 @@ func GetRatings(searchResults SearchResults, data SearchTaskData) {
 		AppID:   data.AppID,
 		TaskID:  taskUUID,
 		Message: "Ratings data obtained",
-		Result:  nil, // no data needed to send, we will send individual ratings
+		Result:  nil, // no data needed to send, FetchRatings continuosly sent the individual ratings
+	}
+}
+
+// Fetch the ratings from the give URL, if next page is available call recursively itself to fetch the next page
+// and the next on next, until the end is reached where next="" (next: null).
+func FetchRatings(url string, data SearchTaskData) error {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("get ratings - making request: %w", err)
+	}
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		return fmt.Errorf("get ratings - performing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		return fmt.Errorf("get ratings: %s (%s)", respString, resp.Status)
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		return fmt.Errorf("get ratings: %w", err)
+	}
+
+	var respData GetRatingsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		return fmt.Errorf("get ratings - decoding response: %w", err)
 	}
 
 	for _, rating := range respData.Results {
 		taskUUID := uuid.New().String()
-		taskData := map[string]string{"asset_id": rating.Asset.AssetUUID} // because get_rating handler expects it in the data
-		taskResults := GetRatingsResponse{                                // again follow the format required by normal get_rating task and its handler
+		taskData := map[string]string{"asset_id": rating.Asset.VersionUUID} // because get_rating handler expects it in the data
+		taskResults := GetRatingsResponse{                                  // again follow the format required by normal get_rating task and its handler
 			Count:   1,
 			Results: []Rating{rating},
 		}
@@ -1314,6 +1315,15 @@ func GetRatings(searchResults SearchResults, data SearchTaskData) {
 			Status:   "finished",
 		}
 	}
+
+	if respData.Next != "" {
+		err = FetchRatings(respData.Next, data)
+		if err != nil {
+			return fmt.Errorf("fetch ratings page (%s): %w", url, err)
+		}
+	}
+
+	return nil
 }
 
 func SendRatingHandler(w http.ResponseWriter, r *http.Request) {
