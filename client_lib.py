@@ -91,9 +91,14 @@ def ensure_minimal_data_class(data_class):
     return data_class
 
 
-def reorder_ports(port: str):
-    """Reorder CLIENT_PORTS so the specified port is first."""
-    i = global_vars.CLIENT_PORTS.index(port)
+def reorder_ports(port: str = ""):
+    """Reorder CLIENT_PORTS so the specified port is first.
+    If no port is specified, the current first port is moved to back so second becomes the first.
+    """
+    if port == "":
+        i = 1
+    else:
+        i = global_vars.CLIENT_PORTS.index(port)
     global_vars.CLIENT_PORTS = (
         global_vars.CLIENT_PORTS[i:] + global_vars.CLIENT_PORTS[:i]
     )
@@ -644,15 +649,13 @@ def start_blenderkit_client():
             )
     except Exception as e:
         reports.add_report(
-            f"Error: BlenderKit-Client {client_version} failed to start - {e}",
+            f"Error: BlenderKit-Client {client_version} failed to start on {get_address()}:{e}",
             10,
             "ERROR",
         )
         raise (e)
 
-    bk_logger.info(
-        f"BlenderKit-Client {client_version} starting on {get_address()}, log file at: {log_path}"
-    )
+    bk_logger.info(f"BlenderKit-Client {client_version} starting on {get_address()}")
 
 
 def decide_client_binary_name() -> str:

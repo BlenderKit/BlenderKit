@@ -27,13 +27,14 @@ from . import datas
 
 CLIENT_VERSION = "v1.2.1"
 CLIENT_ACCESSIBLE = False
+"""Is Client accessible? Can add-on access it and call stuff which uses it?"""
+CLIENT_RUNNING = False
+"""Just  for on_startup_client_online_timer()."""
 CLIENT_FAILED_REPORTS = 0
 """Number of failed requests to get reports from the BlenderKit-Client. If too many, something is wrong."""
-
 CLIENT_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
 """Ports are ordered during the start, and later after malfunction."""
 
-CLIENT_RUNNING = False
 DATA: dict = {  # TODO: move these
     "images available": {},
     "search history": deque(maxlen=20),
