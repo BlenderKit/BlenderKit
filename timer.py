@@ -51,35 +51,58 @@ pending_tasks = (
 
 
 def handle_failed_reports(exception: Exception) -> float:
-    bk_logger.warning(
-        f"Request for BlenderKit-Client reports failed: {type(exception)} {exception}"
-    )
+    """Function reacting to failing reports (Client is not accessible).
+    On 11th, 21st, 31st etc. it will print error message and start Client on other ports.
+    Iterating over the available ports for each start. Users did not want to change the
+    ports manually, so we do this automatically for them.
+    """
     global_vars.CLIENT_ACCESSIBLE = False
-    if global_vars.CLIENT_FAILED_REPORTS in (0, 10):
+    global_vars.CLIENT_FAILED_REPORTS += 1  # De facto means we count from 1, not from 0
+    if (
+        global_vars.CLIENT_FAILED_REPORTS == 1
+    ):  # First failed reports -> lets start the Client
+        bk_logger.info(
+            f"First request for BlenderKit-Client reports failed: {type(exception)} {exception}"
+        )
         client_lib.start_blenderkit_client()
+    else:
+        bk_logger.warning(
+            f"Request for BlenderKit-Client reports failed: {type(exception)} {exception}"
+        )
 
-    global_vars.CLIENT_FAILED_REPORTS += 1
-    if global_vars.CLIENT_FAILED_REPORTS < 15:
+    if global_vars.CLIENT_FAILED_REPORTS <= 10:  # try 10 times
         return 0.1 * global_vars.CLIENT_FAILED_REPORTS
 
-    bk_logger.warning(f"Could not get reports: {exception}")
+    # MORE THAN 10 FAILURES
+    bk_logger.warning(
+        f"Could not get reports: {exception} ({global_vars.CLIENT_FAILED_REPORTS}. failure)"
+    )
     return_code, meaning = client_lib.check_blenderkit_client_return_code()
-    if return_code == -1 and global_vars.CLIENT_FAILED_REPORTS == 15:
-        reports.add_report(
-            "Client is not responding, add-on will not work.", 10, "ERROR"
-        )
-    if return_code != -1 and global_vars.CLIENT_FAILED_REPORTS == 15:
-        reports.add_report(
-            f"Client failed to start, add-on will not work. Error({return_code}): {meaning}",
-            10,
-            "ERROR",
-        )
+
+    # On FAILED_REPORTS == 11, 21, 31...
+    if global_vars.CLIENT_FAILED_REPORTS % 10 == 1:
+        if return_code == -1:
+            reports.add_report(
+                "Client is not responding, add-on will not work.", 10, "ERROR"
+            )
+        if return_code != -1:
+            reports.add_report(
+                f"Client failed to start, add-on will not work. Error({return_code}): {meaning}",
+                10,
+                "ERROR",
+            )
+        # LETS START AGAIN - on different port
+        # The catch is that the error message printed to user is outdated now.
+        # But there is not a better solution.
+        client_lib.reorder_ports()
+        client_lib.start_blenderkit_client()
 
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"  # type: ignore[attr-defined]
     global_vars.CLIENT_RUNNING = False
-    client_lib.start_blenderkit_client()
-    return 30.0
+
+    # Gradually retry less frequently, but at least once in 30s...
+    return min(30.0, 0.1 * global_vars.CLIENT_FAILED_REPORTS)
 
 
 @bpy.app.handlers.persistent
