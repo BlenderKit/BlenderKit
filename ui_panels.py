@@ -830,7 +830,7 @@ class UpvoteComment(bpy.types.Operator):
     def execute(self, context):
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         api_key = user_preferences.api_key
-        comments = comments_utils.get_comments_local(self.asset_id, [])
+        comments = comments_utils.get_comments_local(self.asset_id)
         profile = global_vars.BKIT_PROFILE
         for comment in comments:
             if comment["id"] != self.comment_id:
