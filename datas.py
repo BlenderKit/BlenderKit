@@ -133,6 +133,9 @@ class MineProfile:
     tooltip: str = ""  # generated later from Name and AboutMe etc.
     canEditAllAssets: bool = False  # whether User is validator
 
+    def __bool__(self):
+        return self.id != -1
+
 
 @dataclasses.dataclass
 class AssetRating:

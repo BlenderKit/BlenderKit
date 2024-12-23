@@ -29,7 +29,7 @@ from webbrowser import open_new_tab
 import bpy
 from bpy.props import BoolProperty
 
-from . import client_lib, client_tasks, global_vars, reports, tasks_queue, utils
+from . import client_lib, client_tasks, datas, global_vars, reports, tasks_queue, utils
 
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
@@ -85,15 +85,13 @@ def handle_token_refresh_task(task: client_tasks.Task):
 def handle_logout_task(task: client_tasks.Task):
     """Handles incoming task of type oauth2/logout. This could be triggered from another add-on also.
     Shows messages depending on result of tokens revocation.
-    Regardless of revocation results, it also cleans login data if needed."""
+    Regardless of revocation results, it also cleans login data."""
     if task.status == "finished":
         reports.add_report(task.message, 3, "INFO")
     elif task.status == "error":
         reports.add_report(task.message, 5, "ERROR")
 
-    # login could happen in another add-on instance, so we need to check whether login data are cleaned
-    if global_vars.BKIT_PROFILE is not None:
-        clean_login_data()
+    clean_login_data()
 
 
 def clean_login_data():
@@ -102,8 +100,7 @@ def clean_login_data():
     preferences.api_key_refresh = ""
     preferences.api_key = ""
     preferences.api_key_timeout = 0
-    if global_vars.BKIT_PROFILE:
-        del global_vars.BKIT_PROFILE
+    global_vars.BKIT_PROFILE = datas.MineProfile()
 
 
 def logout() -> None:
