@@ -25,7 +25,7 @@ from typing import Optional
 from . import datas
 
 
-CLIENT_VERSION = "v1.2.1"
+CLIENT_VERSION = "v1.3.0"
 CLIENT_ACCESSIBLE = False
 """Is Client accessible? Can add-on access it and call stuff which uses it?"""
 CLIENT_RUNNING = False
