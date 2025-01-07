@@ -823,7 +823,21 @@ class FastMetadata(bpy.types.Operator):
         "Private assets are limited by quota",
         default="PUBLIC",
     )
-
+    sexualized_content: BoolProperty(  # type: ignore[valid-type]
+        name="Sexualized content",
+        description=(
+            "Flag this asset if it includes explicit content, suggestive poses, or overemphasized secondary sexual characteristics. "
+            "This helps users filter content according to their preferences, creating a safe and inclusive browsing experience for all.\n\n"
+            "Flag not required:\n"
+            "- naked base mesh model,\n"
+            "- figure in underwear/swimwear in neutral position.\n\n"
+            "Flag required:\n"
+            "- figure in sexually suggestive pose,\n"
+            "- figure with over overemphasized sexual characteristics,\n"
+            "- objects related to sexual act."
+        ),
+        default=False,
+    )
     free_full: EnumProperty(  # type: ignore[valid-type]
         name="Free or Full Plan",
         items=(
@@ -861,6 +875,11 @@ class FastMetadata(bpy.types.Operator):
         layout.prop(self, "free_full", expand=True)
         if self.is_private == "PUBLIC":
             layout.prop(self, "license")
+        # layout.label(text="Content Flags:")
+        content_flag_box = layout.box()
+        content_flag_box.alignment = "EXPAND"
+        content_flag_box.label(text="Sensitive Content Flags:")
+        content_flag_box.prop(self, "sexualized_content")
 
     def execute(self, context):
         if self.subcategory1 not in ("NONE", "EMPTY"):
@@ -878,6 +897,12 @@ class FastMetadata(bpy.types.Operator):
             "isPrivate": self.is_private == "PRIVATE",
             "isFree": self.free_full == "FREE",
             "license": self.license,
+            "parameters": [
+                {
+                    "parameterType": "sexualizedContent",
+                    "value": self.sexualized_content,
+                },
+            ],
         }
         url = f"{paths.BLENDERKIT_API}/assets/{self.asset_id}/"
         messages = {
@@ -925,6 +950,9 @@ class FastMetadata(bpy.types.Operator):
         else:
             self.free_full = "FULL"
         self.license = asset_data["license"]
+        self.sexualized_content = asset_data.get("dictParameters", {}).get(
+            "sexualizedContent", False
+        )
 
         wm = context.window_manager
 
