@@ -179,6 +179,9 @@ func TestDictToParams(t *testing.T) {
 }
 
 func TestGetAvailableSoftwares(t *testing.T) {
+	AvailableSoftwares = make(map[int]Software)
+	AvailableSoftwaresMux = sync.Mutex{}
+
 	tests := []struct {
 		name          string
 		softwareMap   map[int]Software
@@ -208,7 +211,11 @@ func TestGetAvailableSoftwares(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetAvailableSoftwares(tt.softwareMap)
+			AvailableSoftwaresMux.Lock()
+			AvailableSoftwares = tt.softwareMap
+			AvailableSoftwaresMux.Unlock()
+
+			result := GetAvailableSoftwares()
 
 			if len(result) != tt.expectedCount {
 				t.Errorf("Expected %d softwares, got %d", tt.expectedCount, len(result))
@@ -221,6 +228,10 @@ func TestGetAvailableSoftwares(t *testing.T) {
 			}
 		})
 	}
+
+	// clean global variables after the test
+	AvailableSoftwares = make(map[int]Software)
+	AvailableSoftwaresMux = sync.Mutex{}
 }
 
 func TestUpdateAvailableSoftware(t *testing.T) {

@@ -499,10 +499,10 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-// SubscribeNewApp adds new App into Tasks[AppID].
+// SubscribeNewApp adds new App into Tasks[AppID]. Call this only when TasksMux is locked!
 // This is called when new AppID appears - meaning new add-on or other app wants to communicate with Client.
 func SubscribeNewApp(data MinimalTaskData) {
-	Tasks[data.AppID] = make(map[string]*Task)
+	Tasks[data.AppID] = make(map[string]*Task) // No TasksMux.Lock() as we expect the calling function to do it.
 	go FetchDisclaimer(data)
 	go FetchCategories(data)
 	if data.APIKey != "" {
@@ -2564,7 +2564,7 @@ func bkclientjsStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	data := ClientStatus{
 		ClientVersion: ClientVersion,
-		Softwares:     GetAvailableSoftwares(AvailableSoftwares),
+		Softwares:     GetAvailableSoftwares(),
 	}
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
@@ -2625,7 +2625,9 @@ func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	AvailableSoftwaresMux.Lock()
 	targetSoftware, exists := AvailableSoftwares[data.AppID]
+	AvailableSoftwaresMux.Unlock()
 	if !exists {
 		BKLog.Printf("%s Could not find software (appID %d) for JS download", EmoWarning, data.AppID)
 		w.WriteHeader(http.StatusExpectationFailed)
@@ -2867,11 +2869,13 @@ func GetAssetInstance(assetBaseID string) (Asset, error) {
 }
 
 // Get AvailableSoftwares as a slice.
-func GetAvailableSoftwares(softwareMap map[int]Software) []Software {
+func GetAvailableSoftwares() []Software {
 	var softwares []Software
-	for i := range softwareMap {
-		softwares = append(softwares, softwareMap[i])
+	AvailableSoftwaresMux.Lock()
+	for i := range AvailableSoftwares {
+		softwares = append(softwares, AvailableSoftwares[i])
 	}
+	AvailableSoftwaresMux.Unlock()
 
 	return softwares
 }
@@ -2920,13 +2924,12 @@ func monitorAvailableSoftwares() {
 // the name of currenly opened Project, so windows can be recognized by users.
 func updateAvailableSoftware(data Software) bool {
 	new := false
+	AvailableSoftwaresMux.Lock()
 	if _, ok := AvailableSoftwares[data.AppID]; !ok { // New add-on connected
 		BKLog.Printf("%s %s (v%s, add-on v%s) subscribed: %d", EmoNewConnection, data.Name, data.Version, data.AddonVersion, data.AppID)
 		new = true
 	}
-
 	data.lastTimeConnected = time.Now()
-	AvailableSoftwaresMux.Lock()
 	AvailableSoftwares[data.AppID] = data
 	AvailableSoftwaresMux.Unlock()
 
