@@ -289,6 +289,7 @@ func OAuth2Logout(data RefreshTokenData) {
 		status = "error"
 	}
 
+	TasksMux.Lock()
 	for appID := range Tasks {
 		task := NewTask(data, appID, uuid.New().String(), "oauth2/logout")
 		task.Message = message
@@ -296,6 +297,7 @@ func OAuth2Logout(data RefreshTokenData) {
 		task.Error = fmt.Errorf(message) // just to print it into console
 		AddTaskCh <- task
 	}
+	TasksMux.Unlock()
 }
 
 // RevokeOAuth2Token revokes api_key or refresh_token according to RFC 7009: https://www.rfc-editor.org/rfc/rfc7009.html#section-2.1.
