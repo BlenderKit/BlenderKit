@@ -27,7 +27,7 @@ from pathlib import Path
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
 
-from . import bg_blender, global_vars, paths, tasks_queue, utils
+from . import bg_blender, global_vars, paths, tasks_queue, utils, upload
 
 
 bk_logger = logging.getLogger(__name__)
@@ -422,7 +422,8 @@ class GenerateThumbnailOperator(bpy.types.Operator):
 class ReGenerateThumbnailOperator(bpy.types.Operator):
     """
     Generate default thumbnail with Cycles renderer and upload it.
-    Works also for assets from search results, without being downloaded before
+    Works also for assets from search results, without being downloaded before.
+    By default marks the asset for server-side thumbnail regeneration.
     """
 
     bl_idname = "object.blenderkit_regenerate_thumbnail"
@@ -431,6 +432,12 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
 
     asset_index: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=-1
+    )
+
+    render_locally: BoolProperty(  # type: ignore[valid-type]
+        name="Render Locally",
+        description="Render thumbnail locally instead of using server-side rendering",
+        default=False,
     )
 
     thumbnail_background_lightness: FloatProperty(  # type: ignore[valid-type]
@@ -480,7 +487,8 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
     def draw(self, context):
         props = self
         layout = self.layout
-        # layout.label('This will re-generate thumbnail and directly upload it to server. You should see your updated thumbnail online depending ')
+        layout.prop(props, "render_locally")
+        layout.label(text="Server-side rendering may take several hours", icon="INFO")
         layout.label(text="thumbnailer settings")
         layout.prop(props, "thumbnail_background_lightness")
         layout.prop(props, "thumbnail_angle")
@@ -499,6 +507,32 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         sr = global_vars.DATA["search results"]
         asset_data = sr[self.asset_index]
 
+        preferences = bpy.context.preferences.addons[__package__].preferences
+
+        if not self.render_locally:
+            # Use server-side thumbnail regeneration
+            success = upload.mark_for_thumbnail(
+                asset_id=asset_data["id"],
+                api_key=preferences.api_key,
+                use_gpu=preferences.thumbnail_use_gpu,
+                samples=self.thumbnail_samples,
+                resolution=int(self.thumbnail_resolution),
+                denoising=self.thumbnail_denoising,
+                background_lightness=self.thumbnail_background_lightness,
+                angle=self.thumbnail_angle,
+                snap_to=self.thumbnail_snap_to,
+            )
+            if success:
+                self.report(
+                    {"INFO"}, "Asset marked for server-side thumbnail regeneration"
+                )
+            else:
+                self.report(
+                    {"ERROR"}, "Failed to mark asset for thumbnail regeneration"
+                )
+            return {"FINISHED"}
+
+        # Local thumbnail generation (original functionality)
         tempdir = tempfile.mkdtemp()
 
         an_slug = paths.slugify(asset_data["name"])
@@ -530,13 +564,6 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        # if bpy.data.filepath == '':
-        #     ui_panels.ui_message(
-        #         title="Can't render thumbnail",
-        #         message="please save your file first")
-        #
-        #     return {'FINISHED'}
-
         return wm.invoke_props_dialog(self, width=400)
 
 
@@ -638,7 +665,8 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
 class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
     """
     Generate default thumbnail with Cycles renderer and upload it.
-    Works also for assets from search results, without being downloaded before
+    Works also for assets from search results, without being downloaded before.
+    By default marks the asset for server-side thumbnail regeneration.
     """
 
     bl_idname = "object.blenderkit_regenerate_material_thumbnail"
@@ -647,6 +675,12 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
 
     asset_index: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=-1
+    )
+
+    render_locally: BoolProperty(  # type: ignore[valid-type]
+        name="Render Locally",
+        description="Render thumbnail locally instead of using server-side rendering",
+        default=False,
     )
 
     thumbnail_scale: FloatProperty(  # type: ignore[valid-type]
@@ -721,6 +755,8 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         props = self
+        layout.prop(props, "render_locally")
+        layout.label(text="Server-side rendering may take several hours", icon="INFO")
         layout.prop(props, "thumbnail_generator_type")
         layout.prop(props, "thumbnail_scale")
         layout.prop(props, "thumbnail_background")
@@ -740,6 +776,35 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         # either get the data from search results
         sr = global_vars.DATA["search results"]
         asset_data = sr[self.asset_index]
+
+        preferences = bpy.context.preferences.addons[__package__].preferences
+
+        if not self.render_locally:
+            # Use server-side thumbnail regeneration
+            success = upload.mark_for_thumbnail(
+                asset_id=asset_data["id"],
+                api_key=preferences.api_key,
+                use_gpu=preferences.thumbnail_use_gpu,
+                samples=self.thumbnail_samples,
+                resolution=int(self.thumbnail_resolution),
+                denoising=self.thumbnail_denoising,
+                background_lightness=self.thumbnail_background_lightness,
+                thumbnail_type=self.thumbnail_generator_type,
+                scale=self.thumbnail_scale,
+                background=self.thumbnail_background,
+                adaptive_subdivision=self.adaptive_subdivision,
+            )
+            if success:
+                self.report(
+                    {"INFO"}, "Asset marked for server-side thumbnail regeneration"
+                )
+            else:
+                self.report(
+                    {"ERROR"}, "Failed to mark asset for thumbnail regeneration"
+                )
+            return {"FINISHED"}
+
+        # Local thumbnail generation (original functionality)
         an_slug = paths.slugify(asset_data["name"])
 
         tempdir = tempfile.mkdtemp()
@@ -774,16 +839,6 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        # scene = bpy.context.scene
-        # ui_props = bpy.context.window_manager.blenderkitUI
-        # if ui_props.active_index > -1:
-        #     sr = global_vars.DATA['search results']
-        #     self.asset_data = dict(sr[ui_props.active_index])
-        # else:
-        #
-        #     active_asset = utils.get_active_asset_by_type(asset_type = self.asset_type)
-        #     self.asset_data = active_asset.get('asset_data')
-
         wm = context.window_manager
         return wm.invoke_props_dialog(self, width=400)
 

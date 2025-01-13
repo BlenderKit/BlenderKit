@@ -1426,6 +1426,118 @@ def handle_asset_metadata_upload(task: client_tasks.Task):
     return reports.add_report("Metadata upload successfull")
 
 
+def patch_individual_parameter(asset_id="", param_name="", param_value="", api_key=""):
+    """Changes individual parameter in the parameters dictionary of the assets.
+
+    Args:
+        asset_id (str): ID of the asset to update
+        param_name (str): Name of the parameter to update
+        param_value (str): New value for the parameter
+        api_key (str): BlenderKit API key
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    url = f"{paths.BLENDERKIT_API}/assets/{asset_id}/parameter/{param_name}/"
+    headers = utils.get_headers(api_key)
+    metadata_dict = {"value": param_value}
+    messages = {
+        "success": f"Successfully updated {param_name}",
+        "error": f"Failed to update {param_name}",
+    }
+
+    client_lib.nonblocking_request(
+        url=url,
+        method="PUT",
+        headers=headers,
+        json_data=metadata_dict,
+        messages=messages,
+    )
+    return True
+
+
+def mark_for_thumbnail(
+    asset_id: str,
+    api_key: str,
+    # Common parameters
+    use_gpu: bool = None,
+    samples: int = None,
+    resolution: int = None,
+    denoising: bool = None,
+    background_lightness: float = None,
+    # Model-specific parameters
+    angle: str = None,  # DEFAULT, FRONT, SIDE, TOP
+    snap_to: str = None,  # GROUND, WALL, CEILING, FLOAT
+    # Material-specific parameters
+    thumbnail_type: str = None,  # BALL, BALL_COMPLEX, FLUID, CLOTH, HAIR
+    scale: float = None,
+    background: bool = None,
+    adaptive_subdivision: bool = None,
+) -> bool:
+    """Mark an asset for thumbnail regeneration.
+
+    This function creates a JSON with thumbnail parameters and stores it in the
+    markThumbnailRender parameter of the asset. Only non-None parameters will be included.
+
+    Args:
+        asset_id (str): The ID of the asset to update
+        api_key (str): BlenderKit API key
+        use_gpu (bool, optional): Use GPU for rendering
+        samples (int, optional): Number of render samples
+        resolution (int, optional): Resolution of render
+        denoising (bool, optional): Use denoising
+        background_lightness (float, optional): Background lightness (0-1)
+        angle (str, optional): Camera angle for models (DEFAULT, FRONT, SIDE, TOP)
+        snap_to (str, optional): Object placement for models (GROUND, WALL, CEILING, FLOAT)
+        thumbnail_type (str, optional): Type of material preview (BALL, BALL_COMPLEX, FLUID, CLOTH, HAIR)
+        scale (float, optional): Scale of preview object for materials
+        background (bool, optional): Use background for transparent materials
+        adaptive_subdivision (bool, optional): Use adaptive subdivision for materials
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    # Build parameters dict with only non-None values
+    params = {}
+
+    # Common parameters
+    if use_gpu is not None:
+        params["thumbnail_use_gpu"] = use_gpu
+    if samples is not None:
+        params["thumbnail_samples"] = samples
+    if resolution is not None:
+        params["thumbnail_resolution"] = resolution
+    if denoising is not None:
+        params["thumbnail_denoising"] = denoising
+    if background_lightness is not None:
+        params["thumbnail_background_lightness"] = background_lightness
+
+    # Model-specific parameters
+    if angle is not None:
+        params["thumbnail_angle"] = angle
+    if snap_to is not None:
+        params["thumbnail_snap_to"] = snap_to
+
+    # Material-specific parameters
+    if thumbnail_type is not None:
+        params["thumbnail_type"] = thumbnail_type
+    if scale is not None:
+        params["thumbnail_scale"] = scale
+    if background is not None:
+        params["thumbnail_background"] = background
+    if adaptive_subdivision is not None:
+        params["thumbnail_adaptive_subdivision"] = adaptive_subdivision
+
+    try:
+        json_data = json.dumps(params)
+        return patch_individual_parameter(
+            asset_id, "markThumbnailRender", json_data, api_key
+        )
+    except Exception as e:
+        bk_logger.error(f"Failed to mark asset for thumbnail regeneration: {e}")
+        return False
+
+
 def register_upload():
     bpy.utils.register_class(UploadOperator)
     bpy.utils.register_class(FastMetadata)
