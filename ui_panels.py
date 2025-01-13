@@ -944,7 +944,7 @@ class PostComment(bpy.types.Operator):
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         ui_props = bpy.context.window_manager.blenderkitUI
         api_key = user_preferences.api_key
-
+        
         # Store comment locally first for immediate display
         # need to fill in everything to satisfy the drawing of the comment
         comment_data = {
@@ -964,17 +964,18 @@ class PostComment(bpy.types.Operator):
             "asset": self.asset_id,  # Reference to the asset being commented on
             "canEdit": True,  # User can edit their own new comments
             "submitDate": "just now",  # Server-generated timestamp
-            "userName": global_vars.BKIT_PROFILE.firstName
-            + " "
-            + global_vars.BKIT_PROFILE.lastName,
+            "userName": global_vars.BKIT_PROFILE.firstName + " " + global_vars.BKIT_PROFILE.lastName,
         }
         comments = comments_utils.get_comments_local(self.asset_id) or []
         comments.append(comment_data)
         comments_utils.store_comments_local(self.asset_id, comments)
-
+        
         # Send to server
         client_lib.create_comment(
-            self.asset_id, ui_props.new_comment, api_key, self.comment_id
+            self.asset_id, 
+            ui_props.new_comment, 
+            api_key, 
+            self.comment_id
         )
         ui_props.new_comment = ""
         return {"FINISHED"}
