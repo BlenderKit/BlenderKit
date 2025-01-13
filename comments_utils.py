@@ -32,7 +32,7 @@ def handle_get_comments_task(task: client_tasks.Task):
     if task.status == "finished":
         comments = task.result["results"]
         store_comments_local(task.data["asset_id"], comments)
-        return
+        return 
 
 
 def handle_create_comment_task(task: client_tasks.Task):
