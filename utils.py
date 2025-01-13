@@ -19,6 +19,7 @@
 import datetime
 import json
 import logging
+import numpy as np
 import os
 import platform
 import re
@@ -582,15 +583,49 @@ def get_hidden_texture(name, force_reload=False):
 
 
 def img_to_preview(img, copy_original=False):
+    """
+    Convert image to preview,
+    handling alpha channel properly by filling transparent areas with theme color.
+    """
     if bpy.app.version[0] >= 3:
         img.preview_ensure()
+
     if not copy_original:
         return
-    if img.preview.image_size != img.size:
-        img.preview.image_size = (img.size[0], img.size[1])
-        img.preview.image_pixels_float = img.pixels[:]
-    # img.preview.icon_size = (img.size[0], img.size[1])
-    # img.preview.icon_pixels_float = img.pixels[:]
+
+    # Only process if image has alpha channel and needs filling
+    if img.channels == 4 and (
+        img.alpha_mode == "STRAIGHT" or img.alpha_mode == "PREMUL"
+    ):
+        # Get theme color (default Blender background)
+        theme = bpy.context.preferences.themes[0]
+        bg_color = theme.user_interface.wcol_box.inner[:]
+
+        # Convert image pixels to numpy array for faster processing
+        pixels = np.array(img.pixels[:]).reshape(img.size[1], img.size[0], 4)
+
+        # Create alpha mask
+        alpha_mask = pixels[:, :, 3][:, :, np.newaxis]
+
+        # Create background color array
+        bg = np.array([bg_color[0], bg_color[1], bg_color[2], 1.0])
+        bg_array = np.tile(bg, (img.size[1], img.size[0], 1))
+
+        # Blend image with background based on alpha
+        blended = pixels * alpha_mask + bg_array * (1 - alpha_mask)
+
+        # Update preview
+        if img.preview.image_size != img.size:
+            img.preview.image_size = (img.size[0], img.size[1])
+
+        # Convert back to flat array and update preview pixels
+        img.preview.image_pixels_float = blended.flatten()
+
+    else:
+        # For non-alpha images, just copy pixels as before
+        if img.preview.image_size != img.size:
+            img.preview.image_size = (img.size[0], img.size[1])
+            img.preview.image_pixels_float = img.pixels[:]
 
 
 def get_hidden_image(

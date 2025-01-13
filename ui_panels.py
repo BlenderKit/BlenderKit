@@ -2282,7 +2282,10 @@ def label_or_url_or_operator(
 
 
 class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
-    """Generate Cycles thumbnail for model assets"""
+    """
+    This is the popup card that appears when you click on an asset in the asset bar.
+    It shows the asset details and allows you to download the asset.
+    """
 
     bl_idname = "wm.blenderkit_asset_popup"
     bl_label = "BlenderKit asset popup"
