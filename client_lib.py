@@ -24,6 +24,8 @@ import shutil
 import subprocess
 from os import path
 from typing import Optional
+from http.client import responses as http_responses
+
 
 import bpy
 import requests
@@ -58,16 +60,15 @@ def ensure_minimal_data(data: Optional[dict] = None) -> dict:
         data = {}
 
     av = global_vars.VERSION
+    addon_version = f"{av[0]}.{av[1]}.{av[2]}.{av[3]}"
+
     if "api_key" not in data:  # for BG instances, where preferences are not available
         data.setdefault(
             "api_key", bpy.context.preferences.addons[__package__].preferences.api_key  # type: ignore
         )
     data.setdefault("app_id", os.getpid())
     data.setdefault("platform_version", platform.platform())
-    data.setdefault(
-        "addon_version",
-        f"{av[0]}.{av[1]}.{av[2]}.{av[3]}",
-    )
+    data.setdefault("addon_version", addon_version)
     return data
 
 
@@ -102,6 +103,9 @@ def reorder_ports(port: str = ""):
     global_vars.CLIENT_PORTS = (
         global_vars.CLIENT_PORTS[i:] + global_vars.CLIENT_PORTS[:i]
     )
+    bk_logger.info(
+        f"Ports reordered so first port is now {global_vars.CLIENT_PORTS[0]} (previous index was {i})"
+    )
 
 
 def get_reports(app_id: str):
@@ -111,12 +115,12 @@ def get_reports(app_id: str):
     data = ensure_minimal_data({"app_id": app_id})
     data["project_name"] = utils.get_project_name()
     data["blender_version"] = utils.get_blender_version()
-    if (
-        global_vars.CLIENT_FAILED_REPORTS < 10
-    ):  # on 10, there is second BlenderKit-Client start
+    data["expected_client_version"] = global_vars.CLIENT_VERSION
+
+    # on 10, there is second BlenderKit-Client start
+    if global_vars.CLIENT_FAILED_REPORTS < 10:
         url = f"{get_address()}/report"
-        report = request_report(url, data)
-        return report
+        return request_report(url, data)
 
     last_exception = None
     for port in global_vars.CLIENT_PORTS:
@@ -135,9 +139,18 @@ def get_reports(app_id: str):
         raise last_exception
 
 
-def request_report(url: str, data: dict):
+def request_report(url: str, data: dict) -> dict:
+    """Make HTTP request to /report endpoint. If all goes well a JSON dict is returned.
+    If something goes south, this function raises requests.HTTPError or requests.JSONDecodeError.
+    """
     with requests.Session() as session:
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        if (
+            resp.status_code != 200
+        ):  # not using resp.raise_for_status() for better message
+            raise requests.HTTPError(
+                f"{http_responses[resp.status_code]}: {resp.text}", response=resp
+            )
         return resp.json()
 
 

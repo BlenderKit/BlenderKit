@@ -422,7 +422,8 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handles report for subscribed Blender add-ons.
-// TODO: reject unsupported versions of the add-on.
+// Validates if the request contains required data and if the version of this Client
+// matches the Client version which add-on expects. If not the request is rejected.
 func reportHandler(w http.ResponseWriter, r *http.Request) {
 	lastReportAccessMux.Lock()
 	lastReportAccess = time.Now()
@@ -430,23 +431,29 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError) // 500
 		return
 	}
 	defer r.Body.Close()
 
+	// VALIDATION of the request
 	var data GetReportData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		BKLog.Println("Error parsing ReportData:", err)
-		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		BKLog.Printf("%v Error parsing ReportData: %v", EmoWarning, err)
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest) // 400
 		return
 	}
-
-	if data.AddonVersion == "" {
-		msg := fmt.Sprintf("BlenderKit-Client running on port %s", *Port)
+	if data.AddonVersion == "" { // Old versions of add-on does not send AddonVersion
 		BKLog.Printf("%v Add-on (probably v3.11 or less) requesting /report rejected.", EmoWarning)
-		http.Error(w, msg, http.StatusForbidden) // 403
+		http.Error(w, "Unsupported add-on version. Use another Port and start older Client/Daemon there.", http.StatusForbidden) // 403
+		return
+	}
+	expectedVersion := strings.TrimLeft(data.ExpectedClientVersion, "v")
+	if expectedVersion != ClientVersion && data.ExpectedClientVersion != "any" { // Addons expectations does not match this Client version
+		BKLog.Printf("%v Add-on %s expects client=%s, request to /report rejected.", EmoWarning, data.AddonVersion, data.ExpectedClientVersion)
+		msg := fmt.Sprintf("Client-v%s refused the request as Client-v%s was expected by add-on v%s.", ClientVersion, expectedVersion, data.AddonVersion)
+		http.Error(w, msg, http.StatusPreconditionFailed) // 412
 		return
 	}
 
@@ -495,6 +502,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("BlenderKit-Client-Version", ClientVersion)
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
 }

@@ -35,7 +35,8 @@ type MinimalTaskData struct {
 // the running add-on (Blender, Godot) can be identified more easily if multiple windows are opened.
 type GetReportData struct {
 	MinimalTaskData
-	ProjectName string `json:"project_name,omitempty"` // Name of the currently opened project
+	ProjectName           string `json:"project_name,omitempty"`  // Name of the currently opened project
+	ExpectedClientVersion string `json:"expected_client_version"` // Version of the Client which the add-on expects
 }
 
 // TaskStatusUpdate is a struct for updating the status of a task through a channel.
