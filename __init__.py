@@ -329,9 +329,17 @@ def asset_type_callback(self, context):
     Returns
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
     """
+    pcoll = icons.icon_collections["main"]
     if self.down_up == "SEARCH":
         items = (
             ("MODEL", "Models", "Find models", "OBJECT_DATAMODE", 0),
+            (
+                "PRINT",
+                "Printable",
+                "Find 3D printable models",
+                pcoll["printable"].icon_id,
+                1,
+            ),
             ("MATERIAL", "Materials", "Find materials", "MATERIAL", 2),
             ("SCENE", "Scenes", "Find scenes", "SCENE_DATA", 3),
             ("HDR", "HDRs", "Find HDRs", "WORLD", 4),
@@ -341,6 +349,13 @@ def asset_type_callback(self, context):
     else:
         items = (
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
+            (
+                "PRINT",
+                "Printable",
+                "Upload a 3D printable model",
+                pcoll["printable"].icon_id,
+                1,
+            ),
             ("MATERIAL", "Material", "Upload a material", "MATERIAL", 2),
             ("SCENE", "Scene", "Upload a scene", "SCENE_DATA", 3),
             ("HDR", "HDR", "Upload a HDR", "WORLD", 4),
@@ -797,7 +812,7 @@ class BlenderKitCommonUploadProps(object):
     tags: StringProperty(
         name="Tags",
         description="Enter up to 10 tags, separated by commas. Tags may include alphanumeric characters and underscores only. For better discoverability, follow these tips:\n\n"
-        "Choose Relevant Keywords:\nSelect tags that closely relate to the asset’s features, usage, or industry terms. This increases the chances that your asset appears in relevant searches.\n\n"
+        "Choose Relevant Keywords:\nSelect tags that closely relate to the asset's features, usage, or industry terms. This increases the chances that your asset appears in relevant searches.\n\n"
         "Include Synonyms:\nAdd variations or synonyms to cover different ways users might search for similar items. Especially consider synonyms for terms used in the asset's name or description to broaden search relevancy.\n\n"
         "Prioritize Common Terms:\nUse commonly searched terms within your target audience. This helps connect your assets to the most likely queries.\n\n"
         "Enhance with Specificity: While common terms are essential, adding specific tags can help in uniquely identifying and categorizing the asset. This is particularly useful for users looking for particular features or attributes.",

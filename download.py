@@ -314,7 +314,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         props = hdr.blenderkit
         asset_main = hdr
 
-    if asset_data["assetType"] == "model":
+    if asset_data["assetType"] in ("model", "print"):
         downloaders = kwargs.get("downloaders")
         sprops = wm.blenderkit_models
         # TODO this is here because combinations of linking objects or appending groups are rather not-usefull
@@ -1127,7 +1127,7 @@ def asset_in_scene(asset_data):
             fi1["url"] = fi["url"]
 
             # browse all collections since linked collections can have same name.
-            if asset_data["assetType"] == "model":
+            if asset_data["assetType"] in ("model", "print"):
                 for c in bpy.data.collections:
                     if c.name != ad["name"]:
                         continue

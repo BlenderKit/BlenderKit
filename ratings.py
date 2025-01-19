@@ -46,6 +46,7 @@ def get_assets_for_rating():
 
 asset_types = (
     ("MODEL", "Model", "set of objects"),
+    ("PRINT", "Printable", "3D printable model"),
     ("SCENE", "Scene", "scene"),
     ("HDR", "HDR", "hdr"),
     ("MATERIAL", "Material", "any .blend Material"),
