@@ -149,46 +149,66 @@ def check_missing_data_brush(props):
 
 
 def check_missing_data(asset_type, props, upload_thumbnail=True):
-    """
-    Check if user did everything alright for particular assets and notify her back if not.
-    Parameters
-    ----------
-    asset_type
-    props
-
-    Returns
-    -------
-
-    """
+    """Check if all required data is present and fills in the upload props with error messages."""
     props.report = ""
-    if len(props.name) < NAME_MINIMUM:
+
+    if props.name == "":
         write_to_report(
             props,
-            "The asset name provided is too short.\n"
-            f"   Please ensure your asset name is at least {NAME_MINIMUM} characters long.",
+            "A name is required.\n" "   Please provide a name for your asset.",
         )
-    if len(props.name) > NAME_MAXIMUM:
+    elif len(props.name) < NAME_MINIMUM:
         write_to_report(
             props,
-            "The asset name provided exceeds the character limit.\n"
-            f"   Please ensure your asset name is no more than {NAME_MAXIMUM} characters long.",
+            f"Name is too short.\n"
+            f"   Please provide a name with at least {NAME_MINIMUM} characters.",
+        )
+    elif len(props.name) > NAME_MAXIMUM:
+        write_to_report(
+            props,
+            f"Name is too long.\n"
+            f"   Please provide a name with at most {NAME_MAXIMUM} characters.",
         )
 
-    tags_length = len(props.tags.split(","))
-    if tags_length > TAGS_MAXIMUM:
+    # Tags check
+    if props.tags == "":
         write_to_report(
             props,
-            f"Too many tags ({tags_length}) have been provided for your asset.\n"
-            f"   Please ensure you have no more than {TAGS_MAXIMUM} tags.",
+            "At least 3 tags are required.\n"
+            "   Please provide tags for your asset.\n"
+            "   Tags help users find your asset.",
         )
+    else:
+        tags_list = utils.string2list(props.tags)
+        if len(tags_list) < TAGS_MINIMUM:
+            write_to_report(
+                props,
+                f"At least {TAGS_MINIMUM} tags are required.\n"
+                "   Please provide more tags for your asset.\n"
+                "   Tags help users find your asset.",
+            )
+        elif len(tags_list) > TAGS_MAXIMUM:
+            write_to_report(
+                props,
+                f"Maximum {TAGS_MAXIMUM} tags are allowed.\n"
+                "   Please remove some tags from your asset.",
+            )
+        else:
+            check_tags_format(props.tags)
 
-    ok, problematic = check_tags_format(props.tags)
-    if ok == False:
+    # Description check
+    if props.description == "":
         write_to_report(
             props,
-            f"Format of tags is not valid.\n"
-            f"   Please ensure your tags are comma-separated list of tags consisting of only alphanumeric characters and underscores.\n"
-            f"   The following tags are problematic: {problematic}",
+            "A description is required.\n"
+            "   Please provide a description for your asset.\n"
+            "   Description helps users understand your asset.",
+        )
+    elif len(props.description) < DESCRIPTION_MINIMUM:
+        write_to_report(
+            props,
+            f"Description is too short.\n"
+            f"   Please provide a description with at least {DESCRIPTION_MINIMUM} characters.",
         )
 
     if props.is_private == "PUBLIC":
@@ -204,7 +224,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
             )
 
     if upload_thumbnail:
-        if asset_type in ("MODEL", "SCENE", "MATERIAL"):
+        if asset_type in ("MODEL", "SCENE", "MATERIAL", "PRINT"):
             thumb_path = bpy.path.abspath(props.thumbnail)
             if props.thumbnail == "":
                 write_to_report(
@@ -239,7 +259,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
 
-    if asset_type == "MODEL":
+    if asset_type in ("MODEL", "PRINT"):
         prevalidate_model(props)
         check_missing_data_model(props)
     elif asset_type == "SCENE":
@@ -342,7 +362,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         # "type": asset_type,
     }
     upload_params = {}
-    if asset_type == "MODEL":
+    if asset_type in ("MODEL", "PRINT"):
         # Prepare to save the file
         mainmodel = utils.get_active_model()
 
@@ -363,73 +383,76 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         )
         eval_path = "bpy.data.objects['%s']" % mainmodel.name
 
-        engines = [props.engine.lower()]
-        if props.engine1 != "NONE":
-            engines.append(props.engine1.lower())
-        if props.engine2 != "NONE":
-            engines.append(props.engine2.lower())
-        if props.engine3 != "NONE":
-            engines.append(props.engine3.lower())
-        if props.engine == "OTHER":
-            engines.append(props.engine_other.lower())
-
-        style = props.style.lower()
-        # if style == 'OTHER':
-        #     style = props.style_other.lower()
-
         upload_data = {
-            "assetType": "model",
+            "assetType": asset_type.lower(),
         }
+
+        # Common parameters for both MODEL and PRINT
         upload_params = {
-            "productionLevel": props.production_level.lower(),
-            "modelStyle": style,
-            "engines": engines,
-            "modifiers": utils.string2list(props.modifiers),
-            "materials": utils.string2list(props.materials),
-            "shaders": utils.string2list(props.shaders),
-            "uv": props.uv,
-            "dimensionX": round(props.dimensions[0], 4),
-            "dimensionY": round(props.dimensions[1], 4),
-            "dimensionZ": round(props.dimensions[2], 4),
-            "boundBoxMinX": round(props.bbox_min[0], 4),
-            "boundBoxMinY": round(props.bbox_min[1], 4),
-            "boundBoxMinZ": round(props.bbox_min[2], 4),
-            "boundBoxMaxX": round(props.bbox_max[0], 4),
-            "boundBoxMaxY": round(props.bbox_max[1], 4),
-            "boundBoxMaxZ": round(props.bbox_max[2], 4),
-            "animated": props.animated,
-            "rig": props.rig,
-            "simulation": props.simulation,
-            "purePbr": props.pbr,
             "faceCount": props.face_count,
-            "faceCountRender": props.face_count_render,
-            "manifold": props.manifold,
-            "objectCount": props.object_count,
-            "procedural": props.is_procedural,
-            "nodeCount": props.node_count,
-            "textureCount": props.texture_count,
-            "megapixels": props.total_megapixels,
-            # "scene": props.is_scene,
+            "modifiers": utils.string2list(props.modifiers),
         }
-        if props.use_design_year:
-            upload_params["designYear"] = props.design_year
-        if props.condition != "UNSPECIFIED":
-            upload_params["condition"] = props.condition.lower()
-        if props.pbr:
-            pt = props.pbr_type
-            pt = pt.lower()
-            upload_params["pbrType"] = pt
-        if props.sexualized_content:
-            upload_params["sexualizedContent"] = props.sexualized_content
 
-        if props.texture_resolution_max > 0:
-            upload_params["textureResolutionMax"] = props.texture_resolution_max
-            upload_params["textureResolutionMin"] = props.texture_resolution_min
-        if props.mesh_poly_type != "OTHER":
-            upload_params["meshPolyType"] = (
-                props.mesh_poly_type.lower()
-            )  # .replace('_',' ')
+        # Additional parameters only for MODEL type
+        if asset_type == "MODEL":
+            engines = [props.engine.lower()]
+            if props.engine1 != "NONE":
+                engines.append(props.engine1.lower())
+            if props.engine2 != "NONE":
+                engines.append(props.engine2.lower())
+            if props.engine3 != "NONE":
+                engines.append(props.engine3.lower())
+            if props.engine == "OTHER":
+                engines.append(props.engine_other.lower())
 
+            style = props.style.lower()
+
+            upload_params.update(
+                {
+                    "productionLevel": props.production_level.lower(),
+                    "modelStyle": style,
+                    "engines": engines,
+                    "materials": utils.string2list(props.materials),
+                    "shaders": utils.string2list(props.shaders),
+                    "uv": props.uv,
+                    "dimensionX": round(props.dimensions[0], 4),
+                    "dimensionY": round(props.dimensions[1], 4),
+                    "dimensionZ": round(props.dimensions[2], 4),
+                    "boundBoxMinX": round(props.bbox_min[0], 4),
+                    "boundBoxMinY": round(props.bbox_min[1], 4),
+                    "boundBoxMinZ": round(props.bbox_min[2], 4),
+                    "boundBoxMaxX": round(props.bbox_max[0], 4),
+                    "boundBoxMaxY": round(props.bbox_max[1], 4),
+                    "boundBoxMaxZ": round(props.bbox_max[2], 4),
+                    "animated": props.animated,
+                    "rig": props.rig,
+                    "simulation": props.simulation,
+                    "purePbr": props.pbr,
+                    "faceCountRender": props.face_count_render,
+                    "manifold": props.manifold,
+                    "objectCount": props.object_count,
+                    "procedural": props.is_procedural,
+                    "nodeCount": props.node_count,
+                    "textureCount": props.texture_count,
+                    "megapixels": props.total_megapixels,
+                }
+            )
+
+            if props.use_design_year:
+                upload_params["designYear"] = props.design_year
+            if props.condition != "UNSPECIFIED":
+                upload_params["condition"] = props.condition.lower()
+            if props.pbr:
+                pt = props.pbr_type
+                pt = pt.lower()
+                upload_params["pbrType"] = pt
+            if props.texture_resolution_max > 0:
+                upload_params["textureResolutionMax"] = props.texture_resolution_max
+                upload_params["textureResolutionMin"] = props.texture_resolution_min
+            if props.mesh_poly_type != "OTHER":
+                upload_params["meshPolyType"] = props.mesh_poly_type.lower()
+
+        # Common optional parameters for both MODEL and PRINT
         optional_params = [
             "manufacturer",
             "designer",
@@ -440,7 +463,13 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             if eval("props.%s" % p) != "":
                 upload_params[sub_to_camel(p)] = eval("props.%s" % p)
 
-    if asset_type == "SCENE":
+        if props.use_design_year:
+            upload_params["designYear"] = props.design_year
+
+        if props.sexualized_content:
+            upload_params["sexualizedContent"] = props.sexualized_content
+
+    elif asset_type == "SCENE":
         # Prepare to save the file
         s = bpy.context.scene
 
@@ -1085,6 +1114,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
 
 asset_types = (
     ("MODEL", "Model", "Set of objects"),
+    ("PRINT", "Printable", "3D printable model"),
     ("SCENE", "Scene", "Scene"),
     ("HDR", "HDR", "HDR image"),
     ("MATERIAL", "Material", "Any .blend Material"),
