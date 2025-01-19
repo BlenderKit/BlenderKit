@@ -83,6 +83,10 @@ def draw_upload_common(layout, props, asset_type, context):
     if asset_type == "NODEGROUP":
         asset_type_text = asset_type
         url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
+    if asset_type == "PRINT":
+        url = (
+            paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
+        )  # Reuse model instructions since prints are similar
     op = layout.operator(
         "wm.url_open", text=f"Read {asset_type} upload instructions", icon="QUESTION"
     )
@@ -1282,7 +1286,10 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         ui_props = bpy.context.window_manager.blenderkitUI
         if not global_vars.CLIENT_RUNNING:
             return False
-        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "MODEL"
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type in (
+            "MODEL",
+            "PRINT",
+        )
 
     def draw_layout(self, layout):
         wm = bpy.context.window_manager
@@ -1291,19 +1298,15 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         preferences = bpy.context.preferences.addons[__package__].preferences
         layout.separator()
 
-        # layout.label(text = "common searches keywords:")
-        # layout.prop(props, "search_global_keywords", text = "")
-        # layout.prop(props, "search_modifier_keywords")
-        # if props.search_engine == 'OTHER':
-        #     layout.prop(props, "search_engine_keyword")
         row = layout.row()
         row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         row = layout.row()
         layout.prop(ui_props, "free_only")
-        layout.prop(props, "search_style")
 
-        layout.prop(props, "search_geometry_nodes", text="Geometry Nodes")
+        if ui_props.asset_type == "MODEL":
+            layout.prop(props, "search_style")
+            layout.prop(props, "search_geometry_nodes", text="Geometry Nodes")
 
         # DESIGN YEAR
         layout.prop(props, "search_design_year", text="Designed in Year")
@@ -1312,54 +1315,102 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
             row.prop(props, "search_design_year_min", text="Min")
             row.prop(props, "search_design_year_max", text="Max")
 
-        # POLYCOUNT
-        layout.prop(props, "search_polycount", text="Poly Count ")
-        if props.search_polycount:
-            row = layout.row(align=True)
-            row.prop(props, "search_polycount_min", text="Min")
-            row.prop(props, "search_polycount_max", text="Max")
+        if ui_props.asset_type == "MODEL":
+            # POLYCOUNT
+            layout.prop(props, "search_polycount", text="Poly Count ")
+            if props.search_polycount:
+                row = layout.row(align=True)
+                row.prop(props, "search_polycount_min", text="Min")
+                row.prop(props, "search_polycount_max", text="Max")
 
-        # TEXTURE RESOLUTION
-        layout.prop(props, "search_texture_resolution", text="Texture Resolutions")
-        if props.search_texture_resolution:
-            row = layout.row(align=True)
-            row.prop(props, "search_texture_resolution_min", text="Min")
-            row.prop(props, "search_texture_resolution_max", text="Max")
+            # TEXTURE RESOLUTION
+            layout.prop(props, "search_texture_resolution", text="Texture Resolutions")
+            if props.search_texture_resolution:
+                row = layout.row(align=True)
+                row.prop(props, "search_texture_resolution_min", text="Min")
+                row.prop(props, "search_texture_resolution_max", text="Max")
 
-        # FILE SIZE
-        layout.prop(props, "search_file_size", text="File Size (MB)")
-        if props.search_file_size:
-            row = layout.row(align=True)
-            row.prop(props, "search_file_size_min", text="Min")
-            row.prop(props, "search_file_size_max", text="Max")
+            # FILE SIZE
+            layout.prop(props, "search_file_size", text="File Size (MB)")
+            if props.search_file_size:
+                row = layout.row(align=True)
+                row.prop(props, "search_file_size_min", text="Min")
+                row.prop(props, "search_file_size_max", text="Max")
 
-        # AGE
-        layout.prop(
-            props, "search_condition", text="Condition"
-        )  # , text ='condition of object new/old e.t.c.')
-        layout.prop(
-            props, "search_animated", text="Animated"
-        )  # , text ='condition of object new/old e.t.c.')
-        layout.prop(
-            ui_props, "quality_limit", slider=True
-        )  # , text ='condition of object new/old e.t.c.')
+            # AGE
+            layout.prop(props, "search_condition", text="Condition")
+            layout.prop(props, "search_animated", text="Animated")
+            layout.prop(ui_props, "quality_limit", slider=True)
 
-        # layout.prop(props, "search_procedural", expand=True)
         # LICENSE
         layout.prop(ui_props, "search_license")
 
-        # LIMIT BLENDER VERSION
-        layout.prop(ui_props, "search_blender_version", text="Asset's Blender Version")
-        if ui_props.search_blender_version:
-            row = layout.row(align=True)
-            row.prop(ui_props, "search_blender_version_min", text="Min")
-            row.prop(ui_props, "search_blender_version_max", text="Max")
+        if ui_props.asset_type == "MODEL":
+            # LIMIT BLENDER VERSION
+            layout.prop(
+                ui_props, "search_blender_version", text="Asset's Blender Version"
+            )
+            if ui_props.search_blender_version:
+                row = layout.row(align=True)
+                row.prop(ui_props, "search_blender_version_min", text="Min")
+                row.prop(ui_props, "search_blender_version_max", text="Max")
 
-        # NSFW filter - in future we might add more subsets of what defines NSFW so users can tweak it, rn it is just sexualized content
+        # NSFW filter
         layout.prop(preferences, "nsfw_filter")
 
     def draw(self, context):
         self.draw_layout(self.layout)
+
+
+def draw_panel_print_upload(self, context):
+    """Draw upload panel for printable assets"""
+    ob = bpy.context.active_object
+    while ob.parent is not None:
+        ob = ob.parent
+    props = ob.blenderkit
+
+    layout = self.layout
+    draw_upload_common(layout, props, "PRINT", context)
+
+    col = layout.column()
+    if props.is_generating_thumbnail:
+        col.enabled = False
+
+    draw_thumbnail_upload_panel(col, props)
+
+    prop_needed(col, props, "thumbnail", props.thumbnail)
+    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+        col.operator(
+            "object.blenderkit_generate_thumbnail",
+            text="Generate thumbnail",
+            icon="IMAGE",
+        )
+
+    if props.is_generating_thumbnail:
+        row = layout.row(align=True)
+        row.label(text=props.thumbnail_generating_state)
+        op = row.operator("object.kill_bg_process", text="", icon="CANCEL")
+        op.process_source = "PRINT"
+        op.process_type = "THUMBNAILER"
+    elif props.thumbnail_generating_state != "":
+        utils.label_multiline(layout, text=props.thumbnail_generating_state)
+
+    design_box = layout.box()
+    design_box.alignment = "EXPAND"
+    design_box.label(text="Design properties:")
+    design_box.prop(props, "manufacturer")
+    design_box.prop(props, "designer")
+    design_box.prop(props, "design_collection")
+    design_box.prop(props, "design_variant")
+    design_box.prop(props, "use_design_year")
+    if props.use_design_year:
+        design_box.prop(props, "design_year")
+
+    # CONTENT FLAGS
+    content_flag_box = layout.box()
+    content_flag_box.alignment = "EXPAND"
+    content_flag_box.label(text="Sensitive Content Flags:")
+    content_flag_box.prop(props, "sexualized_content")
 
 
 class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
@@ -1754,7 +1805,13 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         if ui_props.asset_type == "MODEL":
             if bpy.context.view_layer.objects.active is not None:
                 return draw_panel_model_upload(self, context)
-            layout.label(text="selet object to upload")
+            layout.label(text="select object to upload")
+            return
+
+        if ui_props.asset_type == "PRINT":
+            if bpy.context.view_layer.objects.active is not None:
+                return draw_panel_print_upload(self, context)
+            layout.label(text="select object to upload")
             return
 
         if ui_props.asset_type == "SCENE":
@@ -3572,6 +3629,7 @@ def header_search_draw(self, context):
 
     props_dict = {
         "MODEL": wm.blenderkit_models,
+        "PRINT": wm.blenderkit_models,  # PRINT assets use same props as MODEL
         "MATERIAL": wm.blenderkit_mat,
         "BRUSH": wm.blenderkit_brush,
         "HDR": wm.blenderkit_HDR,
@@ -3579,8 +3637,10 @@ def header_search_draw(self, context):
         "NODEGROUP": wm.blenderkit_nodegroup,
     }
     props = props_dict[ui_props.asset_type]
+    pcoll = icons.icon_collections["main"]
     icons_dict = {
         "MODEL": "OBJECT_DATAMODE",
+        "PRINT": pcoll["printable"].icon_id,  # Using our custom printable icon
         "MATERIAL": "MATERIAL",
         "BRUSH": "BRUSH_DATA",
         "HDR": "WORLD",
@@ -3589,7 +3649,7 @@ def header_search_draw(self, context):
     }
 
     asset_type_icon = icons_dict[ui_props.asset_type]
-    pcoll = icons.icon_collections["main"]
+    # pcoll = icons.icon_collections["main"]  # Removing this line since we moved it up
 
     # the center snap menu is in edit and object mode if tool settings are off.
     # if context.space_data.show_region_tool_header == True or context.mode[:4] not in ('EDIT', 'OBJE'):
@@ -3636,7 +3696,8 @@ def header_search_draw(self, context):
         expand=True,
         icon_only=True,
         text="",
-        icon=asset_type_icon,
+        icon="NONE" if isinstance(asset_type_icon, int) else asset_type_icon,
+        icon_value=asset_type_icon if isinstance(asset_type_icon, int) else 0,
     )
 
     row = layout.row()
