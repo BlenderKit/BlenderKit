@@ -1041,7 +1041,7 @@ def search(get_next=False, query=None, author_id=""):
                 preferences=bpy.context.preferences.addons[__package__].preferences,
             )
 
-        if ui_props.asset_type == "PRINT":
+        if ui_props.asset_type == "PRINTABLE":
             if not hasattr(wm, "blenderkit_models"):
                 return
             query = build_query_model(
@@ -1049,7 +1049,7 @@ def search(get_next=False, query=None, author_id=""):
                 ui_props=bpy.context.window_manager.blenderkitUI,
                 preferences=bpy.context.preferences.addons[__package__].preferences,
             )
-            query["asset_type"] = "print"  # Override the asset type for PRINT
+            query["asset_type"] = "printable"  # Override the asset type for PRINTABLE
 
         if ui_props.asset_type == "SCENE":
             if not hasattr(wm, "blenderkit_scene"):
