@@ -104,7 +104,7 @@ def unpack_asset(data):
 
     # mark asset browser asset
     data_block = None
-    if asset_data["assetType"] in ("model", "print"):
+    if asset_data["assetType"] in ("model", "printable"):
         for ob in bpy.data.objects:
             if ob.parent is None and ob in bpy.context.visible_objects:
                 if bpy.app.version >= (3, 0, 0):

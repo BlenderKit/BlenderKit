@@ -258,7 +258,7 @@ def get_search_props():
         return
     uiprops = bpy.context.window_manager.blenderkitUI
     props = None
-    if uiprops.asset_type in ("MODEL", "PRINT"):
+    if uiprops.asset_type in ("MODEL", "PRINTABLE"):
         if not hasattr(wm, "blenderkit_models"):
             return
         props = wm.blenderkit_models
@@ -294,7 +294,7 @@ def get_search_props():
 
 def get_active_asset_by_type(asset_type="model"):
     asset_type = asset_type.lower()
-    if asset_type in ("model", "print"):
+    if asset_type in ("model", "printable"):
         if bpy.context.view_layer.objects.active is not None:
             ob = get_active_model()
             return ob
@@ -322,7 +322,7 @@ def get_active_asset_by_type(asset_type="model"):
 def get_active_asset():
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.asset_type in ("MODEL", "PRINT"):
+    if ui_props.asset_type in ("MODEL", "PRINTABLE"):
         if bpy.context.view_layer.objects.active is not None:
             ob = get_active_model()
             return ob
@@ -349,7 +349,7 @@ def get_active_asset():
 def get_upload_props():
     """Get uploaded object properties based on the selected asset_type."""
     ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.asset_type in ("MODEL", "PRINT"):
+    if ui_props.asset_type in ("MODEL", "PRINTABLE"):
         if bpy.context.view_layer.objects.active is not None:
             ob = get_active_model()
             return ob.blenderkit
@@ -555,7 +555,7 @@ def api_key_property_updated(user_preferences, context):
 def uploadable_asset_poll():
     """returns true if active asset type can be uploaded"""
     ui_props = bpy.context.window_manager.blenderkitUI
-    if ui_props.asset_type in ("MODEL", "PRINT"):
+    if ui_props.asset_type in ("MODEL", "PRINTABLE"):
         return bpy.context.view_layer.objects.active is not None
     if ui_props.asset_type == "MATERIAL":
         return (
