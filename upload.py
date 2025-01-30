@@ -224,7 +224,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
             )
 
     if upload_thumbnail:
-        if asset_type in ("MODEL", "SCENE", "MATERIAL", "PRINT"):
+        if asset_type in ("MODEL", "SCENE", "MATERIAL", "PRINTABLE"):
             thumb_path = bpy.path.abspath(props.thumbnail)
             if props.thumbnail == "":
                 write_to_report(
@@ -259,7 +259,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
 
-    if asset_type in ("MODEL", "PRINT"):
+    if asset_type in ("MODEL", "PRINTABLE"):
         prevalidate_model(props)
         check_missing_data_model(props)
     elif asset_type == "SCENE":
@@ -362,7 +362,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         # "type": asset_type,
     }
     upload_params = {}
-    if asset_type in ("MODEL", "PRINT"):
+    if asset_type in ("MODEL", "PRINTABLE"):
         # Prepare to save the file
         mainmodel = utils.get_active_model()
 
@@ -387,7 +387,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "assetType": asset_type.lower(),
         }
 
-        # Common parameters for both MODEL and PRINT
+        # Common parameters for both MODEL and PRINTABLE
         upload_params = {
             "faceCount": props.face_count,
             "modifiers": utils.string2list(props.modifiers),
@@ -452,7 +452,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             if props.mesh_poly_type != "OTHER":
                 upload_params["meshPolyType"] = props.mesh_poly_type.lower()
 
-        # Common optional parameters for both MODEL and PRINT
+        # Common optional parameters for both MODEL and PRINTABLE
         optional_params = [
             "manufacturer",
             "designer",
@@ -804,7 +804,7 @@ class FastMetadata(bpy.types.Operator):
     tags: StringProperty(  # type: ignore[valid-type]
         name="Tags",
         description="Enter up to 10 tags, separated by commas. Tags may include alphanumeric characters and underscores only. For better discoverability, follow these tips:\n\n"
-        "Choose Relevant Keywords:\nSelect tags that closely relate to the asset’s features, usage, or industry terms. This increases the chances that your asset appears in relevant searches.\n\n"
+        "Choose Relevant Keywords:\nSelect tags that closely relate to the asset's features, usage, or industry terms. This increases the chances that your asset appears in relevant searches.\n\n"
         "Include Synonyms:\nAdd variations or synonyms to cover different ways users might search for similar items. Especially consider synonyms for terms used in the asset's name or description to broaden search relevancy.\n\n"
         "Prioritize Common Terms:\nUse commonly searched terms within your target audience. This helps connect your assets to the most likely queries.\n\n"
         "Enhance with Specificity: While common terms are essential, adding specific tags can help in uniquely identifying and categorizing the asset. This is particularly useful for users looking for particular features or attributes.",
@@ -1114,7 +1114,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
 
 asset_types = (
     ("MODEL", "Model", "Set of objects"),
-    ("PRINT", "Printable", "3D printable model"),
+    ("PRINTABLE", "Printable", "3D printable model"),
     ("SCENE", "Scene", "Scene"),
     ("HDR", "HDR", "HDR image"),
     ("MATERIAL", "Material", "Any .blend Material"),

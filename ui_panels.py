@@ -83,7 +83,7 @@ def draw_upload_common(layout, props, asset_type, context):
     if asset_type == "NODEGROUP":
         asset_type_text = asset_type
         url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
-    if asset_type == "PRINT":
+    if asset_type == "PRINTABLE":
         url = (
             paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
         )  # Reuse model instructions since prints are similar
@@ -264,14 +264,16 @@ def draw_thumbnail_upload_panel(layout, props):
 
 
 def draw_panel_model_upload(self, context):
-    ob = bpy.context.active_object
+    """Draw upload panel for model and printable assets"""
+    ob = utils.get_active_model()
     while ob.parent is not None:
         ob = ob.parent
     props = ob.blenderkit
 
     layout = self.layout
+    asset_type = bpy.context.window_manager.blenderkitUI.asset_type
 
-    draw_upload_common(layout, props, "MODEL", context)
+    draw_upload_common(layout, props, asset_type, context)
 
     col = layout.column()
     if props.is_generating_thumbnail:
@@ -287,23 +289,21 @@ def draw_panel_model_upload(self, context):
             icon="IMAGE",
         )
 
-    # row = layout.row(align=True)
     if props.is_generating_thumbnail:
         row = layout.row(align=True)
         row.label(text=props.thumbnail_generating_state)
         op = row.operator("object.kill_bg_process", text="", icon="CANCEL")
-        op.process_source = "MODEL"
+        op.process_source = asset_type
         op.process_type = "THUMBNAILER"
     elif props.thumbnail_generating_state != "":
         utils.label_multiline(layout, text=props.thumbnail_generating_state)
 
-    # prop_needed(layout, props, 'style', props.style)
-    # prop_needed(layout, props, 'production_level', props.production_level)
-    layout.prop(props, "style")
-    layout.prop(props, "production_level")
-
-    layout.prop(props, "condition")
-    layout.prop(props, "pbr")
+    # Only show these properties for MODEL type
+    if asset_type == "MODEL":
+        layout.prop(props, "style")
+        layout.prop(props, "production_level")
+        layout.prop(props, "condition")
+        layout.prop(props, "pbr")
 
     design_box = layout.box()
     design_box.alignment = "EXPAND"
@@ -1264,7 +1264,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
             return False
         return ui_props.down_up == "SEARCH" and ui_props.asset_type in (
             "MODEL",
-            "PRINT",
+            "PRINTABLE",
         )
 
     def draw_layout(self, layout):
@@ -1338,55 +1338,11 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         self.draw_layout(self.layout)
 
 
-def draw_panel_print_upload(self, context):
+def draw_panel_printable_upload(self, context):
     """Draw upload panel for printable assets"""
-    ob = bpy.context.active_object
-    while ob.parent is not None:
-        ob = ob.parent
-    props = ob.blenderkit
-
     layout = self.layout
-    draw_upload_common(layout, props, "PRINT", context)
-
-    col = layout.column()
-    if props.is_generating_thumbnail:
-        col.enabled = False
-
-    draw_thumbnail_upload_panel(col, props)
-
-    prop_needed(col, props, "thumbnail", props.thumbnail)
-    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
-        col.operator(
-            "object.blenderkit_generate_thumbnail",
-            text="Generate thumbnail",
-            icon="IMAGE",
-        )
-
-    if props.is_generating_thumbnail:
-        row = layout.row(align=True)
-        row.label(text=props.thumbnail_generating_state)
-        op = row.operator("object.kill_bg_process", text="", icon="CANCEL")
-        op.process_source = "PRINT"
-        op.process_type = "THUMBNAILER"
-    elif props.thumbnail_generating_state != "":
-        utils.label_multiline(layout, text=props.thumbnail_generating_state)
-
-    design_box = layout.box()
-    design_box.alignment = "EXPAND"
-    design_box.label(text="Design properties:")
-    design_box.prop(props, "manufacturer")
-    design_box.prop(props, "designer")
-    design_box.prop(props, "design_collection")
-    design_box.prop(props, "design_variant")
-    design_box.prop(props, "use_design_year")
-    if props.use_design_year:
-        design_box.prop(props, "design_year")
-
-    # CONTENT FLAGS
-    content_flag_box = layout.box()
-    content_flag_box.alignment = "EXPAND"
-    content_flag_box.label(text="Sensitive Content Flags:")
-    content_flag_box.prop(props, "sexualized_content")
+    props = utils.get_upload_props()
+    draw_upload_common(layout, props, "PRINTABLE", context)
 
 
 class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
@@ -1760,33 +1716,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             return draw_panel_nodegroup_search(self, context)
 
     def draw_upload(self, context, layout, ui_props):
-        # if not ui_props.assetbar_on:
-        #     text = 'Show asset preview - ;'
-        # else:
-        #     text = 'Hide asset preview - ;'
-        # op = layout.operator('view3d.blenderkit_asset_bar_widget', text=text, icon='EXPORT')
-        # op.keep_running = False
-        # op.do_search = False
-        # op.tooltip = 'Show/Hide asset preview'
-        if context.scene.render.engine not in ACCEPTABLE_ENGINES:
-            rtext = (
-                "Only Cycles, EEVEE and EEVEE (Legacy) render engines are currently supported. "
-                "Please use Cycles for all assets you upload to BlenderKit."
-            )
-            utils.label_multiline(
-                layout, rtext, icon="ERROR", width=context.region.width
-            )
-            return
-
-        if ui_props.asset_type == "MODEL":
+        if ui_props.asset_type == "MODEL" or ui_props.asset_type == "PRINTABLE":
             if bpy.context.view_layer.objects.active is not None:
                 return draw_panel_model_upload(self, context)
-            layout.label(text="select object to upload")
-            return
-
-        if ui_props.asset_type == "PRINT":
-            if bpy.context.view_layer.objects.active is not None:
-                return draw_panel_print_upload(self, context)
             layout.label(text="select object to upload")
             return
 
@@ -3605,7 +3537,7 @@ def header_search_draw(self, context):
 
     props_dict = {
         "MODEL": wm.blenderkit_models,
-        "PRINT": wm.blenderkit_models,  # PRINT assets use same props as MODEL
+        "PRINTABLE": wm.blenderkit_models,  # PRINTABLE assets use same props as MODEL
         "MATERIAL": wm.blenderkit_mat,
         "BRUSH": wm.blenderkit_brush,
         "HDR": wm.blenderkit_HDR,
@@ -3616,7 +3548,7 @@ def header_search_draw(self, context):
     pcoll = icons.icon_collections["main"]
     icons_dict = {
         "MODEL": "OBJECT_DATAMODE",
-        "PRINT": pcoll["printable"].icon_id,  # Using our custom printable icon
+        "PRINTABLE": pcoll["printable"].icon_id,  # Using our custom printable icon
         "MATERIAL": "MATERIAL",
         "BRUSH": "BRUSH_DATA",
         "HDR": "WORLD",
