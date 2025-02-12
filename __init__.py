@@ -330,39 +330,53 @@ def asset_type_callback(self, context):
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
     """
     pcoll = icons.icon_collections["main"]
+    preferences = bpy.context.preferences.addons[__package__].preferences
+
     if self.down_up == "SEARCH":
-        items = (
+        items = [
             ("MODEL", "Models", "Find models", "OBJECT_DATAMODE", 0),
-            (
-                "PRINTABLE",
-                "Printable",
-                "Find 3D printable models",
-                pcoll["printable"].icon_id,
-                1,
-            ),
             ("MATERIAL", "Materials", "Find materials", "MATERIAL", 2),
             ("SCENE", "Scenes", "Find scenes", "SCENE_DATA", 3),
             ("HDR", "HDRs", "Find HDRs", "WORLD", 4),
             ("BRUSH", "Brushes", "Find brushes", "BRUSH_DATA", 5),
             ("NODEGROUP", "Node Groups", "Find tools", "NODETREE", 6),
-        )
-    else:
-        items = (
-            ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
-            (
-                "PRINTABLE",
-                "Printable",
-                "Upload a 3D printable model",
-                pcoll["printable"].icon_id,
+        ]
+        # Add printable under experimental features
+        if preferences.experimental_features:
+            # Insert printable after MODEL (at index 1)
+            items.insert(
                 1,
-            ),
+                (
+                    "PRINTABLE",
+                    "Printable",
+                    "Find 3D printable models",
+                    pcoll["printable"].icon_id,
+                    1,
+                ),
+            )
+    else:
+        items = [
+            ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
             ("MATERIAL", "Material", "Upload a material", "MATERIAL", 2),
             ("SCENE", "Scene", "Upload a scene", "SCENE_DATA", 3),
             ("HDR", "HDR", "Upload a HDR", "WORLD", 4),
             ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 5),
             ("NODEGROUP", "Node Groups", "Upload a tool", "NODETREE", 6),
-        )
-    preferences = bpy.context.preferences.addons[__package__].preferences
+        ]
+        # Add printable under experimental features
+        if preferences.experimental_features:
+            # Insert printable after MODEL (at index 1)
+            items.insert(
+                1,
+                (
+                    "PRINTABLE",
+                    "Printable",
+                    "Upload a 3D printable model",
+                    pcoll["printable"].icon_id,
+                    1,
+                ),
+            )
+
     if not preferences.experimental_features:
         # remove nodegroups - last item from the list
         items = items[:-1]
