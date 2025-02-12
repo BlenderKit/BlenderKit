@@ -46,10 +46,10 @@ jobs = [
         "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.0-linux-x64.tar.xz",
     },
     {
-        "version": "3.3.20",
+        "version": "3.3.21",
         "version_x_y": "3.3",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.20-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender3.3/blender-3.3.21-linux-x64.tar.xz",
     },
     {
         "version": "3.4.0",
@@ -81,11 +81,11 @@ jobs = [
         "sha": "released",
         "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.0-linux-x64.tar.xz",
     },
-    {
-        "version": "3.6.13",
+    {  # LTS
+        "version": "3.6.20",
         "version_x_y": "3.6",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.13-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender3.6/blender-3.6.20-linux-x64.tar.xz",
     },
     {
         "version": "4.0.0",
@@ -117,11 +117,23 @@ jobs = [
         "sha": "released",
         "download_url": "https://download.blender.org/release/Blender4.2/blender-4.2.0-linux-x64.tar.xz",
     },
-    {
-        "version": "4.2.2",
+    {  # LTS
+        "version": "4.2.6",
         "version_x_y": "4.2",
         "sha": "released",
-        "download_url": "https://download.blender.org/release/Blender4.2/blender-4.2.2-linux-x64.tar.xz",
+        "download_url": "https://download.blender.org/release/Blender4.2/blender-4.2.6-linux-x64.tar.xz",
+    },
+    {
+        "version": "4.3.0",
+        "version_x_y": "4.3",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender4.3/blender-4.3.0-linux-x64.tar.xz",
+    },
+    {
+        "version": "4.3.2",
+        "version_x_y": "4.3",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz",
     },
     # {'version': '', 'version_x_y': '', 'download_url': ''},
 ]
