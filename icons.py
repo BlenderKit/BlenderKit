@@ -29,6 +29,7 @@ icon_collections = {}
 icons_read = {
     "fp.png": "free",
     "flp.png": "full",
+    "printable.png": "printable",
     "trophy.png": "trophy",
     "dumbbell.png": "dumbbell",
     "cc0.png": "cc0",

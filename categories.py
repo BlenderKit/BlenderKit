@@ -123,6 +123,7 @@ def handle_categories_task(task: client_tasks.Task):
         "MATERIAL": ["material"],
         "BRUSH": ["brush"],
         "NODEGROUP": ["nodegroup"],
+        "PRINTABLE": ["printable"],
     }
 
     if task.status == "finished":
