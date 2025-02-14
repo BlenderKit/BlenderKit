@@ -377,10 +377,6 @@ def asset_type_callback(self, context):
                 ),
             )
 
-    if not preferences.experimental_features:
-        # remove nodegroups - last item from the list
-        items = items[:-1]
-
     return items
 
 
@@ -2276,7 +2272,7 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="""Enable experimental features of BlenderKit: \n - Node grups asset type""",
+        description="""Enable experimental features of BlenderKit: \n - 3D printable assets (search and upload models optimized for 3D printing)""",
         default=False,
         update=utils.save_prefs,
     )
