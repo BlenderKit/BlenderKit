@@ -267,63 +267,6 @@ def udate_down_up(self, context):
         search.search()
 
 
-def switch_search_results(self, context):
-    props = bpy.context.window_manager.blenderkitUI
-
-    if props.asset_type == "MODEL":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit model search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit model search orig"
-        )
-    elif props.asset_type == "SCENE":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit scene search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit scene search orig"
-        )
-    elif props.asset_type == "HDR":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit hdr search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit hdr search orig"
-        )
-    elif props.asset_type == "MATERIAL":
-        global_vars.DATA["search results"] = global_vars.DATA.get(
-            "bkit material search"
-        )
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit material search orig"
-        )
-    elif props.asset_type == "TEXTURE":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit texture search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit texture search orig"
-        )
-    elif props.asset_type == "BRUSH":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit brush search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit brush search orig"
-        )
-        if not (context.sculpt_object or context.image_paint_object):
-            reports.add_report(
-                "Switch to paint or sculpt mode to search in BlenderKit brushes."
-            )
-    elif props.asset_type == "NODEGROUP":
-        global_vars.DATA["search results"] = global_vars.DATA.get(
-            "bkit nodegroup search"
-        )
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit nodegroup search orig"
-        )
-
-    if asset_bar_op.asset_bar_operator is not None:
-        asset_bar_op.asset_bar_operator.scroll_update(always=True)
-
-    if global_vars.DATA["search results"] is None and props.down_up == "SEARCH":
-        search.search()
-
-    # update the filters after asset type switch, would keep the filter icon uncolored otherwise
-    search.update_filters()
-
-
 def asset_type_callback(self, context):
     """
     Returns
@@ -414,7 +357,7 @@ class BlenderKitUIProps(PropertyGroup):
         items=asset_type_callback,
         description="",
         default=None,
-        update=switch_search_results,
+        update=search.search_update,
     )
     # moved from per-asset search properties
     free_only: BoolProperty(
@@ -624,6 +567,14 @@ class BlenderKitUIProps(PropertyGroup):
         name="Reply Id", description="Active comment id to reply to", default=0
     )
 
+    # Add search_keywords property
+    search_keywords: StringProperty(
+        name="Search",
+        description="Search for these keywords",
+        default="",
+        update=search.search_update,
+    )
+
 
 def search_procedural_update(self, context):
     if self.search_procedural in ("PROCEDURAL", "BOTH"):
@@ -632,13 +583,6 @@ def search_procedural_update(self, context):
 
 
 class BlenderKitCommonSearchProps:
-    # main search string
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
     # categories
     search_category: StringProperty(
         name="Category",

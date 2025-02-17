@@ -37,9 +37,20 @@ CLIENT_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1
 
 DATA: dict = {  # TODO: move these
     "images available": {},
-    "search history": deque(maxlen=20),
+    "history steps": {},
     "bkit notifications": None,
     "asset comments": {},
+}
+
+TABS = {
+    "active_tab": 0,  # Index of currently active tab
+    "tabs": [  # List of all tabs
+        {
+            "name": "Default",  # Tab name
+            "history": [],  # List of history steps
+            "history_index": -1,  # Current position in history
+        }
+    ],
 }
 
 RATINGS: dict[str, datas.AssetRating] = {}

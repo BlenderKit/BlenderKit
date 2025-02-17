@@ -219,7 +219,7 @@ def draw_panel_hdr_search(self, context):
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
@@ -246,10 +246,11 @@ def draw_panel_nodegroup_search(self, context):
     s = context.scene
     wm = context.window_manager
     props = wm.blenderkit_nodegroup
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
@@ -395,11 +396,12 @@ def draw_assetbar_show_hide(layout, props):
 def draw_panel_model_search(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_models
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
 
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     icon = "NONE"
@@ -415,9 +417,10 @@ def draw_panel_model_search(self, context):
 def draw_panel_scene_search(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_scene
+    ui_props = wm.blenderkitUI
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
     utils.label_multiline(layout, text=props.report)
     layout.separator()
@@ -1171,7 +1174,7 @@ def draw_panel_material_search(self, context):
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
     utils.label_multiline(layout, text=props.report)
 
@@ -1202,7 +1205,7 @@ def draw_panel_brush_search(self, context):
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
@@ -3617,7 +3620,7 @@ def header_search_draw(self, context):
     if search_field_width > 0:
         row.ui_units_x = search_field_width
 
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
 
     draw_assetbar_show_hide(layout, props)
     layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")

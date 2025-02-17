@@ -1538,7 +1538,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         a = asset_data["author"]["id"]
         if a is not None:
             sprops = utils.get_search_props()
-            sprops.search_keywords = ""
+            ui_props = bpy.context.window_manager.blenderkitUI
+            ui_props.search_keywords = ""
             sprops.search_verification_status = "ALL"
             # utils.p('author:', a)
             search.search(author_id=str(a))
@@ -1548,8 +1549,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         sr = global_vars.DATA["search results"]
         asset_data = sr[asset_index]
         keywords = search.get_search_similar_keywords(asset_data)
-        sprops = utils.get_search_props()
-        sprops.search_keywords = keywords
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props.search_keywords = keywords
         search.search()
 
     def search_in_category(self, asset_index):
@@ -1558,8 +1559,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         category = asset_data.get("category")
         if category is None:
             return True
-        sprops = utils.get_search_props()
-        sprops.search_category = category
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props.search_category = category
         search.search()
 
     def handle_key_input(self, event):
