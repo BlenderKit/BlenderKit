@@ -270,7 +270,10 @@ def udpate_asset_data_in_dicts(asset_data):
     scene = bpy.context.scene
     scene["assets used"] = scene.get("assets used", {})
     scene["assets used"][asset_data["assetBaseId"]] = asset_data.copy()
-    sr = global_vars.DATA["search results"]
+
+    # Get search results from history
+    history_step = search.get_active_history_step()
+    sr = history_step.get("search_results")
     if not sr:
         return
 
@@ -1016,6 +1019,12 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
 
     try:
         append_asset(asset_data, **kwargs)
+        # Update downloaded status in search results
+        sr = search.get_search_results()
+        if sr is not None:
+            for sres in sr:
+                if asset_data["id"] == sres["id"]:
+                    sres["downloaded"] = 100
         return True
     except Exception as e:
         # TODO: this should distinguis if the appending failed (wrong file)

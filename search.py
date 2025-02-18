@@ -312,8 +312,13 @@ def clear_searches():
 
 
 def cleanup_search_results():
-    """clear search results and also search tasks - when e.g. profile is fetched so we can have better
-    search results with canDownload flag."""
+    """Cleanup all search results in history steps and global vars."""
+    # First clean up history steps
+    for history_step in get_history_steps().values():
+        history_step.pop("search_results", None)
+        history_step.pop("search_results_orig", None)
+
+    # Keep backwards compatibility for now - remove later
     dicts = (
         "search results",
         "bkit model search",
@@ -380,11 +385,16 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     props = utils.get_search_props()
     search_name = f"bkit {asset_type} search"
 
+    # Get current history step
+    history_step = get_history_step(orig_task.history_id)
+    if history_step is None:
+        return True
+
     if not task.data.get("get_next"):
         result_field = []  # type: ignore
     else:
         result_field = []
-        for r in global_vars.DATA[search_name]:  # type: ignore
+        for r in history_step.get("search_results", []):  # type: ignore
             result_field.append(r)
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
@@ -404,19 +414,16 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         if comments is None:
             client_lib.get_comments(asset_data["assetBaseId"])
 
+    # Store results in history step
+    history_step["search_results"] = result_field
+    history_step["search_results_orig"] = task.result
+
+    # Keep backwards compatibility for now - remove later
     global_vars.DATA[search_name] = result_field
     global_vars.DATA[f"{search_name} orig"] = task.result
-
     if asset_type == ui_props.asset_type.lower():
         global_vars.DATA["search results"] = result_field
         global_vars.DATA["search results orig"] = task.result
-
-    # Get history step and store results
-    history_step = get_history_step(orig_task.history_id)
-    if history_step is not None:
-        print(f"Storing search results in history step {orig_task.history_id}")
-        history_step["search_results"] = result_field
-        history_step["search_results_orig"] = task.result
 
     if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
         # jump back
@@ -431,14 +438,14 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
         # jump back
         ui_props.scroll_offset = 0
-    props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
-    if len(global_vars.DATA["search results"]) == 0:
+    props.report = f"Found {task.result['count']} results."
+    if len(result_field) == 0:
         tasks_queue.add_task((reports.add_report, ("No matching results found.",)))
     else:
         tasks_queue.add_task(
             (
                 reports.add_report,
-                (f"Found {global_vars.DATA['search results orig']['count']} results.",),
+                (f"Found {task.result['count']} results.",),
             )
         )
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
@@ -1564,3 +1571,15 @@ def get_history_step(history_step_id):
 
 def get_history_steps():
     return global_vars.DATA["history steps"]
+
+
+def get_active_history_step():
+    """Get the currently active history step from the active tab."""
+    active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+    return active_tab["history"][active_tab["history_index"]]
+
+
+def get_search_results():
+    """Get search results from the active history step."""
+    history_step = get_active_history_step()
+    return history_step.get("search_results", [])

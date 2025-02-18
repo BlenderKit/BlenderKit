@@ -521,7 +521,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         this can happen from search, but also by switching results.
         We should rather trigger that update from search. maybe let's add a uuid to the results?
         """
-        sr = global_vars.DATA.get("search results")
+        # Get search results from history
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results")
 
         if not hasattr(self, "search_results_count"):
             if not sr or len(sr) == 0:
@@ -644,7 +646,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.max_wcount = user_preferences.max_assetbar_rows
 
-        search_results = global_vars.DATA.get("search results")
+        history_step = search.get_active_history_step()
+        search_results = history_step.get("search_results")
         # we need to init all possible thumb previews in advance/
         # self.hcount = user_preferences.max_assetbar_rows
         if search_results is not None and self.wcount > 0:
@@ -1222,10 +1225,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.show_tooltip()
         if self.active_index != search_index:
             self.active_index = search_index
-            # scene = bpy.context.scene
-            # wm = bpy.context.window_manager
-            sr = global_vars.DATA["search results"]
-            asset_data = sr[search_index]  # + self.scroll_offset]
+            sr = search.get_search_results()
+            asset_data = sr[search_index]
 
             self.draw_tooltip = True
             # self.tooltip = asset_data['tooltip']
@@ -1364,7 +1365,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_asset_menu')
 
     def search_more(self):
-        sro = global_vars.DATA.get("search results orig")
+        history_step = search.get_active_history_step()
+        sro = history_step.get("search_results_orig")
         if sro is None:
             return
         if sro.get("next") is None:
@@ -1376,8 +1378,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search(get_next=True)
 
     def update_bookmark_icon(self, bookmark_button: BL_UI_Button):
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_index = bookmark_button.asset_index  # type: ignore
-        asset_data = global_vars.DATA["search results"][asset_index]
+        asset_data = sr[asset_index]
         rating = ratings_utils.get_rating_local(asset_data["id"])
         if rating is not None and rating.bookmarks == 1:
             icon = "bookmark_full.png"
@@ -1441,7 +1445,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     )
 
     def update_buttons(self):
-        sr = global_vars.DATA.get("search results")
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results")
         if not sr:
             return
         for asset_button in self.asset_buttons:
@@ -1494,8 +1499,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.red_alert.visible = False
 
     def scroll_update(self, always=False):
-        sr = global_vars.DATA.get("search results")
-        sro = global_vars.DATA.get("search results orig")
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results")
+        sro = history_step.get("search_results_orig")
         # orig_offset = self.scroll_offset
         # empty results
         if sr is None:
@@ -1533,7 +1539,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.update_buttons()
 
     def search_by_author(self, asset_index):
-        sr = global_vars.DATA["search results"]
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
         a = asset_data["author"]["id"]
         if a is not None:
@@ -1546,7 +1553,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return True
 
     def search_similar(self, asset_index):
-        sr = global_vars.DATA["search results"]
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
         keywords = search.get_search_similar_keywords(asset_data)
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -1554,7 +1562,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def search_in_category(self, asset_index):
-        sr = global_vars.DATA["search results"]
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
         category = asset_data.get("category")
         if category is None:

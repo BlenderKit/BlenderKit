@@ -2183,8 +2183,7 @@ class OBJECT_MT_blenderkit_asset_menu(bpy.types.Menu):
 
     def draw(self, context):
         ui_props = context.window_manager.blenderkitUI
-
-        sr = global_vars.DATA["search results"]
+        sr = search.get_search_results()
         asset_data = sr[ui_props.active_index]
         draw_asset_context_menu(self.layout, context, asset_data, from_panel=False)
 
@@ -3124,7 +3123,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         ui_props.draw_tooltip = False
         ui_props.reply_id = 0
 
-        sr = global_vars.DATA["search results"]
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[ui_props.active_index]
         self.asset_data = asset_data
 

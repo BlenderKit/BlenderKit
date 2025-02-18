@@ -46,6 +46,7 @@ from . import (
     reports,
     ui_panels,
     utils,
+    search,
 )
 
 
@@ -761,7 +762,7 @@ def can_edit_asset(active_index: int = -1, asset_data: Optional[dict] = None):
     if utils.profile_is_validator():
         return True
     if not asset_data:
-        sr = global_vars.DATA["search results"]
+        sr = search.get_search_results()
         asset_data = dict(sr[active_index])
     if int(asset_data["author"]["id"]) == profile.id:
         return True
@@ -944,7 +945,7 @@ class FastMetadata(bpy.types.Operator):
     def invoke(self, context, event):
         ui_props = bpy.context.window_manager.blenderkitUI
         if ui_props.active_index > -1:
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = dict(sr[ui_props.active_index])
         else:
             active_asset = utils.get_active_asset_by_type(asset_type=self.asset_type)
@@ -1309,11 +1310,11 @@ class AssetDebugPrint(Operator):
         return True
 
     def execute(self, context):
-        if not global_vars.DATA["search results"]:
+        if not search.get_search_results():
             print("no search results found")
             return {"CANCELLED"}
         # update status in search results for validator's clarity
-        sr = global_vars.DATA["search results"]
+        sr = search.get_search_results()
 
         result = None
         for r in sr:
@@ -1367,10 +1368,10 @@ class AssetVerificationStatusChange(Operator):
         # layout.prop(self, 'state')
 
     def execute(self, context):
-        if not global_vars.DATA["search results"]:
+        if not search.get_search_results():
             return {"CANCELLED"}
         # update status in search results for validator's clarity
-        search_results = global_vars.DATA["search results"]
+        search_results = search.get_search_results()
         for result in search_results:
             if result["id"] == self.asset_id:
                 result["verificationStatus"] = self.state
