@@ -579,7 +579,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_scale = min(
             1.0, tooltip_y_offset / (self.tooltip_base_size_pixels * ui_scale)
         )
-
         self.asset_name_text_size = int(
             0.039 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
         )
@@ -864,7 +863,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return new_button
 
     def init_ui(self):
-        button_bg_color = (0.2, 0.2, 0.2, 0.1)
+        button_bg_color = (0.2, 0.2, 0.2, 1.0)
         button_hover_color = (0.8, 0.8, 0.8, 0.2)
 
         self.buttons = []
@@ -942,17 +941,98 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.widgets_panel.append(self.button_scroll_up)
 
-        # notifications
-        # if not comments_utils.check_notifications_read():
-        #     self.button_notifications = BL_UI_Button(self.bar_width - self.other_button_size * 2,
-        #                                              -self.other_button_size, self.other_button_size,
-        #                                              self.other_button_size)
-        #     self.button_notifications.bg_color = button_bg_color
-        #     self.button_notifications.hover_bg_color = button_hover_color
-        #     self.button_notifications.text = ""
-        #
-        #     self.button_notifications.set_mouse_down(self.show_notifications)
-        #     self.widgets_panel.append(self.button_notifications)
+        # Add tab navigation elements
+        button_size = self.other_button_size
+        margin = int(button_size * 0.05)
+
+        # Back/Forward history buttons
+        self.history_back_button = BL_UI_Button(
+            margin, -button_size, button_size, button_size
+        )
+        self.history_back_button.bg_color = button_bg_color
+        self.history_back_button.hover_bg_color = button_hover_color
+        self.history_back_button.text = "◀"
+        self.history_back_button.text_size = button_size * 0.5
+        self.history_back_button.text_color = self.text_color
+
+        self.history_forward_button = BL_UI_Button(
+            margin * 2 + button_size,
+            -button_size,
+            button_size,
+            button_size,
+        )
+        self.history_forward_button.bg_color = button_bg_color
+        self.history_forward_button.hover_bg_color = button_hover_color
+        self.history_forward_button.text = "▶"
+        self.history_forward_button.text_size = button_size * 0.5
+        self.history_forward_button.text_color = self.text_color
+
+        # New tab button
+        self.new_tab_button = BL_UI_Button(
+            margin * 3 + button_size * 2,
+            -button_size,
+            button_size,
+            button_size,
+        )
+        self.new_tab_button.bg_color = button_bg_color
+        self.new_tab_button.hover_bg_color = button_hover_color
+        self.new_tab_button.text = "+"
+        self.new_tab_button.text_size = button_size * 0.5
+        self.new_tab_button.text_color = self.text_color
+        self.new_tab_button.set_mouse_down(self.add_new_tab)
+
+        # Tab buttons
+        tab_width = button_size * 2
+        tabs = global_vars.TABS["tabs"]
+        for i, tab in enumerate(tabs):
+            # Tab button - keep full width since close button will be outside
+            tab_button = BL_UI_Button(
+                margin * (4 + i)
+                + button_size * 3
+                + (tab_width + button_size) * i,  # Added button_size to spacing
+                -button_size,
+                tab_width,  # Removed margin subtraction to keep full width
+                button_size,
+            )
+            tab_button.bg_color = button_bg_color
+            tab_button.hover_bg_color = button_hover_color
+            tab_button.text = tab["name"]
+            tab_button.text_size = button_size * 0.3
+            tab_button.text_color = self.text_color
+            setattr(self, f"tab_button_{i}", tab_button)
+
+            # Close tab button - position immediately after tab button
+            close_tab = BL_UI_Button(
+                margin * (4 + i)
+                + button_size * 3
+                + (tab_width + button_size) * i
+                + tab_width,  # Position after tab
+                -button_size,
+                button_size,
+                button_size,
+            )
+            close_tab.bg_color = button_bg_color
+            close_tab.hover_bg_color = button_hover_color
+            close_tab.text = "×"
+            close_tab.text_size = button_size * 0.5
+            close_tab.text_color = self.text_color
+            close_tab.tab_index = i  # Store tab index
+            close_tab.set_mouse_down(self.remove_tab)  # Add click handler
+            setattr(self, f"close_tab_button_{i}", close_tab)
+
+        # Add new widgets to the widgets list
+        self.widgets_panel.extend(
+            [
+                self.history_back_button,
+                self.history_forward_button,
+                self.new_tab_button,
+            ]
+        )
+
+        # Add tab buttons and close buttons
+        for i in range(len(tabs)):
+            self.widgets_panel.append(getattr(self, f"tab_button_{i}"))
+            self.widgets_panel.append(getattr(self, f"close_tab_button_{i}"))
 
         # self.update_buttons()
 
@@ -1723,6 +1803,54 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             except Exception as e:
                 bk_logger.debug(f"-- error calling on_finish(): {e}")
             cls.instances.remove(instance)
+
+    def restart_asset_bar(self):
+        """Restart the asset bar UI."""
+        ui_props = bpy.context.window_manager.blenderkitUI
+        self.finish()
+        w, a, r = utils.get_largest_area(area_type="VIEW_3D")
+        if a is not None:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+
+    def add_new_tab(self, widget):
+        """Add a new tab when the + button is clicked."""
+        tabs = global_vars.TABS["tabs"]
+        new_tab = {
+            "name": f"Tab {len(tabs) + 1}",  # Default name with incremented number
+            "history": [],  # Empty history list
+            "history_index": -1,  # No history yet
+        }
+        tabs.append(new_tab)
+        global_vars.TABS["active_tab"] = len(tabs) - 1  # Switch to new tab
+
+        # Create history step for the new tab
+        search.create_history_step(new_tab)
+
+        # Restart asset bar to show new tab
+        self.restart_asset_bar()
+
+    def remove_tab(self, widget):
+        """Remove a tab when its close button is clicked."""
+        tabs = global_vars.TABS["tabs"]
+
+        # Don't remove the last tab
+        if len(tabs) <= 1:
+            return
+
+        tab_index = widget.tab_index
+
+        # If removing active tab, switch to previous tab
+        if global_vars.TABS["active_tab"] == tab_index:
+            global_vars.TABS["active_tab"] = max(0, tab_index - 1)
+        # If removing tab before active tab, adjust active tab index
+        elif global_vars.TABS["active_tab"] > tab_index:
+            global_vars.TABS["active_tab"] -= 1
+
+        # Remove the tab
+        tabs.pop(tab_index)
+
+        # Restart asset bar to update UI
+        self.restart_asset_bar()
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]
