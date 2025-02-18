@@ -1554,6 +1554,7 @@ def create_history_step(active_tab):
     # Add this history step to the global history steps dictionary, for accessing it directly after the search results land.
     global_vars.DATA["history steps"][history_step["id"]] = history_step
     print(f"Created history step {history_step['id']}")
+    reports.add_report("Created new search history step", 1, "INFO")
     return history_step
 
 
