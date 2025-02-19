@@ -283,53 +283,86 @@ func main() {
 	go monitorAvailableSoftwares()
 	go handleChannels()
 
+	version_parts := strings.Split(ClientVersion, ".")
+	vapi := fmt.Sprintf("v%s.%s", version_parts[0], version_parts[1])
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", indexHandler)
+
+	// BASIC functionality
 	mux.HandleFunc("/report", reportHandler)
+	mux.HandleFunc("/"+vapi+"/report", reportHandler)
 	mux.HandleFunc("/shutdown", shutdownHandler)
+	mux.HandleFunc("/"+vapi+"/shutdown", shutdownHandler)
 	mux.HandleFunc("/debug", DebugNetworkHandler)
+	mux.HandleFunc("/"+vapi+"/debug", DebugNetworkHandler)
 
 	// LOGIN
-	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler)
+	mux.HandleFunc("/consumer/exchange/", consumerExchangeHandler) // does not use /vX.Y/ to keep stuff simple on server side
 	mux.HandleFunc("/refresh_token", RefreshTokenHandler)
+	mux.HandleFunc("/"+vapi+"/refresh_token", RefreshTokenHandler)
 	mux.HandleFunc("/oauth2/verification_data", OAuth2VerificationDataHandler)
+	mux.HandleFunc("/"+vapi+"/oauth2/verification_data", OAuth2VerificationDataHandler)
 	mux.HandleFunc("/oauth2/logout", OAuth2LogoutHandler)
+	mux.HandleFunc("/"+vapi+"/oauth2/logout", OAuth2LogoutHandler)
 
 	// BLENDER SPECIFIC HANDLERS
 	mux.HandleFunc("/blender/unsubscribe_addon", blenderUnsubscribeAddonHandler)
+	mux.HandleFunc("/"+vapi+"/blender/unsubscribe_addon", blenderUnsubscribeAddonHandler)
 	mux.HandleFunc("/blender/cancel_download", CancelDownloadHandler)
+	mux.HandleFunc("/"+vapi+"/blender/cancel_download", CancelDownloadHandler)
 	mux.HandleFunc("/blender/asset_download", assetDownloadHandler)
+	mux.HandleFunc("/"+vapi+"/blender/asset_download", assetDownloadHandler)
 	mux.HandleFunc("/blender/asset_search", assetSearchHandler)
+	mux.HandleFunc("/"+vapi+"/blender/asset_search", assetSearchHandler)
 	mux.HandleFunc("/blender/asset_upload", assetUploadHandler)
+	mux.HandleFunc("/"+vapi+"/blender/asset_upload", assetUploadHandler)
 
 	// API HANDLERS
 	mux.HandleFunc("/profiles/download_gravatar_image", DownloadGravatarImageHandler)
+	mux.HandleFunc("/"+vapi+"/profiles/download_gravatar_image", DownloadGravatarImageHandler)
 	mux.HandleFunc("/profiles/get_user_profile", GetUserProfileHandler)
+	mux.HandleFunc("/"+vapi+"/profiles/get_user_profile", GetUserProfileHandler)
 
 	mux.HandleFunc("/comments/get_comments", GetCommentsHandler)
+	mux.HandleFunc("/"+vapi+"/comments/get_comments", GetCommentsHandler)
 	mux.HandleFunc("/comments/create_comment", CreateCommentHandler)
+	mux.HandleFunc("/"+vapi+"/comments/create_comment", CreateCommentHandler)
 	mux.HandleFunc("/comments/feedback_comment", FeedbackCommentHandler)
+	mux.HandleFunc("/"+vapi+"/comments/feedback_comment", FeedbackCommentHandler)
 	mux.HandleFunc("/comments/mark_comment_private", MarkCommentPrivateHandler)
+	mux.HandleFunc("/"+vapi+"/comments/mark_comment_private", MarkCommentPrivateHandler)
 
 	mux.HandleFunc("/notifications/mark_notification_read", MarkNotificationReadHandler)
+	mux.HandleFunc("/"+vapi+"/notifications/mark_notification_read", MarkNotificationReadHandler)
 
 	mux.HandleFunc("/ratings/get_bookmarks", GetBookmarksHandler)
+	mux.HandleFunc("/"+vapi+"/ratings/get_bookmarks", GetBookmarksHandler)
 	mux.HandleFunc("/ratings/get_rating", GetRatingHandler)
+	mux.HandleFunc("/"+vapi+"/ratings/get_rating", GetRatingHandler)
 	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
+	mux.HandleFunc("/"+vapi+"/ratings/send_rating", SendRatingHandler)
 
 	// WRAPPERS
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
+	mux.HandleFunc("/"+vapi+"/wrappers/get_download_url", GetDownloadURLWrapper)
 	mux.HandleFunc("/wrappers/complete_upload_file_blocking", CompleteUploadFileBlocking)
+	mux.HandleFunc("/"+vapi+"/wrappers/complete_upload_file_blocking", CompleteUploadFileBlocking)
 	mux.HandleFunc("/wrappers/blocking_file_download", BlockingFileDownloadHandler)
+	mux.HandleFunc("/"+vapi+"/wrappers/blocking_file_download", BlockingFileDownloadHandler)
 	mux.HandleFunc("/wrappers/blocking_request", BlockingRequestHandler)
+	mux.HandleFunc("/"+vapi+"/wrappers/blocking_request", BlockingRequestHandler)
 	mux.HandleFunc("/wrappers/nonblocking_request", NonblockingRequestHandler)
+	mux.HandleFunc("/"+vapi+"/wrappers/nonblocking_request", NonblockingRequestHandler)
 
 	// WEB BROWSER - bkclient.js
 	mux.HandleFunc("/bkclientjs/status", bkclientjsStatusHandler)
+	mux.HandleFunc("/"+vapi+"/bkclientjs/status", bkclientjsStatusHandler)
 	mux.HandleFunc("/bkclientjs/get_asset", bkclientjsGetAssetHandler)
+	mux.HandleFunc("/"+vapi+"/bkclientjs/get_asset", bkclientjsGetAssetHandler)
 
 	// OTHER SOFTWARES
 	mux.HandleFunc("/godot/report", godotReportHandler)
+	mux.HandleFunc("/"+vapi+"/godot/report", godotReportHandler)
 
 	StartClient(mux)
 }
@@ -422,7 +455,8 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handles report for subscribed Blender add-ons.
-// TODO: reject unsupported versions of the add-on.
+// Validates if the request contains required data and if the version of this Client
+// matches the Client version which add-on expects. If not the request is rejected.
 func reportHandler(w http.ResponseWriter, r *http.Request) {
 	lastReportAccessMux.Lock()
 	lastReportAccess = time.Now()
@@ -430,23 +464,23 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError) // 500
 		return
 	}
 	defer r.Body.Close()
 
+	// VALIDATION of the request
 	var data GetReportData
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		BKLog.Println("Error parsing ReportData:", err)
-		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		BKLog.Printf("%v Error parsing ReportData: %v", EmoWarning, err)
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest) // 400
 		return
 	}
 
-	if data.AddonVersion == "" {
-		msg := fmt.Sprintf("BlenderKit-Client running on port %s", *Port)
+	if data.AddonVersion == "" { // Old versions of add-on does not send AddonVersion
 		BKLog.Printf("%v Add-on (probably v3.11 or less) requesting /report rejected.", EmoWarning)
-		http.Error(w, msg, http.StatusForbidden) // 403
+		http.Error(w, "Unsupported add-on version. Use another Port and start older Client/Daemon there.", http.StatusForbidden) // 403
 		return
 	}
 
@@ -495,6 +529,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("BlenderKit-Client-Version", ClientVersion)
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
 }
