@@ -141,7 +141,7 @@ func GetTokens(authCode string, refreshToken string, verificationData OAuth2Veri
 
 	data.Set("client_id", OAUTH_CLIENT_ID)
 	data.Set("scopes", "read write")
-	data.Set("redirect_uri", fmt.Sprintf("http://localhost:%s/consumer/exchange/", *Port))
+	data.Set("redirect_uri", fmt.Sprintf("http://localhost:%s/consumer/exchange/", *Port)) // TODO: Use versioned API url as well - but it needs change on server side
 
 	url := fmt.Sprintf("%s/o/token/", *Server)
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))

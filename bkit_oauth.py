@@ -116,6 +116,7 @@ def login(signup: bool) -> None:
     Using the access_code Client then requests api_token and handles the results as a task with status finished/error.
     This is handled by function handle_login_task which saves tokens, or shows error message.
     """
+    # TODO: use URL with API version here as well - but that needs a change on server
     local_landing_URL = f"http://localhost:{client_lib.get_port()}/consumer/exchange/"
     code_verifier, code_challenge = generate_pkce_pair()
     state = secrets.token_urlsafe()
