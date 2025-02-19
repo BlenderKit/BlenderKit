@@ -1588,12 +1588,23 @@ def update_tab_name(active_tab):
 
     # Update tab name based on search or category
     search_keywords = ui_state.get("ui_props", {}).get("search_keywords", "").strip()
+    # if there's author_id let's get the author's name from db of authors
+    # we need to get the number after +author_id:
+    author_id = re.search(r"\+author_id:(\d+)", search_keywords)
+    author_name = None
+    if author_id is not None:
+        author_id = author_id.group(1)
+        author = global_vars.BKIT_AUTHORS.get(int(author_id))
+        if author:
+            author_name = author.fullName
+
     search_category = (
         ui_state.get("search_props", {}).get("search_category", "").strip()
     )
     asset_type = ui_state.get("ui_props", {}).get("asset_type", "").strip()
-
-    if search_keywords:
+    if author_name is not None:
+        tab_name = author_name
+    elif search_keywords:
         # Use search keywords for tab name
         tab_name = search_keywords
     elif search_category:

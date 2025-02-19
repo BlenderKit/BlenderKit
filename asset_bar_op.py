@@ -1004,7 +1004,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 # slightly red
                 close_tab.hover_bg_color = (0.8, 0.0, 0.0, 0.2)
                 close_tab.text = "×"  # Set text after creation
-                close_tab.text_size = button_size * 0.5
+                close_tab.text_size = button_size * 0.8
                 close_tab.text_color = self.text_color
                 close_tab.tab_index = i  # Store tab index
                 close_tab.set_mouse_down(self.remove_tab)  # Add click handler
@@ -1028,7 +1028,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.new_tab_button.bg_color = self.button_bg_color
             self.new_tab_button.hover_bg_color = self.button_hover_color
             self.new_tab_button.text = "+"
-            self.new_tab_button.text_size = button_size * 0.5
+            self.new_tab_button.text_size = button_size * 0.8
             self.new_tab_button.text_color = self.text_color
             self.new_tab_button.set_mouse_down(self.add_new_tab)
             self.widgets_panel.append(self.new_tab_button)  # Add new tab button last
@@ -1483,6 +1483,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         asset_index = bookmark_button.asset_index  # type: ignore
+        # sometimes happened here that the asset_index was out of range
+        if asset_index >= len(sr):
+            return
         asset_data = sr[asset_index]
         rating = ratings_utils.get_rating_local(asset_data["id"])
         if rating is not None and rating.bookmarks == 1:
