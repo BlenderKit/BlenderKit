@@ -1585,6 +1585,7 @@ def update_tab_name(active_tab):
     search_category = (
         ui_state.get("search_props", {}).get("search_category", "").strip()
     )
+    asset_type = ui_state.get("ui_props", {}).get("asset_type", "").strip()
 
     if search_keywords:
         # Use search keywords for tab name
@@ -1594,7 +1595,7 @@ def update_tab_name(active_tab):
         tab_name = search_category.split("/")[-1]  # Get last part of category path
     else:
         # Keep existing name if no keywords or category
-        return history_step
+        tab_name = asset_type.lower()
 
     # Crop name to max 9 characters
     if len(tab_name) > 9:

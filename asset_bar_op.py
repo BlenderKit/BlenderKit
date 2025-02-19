@@ -1842,7 +1842,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             "history_index": -1,  # No history yet
         }
         tabs.append(new_tab)
-        global_vars.TABS["active_tab"] = len(tabs) - 1  # Switch to new tab
 
         # Get current history step to copy its state and results
         current_history_step = search.get_active_history_step()
@@ -1863,8 +1862,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # Force scroll update to show results
             self.scroll_update(always=True)
 
+        new_active_tab = len(tabs) - 1
+
+        # Write history step to tab
         # Restart asset bar to show new tab
         self.restart_asset_bar()
+        self.switch_to_history_step(new_active_tab, 0)
 
     def remove_tab(self, widget):
         """Remove a tab when its close button is clicked."""
