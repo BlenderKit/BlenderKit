@@ -495,7 +495,7 @@ def load_preview(asset):
 
 
 def load_previews():
-    results = search.get_search_results()
+    results = get_search_results()
     if results is None:
         return
     for _, result in enumerate(results):
@@ -1005,6 +1005,10 @@ def search(get_next=False, query=None, author_id=""):
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    # if search is locked, don't trigger search update
+    if ui_props.search_lock:
+        return
+
     props = utils.get_search_props()
     active_history_step = get_active_history_step()
     # it's possible get_next was requested more than once.
@@ -1215,16 +1219,27 @@ def search_update_delayed(self, context):
     but with a delay.
     This reduces number of calls during slider UI interaction (like texture resolution, polycount)
     """
+    # when search is locked, don't trigger search update
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.search_lock:
+        return
+
     tasks_queue.add_task((search_update, (None, None)), wait=0.5, only_last=True)
 
 
 def search_update(self, context):
     """run search after user changes a search parameter"""
-    # if self.search_keywords != '':
+    # when search is locked, don't trigger search update
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.search_lock:
+        return
+
+    # update filters
     go_on = update_filters()
     if not go_on:
         return
-    ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.down_up != "SEARCH":
         ui_props.down_up = "SEARCH"
 
@@ -1473,43 +1488,89 @@ def get_ui_state():
     """Get the current UI state."""
     ui_props = bpy.context.window_manager.blenderkitUI
 
-    # Map asset types to their indices based on the callback definition
-    asset_type_to_index = {
-        "MODEL": 0,
-        "MATERIAL": 2,
-        "SCENE": 3,
-        "HDR": 4,
-        "BRUSH": 5,
-        "NODEGROUP": 6,
-        "PRINTABLE": 1,  # This is inserted at index 1 when experimental features are enabled
-    }
-
-    asset_type_index = asset_type_to_index.get(ui_props.asset_type.upper(), 0)
-
     ui_state = {
-        "search_keywords": ui_props.search_keywords,
-        "asset_type": asset_type_index,
+        "ui_props": {
+            "search_keywords": ui_props.search_keywords,
+            "asset_type": ui_props.asset_type,
+            "free_only": ui_props.free_only,
+            "own_only": ui_props.own_only,
+            "search_bookmarks": ui_props.search_bookmarks,
+            "quality_limit": ui_props.quality_limit,
+            "search_license": ui_props.search_license,
+            "search_blender_version": ui_props.search_blender_version,
+            "search_blender_version_min": ui_props.search_blender_version_min,
+            "search_blender_version_max": ui_props.search_blender_version_max,
+        },
+        "search_props": {},
     }
 
-    # List of all property groups to store
-    prop_groups = [
-        bpy.context.window_manager.blenderkit_models,
-        bpy.context.window_manager.blenderkit_scene,
-        bpy.context.window_manager.blenderkit_HDR,
-        bpy.context.window_manager.blenderkit_mat,
-        bpy.context.window_manager.blenderkit_brush,
-        bpy.context.window_manager.blenderkit_nodegroup,
+    # we need to add all props manually since they are a mess now and some should not be stored.
+    # model props
+    common_search_props = [
+        "search_category",
+        "search_texture_resolution",
+        "search_texture_resolution_min",
+        "search_texture_resolution_max",
+        "search_file_size",
+        "search_file_size_min",
+        "search_file_size_max",
+        "search_procedural",
+        "search_verification_status",
+        "unrated_quality_only",
+        "unrated_wh_only",
     ]
 
-    # Store all properties from each property group
-    for prop_group in prop_groups:
-        for prop_name in prop_group.bl_rna.properties.keys():
-            if prop_name != "rna_type":
-                ui_state[prop_name] = getattr(prop_group, prop_name)
+    store_model_props = [
+        "search_animated",
+        "search_condition",
+        "search_design_year",
+        "search_design_year_max",
+        "search_design_year_min",
+        "search_engine",
+        "search_engine_other",
+        "search_geometry_nodes",
+        "search_polycount",
+        "search_polycount_max",
+        "search_polycount_min",
+        "search_style",
+        "search_style_other",
+    ]
+    store_material_props = [
+        "search_style",
+        "search_style_other",
+    ]
+    store_brush_props = []
+    store_nodegroup_props = []
+    store_hdr_props = [
+        "true_hdr",
+    ]
+    store_scene_props = [
+        "search_style",
+    ]
+    store_props = []
+    match ui_props.asset_type:
+        case "MODEL":
+            store_props = store_model_props
+        case "MATERIAL":
+            store_props = store_material_props
+        case "BRUSH":
+            store_props = store_brush_props
+        case "NODEGROUP":
+            store_props = store_nodegroup_props
+        case "HDR":
+            store_props = store_hdr_props
+        case "SCENE":
+            store_props = store_scene_props
+        case "PRINTABLE":
+            store_props = store_model_props
 
-    # Add search_category from the current search props
     search_props = utils.get_search_props()
-    ui_state["search_category"] = search_props.search_category
+
+    store_props.extend(common_search_props)
+    # Store all properties from each property group
+    for prop_name in store_props:
+        if prop_name != "rna_type":
+            ui_state["search_props"][prop_name] = getattr(search_props, prop_name)
 
     return ui_state
 

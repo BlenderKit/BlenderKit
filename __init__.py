@@ -425,6 +425,13 @@ class BlenderKitUIProps(PropertyGroup):
         update=search.search_update,
     )
 
+    # search lock
+    search_lock: BoolProperty(
+        name="Search Lock",
+        description="Lock the search to restore ui state and not trigger search update",
+        default=False,
+    )
+
     logo_status: StringProperty(name="", default="logo_offline")
     asset_type_fold: BoolProperty(name="Expand asset types", default=False)
     # these aren't actually used ( by now, seems to better use globals in UI module:
@@ -600,11 +607,6 @@ class BlenderKitCommonSearchProps:
     is_downloading: BoolProperty(
         name="Downloading",
         description="download is currently running (internal)",
-        default=False,
-    )
-    search_done: BoolProperty(
-        name="Search Completed",
-        description="at least one search did run (internal)",
         default=False,
     )
 

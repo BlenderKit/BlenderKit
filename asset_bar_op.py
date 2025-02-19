@@ -1886,6 +1886,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def switch_to_history_step(self, tab_index, history_index):
         """Switch to a specific tab and history step."""
+
+        # Update UI properties without triggering update callbacks
+        ui_props = bpy.context.window_manager.blenderkitUI
+        # lock the search
+        ui_props.search_lock = True
+
         if (
             tab_index == global_vars.TABS["active_tab"]
             and history_index == global_vars.TABS["tabs"][tab_index]["history_index"]
@@ -1899,18 +1905,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         history_step = search.get_active_history_step()
         ui_state = history_step["ui_state"]
 
-        # Update UI properties without triggering update callbacks
-        ui_props = bpy.context.window_manager.blenderkitUI
-        for prop_name, value in ui_state.items():
+        # Update UI properties
+        for prop_name, value in ui_state["ui_props"].items():
             if hasattr(ui_props, prop_name):
                 # print(f"Updating UI property: {prop_name} to {value}")
-                ui_props[prop_name] = value
+                # strings need to be quoted
+                if isinstance(value, str):
+                    exec(f"ui_props.{prop_name} = '{value}'")
+                else:
+                    exec(f"ui_props.{prop_name} = {value}")
 
         # Update search type specific properties
         search_props = utils.get_search_props()
-        for prop_name, value in ui_state.items():
+        for prop_name, value in ui_state["search_props"].items():
             if hasattr(search_props, prop_name):
-                search_props[prop_name] = value
+                # strings need to be quoted
+                if isinstance(value, str):
+                    exec(f"search_props.{prop_name} = '{value}'")
+                else:
+                    exec(f"search_props.{prop_name} = {value}")
 
         # update tab label
         search.update_tab_name(global_vars.TABS["tabs"][tab_index])
@@ -1926,6 +1939,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # Update UI to show current tab's search results
         self.scroll_update(always=True)
+
+        # unlock the search
+        ui_props.search_lock = False
 
     def history_back(self, widget):
         """Navigate to previous history step."""
