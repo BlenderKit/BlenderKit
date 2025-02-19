@@ -21,6 +21,7 @@ import json
 import logging
 import math
 import os
+import re
 import unicodedata
 import urllib.parse
 import uuid
@@ -1387,11 +1388,16 @@ class SearchOperator(Operator):
             bpy.ops.view3d.close_popup_button("INVOKE_DEFAULT")
         ui_props = bpy.context.window_manager.blenderkitUI
         if self.author_id != "":
-            ui_props.search_keywords = ""
+            # if there is already an author id in the search keywords, remove it first, the author_id can be any so
+            # use regex to find it
+            ui_props.search_keywords = re.sub(
+                r"\+author_id:\d+", "", ui_props.search_keywords
+            )
+            ui_props.search_keywords += f"+author_id:{self.author_id}"
         if self.keywords != "":
             ui_props.search_keywords = self.keywords
 
-        search(get_next=self.get_next, author_id=self.author_id)
+        search(get_next=self.get_next)
 
         return {"FINISHED"}
 

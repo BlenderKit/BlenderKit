@@ -19,6 +19,7 @@
 import logging
 import math
 import os
+import re
 import time
 
 import bpy
@@ -1647,10 +1648,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if a is not None:
             sprops = utils.get_search_props()
             ui_props = bpy.context.window_manager.blenderkitUI
-            ui_props.search_keywords = ""
-            sprops.search_verification_status = "ALL"
-            # utils.p('author:', a)
-            search.search(author_id=str(a))
+            # if there is already an author id in the search keywords, remove it first, the author_id can be any so
+            # use regex to find it
+            ui_props.search_keywords = re.sub(
+                r"\+author_id:\d+", "", ui_props.search_keywords
+            )
+            ui_props.search_keywords += f"+author_id:{a}"
+            search.search()
         return True
 
     def search_similar(self, asset_index):
@@ -1953,6 +1957,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if len(self.tab_buttons) > tab_index:
             self.tab_buttons[tab_index].bg_color = self.button_selected_color
 
+        # update filters
+        search.update_filters()
         # Update UI to show current tab's search results
         self.scroll_update(always=True)
 

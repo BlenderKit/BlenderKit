@@ -23,7 +23,17 @@ from bpy.props import StringProperty
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
 
-from . import client_lib, datas, icons, ratings_utils, search, ui, ui_panels, utils
+from . import (
+    client_lib,
+    datas,
+    global_vars,
+    icons,
+    ratings_utils,
+    search,
+    ui,
+    ui_panels,
+    utils,
+)
 
 
 bk_logger = logging.getLogger(__name__)
