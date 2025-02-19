@@ -1863,11 +1863,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.scroll_update(always=True)
 
         new_active_tab = len(tabs) - 1
+        self.switch_to_history_step(new_active_tab, 0)
 
         # Write history step to tab
         # Restart asset bar to show new tab
         self.restart_asset_bar()
-        self.switch_to_history_step(new_active_tab, 0)
 
     def remove_tab(self, widget):
         """Remove a tab when its close button is clicked."""
@@ -1936,7 +1936,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     exec(f"search_props.{prop_name} = {value}")
 
         # update tab label
-        search.update_tab_name(global_vars.TABS["tabs"][tab_index])
+        # only if the button exists
+        if len(self.tab_buttons) > tab_index:
+            search.update_tab_name(global_vars.TABS["tabs"][tab_index])
         # Restore scroll position
         self.scroll_offset = history_step.get("scroll_offset", 0)
 
@@ -1948,7 +1950,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         # make active tab a bit darker
-        self.tab_buttons[tab_index].bg_color = self.button_selected_color
+        if len(self.tab_buttons) > tab_index:
+            self.tab_buttons[tab_index].bg_color = self.button_selected_color
 
         # Update UI to show current tab's search results
         self.scroll_update(always=True)
