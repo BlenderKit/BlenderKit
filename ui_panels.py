@@ -2061,7 +2061,7 @@ def draw_asset_context_menu(
                 if o and o.get("asset_data"):
                     if (
                         o["asset_data"]["assetBaseId"]
-                        == global_vars.DATA["search results"][ui_props.active_index]
+                        == search.get_search_results()[ui_props.active_index]
                     ):
                         op.model_location = o.location
                         op.model_rotation = o.rotation_euler

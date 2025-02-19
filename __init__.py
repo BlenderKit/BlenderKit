@@ -263,7 +263,7 @@ mesh_poly_types = (
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
     props = bpy.context.window_manager.blenderkitUI
-    if global_vars.DATA.get("search results") is None and props.down_up == "SEARCH":
+    if search.get_search_results() is None and props.down_up == "SEARCH":
         search.search()
 
 
@@ -591,11 +591,12 @@ class BlenderKitCommonSearchProps:
         update=search.search_update,
     )
     # STATES
-    is_searching: BoolProperty(
-        name="Searching",
-        description="search is currently running (internal)",
-        default=False,
-    )
+    # Is searching is moved to history steps
+    # is_searching: BoolProperty(
+    #     name="Searching",
+    #     description="search is currently running (internal)",
+    #     default=False,
+    # )
     is_downloading: BoolProperty(
         name="Downloading",
         description="download is currently running (internal)",

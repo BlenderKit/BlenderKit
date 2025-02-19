@@ -29,6 +29,7 @@ from . import (
     global_vars,
     paths,
     ratings_utils,
+    reports,
     search,
     ui,
     ui_panels,
@@ -70,7 +71,7 @@ BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 
 
 def modal_inside(self, context, event):
-    try:
+    if 1:
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons[__package__].preferences
 
@@ -90,8 +91,7 @@ def modal_inside(self, context, event):
                 )
             return {"FINISHED"}
 
-        # sr = bpy.context.window_manager.get('search results')
-        sr = global_vars.DATA.get("search results")
+        sr = search.get_search_results()
         if sr is not None:
             # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
             # doesn't run that often.
@@ -200,10 +200,10 @@ def modal_inside(self, context, event):
                 if event.value == "PRESS":
                     bpy.context.window_manager["appendable"] = False
         return {"PASS_THROUGH"}
-    except Exception as e:
-        bk_logger.warning(f"{e}")
-        self.finish()
-        return {"FINISHED"}
+    # except Exception as e:
+    #     bk_logger.warning(f"{e}")
+    #     self.finish()
+    #     return {"FINISHED"}
 
 
 def asset_bar_modal(self, context, event):
@@ -522,9 +522,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         We should rather trigger that update from search. maybe let's add a uuid to the results?
         """
         # Get search results from history
-        history_step = search.get_active_history_step()
-        sr = history_step.get("search_results")
-
+        sr = search.get_search_results()
         if not hasattr(self, "search_results_count"):
             if not sr or len(sr) == 0:
                 self.search_results_count = 0
@@ -615,7 +613,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.assetbar_margin = int(2 * ui_scale)
         self.thumb_size = int(user_preferences.thumb_size * ui_scale)
         self.button_size = 2 * self.button_margin + self.thumb_size
-        self.other_button_size = int(30 * ui_scale)
+        self.other_button_size = int(25 * ui_scale)
         self.icon_size = int(24 * ui_scale)
         self.validation_icon_margin = int(3 * ui_scale)
         reg_multiplier = 1
@@ -873,12 +871,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.progress_bars = []
         self.red_alerts = []
         self.widgets_panel = []
+        self.tab_buttons = []
+        self.close_tab_buttons = []
 
         self.panel = BL_UI_Drag_Panel(0, 0, self.bar_width, self.bar_height)
         self.panel.bg_color = (0.0, 0.0, 0.0, 0.5)
 
-        # sr = global_vars.DATA.get('search results', [])
-        # if sr is not None:
         # we init max possible buttons.
         button_idx = 0
         for x in range(0, self.max_wcount):
@@ -967,9 +965,56 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.history_forward_button.text_size = button_size * 0.5
         self.history_forward_button.text_color = self.text_color
 
-        # New tab button
+        # Tab buttons
+        tabs = global_vars.TABS["tabs"]
+        for i, tab in enumerate(tabs):
+            # Tab button - keep full width since close button will be outside
+            tab_button = BL_UI_Button(
+                margin * (4 + i)
+                + button_size * 3
+                + (button_size * 4) * i,  # Added button_size to spacing
+                -button_size,
+                button_size * 3,  # Removed margin subtraction to keep full width
+                button_size,
+            )
+            tab_button.bg_color = button_bg_color
+            tab_button.hover_bg_color = button_hover_color
+            tab_button.text = tab["name"]
+            tab_button.text_size = button_size * 0.5
+            tab_button.text_color = self.text_color
+            tab_button.tab_index = i  # Store tab index
+            tab_button.set_mouse_down(self.switch_tab)  # Add click handler
+            self.tab_buttons.append(tab_button)
+
+            # Only create close button if there's more than one tab
+            if len(tabs) > 1:
+                close_tab = BL_UI_Button(
+                    margin * (4 + i)
+                    + button_size * 6
+                    + (button_size * 4) * (i),  # Position after tab
+                    -button_size,
+                    button_size,
+                    button_size,
+                )
+                close_tab.bg_color = button_bg_color
+                # slightly red
+                close_tab.hover_bg_color = (0.8, 0.0, 0.0, 0.2)
+                close_tab.text = "×"  # Set text after creation
+                close_tab.text_size = button_size * 0.5
+                close_tab.text_color = self.text_color
+                close_tab.tab_index = i  # Store tab index
+                close_tab.set_mouse_down(self.remove_tab)  # Add click handler
+                self.close_tab_buttons.append(close_tab)
+
+        # New tab button - position after last tab (and its close button if present)
+        last_button_x = (
+            margin * (4 + len(tabs) - 1) + (button_size * 4) * (len(tabs)) + button_size
+        )
+        if len(tabs) > 1:  # If there are close buttons, add extra space
+            last_button_x += button_size
+
         self.new_tab_button = BL_UI_Button(
-            margin * 3 + button_size * 2,
+            last_button_x + margin + button_size,  # Add margin for spacing
             -button_size,
             button_size,
             button_size,
@@ -981,58 +1026,28 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.new_tab_button.text_color = self.text_color
         self.new_tab_button.set_mouse_down(self.add_new_tab)
 
-        # Tab buttons
-        tab_width = button_size * 2
-        tabs = global_vars.TABS["tabs"]
-        for i, tab in enumerate(tabs):
-            # Tab button - keep full width since close button will be outside
-            tab_button = BL_UI_Button(
-                margin * (4 + i)
-                + button_size * 3
-                + (tab_width + button_size) * i,  # Added button_size to spacing
-                -button_size,
-                tab_width,  # Removed margin subtraction to keep full width
-                button_size,
-            )
-            tab_button.bg_color = button_bg_color
-            tab_button.hover_bg_color = button_hover_color
-            tab_button.text = tab["name"]
-            tab_button.text_size = button_size * 0.3
-            tab_button.text_color = self.text_color
-            setattr(self, f"tab_button_{i}", tab_button)
-
-            # Close tab button - position immediately after tab button
-            close_tab = BL_UI_Button(
-                margin * (4 + i)
-                + button_size * 3
-                + (tab_width + button_size) * i
-                + tab_width,  # Position after tab
-                -button_size,
-                button_size,
-                button_size,
-            )
-            close_tab.bg_color = button_bg_color
-            close_tab.hover_bg_color = button_hover_color
-            close_tab.text = "×"
-            close_tab.text_size = button_size * 0.5
-            close_tab.text_color = self.text_color
-            close_tab.tab_index = i  # Store tab index
-            close_tab.set_mouse_down(self.remove_tab)  # Add click handler
-            setattr(self, f"close_tab_button_{i}", close_tab)
-
-        # Add new widgets to the widgets list
+        # Add widgets to panel
         self.widgets_panel.extend(
             [
                 self.history_back_button,
                 self.history_forward_button,
-                self.new_tab_button,
             ]
         )
+        self.widgets_panel.extend(self.tab_buttons)
+        if len(tabs) > 1:
+            self.widgets_panel.extend(self.close_tab_buttons)
+        self.widgets_panel.append(self.new_tab_button)  # Add new tab button last
 
-        # Add tab buttons and close buttons
-        for i in range(len(tabs)):
-            self.widgets_panel.append(getattr(self, f"tab_button_{i}"))
-            self.widgets_panel.append(getattr(self, f"close_tab_button_{i}"))
+        # Back/Forward history buttons
+        self.history_back_button.set_mouse_down(self.history_back)
+        self.history_forward_button.set_mouse_down(self.history_forward)
+
+        # Set initial visibility based on history
+        active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+        self.history_back_button.visible = active_tab["history_index"] > 0
+        self.history_forward_button.visible = (
+            active_tab["history_index"] < len(active_tab["history"]) - 1
+        )
 
         # self.update_buttons()
 
@@ -1052,7 +1067,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def position_and_hide_buttons(self):
         # position and layout buttons
-        sr = global_vars.DATA.get("search results", [])
+        sr = search.get_search_results()
         if sr is None:
             sr = []
 
@@ -1189,7 +1204,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         #         global_vars.DATA.get("active_category_search")
 
         # start search if there isn't a search result yet
-        if global_vars.DATA.get("search results") is None:
+        if search.get_search_results() is None:
             search.search()
 
         ui_props = context.window_manager.blenderkitUI
@@ -1257,7 +1272,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_tooltip_image(self, asset_id):
         """Update tootlip image when it finishes downloading and the downloaded image matches the active one."""
 
-        search_results = global_vars.DATA.get("search results")
+        search_results = search.get_search_results()
         if search_results is None:
             return
 
@@ -1418,7 +1433,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             )
             return
 
-        sr = global_vars.DATA["search results"]
+        sr = search.get_search_results()
         asset_data = sr[widget.asset_index]  # + self.scroll_offset]
 
         bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
@@ -1452,7 +1467,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if sro.get("next") is None:
             return
         search_props = utils.get_search_props()
-        if search_props.is_searching:
+        active_history_step = search.get_active_history_step()
+        if active_history_step.get("is_searching"):
             return
 
         search.search(get_next=True)
@@ -1513,7 +1529,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_image(self, asset_id):
         """should be run after thumbs are retrieved so they can be updated"""
-        sr = global_vars.DATA.get("search results")
+        sr = search.get_search_results()
         if not sr:
             return
         for asset_button in self.asset_buttons:
@@ -1661,7 +1677,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Shortcut: Delete asset from harddrive
         if event.type == "X" and self.active_index > -1:
             # delete downloaded files for this asset
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             bk_logger.info(f'deleting asset from local drive: {asset_data["name"]}')
             paths.delete_asset_debug(asset_data)
@@ -1670,7 +1686,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # Shortcut: Open Author's personal Webpage
         if event.type == "W" and self.active_index > -1:
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             author_id = int(asset_data["author"]["id"])
             author = global_vars.BKIT_AUTHORS.get(author_id)
@@ -1695,14 +1711,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return True
 
         if event.type == "B" and self.active_index > -1:
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
             return True
 
         # Shortcut: Open Author's profile on BlenderKit
         if event.type == "P" and self.active_index > -1:
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             author_id = int(asset_data["author"]["id"])
             author = global_vars.BKIT_AUTHORS.get(author_id)
@@ -1715,7 +1731,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # FastRateMenu
         if event.type == "R" and self.active_index > -1 and not event.shift:
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             if not utils.user_is_owner(asset_data=asset_data):
                 bpy.ops.wm.blenderkit_menu_rating_upload(
@@ -1731,7 +1747,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             and self.active_index > -1
             and utils.profile_is_validator()
         ):
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             bpy.ops.object.blenderkit_change_status(
                 asset_id=asset_data["id"], state="validated"
@@ -1744,7 +1760,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             and self.active_index > -1
             and utils.profile_is_validator()
         ):
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             bpy.ops.object.blenderkit_change_status(
                 asset_id=asset_data["id"], state="on_hold"
@@ -1757,7 +1773,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             and self.active_index > -1
             and utils.profile_is_validator()
         ):
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             bpy.ops.object.blenderkit_change_status(
                 asset_id=asset_data["id"], state="uploaded"
@@ -1770,7 +1786,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             and self.active_index > -1
             and utils.profile_is_validator()
         ):
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[self.active_index]
             bpy.ops.object.blenderkit_change_status(
                 asset_id=asset_data["id"], state="rejected"
@@ -1823,8 +1839,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         tabs.append(new_tab)
         global_vars.TABS["active_tab"] = len(tabs) - 1  # Switch to new tab
 
-        # Create history step for the new tab
-        search.create_history_step(new_tab)
+        # Get current history step to copy its state and results
+        current_history_step = search.get_active_history_step()
+
+        # Create history step for the new tab, copying the current UI state
+        new_history_step = search.create_history_step(new_tab)
+
+        # Copy search results from current history step if they exist
+        if current_history_step.get("search_results"):
+            new_history_step["search_results"] = current_history_step["search_results"]
+            new_history_step["search_results_orig"] = current_history_step[
+                "search_results_orig"
+            ]
+            new_history_step["is_searching"] = False
 
         # Restart asset bar to show new tab
         self.restart_asset_bar()
@@ -1851,6 +1878,70 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # Restart asset bar to update UI
         self.restart_asset_bar()
+
+    def switch_to_history_step(self, tab_index, history_index):
+        """Switch to a specific tab and history step."""
+        if (
+            tab_index == global_vars.TABS["active_tab"]
+            and history_index == global_vars.TABS["tabs"][tab_index]["history_index"]
+        ):
+            return  # Already on this tab and history step
+
+        global_vars.TABS["active_tab"] = tab_index
+        global_vars.TABS["tabs"][tab_index]["history_index"] = history_index
+
+        # Get active history step of the selected tab
+        history_step = search.get_active_history_step()
+        ui_state = history_step["ui_state"]
+
+        # Update UI properties without triggering update callbacks
+        ui_props = bpy.context.window_manager.blenderkitUI
+        for prop_name, value in ui_state.items():
+            if hasattr(ui_props, prop_name):
+                # print(f"Updating UI property: {prop_name} to {value}")
+                ui_props[prop_name] = value
+
+        # Update search type specific properties
+        search_props = utils.get_search_props()
+        for prop_name, value in ui_state.items():
+            if hasattr(search_props, prop_name):
+                search_props[prop_name] = value
+
+        # Restore scroll position
+        self.scroll_offset = history_step.get("scroll_offset", 0)
+
+        # Update history button visibility
+        active_tab = global_vars.TABS["tabs"][tab_index]
+        self.history_back_button.visible = active_tab["history_index"] > 0
+        self.history_forward_button.visible = (
+            active_tab["history_index"] < len(active_tab["history"]) - 1
+        )
+
+        # Update UI to show current tab's search results
+        self.scroll_update(always=True)
+
+    def history_back(self, widget):
+        """Navigate to previous history step."""
+        active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+        if active_tab["history_index"] > 0:
+            self.switch_to_history_step(
+                global_vars.TABS["active_tab"], active_tab["history_index"] - 1
+            )
+
+    def history_forward(self, widget):
+        """Navigate to next history step."""
+        active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+        if active_tab["history_index"] < len(active_tab["history"]) - 1:
+            self.switch_to_history_step(
+                global_vars.TABS["active_tab"], active_tab["history_index"] + 1
+            )
+
+    def switch_tab(self, widget):
+        """Switch to the clicked tab and restore its UI state."""
+        self.switch_to_history_step(
+            widget.tab_index,
+            global_vars.TABS["tabs"][widget.tab_index]["history_index"],
+        )
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]

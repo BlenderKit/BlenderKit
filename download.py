@@ -772,7 +772,7 @@ def download_write_progress(task_id, task):
     task_addon["text"] = task.message
 
     # go through search results to write progress to display progress bars
-    sr = global_vars.DATA.get("search results")
+    sr = search.get_search_results()
     if sr is not None:
         for r in sr:
             if task.data["asset_data"]["id"] == r["id"]:
@@ -1360,7 +1360,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         """Get asset data - it can come from scene, or from search results."""
         scene = bpy.context.scene
         if self.asset_index > -1:  # Getting the data from search results
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[
                 self.asset_index
             ]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
