@@ -35,6 +35,11 @@ import (
 // Handler for the index of the Client.
 // In future we can add here links to /debug or other useful endpoints.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" { // Go handles "/" path as catchall, so refusing non-index stuff here
+		BKLog.Printf("%v Access to unknown path: %v", EmoWarning, r.URL.Path)
+		http.Error(w, "Not found: "+r.URL.Path, http.StatusNotFound)
+		return
+	}
 	pid := os.Getpid()
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, `
