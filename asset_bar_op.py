@@ -1853,6 +1853,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ]
             new_history_step["is_searching"] = False
 
+            # Update search results count to trigger UI refresh
+            self.search_results_count = len(new_history_step["search_results"])
+            # Force scroll update to show results
+            self.scroll_update(always=True)
+
         # Restart asset bar to show new tab
         self.restart_asset_bar()
 
@@ -1907,6 +1912,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if hasattr(search_props, prop_name):
                 search_props[prop_name] = value
 
+        # update tab label
+        search.update_tab_name(global_vars.TABS["tabs"][tab_index])
         # Restore scroll position
         self.scroll_offset = history_step.get("scroll_offset", 0)
 

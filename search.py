@@ -1507,6 +1507,10 @@ def get_ui_state():
             if prop_name != "rna_type":
                 ui_state[prop_name] = getattr(prop_group, prop_name)
 
+    # Add search_category from the current search props
+    search_props = utils.get_search_props()
+    ui_state["search_category"] = search_props.search_category
+
     return ui_state
 
 
