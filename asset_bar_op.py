@@ -830,7 +830,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         img_fp = paths.get_addon_thumbnail_path("bookmark_empty.png")
         bookmark_button.set_image(img_fp)
         bookmark_button.bg_color = fully_transparent_color
-        bookmark_button.hover_bg_color = button_bg_color
+        bookmark_button.hover_bg_color = self.button_bg_color
         bookmark_button.select_bg_color = fully_transparent_color
         bookmark_button.visible = False
         new_button.bookmark_button = bookmark_button
@@ -861,8 +861,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return new_button
 
     def init_ui(self):
-        button_bg_color = (0.2, 0.2, 0.2, 1.0)
-        button_hover_color = (0.8, 0.8, 0.8, 0.2)
+        self.button_bg_color = (0.2, 0.2, 0.2, 1.0)
+        self.button_hover_color = (0.8, 0.8, 0.8, 0.2)
+        self.button_selected_color = (0.5, 0.5, 0.5, 1.0)
 
         self.buttons = []
         self.asset_buttons = []
@@ -897,8 +898,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.other_button_size,
             self.other_button_size,
         )
-        self.button_close.bg_color = button_bg_color
-        self.button_close.hover_bg_color = button_hover_color
+        self.button_close.bg_color = self.button_bg_color
+        self.button_close.hover_bg_color = self.button_hover_color
         self.button_close.text = ""
         self.button_close.set_image_position((0, 0))
         self.button_close.set_image_size(
@@ -912,8 +913,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_down = BL_UI_Button(
             -self.scroll_width, 0, self.scroll_width, self.bar_height
         )
-        self.button_scroll_down.bg_color = button_bg_color
-        self.button_scroll_down.hover_bg_color = button_hover_color
+        self.button_scroll_down.bg_color = self.button_bg_color
+        self.button_scroll_down.hover_bg_color = self.button_hover_color
         self.button_scroll_down.text = ""
         self.button_scroll_down.set_image_size((self.scroll_width, self.button_size))
         self.button_scroll_down.set_image_position(
@@ -927,8 +928,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_up = BL_UI_Button(
             self.bar_width, 0, self.scroll_width, self.bar_height
         )
-        self.button_scroll_up.bg_color = button_bg_color
-        self.button_scroll_up.hover_bg_color = button_hover_color
+        self.button_scroll_up.bg_color = self.button_bg_color
+        self.button_scroll_up.hover_bg_color = self.button_hover_color
         self.button_scroll_up.text = ""
         self.button_scroll_up.set_image_size((self.scroll_width, self.button_size))
         self.button_scroll_up.set_image_position(
@@ -947,8 +948,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.history_back_button = BL_UI_Button(
             margin, -button_size, button_size, button_size
         )
-        self.history_back_button.bg_color = button_bg_color
-        self.history_back_button.hover_bg_color = button_hover_color
+        self.history_back_button.bg_color = self.button_bg_color
+        self.history_back_button.hover_bg_color = self.button_hover_color
         self.history_back_button.text = "◀"
         self.history_back_button.text_size = button_size * 0.5
         self.history_back_button.text_color = self.text_color
@@ -959,8 +960,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button_size,
             button_size,
         )
-        self.history_forward_button.bg_color = button_bg_color
-        self.history_forward_button.hover_bg_color = button_hover_color
+        self.history_forward_button.bg_color = self.button_bg_color
+        self.history_forward_button.hover_bg_color = self.button_hover_color
         self.history_forward_button.text = "▶"
         self.history_forward_button.text_size = button_size * 0.5
         self.history_forward_button.text_color = self.text_color
@@ -977,8 +978,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 button_size * 3,  # Removed margin subtraction to keep full width
                 button_size,
             )
-            tab_button.bg_color = button_bg_color
-            tab_button.hover_bg_color = button_hover_color
+            tab_button.bg_color = self.button_bg_color
+            if i == global_vars.TABS["active_tab"]:
+                tab_button.bg_color = self.button_selected_color
+            tab_button.hover_bg_color = self.button_hover_color
             tab_button.text = tab["name"]
             tab_button.text_size = button_size * 0.5
             tab_button.text_color = self.text_color
@@ -996,7 +999,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     button_size,
                     button_size,
                 )
-                close_tab.bg_color = button_bg_color
+                close_tab.bg_color = self.button_bg_color
                 # slightly red
                 close_tab.hover_bg_color = (0.8, 0.0, 0.0, 0.2)
                 close_tab.text = "×"  # Set text after creation
@@ -1013,18 +1016,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if len(tabs) > 1:  # If there are close buttons, add extra space
             last_button_x += button_size
 
-        self.new_tab_button = BL_UI_Button(
-            last_button_x + margin + button_size,  # Add margin for spacing
-            -button_size,
-            button_size,
-            button_size,
-        )
-        self.new_tab_button.bg_color = button_bg_color
-        self.new_tab_button.hover_bg_color = button_hover_color
-        self.new_tab_button.text = "+"
-        self.new_tab_button.text_size = button_size * 0.5
-        self.new_tab_button.text_color = self.text_color
-        self.new_tab_button.set_mouse_down(self.add_new_tab)
+        # if too close to the right side, let's not create this button
+        if last_button_x + 2 * button_size < self.bar_width:
+            self.new_tab_button = BL_UI_Button(
+                last_button_x + margin + button_size,  # Add margin for spacing
+                -button_size,
+                button_size,
+                button_size,
+            )
+            self.new_tab_button.bg_color = self.button_bg_color
+            self.new_tab_button.hover_bg_color = self.button_hover_color
+            self.new_tab_button.text = "+"
+            self.new_tab_button.text_size = button_size * 0.5
+            self.new_tab_button.text_color = self.text_color
+            self.new_tab_button.set_mouse_down(self.add_new_tab)
+            self.widgets_panel.append(self.new_tab_button)  # Add new tab button last
 
         # Add widgets to panel
         self.widgets_panel.extend(
@@ -1036,7 +1042,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel.extend(self.tab_buttons)
         if len(tabs) > 1:
             self.widgets_panel.extend(self.close_tab_buttons)
-        self.widgets_panel.append(self.new_tab_button)  # Add new tab button last
 
         # Back/Forward history buttons
         self.history_back_button.set_mouse_down(self.history_back)
@@ -1897,6 +1902,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             and history_index == global_vars.TABS["tabs"][tab_index]["history_index"]
         ):
             return  # Already on this tab and history step
+        # make original tab original background color
+        self.tab_buttons[global_vars.TABS["active_tab"]].bg_color = self.button_bg_color
 
         global_vars.TABS["active_tab"] = tab_index
         global_vars.TABS["tabs"][tab_index]["history_index"] = history_index
@@ -1936,6 +1943,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.history_forward_button.visible = (
             active_tab["history_index"] < len(active_tab["history"]) - 1
         )
+
+        # make active tab a bit darker
+        self.tab_buttons[tab_index].bg_color = self.button_selected_color
 
         # Update UI to show current tab's search results
         self.scroll_update(always=True)

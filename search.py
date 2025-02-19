@@ -1581,8 +1581,10 @@ def update_tab_name(active_tab):
     ui_state = history_step.get("ui_state", {})
 
     # Update tab name based on search or category
-    search_keywords = ui_state.get("search_keywords", "").strip()
-    search_category = ui_state.get("search_category", "").strip()
+    search_keywords = ui_state.get("ui_props", {}).get("search_keywords", "").strip()
+    search_category = (
+        ui_state.get("search_props", {}).get("search_category", "").strip()
+    )
 
     if search_keywords:
         # Use search keywords for tab name
