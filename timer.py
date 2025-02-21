@@ -19,6 +19,7 @@
 import logging
 import os
 import queue
+import requests
 
 import bpy
 
@@ -58,29 +59,42 @@ def handle_failed_reports(exception: Exception) -> float:
     """
     global_vars.CLIENT_ACCESSIBLE = False
     global_vars.CLIENT_FAILED_REPORTS += 1  # De facto means we count from 1, not from 0
-    if (
-        global_vars.CLIENT_FAILED_REPORTS == 1
-    ):  # First failed reports -> lets start the Client
-        bk_logger.info(
-            f"First request for BlenderKit-Client reports failed: {type(exception)} {exception}"
-        )
+
+    # First failed report -> lets start the Client
+    if global_vars.CLIENT_FAILED_REPORTS == 1:
+        ### Expected - port probably free as connection was refused
+        if isinstance(exception, requests.ConnectionError):
+            bk_logger.info(
+                f"Expectedly, first request for BKClient reports failed: {str(exception).strip()} {type(exception)}"
+            )
+        ### Something unsupported runs on the port (other program, or Client refusing for version reasons)
+        elif isinstance(exception, requests.HTTPError):
+            bk_logger.info(
+                f"First request for BKClient reports was rejected: {str(exception).strip()} {type(exception)}. Port is occupied and has to be changed"
+            )
+            client_lib.reorder_ports()
+        # Not so expected
+        else:
+            bk_logger.warning(
+                f"First request for BKClient reports failed unexpectedly: {str(exception).strip()} {type(exception)}"
+            )
         client_lib.start_blenderkit_client()
     else:
         bk_logger.warning(
-            f"Request for BlenderKit-Client reports failed: {type(exception)} {exception}"
+            f"Request for BKClient reports failed: {str(exception).strip()} {type(exception)}"
         )
 
     if global_vars.CLIENT_FAILED_REPORTS <= 10:  # try 10 times
         return 0.1 * global_vars.CLIENT_FAILED_REPORTS
 
-    # MORE THAN 10 FAILURES
-    bk_logger.warning(
-        f"Could not get reports: {exception} ({global_vars.CLIENT_FAILED_REPORTS}. failure)"
-    )
+    # MORE THAN 10 FAILURES - enough time for the Client to get up and running
+    # so we need to investigate why it failed to start and respond correctly
+    log_msg = f"Could not get reports ({global_vars.CLIENT_FAILED_REPORTS}. failure): {str(exception).strip()} {type(exception)}"
     return_code, meaning = client_lib.check_blenderkit_client_return_code()
 
     # On FAILED_REPORTS == 11, 21, 31...
     if global_vars.CLIENT_FAILED_REPORTS % 10 == 1:
+        reports.add_report(log_msg, 5, "ERROR")  # Let's show the message to user
         if return_code == -1:
             reports.add_report(
                 "Client is not responding, add-on will not work.", 10, "ERROR"
@@ -96,6 +110,8 @@ def handle_failed_reports(exception: Exception) -> float:
         # But there is not a better solution.
         client_lib.reorder_ports()
         client_lib.start_blenderkit_client()
+    else:  # On FAILED_REPORTS == 12..20,22..30,32..40 we just log into terminal
+        bk_logger.warning(log_msg)
 
     wm = bpy.context.window_manager
     wm.blenderkitUI.logo_status = "logo_offline"  # type: ignore[attr-defined]

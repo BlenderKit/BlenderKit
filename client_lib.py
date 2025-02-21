@@ -24,6 +24,8 @@ import shutil
 import subprocess
 from os import path
 from typing import Optional
+from http.client import responses as http_responses
+
 
 import bpy
 import requests
@@ -48,6 +50,24 @@ def get_port() -> str:
     return global_vars.CLIENT_PORTS[0]
 
 
+def get_api_version() -> str:
+    """Get version of API Client is expected to use. To keep stuff simple the API version is derrived from Client's version.
+    From Client version vX.Y.Z we remove the .Z part to effectively get the vX.Y version of the API. For nonbreaking changes
+    we increase the patch version of the Client. If the change breaks the API, then increase of minor/major version is expected.
+    """
+    splitted = global_vars.CLIENT_VERSION.split(".")
+    return ".".join(splitted[:-1])
+
+
+def get_base_url() -> str:
+    """The base URL on which we will interact with the BlenderKit Client. Consists from address with port + version API path.
+    All requests to Client goes to URLs starting with base URL in format: 127.0.0.1:{port}/vX.Y
+    """
+    address = get_address()
+    vapi = get_api_version()
+    return f"{address}/{vapi}"
+
+
 def ensure_minimal_data(data: Optional[dict] = None) -> dict:
     """Ensure that the data send to the BlenderKit-Client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
@@ -58,16 +78,16 @@ def ensure_minimal_data(data: Optional[dict] = None) -> dict:
         data = {}
 
     av = global_vars.VERSION
-    if "api_key" not in data:  # for BG instances, where preferences are not available
+    addon_version = f"{av[0]}.{av[1]}.{av[2]}.{av[3]}"
+    if "api_key" not in data:
+        # for BG instances, where preferences are not available
         data.setdefault(
             "api_key", bpy.context.preferences.addons[__package__].preferences.api_key  # type: ignore
         )
     data.setdefault("app_id", os.getpid())
     data.setdefault("platform_version", platform.platform())
-    data.setdefault(
-        "addon_version",
-        f"{av[0]}.{av[1]}.{av[2]}.{av[3]}",
-    )
+    data.setdefault("addon_version", addon_version)
+
     return data
 
 
@@ -102,6 +122,9 @@ def reorder_ports(port: str = ""):
     global_vars.CLIENT_PORTS = (
         global_vars.CLIENT_PORTS[i:] + global_vars.CLIENT_PORTS[:i]
     )
+    bk_logger.info(
+        f"Ports reordered so first port is now {global_vars.CLIENT_PORTS[0]} (previous index was {i})"
+    )
 
 
 def get_reports(app_id: str):
@@ -111,16 +134,16 @@ def get_reports(app_id: str):
     data = ensure_minimal_data({"app_id": app_id})
     data["project_name"] = utils.get_project_name()
     data["blender_version"] = utils.get_blender_version()
-    if (
-        global_vars.CLIENT_FAILED_REPORTS < 10
-    ):  # on 10, there is second BlenderKit-Client start
-        url = f"{get_address()}/report"
-        report = request_report(url, data)
-        return report
+
+    # on 10, there is second BlenderKit-Client start
+    if global_vars.CLIENT_FAILED_REPORTS < 10:
+        url = f"{get_base_url()}/report"
+        return request_report(url, data)
 
     last_exception = None
     for port in global_vars.CLIENT_PORTS:
-        url = f"http://127.0.0.1:{port}/report"
+        vapi = get_api_version()
+        url = f"http://127.0.0.1:{port}/{vapi}/report"
         try:
             report = request_report(url, data)
             bk_logger.warning(
@@ -135,9 +158,17 @@ def get_reports(app_id: str):
         raise last_exception
 
 
-def request_report(url: str, data: dict):
+def request_report(url: str, data: dict) -> dict:
+    """Make HTTP request to /report endpoint. If all goes well a JSON dict is returned.
+    If something goes south, this function raises requests.HTTPError or requests.JSONDecodeError.
+    """
     with requests.Session() as session:
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        if resp.status_code != 200:
+            # not using resp.raise_for_status() for better message
+            raise requests.HTTPError(
+                f"{http_responses[resp.status_code]}: {resp.text}", response=resp
+            )
         return resp.json()
 
 
@@ -148,9 +179,8 @@ def asset_search(search_data: datas.SearchData):
     bk_logger.info(f"Starting search request: {search_data.urlquery}")
 
     search_data = ensure_minimal_data_class(search_data)
-    address = get_address()
     with requests.Session() as session:
-        url = address + "/blender/asset_search"
+        url = get_base_url() + "/blender/asset_search"
         resp = session.post(
             url, json=datas.asdict(search_data), timeout=TIMEOUT, proxies=NO_PROXIES
         )
@@ -161,20 +191,18 @@ def asset_search(search_data: datas.SearchData):
 # DOWNLOAD
 def asset_download(data):
     """Download specified asset."""
-    address = get_address()
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        url = address + "/blender/asset_download"
+        url = get_base_url() + "/blender/asset_download"
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp.json()
 
 
 def cancel_download(task_id: str):
     """Cancel the specified task with ID on the BlenderKit-Client."""
-    address = get_address()
     data = ensure_minimal_data({"task_id": task_id})
     with requests.Session() as session:
-        url = address + "/blender/cancel_download"
+        url = get_base_url() + "/blender/cancel_download"
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
@@ -190,7 +218,7 @@ def asset_upload(upload_data, export_data, upload_set):
     }
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        url = get_address() + "/blender/asset_upload"
+        url = get_base_url() + "/blender/asset_upload"
         bk_logger.debug(f"making a request to: {url}")
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
@@ -205,14 +233,10 @@ def download_gravatar_image(author_data: datas.UserProfile) -> requests.Response
         "gravatarHash": author_data.gravatarHash,
     }
     data = ensure_minimal_data(data)
-
     with requests.Session() as session:
-        return session.get(
-            f"{get_address()}/profiles/download_gravatar_image",
-            json=data,
-            timeout=TIMEOUT,
-            proxies=NO_PROXIES,
-        )
+        url = get_base_url() + "/profiles/download_gravatar_image"
+        resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        return resp
 
 
 def get_user_profile() -> requests.Response:
@@ -222,7 +246,7 @@ def get_user_profile() -> requests.Response:
     data = ensure_minimal_data()
     with requests.Session() as session:
         return session.get(
-            f"{get_address()}/profiles/get_user_profile",
+            f"{get_base_url()}/profiles/get_user_profile",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -235,7 +259,7 @@ def get_comments(asset_id, api_key=""):
     data = ensure_minimal_data({"asset_id": asset_id})
     with requests.Session() as session:
         return session.post(
-            f"{get_address()}/comments/get_comments",
+            f"{get_base_url()}/comments/get_comments",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -252,7 +276,7 @@ def create_comment(asset_id, comment_text, api_key, reply_to_id=0):
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
-            f"{get_address()}/comments/create_comment",
+            f"{get_base_url()}/comments/create_comment",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -269,7 +293,7 @@ def feedback_comment(asset_id, comment_id, api_key, flag="like"):
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
-            f"{get_address()}/comments/feedback_comment",
+            f"{get_base_url()}/comments/feedback_comment",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -286,7 +310,7 @@ def mark_comment_private(asset_id, comment_id, api_key, is_private=False):
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
-            f"{get_address()}/comments/mark_comment_private",
+            f"{get_base_url()}/comments/mark_comment_private",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -299,7 +323,7 @@ def mark_notification_read(notification_id):
     data = ensure_minimal_data({"notification_id": notification_id})
     with requests.Session() as session:
         return session.post(
-            f"{get_address()}/notifications/mark_notification_read",
+            f"{get_base_url()}/notifications/mark_notification_read",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -311,13 +335,12 @@ def report_usages(data: dict):
     """Report usages of assets in current scene via BlenderKit-Client to the server."""
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        resp = session.post(
-            f"{get_address()}/report_usages",
+        return session.post(
+            f"{get_base_url()}/report_usages",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )
-        return resp
 
 
 # RATINGS
@@ -325,7 +348,7 @@ def get_rating(asset_id: str):
     data = ensure_minimal_data({"asset_id": asset_id})
     with requests.Session() as session:
         return session.get(
-            f"{get_address()}/ratings/get_rating",
+            f"{get_base_url()}/ratings/get_rating",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -341,7 +364,7 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
-            f"{get_address()}/ratings/send_rating",
+            f"{get_base_url()}/ratings/send_rating",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -353,7 +376,7 @@ def get_bookmarks():
     data = ensure_minimal_data()
     with requests.Session() as session:
         return session.get(
-            f"{get_address()}/ratings/get_bookmarks",
+            f"{get_base_url()}/ratings/get_bookmarks",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -377,7 +400,7 @@ def get_download_url(asset_data, scene_id, api_key):
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.get(
-            f"{get_address()}/wrappers/get_download_url",
+            f"{get_base_url()}/wrappers/get_download_url",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -401,7 +424,7 @@ def complete_upload_file_blocking(
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         resp = session.get(
-            f"{get_address()}/wrappers/complete_upload_file_blocking",
+            f"{get_base_url()}/wrappers/complete_upload_file_blocking",
             json=data,
             timeout=(1, 600),
             proxies=NO_PROXIES,
@@ -419,13 +442,12 @@ def blocking_file_download(url: str, filepath: str, api_key: str) -> requests.Re
     }
     data = ensure_minimal_data(data)
     with requests.Session() as session:
-        resp = session.get(
-            f"{get_address()}/wrappers/blocking_file_download",
+        return session.get(
+            f"{get_base_url()}/wrappers/blocking_file_download",
             json=data,
             timeout=(1, 600),
             proxies=NO_PROXIES,
         )
-        return resp
 
 
 def blocking_request(
@@ -448,7 +470,7 @@ def blocking_request(
         data["json"] = json_data
     with requests.Session() as session:
         return session.get(
-            f"{get_address()}/wrappers/blocking_request",
+            f"{get_base_url()}/wrappers/blocking_request",
             json=data,
             timeout=timeout,
             proxies=NO_PROXIES,
@@ -481,7 +503,7 @@ def nonblocking_request(
         data["json"] = json_data
     with requests.Session() as session:
         return session.get(
-            f"{get_address()}/wrappers/nonblocking_request",
+            f"{get_base_url()}/wrappers/nonblocking_request",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -501,7 +523,7 @@ def send_oauth_verification_data(code_verifier, state: str):
     )
     with requests.Session() as session:
         resp = session.post(
-            f"{get_address()}/oauth2/verification_data",
+            f"{get_base_url()}/oauth2/verification_data",
             json=data,
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
@@ -516,7 +538,7 @@ def refresh_token(refresh_token, old_api_key):
     bk_logger.info("Calling API token refresh")
     data = ensure_minimal_data({"refresh_token": refresh_token})
     with requests.Session() as session:
-        url = get_address() + "/refresh_token"
+        url = get_base_url() + "/refresh_token"
         resp = session.get(
             url,
             json=data,
@@ -531,27 +553,25 @@ def oauth2_logout():
     data = ensure_minimal_data()
     data["refresh_token"] = global_vars.PREFS["api_key_refresh"]
     with requests.Session() as session:
-        url = get_address() + "/oauth2/logout"
+        url = get_base_url() + "/oauth2/logout"
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
 def unsubscribe_addon():
     """Unsubscribe the add-on from the BlenderKit-Client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
-    address = get_address()
     data = ensure_minimal_data()
     with requests.Session() as session:
-        url = address + "/blender/unsubscribe_addon"
+        url = get_base_url() + "/blender/unsubscribe_addon"
         resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
 
 def shutdown_client():
     """Request to shutdown the BlenderKit-Client."""
-    address = get_address()
     data = ensure_minimal_data()
     with requests.Session() as session:
-        url = address + "/shutdown"
+        url = get_base_url() + "/shutdown"
         resp = session.get(url, data=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
