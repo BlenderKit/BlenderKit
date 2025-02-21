@@ -901,7 +901,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.button_close.bg_color = self.button_bg_color
         self.button_close.hover_bg_color = self.button_hover_color
-        self.button_close.text = ""
+        self.button_close.text = "×"
         self.button_close.set_image_position((0, 0))
         self.button_close.set_image_size(
             (self.other_button_size, self.other_button_size)
@@ -1059,8 +1059,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def set_element_images(self):
         """set ui elements images, has to be done after init of UI."""
-        img_fp = paths.get_addon_thumbnail_path("vs_rejected.png")
-        self.button_close.set_image(img_fp)
+        # img_fp = paths.get_addon_thumbnail_path("vs_rejected.png")
+        # self.button_close.set_image(img_fp)
         self.button_scroll_down.set_image(
             paths.get_addon_thumbnail_path("arrow_left.png")
         )

@@ -740,7 +740,10 @@ def query_to_url(
             order.append("last_blend_upload")
         else:
             order.append("-last_blend_upload")
-    elif query.get("author_id") is not None and utils.profile_is_validator():
+    elif (
+        query.get("author_id") is not None
+        or query.get("query").find("+author_id:") > -1
+    ) and utils.profile_is_validator():
         order.append("-created")
     else:
         if query.get("category_subtree") is not None:
