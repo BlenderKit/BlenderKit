@@ -1232,6 +1232,20 @@ def search_update_delayed(self, context):
     tasks_queue.add_task((search_update, (None, None)), wait=0.5, only_last=True)
 
 
+def search_update_verification_status(self, context):
+    """run search after user changes a search parameter"""
+    # when search is locked, don't trigger search update
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.search_lock:
+        return
+
+    # if there is an author_id in search_keywords, we want to clear those for validators
+    if ui_props.search_keywords.find("+author_id:") > -1:
+        ui_props.search_keywords = ""
+    search_update(self, context)
+
+
 def search_update(self, context):
     """run search after user changes a search parameter"""
     # when search is locked, don't trigger search update

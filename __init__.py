@@ -690,7 +690,7 @@ class BlenderKitCommonSearchProps:
             ("DELETED", "Deleted", "Deleted"),
         ),
         default="ALL",
-        update=search.search_update,
+        update=search.search_update_verification_status,
     )
 
     # moved to ui props, more convenient for user when for all assets on
