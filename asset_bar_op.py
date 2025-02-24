@@ -696,6 +696,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.panel.set_location(self.bar_x, self.panel.y)
 
+        # Update tab icons positions
+        for i, tab_button in enumerate(self.tab_buttons):
+            if hasattr(tab_button, "asset_type_icon"):
+                tab_button.asset_type_icon.set_location(
+                    tab_button.x
+                    + int(
+                        self.other_button_size * 0.05
+                    ),  # Position at left with small margin
+                    tab_button.y
+                    + int(
+                        (self.other_button_size - tab_button.asset_type_icon.height) / 2
+                    ),  # Center vertically
+                )
+
     def update_tooltip_layout(self, context):
         # update Tooltip size /scale for HDR or if area too small
 
@@ -875,9 +889,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel = []
         self.tab_buttons = []
         self.close_tab_buttons = []
+        self.tab_icons = []  # New list to store tab icons
 
-        self.panel = BL_UI_Drag_Panel(0, 0, self.bar_width, self.bar_height)
-        self.panel.bg_color = (0.0, 0.0, 0.0, 0.5)
+        self.panel = BL_UI_Drag_Panel(
+            0,
+            0,
+            self.bar_width,
+            self.bar_height,
+        )
+        self.panel.bg_color = (0.0, 0.0, 0.0, 0.9)
 
         # we init max possible buttons.
         button_idx = 0
@@ -944,6 +964,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Add tab navigation elements
         button_size = self.other_button_size
         margin = int(button_size * 0.05)
+        tab_icon_size = int(button_size * 0.7)  # Size for the asset type icon
+        tab_width = button_size * 4  # Wider tabs to accommodate icon
 
         # Back/Forward history buttons
         self.history_back_button = BL_UI_Button(
@@ -969,14 +991,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # Tab buttons
         tabs = global_vars.TABS["tabs"]
+        tab_x_start = margin * 4 + button_size * 3  # Starting x position of first tab
+
         for i, tab in enumerate(tabs):
-            # Tab button - keep full width since close button will be outside
+            # Calculate positions
+            tab_x = tab_x_start + i * (
+                tab_width + button_size + margin
+            )  # Space for tab and close button
+
+            # Tab button
             tab_button = BL_UI_Button(
-                margin * (4 + i)
-                + button_size * 3
-                + (button_size * 4) * i,  # Added button_size to spacing
+                tab_x,  # Position with spacing for close buttons
                 -button_size,
-                button_size * 3,  # Removed margin subtraction to keep full width
+                tab_width,  # Width of tab
                 button_size,
             )
             tab_button.bg_color = self.button_bg_color
@@ -990,12 +1017,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             tab_button.set_mouse_down(self.switch_tab)  # Add click handler
             self.tab_buttons.append(tab_button)
 
+            # Create asset type icon for this tab
+            tab_icon = BL_UI_Image(
+                tab_x + margin,  # Left margin from tab start
+                tab_button.y + (button_size - tab_icon_size) / 2,  # Center vertically
+                tab_icon_size,
+                tab_icon_size,
+            )
+            tab_icon.set_image_size((tab_icon_size, tab_icon_size))
+            # set image position to the zero
+            tab_icon.set_image_position((0, 0))
+            tab_icon.visible = True
+            tab_button.asset_type_icon = tab_icon  # Store reference on the button
+            self.tab_icons.append(tab_icon)
+
             # Only create close button if there's more than one tab
             if len(tabs) > 1:
+                close_x = tab_x + tab_width + margin  # Position right after tab
                 close_tab = BL_UI_Button(
-                    margin * (4 + i)
-                    + button_size * 6
-                    + (button_size * 4) * (i),  # Position after tab
+                    close_x,
                     -button_size,
                     button_size,
                     button_size,
@@ -1010,17 +1050,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 close_tab.set_mouse_down(self.remove_tab)  # Add click handler
                 self.close_tab_buttons.append(close_tab)
 
-        # New tab button - position after last tab (and its close button if present)
-        last_button_x = (
-            margin * (4 + len(tabs) - 1) + (button_size * 4) * (len(tabs)) + button_size
-        )
-        if len(tabs) > 1:  # If there are close buttons, add extra space
-            last_button_x += button_size
+        # New tab button - position after all tabs and close buttons
+        if len(tabs) > 0:
+            last_tab_index = len(tabs) - 1
+            last_tab_x = tab_x_start + last_tab_index * (
+                tab_width + button_size + margin
+            )
+            new_tab_x = (
+                last_tab_x + tab_width + button_size + margin * 2
+            )  # After last tab and its close button
+        else:
+            new_tab_x = tab_x_start  # If no tabs, start at the beginning
 
         # if too close to the right side, let's not create this button
-        if last_button_x + 2 * button_size < self.bar_width:
+        if new_tab_x + button_size < self.bar_width:
             self.new_tab_button = BL_UI_Button(
-                last_button_x + margin + button_size,  # Add margin for spacing
+                new_tab_x,
                 -button_size,
                 button_size,
                 button_size,
@@ -1031,7 +1076,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.new_tab_button.text_size = button_size * 0.8
             self.new_tab_button.text_color = self.text_color
             self.new_tab_button.set_mouse_down(self.add_new_tab)
-            self.widgets_panel.append(self.new_tab_button)  # Add new tab button last
+            self.widgets_panel.append(self.new_tab_button)
 
         # Add widgets to panel
         self.widgets_panel.extend(
@@ -1041,6 +1086,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ]
         )
         self.widgets_panel.extend(self.tab_buttons)
+        self.widgets_panel.extend(self.tab_icons)  # Add tab icons to widgets
         if len(tabs) > 1:
             self.widgets_panel.extend(self.close_tab_buttons)
 
@@ -1070,6 +1116,43 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # if not comments_utils.check_notifications_read():
         #     img_fp = paths.get_addon_thumbnail_path('bell.png')
         #     self.button_notifications.set_image(img_fp)
+
+        # Update tab icons
+        self.update_tab_icons()
+
+    def update_tab_icons(self):
+        """Update tab icons based on the active history step's asset type"""
+        tabs = global_vars.TABS["tabs"]
+        for i, tab in enumerate(tabs):
+            if i >= len(self.tab_buttons) or not hasattr(
+                self.tab_buttons[i], "asset_type_icon"
+            ):
+                continue
+
+            tab_button = self.tab_buttons[i]
+            history_index = tab["history_index"]
+
+            if history_index >= 0 and history_index < len(tab["history"]):
+                history_step = tab["history"][history_index]
+                ui_state = history_step.get("ui_state", {})
+                ui_props = ui_state.get("ui_props", {})
+                asset_type = ui_props.get("asset_type", "").lower()
+
+                # Set the icon based on asset type
+                if asset_type:
+                    icon_path = paths.get_addon_thumbnail_path(
+                        f"asset_type_{asset_type}.png"
+                    )
+                    if not os.path.exists(icon_path):
+                        icon_path = paths.get_addon_thumbnail_path(
+                            "asset_type_model.png"
+                        )  # Default icon
+
+                    tab_button.asset_type_icon.set_image(icon_path)
+                    tab_button.asset_type_icon.set_image_colorspace("")
+                    tab_button.asset_type_icon.visible = True
+                else:
+                    tab_button.asset_type_icon.visible = False
 
     def position_and_hide_buttons(self):
         # position and layout buttons
@@ -2022,6 +2105,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.tab_index,
             global_vars.TABS["tabs"][widget.tab_index]["history_index"],
         )
+        self.update_tab_icons()  # Update tab icons after switching tabs
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]
