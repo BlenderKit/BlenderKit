@@ -3551,7 +3551,9 @@ def header_search_draw(self, context):
     pcoll = icons.icon_collections["main"]
     icons_dict = {
         "MODEL": "OBJECT_DATAMODE",
-        "PRINTABLE": pcoll["printable"].icon_id,  # Using our custom printable icon
+        "PRINTABLE": pcoll[
+            "asset_type_printable"
+        ].icon_id,  # Using our custom printable icon
         "MATERIAL": "MATERIAL",
         "BRUSH": "BRUSH_DATA",
         "HDR": "WORLD",

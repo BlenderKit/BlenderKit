@@ -293,7 +293,7 @@ def asset_type_callback(self, context):
                     "PRINTABLE",
                     "Printable",
                     "Find 3D printable models",
-                    pcoll["printable"].icon_id,
+                    pcoll["asset_type_printable"].icon_id,
                     1,
                 ),
             )
@@ -315,7 +315,7 @@ def asset_type_callback(self, context):
                     "PRINTABLE",
                     "Printable",
                     "Upload a 3D printable model",
-                    pcoll["printable"].icon_id,
+                    pcoll["asset_type_printable"].icon_id,
                     1,
                 ),
             )

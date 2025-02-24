@@ -29,7 +29,6 @@ icon_collections = {}
 icons_read = {
     "fp.png": "free",
     "flp.png": "full",
-    "printable.png": "printable",
     "trophy.png": "trophy",
     "dumbbell.png": "dumbbell",
     "cc0.png": "cc0",
@@ -55,6 +54,7 @@ icons_read = {
     "logo_vimeo.png": "logo_vimeo",
     "logo_x.png": "logo_twitter",
     "logo_youtube.png": "logo_youtube",
+    "asset_type_printable.png": "asset_type_printable",
 }
 
 # fill the icon_collections["previews"] with icons of numbers for complexity rating
