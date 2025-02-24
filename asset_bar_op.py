@@ -1681,6 +1681,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def handle_key_input(self, event):
+        bk_logger.info(f"event: {event}")
         # Shortcut: Search by author
         if event.type == "A":
             self.search_by_author(self.active_index)
@@ -1804,7 +1805,38 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_id=asset_data["id"], state="rejected"
             )
             return True
-        return False
+
+        # Tab management shortcuts
+        bk_logger.info(f"event: {event}")
+        bk_logger.info(f"event.ctrl: {event.ctrl}")
+
+        if event.ctrl:
+            if event.type == "T" and not event.shift:
+                bk_logger.info(f"event.type: {event.type}")
+                if self.new_tab_button:  # Only if we can add more tabs
+                    self.add_new_tab(None)
+                return True
+
+            elif event.type == "W" and not event.shift:
+                if len(global_vars.TABS["tabs"]) > 1:  # Don't close last tab
+                    self.remove_tab(
+                        self.close_tab_buttons[global_vars.TABS["active_tab"]]
+                    )
+                return True
+
+            elif event.type == "TAB":
+                tabs = global_vars.TABS["tabs"]
+                current = global_vars.TABS["active_tab"]
+                if event.shift:
+                    # Go to previous tab
+                    new_index = (current - 1) % len(tabs)
+                else:
+                    # Go to next tab
+                    new_index = (current + 1) % len(tabs)
+                self.switch_to_history_step(new_index, tabs[new_index]["history_index"])
+                return True
+
+        return False  # Let other shortcuts be handled
 
     def scroll_up(self, widget):
         self.scroll_offset += self.wcount * self.hcount

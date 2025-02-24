@@ -332,12 +332,16 @@ def handle_search_task_error(task: client_tasks.Task) -> None:
 
 def handle_search_task(task: client_tasks.Task) -> bool:
     """Parse search results, try to load all available previews."""
+    bk_logger.info(f"Handling search task: {task.task_id}")
     global search_tasks
 
     if len(search_tasks) == 0:
+        bk_logger.info("No search tasks")
         # First find the history step that the task belongs to
         history_step = get_history_step(task.history_id)
+        bk_logger.info(f"Found history step: {history_step.get('id')}")
         history_step["is_searching"] = False
+        bk_logger.info("Set is_searching to False")
         return True
 
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
@@ -998,6 +1002,10 @@ def search(get_next=False, query=None, author_id=""):
     """Initialize searching
     query : submit an already built query from search history
     """
+    bk_logger.info(
+        f"Search called with get_next={get_next}, query={query}, author_id={author_id}"
+    )
+
     if global_vars.CLIENT_ACCESSIBLE != True:
         reports.add_report(
             "Cannot search, Client is not accessible.", timeout=2, type="ERROR"
@@ -1005,19 +1013,23 @@ def search(get_next=False, query=None, author_id=""):
         return
 
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI
 
     # if search is locked, don't trigger search update
     if ui_props.search_lock:
+        bk_logger.info("Search locked, returning")
         return
 
     props = utils.get_search_props()
     active_history_step = get_active_history_step()
+    bk_logger.info(f"Active history step: {active_history_step.get('id')}")
+    bk_logger.info(f"Is searching: {active_history_step.get('is_searching')}")
+
     # it's possible get_next was requested more than once.
     if active_history_step.get("is_searching") and get_next == True:
         # search already running, skipping
+        bk_logger.info("Search already running, skipping")
         return
 
     if not query:
@@ -1115,15 +1127,14 @@ def search(get_next=False, query=None, author_id=""):
         query["free_first"] = ui_props.free_only
 
     active_history_step["is_searching"] = True
+    bk_logger.info("Set is_searching to True")
 
     page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
-    orig_results = global_vars.DATA.get(
-        f"bkit {ui_props.asset_type.lower()} search orig"
-    )
 
     next_url = ""
-    if orig_results is not None and get_next:
-        next_url = orig_results["next"]
+    if get_next and active_history_step.get("search_results_orig"):
+        next_url = active_history_step["search_results_orig"].get("next", "")
+        bk_logger.info(f"Getting next page URL: {next_url}")
 
     add_search_process(query, get_next, page_size, next_url, active_history_step["id"])
     props.report = "BlenderKit searching...."
@@ -1223,12 +1234,16 @@ def search_update_delayed(self, context):
     but with a delay.
     This reduces number of calls during slider UI interaction (like texture resolution, polycount)
     """
+    bk_logger.info("Search update delayed called")
+
     # when search is locked, don't trigger search update
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if ui_props.search_lock:
+        bk_logger.info("Search locked in search_update_delayed, returning")
         return
 
+    bk_logger.info("Adding delayed search task")
     tasks_queue.add_task((search_update, (None, None)), wait=0.5, only_last=True)
 
 
@@ -1248,15 +1263,20 @@ def search_update_verification_status(self, context):
 
 def search_update(self, context):
     """run search after user changes a search parameter"""
+    bk_logger.info("Search update called")
+
     # when search is locked, don't trigger search update
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if ui_props.search_lock:
+        bk_logger.info("Search locked in search_update, returning")
         return
 
     # update filters
     go_on = update_filters()
+    bk_logger.info(f"Update filters result: {go_on}")
     if not go_on:
+        bk_logger.info("Update filters returned False, returning")
         return
     if ui_props.down_up != "SEARCH":
         ui_props.down_up = "SEARCH"
@@ -1654,6 +1674,7 @@ def update_tab_name(active_tab):
 # now let's create a history function that creates a new history step
 def create_history_step(active_tab):
     """Create a new history step and update tab name."""
+    bk_logger.info("Creating new history step")
     ui_props = bpy.context.window_manager.blenderkitUI
     ui_state = get_ui_state()
     history_step = {
@@ -1661,6 +1682,7 @@ def create_history_step(active_tab):
         "ui_state": ui_state,
         "scroll_offset": ui_props.scroll_offset,
     }
+    bk_logger.info(f"New history step ID: {history_step['id']}")
 
     # Delete any future history steps
     if active_tab["history_index"] < len(active_tab["history"]) - 1:
