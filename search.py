@@ -1220,16 +1220,13 @@ def search_update_delayed(self, context):
     but with a delay.
     This reduces number of calls during slider UI interaction (like texture resolution, polycount)
     """
-    bk_logger.info("Search update delayed called")
 
     # when search is locked, don't trigger search update
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if ui_props.search_lock:
-        bk_logger.info("Search locked in search_update_delayed, returning")
         return
 
-    bk_logger.info("Adding delayed search task")
     tasks_queue.add_task((search_update, (None, None)), wait=0.5, only_last=True)
 
 
@@ -1249,20 +1246,16 @@ def search_update_verification_status(self, context):
 
 def search_update(self, context):
     """run search after user changes a search parameter"""
-    bk_logger.info("Search update called")
 
     # when search is locked, don't trigger search update
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if ui_props.search_lock:
-        bk_logger.info("Search locked in search_update, returning")
         return
 
     # update filters
     go_on = update_filters()
-    bk_logger.info(f"Update filters result: {go_on}")
     if not go_on:
-        bk_logger.info("Update filters returned False, returning")
         return
     if ui_props.down_up != "SEARCH":
         ui_props.down_up = "SEARCH"
@@ -1693,6 +1686,7 @@ def create_history_step(active_tab):
         asset_bar.history_forward_button.visible = (
             False  # forward is never possible if we create new history step
         )
+        asset_bar.update_tab_icons()
 
     return history_step
 

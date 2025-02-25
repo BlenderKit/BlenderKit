@@ -877,7 +877,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def init_ui(self):
         self.button_bg_color = (0.2, 0.2, 0.2, 1.0)
-        self.button_hover_color = (0.8, 0.8, 0.8, 0.2)
+        self.button_hover_color = (0.8, 0.8, 0.8, 1.0)
         self.button_selected_color = (0.5, 0.5, 0.5, 1.0)
 
         self.buttons = []
@@ -889,7 +889,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel = []
         self.tab_buttons = []
         self.close_tab_buttons = []
-        self.tab_icons = []  # New list to store tab icons
 
         self.panel = BL_UI_Drag_Panel(
             0,
@@ -1017,19 +1016,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             tab_button.set_mouse_down(self.switch_tab)  # Add click handler
             self.tab_buttons.append(tab_button)
 
-            # Create asset type icon for this tab
-            tab_icon = BL_UI_Image(
-                tab_x + margin,  # Left margin from tab start
-                tab_button.y + (button_size - tab_icon_size) / 2,  # Center vertically
-                tab_icon_size,
-                tab_icon_size,
-            )
-            tab_icon.set_image_size((tab_icon_size, tab_icon_size))
-            # set image position to the zero
-            tab_icon.set_image_position((0, 0))
-            tab_icon.visible = True
-            tab_button.asset_type_icon = tab_icon  # Store reference on the button
-            self.tab_icons.append(tab_icon)
+            # Set asset type icon as tab button image
+            tab_button.set_image_size((tab_icon_size, tab_icon_size))
+            tab_button.set_image_position(
+                (margin, (button_size - tab_icon_size) / 2)
+            )  # Center vertically
 
             # Only create close button if there's more than one tab
             if len(tabs) > 1:
@@ -1086,7 +1077,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ]
         )
         self.widgets_panel.extend(self.tab_buttons)
-        self.widgets_panel.extend(self.tab_icons)  # Add tab icons to widgets
         if len(tabs) > 1:
             self.widgets_panel.extend(self.close_tab_buttons)
 
@@ -1123,13 +1113,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_tab_icons(self):
         """Update tab icons based on the active history step's asset type"""
         tabs = global_vars.TABS["tabs"]
-        for i, tab in enumerate(tabs):
-            if i >= len(self.tab_buttons) or not hasattr(
-                self.tab_buttons[i], "asset_type_icon"
-            ):
+        for i, tab_button in enumerate(self.tab_buttons):
+            if i >= len(tabs):
                 continue
 
-            tab_button = self.tab_buttons[i]
+            tab = tabs[i]
             history_index = tab["history_index"]
 
             if history_index >= 0 and history_index < len(tab["history"]):
@@ -1146,13 +1134,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     if not os.path.exists(icon_path):
                         icon_path = paths.get_addon_thumbnail_path(
                             "asset_type_model.png"
-                        )  # Default icon
+                        )
 
-                    tab_button.asset_type_icon.set_image(icon_path)
-                    tab_button.asset_type_icon.set_image_colorspace("")
-                    tab_button.asset_type_icon.visible = True
-                else:
-                    tab_button.asset_type_icon.visible = False
+                    tab_button.set_image(icon_path)
+                    tab_button.set_image_colorspace("")
 
     def position_and_hide_buttons(self):
         # position and layout buttons
@@ -2079,7 +2064,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.update_filters()
         # Update UI to show current tab's search results
         self.scroll_update(always=True)
-
+        # Update tab icons to reflect the current asset type
+        self.update_tab_icons()
         # unlock the search
         ui_props.search_lock = False
 
@@ -2105,7 +2091,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.tab_index,
             global_vars.TABS["tabs"][widget.tab_index]["history_index"],
         )
-        self.update_tab_icons()  # Update tab icons after switching tabs
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]
