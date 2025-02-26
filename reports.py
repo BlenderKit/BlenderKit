@@ -32,9 +32,10 @@ reports = []
 
 
 # check for same reports and just make them longer by the timeout.
-def add_report(text="", timeout=5, type="INFO", details=""):
+def add_report(text="", timeout=-1, type="INFO", details=""):
     """Add text report to GUI. Function checks for same reports and make them longer by the timeout.
-    Also log the text and details into the console with levels: ERROR=RED, INFO=GREEN.
+    Also log the text and details into the console with levels: ERROR=RED, INFO=GREEN, VALIDATOR=BLUE.
+    When timeout is not specified, default 15s will be used for ERROR, 5s for INFO/VALIDATOR.
     """
     global reports
     text = text.strip()
@@ -42,6 +43,12 @@ def add_report(text="", timeout=5, type="INFO", details=""):
     details = details.strip()
     if details != "":
         full_message = f"{text} {details}"
+
+    if timeout == -1:
+        if type == "ERROR":
+            timeout = 15
+        else:
+            timeout = 5
 
     if type == "ERROR":
         regex = r"\[[^\[\]:]+:\d+\]"
@@ -55,6 +62,9 @@ def add_report(text="", timeout=5, type="INFO", details=""):
     elif type == "INFO":
         bk_logger.info(full_message, stacklevel=2)
         color = colors.GREEN
+    elif type == "VALIDATOR":
+        bk_logger.info(full_message, stacklevel=2)
+        color = colors.BLUE
 
     # check for same reports and just make them longer by the timeout.
     for old_report in reports:

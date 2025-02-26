@@ -327,7 +327,7 @@ def handle_search_task_error(task: client_tasks.Task) -> None:
         if task.task_id in history_step.get("search_tasks", {}).keys():
             history_step["is_searching"] = False
             break
-    return reports.add_report(task.message, 5, "ERROR")
+    return reports.add_report(task.message, type="ERROR")
 
 
 def handle_search_task(task: client_tasks.Task) -> bool:
@@ -430,7 +430,7 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
     elif task.status == "error":
         global_vars.DATA["images available"][task.data["image_path"]] = False
         if task.message != "":
-            reports.add_report(task.message, 3, "ERROR")
+            reports.add_report(task.message, timeout=5, type="ERROR")
     else:
         return
     if asset_bar_op.asset_bar_operator is None:
@@ -1000,7 +1000,7 @@ def search(get_next=False, query=None, author_id=""):
     """
     if global_vars.CLIENT_ACCESSIBLE != True:
         reports.add_report(
-            "Cannot search, Client is not accessible.", timeout=2, type="ERROR"
+            "Cannot search, Client is not accessible.", timeout=5, type="ERROR"
         )
         return
 

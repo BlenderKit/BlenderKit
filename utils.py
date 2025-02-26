@@ -1406,7 +1406,6 @@ def check_globaldir_permissions():
     if os.path.isfile(global_dir):
         reports.add_report(
             "Global dir is a file. Please remove it or change global dir path in preferences.",
-            10,
             type="ERROR",
         )
         return False
@@ -1417,7 +1416,6 @@ def check_globaldir_permissions():
         except Exception as e:
             reports.add_report(
                 f"Cannot create Global dir. Check global dir path in preferences. {e}",
-                10,
                 type="ERROR",
             )
             return False
@@ -1430,7 +1428,6 @@ def check_globaldir_permissions():
         return True
     reports.add_report(
         f"Change path or give permissions to Global dir, wrong permissions now: exists={exists}, write={can_write}, execute={can_execute}.",
-        15,
         type="ERROR",
     )
 

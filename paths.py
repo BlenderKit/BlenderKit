@@ -366,8 +366,8 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
                     "Move your .blend file to another "
                     "directory with shorter path to "
                     "store assets in a subdirectory of your project.",
-                    60,
-                    "ERROR",
+                    timeout=60,
+                    type="ERROR",
                 )
                 continue
             if not os.path.exists(asset_dir_path):
@@ -385,8 +385,8 @@ def get_download_filepaths(asset_data, resolution="blend", can_return_others=Fal
                 "Move your .blend file to another "
                 "directory with shorter path to "
                 "store assets in a subdirectory of your project.",
-                60,
-                "ERROR",
+                timeout=60,
+                type="ERROR",
             )
             file_names.remove(f)
     return file_names

@@ -648,11 +648,8 @@ def start_blenderkit_client():
                 creationflags=creation_flags,
             )
     except Exception as e:
-        reports.add_report(
-            f"Error: BlenderKit-Client {client_version} failed to start on {get_address()}:{e}",
-            10,
-            "ERROR",
-        )
+        msg = f"Error: BlenderKit-Client {client_version} failed to start on {get_address()}:{e}"
+        reports.add_report(msg, type="ERROR")
         raise (e)
 
     bk_logger.info(f"BlenderKit-Client {client_version} starting on {get_address()}")
