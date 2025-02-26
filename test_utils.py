@@ -1,5 +1,5 @@
 import unittest
-
+import datetime
 import bpy
 
 
@@ -51,3 +51,37 @@ class FileSizeToTextTestCase(unittest.TestCase):
         self.assertEqual(utils.files_size_to_text(1099511627776), "1 TiB")
         self.assertEqual(utils.files_size_to_text(1649267441664), "1.5 TiB")
         self.assertEqual(utils.files_size_to_text(2199023255552), "2 TiB")
+
+
+class TestIsUploadOld(unittest.TestCase):
+    def test_no_upload_date(self):
+        self.assertEqual(utils.is_upload_old(None), 0)
+        self.assertEqual(utils.is_upload_old(""), 0)
+
+    def test_today_upload(self):
+        today_date = datetime.datetime.today().strftime("%Y-%m-%d")
+        self.assertEqual(utils.is_upload_old(today_date), 0)
+
+    def test_recent_upload(self):
+        recent_date = (datetime.datetime.today() - datetime.timedelta(days=3)).strftime(
+            "%Y-%m-%d"
+        )
+        self.assertEqual(utils.is_upload_old(recent_date), 0)
+
+    def test_exact_threshold(self):
+        threshold_date = (
+            datetime.datetime.today() - datetime.timedelta(days=5)
+        ).strftime("%Y-%m-%d")
+        self.assertEqual(utils.is_upload_old(threshold_date), 0)
+
+    def test_old_upload(self):
+        old_date = (datetime.datetime.today() - datetime.timedelta(days=10)).strftime(
+            "%Y-%m-%d"
+        )
+        self.assertEqual(utils.is_upload_old(old_date), 5)
+
+    def test_far_old_upload(self):
+        very_old_date = (
+            datetime.datetime.today() - datetime.timedelta(days=20)
+        ).strftime("%Y-%m-%d")
+        self.assertEqual(utils.is_upload_old(very_old_date), 15)
