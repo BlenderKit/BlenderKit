@@ -96,7 +96,7 @@ def handle_send_rating_task(task: client_tasks.Task):
         )
     if task.status == "finished":
         if utils.profile_is_validator():
-            return reports.add_report(task.message, type="INFO", timeout=3)
+            return reports.add_report(task.message, type="VALIDATOR")
 
 
 def store_rating_local(

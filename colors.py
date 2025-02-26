@@ -15,11 +15,16 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-
-# this module defines color palette for BlenderKit UI
+"""
+Module colors defines color palette for BlenderKit UI.
+"""
 
 WHITE = (1, 1, 1, 0.9)
 
 TEXT = (0.9, 0.9, 0.9, 0.6)
 GREEN = (0.9, 1, 0.9, 0.6)
 RED = (1, 0.5, 0.5, 0.8)
+
+
+BLUE = (0.8, 0.8, 1, 0.8)
+"""Color for validator reports."""

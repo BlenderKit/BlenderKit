@@ -53,7 +53,7 @@ def handle_login_task(task: client_tasks.Task):
         )
     elif task.status == "error":
         logout()
-        reports.add_report(task.message, 5, "ERROR")
+        reports.add_report(task.message, type="ERROR")
 
 
 def handle_token_refresh_task(task: client_tasks.Task):
@@ -66,7 +66,7 @@ def handle_token_refresh_task(task: client_tasks.Task):
         return
 
     if task.status == "finished":
-        reports.add_report(task.message, 5, "INFO")
+        reports.add_report(task.message)
         tasks_queue.add_task(
             (
                 write_tokens,
@@ -79,7 +79,7 @@ def handle_token_refresh_task(task: client_tasks.Task):
         )
     elif task.status == "error":
         logout()
-        reports.add_report(task.message, 5, "ERROR")
+        reports.add_report(task.message)
 
 
 def handle_logout_task(task: client_tasks.Task):
@@ -87,9 +87,9 @@ def handle_logout_task(task: client_tasks.Task):
     Shows messages depending on result of tokens revocation.
     Regardless of revocation results, it also cleans login data."""
     if task.status == "finished":
-        reports.add_report(task.message, 3, "INFO")
+        reports.add_report(task.message, timeout=3)
     elif task.status == "error":
-        reports.add_report(task.message, 5, "ERROR")
+        reports.add_report(task.message, type="ERROR")
 
     clean_login_data()
 

@@ -777,7 +777,7 @@ def handle_download_task(task: client_tasks.Task):
             task.message = f"Append failed, download_post() returned: {successful}"
 
     if task.status == "error":
-        reports.add_report(task.message, 15, "ERROR")
+        reports.add_report(task.message, type="ERROR")
         download_tasks.pop(task.task_id)
     else:
         download_write_progress(task.task_id, task)
@@ -902,7 +902,7 @@ def download(asset_data, **kwargs):
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
         sprops.report = report
-        reports.add_report(report, 5, "ERROR")
+        reports.add_report(report, type="ERROR")
 
         bk_logger.debug(sprops.report)
         return
@@ -1058,7 +1058,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         # TODO: this should distinguis if the appending failed (wrong file)
         # or something else happened(shouldn't delete the files)
         traceback.print_exc(limit=20)
-        reports.add_report(f"Append failed: {e}", 15, "ERROR")
+        reports.add_report(f"Append failed: {e}", type="ERROR")
         for f in file_names:
             try:
                 os.remove(f)
@@ -1418,11 +1418,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         self.asset_data = self.get_asset_data(context)
 
         if not has_asset_files(self.asset_data):
-            reports.add_report(
-                f"Asset {self.asset_data['displayName']} has no files. Author should reupload the asset.",
-                15,
-                "ERROR",
-            )
+            msg = f"Asset {self.asset_data['displayName']} has no files. Author should reupload the asset."
+            reports.add_report(msg, type="ERROR")
             return {"CANCELLED"}
 
         asset_type = self.asset_data["assetType"]

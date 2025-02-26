@@ -82,15 +82,11 @@ def handle_failed_reports(exception: Exception) -> float:
     # On FAILED_REPORTS == 11, 21, 31...
     if global_vars.CLIENT_FAILED_REPORTS % 10 == 1:
         if return_code == -1:
-            reports.add_report(
-                "Client is not responding, add-on will not work.", 10, "ERROR"
-            )
+            msg = "Client is not responding, add-on will not work."
+            reports.add_report(msg, timeout=10, type="ERROR")
         if return_code != -1:
-            reports.add_report(
-                f"Client failed to start, add-on will not work. Error({return_code}): {meaning}",
-                10,
-                "ERROR",
-            )
+            msg = f"Client failed to start, add-on will not work. Error({return_code}): {meaning}"
+            reports.add_report(msg, timeout=10, type="ERROR")
         # LETS START AGAIN - on different port
         # The catch is that the error message printed to user is outdated now.
         # But there is not a better solution.
@@ -181,7 +177,7 @@ def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
     if user_preferences.preferences_lock == True:
         return
 
-    reports.add_report("Restarting Client server", 2, "INFO")
+    reports.add_report("Restarting Client server", timeout=2)
     try:
         cancel_all_tasks(user_preferences, context)
         client_lib.shutdown_client()
@@ -230,20 +226,14 @@ def task_error_overdrive(task: client_tasks.Task) -> None:
         # Invalid token and api_key_refresh present -> trying to refresh the token
         if preferences.api_key_refresh != "":  # type: ignore
             client_lib.refresh_token(preferences.api_key_refresh, preferences.api_key)  # type: ignore
-            reports.add_report(
-                "Invalid API key token. Refreshing the token now. If problem persist, please log-out and log-in.",
-                5,
-                "ERROR",
-            )
+            msg = "Invalid API key token. Refreshing the token now. If problem persist, please log-out and log-in."
+            reports.add_report(msg, type="ERROR")
             return
 
         # Invalid token and no api_key_refresh token -> nothing else we can try...
         bkit_oauth.logout()
-        reports.add_report(
-            "Invalid permanent API key token. Logged out. Please login again.",
-            10,
-            "ERROR",
-        )
+        msg = "Invalid permanent API key token. Logged out. Please login again."
+        reports.add_report(msg, type="ERROR")
 
 
 def handle_task(task: client_tasks.Task):
@@ -347,7 +337,7 @@ def handle_task(task: client_tasks.Task):
         destination = task.result.get("destination", "GUI")
         if destination == "GUI":
             return reports.add_report(task.message, duration, level)
-        if level == "INFO":
+        if level == "INFO" or level == "VALIDATOR":
             return bk_logger.info(task.message)
         if level == "WARNING":
             return bk_logger.warning(task.message)
