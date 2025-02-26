@@ -1476,7 +1476,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         utils.profile_is_validator()
                         and asset_data["verificationStatus"] == "uploaded"
                     ):
-                        over_limit = utils.is_upload_old(asset_data)
+                        over_limit = utils.is_upload_old(
+                            asset_data.get("lastBlendUpload")
+                        )
                         if over_limit:
                             redness = min(over_limit * 0.05, 0.7)
                             asset_button.red_alert.bg_color = (1, 0, 0, redness)

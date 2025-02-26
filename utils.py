@@ -1358,14 +1358,14 @@ def label_multiline(
     return rows
 
 
-def is_upload_old(asset_data):
+def is_upload_old(last_blend_upload: Optional[str]) -> int:
     """
-    estimates if the asset is far too long in the 'uploaded' state
+    Estimates if the asset is far too long in the 'uploaded' state.
     This returns the number of days the validation is over the limit.
     """
-    date_time_str = asset_data["lastBlendUpload"][:10]
-    # date_time_str = 'Jun 28 2018 7:40AM'
-    date_time_obj = datetime.datetime.strptime(date_time_str, "%Y-%m-%d")
+    if not last_blend_upload:
+        return 0
+    date_time_obj = datetime.datetime.strptime(last_blend_upload[:10], "%Y-%m-%d")
     today = date_time_obj.today()
     age = today - date_time_obj
     old = datetime.timedelta(days=5)
