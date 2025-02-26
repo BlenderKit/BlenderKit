@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 id = "blenderkit"
 type = "add-on"
-version = "3.14.0-241223" # X.Y.Z-YYYYMMDD, must have a dash instead of a dot
+version = "3.14.0-250129" # X.Y.Z-YYYYMMDD, must have a dash instead of a dot
 
 name = "BlenderKit Online Asset Library"
 tagline = "Drag & drop of assets from the community driven library"
@@ -10,8 +10,11 @@ maintainer = "Vilém Duha <admin@blenderkit.com>"
 website = "https://blenderkit.com/"
 
 tags = ["3D View"]
-permissions = ["files", "network"]
 blender_version_min = "3.0.0"
 
 license = ["SPDX:GPL-2.0-or-later",]
 copyright = ["2019 Blender Kit s.r.o.",]
+
+[permissions]
+files = "Import and export assets"
+network = "Search and download from blenderkit.com"

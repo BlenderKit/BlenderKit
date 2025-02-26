@@ -1244,6 +1244,36 @@ def search_update_verification_status(self, context):
     search_update(self, context)
 
 
+def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
+    """Detect asset type from keywords and return tuple of (asset_type, cleaned_keywords).
+    Returns ('', original_keywords) if no asset type is detected."""
+
+    # Dictionary mapping keyword variations to asset types
+    asset_type_map = {
+        "model": "MODEL",
+        "material": "MATERIAL",
+        "mat": "MATERIAL",
+        "brush": "BRUSH",
+        "scene": "SCENE",
+        "hdr": "HDR",
+        "hdri": "HDR",
+        "nodegroup": "NODEGROUP",
+        "node": "NODEGROUP",
+    }
+
+    # Convert to lowercase for matching
+    keywords_lower = keywords.lower()
+
+    # Check each word in the search string
+    for word in keywords_lower.split():
+        if word in asset_type_map:
+            # Remove the asset type word from keywords
+            cleaned_keywords = keywords_lower.replace(word, "").strip()
+            return asset_type_map[word], cleaned_keywords
+
+    return "", keywords
+
+
 def search_update(self, context):
     """run search after user changes a search parameter"""
 
@@ -1257,12 +1287,29 @@ def search_update(self, context):
     go_on = update_filters()
     if not go_on:
         return
+
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    # Check if keywords contain asset type before processing clipboard
+    if ui_props.search_keywords != "":
+        detected_type, cleaned_keywords = detect_asset_type_from_keywords(
+            ui_props.search_keywords
+        )
+        if detected_type and detected_type != ui_props.asset_type:
+            # Store keywords before switching
+            ui_props.search_lock = True
+            ui_props.search_keywords = cleaned_keywords
+            # Switch asset type
+            ui_props.asset_type = detected_type
+            ui_props.search_lock = False
+            # Return since changing keywords will trigger this function again
+            # not now - let's try it with lock
+
     if ui_props.down_up != "SEARCH":
         ui_props.down_up = "SEARCH"
 
     # Input tweaks if user manually placed asset-link from website -> we need to get rid of asset type and set it in UI.
     # This is not normally needed as check_clipboard() asset_type switching but without recursive shit.
-    sprops = utils.get_search_props()
     instr = "asset_base_id:"
     atstr = "asset_type:"
     kwds = ui_props.search_keywords

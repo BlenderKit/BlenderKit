@@ -534,10 +534,6 @@ class AssetDragOperator(bpy.types.Operator):
                 # first, test if object can have material applied.
                 object = bpy.data.objects[self.object_name]
                 # this enables to run Bring to scene automatically when dropping on a linked objects.
-                # it's however quite a slow operation, that's why not enabled (and finished) now.
-                # if object is not None and object.is_library_indirect:
-                #     find_and_activate_instancers(object)
-                #     bpy.ops.object.blenderkit_bring_to_scene()
                 if (
                     object is not None
                     and not object.is_library_indirect
@@ -550,6 +546,7 @@ class AssetDragOperator(bpy.types.Operator):
 
                     if object.type == "MESH":
                         temp_mesh = object_eval.to_mesh()
+                        mapping = create_material_mapping(object, temp_mesh)
                         target_slot = temp_mesh.polygons[self.face_index].material_index
                         object_eval.to_mesh_clear()
                     else:
@@ -592,7 +589,6 @@ class AssetDragOperator(bpy.types.Operator):
                 )
                 bpy.ops.scene.blenderkit_download(
                     True,
-                    # asset_type=self.asset_data["assetType"],
                     asset_index=self.asset_search_index,
                     model_location=loc,
                     model_rotation=rotation,
@@ -1027,6 +1023,132 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
                 bpy.context.region.tag_redraw()
 
             cls.instances.remove(instance)
+
+
+def analyze_gn_tree(tree, materials):
+    """Recursively analyze GN tree and its node groups for Set Material nodes"""
+    current_mapping = {}
+
+    print("\nAnalyzing GN tree:", tree.name)
+    for node in tree.nodes:
+        print(f"Checking node: {node.name}, type: {node.type}")
+        if node.type == "SET_MATERIAL":
+            # Find material index in evaluated mesh
+            mat = node.inputs["Material"].default_value
+            print(
+                f"Found Set Material node with material: {mat.name if mat else 'None'}"
+            )
+            if mat:
+                for mat_idx, temp_mat in enumerate(materials):
+                    if compare_material_names(temp_mat, mat):
+                        print(f"Matched material to index {mat_idx}")
+                        current_mapping[mat_idx] = {
+                            "type": "GN",
+                            "node_name": node.name,
+                            "tree_name": tree.name,
+                        }
+            else:
+                # If no material is set, we can use this node for a new material
+                # Find first available index that isn't mapped
+                used_indices = set(current_mapping.keys())
+                for i in range(len(materials)):
+                    if i not in used_indices:
+                        print(f"Using empty Set Material node for index {i}")
+                        current_mapping[i] = {
+                            "type": "GN",
+                            "node_name": node.name,
+                            "tree_name": tree.name,
+                        }
+                        break
+
+        # Check node groups recursively
+        elif node.type == "GROUP" and node.node_tree:
+            nested_mapping = analyze_gn_tree(node.node_tree, materials)
+            current_mapping.update(nested_mapping)
+
+    return current_mapping
+
+
+def compare_material_names(mat1, mat2):
+    """Compare two materials by name, but if one is None, use 'None' instead of mat1.name"""
+    if mat1 is None:
+        return mat2 is None
+    elif mat2 is None:  #
+        return False
+    return mat1.name == mat2.name
+
+
+def create_material_mapping(object, temp_mesh):
+    """Creates mapping between material indices and their sources (slots or GN nodes)"""
+    mapping = {}
+
+    print(f"\nCreating mapping for {object.name}")
+    print(f"Material slots: {len(object.material_slots)}")
+    print(f"Has GN: {any(mod.type == 'NODES' for mod in object.modifiers)}")
+
+    # 1. First map regular material slots
+    for slot_idx, slot in enumerate(object.material_slots):
+        # Find matching material in evaluated mesh
+        for mat_idx, mat in enumerate(temp_mesh.materials):
+            if compare_material_names(mat, slot.material):
+                mapping[mat_idx] = {"type": "SLOT", "index": slot_idx}
+                break  # Stop after finding first match
+
+    # 2. Check Geometry Nodes
+    has_gn = False
+    for modifier in object.modifiers:
+        if modifier.type == "NODES":
+            has_gn = True
+            gn_mapping = analyze_gn_tree(modifier.node_group, temp_mesh.materials)
+            if gn_mapping:
+                # Only add GN mappings for indices that aren't already mapped to slots
+                for idx, map_data in gn_mapping.items():
+                    if idx not in mapping:
+                        mapping[idx] = map_data
+
+    # 3. If no material slots and no GN, create a mapping for slot 0
+    if len(object.material_slots) == 0 and not has_gn:
+        print("Creating default mapping to slot 0")
+        mapping[0] = {"type": "SLOT", "index": 0}
+
+    print(f"Final mapping: {mapping}")
+
+    # Store mapping as custom property (convert to serializable format)
+    mapping_data = {str(k): v for k, v in mapping.items()}
+    object["material_mapping"] = mapping_data
+
+    return mapping
+
+
+def add_set_material_node(tree):
+    """Add a Set Material node at the end of the node tree"""
+    # Find output node
+    output_node = None
+    for node in tree.nodes:
+        if node.type == "GROUP_OUTPUT":
+            output_node = node
+            break
+
+    if output_node:
+        # Create Set Material node
+        set_mat_node = tree.nodes.new("GeometryNodeSetMaterial")
+        # Position it before output
+        set_mat_node.location = (output_node.location.x - 200, output_node.location.y)
+
+        # Connect nodes
+        last_geometry_socket = None
+        for input in output_node.inputs:
+            if input.type == "GEOMETRY":
+                if input.is_linked:
+                    last_geometry_socket = input.links[0].from_socket
+                break
+
+        if last_geometry_socket:
+            tree.links.new(last_geometry_socket, set_mat_node.inputs["Geometry"])
+            tree.links.new(set_mat_node.outputs["Geometry"], output_node.inputs[0])
+
+        return set_mat_node
+    return None
 
 
 classes = (

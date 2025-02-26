@@ -20,7 +20,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
-    "version": (3, 14, 0, 241223),  # X.Y.Z.yymmdd
+    "version": (3, 14, 0, 250129),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Boost your workflow with drag&drop assets from the community driven library.",
@@ -28,7 +28,7 @@ bl_info = {
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
-VERSION = (3, 14, 0, 241223)
+VERSION = (3, 14, 0, 250129)
 
 import logging
 import sys
@@ -319,10 +319,6 @@ def asset_type_callback(self, context):
                     1,
                 ),
             )
-
-    if not preferences.experimental_features:
-        # remove nodegroups - last item from the list
-        items = items[:-1]
 
     return items
 
@@ -2223,7 +2219,7 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="""Enable experimental features of BlenderKit: \n - Node grups asset type""",
+        description="""Enable experimental features of BlenderKit: \n - 3D printable assets (search and upload models optimized for 3D printing)""",
         default=False,
         update=utils.save_prefs,
     )

@@ -286,6 +286,39 @@ def udpate_asset_data_in_dicts(asset_data):
                             f1["url"] = f["url"]
 
 
+def assign_material(object, material, target_slot):
+    """Assign material to either slot or GN node based on mapping"""
+    if "material_mapping" in object:
+        mapping = object["material_mapping"]
+        target_info = mapping.get(str(target_slot))
+
+        if target_info:
+            if target_info["type"] == "SLOT":
+                # Regular material slot assignment
+                if len(object.material_slots) == 0:
+                    object.data.materials.append(material)
+                else:
+                    object.material_slots[target_info["index"]].material = material
+            elif target_info["type"] == "GN":
+                # Assign to GN Set Material node
+                for modifier in object.modifiers:
+                    if (
+                        modifier.type == "NODES"
+                        and modifier.node_group.name == target_info["tree_name"]
+                    ):
+                        node = modifier.node_group.nodes.get(target_info["node_name"])
+                        if node and node.type == "SET_MATERIAL":
+                            node.inputs["Material"].default_value = material
+                            break  # Stop after first matching node
+
+    else:
+        # Fall back to regular slot assignment
+        if len(object.material_slots) == 0:
+            object.data.materials.append(material)
+        elif len(object.material_slots) > target_slot:
+            object.material_slots[target_slot].material = material
+
+
 def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     """Link asset to the scene."""
     file_names = kwargs.get("file_paths")
@@ -507,14 +540,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             material = append_link.append_material(
                 file_names[-1], matname=asset_data["name"], link=link, fake_user=False
             )
-        target_object = bpy.data.objects[kwargs["target_object"]]
 
-        if len(target_object.material_slots) == 0:
-            target_object.data.materials.append(material)
-        else:
-            target_object.material_slots[kwargs["material_target_slot"]].material = (
-                material
-            )
+        target_object = bpy.data.objects[kwargs["target_object"]]
+        assign_material(target_object, material, kwargs["material_target_slot"])
 
         asset_main = material
 
