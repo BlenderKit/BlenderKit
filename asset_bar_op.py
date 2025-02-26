@@ -693,6 +693,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
+        # Update tab area background position
+        self.tab_area_bg.width = self.bar_width
 
         self.panel.set_location(self.bar_x, self.panel.y)
 
@@ -890,13 +892,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tab_buttons = []
         self.close_tab_buttons = []
 
+        # Create panel with extended height
         self.panel = BL_UI_Drag_Panel(
             0,
             0,
             self.bar_width,
-            self.bar_height,
+            self.bar_height,  # Use total height including tabs
         )
         self.panel.bg_color = (0.0, 0.0, 0.0, 0.9)
+
+        # Create tab area background
+        self.tab_area_bg = BL_UI_Widget(
+            0,  # x position will be set in update_assetbar_layout
+            -self.other_button_size,  # Position at top where tabs are
+            self.bar_width,  # Same width as asset bar
+            self.other_button_size,  # Same height as tab buttons
+        )
+        # dark blue
+        self.tab_area_bg.bg_color = (0.2, 0.25, 0.4, 1.0)
+
+        # Add widgets to panel - add tab background first so it's behind everything
+        self.widgets_panel.append(self.tab_area_bg)
 
         # we init max possible buttons.
         button_idx = 0
@@ -1023,23 +1039,26 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             )  # Center vertically
 
             # Only create close button if there's more than one tab
+            close_x = tab_x + tab_width + margin  # Position right after tab
+            close_tab = BL_UI_Button(
+                close_x,
+                -button_size,
+                button_size,
+                button_size,
+            )
+            close_tab.bg_color = self.button_bg_color
+            # slightly red
+            close_tab.hover_bg_color = (0.8, 0.0, 0.0, 0.2)
+            close_tab.text = "×"  # Set text after creation
+            close_tab.text_size = button_size * 0.8
+            close_tab.text_color = self.text_color
+            close_tab.tab_index = i  # Store tab index
+            # if there's only one tab, the button closes asset bar instead of closing tab
             if len(tabs) > 1:
-                close_x = tab_x + tab_width + margin  # Position right after tab
-                close_tab = BL_UI_Button(
-                    close_x,
-                    -button_size,
-                    button_size,
-                    button_size,
-                )
-                close_tab.bg_color = self.button_bg_color
-                # slightly red
-                close_tab.hover_bg_color = (0.8, 0.0, 0.0, 0.2)
-                close_tab.text = "×"  # Set text after creation
-                close_tab.text_size = button_size * 0.8
-                close_tab.text_color = self.text_color
-                close_tab.tab_index = i  # Store tab index
                 close_tab.set_mouse_down(self.remove_tab)  # Add click handler
-                self.close_tab_buttons.append(close_tab)
+            else:
+                close_tab.set_mouse_down(self.cancel_press)
+            self.close_tab_buttons.append(close_tab)
 
         # New tab button - position after all tabs and close buttons
         if len(tabs) > 0:
@@ -1061,15 +1080,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 button_size,
                 button_size,
             )
-            self.new_tab_button.bg_color = self.button_bg_color
-            self.new_tab_button.hover_bg_color = self.button_hover_color
+            # Change from default button color to slightly green
+            self.new_tab_button.bg_color = (0.2, 0.5, 0.2, 1.0)  # Green tint
+            # Slightly lighter green on hover
+            self.new_tab_button.hover_bg_color = (0.3, 0.7, 0.3, 0.5)
             self.new_tab_button.text = "+"
             self.new_tab_button.text_size = button_size * 0.8
             self.new_tab_button.text_color = self.text_color
             self.new_tab_button.set_mouse_down(self.add_new_tab)
             self.widgets_panel.append(self.new_tab_button)
 
-        # Add widgets to panel
+        # Then add all other widgets
         self.widgets_panel.extend(
             [
                 self.history_back_button,
@@ -1077,8 +1098,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ]
         )
         self.widgets_panel.extend(self.tab_buttons)
-        if len(tabs) > 1:
-            self.widgets_panel.extend(self.close_tab_buttons)
+        self.widgets_panel.extend(self.close_tab_buttons)
 
         # Back/Forward history buttons
         self.history_back_button.set_mouse_down(self.history_back)

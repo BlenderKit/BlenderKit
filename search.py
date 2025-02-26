@@ -742,7 +742,7 @@ def query_to_url(
             order.append("-last_blend_upload")
     elif (
         query.get("author_id") is not None
-        or query.get("query").find("+author_id:") > -1
+        or query.get("query", "").find("+author_id:") > -1
     ) and utils.profile_is_validator():
         order.append("-created")
     else:
@@ -1401,6 +1401,7 @@ class SearchOperator(Operator):
             bpy.ops.view3d.close_popup_button("INVOKE_DEFAULT")
         ui_props = bpy.context.window_manager.blenderkitUI
         if self.author_id != "":
+            bk_logger.info(f"Author ID: {self.author_id}")
             # if there is already an author id in the search keywords, remove it first, the author_id can be any so
             # use regex to find it
             ui_props.search_keywords = re.sub(
