@@ -614,7 +614,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.assetbar_margin = int(2 * ui_scale)
         self.thumb_size = int(user_preferences.thumb_size * ui_scale)
         self.button_size = 2 * self.button_margin + self.thumb_size
-        self.other_button_size = int(25 * ui_scale)
+        self.other_button_size = int(30 * ui_scale)
         self.icon_size = int(24 * ui_scale)
         self.validation_icon_margin = int(3 * ui_scale)
         reg_multiplier = 1
@@ -937,6 +937,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.bg_color = self.button_bg_color
         self.button_close.hover_bg_color = self.button_hover_color
         self.button_close.text = "×"
+        self.button_close.text_size = self.other_button_size * 0.8
         self.button_close.set_image_position((0, 0))
         self.button_close.set_image_size(
             (self.other_button_size, self.other_button_size)
