@@ -1615,21 +1615,22 @@ def get_ui_state():
         "search_style",
     ]
     store_props = []
-    match ui_props.asset_type:
-        case "MODEL":
-            store_props = store_model_props
-        case "MATERIAL":
-            store_props = store_material_props
-        case "BRUSH":
-            store_props = store_brush_props
-        case "NODEGROUP":
-            store_props = store_nodegroup_props
-        case "HDR":
-            store_props = store_hdr_props
-        case "SCENE":
-            store_props = store_scene_props
-        case "PRINTABLE":
-            store_props = store_model_props
+    # we could use match here but older blender versions have older python and don't support it
+    asset_type = ui_props.asset_type
+    if asset_type == "MODEL":
+        store_props = store_model_props
+    elif asset_type == "MATERIAL":
+        store_props = store_material_props
+    elif asset_type == "BRUSH":
+        store_props = store_brush_props
+    elif asset_type == "NODEGROUP":
+        store_props = store_nodegroup_props
+    elif asset_type == "HDR":
+        store_props = store_hdr_props
+    elif asset_type == "SCENE":
+        store_props = store_scene_props
+    elif asset_type == "PRINTABLE":
+        store_props = store_model_props
 
     search_props = utils.get_search_props()
 
