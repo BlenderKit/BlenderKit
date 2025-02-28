@@ -5,10 +5,10 @@ go 1.22
 require (
 	github.com/google/uuid v1.6.0
 	github.com/gookit/color v1.5.4
-	github.com/rapid7/go-get-proxied v0.0.0-20240311092404-798791728c56
+	github.com/rapid7/go-get-proxied v0.0.0-20250207205329-09112877ac70
 )
 
 require (
-	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
-	golang.org/x/sys v0.14.0 // indirect
+	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	golang.org/x/sys v0.30.0 // indirect
 )
