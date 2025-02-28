@@ -39,7 +39,6 @@ def mocked_preferences() -> Mock:
 def mocked_common_props() -> Mock:
     """Get Mock of the props shared across asset types."""
     props = Mock()
-    props.search_keywords = ""
     props.search_verification_status = "ALL"
     props.unrated_quality_only = False
     props.unrated_wh_only = False
@@ -48,11 +47,15 @@ def mocked_common_props() -> Mock:
 
 
 def mocked_ui_props() -> Mock:
+    """Get Mock of the UI properties."""
     ui_props = Mock()
     ui_props.quality_limit = 0
     ui_props.search_bookmarks = False
     ui_props.search_license = "ANY"
     ui_props.search_blender_version = False
+    ui_props.search_keywords = ""
+    ui_props.free_only = False
+    ui_props.own_only = False
     return ui_props
 
 

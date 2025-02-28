@@ -64,6 +64,7 @@ class SearchData:
     is_validator: bool = (
         False  # Client makes some extra stuff for validators - like fetching all the ratings right away
     )
+    history_id: str = ""
 
 
 @dataclasses.dataclass

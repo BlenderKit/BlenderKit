@@ -21,8 +21,10 @@ import json
 import logging
 import math
 import os
+import re
 import unicodedata
 import urllib.parse
+import uuid
 from typing import Optional, Union
 
 import bpy
@@ -169,8 +171,7 @@ def check_clipboard():
         ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type
 
     # all modifications in
-    search_props = utils.get_search_props()
-    search_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
+    ui_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
 
 
 # TODO: type annotate and check this crazy function!
@@ -312,56 +313,41 @@ def clear_searches():
 
 
 def cleanup_search_results():
-    """clear search results and also search tasks - when e.g. profile is fetched so we can have better
-    search results with canDownload flag."""
-    dicts = (
-        "search results",
-        "bkit model search",
-        "bkit scene search",
-        "bkit hdr search",
-        "bkit material search",
-        "bkit texture search",
-        "bkit brush search",
-    )
-    for sr in dicts:
-        global_vars.DATA.pop(sr, None)
-        global_vars.DATA.pop(f"{sr} orig", None)
-    clear_searches()
+    """Cleanup all search results in history steps and global vars."""
+    # First clean up history steps
+    for history_step in get_history_steps().values():
+        history_step.pop("search_results", None)
+        history_step.pop("search_results_orig", None)
 
 
 def handle_search_task_error(task: client_tasks.Task) -> None:
     """Handle incomming search task error."""
-    if len(search_tasks) == 0:
-        props = utils.get_search_props()
-        props.is_searching = False
+    # First find the history step that the task belongs to
+    for history_step in get_history_steps().values():
+        if task.task_id in history_step.get("search_tasks", {}).keys():
+            history_step["is_searching"] = False
+            break
     return reports.add_report(task.message, 5, "ERROR")
 
 
 def handle_search_task(task: client_tasks.Task) -> bool:
     """Parse search results, try to load all available previews."""
     global search_tasks
+
     if len(search_tasks) == 0:
-        # utils.p('end search timer')
-        props = utils.get_search_props()
-        props.is_searching = False
+        # First find the history step that the task belongs to
+        history_step = get_history_step(task.history_id)
+        history_step["is_searching"] = False
         return True
 
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
     # causing a lot of throuble.
     if bpy.context.window_manager.blenderkitUI.dragging:  # type: ignore[attr-defined]
-        # utils.p('end search timer')
         return False
+
     # if original task was already removed (because user initiated another search), results are dropped- Returns True
     # because that's OK.
     orig_task = search_tasks.get(task.task_id)
-    if orig_task is None:
-        print(
-            "search task result not from active search",
-            task.task_id,
-            len(search_tasks),
-            list(search_tasks.keys()),
-        )
-        return True
 
     search_tasks.pop(task.task_id)
 
@@ -376,11 +362,14 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     props = utils.get_search_props()
     search_name = f"bkit {asset_type} search"
 
+    # Get current history step
+    history_step = get_history_step(orig_task.history_id)
+
     if not task.data.get("get_next"):
         result_field = []  # type: ignore
     else:
         result_field = []
-        for r in global_vars.DATA[search_name]:  # type: ignore
+        for r in history_step.get("search_results", []):  # type: ignore
             result_field.append(r)
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
@@ -400,12 +389,10 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         if comments is None:
             client_lib.get_comments(asset_data["assetBaseId"])
 
-    global_vars.DATA[search_name] = result_field
-    global_vars.DATA[f"{search_name} orig"] = task.result
-
-    if asset_type == ui_props.asset_type.lower():
-        global_vars.DATA["search results"] = result_field
-        global_vars.DATA["search results orig"] = task.result
+    # Store results in history step
+    history_step["search_results"] = result_field
+    history_step["search_results_orig"] = task.result
+    history_step["is_searching"] = False
 
     if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
         # jump back
@@ -420,22 +407,20 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     if len(result_field) < ui_props.scroll_offset or not (task.data.get("get_next")):
         # jump back
         ui_props.scroll_offset = 0
-    props.report = f"Found {global_vars.DATA['search results orig']['count']} results."
-    if len(global_vars.DATA["search results"]) == 0:
+    props.report = f"Found {task.result['count']} results."
+    if len(result_field) == 0:
         tasks_queue.add_task((reports.add_report, ("No matching results found.",)))
     else:
         tasks_queue.add_task(
             (
                 reports.add_report,
-                (f"Found {global_vars.DATA['search results orig']['count']} results.",),
+                (f"Found {task.result['count']} results.",),
             )
         )
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get("get_next"):
         bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
 
-    if len(search_tasks) == 0:
-        props.is_searching = False
     return True
 
 
@@ -511,7 +496,7 @@ def load_preview(asset):
 
 
 def load_previews():
-    results = global_vars.DATA.get("search results")
+    results = get_search_results()
     if results is None:
         return
     for _, result in enumerate(results):
@@ -755,7 +740,10 @@ def query_to_url(
             order.append("last_blend_upload")
         else:
             order.append("-last_blend_upload")
-    elif query.get("author_id") is not None and utils.profile_is_validator():
+    elif (
+        query.get("author_id") is not None
+        or query.get("query", "").find("+author_id:") > -1
+    ) and utils.profile_is_validator():
         order.append("-created")
     else:
         if query.get("category_subtree") is not None:
@@ -783,8 +771,8 @@ def build_query_common(query: dict, props, ui_props) -> dict:
     """
     query = copy.deepcopy(query)
     query_common = {}
-    if props.search_keywords != "":
-        keywords = props.search_keywords.replace("&", "%26")
+    if ui_props.search_keywords != "":
+        keywords = ui_props.search_keywords.replace("&", "%26")
         query_common["query"] = keywords
 
     if props.search_verification_status != "ALL" and utils.profile_is_validator():
@@ -922,18 +910,13 @@ def build_query_nodegroup(
     return build_query_common(query, props, ui_props)
 
 
-def add_search_process(query, get_next: bool, page_size: int, next_url: str):
+def add_search_process(
+    query, get_next: bool, page_size: int, next_url: str, history_id: str
+):
     global search_tasks
     addon_version = utils.get_addon_version()
     blender_version = utils.get_blender_version()
     scene_uuid = bpy.context.scene.get("uuid", "")  # type: ignore[attr-defined]
-
-    if len(search_tasks) > 0:
-        # just remove all running search tasks.
-        # we can also kill them in BlenderKit-Client, but not so urgent now
-        # TODO stop tasks in BlenderKit-Client?
-        bk_logger.debug("Removing old search tasks")
-        search_tasks = dict()
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
     if get_next and next_url:
@@ -953,6 +936,7 @@ def add_search_process(query, get_next: bool, page_size: int, next_url: str):
         page_size=page_size,
         blender_version=blender_version,
         is_validator=utils.profile_is_validator(),
+        history_id=history_id,
     )
     response = client_lib.asset_search(search_data)
     search_tasks[response["task_id"]] = search_data
@@ -1021,13 +1005,18 @@ def search(get_next=False, query=None, author_id=""):
         return
 
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-
     wm = bpy.context.window_manager
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    # if search is locked, don't trigger search update
+    if ui_props.search_lock:
+        return
+
     props = utils.get_search_props()
+    active_history_step = get_active_history_step()
+
     # it's possible get_next was requested more than once.
-    if props.is_searching and get_next == True:
+    if active_history_step.get("is_searching") and get_next == True:
         # search already running, skipping
         return
 
@@ -1125,21 +1114,15 @@ def search(get_next=False, query=None, author_id=""):
         # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
         query["free_first"] = ui_props.free_only
 
-        if not get_next:
-            global_vars.DATA["search history"].append(query)
-
-    # utils.p('searching')
-    props.is_searching = True
+    active_history_step["is_searching"] = True
 
     page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
-    orig_results = global_vars.DATA.get(
-        f"bkit {ui_props.asset_type.lower()} search orig"
-    )
 
     next_url = ""
-    if orig_results is not None and get_next:
-        next_url = orig_results["next"]
-    add_search_process(query, get_next, page_size, next_url)
+    if get_next and active_history_step.get("search_results_orig"):
+        next_url = active_history_step["search_results_orig"].get("next", "")
+
+    add_search_process(query, get_next, page_size, next_url, active_history_step["id"])
     props.report = "BlenderKit searching...."
 
 
@@ -1237,7 +1220,28 @@ def search_update_delayed(self, context):
     but with a delay.
     This reduces number of calls during slider UI interaction (like texture resolution, polycount)
     """
+
+    # when search is locked, don't trigger search update
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.search_lock:
+        return
+
     tasks_queue.add_task((search_update, (None, None)), wait=0.5, only_last=True)
+
+
+def search_update_verification_status(self, context):
+    """run search after user changes a search parameter"""
+    # when search is locked, don't trigger search update
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.search_lock:
+        return
+
+    # if there is an author_id in search_keywords, we want to clear those for validators
+    if ui_props.search_keywords.find("+author_id:") > -1:
+        ui_props.search_keywords = ""
+    search_update(self, context)
 
 
 def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
@@ -1272,28 +1276,34 @@ def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
 
 def search_update(self, context):
     """run search after user changes a search parameter"""
+
+    # when search is locked, don't trigger search update
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    if ui_props.search_lock:
+        return
+
+    # update filters
     go_on = update_filters()
     if not go_on:
         return
 
     ui_props = bpy.context.window_manager.blenderkitUI
-    sprops = utils.get_search_props()
 
     # Check if keywords contain asset type before processing clipboard
-    if sprops.search_keywords != "":
+    if ui_props.search_keywords != "":
         detected_type, cleaned_keywords = detect_asset_type_from_keywords(
-            sprops.search_keywords
+            ui_props.search_keywords
         )
         if detected_type and detected_type != ui_props.asset_type:
             # Store keywords before switching
-            keywords_to_transfer = cleaned_keywords
+            ui_props.search_lock = True
+            ui_props.search_keywords = cleaned_keywords
             # Switch asset type
             ui_props.asset_type = detected_type
-            # Get new search props for the switched asset type
-            new_sprops = utils.get_search_props()
-            # Set keywords in new asset type's search props
-            new_sprops.search_keywords = keywords_to_transfer
-            return  # Return since changing keywords will trigger this function again
+            ui_props.search_lock = False
+            # Return since changing keywords will trigger this function again
+            # not now - let's try it with lock
 
     if ui_props.down_up != "SEARCH":
         ui_props.down_up = "SEARCH"
@@ -1302,7 +1312,7 @@ def search_update(self, context):
     # This is not normally needed as check_clipboard() asset_type switching but without recursive shit.
     instr = "asset_base_id:"
     atstr = "asset_type:"
-    kwds = sprops.search_keywords
+    kwds = ui_props.search_keywords
     id_index = kwds.find(instr)
     if id_index > -1:
         asset_type_index = kwds.find(atstr)
@@ -1325,7 +1335,7 @@ def search_update(self, context):
                 target_asset_type = "NODEGROUP"
 
             if ui_props.asset_type != target_asset_type:
-                sprops.search_keywords = ""
+                ui_props.search_keywords = ""
                 ui_props.asset_type = target_asset_type
 
             # now we trim the input copypaste by anything extra that is there,
@@ -1335,12 +1345,16 @@ def search_update(self, context):
             # Otherwise it could be processed directly in the clipboard check function.
             sprops = utils.get_search_props()
             clean_filters()
-            sprops.search_keywords = kwds[:asset_type_index].rstrip()
+            ui_props.search_keywords = kwds[:asset_type_index].rstrip()
             # return here since writing into search keywords triggers this update function once more.
             return
 
     if global_vars.CLIENT_ACCESSIBLE:
         reports.add_report(f"Searching for: '{kwds}'", 2)
+
+    # create history step
+    active_tab = get_active_tab()
+    create_history_step(active_tab)
     search()
 
 
@@ -1362,9 +1376,6 @@ def refresh_search():
         ui_props.turn_off = True
         ui_props.assetbar_on = False
     cleanup_search_results()  # TODO: is it possible to start this from Client automatically? probably YEA
-    history = global_vars.DATA["search history"]
-    if len(history) > 0:
-        search(query=history[-1])
 
 
 # TODO: fix the tooltip?
@@ -1435,13 +1446,19 @@ class SearchOperator(Operator):
         # TODO ; this should all get transferred to properties of the search operator, so sprops don't have to be fetched here at all.
         if self.esc:
             bpy.ops.view3d.close_popup_button("INVOKE_DEFAULT")
-        sprops = utils.get_search_props()
+        ui_props = bpy.context.window_manager.blenderkitUI
         if self.author_id != "":
-            sprops.search_keywords = ""
+            bk_logger.info(f"Author ID: {self.author_id}")
+            # if there is already an author id in the search keywords, remove it first, the author_id can be any so
+            # use regex to find it
+            ui_props.search_keywords = re.sub(
+                r"\+author_id:\d+", "", ui_props.search_keywords
+            )
+            ui_props.search_keywords += f"+author_id:{self.author_id}"
         if self.keywords != "":
-            sprops.search_keywords = self.keywords
+            ui_props.search_keywords = self.keywords
 
-        search(get_next=self.get_next, author_id=self.author_id)
+        search(get_next=self.get_next)
 
         return {"FINISHED"}
 
@@ -1515,3 +1532,239 @@ def unregister_search():
 
     for c in classes:
         bpy.utils.unregister_class(c)
+
+
+# Storing history steps
+# History step is a dictionary with the following keys:
+# - id: uuid
+# - ui_state: dict
+# - search_results: list
+# - search_results_orig: list
+# - scroll_offset: int - this is separate since it doesn't influence when a new history step can be created
+
+# ui_state contains search_keywords, asset_type, all search filters, common ones and also those from advanced search panels for all asset types.
+# if anything in UI that influences search and is in ui_state changes, a new history step is created.
+# a history step isn't created when search results land or when more pages get retrieved
+# each history step has own id. This id is used to identify the history step when a new search is started. It gets sent to the client.
+# After the search results land, the results are written to the respective history step.
+
+# first let's try to setup storing of ui_state
+
+
+def get_ui_state():
+    """Get the current UI state."""
+    ui_props = bpy.context.window_manager.blenderkitUI
+
+    ui_state = {
+        "ui_props": {
+            "search_keywords": ui_props.search_keywords,
+            "asset_type": ui_props.asset_type,
+            "free_only": ui_props.free_only,
+            "own_only": ui_props.own_only,
+            "search_bookmarks": ui_props.search_bookmarks,
+            "quality_limit": ui_props.quality_limit,
+            "search_license": ui_props.search_license,
+            "search_blender_version": ui_props.search_blender_version,
+            "search_blender_version_min": ui_props.search_blender_version_min,
+            "search_blender_version_max": ui_props.search_blender_version_max,
+        },
+        "search_props": {},
+    }
+
+    # we need to add all props manually since they are a mess now and some should not be stored.
+    # model props
+    common_search_props = [
+        "search_category",
+        "search_texture_resolution",
+        "search_texture_resolution_min",
+        "search_texture_resolution_max",
+        "search_file_size",
+        "search_file_size_min",
+        "search_file_size_max",
+        "search_procedural",
+        "search_verification_status",
+        "unrated_quality_only",
+        "unrated_wh_only",
+    ]
+
+    store_model_props = [
+        "search_animated",
+        "search_condition",
+        "search_design_year",
+        "search_design_year_max",
+        "search_design_year_min",
+        "search_engine",
+        "search_engine_other",
+        "search_geometry_nodes",
+        "search_polycount",
+        "search_polycount_max",
+        "search_polycount_min",
+        "search_style",
+        "search_style_other",
+    ]
+    store_material_props = [
+        "search_style",
+        "search_style_other",
+    ]
+    store_brush_props = []
+    store_nodegroup_props = []
+    store_hdr_props = [
+        "true_hdr",
+    ]
+    store_scene_props = [
+        "search_style",
+    ]
+    store_props = []
+    # we could use match here but older blender versions have older python and don't support it
+    asset_type = ui_props.asset_type
+    if asset_type == "MODEL":
+        store_props = store_model_props
+    elif asset_type == "MATERIAL":
+        store_props = store_material_props
+    elif asset_type == "BRUSH":
+        store_props = store_brush_props
+    elif asset_type == "NODEGROUP":
+        store_props = store_nodegroup_props
+    elif asset_type == "HDR":
+        store_props = store_hdr_props
+    elif asset_type == "SCENE":
+        store_props = store_scene_props
+    elif asset_type == "PRINTABLE":
+        store_props = store_model_props
+
+    search_props = utils.get_search_props()
+
+    store_props.extend(common_search_props)
+    # Store all properties from each property group
+    for prop_name in store_props:
+        if prop_name != "rna_type":
+            ui_state["search_props"][prop_name] = getattr(search_props, prop_name)
+
+    return ui_state
+
+
+def update_tab_name(active_tab):
+    """Update the name of the active tab."""
+    history_step = get_active_history_step()
+    ui_state = history_step.get("ui_state", {})
+
+    # Update tab name based on search or category
+    search_keywords = ui_state.get("ui_props", {}).get("search_keywords", "").strip()
+    # if there's author_id let's get the author's name from db of authors
+    # we need to get the number after +author_id:
+    author_id = re.search(r"\+author_id:(\d+)", search_keywords)
+    author_name = None
+    if author_id is not None:
+        author_id = author_id.group(1)
+        author = global_vars.BKIT_AUTHORS.get(int(author_id))
+        if author:
+            author_name = author.fullName
+
+    search_category = (
+        ui_state.get("search_props", {}).get("search_category", "").strip()
+    )
+    asset_type = ui_state.get("ui_props", {}).get("asset_type", "").strip()
+    if author_name is not None:
+        tab_name = author_name
+    elif search_keywords:
+        # Use search keywords for tab name
+        tab_name = search_keywords
+    elif search_category:
+        # Use category name if no search keywords
+        tab_name = search_category.split("/")[-1]  # Get last part of category path
+    else:
+        # Keep existing name if no keywords or category
+        tab_name = asset_type.lower()
+
+    # Crop name to max 9 characters
+    if len(tab_name) > 9:
+        tab_name = tab_name[:8] + "…"
+
+    # Update tab name
+    active_tab["name"] = tab_name
+
+    # Update UI if asset bar exists
+    asset_bar = asset_bar_op.asset_bar_operator
+    if asset_bar and hasattr(asset_bar, "tab_buttons"):
+        active_tab_index = global_vars.TABS["active_tab"]
+        if 0 <= active_tab_index < len(asset_bar.tab_buttons):
+            asset_bar.tab_buttons[active_tab_index].text = tab_name
+            # Force redraw of the region
+            if asset_bar.area:
+                asset_bar.area.tag_redraw()
+
+    return history_step
+
+
+# now let's create a history function that creates a new history step
+def create_history_step(active_tab):
+    """Create a new history step and update tab name."""
+    ui_props = bpy.context.window_manager.blenderkitUI
+    ui_state = get_ui_state()
+    history_step = {
+        "id": str(uuid.uuid4()),
+        "ui_state": ui_state,
+        "scroll_offset": ui_props.scroll_offset,
+    }
+
+    # Delete any future history steps
+    if active_tab["history_index"] < len(active_tab["history"]) - 1:
+        # Remove future steps from global history steps dict first
+        for step in active_tab["history"][active_tab["history_index"] + 1 :]:
+            global_vars.DATA["history steps"].pop(step["id"], None)
+        # Then truncate the tab's history list
+        active_tab["history"] = active_tab["history"][: active_tab["history_index"] + 1]
+
+    active_tab["history"].append(history_step)
+    active_tab["history_index"] = len(active_tab["history"]) - 1
+
+    # Add this history step to the global history steps dictionary
+    global_vars.DATA["history steps"][history_step["id"]] = history_step
+    print(f"Created history step {history_step['id']}")
+    reports.add_report("Created new search history step", 1, "INFO")
+
+    # Update tab name and history button visibility
+    update_tab_name(active_tab)
+
+    # Update history button visibility if asset bar exists
+    # if history length is 1, hide the back button
+
+    asset_bar = asset_bar_op.asset_bar_operator
+    if asset_bar and hasattr(asset_bar, "history_back_button"):
+        asset_bar.history_back_button.visible = active_tab["history_index"] > 0
+        asset_bar.history_forward_button.visible = (
+            False  # forward is never possible if we create new history step
+        )
+        asset_bar.update_tab_icons()
+
+    return history_step
+
+
+def get_history_step(history_step_id):
+    return global_vars.DATA["history steps"].get(history_step_id)
+
+
+def get_history_steps():
+    return global_vars.DATA["history steps"]
+
+
+def get_active_history_step():
+    """Get the currently active history step from the active tab."""
+    active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+    # if there's no history step, create one
+    if len(active_tab["history"]) == 0:
+        history_step = create_history_step(active_tab)
+    else:
+        history_step = active_tab["history"][active_tab["history_index"]]
+    return history_step
+
+
+def get_search_results():
+    """Get search results from the active history step."""
+    history_step = get_active_history_step()
+    return history_step.get("search_results", [])
+
+
+def get_active_tab():
+    """Get the active tab."""
+    return global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]

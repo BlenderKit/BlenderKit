@@ -613,6 +613,7 @@ type SearchTaskData struct {
 	TempDir         string `json:"tempdir"`
 	URLQuery        string `json:"urlquery"`
 	IsValidator     bool   `json:"is_validator"` // is true for validators, so we can do immediate hacks in the Client right after the search results come
+	HistoryID       string `json:"history_id"`
 }
 
 type ReportData struct {

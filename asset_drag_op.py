@@ -38,6 +38,7 @@ from . import (
     ui_bgl,
     ui_panels,
     utils,
+    search,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
@@ -760,8 +761,9 @@ class AssetDragOperator(bpy.types.Operator):
         self.face_index = 0
         self.matrix = None
 
-        sr = global_vars.DATA["search results"]
-        self.asset_data = sr[self.asset_search_index]
+        ui_props = bpy.context.window_manager.blenderkitUI
+        sr = search.get_search_results()
+        self.asset_data = dict(sr[ui_props.active_index])
 
         self.iname = f'.{self.asset_data["thumbnail_small"]}'
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname

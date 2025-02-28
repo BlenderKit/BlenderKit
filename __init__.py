@@ -263,65 +263,8 @@ mesh_poly_types = (
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
     props = bpy.context.window_manager.blenderkitUI
-    if global_vars.DATA.get("search results") is None and props.down_up == "SEARCH":
+    if search.get_search_results() is None and props.down_up == "SEARCH":
         search.search()
-
-
-def switch_search_results(self, context):
-    props = bpy.context.window_manager.blenderkitUI
-
-    if props.asset_type == "MODEL":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit model search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit model search orig"
-        )
-    elif props.asset_type == "SCENE":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit scene search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit scene search orig"
-        )
-    elif props.asset_type == "HDR":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit hdr search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit hdr search orig"
-        )
-    elif props.asset_type == "MATERIAL":
-        global_vars.DATA["search results"] = global_vars.DATA.get(
-            "bkit material search"
-        )
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit material search orig"
-        )
-    elif props.asset_type == "TEXTURE":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit texture search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit texture search orig"
-        )
-    elif props.asset_type == "BRUSH":
-        global_vars.DATA["search results"] = global_vars.DATA.get("bkit brush search")
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit brush search orig"
-        )
-        if not (context.sculpt_object or context.image_paint_object):
-            reports.add_report(
-                "Switch to paint or sculpt mode to search in BlenderKit brushes."
-            )
-    elif props.asset_type == "NODEGROUP":
-        global_vars.DATA["search results"] = global_vars.DATA.get(
-            "bkit nodegroup search"
-        )
-        global_vars.DATA["search results orig"] = global_vars.DATA.get(
-            "bkit nodegroup search orig"
-        )
-
-    if asset_bar_op.asset_bar_operator is not None:
-        asset_bar_op.asset_bar_operator.scroll_update(always=True)
-
-    if global_vars.DATA["search results"] is None and props.down_up == "SEARCH":
-        search.search()
-
-    # update the filters after asset type switch, would keep the filter icon uncolored otherwise
-    search.update_filters()
 
 
 def asset_type_callback(self, context):
@@ -350,7 +293,7 @@ def asset_type_callback(self, context):
                     "PRINTABLE",
                     "Printable",
                     "Find 3D printable models",
-                    pcoll["printable"].icon_id,
+                    pcoll["asset_type_printable"].icon_id,
                     1,
                 ),
             )
@@ -372,7 +315,7 @@ def asset_type_callback(self, context):
                     "PRINTABLE",
                     "Printable",
                     "Upload a 3D printable model",
-                    pcoll["printable"].icon_id,
+                    pcoll["asset_type_printable"].icon_id,
                     1,
                 ),
             )
@@ -410,7 +353,7 @@ class BlenderKitUIProps(PropertyGroup):
         items=asset_type_callback,
         description="",
         default=None,
-        update=switch_search_results,
+        update=search.search_update,
     )
     # moved from per-asset search properties
     free_only: BoolProperty(
@@ -476,6 +419,13 @@ class BlenderKitUIProps(PropertyGroup):
         + "Only assets created in LOWER THAN (< max) maximum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
         + "E.g.: exclude all Blender 4 assets by specifying 4, 4.0, or 4.0.0. Assets created in 3.6 and lower will be shown",
         update=search.search_update,
+    )
+
+    # search lock
+    search_lock: BoolProperty(
+        name="Search Lock",
+        description="Lock the search to restore ui state and not trigger search update",
+        default=False,
     )
 
     logo_status: StringProperty(name="", default="logo_offline")
@@ -620,6 +570,14 @@ class BlenderKitUIProps(PropertyGroup):
         name="Reply Id", description="Active comment id to reply to", default=0
     )
 
+    # Add search_keywords property
+    search_keywords: StringProperty(
+        name="Search",
+        description="Search for these keywords",
+        default="",
+        update=search.search_update,
+    )
+
 
 def search_procedural_update(self, context):
     if self.search_procedural in ("PROCEDURAL", "BOTH"):
@@ -628,13 +586,6 @@ def search_procedural_update(self, context):
 
 
 class BlenderKitCommonSearchProps:
-    # main search string
-    search_keywords: StringProperty(
-        name="Search",
-        description="Search for these keywords",
-        default="",
-        update=search.search_update,
-    )
     # categories
     search_category: StringProperty(
         name="Category",
@@ -643,19 +594,15 @@ class BlenderKitCommonSearchProps:
         update=search.search_update,
     )
     # STATES
-    is_searching: BoolProperty(
-        name="Searching",
-        description="search is currently running (internal)",
-        default=False,
-    )
+    # Is searching is moved to history steps
+    # is_searching: BoolProperty(
+    #     name="Searching",
+    #     description="search is currently running (internal)",
+    #     default=False,
+    # )
     is_downloading: BoolProperty(
         name="Downloading",
         description="download is currently running (internal)",
-        default=False,
-    )
-    search_done: BoolProperty(
-        name="Search Completed",
-        description="at least one search did run (internal)",
         default=False,
     )
 
@@ -739,7 +686,7 @@ class BlenderKitCommonSearchProps:
             ("DELETED", "Deleted", "Deleted"),
         ),
         default="ALL",
-        update=search.search_update,
+        update=search.search_update_verification_status,
     )
 
     # moved to ui props, more convenient for user when for all assets on

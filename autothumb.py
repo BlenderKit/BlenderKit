@@ -27,7 +27,7 @@ from pathlib import Path
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
 
-from . import bg_blender, global_vars, paths, tasks_queue, utils, upload
+from . import bg_blender, global_vars, paths, tasks_queue, utils, upload, search
 
 
 bk_logger = logging.getLogger(__name__)
@@ -503,8 +503,9 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         if not self.asset_index > -1:
             return {"CANCELLED"}
 
-        # either get the data from search results
-        sr = global_vars.DATA["search results"]
+        # Get search results from history
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[self.asset_index]
 
         preferences = bpy.context.preferences.addons[__package__].preferences
@@ -773,8 +774,9 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         if not self.asset_index > -1:
             return {"CANCELLED"}
 
-        # either get the data from search results
-        sr = global_vars.DATA["search results"]
+        # Get search results from history
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[self.asset_index]
 
         preferences = bpy.context.preferences.addons[__package__].preferences

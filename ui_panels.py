@@ -219,7 +219,7 @@ def draw_panel_hdr_search(self, context):
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
@@ -246,10 +246,11 @@ def draw_panel_nodegroup_search(self, context):
     s = context.scene
     wm = context.window_manager
     props = wm.blenderkit_nodegroup
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
@@ -395,11 +396,12 @@ def draw_assetbar_show_hide(layout, props):
 def draw_panel_model_search(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_models
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
 
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     icon = "NONE"
@@ -415,9 +417,10 @@ def draw_panel_model_search(self, context):
 def draw_panel_scene_search(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_scene
+    ui_props = wm.blenderkitUI
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
     utils.label_multiline(layout, text=props.report)
     layout.separator()
@@ -1195,7 +1198,7 @@ def draw_panel_material_search(self, context):
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
     utils.label_multiline(layout, text=props.report)
 
@@ -1226,7 +1229,7 @@ def draw_panel_brush_search(self, context):
 
     layout = self.layout
     row = layout.row()
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
@@ -2082,7 +2085,7 @@ def draw_asset_context_menu(
                 if o and o.get("asset_data"):
                     if (
                         o["asset_data"]["assetBaseId"]
-                        == global_vars.DATA["search results"][ui_props.active_index]
+                        == search.get_search_results()[ui_props.active_index]
                     ):
                         op.model_location = o.location
                         op.model_rotation = o.rotation_euler
@@ -2204,8 +2207,7 @@ class OBJECT_MT_blenderkit_asset_menu(bpy.types.Menu):
 
     def draw(self, context):
         ui_props = context.window_manager.blenderkitUI
-
-        sr = global_vars.DATA["search results"]
+        sr = search.get_search_results()
         asset_data = sr[ui_props.active_index]
         draw_asset_context_menu(self.layout, context, asset_data, from_panel=False)
 
@@ -3145,7 +3147,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         ui_props.draw_tooltip = False
         ui_props.reply_id = 0
 
-        sr = global_vars.DATA["search results"]
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
         asset_data = sr[ui_props.active_index]
         self.asset_data = asset_data
 
@@ -3572,7 +3575,9 @@ def header_search_draw(self, context):
     pcoll = icons.icon_collections["main"]
     icons_dict = {
         "MODEL": "OBJECT_DATAMODE",
-        "PRINTABLE": pcoll["printable"].icon_id,  # Using our custom printable icon
+        "PRINTABLE": pcoll[
+            "asset_type_printable"
+        ].icon_id,  # Using our custom printable icon
         "MATERIAL": "MATERIAL",
         "BRUSH": "BRUSH_DATA",
         "HDR": "WORLD",
@@ -3641,7 +3646,7 @@ def header_search_draw(self, context):
     if search_field_width > 0:
         row.ui_units_x = search_field_width
 
-    row.prop(props, "search_keywords", text="", icon="VIEWZOOM")
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
 
     draw_assetbar_show_hide(layout, props)
     layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")

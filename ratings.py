@@ -23,7 +23,17 @@ from bpy.props import StringProperty
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
 
-from . import client_lib, datas, global_vars, icons, ratings_utils, ui, ui_panels, utils
+from . import (
+    client_lib,
+    datas,
+    global_vars,
+    icons,
+    ratings_utils,
+    search,
+    ui,
+    ui_panels,
+    utils,
+)
 
 
 bk_logger = logging.getLogger(__name__)
@@ -152,7 +162,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         ui_props = bpy.context.window_manager.blenderkitUI
         # get asset id
         if ui_props.active_index > -1:
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             self.asset_data = dict(sr[ui_props.active_index])
             self.asset_id = self.asset_data["id"]
             self.asset_type = self.asset_data["assetType"]
@@ -225,7 +235,7 @@ def rating_menu_draw(self, context):
     layout = self.layout
 
     ui_props = context.window_manager.blenderkitUI
-    sr = global_vars.DATA["search results"]
+    sr = search.get_search_results()
 
     asset_search_index = ui_props.active_index
     if asset_search_index > -1:

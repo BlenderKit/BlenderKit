@@ -270,7 +270,10 @@ def udpate_asset_data_in_dicts(asset_data):
     scene = bpy.context.scene
     scene["assets used"] = scene.get("assets used", {})
     scene["assets used"][asset_data["assetBaseId"]] = asset_data.copy()
-    sr = global_vars.DATA["search results"]
+
+    # Get search results from history
+    history_step = search.get_active_history_step()
+    sr = history_step.get("search_results")
     if not sr:
         return
 
@@ -797,7 +800,7 @@ def download_write_progress(task_id, task):
     task_addon["text"] = task.message
 
     # go through search results to write progress to display progress bars
-    sr = global_vars.DATA.get("search results")
+    sr = search.get_search_results()
     if sr is not None:
         for r in sr:
             if task.data["asset_data"]["id"] == r["id"]:
@@ -1044,6 +1047,12 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
 
     try:
         append_asset(asset_data, **kwargs)
+        # Update downloaded status in search results
+        sr = search.get_search_results()
+        if sr is not None:
+            for sres in sr:
+                if asset_data["id"] == sres["id"]:
+                    sres["downloaded"] = 100
         return True
     except Exception as e:
         # TODO: this should distinguis if the appending failed (wrong file)
@@ -1379,7 +1388,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         """Get asset data - it can come from scene, or from search results."""
         scene = bpy.context.scene
         if self.asset_index > -1:  # Getting the data from search results
-            sr = global_vars.DATA["search results"]
+            sr = search.get_search_results()
             asset_data = sr[
                 self.asset_index
             ]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
