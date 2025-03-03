@@ -71,7 +71,6 @@ def extension_draw_item_blenderkit(
         )
     props.pkg_id = pkg_id
     props.repo_index = repo_index
-    del props
 
     if mark is not None:
         if mark:
@@ -90,7 +89,6 @@ def extension_draw_item_blenderkit(
             )
         props.pkg_id = pkg_id
         props.repo_index = repo_index
-        del props
 
     sub = row.row()
     sub.active = is_enabled
@@ -101,8 +99,6 @@ def extension_draw_item_blenderkit(
         sub.label(text=item.name, icon="ERROR", translate=False)
     else:
         sub.label(text=item.name, translate=False)
-
-    del sub
 
     # Add a top-level row so `row_right` can have a grayed out button/label
     # without graying out the menu item since# that is functional.
@@ -122,7 +118,6 @@ def extension_draw_item_blenderkit(
                 props.repo_index = repo_index
                 props.pkg_id = pkg_id
                 props.enable_on_install = is_enabled
-                del props
         else:
             ### BlenderKit specific code
             # blenderkit logo icon
@@ -162,7 +157,6 @@ def extension_draw_item_blenderkit(
                     )
                     props.url = bk_cache_pkg.get("website")
             ### end of BlenderKit specific code
-            del props
     else:
         # Right space for alignment with the button.
         if has_remote and (item_remote is None):
@@ -182,8 +176,6 @@ def extension_draw_item_blenderkit(
         "extension_path", "{:s}.{:s}".format(repo_item.module, pkg_id)
     )
     row_right.menu("USERPREF_MT_extensions_item", text="", icon="DOWNARROW_HLT")
-    del row_right
-    del row_right_toplevel
 
     if show:
         import os
@@ -198,7 +190,6 @@ def extension_draw_item_blenderkit(
         row.label(text=" {:s}.".format(item.tagline), translate=False)
 
         col.separator(type="LINE")
-        del col
 
         col_info = layout.column()
         col_info.active = is_enabled
@@ -219,7 +210,6 @@ def extension_draw_item_blenderkit(
                     col_a.label(text="")
                     col_b.label(text=value)
                 # pylint: disable-next=undefined-loop-variable
-                del value
 
         if value := (item_remote or item_local).website:
             col_a.label(text="Website")
