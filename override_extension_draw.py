@@ -52,7 +52,7 @@ def extension_draw_item_blenderkit(
 
     if is_enabled:
         item_warnings = extensions_warnings.get(
-            pkg_repo_module_prefix(repo_item) + pkg_id, []
+            exui.pkg_repo_module_prefix(repo_item) + pkg_id, []
         )
     else:
         item_warnings = []
