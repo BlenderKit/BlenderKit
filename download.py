@@ -515,11 +515,21 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
 
         # set the brush active
         if bpy.context.view_layer.objects.active.mode == "SCULPT":
-            bpy.context.tool_settings.sculpt.brush = brush
+            if bpy.app.version < (4, 3, 0):
+                bpy.context.tool_settings.sculpt.brush = brush
+            else:
+                bpy.ops.brush.asset_activate(
+                    relative_asset_identifier=f"Brush/{brush.name}"
+                )
         elif (
             bpy.context.view_layer.objects.active.mode == "TEXTURE_PAINT"
         ):  # could be just else, but for future possible more types...
-            bpy.context.tool_settings.image_paint.brush = brush
+            if bpy.app.version < (4, 3, 0):
+                bpy.context.tool_settings.image_paint.brush = brush
+            else:
+                bpy.ops.brush.asset_activate(
+                    relative_asset_identifier=f"Brush/{brush.name}"
+                )
         # TODO add grease pencil brushes!
 
         # bpy.context.tool_settings.image_paint.brush = brush
