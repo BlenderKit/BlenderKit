@@ -601,6 +601,8 @@ def check_blenderkit_client_return_code() -> tuple[int, str]:
     if exit_code is None:
         return -1, "BlenderKit-Client process is running."
 
+    # need to initialize msg, was throwing an error
+    msg = f"Unknown error."
     if exit_code == rcServerStartOtherError:
         msg = f"Other starting problem."
     if exit_code == rcServerStartOtherNetworkingError:
