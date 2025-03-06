@@ -204,7 +204,7 @@ def do_build(
 ):
     """Build addon by copying relevant addon directories and files to ./out/blenderkit directory.
     Create zip in ./out/blenderkit.zip.
-    - install_at: also copy the zip to install location if specified, e.g. /path/to/addons directory.
+    - install_at: string or list of paths where to install the addon, e.g. ["/path1/addons", "/path2/addons"]
     - include_tests: include test files into .zip file, so tests can be run with this .zip
     - clean_dir: if specified, clean that directory before building the add-on, e.g. clean client bin in blenderkit_data: "/Users/username/blenderkit_data/client/bin"
     - client_binaries_path: if specified, use client (signed) binaries from that path instead of building new ones, e.g. "./client_builds/v1.0.0" containing client binaries for different platforms
@@ -261,10 +261,16 @@ def do_build(
     print("Creating ZIP archive.")
     shutil.make_archive("out/blenderkit", "zip", "out", "blenderkit")
 
+    # Handle multiple install locations
     if install_at is not None:
-        print(f"Copying to {install_at}/blenderkit")
-        shutil.rmtree(f"{install_at}/blenderkit", ignore_errors=True)
-        shutil.copytree("out/blenderkit", f"{install_at}/blenderkit")
+        # Convert single path to list for consistent handling
+        install_locations = install_at if isinstance(install_at, list) else [install_at]
+        
+        for location in install_locations:
+            print(f"Copying to {location}/blenderkit")
+            shutil.rmtree(f"{location}/blenderkit", ignore_errors=True)
+            shutil.copytree("out/blenderkit", f"{location}/blenderkit")
+
     if clean_dir is not None:
         print(f"Cleaning directory {clean_dir}")
         shutil.rmtree(clean_dir, ignore_errors=True)
@@ -352,8 +358,9 @@ parser.add_argument(
 parser.add_argument(
     "--install-at",
     type=str,
+    action='append',  # This allows multiple --install-at arguments
     default=None,
-    help="If path is specified, then builded addon will be also copied to that location.",
+    help="Specify one or more paths where the addon should be installed. Can be used multiple times.",
 )
 parser.add_argument(
     "--clean-dir",
