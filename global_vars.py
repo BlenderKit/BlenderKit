@@ -163,6 +163,18 @@ TIPS = [
         "Right-click on the downloaded asset to rate, bookmark and more in the 'Selected Model' submenu.",
         "",
     ),
+    (
+        "Use Ctrl+T to open a new tab, Ctrl+W to close the current tab in the asset bar.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
+    (
+        "Navigate between tabs with Ctrl+Tab (next) and Ctrl+Shift+Tab (previous).",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
+    (
+        "Jump directly to a specific tab using Ctrl+1 through Ctrl+9 in the asset bar.",
+        "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
+    ),
 ]
 VERSION = [0, 0, 0, 0]  # filled in register()
 
