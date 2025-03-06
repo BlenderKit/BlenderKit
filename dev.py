@@ -263,10 +263,8 @@ def do_build(
 
     # Handle multiple install locations
     if install_at is not None:
-        # Convert single path to list for consistent handling
-        install_locations = install_at if isinstance(install_at, list) else [install_at]
-        
-        for location in install_locations:
+
+        for location in install_at:
             print(f"Copying to {location}/blenderkit")
             shutil.rmtree(f"{location}/blenderkit", ignore_errors=True)
             shutil.copytree("out/blenderkit", f"{location}/blenderkit")
@@ -358,9 +356,9 @@ parser.add_argument(
 parser.add_argument(
     "--install-at",
     type=str,
-    action='append',  # This allows multiple --install-at arguments
+    action="append",  # This allows multiple --install-at arguments
     default=None,
-    help="Specify one or more paths where the addon should be installed. Can be used multiple times.",
+    help="Specify path where the add-on should be installed. Flag can be used multiple times.",
 )
 parser.add_argument(
     "--clean-dir",
