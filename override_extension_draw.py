@@ -280,7 +280,7 @@ def extension_draw_item_override(
     repo_item,  # `RepoItem`
     operation_in_progress,  # `bool`
     extensions_warnings,  # `dict[str, list[str]]`
-    show_developer_ui = False,  # `bool`
+    show_developer_ui=False,  # `bool`
 ):
     # filter by verification state, only for blenderkit repository
     if repo_item.remote_url == EXTENSIONS_API_URL:
