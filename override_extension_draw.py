@@ -36,6 +36,7 @@ def extension_draw_item_blenderkit(
     repo_item,  # `RepoItem`
     operation_in_progress,  # `bool`
     extensions_warnings,  # `dict[str, list[str]]`
+    show_developer_ui,  # `bool`
 ):
     ### BlenderKit cache code
     bk_ext_cache = bpy.context.window_manager["blenderkit_extensions_repo_cache"]
@@ -279,6 +280,7 @@ def extension_draw_item_override(
     repo_item,  # `RepoItem`
     operation_in_progress,  # `bool`
     extensions_warnings,  # `dict[str, list[str]]`
+    show_developer_ui = False,  # `bool`
 ):
     # filter by verification state, only for blenderkit repository
     if repo_item.remote_url == EXTENSIONS_API_URL:
@@ -295,23 +297,42 @@ def extension_draw_item_override(
             repo_item=repo_item,
             operation_in_progress=operation_in_progress,
             extensions_warnings=extensions_warnings,
+            show_developer_ui=show_developer_ui,
         )
         return True
 
-    exui.extension_draw_item_original(
-        layout,
-        pkg_id=pkg_id,
-        item_local=item_local,
-        item_remote=item_remote,
-        is_enabled=is_enabled,
-        is_outdated=is_outdated,
-        show=show,
-        mark=mark,
-        repo_index=repo_index,
-        repo_item=repo_item,
-        operation_in_progress=operation_in_progress,
-        extensions_warnings=extensions_warnings,
-    )
+    # show developer ui only needs to be passed since blender 4.4
+    if bpy.app.version >= (4, 4):
+        exui.extension_draw_item_original(
+            layout,
+            pkg_id=pkg_id,
+            item_local=item_local,
+            item_remote=item_remote,
+            is_enabled=is_enabled,
+            is_outdated=is_outdated,
+            show=show,
+            mark=mark,
+            repo_index=repo_index,
+            repo_item=repo_item,
+            operation_in_progress=operation_in_progress,
+            extensions_warnings=extensions_warnings,
+            show_developer_ui=show_developer_ui,
+        )
+    else:
+        exui.extension_draw_item_original(
+            layout,
+            pkg_id=pkg_id,
+            item_local=item_local,
+            item_remote=item_remote,
+            is_enabled=is_enabled,
+            is_outdated=is_outdated,
+            show=show,
+            mark=mark,
+            repo_index=repo_index,
+            repo_item=repo_item,
+            operation_in_progress=operation_in_progress,
+            extensions_warnings=extensions_warnings,
+        )
 
     return True
 
