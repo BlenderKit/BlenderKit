@@ -119,6 +119,67 @@ def modal_inside(self, context, event):
             if change:
                 context.region.tag_redraw()
 
+        # Check for tab shortcut keys directly in the modal function
+        if (
+            event.ctrl
+            and event.value == "PRESS"
+            and self.panel.is_in_rect(self.mouse_x, self.mouse_y)
+        ):
+            if event.type == "T" and not event.shift:
+                bk_logger.info("Ctrl+T pressed - add new tab")
+                if hasattr(self, "new_tab_button"):  # Only if we can add more tabs
+                    self.add_new_tab(None)
+                return {"RUNNING_MODAL"}
+            elif event.type == "W" and not event.shift:
+                bk_logger.info("Ctrl+W pressed - close tab")
+                if len(global_vars.TABS["tabs"]) > 1:  # Don't close last tab
+                    self.remove_tab(
+                        self.close_tab_buttons[global_vars.TABS["active_tab"]]
+                    )
+                return {"RUNNING_MODAL"}
+            elif event.type == "TAB":
+                bk_logger.info("Ctrl+Tab pressed - switch tab")
+                tabs = global_vars.TABS["tabs"]
+                current = global_vars.TABS["active_tab"]
+                if event.shift:
+                    # Go to previous tab
+                    new_index = (current - 1) % len(tabs)
+                else:
+                    # Go to next tab
+                    new_index = (current + 1) % len(tabs)
+                self.switch_to_history_step(new_index, tabs[new_index]["history_index"])
+                return {"RUNNING_MODAL"}
+            elif event.type in {
+                "ONE",
+                "TWO",
+                "THREE",
+                "FOUR",
+                "FIVE",
+                "SIX",
+                "SEVEN",
+                "EIGHT",
+                "NINE",
+            }:
+                # Convert numkey to index (0-based)
+                tab_idx = {
+                    "ONE": 0,
+                    "TWO": 1,
+                    "THREE": 2,
+                    "FOUR": 3,
+                    "FIVE": 4,
+                    "SIX": 5,
+                    "SEVEN": 6,
+                    "EIGHT": 7,
+                    "NINE": 8,
+                }[event.type]
+
+                if tab_idx < len(global_vars.TABS["tabs"]):
+                    bk_logger.info(f"Ctrl+{tab_idx+1} pressed - go to tab {tab_idx+1}")
+                    self.switch_to_history_step(
+                        tab_idx, global_vars.TABS["tabs"][tab_idx]["history_index"]
+                    )
+                return {"RUNNING_MODAL"}
+
         # ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
         if self.handle_widget_events(event):
             return {"RUNNING_MODAL"}
@@ -1772,7 +1833,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def handle_key_input(self, event):
-        bk_logger.info(f"event: {event}")
         # Shortcut: Search by author
         if event.type == "A":
             self.search_by_author(self.active_index)
@@ -1896,36 +1956,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_id=asset_data["id"], state="rejected"
             )
             return True
-
-        # Tab management shortcuts
-        bk_logger.info(f"event: {event}")
-        bk_logger.info(f"event.ctrl: {event.ctrl}")
-
-        if event.ctrl:
-            if event.type == "T" and not event.shift:
-                bk_logger.info(f"event.type: {event.type}")
-                if self.new_tab_button:  # Only if we can add more tabs
-                    self.add_new_tab(None)
-                return True
-
-            elif event.type == "W" and not event.shift:
-                if len(global_vars.TABS["tabs"]) > 1:  # Don't close last tab
-                    self.remove_tab(
-                        self.close_tab_buttons[global_vars.TABS["active_tab"]]
-                    )
-                return True
-
-            elif event.type == "TAB":
-                tabs = global_vars.TABS["tabs"]
-                current = global_vars.TABS["active_tab"]
-                if event.shift:
-                    # Go to previous tab
-                    new_index = (current - 1) % len(tabs)
-                else:
-                    # Go to next tab
-                    new_index = (current + 1) % len(tabs)
-                self.switch_to_history_step(new_index, tabs[new_index]["history_index"])
-                return True
 
         return False  # Let other shortcuts be handled
 
