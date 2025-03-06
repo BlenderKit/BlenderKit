@@ -180,6 +180,25 @@ def modal_inside(self, context, event):
                     )
                 return {"RUNNING_MODAL"}
 
+        # Handle Alt+Left/Right for history navigation
+        elif (
+            event.alt
+            and event.value == "PRESS"
+            and self.panel.is_in_rect(self.mouse_x, self.mouse_y)
+        ):
+            if event.type == "LEFT_ARROW":
+                bk_logger.info("Alt+Left pressed - history back")
+                active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+                if active_tab["history_index"] > 0:
+                    self.history_back(None)  # None instead of widget
+                return {"RUNNING_MODAL"}
+            elif event.type == "RIGHT_ARROW":
+                bk_logger.info("Alt+Right pressed - history forward")
+                active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+                if active_tab["history_index"] < len(active_tab["history"]) - 1:
+                    self.history_forward(None)  # None instead of widget
+                return {"RUNNING_MODAL"}
+
         # ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
         if self.handle_widget_events(event):
             return {"RUNNING_MODAL"}
