@@ -465,41 +465,28 @@ func downloadAsset(url, filePath string, appID int, addonVersion, platformVersio
 		return err
 	}
 
-	totalLength := resp.Header.Get("Content-Length")
-	if totalLength == "" {
-		e := DeleteFile(filePath)
-		if e != nil {
-			return fmt.Errorf("request failed: %w, failed to delete file: %w", err, e)
-		}
-		return fmt.Errorf("Content-Length header is missing")
-	}
-
-	fileSize, err := strconv.ParseInt(totalLength, 10, 64)
-	if err != nil {
-		e := DeleteFile(filePath)
-		if e != nil {
-			return fmt.Errorf("length conversion failed: %w, failed to delete file: %w", err, e)
-		}
-		return err
-	}
-
 	// Setup for monitoring progress and cancellation
-	sizeInMB := float64(fileSize) / 1024 / 1024
+	sizeInMB := float64(resp.ContentLength) / 1024 / 1024
 	var downloaded int64 = 0
 	progress := make(chan int64)
 	go func() {
 		var downloadMessage string
 		for p := range progress {
-			progress := int(100 * p / fileSize)
-			if sizeInMB < 1 { // If the size is less than 1MB, show in KB
-				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), progress)
+			var prog int
+			if resp.ContentLength < 1 { // response didn't contain Content-Length info, so we cannot compute prog
+				prog = 66 // Fake it till you make it
+				downloadMessage = fmt.Sprintf("Downloaded %.1fMB of ??MB", float64(p/1024/1024))
+			} else if sizeInMB < 1 { // If the size is less than 1MB, show in KB
+				prog = int(100 * p / resp.ContentLength)
+				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), prog)
 			} else { // If the size is not a whole number, show one decimal place
-				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, progress)
+				prog = int(100 * p / resp.ContentLength)
+				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, prog)
 			}
 			TaskProgressUpdateCh <- &TaskProgressUpdate{
 				AppID:    appID,
 				TaskID:   taskID,
-				Progress: progress,
+				Progress: prog,
 				Message:  downloadMessage,
 			}
 		}
