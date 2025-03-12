@@ -1759,7 +1759,7 @@ def get_active_history_step():
     return history_step
 
 
-def get_search_results():
+def get_search_results() -> list[dict]:
     """Get search results from the active history step."""
     history_step = get_active_history_step()
     return history_step.get("search_results", [])
