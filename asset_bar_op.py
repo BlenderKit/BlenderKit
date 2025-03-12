@@ -1496,6 +1496,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if self.active_index != search_index:
             self.active_index = search_index
             sr = search.get_search_results()
+            if search_index >= len(sr):
+                return  # issue #1481 - index can be sometimes over the length of search results
             asset_data = sr[search_index]
 
             self.draw_tooltip = True
