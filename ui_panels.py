@@ -3284,6 +3284,18 @@ class SetCategoryOperatorLastInPopupCard(SetCategoryOperatorOrigin):
     bl_idname = "view3d.blenderkit_set_category_in_popup_card_last"
 
 
+class ClearSearchKeywords(bpy.types.Operator):
+    """Clear search keywords"""
+
+    bl_idname = "view3d.blenderkit_clear_search_keywords"
+    bl_label = "Clear search keywords"
+
+    def execute(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props.search_keywords = ""
+        return {"FINISHED"}
+
+
 class ClosePopupButton(bpy.types.Operator):
     """Close popup window"""
 
@@ -3643,10 +3655,19 @@ def header_search_draw(self, context):
     search_field_width = bpy.context.preferences.addons[
         __package__
     ].preferences.search_field_width
+
+    has_search_keywords = ui_props.search_keywords != ""
+
     if search_field_width > 0:
-        row.ui_units_x = search_field_width
+        row.ui_units_x = search_field_width - has_search_keywords * 0.5
+
+    # print(row.ui_units_x)
 
     row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
+
+    # if there are search keywords, draw an x icon to clear the search keywords
+    if has_search_keywords:
+        layout.operator("view3d.blenderkit_clear_search_keywords", text="", icon="X")
 
     draw_assetbar_show_hide(layout, props)
     layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
@@ -3748,6 +3769,7 @@ classes = (
     SetCategoryOperator,
     SetCategoryOperatorInPopupCard,
     SetCategoryOperatorLastInPopupCard,
+    ClearSearchKeywords,
     SetCommentReplyId,
     VIEW3D_PT_blenderkit_profile,
     # VIEW3D_PT_blenderkit_login,
