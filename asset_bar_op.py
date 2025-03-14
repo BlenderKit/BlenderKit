@@ -1821,13 +1821,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props = bpy.context.window_manager.blenderkitUI
             # if there is already an author id in the search keywords, remove it first, the author_id can be any so
             # use regex to find it
+            # for validators, set verification status to ALL
+            if utils.profile_is_validator():
+                sprops.search_verification_status = "ALL"
             ui_props.search_keywords = re.sub(
                 r"\+author_id:\d+", "", ui_props.search_keywords
             )
             ui_props.search_keywords += f"+author_id:{a}"
-            # for validators, set verification status to ALL
-            if utils.profile_is_validator():
-                sprops.verification_status = "all"
+
             search.search()
         return True
 
