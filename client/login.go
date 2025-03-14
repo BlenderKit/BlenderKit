@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -82,15 +81,15 @@ func consumerExchangeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseJSON, status, error := GetTokens(authCode, "", verificationData)
+	responseJSON, status, errMsg, errDetails := GetTokens(authCode, "", verificationData)
 	if status == -1 {
-		text := "Authorization Failed. Server is not reachable. Response: " + error
+		text := fmt.Sprintf("Authorization Failed - wrong request parameters: %s%s", errMsg, errDetails) // errDetails is "" or ", text text..."
 		http.Error(w, text, http.StatusBadRequest)
 		return
 	}
 
 	if status != 200 {
-		text := fmt.Sprintf("Authorization Failed. Retrieval of tokens failed (status code: %d) Response: %v", status, error)
+		text := fmt.Sprintf("Authorization Failed - request failed: %s%s", errMsg, errDetails)
 		http.Error(w, text, status)
 		return
 	}
@@ -112,12 +111,17 @@ func consumerExchangeHandler(w http.ResponseWriter, r *http.Request) {
 // Parameter authCode is the authorization code - if it's not empty, it's used to get the tokens in grant_type "authorization_code".
 // Parameter refreshToken is the refresh token - if it's not empty, it's used to get the tokens in grant_type "refresh_token".
 // Must be called with either authCode or refreshToken, not both.
-func GetTokens(authCode string, refreshToken string, verificationData OAuth2VerificationData) (map[string]interface{}, int, string) {
+// Returns response JSON, status code (-1 for wrong authCode/refreshToken/verificationData, or directly HTTP status code), error message and error details ("" or ", text text...").
+func GetTokens(authCode string, refreshToken string, verificationData OAuth2VerificationData) (map[string]interface{}, int, string, string) {
 	if authCode == "" && refreshToken == "" {
-		return nil, -1, "No authCode or refreshToken provided"
+		errMsg := "No authCode or refreshToken provided"
+		BKLog.Printf("%s %s", EmoError, errMsg)
+		return nil, -1, errMsg, ""
 	}
 	if authCode != "" && refreshToken != "" {
-		return nil, -1, "Both authCode and refreshToken provided"
+		errMsg := "Both authCode and refreshToken provided"
+		BKLog.Printf("%s %s", EmoError, errMsg)
+		return nil, -1, errMsg, ""
 	}
 	data := url.Values{}
 
@@ -129,7 +133,9 @@ func GetTokens(authCode string, refreshToken string, verificationData OAuth2Veri
 		if verificationData.CodeVerifier != "" {
 			data.Set("code_verifier", verificationData.CodeVerifier)
 		} else {
-			return nil, -1, "Could not find code_verifier."
+			errMsg := "Could not find code_verifier"
+			BKLog.Printf("%s %s", EmoError, errMsg)
+			return nil, -1, errMsg, ""
 		}
 	}
 
@@ -146,38 +152,49 @@ func GetTokens(authCode string, refreshToken string, verificationData OAuth2Veri
 	url := fmt.Sprintf("%s/o/token/", *Server)
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-		return nil, -1, "Failed to create request"
+		errMsg := fmt.Sprintf("Request initialization error: %v", err)
+		details := fmt.Sprintf(", request: %v", req)
+		BKLog.Printf("%s %s%s", EmoError, errMsg, details)
+		return nil, -1, errMsg, details
 	}
 
 	req.Header = getHeaders("", *SystemID, verificationData.AddonVersion, verificationData.PlatformVersion) // Does not make sense to send old API key here
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")                                     // Overwrite Content-Type to "application/x-www-form-urlencoded"
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		log.Printf("Error making request: %v", err)
-		return nil, -1, "Failed to make request"
+		errMsg := fmt.Sprintf("Making request error: %v", err)
+		details := fmt.Sprintf(", response: %v", resp)
+		BKLog.Printf("%s %s%s", EmoError, errMsg, details)
+		return nil, -1, errMsg, details
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Error reading response: %v", err)
-		return nil, resp.StatusCode, "Failed to read response"
+		errMsg := fmt.Sprintf("Reading response body error: %v", err)
+		details := fmt.Sprintf(", response: %v, body: %s", resp, string(body))
+		BKLog.Printf("%s %s%s", EmoError, errMsg, details)
+		return nil, resp.StatusCode, errMsg, details
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("Error response from server: %s", string(body))
-		return nil, resp.StatusCode, "Failed to retrieve tokens"
+		errMsg := fmt.Sprintf("Wrong response status: %s", resp.Status)
+		details := fmt.Sprintf(", response: %v, body: %s", resp, string(body))
+		BKLog.Printf("%s %s%s", EmoError, errMsg, details)
+		return nil, resp.StatusCode, errMsg, details
 	}
 
 	var respJSON map[string]interface{}
-	if err := json.Unmarshal(body, &respJSON); err != nil {
-		log.Printf("Error decoding response JSON: %v", err)
-		return nil, resp.StatusCode, "Failed to decode response JSON"
+	err = json.Unmarshal(body, &respJSON)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error decoding response JSON: %v", err)
+		details := fmt.Sprintf(", response: %v, body: %s", resp, string(body))
+		BKLog.Printf("%s %s%s", EmoError, errMsg, details)
+		return nil, resp.StatusCode, errMsg, details
 	}
 
 	BKLog.Printf("%s Token retrieval OK (grant type: %s)", EmoIdentity, data.Get("grant_type"))
-	return respJSON, resp.StatusCode, ""
+	return respJSON, resp.StatusCode, "", ""
 }
 
 type RefreshTokenData struct {
@@ -221,7 +238,7 @@ func RefreshToken(data RefreshTokenData) {
 			PlatformVersion: data.PlatformVersion,
 		},
 	}
-	rJSON, status, errMsg := GetTokens("", data.RefreshToken, verificationData)
+	rJSON, status, errMsg, errDetails := GetTokens("", data.RefreshToken, verificationData)
 	TasksMux.Lock()
 	for appID := range Tasks {
 		taskID := uuid.New().String()
@@ -229,6 +246,7 @@ func RefreshToken(data RefreshTokenData) {
 		task.Result = rJSON
 		if errMsg != "" || status != http.StatusOK {
 			task.Message = fmt.Sprintf("Failed to refresh token: %v", errMsg)
+			task.MessageDetailed = errDetails
 			task.Status = "error"
 		} else {
 			task.Message = "Refreshed tokens obtained"

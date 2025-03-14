@@ -53,9 +53,10 @@ def handle_login_task(task: client_tasks.Task):
         )
     elif task.status == "error":
         logout()
-        reports.add_report(task.message, type="ERROR")
+        reports.add_report(task.message, type="ERROR", details=task.message_detailed)
 
 
+# TODO: probably not needed anymore, check if true and remove
 def handle_token_refresh_task(task: client_tasks.Task):
     """Handle incoming task of type token_refresh. If the new token is meant for the current user, calls handle_login_task.
     Otherwise it ignores the incoming task.
@@ -79,7 +80,7 @@ def handle_token_refresh_task(task: client_tasks.Task):
         )
     elif task.status == "error":
         logout()
-        reports.add_report(task.message)
+        reports.add_report(task.message, details=task.message_detailed)
 
 
 def handle_logout_task(task: client_tasks.Task):
