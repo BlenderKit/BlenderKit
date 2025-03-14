@@ -39,6 +39,12 @@ def extension_draw_item_blenderkit(
     show_developer_ui,  # `bool`
 ):
     ### BlenderKit cache code
+    # check if the cache is already in the window manager
+    if "blenderkit_extensions_repo_cache" not in bpy.context.window_manager:
+        ensure_repo_cache()
+        # if still not present, return
+        if "blenderkit_extensions_repo_cache" not in bpy.context.window_manager:
+            return
     bk_ext_cache = bpy.context.window_manager["blenderkit_extensions_repo_cache"]
     bk_cache_pkg = bk_ext_cache.get(pkg_id[:32], None)
     ### end of BlenderKit cache code
