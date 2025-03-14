@@ -474,7 +474,7 @@ def ensure_repository(api_key: str = ""):
             blenderkit_repository.access_token = api_key
         # except:
         # pass
-    ensure_repo_order()
+    # ensure_repo_order()
     ensure_repo_cache()
 
 
