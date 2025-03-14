@@ -20,7 +20,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
-    "version": (3, 14, 0, 250129),  # X.Y.Z.yymmdd
+    "version": (3, 15, 0, 250314),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Boost your workflow with drag&drop assets from the community driven library.",
@@ -28,7 +28,7 @@ bl_info = {
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
-VERSION = (3, 14, 0, 250129)
+VERSION = (3, 15, 0, 250314)
 
 import logging
 import sys
