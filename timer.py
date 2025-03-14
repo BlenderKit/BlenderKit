@@ -283,7 +283,7 @@ def handle_task(task: client_tasks.Task):
     if task.task_type == "login":
         return bkit_oauth.handle_login_task(task)
 
-    # HANDLE TOKEN REFRESH
+    # HANDLE TOKEN REFRESH - most likely not needed anymore, TODO: remove
     if task.task_type == "token_refresh":
         return bkit_oauth.handle_token_refresh_task(task)
 
