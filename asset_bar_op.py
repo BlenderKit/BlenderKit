@@ -1825,6 +1825,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 r"\+author_id:\d+", "", ui_props.search_keywords
             )
             ui_props.search_keywords += f"+author_id:{a}"
+            # for validators, set verification status to ALL
+            if utils.profile_is_validator():
+                sprops.verification_status = "all"
             search.search()
         return True
 
