@@ -105,23 +105,27 @@ def get_model_materials():
 def prevalidate_scene(props):
     """Check scene for possible problems:
     - check if user is author of all assets in scene"""
-    s = bpy.context.scene
-    other_authors = []
+    problematic_assets = []
     # Check if user is author of all assets in scene.
     for ob in bpy.context.scene.objects:
-        if ob.get("asset_data") is not None and not utils.user_is_owner(
-            ob["asset_data"]
-        ):
-            fn = ob["asset_data"]["author"]["fullName"]
-            other_authors.append(f"     - {fn}\n")
-    if len(other_authors) > 0:
-        oa_string = "".join(other_authors)
-        write_to_report(
-            props,
-            f"Other author's assets are present in scene \n"
-            f"Remove assets by these authors before uploading the scene:\n"
-            f"{oa_string}",
-        )
+        if not ob.get("asset_data"):
+            continue
+        if utils.user_is_owner(ob["asset_data"]):
+            pass  # continue
+        asset_name = ob["asset_data"].get("name")
+        author_name = ob["asset_data"].get("author", {}).get("fullName")
+        problematic_assets.append(f"     - {asset_name} by {author_name}\n")
+
+    if len(problematic_assets) == 0:
+        return  # No problematic assets found
+
+    oa_string = "".join(problematic_assets)
+    write_to_report(
+        props,
+        f"Other author's assets are present in scene \n"
+        f"   Remove assets by these authors before uploading the scene:\n"
+        f"{oa_string}",
+    )
 
 
 def check_missing_data_model(props):
