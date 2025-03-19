@@ -79,7 +79,7 @@ if __name__ == "__main__":
             if s.name != "upload":
                 bpy.data.scenes.remove(s)  # type: ignore
 
-        if upload_data["assetType"] == "model":
+        if upload_data["assetType"] in ["model", "printable"]:
             obnames = export_data["models"]
             main_source, allobs = append_link.append_objects(
                 file_name=export_data["source_filepath"],

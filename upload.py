@@ -1412,18 +1412,27 @@ def handle_asset_upload(task: client_tasks.Task):
 
         # crazy shit to parse stupid Django incosistent error messages
         if "detail" in task.result:
-            for key in task.result["detail"]:
-                bk_logger.info("detai key " + str(key))
-                if type(task.result["detail"][key]) == list:
-                    for item in task.result["detail"][key]:
-                        asset.upload_state += f"\n- {key}: {item}"
-                else:
-                    asset.upload_state += f"\n- {key}: {task.result['detail'][key]}"
-            return reports.add_report(
-                f"{task.message}: {task.result['detail']}",
-                type="ERROR",
-                details=task.message_detailed,
-            )
+            if type(task.result["detail"]) == dict:
+                for key in task.result["detail"]:
+                    bk_logger.info("detail key " + str(key))
+                    if type(task.result["detail"][key]) == list:
+                        for item in task.result["detail"][key]:
+                            asset.upload_state += f"\n- {key}: {item}"
+                    else:
+                        asset.upload_state += f"\n- {key}: {task.result['detail'][key]}"
+                return reports.add_report(
+                    f"{task.message}: {task.result['detail']}",
+                    type="ERROR",
+                    details=task.message_detailed,
+                )
+            if type(task.result["detail"]) == list:
+                for item in task.result["detail"]:
+                    asset.upload_state += f"\n- {item}"
+                return reports.add_report(
+                    f"{task.message}: {task.result['detail']}",
+                    type="ERROR",
+                    details=task.message_detailed,
+                )
         else:
             asset.upload_state += f"\n {task.result}"
             return reports.add_report(
