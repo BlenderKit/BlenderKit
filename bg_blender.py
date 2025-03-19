@@ -200,6 +200,7 @@ process_sources = (
     ("TEXTURE", "Texture", "a texture, or texture set"),
     ("BRUSH", "Brush", "brush, can be any type of blender brush"),
     ("NODEGROUP", "Node Group", "node group, can be any type of blender node group"),
+    ("PRINTABLE", "Printable", "3D printable model"),
 )
 
 
@@ -263,6 +264,12 @@ class KillBgProcess(bpy.types.Operator):
                 if source.bl_rna.name == "Brush" and self.process_source == "BRUSH":
                     brush = utils.get_active_brush()
                     if brush is not None and source.name == brush.name:
+                        kill = True
+                if (
+                    source.bl_rna.name == "Object"
+                    and self.process_source == "PRINTABLE"
+                ):
+                    if source.name == bpy.context.active_object.name:
                         kill = True
                 if kill:
                     estring = tcom.eval_path_computing + " = False"
