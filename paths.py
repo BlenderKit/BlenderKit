@@ -143,7 +143,7 @@ def get_temp_dir(subdir=None):
 
 def get_download_dirs(asset_type):
     """get directories where assets will be downloaded"""
-    subdmapping = {
+    plurals_mapping = {
         "brush": "brushes",
         "texture": "textures",
         "model": "models",
@@ -151,6 +151,7 @@ def get_download_dirs(asset_type):
         "material": "materials",
         "hdr": "hdrs",
         "nodegroup": "nodegroups",
+        "printable": "printables",
     }
 
     dirs = []
@@ -162,7 +163,7 @@ def get_download_dirs(asset_type):
         if ddir.startswith("//"):
             ddir = bpy.path.abspath(ddir)
 
-        subd = subdmapping[asset_type]
+        subd = plurals_mapping[asset_type]
         subdir = os.path.join(ddir, subd)
         if not os.path.exists(subdir):
             os.makedirs(subdir)
@@ -174,7 +175,7 @@ def get_download_dirs(asset_type):
     ):  # it's important local get's solved as second, since for the linking process only last filename will be taken. For download process first name will be taken and if 2 filenames were returned, file will be copied to the 2nd path.
         ddir = global_vars.PREFS["project_subdir"]
         ddir = bpy.path.abspath(ddir)
-        subdir = os.path.join(ddir, subdmapping[asset_type])
+        subdir = os.path.join(ddir, plurals_mapping[asset_type])
         if sys.platform == "win32" and len(subdir) > WINDOWS_PATH_LIMIT:
             bk_logger.warning(
                 f"Skipping LOCAL download directory. Over 250 characters: {ddir}"

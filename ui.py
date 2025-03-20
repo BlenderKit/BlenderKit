@@ -31,17 +31,6 @@ eval_time = 0
 
 bk_logger = logging.getLogger(__name__)
 
-
-mappingdict = {
-    "MODEL": "model",
-    "SCENE": "scene",
-    "HDR": "hdr",
-    "MATERIAL": "material",
-    "TEXTURE": "texture",
-    "BRUSH": "brush",
-    "NODEGROUP": "nodegroup",
-}
-
 verification_icons = {
     "ready": "vs_ready.png",
     "deleted": "vs_deleted.png",
@@ -100,7 +89,7 @@ def get_large_thumbnail_image(asset_data):
     """Get thumbnail image from asset data"""
     ui_props = bpy.context.window_manager.blenderkitUI
     iname = utils.previmg_name(ui_props.active_index, fullsize=True)
-    directory = paths.get_temp_dir(f"{mappingdict[ui_props.asset_type]}_search")
+    directory = paths.get_temp_dir(f"{ui_props.asset_type.lower()}_search")
     tpath = os.path.join(directory, asset_data["thumbnail"])
     # if asset_data['assetType'] == 'hdr':
     #     tpath = os.path.join(directory, asset_data['thumbnail'])
