@@ -373,7 +373,7 @@ def check_modifiers(props, obs):
 def get_autotags():
     """call all analysis functions"""
     ui = bpy.context.window_manager.blenderkitUI
-    if ui.asset_type == "MODEL":
+    if ui.asset_type == "MODEL" or ui.asset_type == "PRINTABLE":
         ob = utils.get_active_model()
         obs = utils.get_hierarchy(ob)
         props = ob.blenderkit

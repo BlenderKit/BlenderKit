@@ -2530,8 +2530,8 @@ def register():
                     (bpy.ops.wm.save_userpref, ()),
                     fake_context=False,
                 )
-    # extension draw overrides,
-    if bpy.app.version >= (4, 2, 0):
+    # extension draw overrides, only in new versions and not in background mode
+    if bpy.app.version >= (4, 2, 0) and bpy.app.background is False:
         override_extension_draw.register()
         override_extension_draw.ensure_repository(api_key=user_preferences.api_key)
 
@@ -2586,6 +2586,6 @@ def unregister():
 
     bpy.app.handlers.load_post.remove(scene_load)
 
-    # extension draw overrides,
-    if bpy.app.version >= (4, 2, 0):
+    # extension draw overrides, only in new versions and not in background mode
+    if bpy.app.version >= (4, 2, 0) and bpy.app.background is False:
         override_extension_draw.unregister()

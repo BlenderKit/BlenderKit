@@ -99,7 +99,7 @@ def draw_callback_3d_dragging(self, context):
         return
     ui_props = context.window_manager.blenderkitUI
     # print(self.asset_data["assetType"], self.has_hit, self.snapped_location)
-    if self.asset_data["assetType"] == "model":
+    if self.asset_data["assetType"] in ["model", "printable"]:
         if self.has_hit:
             draw_bbox(
                 self.snapped_location,
@@ -251,7 +251,7 @@ def draw_callback_3d_progress(self, context):
         asset_data = task["asset_data"]
         if task.get("downloaders"):
             for d in task["downloaders"]:
-                if asset_data["assetType"] == "model":
+                if asset_data["assetType"] in ["model", "printable"]:
                     draw_bbox(
                         d["location"],
                         d["rotation"],
@@ -487,7 +487,7 @@ class AssetDragOperator(bpy.types.Operator):
         scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        if self.asset_data["assetType"] == "model":
+        if self.asset_data["assetType"] in ["model", "printable"]:
             if not self.drag:
                 self.snapped_location = scene.cursor.location
                 self.snapped_rotation = (0, 0, 0)
@@ -705,7 +705,10 @@ class AssetDragOperator(bpy.types.Operator):
                 self.object_name = object.name
 
             # MODELS can be dragged on scene floor
-            if not self.has_hit and self.asset_data["assetType"] == "model":
+            if not self.has_hit and self.asset_data["assetType"] in [
+                "model",
+                "printable",
+            ]:
                 (
                     self.has_hit,
                     self.snapped_location,
@@ -718,7 +721,7 @@ class AssetDragOperator(bpy.types.Operator):
                 if object is not None:
                     self.object_name = object.name
 
-            if self.asset_data["assetType"] == "model":
+            if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
                 self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
             # return {'RUNNING_MODAL'}
