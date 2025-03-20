@@ -386,8 +386,6 @@ def ensure_repo_cache():
     # store the data as a dict with keys being the package names
     wm["blenderkit_extensions_repo_cache"] = {}
     for pkg in data["data"]:
-        #
-        print(pkg)
         wm["blenderkit_extensions_repo_cache"][pkg["id"][:32]] = pkg
 
 
