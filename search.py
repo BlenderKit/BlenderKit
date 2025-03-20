@@ -166,6 +166,10 @@ def check_clipboard():
         target_asset_type = "SCENE"
     elif asset_type_string.find("hdr") > -1:
         target_asset_type = "HDR"
+    elif asset_type_string.find("printable") > -1:
+        target_asset_type = "PRINTABLE"
+    elif asset_type_string.find("nodegroup") > -1:
+        target_asset_type = "NODEGROUP"
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type != target_asset_type:
         ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type
@@ -265,7 +269,7 @@ def parse_result(r) -> dict:
     # parse extra params needed for blender here
     params = r["dictParameters"]  # utils.params_to_dict(r['parameters'])
 
-    if asset_type == "model":
+    if asset_type in ["model", "printable"]:
         if params.get("boundBoxMinX") != None:
             bbox = {
                 "bbox_min": (
@@ -729,6 +733,7 @@ def query_to_url(
         "brush",
         "hdr",
         "nodegroup",
+        "printable",
     ):
         query["category_subtree"] = None
 
@@ -1259,6 +1264,7 @@ def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
         "hdri": "HDR",
         "nodegroup": "NODEGROUP",
         "node": "NODEGROUP",
+        "printable": "PRINTABLE",
     }
 
     # Convert to lowercase for matching
@@ -1333,6 +1339,8 @@ def search_update(self, context):
                 target_asset_type = "HDR"
             elif asset_type_string.find("nodegroup") > -1:
                 target_asset_type = "NODEGROUP"
+            elif asset_type_string.find("printable") > -1:
+                target_asset_type = "PRINTABLE"
 
             if ui_props.asset_type != target_asset_type:
                 ui_props.search_keywords = ""
