@@ -1195,6 +1195,7 @@ def draw_panel_material_upload(self, context):
 def draw_panel_material_search(self, context):
     wm = context.window_manager
     props = wm.blenderkit_mat
+    ui_props = wm.blenderkitUI
 
     layout = self.layout
     row = layout.row()
