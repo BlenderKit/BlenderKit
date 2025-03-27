@@ -519,7 +519,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 bpy.context.tool_settings.sculpt.brush = brush
             else:
                 bpy.ops.brush.asset_activate(
-                    relative_asset_identifier=f"Brush/{brush.name}"
+                    relative_asset_identifier=f"Brush{os.sep}{brush.name}"
                 )
         elif (
             bpy.context.view_layer.objects.active.mode == "TEXTURE_PAINT"
@@ -528,7 +528,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 bpy.context.tool_settings.image_paint.brush = brush
             else:
                 bpy.ops.brush.asset_activate(
-                    relative_asset_identifier=f"Brush/{brush.name}"
+                    relative_asset_identifier=f"Brush{os.sep}{brush.name}"
                 )
         # TODO add grease pencil brushes!
 
@@ -1068,7 +1068,7 @@ def try_finished_append(asset_data, **kwargs):  # location=None, material_target
         # TODO: this should distinguis if the appending failed (wrong file)
         # or something else happened(shouldn't delete the files)
         traceback.print_exc(limit=20)
-        reports.add_report(f"Append failed: {e}", type="ERROR")
+        reports.add_report(f"Append failed (try_finished_append): {e}", type="ERROR")
         for f in file_names:
             try:
                 os.remove(f)
