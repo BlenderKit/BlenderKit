@@ -110,6 +110,23 @@ def patch_imports(addon_module_name: str):
     print(f"- Local repository {parts[1]} added")
 
 
+def replace_materials(obs, material_name):
+    """Replace all materials on objects with the specified material
+    Args:
+        obs: List of objects to process
+        material_name: Name of the material to apply to all objects
+    """
+    material = bpy.data.materials.get(material_name)
+    if not material:
+        return
+
+    for ob in obs:
+        if ob.type == "MESH":
+            # Clear all material slots and add the specified material
+            ob.data.materials.clear()
+            ob.data.materials.append(material)
+
+
 if __name__ == "__main__":
     try:
         # args order must match the order in blenderkit/autothumb.py:get_thumbnailer_args()!
@@ -165,6 +182,10 @@ if __name__ == "__main__":
                 file_name=data["filepath"], obnames=obnames, link=True
             )
         bpy.context.view_layer.update()
+
+        # Add material replacement for printable assets
+        if data.get("type") == "PRINTABLE":
+            replace_materials(allobs, "PrintableMaterial")
 
         camdict = {
             "GROUND": "camera ground",
@@ -237,11 +258,11 @@ if __name__ == "__main__":
 
         bg_blender.progress("rendering thumbnail")
         render_thumbnails()
-
         if not data.get("upload_after_render") or not data.get("asset_data"):
             bg_blender.progress(
                 "background autothumbnailer finished successfully (no upload)"
             )
+
             sys.exit(0)
 
         bg_blender.progress("uploading thumbnail")
