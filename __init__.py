@@ -2133,7 +2133,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Custom proxy address",
         description="""Set custom HTTP proxy for HTTPS requests of add-on. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
         
-If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication. You have to specify the address with http:// prefix.
+If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication (make sure to escape special characters like #$%:^&*() etc. in username and password). You have to specify the address with http:// prefix.
 
 HTTPS proxies are not supported! We wait for support in Python 3.11 and in aiohttp module. You can specify the HTTPS proxy with https:// prefix for hacking around and development purposes, but functionality cannot be guaranteed.
 In this case you should also set path to your system CA bundle containing proxy's certificates in the field "Custom CA certificates path" below""",
