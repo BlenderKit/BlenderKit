@@ -118,6 +118,7 @@ def replace_materials(obs, material_name):
     """
     material = bpy.data.materials.get(material_name)
     if not material:
+        bg_blender.progress(f"Material {material_name} not found")
         return
 
     for ob in obs:
