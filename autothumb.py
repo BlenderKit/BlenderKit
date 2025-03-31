@@ -541,8 +541,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         an_slug = paths.slugify(asset_data["name"])
         thumb_path = os.path.join(tempdir, an_slug)
 
+        # asset type can be model or printable
+        ui_props = bpy.context.window_manager.blenderkitUI
+        asset_type = ui_props.asset_type
         args_dict = {
-            "type": "model",
+            "type": asset_type,
             "asset_name": asset_data["name"],
             "asset_data": asset_data,
             # "filepath": filepath,
@@ -552,7 +555,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             "upload_after_render": True,
         }
         thumbnail_args = {
-            "type": "model",
+            "type": asset_type,
             "thumbnail_angle": self.thumbnail_angle,
             "thumbnail_snap_to": self.thumbnail_snap_to,
             "thumbnail_background_lightness": self.thumbnail_background_lightness,
