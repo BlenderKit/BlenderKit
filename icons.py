@@ -48,6 +48,7 @@ icons_read = {
     "bookmark_empty.png": "bookmark_empty",
     "bar_slider_up.png": "bar_slider_up",
     "logo_artstation.png": "logo_artstation",
+    "logo_discord.png": "logo_discord",
     "logo_facebook.png": "logo_facebook",
     "logo_instagram.png": "logo_instagram",
     "logo_tiktok.png": "logo_tiktok",
