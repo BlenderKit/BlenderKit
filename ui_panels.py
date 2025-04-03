@@ -2766,17 +2766,22 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         social_networks = author.socialNetworks
         for social_network in social_networks:
             url = social_network.url
-            tooltip = f"Go to {social_network.name} profile"
-
-            icon_value = pcoll[f"logo_{social_network.name.lower()}"].icon_id
             if url is None or text is None:
                 continue
 
-            op = button_row.operator(
-                "wm.blenderkit_url", text="", icon_value=icon_value
-            )
+            icon_name = f"logo_{social_network.name.lower()}"
+            if icon_name in pcoll:
+                op = button_row.operator(
+                    "wm.blenderkit_url", text="", icon_value=pcoll[icon_name].icon_id
+                )
+            else:
+                bk_logger.warning(
+                    f"Social network icon {icon_name} not found in icon collection"
+                )
+                op = button_row.operator("wm.blenderkit_url", text="", icon="URL")
+
             op.url = url  # type: ignore[attr-defined]
-            op.tooltip = tooltip  # type: ignore[attr-defined]
+            op.tooltip = f"Go to {social_network.name} profile"  # type: ignore[attr-defined]
 
     def draw_thumbnail_box(self, layout, width=250):
         layout.emboss = "NORMAL"
