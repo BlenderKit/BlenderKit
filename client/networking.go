@@ -83,7 +83,7 @@ func GetHTTPClient(transport *http.Transport, tlsConfig *tls.Config, proxy func(
 	transport.Proxy = proxy
 
 	return &http.Client{
-		Transport: http.DefaultTransport,
+		Transport: transport,
 		Timeout:   timeout,
 	}
 }
