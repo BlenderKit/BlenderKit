@@ -382,16 +382,18 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         obnames = []
         for ob in obs:
             obnames.append(ob.name)
-
+        # asset type can be model or printable
+        ui_props = bpy.context.window_manager.blenderkitUI
+        asset_type = ui_props.asset_type
         args_dict = {
-            "type": "material",
+            "type": asset_type,
             "asset_name": asset.name,
             "filepath": filepath,
             "thumbnail_path": thumb_path,
             "tempdir": tempdir,
         }
         thumbnail_args = {
-            "type": "model",
+            "type": asset_type,
             "models": str(obnames),
             "thumbnail_angle": bkit.thumbnail_angle,
             "thumbnail_snap_to": bkit.thumbnail_snap_to,
@@ -539,8 +541,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         an_slug = paths.slugify(asset_data["name"])
         thumb_path = os.path.join(tempdir, an_slug)
 
+        # asset type can be model or printable
+        ui_props = bpy.context.window_manager.blenderkitUI
+        asset_type = ui_props.asset_type
         args_dict = {
-            "type": "material",
+            "type": asset_type,
             "asset_name": asset_data["name"],
             "asset_data": asset_data,
             # "filepath": filepath,
@@ -550,7 +555,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             "upload_after_render": True,
         }
         thumbnail_args = {
-            "type": "model",
+            "type": asset_type,
             "thumbnail_angle": self.thumbnail_angle,
             "thumbnail_snap_to": self.thumbnail_snap_to,
             "thumbnail_background_lightness": self.thumbnail_background_lightness,
