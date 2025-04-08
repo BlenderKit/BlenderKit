@@ -31,7 +31,7 @@ from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .ui_bgl import get_text_size
 
 
-bk_logger = logging.getLogger("blenderkit")
+bk_logger = logging.getLogger(__name__)
 
 disclaimer_counter = 0
 
