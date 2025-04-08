@@ -80,10 +80,12 @@ def handle_get_bookmarks_task(task: client_tasks.Task):
     if task.status == "created":
         return
     if task.status == "error":
-        return bk_logger.warning(f"{task.task_type} task failed: {task.message}")
+        bk_logger.warning(f"Could not load bookmarks: {task.message}")
+        return
 
     for asset in task.result["results"]:
         store_rating_local(asset["id"], "bookmarks", 1)
+    bk_logger.info("Bookmarks loaded")
 
 
 def handle_send_rating_task(task: client_tasks.Task):

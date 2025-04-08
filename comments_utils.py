@@ -74,7 +74,7 @@ def handle_notifications_task(task: client_tasks.Task):
         global_vars.DATA["bkit notifications"] = task.result
         return
     if task.status == "error":
-        return bk_logger.warning(f"Notifications fetching failed: {task.message}")
+        return bk_logger.warning(f"Could not load notifications: {task.message}")
 
 
 def check_notifications_read():

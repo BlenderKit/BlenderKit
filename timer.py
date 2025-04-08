@@ -151,6 +151,7 @@ def client_communication_timer():
             app_id=task["app_id"],
             task_type=task["task_type"],
             message=task["message"],
+            message_detailed=task["message_detailed"],
             progress=task["progress"],
             status=task["status"],
             result=task["result"],

@@ -46,7 +46,7 @@ from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 
 
-bk_logger = logging.getLogger("blenderkit")
+bk_logger = logging.getLogger(__name__)
 
 handler_2d = None
 handler_3d = None

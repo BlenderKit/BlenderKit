@@ -230,7 +230,11 @@ func handleChannels() {
 			}
 			task.Status = "error"
 			TasksMux.Unlock()
-			ChanLog.Printf("%s in %s (%s): %v\n", EmoError, task.TaskType, task.TaskID, e.Error)
+			if task.MessageDetailed != "" {
+				ChanLog.Printf("%s in %s (%s): %s ➤➤➤ %s\n", EmoError, task.TaskType, task.TaskID, task.Message, task.MessageDetailed)
+			} else {
+				ChanLog.Printf("%s in %s (%s): %s\n", EmoError, task.TaskType, task.TaskID, task.Message)
+			}
 
 		case c := <-TaskCancelCh:
 			TasksMux.Lock()
@@ -659,8 +663,10 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("search - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
+		shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
+		shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squezes into user's screenshots
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -867,7 +873,6 @@ func FetchCategories(data MinimalTaskData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("categories - performing request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -917,7 +922,6 @@ func FetchDisclaimer(data MinimalTaskData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("disclaimer - performing request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -965,7 +969,6 @@ func FetchUnreadNotifications(data MinimalTaskData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("notifications - performing request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -1178,8 +1181,9 @@ func GetUserProfile(data MinimalTaskData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("get profile - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("GET profile: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1240,8 +1244,9 @@ func GetRating(data GetRatingData) {
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("get rating - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("GET rating: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1411,8 +1416,9 @@ func SendRating(data SendRatingData) {
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("send rating - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("send rating: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1503,7 +1509,6 @@ func GetBookmarks(data MinimalTaskData) {
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("get bookmarks - making request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -1570,8 +1575,9 @@ func GetComments(data GetCommentsData) {
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("get comments - making request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("GET comments: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1642,8 +1648,9 @@ func CreateComment(data CreateCommentData) {
 	req.Header = headers
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("create comment - performing GET request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("create comment GET: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1699,8 +1706,9 @@ func CreateComment(data CreateCommentData) {
 	post_req.Header = headers
 	post_resp, err := ClientAPI.Do(post_req)
 	if err != nil {
-		err = fmt.Errorf("create comment - performing POST request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("create comment POST: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1784,8 +1792,9 @@ func FeedbackComment(data FeedbackCommentTaskData) {
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("comment feedback - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("comment feedback POST: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1863,8 +1872,9 @@ func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("comment privacy - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("comment privacy POST: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
@@ -1934,8 +1944,9 @@ func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		err = fmt.Errorf("mark notification read - performing request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		shortened_err := errors.Unwrap(err)
+		shortened_err = fmt.Errorf("mark notification read: %w", shortened_err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()

@@ -31,7 +31,7 @@ from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .ui_bgl import get_text_size
 
 
-bk_logger = logging.getLogger("blenderkit")
+bk_logger = logging.getLogger(__name__)
 
 disclaimer_counter = 0
 
@@ -287,8 +287,7 @@ def handle_disclaimer_task(task: client_tasks.Task):
         return
 
     if task.status == "error":
-        msg = f"Error downloading disclaimer info: {task.message}"
-        reports.add_report(msg, timeout=5, type="ERROR")
+        bk_logger.warning(f"Could not load disclaimer: {task.message}")
         return show_random_tip()
 
 
