@@ -287,8 +287,7 @@ def handle_disclaimer_task(task: client_tasks.Task):
         return
 
     if task.status == "error":
-        msg = f"Error downloading disclaimer info: {task.message}"
-        reports.add_report(msg, timeout=5, type="ERROR")
+        bk_logger.warning(f"Could not load disclaimer: {task.message}")
         return show_random_tip()
 
 

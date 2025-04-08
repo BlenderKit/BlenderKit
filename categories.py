@@ -134,7 +134,7 @@ def handle_categories_task(task: client_tasks.Task):
             )  # TODO: do this in Client, just saving the file so next time it is updated even without internet
         return
 
-    bk_logger.warning(task.message)
+    bk_logger.warning(f"Could not load categories: {task.message}")
     if not os.path.exists(categories_filepath):
         source_path = paths.get_addon_file(subpath="data" + os.sep + "categories.json")
         try:
