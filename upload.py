@@ -175,47 +175,6 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
             f"   Please provide a name with at most {NAME_MAXIMUM} characters.",
         )
 
-    # Tags check
-    if props.tags == "":
-        write_to_report(
-            props,
-            "At least 3 tags are required.\n"
-            "   Please provide tags for your asset.\n"
-            "   Tags help users find your asset.",
-        )
-    else:
-        tags_list = utils.string2list(props.tags)
-        if len(tags_list) < TAGS_MINIMUM:
-            write_to_report(
-                props,
-                f"At least {TAGS_MINIMUM} tags are required.\n"
-                "   Please provide more tags for your asset.\n"
-                "   Tags help users find your asset.",
-            )
-        elif len(tags_list) > TAGS_MAXIMUM:
-            write_to_report(
-                props,
-                f"Maximum {TAGS_MAXIMUM} tags are allowed.\n"
-                "   Please remove some tags from your asset.",
-            )
-        else:
-            check_tags_format(props.tags)
-
-    # Description check
-    if props.description == "":
-        write_to_report(
-            props,
-            "A description is required.\n"
-            "   Please provide a description for your asset.\n"
-            "   Description helps users understand your asset.",
-        )
-    elif len(props.description) < DESCRIPTION_MINIMUM:
-        write_to_report(
-            props,
-            f"Description is too short.\n"
-            f"   Please provide a description with at least {DESCRIPTION_MINIMUM} characters.",
-        )
-
     if props.is_private == "PUBLIC":
         category_ok = props.category == "NONE"
         subcategory_ok = props.subcategory != "EMPTY" and props.subcategory == "NONE"
