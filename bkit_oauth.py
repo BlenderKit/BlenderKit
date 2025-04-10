@@ -102,6 +102,11 @@ def clean_login_data():
     preferences.api_key = ""
     preferences.api_key_timeout = 0
     global_vars.BKIT_PROFILE = datas.MineProfile()
+    # Cleanup also the api key in the extensions repository setting and clean the cache
+    from . import override_extension_draw
+
+    override_extension_draw.ensure_repository(api_key="")
+    override_extension_draw.clear_repo_cache()
 
 
 def logout() -> None:
@@ -151,11 +156,12 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     preferences.login_attempt = False
     preferences.api_key_refresh = refresh_token
     preferences.api_key = auth_token  # triggers api_key update function
-    # write token also to extensions repository setting
+    # write token also to extensions repository setting and clear the cache
     if bpy.app.version >= (4, 2, 0):
         from . import override_extension_draw
 
         override_extension_draw.ensure_repository(api_key=auth_token)
+        override_extension_draw.clear_repo_cache()
 
     #
 
