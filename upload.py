@@ -106,12 +106,11 @@ def prevalidate_scene(props):
     """Check scene for possible problems:
     - check if user is author of all assets in scene"""
     problematic_assets = []
-    # Check if user is author of all assets in scene.
     for ob in bpy.context.scene.objects:
         if not ob.get("asset_data"):
             continue
         if utils.user_is_owner(ob["asset_data"]):
-            pass  # continue
+            continue
         asset_name = ob["asset_data"].get("name")
         author_name = ob["asset_data"].get("author", {}).get("fullName")
         problematic_assets.append(f"     - {asset_name} by {author_name}\n")
