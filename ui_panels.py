@@ -1604,7 +1604,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
 
         if ui_props.asset_type == "MATERIAL":
             props = wm.blenderkit_mat
-            layout.prop(props, "automap")
+            layout.prop(preferences, "material_import_automap")
             layout.label(text="Import method:")
             row = layout.row()
 
