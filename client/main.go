@@ -2021,12 +2021,20 @@ func doAssetUpload(data AssetUploadRequestData) {
 			return
 		}
 	} else { // 1.B UPDATE OF ASSET
+		fmt.Println(">>> data.UploadData are", data.UploadData)
+		if !isMetadataUpload { // 1.B.1 REUPLOAD WITHOUT METADATA
+			data.UploadData = AssetUploadData{ // Required fields for update - wait for https://github.com/BlenderKit/BlenderKit-server/issues/1397
+				Parameters: map[string]interface{}{},
+			}
+		}
 		if isMainFileUpload { // UPDATE OF MAINFILE -> DEVALIDATE ASSET
 			data.UploadData.VerificationStatus = "uploading"
 		}
 		var respErrorJSON json.RawMessage
 		metadataResp, respErrorJSON, err = UpdateMetadata(data)
+		fmt.Println(">>> metadataResp", metadataResp)
 		if err != nil {
+			fmt.Println(">>> UpdateMetadata err", err)
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskID, Error: err, Result: respErrorJSON}
 			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: metadataID, Error: err, Result: respErrorJSON}
 			return
@@ -2483,12 +2491,16 @@ func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.Ra
 	if !ok {
 		return nil, nil, fmt.Errorf("parameters is not a map[string]interface{}")
 	}
+	fmt.Println(">>> parameters before DictToParams", parameters)
 	data.UploadData.Parameters = DictToParams(parameters)
+	fmt.Println(">>> parameters after DictToParams", data.UploadData.Parameters)
 
 	JSON, err := json.Marshal(data.UploadData)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	fmt.Println(">>> UPDATE_METADATA JSON is:", string(JSON))
 
 	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(JSON))
 	if err != nil {
@@ -2514,6 +2526,37 @@ func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.Ra
 	respData := new(AssetsCreateResponse)
 	if err := json.NewDecoder(resp.Body).Decode(respData); err != nil {
 		return nil, nil, err
+	}
+
+	return respData, nil, nil
+}
+
+func GetMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.RawMessage, error) {
+	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get metadata - making request: %w", err)
+	}
+
+	req.Header = getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get metadata - performing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		msg := "error getting metadata"
+		respJSON, respString, respErr := ParseFailedHTTPResponse(resp)
+		if respErr != nil || respJSON == nil {
+			return nil, nil, fmt.Errorf("%s (%s): failed parsing error response (%v), [URL: %v]", msg, resp.Status, respString, url)
+		}
+		return nil, respJSON, fmt.Errorf("%s (%s)", msg, resp.Status)
+	}
+
+	respData := new(AssetsCreateResponse)
+	if err := json.NewDecoder(resp.Body).Decode(respData); err != nil {
+		return nil, nil, fmt.Errorf("get metadata - decoding response: %w", err)
 	}
 
 	return respData, nil, nil
