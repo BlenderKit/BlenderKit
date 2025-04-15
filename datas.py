@@ -43,6 +43,7 @@ class Prefs:
     updater_interval_months: int
     updater_interval_days: int
     resolution: str
+    material_import_automap: bool
 
 
 @dataclasses.dataclass
