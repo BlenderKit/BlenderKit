@@ -504,6 +504,7 @@ def get_preferences() -> datas.Prefs:
         updater_interval_days=user_preferences.updater_interval_days,  # type: ignore[union-attr]
         # IMPORT SETTINGS
         resolution=user_preferences.resolution,  # type: ignore[union-attr]
+        material_import_automap=user_preferences.material_import_automap,  # type: ignore[union-attr]
     )
     return prefs
 
@@ -941,7 +942,6 @@ def scale_uvs(ob, scale=1.0, pivot=Vector((0.5, 0.5))):
             uv.data[uvindex].uv = scale_2d(uv.data[uvindex].uv, scale, pivot)
 
 
-# map uv cubic and switch of auto tex space and set it to 1,1,1
 def automap(
     target_object=None,
     target_slot=None,
@@ -949,72 +949,80 @@ def automap(
     bg_exception=False,
     just_scale=False,
 ):
-    wm = bpy.context.window_manager
-    mat_props = wm.blenderkit_mat
-    if mat_props.automap:
-        tob = bpy.data.objects[target_object]
-        # only automap mesh models
-        if tob.type == "MESH" and len(tob.data.polygons) > 0:
-            # check polycount for a rare case where no polys are in editmesh
-            actob = bpy.context.active_object
-            bpy.context.view_layer.objects.active = tob
+    """
+    Map uv cubic and switch off auto tex space and set it to 1,1,1.
+    Only automap mesh models and if enabled in material import preferences.
+    """
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    if not preferences.material_import_automap:
+        return
 
-            # auto tex space
-            if tob.data.use_auto_texspace:
-                tob.data.use_auto_texspace = False
+    tob = bpy.data.objects[target_object]
 
-            if not just_scale:
-                tob.data.texspace_size = (1, 1, 1)
+    # Only automap mesh models
+    if tob.type != "MESH" or len(tob.data.polygons) <= 0:
+        return
 
-            if "automap" not in tob.data.uv_layers:
-                bpy.ops.mesh.uv_texture_add()
-                uvl = tob.data.uv_layers[-1]
-                uvl.name = "automap"
+    # check polycount for a rare case where no polys are in editmesh
+    actob = bpy.context.active_object
+    bpy.context.view_layer.objects.active = tob
 
-            tob.data.uv_layers.active = tob.data.uv_layers["automap"]
-            tob.data.uv_layers["automap"].active_render = True
+    # auto tex space
+    if tob.data.use_auto_texspace:
+        tob.data.use_auto_texspace = False
 
-            # TODO limit this to active material
-            # tob.data.uv_textures['automap'].active = True
+    if not just_scale:
+        tob.data.texspace_size = (1, 1, 1)
 
-            scale = tob.scale.copy()
+    if "automap" not in tob.data.uv_layers:
+        bpy.ops.mesh.uv_texture_add()
+        uvl = tob.data.uv_layers[-1]
+        uvl.name = "automap"
 
-            if target_slot is not None:
-                tob.active_material_index = target_slot
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.mesh.select_all(action="DESELECT")
+    tob.data.uv_layers.active = tob.data.uv_layers["automap"]
+    tob.data.uv_layers["automap"].active_render = True
 
-            # this exception is just for a 2.8 background thunmbnailer crash, can be removed when material slot select works...
-            if bg_exception or len(tob.material_slots) == 0:
-                bpy.ops.mesh.select_all(action="SELECT")
-            else:
-                bpy.ops.object.material_slot_select()
+    # TODO limit this to active material
+    # tob.data.uv_textures['automap'].active = True
 
-            scale = (scale.x + scale.y + scale.z) / 3.0
+    scale = tob.scale.copy()
 
-            if (
-                tex_size == 0
-            ):  # prevent division by zero, it's possible to have 0 in tex size by unskilled uploaders
-                tex_size = 1
+    if target_slot is not None:
+        tob.active_material_index = target_slot
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="DESELECT")
 
-            if not just_scale:
-                # compensate for the undocumented operator change in blender 3.2
-                if bpy.app.version >= (3, 2, 0):
-                    cube_size = (tex_size) / scale
-                else:
-                    cube_size = (
-                        scale * 2.0 / (tex_size)
-                    )  # it's * 2.0 because blender can't tell size of a unit cube :)
+    # this exception is just for a 2.8 background thunmbnailer crash, can be removed when material slot select works...
+    if bg_exception or len(tob.material_slots) == 0:
+        bpy.ops.mesh.select_all(action="SELECT")
+    else:
+        bpy.ops.object.material_slot_select()
 
-                bpy.ops.uv.cube_project(cube_size=cube_size, correct_aspect=False)
+    scale = (scale.x + scale.y + scale.z) / 3.0
 
-            bpy.ops.object.editmode_toggle()
-            # this by now works only for thumbnail preview, but should be extended to work on arbitrary objects.
-            # by now, it takes the basic uv map = 1 meter. also, it now doeasn't respect more materials on one object,
-            # it just scales whole UV.
-            if just_scale:
-                scale_uvs(tob, scale=Vector((1 / tex_size, 1 / tex_size)))
-            bpy.context.view_layer.objects.active = actob
+    if (
+        tex_size == 0
+    ):  # prevent division by zero, it's possible to have 0 in tex size by unskilled uploaders
+        tex_size = 1
+
+    if not just_scale:
+        # compensate for the undocumented operator change in blender 3.2
+        if bpy.app.version >= (3, 2, 0):
+            cube_size = (tex_size) / scale
+        else:
+            cube_size = (
+                scale * 2.0 / (tex_size)
+            )  # it's * 2.0 because blender can't tell size of a unit cube :)
+
+        bpy.ops.uv.cube_project(cube_size=cube_size, correct_aspect=False)
+
+    bpy.ops.object.editmode_toggle()
+    # this by now works only for thumbnail preview, but should be extended to work on arbitrary objects.
+    # by now, it takes the basic uv map = 1 meter. also, it now doeasn't respect more materials on one object,
+    # it just scales whole UV.
+    if just_scale:
+        scale_uvs(tob, scale=Vector((1 / tex_size, 1 / tex_size)))
+    bpy.context.view_layer.objects.active = actob
 
 
 def name_update(props, context=None):
