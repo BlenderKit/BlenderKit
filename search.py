@@ -331,7 +331,7 @@ def handle_search_task_error(task: client_tasks.Task) -> None:
         if task.task_id in history_step.get("search_tasks", {}).keys():
             history_step["is_searching"] = False
             break
-    return reports.add_report(task.message, type="ERROR")
+    return reports.add_report(task.message, type="ERROR", details=task.message_detailed)
 
 
 def handle_search_task(task: client_tasks.Task) -> bool:
@@ -643,50 +643,54 @@ def generate_author_profile(author_data: datas.UserProfile):
 
 def handle_get_user_profile(task: client_tasks.Task):
     """Handle incomming get_user_profile task which contains data about current logged-in user."""
-    if task.status == "finished":
-        user_data = task.result.get("user")
-        if not user_data:
-            bk_logger.warning("Got empty user profile")
-            return
+    if task.status not in ["finished", "error"]:
+        return
 
-        can_edit_all_assets = task.result.get("canEditAllAssets", False)
-        social_networks = datas.parse_social_networks(
-            user_data.pop("socialNetworks", [])
-        )
+    if task.status == "error":
+        bk_logger.warning(f"Could not load user profile: {task.message}")
+        return
 
-        user = datas.MineProfile(
-            socialNetworks=social_networks,
-            canEditAllAssets=can_edit_all_assets,
-            **user_data,
-        )
-        user.tooltip = generate_author_textblock(
-            user.firstName, user.lastName, user.aboutMe
-        )
-        global_vars.BKIT_PROFILE = user
+    user_data = task.result.get("user")
+    if not user_data:
+        bk_logger.warning("Got empty user profile")
+        return
 
-        public_user = datas.UserProfile(
-            aboutMe=user.aboutMe,
-            aboutMeUrl=user.aboutMeUrl,
-            avatar128=user.avatar128,
-            firstName=user.firstName,
-            fullName=user.fullName,
-            gravatarHash=user.gravatarHash,
-            id=user.id,
-            lastName=user.lastName,
-            socialNetworks=user.socialNetworks,
-            avatar256=user.avatar256,
-            gravatarImg=user.gravatarImg,
-            tooltip=user.tooltip,
-        )
-        global_vars.BKIT_AUTHORS[user.id] = public_user
+    can_edit_all_assets = task.result.get("canEditAllAssets", False)
+    social_networks = datas.parse_social_networks(user_data.pop("socialNetworks", []))
 
-        # after profile arrives, we can check for gravatar image
-        resp = client_lib.download_gravatar_image(public_user)
-        if resp.status_code != 200:
-            bk_logger.warning(resp.text)
+    user = datas.MineProfile(
+        socialNetworks=social_networks,
+        canEditAllAssets=can_edit_all_assets,
+        **user_data,
+    )
+    user.tooltip = generate_author_textblock(
+        user.firstName, user.lastName, user.aboutMe
+    )
+    global_vars.BKIT_PROFILE = user
 
-        if user.canEditAllAssets:  # IS VALIDATOR
-            utils.enforce_prerelease_update_check()
+    public_user = datas.UserProfile(
+        aboutMe=user.aboutMe,
+        aboutMeUrl=user.aboutMeUrl,
+        avatar128=user.avatar128,
+        firstName=user.firstName,
+        fullName=user.fullName,
+        gravatarHash=user.gravatarHash,
+        id=user.id,
+        lastName=user.lastName,
+        socialNetworks=user.socialNetworks,
+        avatar256=user.avatar256,
+        gravatarImg=user.gravatarImg,
+        tooltip=user.tooltip,
+    )
+    global_vars.BKIT_AUTHORS[user.id] = public_user
+
+    # after profile arrives, we can check for gravatar image
+    resp = client_lib.download_gravatar_image(public_user)
+    if resp.status_code != 200:
+        bk_logger.warning(resp.text)
+
+    if user.canEditAllAssets:  # IS VALIDATOR
+        utils.enforce_prerelease_update_check()
 
 
 def query_to_url(
