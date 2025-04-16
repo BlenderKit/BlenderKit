@@ -35,9 +35,9 @@ class BL_UI_Widget:
 
     @bg_color.setter
     def bg_color(self, value):
-        if value != self._bg_color:
-            bpy.context.region.tag_redraw()
         self._bg_color = value
+        if bpy.context.region is not None:
+            bpy.context.region.tag_redraw()
 
     @property
     def visible(self):
