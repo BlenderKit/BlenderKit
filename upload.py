@@ -1034,8 +1034,7 @@ def storage_quota_available(props) -> bool:
     if props.is_private == "PUBLIC":
         return True
 
-    quota = profile.remainingPrivateQuota
-    if quota > 0:
+    if profile.remainingPrivateQuota is not None and profile.remainingPrivateQuota > 0:
         return True
 
     props.report = "Private storage quota exceeded."

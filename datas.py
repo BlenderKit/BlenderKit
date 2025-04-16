@@ -110,7 +110,12 @@ class UserProfile:
 
 @dataclasses.dataclass
 class MineProfile:
-    """This is private information about current user's profile."""
+    """
+    This is private information about current user's profile. Fields can be also None.
+    Because API can just return null just for fun (https://github.com/BlenderKit/BlenderKit/issues/1545#event-17220997340).
+    None/null is not 0 or "" however, so we keep the None to distinguish both states.
+    As result the Nones has to be catched later in code, types are just hints in here!
+    """
 
     aboutMe: str = ""
     aboutMeUrl: str = ""
