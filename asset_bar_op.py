@@ -21,6 +21,7 @@ import math
 import os
 import re
 import time
+from typing import List, Dict, Any, TypedDict
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
@@ -42,6 +43,7 @@ from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .bl_ui_widgets.bl_ui_label import BL_UI_Label
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
+from . import client_tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -1717,14 +1719,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bookmark_button.set_image(img_fp)
 
     def update_progress_bar(self, asset_button, asset_data):
-        if asset_data["downloaded"] > 0:
-            pb = asset_button.progress_bar
-            w = int(self.button_size * asset_data["downloaded"] / 100.0)
-            asset_button.progress_bar.width = w
-            asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
-            asset_button.progress_bar.visible = True
-        else:
+        """Update progress bar for an asset button."""
+        pb = asset_button.progress_bar
+        if pb is None:
+            return
+
+        if asset_data["downloaded"] == 0:
             asset_button.progress_bar.visible = False
+            return
+
+        w = int(self.button_size * asset_data["downloaded"] / 100.0)
+        asset_button.progress_bar.width = w
+        asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
+        asset_button.progress_bar.visible = True
+        if bpy.context.region is not None:
+            bpy.context.region.tag_redraw()
 
     def update_validation_icon(self, asset_button, asset_data: dict):
         if utils.profile_is_validator():
