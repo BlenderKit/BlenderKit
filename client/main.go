@@ -2412,6 +2412,22 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 			continue
 		}
 
+		// Add support for photo_thumbnail
+		if filetype == "photo_thumbnail" {
+			// Check if photo_thumbnail_path is set in export_data
+			if export_data.FotoThumbnailPath != "" {
+				file := UploadFile{
+					Type:     "photo_thumbnail",
+					Index:    0,
+					FilePath: export_data.FotoThumbnailPath,
+				}
+				files = append(files, file)
+			} else {
+				BKLog.Printf("%s No photo_thumbnail_path provided for photo_thumbnail upload", EmoWarning)
+			}
+			continue
+		}
+
 		if filetype == "MAINFILE" {
 			file := UploadFile{
 				Type:     "blend",
@@ -2421,7 +2437,6 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 			files = append(files, file)
 			continue
 		}
-
 	}
 
 	return files, nil

@@ -306,6 +306,7 @@ type AssetUploadExportData struct {
 	NodeGroup string   `json:"nodegroup,omitempty"` // Only for node group upload
 	// Common parameters
 	ThumbnailPath     string `json:"thumbnail_path"`
+	FotoThumbnailPath string `json:"photo_thumbnail_path"`
 	AssetBaseID       string `json:"assetBaseId"`
 	ID                string `json:"id"`
 	EvalPathComputing string `json:"eval_path_computing"`

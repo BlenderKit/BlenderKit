@@ -1455,6 +1455,14 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         default=False,
     )
 
+    # Add this new property for printable assets
+    photo_thumbnail: StringProperty(
+        name="Photo Thumbnail",
+        description="Photo of the 3D printed object (JPG or PNG, preferred size is 1024x1024 or higher)",
+        subtype="FILE_PATH",
+        default="",
+    )
+
 
 class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     style: EnumProperty(
