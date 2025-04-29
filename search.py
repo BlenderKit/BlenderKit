@@ -1780,3 +1780,25 @@ def get_search_results() -> list[dict]:
 def get_active_tab():
     """Get the active tab."""
     return global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+
+
+def handle_bkclientjs_get_asset(task: client_tasks.Task):
+    """Handle incoming bkclientjs/get_asset task. User asked for download in online gallery. How it goes:
+    1. Webpage tries to connect to Client, gets data about connected Softwares
+    2. User choosed Blender with appID of this Blender
+    2. Client gets asset data from API
+    3. Client creates finished task bkclientjs/get_asset containing asset data
+    4. We handle the task in here
+    5. We request the download of the asset as if user has clicked it inside Blender
+
+    TODO: #1262 Implement append to universal search results instead.
+    """
+    bk_logger.info(f"handle_bkclientjs_get_asset: {task.data}")
+    from .asset_bar_op import asset_bar_operator
+
+    # If asset bar is not open, try to open it
+    if asset_bar_operator is None:
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+
+    if asset_bar_operator:
+        asset_bar_operator.add_new_tab(None)
