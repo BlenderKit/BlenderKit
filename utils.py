@@ -112,7 +112,7 @@ def selection_set(sel):
         print(e)
 
 
-def get_active_model():
+def get_active_model() -> Optional[bpy.types.Object]:
     if bpy.context.view_layer.objects.active is not None:
         ob = bpy.context.view_layer.objects.active
         while ob.parent is not None:
@@ -783,9 +783,9 @@ def pprint(data, data1=None, data2=None, data3=None, data4=None):
     p(json.dumps(data, indent=4, sort_keys=True))
 
 
-def get_hierarchy(object) -> list:
+def get_hierarchy(object) -> list[bpy.types.Object]:
     """Get all objects in a hierarchy tree."""
-    obs = []
+    obs: list[bpy.types.Object] = []
     doobs = [object]
     while len(doobs) > 0:
         o = doobs.pop()
@@ -1180,9 +1180,8 @@ def asset_from_newer_blender_version(asset_data, blender_version=None):
     return False, ""
 
 
-def asset_version_as_tuple(asset_data) -> tuple[int, int, int]:
+def asset_version_as_tuple(asset_data) -> tuple[int, ...]:
     """Convert a version string to a tuple of integers. This way it can be compared to the blender version tuple."""
-    version = asset_data["sourceAppVersion"]
     return tuple(map(int, asset_data["sourceAppVersion"].split(".")))
 
 
