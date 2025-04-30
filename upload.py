@@ -76,16 +76,16 @@ def write_to_report(props, text):
 
 def prevalidate_model(props):
     """Check model for possible problems:
-    - check if all objects have not asymetrical scaling."""
+    - check if all objects does not have asymmetrical scaling. Asymmetrical scaling is a big problem.
+    Anything scaled away from (1,1,1) is a smaller problem. We do not check for that.
+    """
     ob = utils.get_active_model()
     obs = utils.get_hierarchy(ob)
-    # check scaling of objects, if anything is assymetrical, it's a big problem,
-    # if anything is scaled away from (1,1,1), it's a smaller problem.
     for ob in obs:
         if ob.scale[0] != ob.scale[1] or ob.scale[1] != ob.scale[2]:
             write_to_report(
                 props,
-                "Assymetrical scaling in the object - please apply scale on all models",
+                f"Asymmetrical scaling in the object {ob.name} - please apply scale on all models",
             )
 
 
