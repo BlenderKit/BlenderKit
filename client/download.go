@@ -180,7 +180,7 @@ func doAssetDownload(
 	TasksMux.Unlock()
 
 	// GET URL FOR BLEND FILE WITH CORRECT RESOLUTION
-	canDownload, downloadURL, err := GetDownloadURL(sceneID, downloadAssetData.Files, downloadAssetData.Resolution, apiKey, addonVersion, platformVersion)
+	canDownload, downloadURL, fileUploadSize, err := GetDownloadURL(sceneID, downloadAssetData.Files, downloadAssetData.Resolution, apiKey, addonVersion, platformVersion)
 	if err != nil {
 		TaskErrorCh <- &TaskError{
 			AppID:  appID,
@@ -274,7 +274,7 @@ func doAssetDownload(
 	// START DOWNLOAD IF NEEDED
 	fp := downloadFilePaths[0]
 	if action == "download" {
-		err = downloadAsset(downloadURL, fp, appID, addonVersion, platformVersion, taskID, task.Ctx)
+		err = downloadAsset(downloadURL, fp, fileUploadSize, appID, addonVersion, platformVersion, taskID, task.Ctx)
 		if err != nil {
 			e := fmt.Errorf("error downloading asset: %w", err)
 			TaskErrorCh <- &TaskError{
@@ -425,7 +425,7 @@ func UnpackAsset(
 	return nil
 }
 
-func downloadAsset(url, filePath string, appID int, addonVersion, platformVersion, taskID string, ctx context.Context) error {
+func downloadAsset(url, filePath string, uploadFileSize int, appID int, addonVersion, platformVersion, taskID string, ctx context.Context) error {
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
 		AppID:    appID,
 		TaskID:   taskID,
@@ -444,7 +444,8 @@ func downloadAsset(url, filePath string, appID int, addonVersion, platformVersio
 		return err
 	}
 
-	req.Header = getHeaders("", *SystemID, addonVersion, platformVersion) // download needs no API key in headers
+	req.Header = getHeaders("", *SystemID, addonVersion, platformVersion) // download requires no API key in headers
+	req.Header.Set("Cookie", "allow_compression=true")                    // allow compression (#1486)
 	resp, err := ClientDownloads.Do(req)
 	if err != nil {
 		e := DeleteFile(filePath)
@@ -465,22 +466,39 @@ func downloadAsset(url, filePath string, appID int, addonVersion, platformVersio
 		return err
 	}
 
+	fmt.Println("Response Headers:")
+	for name, values := range resp.Header {
+		for _, value := range values {
+			fmt.Printf("%s: %s\n", name, value)
+		}
+	}
+
+	// Determine content length
+	var contentLength int64
+	fmt.Printf(">> uploadFileSize=%d\n", uploadFileSize)
+	fmt.Printf(">> resp.ContentLength=%d\n", resp.ContentLength)
+	if resp.ContentLength >= 0 { // Prefer the Content-Length from the HTTP response
+		contentLength = resp.ContentLength
+	} else { // If the response doesn't contain Content-Length, use the uploadFileSize from search results
+		contentLength = int64(uploadFileSize)
+	}
+
 	// Setup for monitoring progress and cancellation
-	sizeInMB := float64(resp.ContentLength) / 1024 / 1024
+	sizeInMB := float64(contentLength) / 1024 / 1024
 	var downloaded int64 = 0
 	progress := make(chan int64)
 	go func() {
 		var downloadMessage string
 		for p := range progress {
 			var prog int
-			if resp.ContentLength < 1 { // response didn't contain Content-Length info, so we cannot compute prog
-				prog = 66 // Fake it till you make it
-				downloadMessage = fmt.Sprintf("Downloaded %.1fMB of ??MB", float64(p/1024/1024))
+			if contentLength <= 0 { // response didn't contain Content-Length info, so we cannot compute exact progress
+				prog = 66 // Show a fixed progress when we don't know the total size
+				downloadMessage = fmt.Sprintf("Downloaded %.1fMB of %.1fMB (compressed)", float64(p/1024/1024), sizeInMB)
 			} else if sizeInMB < 1 { // If the size is less than 1MB, show in KB
-				prog = int(100 * p / resp.ContentLength)
+				prog = int(100 * p / contentLength)
 				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), prog)
 			} else { // If the size is not a whole number, show one decimal place
-				prog = int(100 * p / resp.ContentLength)
+				prog = int(100 * p / contentLength)
 				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, prog)
 			}
 			TaskProgressUpdateCh <- &TaskProgressUpdate{
@@ -562,48 +580,51 @@ func GetDownloadFilepaths(downloadAssetData DownloadAssetData, downloadDirs []st
 }
 
 // Get the download URL for the asset file.
-// Returns: canDownload, downloadURL, error.
-func GetDownloadURL(sceneID string, files []AssetFile, resolution string, apiKey, addonVersion, platformVersion string) (bool, string, error) {
+// canDownload - true if the file can be downloaded, false otherwise
+// downloadURL - https://assets.blenderkit.com/assets/ahksdkasd83yd928ydioayhdua/files/blend_uuid.blend?verify=123-asdavas
+// fileUploadSize - actually the size of the file we gonna download, so download size kind of
+// error - error
+func GetDownloadURL(sceneID string, files []AssetFile, resolution string, apiKey, addonVersion, platformVersion string) (bool, string, int, error) {
 	reqData := url.Values{}
 	reqData.Set("scene_uuid", sceneID)
 
 	file, _ := GetResolutionFile(files, resolution)
 
-	req, err := http.NewRequest("GET", file.DownloadURL, nil)
+	req, err := http.NewRequest("GET", file.DownloadURL, nil) // file.DownloadURL is like https://blenderkit.com/api/v1/download/123456789
 	if err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 	req.Header = getHeaders(apiKey, *SystemID, addonVersion, platformVersion)
 	req.URL.RawQuery = reqData.Encode()
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		return false, "", fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
+		return false, "", 0, fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 
 	var respJSON map[string]interface{}
 	err = json.Unmarshal(bodyBytes, &respJSON)
 	if err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 
 	url, ok := respJSON["filePath"].(string)
 	if !ok || url == "" {
-		return false, "", fmt.Errorf("filePath is None or invalid")
+		return false, "", 0, fmt.Errorf("filePath is None or invalid")
 	}
 
-	return true, url, nil
+	return true, url, file.FileUploadSize, nil
 }
 
 func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) {
