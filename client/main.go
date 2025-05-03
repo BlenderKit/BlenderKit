@@ -1032,7 +1032,7 @@ func GetDownloadURLWrapper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canDownload, URL, err := GetDownloadURL(data.Preferences.SceneID, data.DownloadAssetData.Files, data.Preferences.Resolution, data.Preferences.APIKey, data.AddonVersion, data.PlatformVersion)
+	canDownload, URL, _, err := GetDownloadURL(data.Preferences.SceneID, data.DownloadAssetData.Files, data.Preferences.Resolution, data.Preferences.APIKey, data.AddonVersion, data.PlatformVersion)
 	if err != nil {
 		http.Error(w, "Error getting download URL: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -2724,7 +2724,7 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 	// OTHER SOFTWARES - JUST GODOT NOW
 	sceneID := uuid.New().String()
-	canDownload, downloadURL, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
+	canDownload, downloadURL, _, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
 	if err != nil {
 		BKLog.Printf("%s GetDownloadURL error %v", EmoBKClientJS, err)
 		return
