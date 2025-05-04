@@ -598,10 +598,10 @@ def update_asset_metadata(asset_main, asset_data):
 
 
 def replace_resolution_linked(file_paths, asset_data):
-    # replace one asset resolution for another.
-    # this is the much simpler case
-    #  - find the library,
-    #  - replace the path and name of the library, reload.
+    """Replace one asset resolution for another. This is the much simpler case.
+    - Find the library.
+    - Replace the path and name of the library, reload.
+    """
     file_name = os.path.basename(file_paths[-1])
 
     for l in bpy.data.libraries:
@@ -621,12 +621,10 @@ def replace_resolution_linked(file_paths, asset_data):
 
 
 def replace_resolution_appended(file_paths, asset_data, resolution):
-    # In this case the texture paths need to be replaced.
-    # Find the file path pattern that is present in texture paths
-    # replace the pattern with the new one.
-    file_name = os.path.basename(file_paths[-1])
-
-    new_filename_pattern = os.path.splitext(file_name)[0]
+    """In this case the texture paths need to be replaced.
+    - Find the file path pattern that is present in texture paths.
+    - Replace the pattern with the new one.
+    """
     all_patterns = []
     for suff in paths.resolution_suffix.values():
         pattern = f"{asset_data['id']}{os.sep}textures{suff}{os.sep}"
@@ -1108,7 +1106,9 @@ def check_selectible(obs):
     return True
 
 
-def duplicate_asset(source, **kwargs):
+def duplicate_asset(
+    source, **kwargs
+) -> tuple[bpy.types.Object, list[bpy.types.Object]]:
     """
     Duplicate asset when it's already appended in the scene,
     so that blender's append doesn't create duplicated data.
@@ -1121,10 +1121,10 @@ def duplicate_asset(source, **kwargs):
     # check visibility
     obs = utils.get_hierarchy(source)
     if not check_all_visible(obs):
-        return None
+        return None, []
     # check selectability and select in one run
     if not check_selectible(obs):
-        return None
+        return None, []
 
     # duplicate the asset objects
     bpy.ops.object.duplicate(linked=True)
