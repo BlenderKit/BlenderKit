@@ -18,8 +18,11 @@
 
 import blf
 import gpu
+import logging
 from bpy import app
 from gpu_extras.batch import batch_for_shader
+
+bk_logger = logging.getLogger(__name__)
 
 
 def draw_rect(x, y, width, height, color):
@@ -46,14 +49,18 @@ def draw_rect(x, y, width, height, color):
 
 
 def draw_line2d(x1, y1, x2, y2, width, color):
+    """Used for drawing line from dragged thumbnail to the 3D bounding box."""
     coords = ((x1, y1), (x2, y2))
-
     indices = ((0, 1),)
 
     if app.version < (4, 0, 0):
         shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    else:
+    elif app.version < (4, 5, 0):
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    else:
+        shader_info = create_shader_info()
+        shader = gpu.shader.create_from_info(shader_info)
+
     batch = batch_for_shader(shader, "LINES", {"pos": coords}, indices=indices)
     gpu.state.blend_set("ALPHA")
     shader.bind()
@@ -61,11 +68,45 @@ def draw_line2d(x1, y1, x2, y2, width, color):
     batch.draw(shader)
 
 
+def create_shader_info():
+    """Added for Blender 4.5+ in which the gpu.shader.from_builtin("UNIFORM_COLOR") silently stopped working.
+    Interestingly for draw_rect_3d UNIFORM_COLOR still works just fine.
+    https://github.com/BlenderKit/BlenderKit/issues/1574
+    """
+    if app.version < (4, 5, 0):
+        return bk_logger.warning("Unexpected call to create_shader_info()!")
+    shader_info = gpu.types.GPUShaderCreateInfo()
+    shader_info.vertex_in(0, "VEC3", "pos")
+    shader_info.push_constant("MAT4", "ModelViewProjectionMatrix")
+    shader_info.push_constant("VEC4", "color")
+    shader_info.fragment_out(0, "VEC4", "fragColor")
+    shader_info.vertex_source(
+        """
+        void main() {
+            gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+        }
+    """
+    )
+    shader_info.fragment_source(
+        """
+        void main() {
+            fragColor = color;
+        }
+    """
+    )
+    return shader_info
+
+
 def draw_lines(vertices, indices, color):
+    """Used for drawing 3D bounding box."""
     if app.version < (4, 0, 0):
         shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
-    else:
+    elif app.version < (4, 5, 0):
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    else:
+        shader_info = create_shader_info()
+        shader = gpu.shader.create_from_info(shader_info)
+
     batch = batch_for_shader(shader, "LINES", {"pos": vertices}, indices=indices)
     gpu.state.blend_set("ALPHA")
     shader.bind()
