@@ -21,6 +21,8 @@
 import json
 import math
 import os
+import random
+import colorsys
 import sys
 from traceback import print_exc
 
@@ -184,10 +186,6 @@ if __name__ == "__main__":
             )
         bpy.context.view_layer.update()
 
-        # Add material replacement for printable assets
-        if data.get("type") == "PRINTABLE":
-            replace_materials(allobs, "PrintableMaterial")
-
         camdict = {
             "GROUND": "camera ground",
             "WALL": "camera wall",
@@ -209,10 +207,11 @@ if __name__ == "__main__":
                 bpy.context.preferences.addons["cycles"].preferences.refresh_devices()
 
         fdict = {
-            "DEFAULT": 1,
-            "FRONT": 2,
-            "SIDE": 3,
-            "TOP": 4,
+            "ANGLE_1": 1,
+            "ANGLE_2": 2,
+            "FRONT": 3,
+            "SIDE": 4,
+            "TOP": 5,
         }
         s = bpy.context.scene
         s.frame_set(fdict[data["thumbnail_angle"]])
@@ -232,9 +231,42 @@ if __name__ == "__main__":
         collection.hide_select = False
 
         main_object.rotation_euler = (0, 0, 0)
+
+        # Add material replacement for printable assets
+        # works directly with the specific material that has a color node for input
+        if data.get("type") == "PRINTABLE":
+            replace_materials(allobs, "PrintableMaterial")
+            # Find the BaseColor node in this material
+            material = allobs[0].active_material
+            base_color_node = material.node_tree.nodes.get("BaseColor")
+            if base_color_node:
+                # randomize the color value, needs to be defined by random hue and saturation = 0.95, we need to convert it to RGB then
+                # random_color = (random.random(), 0.95, 0.5)
+                # # convert to RGB
+                # random_color = colorsys.hsv_to_rgb(
+                #     random_color[0], random_color[1], random_color[2]
+                # )
+                random_color = data["thumbnail_material_color"]
+                base_color_node.outputs[0].default_value = (
+                    random_color[0],
+                    random_color[1],
+                    random_color[2],
+                    1,
+                )
+                # now let's make background color complementary to the material color
+                bpy.data.materials["bkit background"].node_tree.nodes[
+                    "BaseColor"
+                ].outputs["Color"].default_value = (
+                    1 - random_color[0],
+                    1 - random_color[1],
+                    1 - random_color[2],
+                    1,
+                )
+
         bpy.data.materials["bkit background"].node_tree.nodes["Value"].outputs[
             "Value"
         ].default_value = data["thumbnail_background_lightness"]
+
         s.cycles.samples = data["thumbnail_samples"]
         bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
         bpy.context.view_layer.update()

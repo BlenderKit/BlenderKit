@@ -1315,8 +1315,8 @@ def search_update(self, context):
             # Return since changing keywords will trigger this function again
             # not now - let's try it with lock
 
-    if ui_props.down_up != "SEARCH":
-        ui_props.down_up = "SEARCH"
+    # if ui_props.down_up != "SEARCH":
+    #     ui_props.down_up = "SEARCH"
 
     # Input tweaks if user manually placed asset-link from website -> we need to get rid of asset type and set it in UI.
     # This is not normally needed as check_clipboard() asset_type switching but without recursive shit.
