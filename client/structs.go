@@ -219,7 +219,8 @@ type AssetFile struct {
 	FileThumbnailLarge string `json:"fileThumbnailLarge"`
 	FileType           string `json:"fileType"`
 	Modified           string `json:"modified"`
-	Resolution         int    `json:"resolution"` // null for asset (resolution) files, thumbnails, but is integer for videos
+	Resolution         int    `json:"resolution"`     // null for asset (resolution) files, thumbnails, but is integer for videos
+	FileUploadSize     int    `json:"fileUploadSize"` // size of the file in bytes
 
 	URL      string `json:"url"`      // retrieved URL to the actual file
 	Filename string `json:"filename"` // filename of the file to be saved.
