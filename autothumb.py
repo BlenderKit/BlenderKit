@@ -20,12 +20,19 @@
 import json
 import logging
 import os
+import random
 import subprocess
 import tempfile
 from pathlib import Path
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
+from bpy.props import (
+    BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
+    FloatVectorProperty,
+)
 
 from . import bg_blender, global_vars, paths, tasks_queue, utils, upload, search
 
@@ -41,7 +48,8 @@ thumbnail_resolutions = (
 )
 
 thumbnail_angles = (
-    ("DEFAULT", "default", ""),
+    ("ANGLE_1", "Angle 1", "Lower hanging camera angle"),
+    ("ANGLE_2", "Angle 2", "Higher hanging camera angle"),
     ("FRONT", "front", ""),
     ("SIDE", "side", ""),
     ("TOP", "top", ""),
@@ -320,13 +328,17 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         return bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):
-        ob = bpy.context.active_object
-        while ob.parent is not None:
-            ob = ob.parent
+        ui_props = bpy.context.window_manager.blenderkitUI
+        asset_type = ui_props.asset_type
+
+        ob = utils.get_active_model()
         props = ob.blenderkit
         layout = self.layout
         layout.label(text="thumbnailer settings")
         layout.prop(props, "thumbnail_background_lightness")
+        # for printable models
+        if asset_type == "PRINTABLE":
+            layout.prop(props, "thumbnail_material_color")
         layout.prop(props, "thumbnail_angle")
         layout.prop(props, "thumbnail_snap_to")
         layout.prop(props, "thumbnail_samples")
@@ -398,6 +410,11 @@ class GenerateThumbnailOperator(bpy.types.Operator):
             "thumbnail_angle": bkit.thumbnail_angle,
             "thumbnail_snap_to": bkit.thumbnail_snap_to,
             "thumbnail_background_lightness": bkit.thumbnail_background_lightness,
+            "thumbnail_material_color": (
+                bkit.thumbnail_material_color[0],
+                bkit.thumbnail_material_color[1],
+                bkit.thumbnail_material_color[2],
+            ),
             "thumbnail_resolution": bkit.thumbnail_resolution,
             "thumbnail_samples": bkit.thumbnail_samples,
             "thumbnail_denoising": bkit.thumbnail_denoising,
@@ -411,12 +428,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        # if bpy.data.filepath == '':
-        #     ui_panels.ui_message(
-        #         title="Can't render thumbnail",
-        #         message="please save your file first")
-        #
-        #     return {'FINISHED'}
 
         return wm.invoke_props_dialog(self, width=400)
 
@@ -450,10 +461,17 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         max=10,
     )
 
+    thumbnail_material_color: FloatVectorProperty(
+        name="Thumbnail Material Color",
+        description="Color of the material for printable models",
+        default=(random.random(), random.random(), random.random()),
+        subtype="COLOR",
+    )
+
     thumbnail_angle: EnumProperty(  # type: ignore[valid-type]
         name="Thumbnail Angle",
         items=thumbnail_angles,
-        default="DEFAULT",
+        default="ANGLE_1",
         description="thumbnailer angle",
     )
 
@@ -493,6 +511,9 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.label(text="Server-side rendering may take several hours", icon="INFO")
         layout.label(text="thumbnailer settings")
         layout.prop(props, "thumbnail_background_lightness")
+        # for printable models
+        if self.asset_type == "PRINTABLE":
+            layout.prop(props, "thumbnail_material_color")
         layout.prop(props, "thumbnail_angle")
         layout.prop(props, "thumbnail_snap_to")
         layout.prop(props, "thumbnail_samples")
@@ -505,17 +526,12 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         if not self.asset_index > -1:
             return {"CANCELLED"}
 
-        # Get search results from history
-        history_step = search.get_active_history_step()
-        sr = history_step.get("search_results", [])
-        asset_data = sr[self.asset_index]
-
         preferences = bpy.context.preferences.addons[__package__].preferences
 
         if not self.render_locally:
             # Use server-side thumbnail regeneration
             success = upload.mark_for_thumbnail(
-                asset_id=asset_data["id"],
+                asset_id=self.asset_data["id"],
                 api_key=preferences.api_key,
                 use_gpu=preferences.thumbnail_use_gpu,
                 samples=self.thumbnail_samples,
@@ -538,16 +554,16 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         # Local thumbnail generation (original functionality)
         tempdir = tempfile.mkdtemp()
 
-        an_slug = paths.slugify(asset_data["name"])
+        an_slug = paths.slugify(self.asset_data["name"])
         thumb_path = os.path.join(tempdir, an_slug)
 
         # asset type can be model or printable
         ui_props = bpy.context.window_manager.blenderkitUI
-        asset_type = ui_props.asset_type
+        self.asset_type = ui_props.asset_type
         args_dict = {
-            "type": asset_type,
-            "asset_name": asset_data["name"],
-            "asset_data": asset_data,
+            "type": self.asset_type,
+            "asset_name": self.asset_data["name"],
+            "asset_data": self.asset_data,
             # "filepath": filepath,
             "thumbnail_path": thumb_path,
             "tempdir": tempdir,
@@ -555,7 +571,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             "upload_after_render": True,
         }
         thumbnail_args = {
-            "type": asset_type,
+            "type": self.asset_type,
             "thumbnail_angle": self.thumbnail_angle,
             "thumbnail_snap_to": self.thumbnail_snap_to,
             "thumbnail_background_lightness": self.thumbnail_background_lightness,
@@ -570,6 +586,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
+        # Get search results from history
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results", [])
+        self.asset_data = sr[self.asset_index]
+
         return wm.invoke_props_dialog(self, width=400)
 
 

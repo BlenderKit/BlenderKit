@@ -31,6 +31,7 @@ bl_info = {
 VERSION = (3, 15, 1, 250403)
 
 import logging
+import random
 import sys
 from importlib import reload
 from os import path
@@ -297,7 +298,7 @@ def asset_type_callback(self, context):
                 1,
                 (
                     "PRINTABLE",
-                    "Printable",
+                    "Printables",
                     "Find 3D printable models",
                     pcoll["asset_type_printable"].icon_id,
                     1,
@@ -1276,10 +1277,18 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         max=10,
     )
 
+    # for printable models
+    thumbnail_material_color: FloatVectorProperty(
+        name="Thumbnail Material Color",
+        description="Color of the material for printable models",
+        default=(random.random(), random.random(), random.random()),
+        subtype="COLOR",
+    )
+
     thumbnail_angle: EnumProperty(
         name="Thumbnail Angle",
         items=autothumb.thumbnail_angles,
-        default="DEFAULT",
+        default="ANGLE_1",
         description="Thumbnailer angle",
     )
 
@@ -1461,6 +1470,11 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Photo of the 3D printed object (JPG or PNG, preferred size is 1024x1024 or higher)",
         subtype="FILE_PATH",
         default="",
+    )
+    photo_thumbnail_will_upload_on_website: BoolProperty(
+        name="I will upload photo on website",
+        description="True if the photo thumbnail will upload on the website\n please read upload tutorial for more information",
+        default=False,
     )
 
 
