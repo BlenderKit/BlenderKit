@@ -204,19 +204,22 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
 
             # Add validation for the photo thumbnail for printable assets
             if asset_type == "PRINTABLE":
-                foto_thumb_path = bpy.path.abspath(props.photo_thumbnail)
-                if props.photo_thumbnail == "":
-                    write_to_report(
-                        props,
-                        "A photo thumbnail image has not been provided.\n"
-                        "   Please add a photo of the 3D printed object in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-                    )
-                elif not os.path.exists(Path(foto_thumb_path)):
-                    write_to_report(
-                        props,
-                        "Photo thumbnail filepath does not exist on the disk.\n"
-                        "   Please check the filepath and try again.",
-                    )
+                if props.photo_thumbnail_will_upload_on_website:
+                    pass
+                else:
+                    foto_thumb_path = bpy.path.abspath(props.photo_thumbnail)
+                    if props.photo_thumbnail == "":
+                        write_to_report(
+                            props,
+                            "A photo thumbnail image has not been provided.\n"
+                            "   Please add a photo of the 3D printed object in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                        )
+                    elif not os.path.exists(Path(foto_thumb_path)):
+                        write_to_report(
+                            props,
+                            "Photo thumbnail filepath does not exist on the disk.\n"
+                            "   Please check the filepath and try again.",
+                        )
 
         if asset_type == "BRUSH":
             brush = utils.get_active_brush()
