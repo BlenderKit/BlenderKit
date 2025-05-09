@@ -1484,3 +1484,21 @@ def get_project_name() -> str:
     if filename == "":
         filename = "Untitled.blend"
     return filename
+
+
+class BlenderkitException(Exception):
+    """Base class for all BlenderKit exceptions."""
+
+    pass
+
+
+class BlenderkitDownloadException(BlenderkitException):
+    """Exception raised when a download fails."""
+
+    pass
+
+
+class BlenderkitAppendException(BlenderkitException):
+    """Exception raised when an append or link of the asset fails."""
+
+    pass
