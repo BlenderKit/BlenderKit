@@ -31,6 +31,29 @@ Communication between Client and Server currently happens in one way also Client
 
 ## Development
 
+### Logging
+
+Do not use `print()` statements in the code, use logging instead.
+In the beginning of the file, there is a logger setup, if it is not already there, add it:
+```python
+import logging
+bk_logger = logging.getLogger(__name__)
+```
+
+Then instead of `print()` use the `bk_logger`:
+```python
+bk_logger.debug("Some minor stuff happened") 
+bk_logger.info("Something expected has happened") 
+bk_logger.warning("Something unexpected has happened")
+bk_logger.error("Something went very wrong")
+```
+
+If you have an exception which you can log, use `bk_logger.exception()`, e.g.:
+```python
+except Exception as e:
+    bk_logger.exception("Something went wrong and you will see full traceback below")
+```
+
 ### Codestyle
 
 We use `isort` for imports sorting.
