@@ -276,7 +276,16 @@ def draw_panel_model_upload(self, context):
 
     draw_upload_common(layout, props, asset_type, context)
 
+    # Add the photo thumbnail field only for printable assets
+
+    if asset_type == "PRINTABLE":
+        layout.prop(props, "photo_thumbnail_will_upload_on_website")
+        if not props.photo_thumbnail_will_upload_on_website:
+            col = layout.column()
+            prop_needed(col, props, "photo_thumbnail", props.photo_thumbnail)
+
     col = layout.column()
+
     if props.is_generating_thumbnail:
         col.enabled = False
 

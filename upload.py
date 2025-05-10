@@ -152,7 +152,7 @@ def check_missing_data_brush(props):
     autothumb.update_upload_brush_preview(None, None)
 
 
-def check_missing_data(asset_type, props, upload_thumbnail=True):
+def check_missing_data(asset_type, props, upload_set):
     """Check if all required data is present and fills in the upload props with error messages."""
     props.report = ""
 
@@ -186,7 +186,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if upload_thumbnail:
+    if "THUMBNAIL" in upload_set:
         if asset_type in ("MODEL", "SCENE", "MATERIAL", "PRINTABLE"):
             thumb_path = bpy.path.abspath(props.thumbnail)
             if props.thumbnail == "":
@@ -218,6 +218,26 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
                         "Brush Icon Filepath does not exist on the disk.\n"
                         "   Please check the filepath and try again.",
                     )
+    if "PHOTO_THUMBNAIL" in upload_set:  # for printable assets
+        # Add validation for the photo thumbnail for printable assets
+        # only if it's in the upload set
+
+        if props.photo_thumbnail_will_upload_on_website:
+            pass
+        else:
+            foto_thumb_path = bpy.path.abspath(props.photo_thumbnail)
+            if props.photo_thumbnail == "":
+                write_to_report(
+                    props,
+                    "A photo thumbnail image has not been provided.\n"
+                    "   Please add a photo of the 3D printed object in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                )
+            elif not os.path.exists(Path(foto_thumb_path)):
+                write_to_report(
+                    props,
+                    "Photo thumbnail filepath does not exist on the disk.\n"
+                    "   Please check the filepath and try again.",
+                )
 
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
@@ -337,6 +357,12 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             obnames.append(ob.name)
         export_data["models"] = obnames
         export_data["thumbnail_path"] = bpy.path.abspath(props.thumbnail)
+
+        # Add photo thumbnail path to export_data for printable assets
+        if asset_type == "PRINTABLE" and props.photo_thumbnail:
+            export_data["photo_thumbnail_path"] = bpy.path.abspath(
+                props.photo_thumbnail
+            )
 
         eval_path_computing = (
             "bpy.data.objects['%s'].blenderkit.uploading" % mainmodel.name
@@ -1023,8 +1049,8 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     props.tags = props.tags[:]
 
     # check for missing metadata
-    upload_thumbnail = "THUMBNAIL" in upload_set
-    check_missing_data(asset_type, props, upload_thumbnail=upload_thumbnail)
+
+    check_missing_data(asset_type, props, upload_set=upload_set)
     # if previous check did find any problems then
     if props.report != "":
         return False, None, None
@@ -1050,6 +1076,14 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
             props.upload_state = "0% - thumbnail not found"
             props.uploading = False
             return False, None, None
+
+    # Check if photo thumbnail exists for printable assets when it's included in upload_set
+    if "photo_thumbnail" in upload_set:
+        if asset_type == "PRINTABLE" and "photo_thumbnail_path" in export_data:
+            if not os.path.exists(export_data["photo_thumbnail_path"]):
+                props.upload_state = "0% - photo thumbnail not found"
+                props.uploading = False
+                return False, None, None
 
     # save a copy of the file for processing. Only for blend files
     _, ext = os.path.splitext(bpy.data.filepath)
@@ -1115,6 +1149,9 @@ class UploadOperator(Operator):
 
     thumbnail: BoolProperty(name="thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
+    # Add new property for photo thumbnail
+    photo_thumbnail: BoolProperty(name="photo thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
+
     main_file: BoolProperty(name="main file", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
     @classmethod
@@ -1128,11 +1165,16 @@ class UploadOperator(Operator):
         upload_set = []
         if not self.reupload:
             upload_set = ["METADATA", "THUMBNAIL", "MAINFILE"]
+            # Add photo_thumbnail to the upload set for printable assets
+            if self.asset_type == "PRINTABLE" and props.photo_thumbnail:
+                upload_set.append("photo_thumbnail")
         else:
             if self.metadata:
                 upload_set.append("METADATA")
             if self.thumbnail:
                 upload_set.append("THUMBNAIL")
+            if self.photo_thumbnail:
+                upload_set.append("photo_thumbnail")
             if self.main_file:
                 upload_set.append("MAINFILE")
 
@@ -1168,6 +1210,10 @@ class UploadOperator(Operator):
             # layout.prop(self, 'metadata')
             layout.prop(self, "main_file")
             layout.prop(self, "thumbnail")
+
+            # Show photo_thumbnail option only for printable assets
+            if self.asset_type == "PRINTABLE":
+                layout.prop(self, "photo_thumbnail")
 
         if props.asset_base_id != "" and not self.reupload:
             utils.label_multiline(
