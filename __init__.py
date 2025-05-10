@@ -1026,7 +1026,7 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     thumbnail_background_lightness: FloatProperty(
         name="Thumbnail Background Lightness",
         description="Set to make your material stand out with enough contrast",
-        default=0.9,
+        default=0.7,
         min=0.00001,
         max=1,
     )
@@ -1266,7 +1266,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     thumbnail_background_lightness: FloatProperty(
         name="Thumbnail Background Lightness",
         description="Set to make your Model stand out",
-        default=1.0,
+        default=0.7,
         min=0.01,
         max=10,
     )
