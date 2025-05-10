@@ -152,7 +152,7 @@ def check_missing_data_brush(props):
     autothumb.update_upload_brush_preview(None, None)
 
 
-def check_missing_data(asset_type, props, upload_thumbnail=True):
+def check_missing_data(asset_type, props, upload_set):
     """Check if all required data is present and fills in the upload props with error messages."""
     props.report = ""
 
@@ -186,7 +186,7 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
                 "   Proper categorization significantly improves your asset's discoverability.",
             )
 
-    if upload_thumbnail:
+    if "THUMBNAIL" in upload_set:
         if asset_type in ("MODEL", "SCENE", "MATERIAL", "PRINTABLE"):
             thumb_path = bpy.path.abspath(props.thumbnail)
             if props.thumbnail == "":
@@ -201,25 +201,6 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
                     "Thumbnail filepath does not exist on the disk.\n"
                     "   Please check the filepath and try again.",
                 )
-
-            # Add validation for the photo thumbnail for printable assets
-            if asset_type == "PRINTABLE":
-                if props.photo_thumbnail_will_upload_on_website:
-                    pass
-                else:
-                    foto_thumb_path = bpy.path.abspath(props.photo_thumbnail)
-                    if props.photo_thumbnail == "":
-                        write_to_report(
-                            props,
-                            "A photo thumbnail image has not been provided.\n"
-                            "   Please add a photo of the 3D printed object in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-                        )
-                    elif not os.path.exists(Path(foto_thumb_path)):
-                        write_to_report(
-                            props,
-                            "Photo thumbnail filepath does not exist on the disk.\n"
-                            "   Please check the filepath and try again.",
-                        )
 
         if asset_type == "BRUSH":
             brush = utils.get_active_brush()
@@ -237,6 +218,26 @@ def check_missing_data(asset_type, props, upload_thumbnail=True):
                         "Brush Icon Filepath does not exist on the disk.\n"
                         "   Please check the filepath and try again.",
                     )
+    if "PHOTO_THUMBNAIL" in upload_set:  # for printable assets
+        # Add validation for the photo thumbnail for printable assets
+        # only if it's in the upload set
+
+        if props.photo_thumbnail_will_upload_on_website:
+            pass
+        else:
+            foto_thumb_path = bpy.path.abspath(props.photo_thumbnail)
+            if props.photo_thumbnail == "":
+                write_to_report(
+                    props,
+                    "A photo thumbnail image has not been provided.\n"
+                    "   Please add a photo of the 3D printed object in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                )
+            elif not os.path.exists(Path(foto_thumb_path)):
+                write_to_report(
+                    props,
+                    "Photo thumbnail filepath does not exist on the disk.\n"
+                    "   Please check the filepath and try again.",
+                )
 
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
@@ -1048,8 +1049,8 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     props.tags = props.tags[:]
 
     # check for missing metadata
-    upload_thumbnail = "THUMBNAIL" in upload_set or "photo_thumbnail" in upload_set
-    check_missing_data(asset_type, props, upload_thumbnail=upload_thumbnail)
+
+    check_missing_data(asset_type, props, upload_set=upload_set)
     # if previous check did find any problems then
     if props.report != "":
         return False, None, None
