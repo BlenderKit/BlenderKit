@@ -128,6 +128,7 @@ def replace_materials(obs, material_name):
             # Clear all material slots and add the specified material
             ob.data.materials.clear()
             ob.data.materials.append(material)
+    return material
 
 
 if __name__ == "__main__":
@@ -235,9 +236,8 @@ if __name__ == "__main__":
         # Add material replacement for printable assets
         # works directly with the specific material that has a color node for input
         if data.get("type") == "PRINTABLE":
-            replace_materials(allobs, "PrintableMaterial")
+            material = replace_materials(allobs, "PrintableMaterial")
             # Find the BaseColor node in this material
-            material = allobs[0].active_material
             base_color_node = material.node_tree.nodes.get("BaseColor")
             if base_color_node:
                 # randomize the color value, needs to be defined by random hue and saturation = 0.95, we need to convert it to RGB then
