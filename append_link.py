@@ -22,7 +22,7 @@ import uuid
 
 import bpy
 
-from . import utils
+from . import utils, reports
 
 
 bk_logger = logging.getLogger(__name__)
@@ -375,7 +375,15 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
     if kwargs.get("name"):
         scene = bpy.context.scene
         sel = utils.selection_get()
-        bpy.ops.object.select_all(action="DESELECT")
+        try:
+            bpy.ops.object.select_all(action="DESELECT")
+        except Exception as e:
+            reports.add_report(
+                f"append_objects.1: {str(e)}",
+                3,
+                type="ERROR",
+            )
+            raise e
 
         path = file_name + "/Collection"
         collection_name = kwargs.get("name")
@@ -448,7 +456,15 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 utils.exclude_collection(hide_collection.name)
                 hidden_collections.append(hide_collection)
 
-        bpy.ops.object.select_all(action="DESELECT")
+        try:
+            bpy.ops.object.select_all(action="DESELECT")
+        except Exception as e:
+            reports.add_report(
+                f"append_objects.2: {str(e)}",
+                3,
+                type="ERROR",
+            )
+            raise e
         utils.selection_set(sel)
         # let collection also store info that it was created by BlenderKit, for purging reasons
 
@@ -471,7 +487,15 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
     # link them to scene
     scene = bpy.context.scene
     sel = utils.selection_get()
-    bpy.ops.object.select_all(action="DESELECT")
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+    except Exception as e:
+        reports.add_report(
+            f"append_objects.3: {str(e)}",
+            3,
+            type="ERROR",
+        )
+        raise e
 
     return_obs = []  # this might not be needed, but better be sure to rewrite the list.
     main_object = None
@@ -505,7 +529,15 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
         main_object.parent = bpy.data.objects[kwargs["parent"]]
         main_object.matrix_world.translation = location
 
-    bpy.ops.object.select_all(action="DESELECT")
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+    except Exception as e:
+        reports.add_report(
+            f"append_objects.4: {str(e)}",
+            3,
+            type="ERROR",
+        )
+        raise e
     utils.selection_set(sel)
 
     return main_object, return_obs

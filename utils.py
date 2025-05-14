@@ -90,7 +90,15 @@ def get_process_flags():
 
 
 def activate(ob):
-    bpy.ops.object.select_all(action="DESELECT")
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+    except Exception as e:
+        reports.add_report(
+            f"utils.activate: {str(e)}",
+            3,
+            type="ERROR",
+        )
+        raise e
     ob.select_set(True)
     bpy.context.view_layer.objects.active = ob
 
@@ -102,7 +110,15 @@ def selection_get():
 
 
 def selection_set(sel):
-    bpy.ops.object.select_all(action="DESELECT")
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+    except Exception as e:
+        reports.add_report(
+            f"utils.selection_set: {str(e)}",
+            3,
+            type="ERROR",
+        )
+        raise e
     try:
         bpy.context.view_layer.objects.active = sel[0]
         for ob in sel[1]:
@@ -990,11 +1006,27 @@ def automap(
     if target_slot is not None:
         tob.active_material_index = target_slot
     bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="DESELECT")
+    try:
+        bpy.ops.mesh.select_all(action="DESELECT")
+    except Exception as e:
+        reports.add_report(
+            f"automap.1: {str(e)}",
+            3,
+            type="ERROR",
+        )
+        raise e
 
     # this exception is just for a 2.8 background thunmbnailer crash, can be removed when material slot select works...
     if bg_exception or len(tob.material_slots) == 0:
-        bpy.ops.mesh.select_all(action="SELECT")
+        try:
+            bpy.ops.mesh.select_all(action="SELECT")
+        except Exception as e:
+            reports.add_report(
+                f"automap.2: {str(e)}",
+                3,
+                type="ERROR",
+            )
+            raise e
     else:
         bpy.ops.object.material_slot_select()
 

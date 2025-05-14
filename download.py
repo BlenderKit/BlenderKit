@@ -1116,7 +1116,15 @@ def duplicate_asset(
     bk_logger.debug("duplicate asset instead")
     # we need to save selection
     sel = utils.selection_get()
-    bpy.ops.object.select_all(action="DESELECT")
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+    except Exception as e:
+        reports.add_report(
+            f"duplicate_asset: {str(e)}",
+            3,
+            type="ERROR",
+        )
+        raise e
 
     # check visibility
     obs = utils.get_hierarchy(source)
