@@ -16,9 +16,14 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import logging
 import bpy
 import mathutils
 from bpy.types import Operator
+from . import reports
+
+
+bk_logger = logging.getLogger(__name__)
 
 
 def getNodes(nt, node_type="OUTPUT_MATERIAL"):
@@ -249,7 +254,15 @@ class BringToScene(Operator):
             )
 
         for relation in related:
-            bpy.ops.object.select_all(action="DESELECT")
+            try:
+                bpy.ops.object.select_all(action="DESELECT")
+            except Exception as e:
+                reports.add_report(
+                    f"BringToScene.execute: {str(e)}",
+                    3,
+                    type="ERROR",
+                )
+                raise e
             bpy.context.view_layer.objects.active = relation[0]
             relation[0].select_set(True)
             relation[1].select_set(True)
