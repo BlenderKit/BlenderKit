@@ -146,6 +146,7 @@ type Asset struct {
 	IsPrivate                        bool                   `json:"isPrivate"`
 	LastBlendUpload                  string                 `json:"lastBlendUpload"`
 	LastGltfUpload                   string                 `json:"lastGltfUpload"`
+	LastPhotoThumbnailUpload         string                 `json:"lastPhotoThumbnailUpload"`
 	LastResolutionUpload             string                 `json:"lastResolutionUpload"`
 	LastThumbnailUpload              string                 `json:"lastThumbnailUpload"`
 	LastUserInteraction              string                 `json:"lastUserInteraction"`
@@ -224,6 +225,10 @@ type AssetFile struct {
 
 	URL      string `json:"url"`      // retrieved URL to the actual file
 	Filename string `json:"filename"` // filename of the file to be saved.
+
+	// FileType = "photo_thumbnail" or "thumbnail"
+	ThumbnailSmallURL  string `json:"thumbnailSmallUrl"`
+	ThumbnailMiddleURL string `json:"thumbnailMiddleUrl"`
 }
 
 type DownloadAssetData struct {

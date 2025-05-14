@@ -3127,6 +3127,23 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         split_left = row.split(factor=split_ratio)
         left_column = split_left.column()
         self.draw_thumbnail_box(left_column, width=int(self.width * split_ratio))
+
+        # Display photo thumbnail for printable objects
+        if (
+            self.asset_data.get("assetType") == "printable"
+            and hasattr(self, "full_photo_thumbnail")
+            and self.full_photo_thumbnail
+        ):
+            left_column.separator()
+            left_column.label(text="Photo")
+            photo_box = left_column.box()
+            photo_box.scale_y = 0.4
+            photo_box.template_icon(
+                icon_value=self.full_photo_thumbnail.preview.icon_id,
+                scale=int(self.width * split_ratio * 0.12),
+            )
+            self.full_photo_thumbnail.gl_touch()
+
         if not utils.user_is_owner(asset_data=self.asset_data):
             # Draw ratings, but not for owners of assets - doesn't make sense.
             ratings_box = left_column.box()
@@ -3169,6 +3186,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         self.img = ui.get_large_thumbnail_image(asset_data)
         utils.img_to_preview(self.img, copy_original=True)
+
+        if asset_data["assetType"] == "printable":
+            self.full_photo_thumbnail = ui.get_full_photo_thumbnail(asset_data)
+            if self.full_photo_thumbnail:
+                utils.img_to_preview(self.full_photo_thumbnail, copy_original=True)
+                bk_logger.info(f"Full photo thumbnail: {self.full_photo_thumbnail}")
+            else:
+                bk_logger.info("No photo thumbnail found for this printable asset")
 
         self.asset_type = asset_data["assetType"]
         self.asset_id = asset_data["id"]
