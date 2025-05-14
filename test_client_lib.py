@@ -145,37 +145,43 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
             get_next=False,
             scene_uuid="",
         )
-        response = client_lib.asset_search(data)
-        search_task_id = response["task_id"]
+        try:
+            response = client_lib.asset_search(data)
+            search_task_id = response["task_id"]
 
-        to_download = None
-        for i in range(10):
-            reports = client_lib.get_reports(os.getpid())
-            for task in reports:
-                if search_task_id != task["task_id"]:
-                    continue
-                if task["status"] == "error":
-                    self.fail(f'Search task failed {task["message"]}')
-                if task["status"] != "finished":
-                    continue
-                if task["result"] != {}:
-                    for result in task["result"]["results"]:
-                        if result["canDownload"] == True:
-                            if to_download == None:
-                                to_download = result
-                                continue
-                            result_size = result.get("filesSize", 9999999)
-                            if result_size == None:
-                                result_size = 9999999
-                            to_download_size = to_download.get("filesSize", 9999999)
-                            if to_download_size == None:
-                                to_download_size = 9999999
-                            if result_size < to_download_size:
-                                to_download = result
-                    return to_download
+            to_download = None
+            for i in range(10):
+                reports = client_lib.get_reports(os.getpid())
+                for task in reports:
+                    if search_task_id != task["task_id"]:
+                        continue
+                    if task["status"] == "error":
+                        error_msg = task.get("message", "Unknown error")
+                        self.fail(f"Search task failed: {error_msg}, query: {urlquery}")
+                    if task["status"] != "finished":
+                        continue
+                    if task["result"] != {}:
+                        for result in task["result"]["results"]:
+                            if result["canDownload"] == True:
+                                if to_download == None:
+                                    to_download = result
+                                    continue
+                                result_size = result.get("filesSize", 9999999)
+                                if result_size == None:
+                                    result_size = 9999999
+                                to_download_size = to_download.get("filesSize", 9999999)
+                                if to_download_size == None:
+                                    to_download_size = 9999999
+                                if result_size < to_download_size:
+                                    to_download = result
+                        return to_download
 
-            time.sleep(i * 0.1)
-        self.fail("Error waiting for search task to be reported as finished")
+                time.sleep(i * 0.1)
+            self.fail(
+                f"Error waiting for search task to be reported as finished, query: {urlquery}"
+            )
+        except Exception as e:
+            self.fail(f"Search request failed: {str(e)}, query: {urlquery}")
 
     def _asset_download(self, asset_data):
         if asset_data == None:
@@ -200,40 +206,40 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
 
     # small assets are chosen here
     def test00Search(self):
-        self.assets_to_download.append(self._asset_search("Toy train-02", "model"))
+        self.assets_to_download.append(self._asset_search("Toy+train-02", "model"))
 
     def test01Search(self):
-        self.assets_to_download.append(self._asset_search("Wooden toy car", "model"))
+        self.assets_to_download.append(self._asset_search("Wooden+toy+car", "model"))
 
     def test02Search(self):
         self.assets_to_download.append(
-            self._asset_search("flowers1 wallpaper", "material")
+            self._asset_search("flowers1+wallpaper", "material")
         )
 
     def test03Search(self):
-        self.assets_to_download.append(self._asset_search("hexa wallpaper", "material"))
+        self.assets_to_download.append(self._asset_search("hexa+wallpaper", "material"))
 
     def test04Search(self):
         self.assets_to_download.append(
-            self._asset_search("Desk for product visualization", "scene")
+            self._asset_search("Desk+for+product+visualization", "scene")
         )
 
     def test05Search(self):
         self.assets_to_download.append(
-            self._asset_search("Butterfly Mural Room", "scene")
+            self._asset_search("Butterfly+Mural+Room", "scene")
         )
 
     def test06Search(self):
-        self.assets_to_download.append(self._asset_search("Garden Nook", "hdr"))
+        self.assets_to_download.append(self._asset_search("Garden+Nook", "hdr"))
 
     def test07Search(self):
-        self.assets_to_download.append(self._asset_search("Dark Autumn Forest", "hdr"))
+        self.assets_to_download.append(self._asset_search("Dark+Autumn+Forest", "hdr"))
 
     def test08Search(self):
         self.assets_to_download.append(self._asset_search("bricks", "brush"))
 
     def test09Search(self):
-        self.assets_to_download.append(self._asset_search("Human eye iris", "brush"))
+        self.assets_to_download.append(self._asset_search("Human+eye+iris", "brush"))
 
     def test10Download(self):
         self._asset_download(self.assets_to_download[0])
