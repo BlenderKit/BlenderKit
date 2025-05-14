@@ -103,6 +103,48 @@ def get_large_thumbnail_image(asset_data):
     return img
 
 
+def get_full_photo_thumbnail(asset_data):
+    """Get full photo thumbnail from asset data. This is different from the large thumbnail
+    as the photo_thumbnails are not available on the asset data root, but inside the files[].
+    We need to get the data from files[] where assetType=='photo_thumbnail'."""
+    # Find the photo thumbnail file
+    photo_file = None
+    for file in asset_data.get("files", []):
+        if file.get("fileType") == "photo_thumbnail":
+            photo_file = file
+            break
+    if not photo_file:
+        bk_logger.info("No photo thumbnail file found in asset data")
+        return None
+
+    bk_logger.info(f"Photo thumbnail file found: {photo_file}")
+    # Try to get the best quality thumbnail URL in order of preference
+    photo_url = None
+    photo_url = photo_file.get("thumbnailMiddleUrl")
+    if photo_url:
+        bk_logger.info(f"Found photo thumbnail URL: {photo_url}")
+    else:
+        bk_logger.info("No thumbnail URL found in photo file")
+
+    if not photo_url:
+        bk_logger.info("No thumbnail URL found in photo file")
+        return None
+
+    # Get the directory and construct the path
+    ui_props = bpy.context.window_manager.blenderkitUI
+    directory = paths.get_temp_dir(f"{ui_props.asset_type.lower()}_search")
+    photo_name = os.path.basename(photo_url)
+    tpath = os.path.join(directory, photo_name)
+
+    # Load the image into Blender
+    if os.path.exists(tpath):
+        img = utils.get_hidden_image(tpath, photo_name, colorspace="")
+        return img
+
+    bk_logger.info(f"Photo thumbnail file not found at path: {tpath}")
+    return None
+
+
 def is_rating_possible() -> tuple[bool, bool, Any, Any]:
     # TODO remove this, but first check and reuse the code for new rating system...
     ao = bpy.context.active_object
