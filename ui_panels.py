@@ -2803,6 +2803,19 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         )
         self.img.gl_touch()
 
+        # Display photo thumbnail for printable objects
+        if (
+            self.asset_data.get("assetType") == "printable"
+            and hasattr(self, "full_photo_thumbnail")
+            and self.full_photo_thumbnail
+        ):
+            box_thumbnail.scale_y = 0.4
+            box_thumbnail.template_icon(
+                icon_value=self.full_photo_thumbnail.preview.icon_id,
+                scale=width * 0.12,
+            )
+            self.full_photo_thumbnail.gl_touch()
+
         # op = row.operator('view3d.asset_drag_drop', text='Drag & Drop from here', depress=True)
         # From here on, only ratings are drawn, which won't be displayed for private assets from now on.
 
@@ -3127,22 +3140,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         split_left = row.split(factor=split_ratio)
         left_column = split_left.column()
         self.draw_thumbnail_box(left_column, width=int(self.width * split_ratio))
-
-        # Display photo thumbnail for printable objects
-        if (
-            self.asset_data.get("assetType") == "printable"
-            and hasattr(self, "full_photo_thumbnail")
-            and self.full_photo_thumbnail
-        ):
-            left_column.separator()
-            left_column.label(text="Photo")
-            photo_box = left_column.box()
-            photo_box.scale_y = 0.4
-            photo_box.template_icon(
-                icon_value=self.full_photo_thumbnail.preview.icon_id,
-                scale=int(self.width * split_ratio * 0.12),
-            )
-            self.full_photo_thumbnail.gl_touch()
 
         if not utils.user_is_owner(asset_data=self.asset_data):
             # Draw ratings, but not for owners of assets - doesn't make sense.
