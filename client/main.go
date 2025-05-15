@@ -700,8 +700,7 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 }
 
 func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
-	var smallThumbsTasks, fullThumbsTasks []*Task
-	var smallPhotoThumbnailsTasks, fullPhotoThumbnailsTasks []*Task
+	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks []*Task
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
 	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avoid nesting
@@ -774,40 +773,11 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 			}
 
 			// For photo thumbnails, we need both small and full versions
-			var smallPhotoThumbURL, fullPhotoThumbURL string
-
-			// Get small thumbnail URL (256x256)
-			if file.ThumbnailSmallURL != "" {
-				smallPhotoThumbURL = file.ThumbnailSmallURL
-			} else {
-				BKLog.Printf("No small photo thumbnail for asset: %s", result.DisplayName)
-			}
-			if file.ThumbnailMiddleURL != "" {
-				fullPhotoThumbURL = file.ThumbnailMiddleURL
-			} else {
-				BKLog.Printf("No full photo thumbnail for asset: %s", result.DisplayName)
-			}
-
-			if smallPhotoThumbURL == "" || fullPhotoThumbURL == "" {
-				BKLog.Printf("Missing photo thumbnails for asset: %s", result.DisplayName)
+			if file.ThumbnailMiddleURL == "" {
+				BKLog.Printf("Missing photo_thumbnail.ThumbnailMiddleURL for asset: %s", result.DisplayName)
 				continue
 			}
-
-			// Small Photo Thumbnail
-			smallPhotoThumbnailName, smallPhotoThumbnailNameErr := ExtractFilenameFromURL(smallPhotoThumbURL)
-			smallPhotoThumbnailPath := filepath.Join(data.TempDir, smallPhotoThumbnailName)
-			smallPhotoThumbnailTaskData := DownloadThumbnailData{
-				AddonVersion:  data.AddonVersion,
-				ThumbnailType: "photo_small",
-				ImagePath:     smallPhotoThumbnailPath,
-				ImageURL:      smallPhotoThumbURL,
-			}
-			smallPhotoThumbnailTaskUUID := uuid.New().String()
-			smallPhotoThumbnailTask := NewTask(smallPhotoThumbnailTaskData, data.AppID, smallPhotoThumbnailTaskUUID, "thumbnail_download")
-			if smallPhotoThumbnailNameErr != nil {
-				smallPhotoThumbnailTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", smallPhotoThumbnailNameErr, result.DisplayName)
-			}
-			smallPhotoThumbnailsTasks = append(smallPhotoThumbnailsTasks, smallPhotoThumbnailTask)
+			fullPhotoThumbURL := file.ThumbnailMiddleURL
 
 			// Full Photo Thumbnail
 			fullPhotoThumbnailName, fullPhotoThumbnailNameErr := ExtractFilenameFromURL(fullThumbURL)
@@ -823,14 +793,13 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 			if fullPhotoThumbnailNameErr != nil {
 				fullPhotoThumbnailTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", fullPhotoThumbnailNameErr, result.DisplayName)
 			}
-			fullPhotoThumbnailsTasks = append(fullPhotoThumbnailsTasks, fullPhotoThumbnailTask)
+			fullPhotoThumbsTasks = append(fullPhotoThumbsTasks, fullPhotoThumbnailTask)
 		}
 	}
 
 	go downloadImageBatch(smallThumbsTasks, true)
 	go downloadImageBatch(fullThumbsTasks, true)
-	go downloadImageBatch(smallPhotoThumbnailsTasks, true)
-	go downloadImageBatch(fullPhotoThumbnailsTasks, true)
+	go downloadImageBatch(fullPhotoThumbsTasks, true)
 }
 
 func downloadImageBatch(tasks []*Task, block bool) {
