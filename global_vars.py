@@ -175,6 +175,14 @@ TIPS = [
         "Jump directly to a specific tab using Ctrl+1 through Ctrl+9 in the asset bar.",
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
     ),
+    {
+        "Use keys 1 and 2 to toggle photo thumbnail over printable assets in the asset bar.",
+        "",
+    },
+    {
+        "Use keys [ and ] to toggle between normal and photo thumbnail over printable assets.",
+        "",
+    },
 ]
 VERSION = [0, 0, 0, 0]  # filled in register()
 
