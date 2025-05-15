@@ -767,20 +767,19 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 			continue
 		}
 
+		// Full Photo Thumbnail - we need to get it from files list
 		for _, file := range result.Files {
 			if file.FileType != "photo_thumbnail" {
 				continue
 			}
 
-			// For photo thumbnails, we need both small and full versions
 			if file.ThumbnailMiddleURL == "" {
 				BKLog.Printf("Missing photo_thumbnail.ThumbnailMiddleURL for asset: %s", result.DisplayName)
 				continue
 			}
 			fullPhotoThumbURL := file.ThumbnailMiddleURL
 
-			// Full Photo Thumbnail
-			fullPhotoThumbnailName, fullPhotoThumbnailNameErr := ExtractFilenameFromURL(fullThumbURL)
+			fullPhotoThumbnailName, fullPhotoThumbnailNameErr := ExtractFilenameFromURL(fullPhotoThumbURL)
 			fullPhotoThumbnailPath := filepath.Join(data.TempDir, fullPhotoThumbnailName)
 			fullPhotoThumbnailTaskData := DownloadThumbnailData{
 				AddonVersion:  data.AddonVersion,
