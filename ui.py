@@ -113,21 +113,14 @@ def get_full_photo_thumbnail(asset_data):
         if file.get("fileType") == "photo_thumbnail":
             photo_file = file
             break
-    if not photo_file:
-        bk_logger.info("No photo thumbnail file found in asset data")
+
+    if photo_file is None:
+        bk_logger.warning("No photo thumbnail file found in asset data")
         return None
 
-    bk_logger.info(f"Photo thumbnail file found: {photo_file}")
-    # Try to get the best quality thumbnail URL in order of preference
-    photo_url = None
     photo_url = photo_file.get("thumbnailMiddleUrl")
-    if photo_url:
-        bk_logger.info(f"Found photo thumbnail URL: {photo_url}")
-    else:
-        bk_logger.info("No thumbnail URL found in photo file")
-
-    if not photo_url:
-        bk_logger.info("No thumbnail URL found in photo file")
+    if photo_url is None:
+        bk_logger.warning("No thumbnail URL found in photo file")
         return None
 
     # Get the directory and construct the path
