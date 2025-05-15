@@ -76,6 +76,27 @@ def modal_inside(self, context, event):
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons[__package__].preferences
 
+        # HANDLE PHOTO THUMBNAIL SWITCH
+        if hasattr(self, "needs_tooltip_update") and self.needs_tooltip_update:
+            self.needs_tooltip_update = False
+            sr = search.get_search_results()
+            if sr and self.active_index < len(sr):
+                asset_data = sr[self.active_index]
+                if asset_data["assetType"].lower() == "printable":
+                    if self.show_photo_thumbnail:
+                        photo_img = ui.get_full_photo_thumbnail(asset_data)
+                        if photo_img:
+                            self.tooltip_image.set_image(photo_img.filepath)
+                            self.tooltip_image.set_image_colorspace("")
+                        else:
+                            self.tooltip_image.set_image(
+                                paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+                            )
+                    else:
+                        set_thumb_check(
+                            self.tooltip_image, asset_data, thumb_type="thumbnail"
+                        )
+
         if ui_props.turn_off:
             ui_props.turn_off = False
             self.finish()
@@ -427,6 +448,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         default="Runs search and displays the asset bar at the same time"
     )
 
+    show_photo_thumbnail: BoolProperty(  # type: ignore[valid-type]
+        name="Show Photo Thumbnail",
+        description="Toggle between normal and photo thumbnail - use [ or ] to cycle through thumbnails. Currently used only for printables.",
+        default=False,
+        options={"SKIP_SAVE"},
+    )
+
     @classmethod
     def description(cls, context, properties):
         return properties.tooltip
@@ -446,9 +474,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_scale = 1.0
         self.tooltip_height = self.tooltip_size
         self.tooltip_width = self.tooltip_size
-        ui_props = bpy.context.window_manager.blenderkitUI
-        if ui_props.asset_type == "HDR":
-            self.tooltip_width = self.tooltip_size * 2
         # total_size = tooltip# + 2 * self.margin
         self.tooltip_panel = BL_UI_Drag_Panel(
             0, 0, self.tooltip_width, self.tooltip_height
@@ -1320,6 +1345,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_base_size_pixels = 512
         self.tooltip_scale = 1.0
         self.bottom_panel_fraction = 0.15
+        self.needs_tooltip_update = False
         self.update_ui_size(bpy.context)
 
         # todo move all this to update UI size
@@ -1441,7 +1467,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_tooltip_image(self, asset_id):
         """Update tootlip image when it finishes downloading and the downloaded image matches the active one."""
-
         search_results = search.get_search_results()
         if search_results is None:
             return
@@ -1499,7 +1524,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # self.tooltip = asset_data['tooltip']
             ui_props = bpy.context.window_manager.blenderkitUI
             ui_props.active_index = search_index  # + self.scroll_offset
-            set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
+
+            # Update tooltip size based on asset type
+            if (
+                asset_data["assetType"].lower() == "printable"
+                and self.show_photo_thumbnail
+            ):
+                photo_img = ui.get_full_photo_thumbnail(asset_data)
+                if photo_img:
+                    self.tooltip_image.set_image(photo_img.filepath)
+                    self.tooltip_image.set_image_colorspace("")
+                else:
+                    self.tooltip_image.set_image(
+                        paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+                    )
+            else:
+                set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
+
             get_tooltip_data(asset_data)
             an = asset_data["displayName"]
             max_name_length = 30
@@ -1853,6 +1894,24 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def handle_key_input(self, event):
+        # Shortcut: Toggle between normal and photo thumbnail
+        if event.type in {"ONE"}:
+            if self.show_photo_thumbnail == True:
+                self.show_photo_thumbnail = False
+                self.needs_tooltip_update = True
+        if event.type in {"TWO"}:
+            if self.show_photo_thumbnail == False:
+                self.show_photo_thumbnail = True
+                self.needs_tooltip_update = True
+        if (
+            event.type in {"LEFT_BRACKET", "RIGHT_BRACKET"}
+            and not event.shift
+            and self.active_index > -1
+        ):
+            self.show_photo_thumbnail = not self.show_photo_thumbnail
+            self.needs_tooltip_update = True
+            return True
+
         # Shortcut: Search by author
         if event.type == "A":
             self.search_by_author(self.active_index)
