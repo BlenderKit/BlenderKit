@@ -3188,9 +3188,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.full_photo_thumbnail = ui.get_full_photo_thumbnail(asset_data)
             if self.full_photo_thumbnail:
                 utils.img_to_preview(self.full_photo_thumbnail, copy_original=True)
-                bk_logger.info(f"Full photo thumbnail: {self.full_photo_thumbnail}")
-            else:
-                bk_logger.info("No photo thumbnail found for this printable asset")
 
         self.asset_type = asset_data["assetType"]
         self.asset_id = asset_data["id"]
