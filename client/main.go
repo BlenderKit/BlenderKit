@@ -772,12 +772,11 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 			if file.FileType != "photo_thumbnail" {
 				continue
 			}
-
-			if file.ThumbnailMiddleURL == "" {
-				BKLog.Printf("Missing photo_thumbnail.ThumbnailMiddleURL for asset: %s", result.DisplayName)
+			if file.FileThumbnailLarge == "" {
+				BKLog.Printf("Missing photo_thumbnail.fullPhotoThumbURL for asset: %s", result.DisplayName)
 				continue
 			}
-			fullPhotoThumbURL := file.ThumbnailMiddleURL
+			fullPhotoThumbURL := file.FileThumbnailLarge
 
 			fullPhotoThumbnailName, fullPhotoThumbnailNameErr := ExtractFilenameFromURL(fullPhotoThumbURL)
 			fullPhotoThumbnailPath := filepath.Join(data.TempDir, fullPhotoThumbnailName)

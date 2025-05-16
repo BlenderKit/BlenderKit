@@ -118,7 +118,7 @@ def get_full_photo_thumbnail(asset_data):
         bk_logger.warning("No photo thumbnail file found in asset data")
         return None
 
-    photo_url = photo_file.get("thumbnailMiddleUrl")
+    photo_url = photo_file.get("fileThumbnailLarge")
     if photo_url is None:
         bk_logger.warning("No thumbnail URL found in photo file")
         return None
