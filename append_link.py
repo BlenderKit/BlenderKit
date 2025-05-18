@@ -28,6 +28,17 @@ from . import utils, reports
 bk_logger = logging.getLogger(__name__)
 
 
+def find_layer_collection(layer_collection, collection_name):
+    """Helper function to find a layer_collection by name"""
+    if layer_collection.collection.name == collection_name:
+        return layer_collection
+    for child in layer_collection.children:
+        result = find_layer_collection(child, collection_name)
+        if result:
+            return result
+    return None
+
+
 def append_brush(file_name, brushname=None, link=False, fake_user=True):
     """append a brush"""
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
@@ -238,10 +249,29 @@ def load_HDR(file_name, name):
 
 
 def link_collection(
-    file_name, obnames=[], location=(0, 0, 0), link=False, parent=None, **kwargs
+    file_name,
+    obnames=[],
+    location=(0, 0, 0),
+    link=False,
+    parent=None,
+    collection="",
+    **kwargs,
 ):
     """link an instanced group - model type asset"""
     sel = utils.selection_get()
+    # Store the original active collection
+    orig_active_collection = bpy.context.view_layer.active_layer_collection
+
+    # Activate target collection if specified
+    if collection:
+        target_collection = bpy.data.collections.get(collection)
+        if target_collection:
+            # Find and activate the layer collection
+            layer_collection = find_layer_collection(
+                bpy.context.view_layer.layer_collection, collection
+            )
+            if layer_collection:
+                bpy.context.view_layer.active_layer_collection = layer_collection
 
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
@@ -281,12 +311,9 @@ def link_collection(
 
     main_object.name = main_object.instance_collection.name
 
-    # bpy.ops.wm.link(directory=file_name + "/Collection/", filename=kwargs['name'], link=link, instance_collections=True,
-    #                 autoselect=True)
-    # main_object = bpy.context.view_layer.objects.active
-    # if kwargs.get('rotation') is not None:
-    #     main_object.rotation_euler = kwargs['rotation']
-    # main_object.location = location
+    # Restore original active collection
+    if orig_active_collection:
+        bpy.context.view_layer.active_layer_collection = orig_active_collection
 
     utils.selection_set(sel)
     return main_object, []
@@ -367,7 +394,9 @@ def append_particle_system(
     return target_object, []
 
 
-def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwargs):
+def append_objects(
+    file_name, obnames=[], location=(0, 0, 0), link=False, collection="", **kwargs
+):
     """Append object into scene individually. 2 approaches based in definition of name argument.
     TODO: really split this function into 2 functions: kwargs.get('name')==None and else.
     """
@@ -375,6 +404,20 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
     if kwargs.get("name"):
         scene = bpy.context.scene
         sel = utils.selection_get()
+        # Store the original active collection
+        orig_active_collection = bpy.context.view_layer.active_layer_collection
+
+        # Activate target collection if specified
+        if collection:
+            target_collection = bpy.data.collections.get(collection)
+            if target_collection:
+                # Find and activate the layer collection
+                layer_collection = find_layer_collection(
+                    bpy.context.view_layer.layer_collection, collection
+                )
+                if layer_collection:
+                    bpy.context.view_layer.active_layer_collection = layer_collection
+
         try:
             bpy.ops.object.select_all(action="DESELECT")
         except Exception as e:
@@ -394,7 +437,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
 
         return_obs = []
         to_hidden_collection = []
-        collection = None
+        appended_collection = None
         main_object = None
         # get first at least one parent for sure
         for ob in bpy.context.scene.objects:
@@ -408,8 +451,8 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 return_obs.append(ob)
                 # check for object that should be hidden
                 if ob.users_collection[0].name == collection_name:
-                    collection = ob.users_collection[0]
-                    collection["is_blenderkit_asset"] = True
+                    appended_collection = ob.users_collection[0]
+                    appended_collection["is_blenderkit_asset"] = True
                     if not ob.parent:
                         main_object = ob
                         ob.location = location
@@ -427,7 +470,7 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
             main_object.matrix_world.translation = location
 
         # move objects that should be hidden to a sub collection
-        if len(to_hidden_collection) > 0 and collection is not None:
+        if len(to_hidden_collection) > 0 and appended_collection is not None:
             hidden_collections = []
             scene_collection = bpy.context.scene.collection
             for ob in to_hidden_collection:
@@ -442,7 +485,11 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                     h_col = bpy.data.collections.get(hidden_collection_name)
                     if h_col is None:
                         h_col = bpy.data.collections.new(name=hidden_collection_name)
-                        collection.children.link(h_col)
+                        # If target collection is specified, make the hidden collection a child of target collection
+                        if collection and bpy.data.collections.get(collection):
+                            bpy.data.collections.get(collection).children.link(h_col)
+                        else:
+                            appended_collection.children.link(h_col)
                         utils.exclude_collection(hidden_collection_name)
 
                     ob.users_collection[0].objects.unlink(ob)
@@ -451,8 +498,14 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 if hide_collection in hidden_collections:
                     continue
                 # All other collections are moved to be children of the model collection
-                bk_logger.info(f"{hide_collection}, {collection}")
-                utils.move_collection(hide_collection, collection)
+                bk_logger.info(f"{hide_collection}, {appended_collection}")
+                # If target collection is specified, move collections there instead
+                if collection and bpy.data.collections.get(collection):
+                    utils.move_collection(
+                        hide_collection, bpy.data.collections.get(collection)
+                    )
+                else:
+                    utils.move_collection(hide_collection, appended_collection)
                 utils.exclude_collection(hide_collection.name)
                 hidden_collections.append(hide_collection)
 
@@ -465,6 +518,11 @@ def append_objects(file_name, obnames=[], location=(0, 0, 0), link=False, **kwar
                 type="ERROR",
             )
             raise e
+
+        # Restore original active collection
+        if orig_active_collection:
+            bpy.context.view_layer.active_layer_collection = orig_active_collection
+
         utils.selection_set(sel)
         # let collection also store info that it was created by BlenderKit, for purging reasons
 
