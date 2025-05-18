@@ -804,10 +804,6 @@ class AssetDragOperator(bpy.types.Operator):
         # Store original active collection
         orig_active_collection = context.view_layer.active_layer_collection
 
-        # We need to do a selection to see what's under the mouse
-        # First, clear current selection
-        bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
-
         # Use outliner's built-in selection to find what's under the mouse
         region = context.region
         with bpy.context.temp_override(
