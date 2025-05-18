@@ -23,7 +23,7 @@ import random
 
 import bpy
 import mathutils
-from bpy.props import IntProperty, StringProperty
+from bpy.props import IntProperty, StringProperty, BoolProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
 
@@ -53,6 +53,13 @@ handler_3d = None
 
 
 def draw_callback_dragging(self, context):
+    # Only draw 2D elements in the active region where the mouse is
+    if (
+        not hasattr(self, "active_region_pointer")
+        or context.region.as_pointer() != self.active_region_pointer
+    ):
+        return
+
     try:
         img = bpy.data.images.get(self.iname)
         if img is None:
@@ -62,15 +69,13 @@ def draw_callback_dragging(self, context):
             img = bpy.data.images.load(tpath)
             img.name = self.iname
     except Exception as e:
-        #  self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_dragging, args, 'WINDOW', 'POST_PIXEL')
-        #  self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(draw_callback_3d_dragging, args, 'WINDOW',
-        #   bpy.types.SpaceView3D.draw_handler_remove(self._handle,
-        # bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, 'WINDOW')
         print("draw_callback_dragging error:", e)
         return
+
     linelength = 35
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
+
     ui_bgl.draw_image(
         self.mouse_x + linelength,
         self.mouse_y - linelength - ui_props.thumb_size,
@@ -87,26 +92,53 @@ def draw_callback_dragging(self, context):
         2,
         colors.WHITE,
     )
+    if context.area.type not in ["VIEW_3D", "OUTLINER"]:
+        # draw under the image
+        ui_bgl.draw_text(
+            "Cancel Drag & Drop",
+            self.mouse_x,
+            self.mouse_y - linelength - 20 - ui_props.thumb_size,
+            16,
+            (0.9, 0.9, 0.9, 1.0),
+        )
 
 
 def draw_callback_3d_dragging(self, context):
     """Draw snapped bbox while dragging."""
     if not utils.guard_from_crash():
         return
-    try:
-        self.has_hit
-    except:
+
+    # Only draw 3D elements in VIEW_3D areas, not in outliner
+    if context.area.type != "VIEW_3D":
         return
-    ui_props = context.window_manager.blenderkitUI
+
+    # Check if all required attributes are available
+    required_attrs = [
+        "has_hit",
+        "snapped_location",
+        "snapped_rotation",
+        "snapped_bbox_min",
+        "snapped_bbox_max",
+        "asset_data",
+    ]
+
+    for attr in required_attrs:
+        if not hasattr(self, attr):
+            return
+
+    # Only continue if we have a hit in a 3D view
+    if not self.has_hit:
+        return
+
+    ui_props = bpy.context.window_manager.blenderkitUI
     # print(self.asset_data["assetType"], self.has_hit, self.snapped_location)
     if self.asset_data["assetType"] in ["model", "printable"]:
-        if self.has_hit:
-            draw_bbox(
-                self.snapped_location,
-                self.snapped_rotation,
-                self.snapped_bbox_min,
-                self.snapped_bbox_max,
-            )
+        draw_bbox(
+            self.snapped_location,
+            self.snapped_rotation,
+            self.snapped_bbox_min,
+            self.snapped_bbox_max,
+        )
 
 
 def draw_bbox(
@@ -480,13 +512,122 @@ class AssetDragOperator(bpy.types.Operator):
     object_name = None
 
     def handlers_remove(self):
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
+        """Remove all draw handlers."""
+        # Remove specific handlers for VIEW_3D and Outliner
+        bpy.types.SpaceView3D.draw_handler_remove(self._handle_view3d, "WINDOW")
         bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, "WINDOW")
+        bpy.types.SpaceOutliner.draw_handler_remove(self._handle_outliner, "WINDOW")
+
+        # Remove handlers for all other space types
+        if hasattr(self, "_handlers_universal"):
+            for space_type, handler in self._handlers_universal.items():
+                if handler:
+                    getattr(bpy.types, space_type).draw_handler_remove(
+                        handler, "WINDOW"
+                    )
 
     def mouse_release(self):
         scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
+        # In any other area than 3D view and outliner, we just cancel the drag&drop
+        #
+        if self.prev_area_type not in ["VIEW_3D", "OUTLINER"]:
+            return
 
+        # Handle Outliner drop - should happen before any other processing
+        if (
+            hasattr(self, "hovered_outliner_element")
+            and self.hovered_outliner_element is not None
+        ):
+            # We are dropping onto an object or collection in the outliner
+            if self.asset_data["assetType"] in ["model", "printable"]:
+                target_object = ""
+                target_collection = ""
+
+                # Check what type of element we're dropping on
+                element_type = type(self.hovered_outliner_element).__name__
+
+                # If dropping on a collection, set target_collection parameter
+                if isinstance(self.hovered_outliner_element, bpy.types.Collection):
+                    target_collection = self.hovered_outliner_element.name
+                # Otherwise if dropping on an object, set it as parent
+                elif isinstance(self.hovered_outliner_element, bpy.types.Object):
+                    target_object = self.hovered_outliner_element.name
+                else:
+                    # Unsupported element type - just continue with default values
+                    pass
+
+                # Place the asset at the origin or at a default location
+                self.snapped_location = (0, 0, 0)
+                self.snapped_rotation = (0, 0, 0)
+
+                # Download the asset with the target collection or parent
+                bpy.ops.scene.blenderkit_download(
+                    True,
+                    asset_index=self.asset_search_index,
+                    model_location=self.snapped_location,
+                    model_rotation=self.snapped_rotation,
+                    target_object=target_object,
+                    target_collection=target_collection,
+                )
+
+                # Restore original selection
+                self.restore_original_selection()
+
+                return
+
+            elif self.asset_data["assetType"] == "material":
+
+                # If dropping a material on an object in the outliner
+                target_object = self.hovered_outliner_element.name
+
+                # Check if object supports materials, it can also be a collection
+
+                if not (
+                    type(self.hovered_outliner_element) == bpy.types.Object
+                    and self.hovered_outliner_element.type
+                    in [
+                        "MESH",
+                        "CURVE",
+                    ]
+                ):
+                    reports.add_report(
+                        f"Can't assign materials to this outliner element.",
+                        type="ERROR",
+                    )
+                    return
+
+                # Use active material slot or create one
+                target_slot = self.hovered_outliner_element.active_material_index
+
+                # Position is for downloader
+                loc = (0, 0, 0)
+                rotation = (0, 0, 0)
+
+                # Try to automap if it's a mesh
+                if self.hovered_outliner_element.type == "MESH":
+                    utils.automap(
+                        target_object,
+                        target_slot=target_slot,
+                        tex_size=self.asset_data.get("texture_size_meters", 1.0),
+                    )
+
+                # Download the material
+                bpy.ops.scene.blenderkit_download(
+                    True,
+                    asset_index=self.asset_search_index,
+                    model_location=loc,
+                    model_rotation=rotation,
+                    target_object=target_object,
+                    material_target_slot=target_slot,
+                )
+
+                # Restore original selection
+                self.restore_original_selection()
+
+                return
+
+        # Continue with regular 3D View handling
         if self.asset_data["assetType"] in ["model", "printable"]:
             if not self.drag:
                 self.snapped_location = scene.cursor.location
@@ -636,6 +777,112 @@ class AssetDragOperator(bpy.types.Operator):
                 asset_base_id=self.asset_data["assetBaseId"],
             )
 
+    def find_active_region(self, x, y):
+        """Find the region and area under the mouse cursor."""
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                for region in area.regions:
+                    if region.type != "WINDOW":
+                        continue
+                    if (
+                        region.x <= x < region.x + region.width
+                        and region.y <= y < region.y + region.height
+                    ):
+                        return region, area
+        return None, None
+
+    def find_outliner_element_under_mouse(self, context, x, y):
+        """Find and select the element under the mouse in the outliner.
+        Returns the selected object, collection, or None."""
+
+        if not context.area or context.area.type != "OUTLINER":
+            return None
+
+        # Store original selection to restore if needed
+        orig_selected_objects = context.selected_objects.copy()
+        orig_active_object = context.active_object
+        # Store original active collection
+        orig_active_collection = context.view_layer.active_layer_collection
+
+        # We need to do a selection to see what's under the mouse
+        # First, clear current selection
+        bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
+
+        # Use outliner's built-in selection to find what's under the mouse
+        region = context.region
+        with bpy.context.temp_override(
+            region=region,
+            area=context.area,
+            window=context.window,
+        ):
+            # Calculate coordinates relative to region
+            rel_x = x - region.x
+            rel_y = y - region.y
+
+            # Try to select what's under the mouse
+            bpy.ops.outliner.select_box(
+                xmin=rel_x - 1,
+                xmax=rel_x + 1,
+                ymin=rel_y - 1,
+                ymax=rel_y + 1,
+                wait_for_input=False,
+                mode="SET",
+            )
+
+        # Get the newly selected element using selected_ids
+        selected_element = None
+        if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
+            selected_element = bpy.context.selected_ids[0]
+
+        # Keep the highlight for visual feedback, but store the original selection
+        self.orig_selected_objects = orig_selected_objects
+        self.orig_active_object = orig_active_object
+        self.orig_active_collection = orig_active_collection
+
+        return selected_element
+
+    def restore_original_selection(self):
+        """Restore the original object selection that was active before entering the outliner."""
+        if (
+            hasattr(self, "orig_selected_objects")
+            and self.orig_selected_objects is not None
+        ):
+            # Deselect all objects
+            bpy.ops.object.select_all(action="DESELECT")
+            # Restore original selection
+            for obj in self.orig_selected_objects:
+                if obj:  # Check if object still exists
+                    obj.select_set(True)
+            if self.orig_active_object:
+                bpy.context.view_layer.objects.active = self.orig_active_object
+
+            # Reset the stored selection to avoid restoring it multiple times
+            self.orig_selected_objects = None
+            self.orig_active_object = None
+
+        # Restore original active collection
+        if (
+            hasattr(self, "orig_active_collection")
+            and self.orig_active_collection is not None
+        ):
+            # Restore the original active layer collection
+            if hasattr(bpy.context, "view_layer"):
+                bpy.context.view_layer.active_layer_collection = (
+                    self.orig_active_collection
+                )
+            self.orig_active_collection = None
+
+        # Clear outliner selection
+        if hasattr(bpy.context, "selected_ids"):
+            # This is a read-only property, so we can't directly clear it
+            # Instead, we can deselect in the outliner
+            if self.prev_area_type == "OUTLINER":
+                # need to create a new context to deselect in the outliner
+                with bpy.context.temp_override(
+                    area=self.outliner_area, region=self.outliner_region
+                ):
+                    bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
+
     def modal(self, context, event):
         scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -648,6 +895,62 @@ class AssetDragOperator(bpy.types.Operator):
 
         self.mouse_x = event.mouse_region_x
         self.mouse_y = event.mouse_region_y
+
+        # Store the actual screen coordinates for finding the active region
+        self.mouse_screen_x = event.mouse_x
+        self.mouse_screen_y = event.mouse_y
+
+        # Find the active region under the mouse cursor
+        active_region, active_area = self.find_active_region(
+            event.mouse_x, event.mouse_y
+        )
+        current_area_type = active_area.type if active_area else None
+
+        # Check if we're transitioning out of the outliner
+        if (
+            hasattr(self, "prev_area_type")
+            and self.prev_area_type == "OUTLINER"
+            and current_area_type != "OUTLINER"
+        ):
+            # If we're leaving the outliner, restore the original selection
+            self.restore_original_selection()
+
+        # Update the previous area type for the next frame
+        if current_area_type:
+            self.prev_area_type = current_area_type
+
+        if active_region and active_area:
+            # Recalculate mouse_region_x and mouse_region_y for the new region
+            self.mouse_x = event.mouse_x - active_region.x
+            self.mouse_y = event.mouse_y - active_region.y
+            # Store the active region pointer for drawing 2D elements only in this region
+            self.active_region_pointer = active_region.as_pointer()
+            # Make sure all 3D views get redrawn
+            for area in bpy.context.screen.areas:
+                # if area.type in ['VIEW_3D', 'OUTLINER']:
+                area.tag_redraw()
+
+            # Handle outliner interaction
+            if active_area.type == "OUTLINER":
+                # Need to temporarily override context to work with the outliner
+                with bpy.context.temp_override(area=active_area, region=active_region):
+                    # Find and highlight the element under the mouse
+                    self.hovered_outliner_element = (
+                        self.find_outliner_element_under_mouse(
+                            bpy.context, event.mouse_x, event.mouse_y
+                        )
+                    )
+                    # Store outliner area and region for mouse release handling
+                    self.outliner_area = active_area
+                    self.outliner_region = active_region
+            else:
+                # Reset outliner tracking
+                self.hovered_outliner_element = None
+                self.outliner_area = None
+                self.outliner_region = None
+        else:
+            # If no active 3D region is found, use the context region
+            self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
         drag_threshold = 10
@@ -668,9 +971,10 @@ class AssetDragOperator(bpy.types.Operator):
             # this case is for canceling from inside popup card when there's an escape attempt to close the window
             return {"PASS_THROUGH"}
 
-        if event.type in {"RIGHTMOUSE", "ESC"} or not ui.mouse_in_region(
-            context.region, self.mouse_x, self.mouse_y
-        ):
+        if event.type in {"RIGHTMOUSE", "ESC"}:
+            # Restore original selection if we changed it
+            self.restore_original_selection()
+
             self.handlers_remove()
             bpy.context.window.cursor_set("DEFAULT")
             ui_props.dragging = False
@@ -691,40 +995,67 @@ class AssetDragOperator(bpy.types.Operator):
             or event.type == "WHEELUPMOUSE"
             or event.type == "WHEELDOWNMOUSE"
         ):
-            #### TODO - this snapping code below is 3x in this file.... refactor it.
-            (
-                self.has_hit,
-                self.snapped_location,
-                self.snapped_normal,
-                self.snapped_rotation,
-                self.face_index,
-                object,
-                self.matrix,
-            ) = mouse_raycast(context, event.mouse_region_x, event.mouse_region_y)
-            if object is not None:
-                self.object_name = object.name
+            # Find active region for raycasting
+            active_region, active_area = self.find_active_region(
+                event.mouse_x, event.mouse_y
+            )
 
-            # MODELS can be dragged on scene floor
-            if not self.has_hit and self.asset_data["assetType"] in [
-                "model",
-                "printable",
-            ]:
-                (
-                    self.has_hit,
-                    self.snapped_location,
-                    self.snapped_normal,
-                    self.snapped_rotation,
-                    self.face_index,
-                    object,
-                    self.matrix,
-                ) = floor_raycast(context, event.mouse_region_x, event.mouse_region_y)
+            # Only perform raycasting in 3D view areas
+            if active_region and active_area and active_area.type == "VIEW_3D":
+                # Use mouse coordinates relative to the active region
+                region_mouse_x = event.mouse_x - active_region.x
+                region_mouse_y = event.mouse_y - active_region.y
+
+                # Need to temporarily override context for raycasting
+                with bpy.context.temp_override(area=active_area, region=active_region):
+                    (
+                        self.has_hit,
+                        self.snapped_location,
+                        self.snapped_normal,
+                        self.snapped_rotation,
+                        self.face_index,
+                        object,
+                        self.matrix,
+                    ) = mouse_raycast(bpy.context, region_mouse_x, region_mouse_y)
+
                 if object is not None:
                     self.object_name = object.name
 
-            if self.asset_data["assetType"] in ["model", "printable"]:
-                self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
-                self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
-            # return {'RUNNING_MODAL'}
+                # MODELS can be dragged on scene floor
+                if not self.has_hit and self.asset_data["assetType"] in [
+                    "model",
+                    "printable",
+                ]:
+                    # Use mouse coordinates relative to the active region
+                    region_mouse_x = event.mouse_x - active_region.x
+                    region_mouse_y = event.mouse_y - active_region.y
+
+                    # Need to temporarily override context for raycasting
+                    with bpy.context.temp_override(
+                        area=active_area, region=active_region
+                    ):
+                        (
+                            self.has_hit,
+                            self.snapped_location,
+                            self.snapped_normal,
+                            self.snapped_rotation,
+                            self.face_index,
+                            object,
+                            self.matrix,
+                        ) = floor_raycast(bpy.context, region_mouse_x, region_mouse_y)
+
+                    if object is not None:
+                        self.object_name = object.name
+
+                if self.asset_data["assetType"] in ["model", "printable"]:
+                    self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
+                    self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
+            elif active_area and active_area.type == "OUTLINER":
+                # In outliner, don't do raycasting, but keep has_hit to avoid errors
+                self.has_hit = False
+            else:
+                # Not in a relevant area, reset has_hit
+                self.has_hit = False
 
         if event.type == "LEFTMOUSE" and event.value == "RELEASE":
             self.mouse_release()  # does the main job with assets
@@ -744,19 +1075,78 @@ class AssetDragOperator(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def invoke(self, context, event):
-        if context.area.type != "VIEW_3D":
-            self.report({"WARNING"}, "View3D not found, cannot run operator")
-            return {"CANCELLED"}
+        # We now accept all area types
+        # if context.area.type not in ["VIEW_3D", "OUTLINER"]:
+        #     self.report({"WARNING"}, "View3D or Outliner not found, cannot run operator")
+        #     return {"CANCELLED"}
 
         # the arguments we pass the the callback
         args = (self, context)
-        # Add the region OpenGL drawing callback
-        # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
+
+        # Register callbacks for VIEW_3D spaces
+        self._handle_view3d = bpy.types.SpaceView3D.draw_handler_add(
+            draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
+        )
+        self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(
+            draw_callback_3d_dragging, args, "WINDOW", "POST_VIEW"
+        )
+
+        # Register callback for Outliner spaces
+        self._handle_outliner = bpy.types.SpaceOutliner.draw_handler_add(
+            draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
+        )
+
+        # Register callbacks for all other space types
+        # List of space types we want to support
+        space_types = [
+            "SpaceTextEditor",
+            "SpaceConsole",
+            "SpaceInfo",
+            "SpacePreferences",
+            "SpaceFileBrowser",
+            "SpaceNLA",
+            "SpaceDopeSheetEditor",
+            "SpaceGraphEditor",
+            "SpaceNodeEditor",
+            "SpaceProperties",
+            "SpaceSequenceEditor",
+            "SpaceImageEditor",
+        ]
+
+        # Initialize a dictionary to store handlers
+        self._handlers_universal = {}
+
+        # Register a handler for each space type
+        for space_type in space_types:
+            try:
+                space_class = getattr(bpy.types, space_type)
+                handler = space_class.draw_handler_add(
+                    draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
+                )
+                self._handlers_universal[space_type] = handler
+            except (AttributeError, TypeError) as e:
+                print(f"Could not register handler for {space_type}: {e}")
+                self._handlers_universal[space_type] = None
 
         self.mouse_x = 0
         self.mouse_y = 0
+        self.mouse_screen_x = 0
+        self.mouse_screen_y = 0
         self.steps = 0
+        # Store the initial active region pointer
+        self.active_region_pointer = context.region.as_pointer()
 
+        # Initialize outliner tracking variables
+        self.hovered_outliner_element = None
+        self.outliner_area = None
+        self.outliner_region = None
+        self.orig_selected_objects = None
+        self.orig_active_object = None
+        self.orig_active_collection = None
+        self.prev_area_type = context.area.type  # Track previous area type
+
+        # Initialize has_hit to False, and set other 3D properties
+        # We'll only use these in 3D views, not in outliner
         self.has_hit = False
         self.snapped_location = (0, 0, 0)
         self.snapped_normal = (0, 0, 1)
@@ -810,13 +1200,6 @@ class AssetDragOperator(bpy.types.Operator):
                         "INVOKE_REGION_WIN", message=message, width=500
                     )
                 return {"CANCELLED"}
-
-        self._handle = bpy.types.SpaceView3D.draw_handler_add(
-            draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
-        )
-        self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(
-            draw_callback_3d_dragging, args, "WINDOW", "POST_VIEW"
-        )
 
         bpy.context.window.cursor_set("NONE")
         ui_props = bpy.context.window_manager.blenderkitUI

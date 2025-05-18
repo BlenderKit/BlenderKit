@@ -323,6 +323,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     asset types (model, material, brush, scene, hdr, etc.) and different import methods
     (link vs append).
     """
+
     file_names = kwargs.get("file_paths")
     if file_names is None:
         file_names = paths.get_download_filepaths(asset_data, kwargs["resolution"])
@@ -422,6 +423,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                         link=link,
                         name=asset_data["name"],
                         parent=kwargs.get("parent"),
+                        collection=kwargs.get("target_collection", ""),
                     )
 
                 else:
@@ -432,6 +434,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                         link=link,
                         name=asset_data["name"],
                         parent=kwargs.get("parent"),
+                        collection=kwargs.get("target_collection", ""),
                     )
                 if asset_main.type == "EMPTY" and link:
                     bmin = asset_data["bbox_min"]
@@ -451,6 +454,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                     link=link,
                     name=asset_data["name"],
                     parent=kwargs.get("parent"),
+                    collection=kwargs.get("target_collection", ""),
                 )
             else:
                 asset_main, new_obs = append_link.append_objects(
@@ -460,6 +464,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                     link=link,
                     name=asset_data["name"],
                     parent=kwargs.get("parent"),
+                    collection=kwargs.get("target_collection", ""),
                 )
 
             # scale Empty for assets, so they don't clutter the scene.
@@ -766,6 +771,7 @@ def handle_download_task(task: client_tasks.Task):
     Update progress. Print messages. Fire post-download functions.
     """
     global download_tasks
+
     if task.status == "finished":
         # we still write progress since sometimes the progress bars wouldn't end on 100%
         download_write_progress(task.task_id, task)
@@ -898,6 +904,8 @@ def download_post(task: client_tasks.Task) -> None:
 
 def download(asset_data, **kwargs):
     """Init download data and request task from BlenderKit-Client."""
+    print(f"DEBUG: download function called with kwargs={kwargs}")
+    print(f"DEBUG: target_collection={kwargs.get('target_collection', 'NOT_FOUND')}")
 
     if kwargs.get("retry_counter", 0) > 3:
         sprops = utils.get_search_props()
@@ -931,7 +939,15 @@ def download(asset_data, **kwargs):
     data["download_dirs"] = paths.get_download_dirs(asset_data["assetType"])
     if "downloaders" in kwargs:
         data["downloaders"] = kwargs["downloaders"]
+
+    print(
+        f"DEBUG: Data being sent to client: target_collection={data.get('target_collection', 'NOT_IN_DATA')}"
+    )
+    print(f"DEBUG: All kwargs keys: {list(kwargs.keys())}")
+    print(f"DEBUG: All data keys: {list(data.keys())}")
+
     response = client_lib.asset_download(data)
+    print(f"DEBUG: Response from client: {response}")
 
     download_tasks[response["task_id"]] = data
 
@@ -1032,6 +1048,7 @@ def try_finished_append(asset_data, **kwargs):
     Returns True if successful, False if file_names are empty or file_names[-1] is not file.
     Returns Exception if append_asset() failed.
     """
+
     file_paths = kwargs.get("file_paths")
     if file_paths is None or len(file_paths) == 0:
         file_paths = paths.get_download_filepaths(asset_data, kwargs["resolution"])
@@ -1046,6 +1063,7 @@ def try_finished_append(asset_data, **kwargs):
         )
 
     kwargs["name"] = asset_data["name"]
+
     try:
         append_asset(asset_data, **kwargs)
     except Exception as e:
@@ -1325,6 +1343,12 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         default="",
     )
 
+    target_collection: StringProperty(  # type: ignore[valid-type]
+        name="Target Collection",
+        description="Collection to place the asset in",
+        default="",
+    )
+
     material_target_slot: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=0
     )
@@ -1426,6 +1450,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return asset_data
 
     def execute(self, context):
+        print(
+            f"DEBUG: BlenderkitDownloadOperator execute with target_collection={self.target_collection}"
+        )
         preferences = bpy.context.preferences.addons[__package__].preferences
         self.asset_data = self.get_asset_data(context)
 
@@ -1470,6 +1497,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                 kwargs = {
                     "cast_parent": self.cast_parent,
                     "target_object": ob.name,
+                    "target_collection": self.target_collection,
                     "material_target_slot": ob.active_material_index,
                     "model_location": tuple(ob.matrix_world.translation),
                     "model_rotation": tuple(ob.matrix_world.to_euler()),
@@ -1478,6 +1506,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                     "parent": parent,
                     "resolution": resolution,
                 }
+                print(
+                    f"DEBUG: Replace kwargs with target_collection={kwargs['target_collection']}"
+                )
                 # TODO - move this After download, not before, so that the replacement
                 utils.delete_hierarchy(ob)
                 start_download(self.asset_data, **kwargs)
@@ -1489,6 +1520,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         kwargs = {
             "cast_parent": self.cast_parent,
             "target_object": self.target_object,
+            "target_collection": self.target_collection,
             "material_target_slot": self.material_target_slot,
             "model_location": tuple(self.model_location),
             "model_rotation": tuple(self.model_rotation),
@@ -1496,7 +1528,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "replace_resolution": self.replace_resolution,
             "resolution": resolution,
         }
-
+        print(
+            f"DEBUG: Final kwargs with target_collection={kwargs['target_collection']}"
+        )
         start_download(self.asset_data, **kwargs)
         return {"FINISHED"}
 
