@@ -144,8 +144,6 @@ def draw_callback_3d_dragging(self, context):
 def draw_bbox(
     location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1, 0, 1)
 ):
-    ui_props = bpy.context.window_manager.blenderkitUI
-
     rotation = mathutils.Euler(rotation)
 
     smin = Vector(bbox_min)
@@ -777,7 +775,7 @@ class AssetDragOperator(bpy.types.Operator):
                 asset_base_id=self.asset_data["assetBaseId"],
             )
 
-    def find_active_region(self, x, y):
+    def find_active_region(self, x: int, y: int):
         """Find the region and area under the mouse cursor."""
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
@@ -791,7 +789,9 @@ class AssetDragOperator(bpy.types.Operator):
                         return region, area
         return None, None
 
-    def find_outliner_element_under_mouse(self, context, x, y):
+    def find_outliner_element_under_mouse(
+        self, context: bpy.types.Context, x: int, y: int
+    ):
         """Find and select the element under the mouse in the outliner.
         Returns the selected object, collection, or None."""
 
@@ -880,7 +880,6 @@ class AssetDragOperator(bpy.types.Operator):
                     bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
 
     def modal(self, context, event):
-        scene = bpy.context.scene
         ui_props = bpy.context.window_manager.blenderkitUI
         context.area.tag_redraw()
 
