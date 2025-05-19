@@ -250,7 +250,7 @@ def load_HDR(file_name, name):
 
 def link_collection(
     file_name,
-    obnames=[],
+    obnames=None,
     location=(0, 0, 0),
     link=False,
     parent=None,
@@ -258,6 +258,8 @@ def link_collection(
     **kwargs,
 ):
     """link an instanced group - model type asset"""
+    if obnames is None:
+        obnames = []
     sel = utils.selection_get()
     # Store the original active collection
     orig_active_collection = bpy.context.view_layer.active_layer_collection
@@ -277,7 +279,6 @@ def link_collection(
         data_from,
         data_to,
     ):
-        scols = []
         for col in data_from.collections:
             if col == kwargs["name"]:
                 data_to.collections = [col]
@@ -320,10 +321,11 @@ def link_collection(
 
 
 def append_particle_system(
-    file_name, obnames=[], location=(0, 0, 0), link=False, **kwargs
+    file_name, obnames=None, location=(0, 0, 0), link=False, **kwargs
 ):
     """link an instanced group - model type asset"""
-
+    if obnames is None:
+        obnames = []
     pss = []
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
@@ -395,11 +397,13 @@ def append_particle_system(
 
 
 def append_objects(
-    file_name, obnames=[], location=(0, 0, 0), link=False, collection="", **kwargs
+    file_name, obnames=None, location=(0, 0, 0), link=False, collection="", **kwargs
 ):
     """Append object into scene individually. 2 approaches based in definition of name argument.
     TODO: really split this function into 2 functions: kwargs.get('name')==None and else.
     """
+    if obnames is None:
+        obnames = []
     # simplified version of append
     if kwargs.get("name"):
         scene = bpy.context.scene
