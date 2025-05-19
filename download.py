@@ -573,7 +573,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 link=False,
                 fake_user=False,
             )
-        print("appended nodegroup", nodegroup)
+        bk_logger.info(f"appended nodegroup: {nodegroup}")
         asset_main = nodegroup
 
     asset_data["resolution"] = kwargs["resolution"]
@@ -803,7 +803,7 @@ def download_write_progress(task_id, task):
     global download_tasks
     task_addon = download_tasks.get(task.task_id)
     if task_addon is None:
-        print("couldn't write download progress to ", task.progress)
+        bk_logger.warning(f"couldn't write download progress to {task.progress}")
         return
     task_addon["progress"] = task.progress
     task_addon["text"] = task.message
@@ -904,9 +904,9 @@ def download_post(task: client_tasks.Task) -> None:
 
 def download(asset_data, **kwargs):
     """Init download data and request task from BlenderKit-Client."""
-    print(f"DEBUG: download function called with kwargs={kwargs}")
-    print(f"DEBUG: target_collection={kwargs.get('target_collection', 'NOT_FOUND')}")
-
+    bk_logger.debug(
+        f"download function called with kwargs={kwargs}, target_collection={kwargs.get('target_collection', 'NOT_FOUND')}"
+    )
     if kwargs.get("retry_counter", 0) > 3:
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
@@ -940,15 +940,7 @@ def download(asset_data, **kwargs):
     if "downloaders" in kwargs:
         data["downloaders"] = kwargs["downloaders"]
 
-    print(
-        f"DEBUG: Data being sent to client: target_collection={data.get('target_collection', 'NOT_IN_DATA')}"
-    )
-    print(f"DEBUG: All kwargs keys: {list(kwargs.keys())}")
-    print(f"DEBUG: All data keys: {list(data.keys())}")
-
     response = client_lib.asset_download(data)
-    print(f"DEBUG: Response from client: {response}")
-
     download_tasks[response["task_id"]] = data
 
 
@@ -1450,8 +1442,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return asset_data
 
     def execute(self, context):
-        print(
-            f"DEBUG: BlenderkitDownloadOperator execute with target_collection={self.target_collection}"
+        bk_logger.debug(
+            f"BlenderkitDownloadOperator execute with target_collection={self.target_collection}"
         )
         preferences = bpy.context.preferences.addons[__package__].preferences
         self.asset_data = self.get_asset_data(context)
@@ -1506,8 +1498,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                     "parent": parent,
                     "resolution": resolution,
                 }
-                print(
-                    f"DEBUG: Replace kwargs with target_collection={kwargs['target_collection']}"
+                bk_logger.debug(
+                    f"Replace kwargs with target_collection={kwargs['target_collection']}"
                 )
                 # TODO - move this After download, not before, so that the replacement
                 utils.delete_hierarchy(ob)
@@ -1528,8 +1520,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "replace_resolution": self.replace_resolution,
             "resolution": resolution,
         }
-        print(
-            f"DEBUG: Final kwargs with target_collection={kwargs['target_collection']}"
+        bk_logger.debug(
+            f"Final kwargs with target_collection={kwargs['target_collection']}"
         )
         start_download(self.asset_data, **kwargs)
         return {"FINISHED"}
