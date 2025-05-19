@@ -2244,13 +2244,15 @@ def label_or_url_or_operator(
     tooltip="",
     url="",
     operator=None,
-    operator_kwargs={},
+    operator_kwargs=None,
     icon_value=None,
     icon=None,
     emboss=False,
 ):
     """automatically switch between different layout options for linking or tooltips"""
     layout.emboss = "NORMAL" if emboss else "NONE"
+    if operator_kwargs is None:
+        operator_kwargs = {}
 
     if operator is not None:
         if icon:
@@ -2335,7 +2337,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         url="",
         tooltip="",
         operator=None,
-        operator_kwargs={},
+        operator_kwargs=None,
         emboss=False,
     ):
         right = str(right)
@@ -2349,6 +2351,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # if url != "" and not emboss:
         split = split.split(factor=0.9)
         split.alignment = "LEFT"
+        if operator_kwargs is None:
+            operator_kwargs = {}
         label_or_url_or_operator(
             split,
             text=right,
