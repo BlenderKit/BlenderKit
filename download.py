@@ -44,6 +44,7 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     FloatVectorProperty,
+    FloatProperty,
     IntProperty,
     StringProperty,
 )
@@ -567,11 +568,29 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 nodegroup = g
                 break
         if not inscene:
-            nodegroup = append_link.append_nodegroup(
+            nodegroup, added_to_editor = append_link.append_nodegroup(
                 file_names[-1],
                 nodegroupname=asset_data["name"],
                 link=False,
                 fake_user=False,
+                node_x=kwargs.get("node_x", 0),
+                node_y=kwargs.get("node_y", 0),
+            )
+            # Show a message to the user if the node was not added to an editor
+            if not added_to_editor:
+                reports.add_report(
+                    f"Node group '{nodegroup.name}' was added to the Blender file but no suitable node editor was found to place the node.",
+                    type="INFO",
+                )
+        else:
+            # If nodegroup was already in scene, we still want to try to add it to the editor
+            _, added_to_editor = append_link.append_nodegroup(
+                file_names[-1],
+                nodegroupname=asset_data["name"],
+                link=False,
+                fake_user=False,
+                node_x=kwargs.get("node_x", 0),
+                node_y=kwargs.get("node_y", 0),
             )
         bk_logger.info(f"appended nodegroup: {nodegroup}")
         asset_main = nodegroup
@@ -904,9 +923,6 @@ def download_post(task: client_tasks.Task) -> None:
 
 def download(asset_data, **kwargs):
     """Init download data and request task from BlenderKit-Client."""
-    bk_logger.debug(
-        f"download function called with kwargs={kwargs}, target_collection={kwargs.get('target_collection', 'NOT_FOUND')}"
-    )
     if kwargs.get("retry_counter", 0) > 3:
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
@@ -1398,6 +1414,18 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         name="Particles Target Object", description="", default=""
     )
 
+    node_x: FloatProperty(  # type: ignore[valid-type]
+        name="Node X Position",
+        description="X position to place the node group in node editor",
+        default=0.0,
+    )
+
+    node_y: FloatProperty(  # type: ignore[valid-type]
+        name="Node Y Position",
+        description="Y position to place the node group in node editor",
+        default=0.0,
+    )
+
     # close_window: BoolProperty(name='Close window',
     #                            description='Try to close the window below mouse before download',
     #                            default=False)
@@ -1442,9 +1470,6 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return asset_data
 
     def execute(self, context):
-        bk_logger.debug(
-            f"BlenderkitDownloadOperator execute with target_collection={self.target_collection}"
-        )
         preferences = bpy.context.preferences.addons[__package__].preferences
         self.asset_data = self.get_asset_data(context)
 
@@ -1497,6 +1522,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                     "replace_resolution": False,
                     "parent": parent,
                     "resolution": resolution,
+                    "node_x": self.node_x,
+                    "node_y": self.node_y,
                 }
                 bk_logger.debug(
                     f"Replace kwargs with target_collection={kwargs['target_collection']}"
@@ -1519,6 +1546,8 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "replace": False,
             "replace_resolution": self.replace_resolution,
             "resolution": resolution,
+            "node_x": self.node_x,
+            "node_y": self.node_y,
         }
         bk_logger.debug(
             f"Final kwargs with target_collection={kwargs['target_collection']}"
