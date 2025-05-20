@@ -54,10 +54,15 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
     return brush
 
 
-def append_nodegroup(file_name, nodegroupname=None, link=False, fake_user=True):
+def append_nodegroup(
+    file_name, nodegroupname=None, link=False, fake_user=True, node_x=0, node_y=0
+):
     """Append selected node group. If nodegroupname is None, first node group is appended.
     If node group with the same name is already in the scene, it is not appended again.
     Try to look for a suitable node editor and insert the node group there, in the middle of the area.
+
+    Returns:
+        tuple: (nodegroup, added_to_editor) - The nodegroup and whether it was added to an editor
     """
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
@@ -70,35 +75,82 @@ def append_nodegroup(file_name, nodegroupname=None, link=False, fake_user=True):
                 nodegroupname = g
     nodegroup = bpy.data.node_groups[nodegroupname]
     nodegroup.use_fake_user = fake_user
-    # if there's an open node editor, let's find if it matches the type of the asset group and insert it
-    # in middle of the area.
-    # mapping dict for editor type to node group node types
+
+    # Mapping dict for node editor tree types to node group node types
     sdict = {
         "GeometryNodeTree": "GeometryNodeGroup",
         "ShaderNodeTree": "ShaderNodeGroup",
         "CompositorNodeTree": "CompositorNodeGroup",
     }
-    # Look for a suitable node editor and insert the node group there, in the middle of the area.
+
+    # Get the nodegroup type
+    nodegroup_type = nodegroup.bl_rna.identifier
+
+    # Find a suitable node editor
+    added_to_editor = False
+
+    # First try: exact match for tree type
     for area in bpy.context.screen.areas:
         if area.type != "NODE_EDITOR":
             continue
 
-        if area.spaces.active.tree_type != nodegroup.bl_rna.identifier:
-            continue
+        if area.spaces.active.tree_type == nodegroup_type:
+            nt = area.spaces.active.edit_tree
+            if nt is None:
+                continue
 
-        nt = area.spaces.active.edit_tree
+            # Add node to this editor
+            for n in nt.nodes:
+                n.select = False
 
-        if nt is None:
-            continue
+            node_type = sdict.get(nodegroup_type)
+            if node_type:
+                node = nt.nodes.new(node_type)
+                node.node_tree = nodegroup
+                node.location = (node_x, node_y)
+                node.select = True
+                nt.nodes.active = node
+                added_to_editor = True
+                break
 
-        # deselect all nodes
-        for n in nt.nodes:
-            n.select = False
-        node = nt.nodes.new(sdict[area.spaces.active.tree_type])
-        node.node_tree = nodegroup
-        area.spaces.active.node_tree = nodegroup
-        break
-    return nodegroup
+    # If not added yet, try any compatible editor
+    if not added_to_editor:
+        for area in bpy.context.screen.areas:
+            if area.type != "NODE_EDITOR":
+                continue
+
+            nt = area.spaces.active.edit_tree
+            if nt is None:
+                continue
+
+            # Check if this editor type is compatible
+            if area.spaces.active.tree_type in sdict:
+                # Add node to this editor
+                for n in nt.nodes:
+                    n.select = False
+
+                node_type = sdict.get(area.spaces.active.tree_type)
+                if node_type:
+                    # Check if nodegroup is compatible with this editor
+                    # For example, don't add shader nodegroups to geometry node editor
+                    if (
+                        nodegroup_type == "ShaderNodeTree"
+                        and area.spaces.active.tree_type != "ShaderNodeTree"
+                    ) or (
+                        nodegroup_type == "GeometryNodeTree"
+                        and area.spaces.active.tree_type != "GeometryNodeTree"
+                    ):
+                        continue
+
+                    node = nt.nodes.new(node_type)
+                    node.node_tree = nodegroup
+                    node.location = (node_x, node_y)
+                    node.select = True
+                    nt.nodes.active = node
+                    added_to_editor = True
+                    break
+
+    return nodegroup, added_to_editor
 
 
 def append_material(file_name, matname=None, link=False, fake_user=True):

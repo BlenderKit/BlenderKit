@@ -110,7 +110,7 @@ if __name__ == "__main__":
             )
         elif upload_data["assetType"] == "nodegroup":
             toolname = export_data["nodegroup"]
-            main_source = append_link.append_nodegroup(
+            main_source, _ = append_link.append_nodegroup(
                 file_name=export_data["source_filepath"], nodegroupname=toolname
             )
         if main_source.asset_data is None:
