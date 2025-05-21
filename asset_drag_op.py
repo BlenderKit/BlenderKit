@@ -92,6 +92,16 @@ def draw_callback_dragging(self, context):
         2,
         colors.WHITE,
     )
+    # text messages in 3d view
+    if context.area.type == "VIEW_3D":
+        if self.asset_data["assetType"] == "material":
+            ui_bgl.draw_text(
+                f"Assign material to {self.object_name}",
+                self.mouse_x,
+                self.mouse_y - linelength - 20 - ui_props.thumb_size,
+                16,
+                (0.9, 0.9, 0.9, 1.0),
+            )
 
     # Add node editor specific hints
     if hasattr(self, "in_node_editor") and self.in_node_editor:
@@ -569,9 +579,7 @@ class AssetDragOperator(bpy.types.Operator):
     def handlers_remove(self):
         """Remove all draw handlers."""
         # Remove specific handlers for VIEW_3D and Outliner
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_view3d, "WINDOW")
         bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, "WINDOW")
-        bpy.types.SpaceOutliner.draw_handler_remove(self._handle_outliner, "WINDOW")
 
         # Remove handlers for all other space types
         if hasattr(self, "_handlers_universal"):
@@ -660,7 +668,6 @@ class AssetDragOperator(bpy.types.Operator):
                     else:
                         self.snapped_location = object.location
                         target_slot = object.active_material_index
-
             if not object:
                 return
             if object.is_library_indirect:
@@ -1009,8 +1016,6 @@ class AssetDragOperator(bpy.types.Operator):
 
     def mouse_release(self, context):
         """Main mouse release handler that delegates to specific handlers based on area type."""
-        scene = context.scene
-        ui_props = context.window_manager.blenderkitUI
 
         # In any other area than 3D view and outliner, we just cancel the drag&drop
         if self.prev_area_type not in ["VIEW_3D", "OUTLINER", "NODE_EDITOR"]:
@@ -1330,11 +1335,8 @@ class AssetDragOperator(bpy.types.Operator):
             if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
                 self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
-            elif active_area and active_area.type == "OUTLINER":
+            elif active_area.type != "VIEW_3D":
                 # In outliner, don't do raycasting, but keep has_hit to avoid errors
-                self.has_hit = False
-            else:
-                # Not in a relevant area, reset has_hit
                 self.has_hit = False
 
         if event.type == "LEFTMOUSE" and event.value == "RELEASE":
@@ -1363,17 +1365,9 @@ class AssetDragOperator(bpy.types.Operator):
         # the arguments we pass the the callback
         args = (self, context)
 
-        # Register callbacks for VIEW_3D spaces
-        self._handle_view3d = bpy.types.SpaceView3D.draw_handler_add(
-            draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
-        )
+        # Register callback for VIEW_3D spaces
         self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(
             draw_callback_3d_dragging, args, "WINDOW", "POST_VIEW"
-        )
-
-        # Register callback for Outliner spaces
-        self._handle_outliner = bpy.types.SpaceOutliner.draw_handler_add(
-            draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
         )
 
         # Register callbacks for all other space types
@@ -1391,6 +1385,8 @@ class AssetDragOperator(bpy.types.Operator):
             "SpaceProperties",
             "SpaceSequenceEditor",
             "SpaceImageEditor",
+            "SpaceView3D",
+            "SpaceOutliner",
         ]
 
         # Initialize a dictionary to store handlers
