@@ -98,11 +98,11 @@ def draw_callback_dragging(self, context):
         if self.asset_data["assetType"] not in ["material", "nodegroup"]:
             # Draw warning for incompatible asset types
             ui_bgl.draw_text(
-                f"Cannot use {self.asset_data['assetType']} in node editor",
+                "Cancel Drag & Drop",
                 self.mouse_x,
                 self.mouse_y - linelength - 20 - ui_props.thumb_size,
                 16,
-                (1.0, 0.3, 0.3, 1.0),  # Red text for warning
+                (0.9, 0.9, 0.9, 1.0),
             )
         elif (
             self.asset_data["assetType"] == "material"
