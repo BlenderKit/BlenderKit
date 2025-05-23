@@ -20,7 +20,7 @@ from collections import deque
 from logging import INFO, WARN
 from os import environ
 from subprocess import Popen
-from typing import Optional
+from typing import Any, Optional
 
 from . import datas
 
@@ -42,7 +42,7 @@ DATA: dict = {  # TODO: move these
     "asset comments": {},
 }
 
-TABS = {
+TABS: dict[str, Any] = {
     "active_tab": 0,  # Index of currently active tab
     "tabs": [  # List of all tabs
         {
