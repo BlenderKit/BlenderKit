@@ -243,7 +243,7 @@ def stars_enum_callback(self, context):
 
 def wh_enum_callback(self, context):
     """Regenerates working hours enum."""
-    if self.asset_type in ("model", "scene"):
+    if self.asset_type in ("model", "scene", "printable", "nodegroup"):
         possible_wh_values = [
             0,
             0.5,
