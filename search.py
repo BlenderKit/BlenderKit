@@ -1695,15 +1695,18 @@ def update_tab_name(active_tab):
     # Update tab name
     active_tab["name"] = tab_name
 
-    # Update UI if asset bar exists
+    # Update UI if asset bar exists and is properly initialized
     asset_bar = asset_bar_op.asset_bar_operator
     if asset_bar and hasattr(asset_bar, "tab_buttons"):
         active_tab_index = global_vars.TABS["active_tab"]
         if 0 <= active_tab_index < len(asset_bar.tab_buttons):
-            asset_bar.tab_buttons[active_tab_index].text = tab_name
-            # Force redraw of the region
-            if asset_bar.area:
-                asset_bar.area.tag_redraw()
+            try:
+                asset_bar.tab_buttons[active_tab_index].text = tab_name
+                # Only try to redraw if we have a valid region
+                if asset_bar.area and asset_bar.area.region:
+                    asset_bar.area.tag_redraw()
+            except Exception as e:
+                bk_logger.debug(f"Could not update tab name in UI: {e}")
 
     return history_step
 
@@ -1780,3 +1783,55 @@ def get_search_results() -> list[dict]:
 def get_active_tab():
     """Get the active tab."""
     return global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+
+
+def handle_bkclientjs_get_asset(task: client_tasks.Task):
+    """Handle incoming bkclientjs/get_asset task. User asked for download in online gallery. How it goes:
+    1. set search in the history
+    2. set the results in the history step
+    3. open the asset bar
+    """
+    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result}")
+    
+    # Import here to avoid circular imports
+    from . import asset_bar_op
+
+    # Get asset data from task result
+    asset_data = task.result.get("asset_data")
+    if not asset_data:
+        bk_logger.error("No asset data found in task")
+        return
+
+    # Parse the asset data
+    parsed_asset_data = parse_result(asset_data)
+    if not parsed_asset_data:
+        bk_logger.error("Failed to parse asset data")
+        return
+
+    # Set the correct asset type in UI properties
+    ui_props = bpy.context.window_manager.blenderkitUI
+    asset_type = asset_data.get("assetType", "").upper()
+    if asset_type:
+        ui_props.asset_type = asset_type
+
+    # Get active tab and create new history step
+    active_tab = get_active_tab()
+    new_history_step = create_history_step(active_tab)
+    new_history_step["search_results"] = [parsed_asset_data]
+    new_history_step["search_results_orig"] = {"results": [asset_data], "count": 1}
+    new_history_step["is_searching"] = False
+
+    # Update tab name based on asset data
+    update_tab_name(active_tab)
+
+    # If asset bar is not open, try to open it
+    if asset_bar_op.asset_bar_operator is None:
+        try:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        except Exception as e:
+            bk_logger.error(f"Failed to open asset bar: {e}")
+            return
+
+    # Force redraw of the region if asset bar exists
+    if asset_bar_op.asset_bar_operator and asset_bar_op.asset_bar_operator.area:
+        asset_bar_op.asset_bar_operator.area.tag_redraw()
