@@ -1784,21 +1784,59 @@ def get_active_tab():
 
 def handle_bkclientjs_get_asset(task: client_tasks.Task):
     """Handle incoming bkclientjs/get_asset task. User asked for download in online gallery. How it goes:
-    1. Webpage tries to connect to Client, gets data about connected Softwares
-    2. User choosed Blender with appID of this Blender
-    2. Client gets asset data from API
-    3. Client creates finished task bkclientjs/get_asset containing asset data
-    4. We handle the task in here
-    5. We request the download of the asset as if user has clicked it inside Blender
-
-    TODO: #1262 Implement append to universal search results instead.
+    1. set search in the history
+    2. add new tab
+    3. set the results in the history step
+    4. open the asset bar
     """
-    bk_logger.info(f"handle_bkclientjs_get_asset: {task.data}")
-    from .asset_bar_op import asset_bar_operator
+    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result}")
+    
+    # Import here to avoid circular imports
+    from . import asset_bar_op
+
+    # Get asset data from task result
+    asset_data = task.result.get("asset_data")
+    if not asset_data:
+        bk_logger.error("No asset data found in task")
+        return
+
+    # Parse the asset data
+    parsed_asset_data = parse_result(asset_data)
+    if not parsed_asset_data:
+        bk_logger.error("Failed to parse asset data")
+        return
+
+    # Create new tab
+    new_tab = {
+        "name": "Get Asset",
+        "history": [],
+        "history_index": -1,
+    }
+
+    # Add tab to global tabs
+    global_vars.TABS["tabs"].append(new_tab)
+    global_vars.TABS["active_tab"] = len(global_vars.TABS["tabs"]) - 1
+
+    # Create history step for the new tab
+    new_history_step = create_history_step(new_tab)
+    new_history_step["search_results"] = [parsed_asset_data]
+    new_history_step["search_results_orig"] = {"results": [asset_data], "count": 1}
+    new_history_step["is_searching"] = False
+
+    # Update tab name based on asset data
+    update_tab_name(new_tab)
 
     # If asset bar is not open, try to open it
-    if asset_bar_operator is None:
-        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+    if asset_bar_op.asset_bar_operator is None:
+        try:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        except Exception as e:
+            bk_logger.error(f"Failed to open asset bar: {e}")
+            return
 
-    if asset_bar_operator:
-        asset_bar_operator.add_new_tab(None)
+    # Add new tab to asset bar if it exists
+    if asset_bar_op.asset_bar_operator:
+        asset_bar_op.asset_bar_operator.add_new_tab(None)
+        # Force redraw of the region
+        if asset_bar_op.asset_bar_operator.area:
+            asset_bar_op.asset_bar_operator.area.tag_redraw()
