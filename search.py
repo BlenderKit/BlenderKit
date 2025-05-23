@@ -1695,15 +1695,18 @@ def update_tab_name(active_tab):
     # Update tab name
     active_tab["name"] = tab_name
 
-    # Update UI if asset bar exists
+    # Update UI if asset bar exists and is properly initialized
     asset_bar = asset_bar_op.asset_bar_operator
     if asset_bar and hasattr(asset_bar, "tab_buttons"):
         active_tab_index = global_vars.TABS["active_tab"]
         if 0 <= active_tab_index < len(asset_bar.tab_buttons):
-            asset_bar.tab_buttons[active_tab_index].text = tab_name
-            # Force redraw of the region
-            if asset_bar.area:
-                asset_bar.area.tag_redraw()
+            try:
+                asset_bar.tab_buttons[active_tab_index].text = tab_name
+                # Only try to redraw if we have a valid region
+                if asset_bar.area and asset_bar.area.region:
+                    asset_bar.area.tag_redraw()
+            except Exception as e:
+                bk_logger.debug(f"Could not update tab name in UI: {e}")
 
     return history_step
 
@@ -1804,6 +1807,12 @@ def handle_bkclientjs_get_asset(task: client_tasks.Task):
     if not parsed_asset_data:
         bk_logger.error("Failed to parse asset data")
         return
+
+    # Set the correct asset type in UI properties
+    ui_props = bpy.context.window_manager.blenderkitUI
+    asset_type = asset_data.get("assetType", "").upper()
+    if asset_type:
+        ui_props.asset_type = asset_type
 
     # Get active tab and create new history step
     active_tab = get_active_tab()
