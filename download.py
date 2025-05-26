@@ -266,23 +266,31 @@ def udpate_asset_data_in_dicts(asset_data):
     ----------
     asset_data - data coming back from thread, thus containing also download urls
     """
+    data = asset_data.copy()
+    del data[
+        "filesSize"
+    ]  # filesSize is not needed, causes troubles: github.com/BlenderKit/BlenderKit/issues/1601
+
     scene = bpy.context.scene
     scene["assets used"] = scene.get("assets used", {})
-    scene["assets used"][asset_data["assetBaseId"]] = asset_data.copy()
+    scene["assets used"][asset_data["assetBaseId"]] = data
 
     # Get search results from history
     history_step = search.get_active_history_step()
-    sr = history_step.get("search_results")
-    if not sr:
+    search_results = history_step.get("search_results")
+    if not search_results:
         return
 
-    for i, r in enumerate(sr):
-        if r["assetBaseId"] == asset_data["assetBaseId"]:
-            for f in asset_data["files"]:
-                if f.get("url"):
-                    for f1 in r["files"]:
-                        if f1["fileType"] == f["fileType"]:
-                            f1["url"] = f["url"]
+    for result in search_results:
+        if result["assetBaseId"] != asset_data["assetBaseId"]:
+            continue
+        for file in asset_data["files"]:
+            if not file.get("url"):
+                continue
+            for f1 in result["files"]:
+                if f1["fileType"] != file["fileType"]:
+                    continue
+                f1["url"] = file["url"]
 
 
 def assign_material(object, material, target_slot):
