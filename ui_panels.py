@@ -1242,6 +1242,13 @@ def draw_panel_brush_search(self, context):
     row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
     draw_assetbar_show_hide(row, props)
 
+    if not context.sculpt_object and not context.image_paint_object:
+        utils.label_multiline(
+            layout,
+            text="Switch to paint or sculpt mode.",
+            width=context.region.width,
+        )
+
     utils.label_multiline(layout, text=props.report)
 
 
@@ -1727,7 +1734,7 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             layout.prop(search_props, "unrated_quality_only")
             layout.prop(search_props, "unrated_wh_only")
 
-        if ui_props.asset_type == "MODEL":
+        if ui_props.asset_type == "MODEL" or ui_props.asset_type == "PRINTABLE":
             return draw_panel_model_search(self, context)
 
         if ui_props.asset_type == "SCENE":
@@ -1740,14 +1747,7 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             return draw_panel_material_search(self, context)
 
         if ui_props.asset_type == "BRUSH":
-            if context.sculpt_object or context.image_paint_object:
-                return draw_panel_brush_search(self, context)
-            utils.label_multiline(
-                layout,
-                text="Switch to paint or sculpt mode.",
-                width=context.region.width,
-            )
-            return
+            return draw_panel_brush_search(self, context)
 
         if ui_props.asset_type == "NODEGROUP":
             return draw_panel_nodegroup_search(self, context)
