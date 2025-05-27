@@ -1755,6 +1755,96 @@ def create_history_step(active_tab):
     return history_step
 
 
+def append_history_step(
+    search_keywords,
+    search_results,
+    active_tab=None,
+    asset_type=None,
+    search_results_orig=None,
+) -> dict:
+    """Append a complete history step consisting of search keywords and results. No search is triggered.
+    Use this function when you already have search results data and want to add them to the history step.
+    Function also switches the asset type to the one provided, refreshes the UI and updates the tab name.
+
+    Parameters
+    ----------
+    search_keywords : str
+        The search keywords to use for this history step
+    search_results : list
+        List of parsed search results to store in the history step
+    active_tab : dict
+        The active tab to add the history step to
+    asset_type : str, optional
+        The asset type to use. If None, current asset type will be used
+    search_results_orig : dict, optional
+        The original search results from the server. If None, will be constructed from search_results
+
+    Returns
+    -------
+    dict
+        The newly created history step
+    """
+    if active_tab is None:
+        active_tab = get_active_tab()
+
+    ui_state = get_ui_state()
+    ui_state["ui_props"]["search_keywords"] = search_keywords
+
+    ui_props = bpy.context.window_manager.blenderkitUI
+    ui_props.search_lock = True
+    if asset_type:
+        ui_state["ui_props"]["asset_type"] = asset_type
+        ui_props.asset_type = asset_type
+
+    ui_props.search_keywords = search_keywords
+    ui_props.search_lock = False
+
+    # Create the history step
+    history_step = {
+        "id": str(uuid.uuid4()),
+        "ui_state": ui_state,
+        "scroll_offset": 0,  # Reset scroll offset for new search
+        "search_results": search_results,
+        "is_searching": False,
+    }
+
+    # Add original search results if provided, otherwise construct from search_results
+    if search_results_orig:
+        history_step["search_results_orig"] = search_results_orig
+    else:
+        history_step["search_results_orig"] = {
+            "results": search_results,
+            "count": len(search_results),
+        }
+
+    # Delete any future history steps
+    if active_tab["history_index"] < len(active_tab["history"]) - 1:
+        # Remove future steps from global history steps dict first
+        for step in active_tab["history"][active_tab["history_index"] + 1 :]:
+            global_vars.DATA["history steps"].pop(step["id"], None)
+        # Then truncate the tab's history list
+        active_tab["history"] = active_tab["history"][: active_tab["history_index"] + 1]
+
+    # Add to tab history
+    active_tab["history"].append(history_step)
+    active_tab["history_index"] = len(active_tab["history"]) - 1
+
+    # Add to global history steps
+    global_vars.DATA["history steps"][history_step["id"]] = history_step
+
+    # Update tab name
+    update_tab_name(active_tab)
+
+    # Update history button visibility if asset bar exists
+    asset_bar = asset_bar_op.asset_bar_operator
+    if asset_bar and hasattr(asset_bar, "history_back_button"):
+        asset_bar.history_back_button.visible = active_tab["history_index"] > 0
+        asset_bar.history_forward_button.visible = False
+        asset_bar.update_tab_icons()
+
+    return history_step
+
+
 def get_history_step(history_step_id):
     return global_vars.DATA["history steps"].get(history_step_id)
 
@@ -1791,10 +1881,7 @@ def handle_bkclientjs_get_asset(task: client_tasks.Task):
     2. set the results in the history step
     3. open the asset bar
     """
-    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result}")
-    
-    # Import here to avoid circular imports
-    from . import asset_bar_op
+    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result['asset_data']['name']}")
 
     # Get asset data from task result
     asset_data = task.result.get("asset_data")
@@ -1808,24 +1895,18 @@ def handle_bkclientjs_get_asset(task: client_tasks.Task):
         bk_logger.error("Failed to parse asset data")
         return
 
-    # Set the correct asset type in UI properties
-    ui_props = bpy.context.window_manager.blenderkitUI
-    asset_type = asset_data.get("assetType", "").upper()
-    if asset_type:
-        ui_props.asset_type = asset_type
+    append_history_step(
+        search_keywords=f"asset_base_id:{asset_data['assetBaseId']}",
+        search_results=[parsed_asset_data],
+        asset_type=asset_data.get("assetType", "").upper(),
+        search_results_orig={"results": [asset_data], "count": 1},
+    )
 
-    # Get active tab and create new history step
-    active_tab = get_active_tab()
-    new_history_step = create_history_step(active_tab)
-    new_history_step["search_results"] = [parsed_asset_data]
-    new_history_step["search_results_orig"] = {"results": [asset_data], "count": 1}
-    new_history_step["is_searching"] = False
-
-    # Update tab name based on asset data
-    update_tab_name(active_tab)
+    # Import here to avoid circular imports
+    from .asset_bar_op import asset_bar_operator
 
     # If asset bar is not open, try to open it
-    if asset_bar_op.asset_bar_operator is None:
+    if asset_bar_operator is None:
         try:
             bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
         except Exception as e:
@@ -1833,5 +1914,7 @@ def handle_bkclientjs_get_asset(task: client_tasks.Task):
             return
 
     # Force redraw of the region if asset bar exists
-    if asset_bar_op.asset_bar_operator and asset_bar_op.asset_bar_operator.area:
-        asset_bar_op.asset_bar_operator.area.tag_redraw()
+    if asset_bar_operator and asset_bar_operator.area:
+        load_preview(parsed_asset_data)
+        asset_bar_operator.update_image(parsed_asset_data["assetBaseId"])
+        asset_bar_operator.area.tag_redraw()
