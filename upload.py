@@ -1110,13 +1110,13 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
 
 asset_types = (
     ("MODEL", "Model", "Set of objects"),
-    ("PRINTABLE", "Printable", "3D printable model"),
     ("SCENE", "Scene", "Scene"),
     ("HDR", "HDR", "HDR image"),
     ("MATERIAL", "Material", "Any .blend Material"),
     ("TEXTURE", "Texture", "A texture, or texture set"),
     ("BRUSH", "Brush", "Brush, can be any type of blender brush"),
     ("NODEGROUP", "Tool", "Geometry nodes tool"),
+    ("PRINTABLE", "Printable", "3D printable model"),
     ("ADDON", "Addon", "Addon"),
 )
 

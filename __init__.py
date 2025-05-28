@@ -285,45 +285,45 @@ def asset_type_callback(self, context):
     if self.down_up == "SEARCH":
         items = [
             ("MODEL", "Models", "Find models", "OBJECT_DATAMODE", 0),
-            ("MATERIAL", "Materials", "Find materials", "MATERIAL", 2),
-            ("SCENE", "Scenes", "Find scenes", "SCENE_DATA", 3),
-            ("HDR", "HDRs", "Find HDRs", "WORLD", 4),
-            ("BRUSH", "Brushes", "Find brushes", "BRUSH_DATA", 5),
-            ("NODEGROUP", "Node Groups", "Find tools", "NODETREE", 6),
+            ("MATERIAL", "Materials", "Find materials", "MATERIAL", 1),
+            ("SCENE", "Scenes", "Find scenes", "SCENE_DATA", 2),
+            ("HDR", "HDRs", "Find HDRs", "WORLD", 3),
+            ("BRUSH", "Brushes", "Find brushes", "BRUSH_DATA", 4),
+            ("NODEGROUP", "Node Groups", "Find tools", "NODETREE", 5),
         ]
         # Add printable under experimental features
         if preferences.experimental_features:
             # Insert printable after MODEL (at index 1)
             items.insert(
-                1,
+                6,
                 (
                     "PRINTABLE",
                     "Printables",
                     "Find 3D printable models",
                     pcoll["asset_type_printable"].icon_id,
-                    1,
+                    6,
                 ),
             )
     else:
         items = [
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
-            ("MATERIAL", "Material", "Upload a material", "MATERIAL", 2),
-            ("SCENE", "Scene", "Upload a scene", "SCENE_DATA", 3),
-            ("HDR", "HDR", "Upload a HDR", "WORLD", 4),
-            ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 5),
-            ("NODEGROUP", "Node Groups", "Upload a tool", "NODETREE", 6),
+            ("MATERIAL", "Material", "Upload a material", "MATERIAL", 1),
+            ("SCENE", "Scene", "Upload a scene", "SCENE_DATA", 2),
+            ("HDR", "HDR", "Upload a HDR", "WORLD", 3),
+            ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 4),
+            ("NODEGROUP", "Node Groups", "Upload a tool", "NODETREE", 5),
         ]
         # Add printable under experimental features
         if preferences.experimental_features:
             # Insert printable after MODEL (at index 1)
             items.insert(
-                1,
+                6,
                 (
                     "PRINTABLE",
                     "Printable",
                     "Upload a 3D printable model",
                     pcoll["asset_type_printable"].icon_id,
-                    1,
+                    6,
                 ),
             )
 
