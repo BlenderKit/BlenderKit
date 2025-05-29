@@ -280,7 +280,6 @@ def asset_type_callback(self, context):
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
     """
     pcoll = icons.icon_collections["main"]
-    preferences = bpy.context.preferences.addons[__package__].preferences
 
     if self.down_up == "SEARCH":
         items = [
@@ -290,20 +289,14 @@ def asset_type_callback(self, context):
             ("HDR", "HDRs", "Find HDRs", "WORLD", 3),
             ("BRUSH", "Brushes", "Find brushes", "BRUSH_DATA", 4),
             ("NODEGROUP", "Node Groups", "Find tools", "NODETREE", 5),
-        ]
-        # Add printable under experimental features
-        if preferences.experimental_features:
-            # Insert printable after MODEL (at index 1)
-            items.insert(
+            (
+                "PRINTABLE",
+                "Printables",
+                "Find 3D printable models",
+                pcoll["asset_type_printable"].icon_id,
                 6,
-                (
-                    "PRINTABLE",
-                    "Printables",
-                    "Find 3D printable models",
-                    pcoll["asset_type_printable"].icon_id,
-                    6,
-                ),
-            )
+            ),
+        ]
     else:
         items = [
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
@@ -312,20 +305,14 @@ def asset_type_callback(self, context):
             ("HDR", "HDR", "Upload a HDR", "WORLD", 3),
             ("BRUSH", "Brush", "Upload a brush", "BRUSH_DATA", 4),
             ("NODEGROUP", "Node Groups", "Upload a tool", "NODETREE", 5),
-        ]
-        # Add printable under experimental features
-        if preferences.experimental_features:
-            # Insert printable after MODEL (at index 1)
-            items.insert(
+            (
+                "PRINTABLE",
+                "Printable",
+                "Upload a 3D printable model",
+                pcoll["asset_type_printable"].icon_id,
                 6,
-                (
-                    "PRINTABLE",
-                    "Printable",
-                    "Upload a 3D printable model",
-                    pcoll["asset_type_printable"].icon_id,
-                    6,
-                ),
-            )
+            ),
+        ]
 
     return items
 
@@ -2251,7 +2238,7 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="""Enable experimental features of BlenderKit: \n - 3D printable assets (search and upload models optimized for 3D printing)""",
+        description="Enable experimental features of BlenderKit. Note: There are no experimental features in this version.",
         default=False,
         update=utils.save_prefs,
     )
