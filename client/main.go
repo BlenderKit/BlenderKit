@@ -2771,6 +2771,24 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 				AssetData:   assetData,
 			},
 		}
+		// Parse thumbnails for the asset
+		tempDir, err := GetSafeTempPath()
+		if err != nil {
+			BKLog.Printf("%s GetSafeTempPath error: %v", EmoBKClientJS, err)
+			return
+		}
+		// model_search, scene_search, etc
+		tempDir = filepath.Join(tempDir, fmt.Sprintf("%s_search", assetData.AssetType))
+		searchData := SearchTaskData{
+			AppID:          appID,
+			AddonVersion:   targetSoftware.AddonVersion,
+			BlenderVersion: targetSoftware.Version,
+			TempDir:        tempDir,
+		}
+		searchResults := SearchResults{
+			Results: []Asset{assetData},
+		}
+		go parseThumbnails(searchResults, searchData)
 		return
 	}
 
