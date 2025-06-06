@@ -380,6 +380,15 @@ def get_upload_data(caller=None, context=None, asset_type=None):
         upload_params = {
             "faceCount": props.face_count,
             "modifiers": utils.string2list(props.modifiers),
+            "dimensionX": round(props.dimensions[0], 4),
+            "dimensionY": round(props.dimensions[1], 4),
+            "dimensionZ": round(props.dimensions[2], 4),
+            "boundBoxMinX": round(props.bbox_min[0], 4),
+            "boundBoxMinY": round(props.bbox_min[1], 4),
+            "boundBoxMinZ": round(props.bbox_min[2], 4),
+            "boundBoxMaxX": round(props.bbox_max[0], 4),
+            "boundBoxMaxY": round(props.bbox_max[1], 4),
+            "boundBoxMaxZ": round(props.bbox_max[2], 4),
         }
 
         # Additional parameters only for MODEL type
@@ -404,15 +413,6 @@ def get_upload_data(caller=None, context=None, asset_type=None):
                     "materials": utils.string2list(props.materials),
                     "shaders": utils.string2list(props.shaders),
                     "uv": props.uv,
-                    "dimensionX": round(props.dimensions[0], 4),
-                    "dimensionY": round(props.dimensions[1], 4),
-                    "dimensionZ": round(props.dimensions[2], 4),
-                    "boundBoxMinX": round(props.bbox_min[0], 4),
-                    "boundBoxMinY": round(props.bbox_min[1], 4),
-                    "boundBoxMinZ": round(props.bbox_min[2], 4),
-                    "boundBoxMaxX": round(props.bbox_max[0], 4),
-                    "boundBoxMaxY": round(props.bbox_max[1], 4),
-                    "boundBoxMaxZ": round(props.bbox_max[2], 4),
                     "animated": props.animated,
                     "rig": props.rig,
                     "simulation": props.simulation,
