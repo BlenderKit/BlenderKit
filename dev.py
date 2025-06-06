@@ -114,7 +114,7 @@ def verify_client_binaries(binaries_path: str):
             )
             output, error = process.communicate()
             # print(f"out:{output}, err:{error}")
-            expected = "Subject: /C=CZ/ST=Praha/L=Praha/O=Blender Kit s.r.o./CN=Blender Kit s.r.o."
+            expected = "Subject: /C=CZ/ST=Prague/L=Prague/O=Blender Kit s.r.o./CN=Blender Kit s.r.o."
             if expected in str(output):
                 print(f">>> OK!")
             elif expected in str(error):
