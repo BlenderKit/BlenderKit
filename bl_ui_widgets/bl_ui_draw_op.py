@@ -1,3 +1,4 @@
+import traceback
 import bpy
 from bpy.types import Operator
 
@@ -113,4 +114,4 @@ def draw_callback_px_separated(self, op, context):
             for widget in self.widgets:
                 widget.draw()
     except Exception as e:
-        print(e)
+        traceback.print_exc()

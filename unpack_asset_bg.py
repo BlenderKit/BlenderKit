@@ -20,6 +20,7 @@
 import json
 import os
 import sys
+import traceback
 
 import bpy
 
@@ -83,7 +84,8 @@ def unpack_asset(data):
         try:
             os.mkdir(tex_dir_abs)
         except Exception as e:
-            print(e)
+            traceback.print_exc()
+
     bpy.data.use_autopack = False
     for image in bpy.data.images:
         if image.name == "Render Result":
@@ -145,7 +147,8 @@ def unpack_asset(data):
     try:
         os.remove(bpy.data.filepath + "1")
     except Exception as e:
-        print(e)
+        traceback.print_exc()
+
     bpy.ops.wm.quit_blender()
     sys.exit()
 

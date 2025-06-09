@@ -224,7 +224,9 @@ class BringToScene(Operator):
                     parent = ob
                     bpy.context.view_layer.objects.active = parent
             except Exception as e:
-                print(e)
+                bk_logger.exception(
+                    f"BringToScene.execute: failed to link an object to the collection"
+                )
 
         bpy.ops.object.make_local(type="ALL")
 
@@ -234,10 +236,9 @@ class BringToScene(Operator):
                 try:
                     ob.select_set(True)
                 except Exception as e:
-                    print(
-                        "failed to select an object from the collection, getting a replacement."
+                    bk_logger.exception(
+                        f"BringToScene.execute: failed to select an object from the collection, getting a replacement."
                     )
-                    print(e)
 
         related = []
 

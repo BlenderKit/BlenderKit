@@ -124,8 +124,7 @@ def selection_set(sel):
         for ob in sel[1]:
             ob.select_set(True)
     except Exception as e:
-        print("Selectible objects not found")
-        print(e)
+        bk_logger.exception(f"failed to select objects: {str(e)}")
 
 
 def get_active_model() -> Optional[bpy.types.Object]:
