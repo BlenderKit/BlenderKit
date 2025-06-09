@@ -159,8 +159,11 @@ class BL_UI_Button(BL_UI_Widget):
 
     def draw_text(self, area_height):
         font_id = 1
-
-        if bpy.app.version < (4, 0, 0):
+        if bpy.app.version < (3, 1, 0):
+            # Blender 3.0 requires size:int https://docs.blender.org/api/3.0/blf.html#blf.size
+            # but assetBar's search tab text is float - needs conversion in here
+            blf.size(font_id, int(self._text_size), 72)
+        elif bpy.app.version < (4, 0, 0):
             blf.size(font_id, self._text_size, 72)
         else:
             blf.size(font_id, self._text_size)
@@ -204,7 +207,9 @@ class BL_UI_Button(BL_UI_Widget):
             try:
                 self.mouse_down_func(self)
             except Exception as e:
-                print(e)
+                import traceback
+
+                traceback.print_exc()
 
             return True
 
