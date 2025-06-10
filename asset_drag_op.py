@@ -53,9 +53,10 @@ handler_3d = None
 
 
 def draw_callback_dragging(self, context):
-    # Only draw 2D elements in the active region where the mouse is
+    # Only draw 2D elements in the active region where the mouse is, also check if self still exists
     if (
-        not hasattr(self, "active_region_pointer")
+        self is None
+        or not hasattr(self, "active_region_pointer")
         or context.region.as_pointer() != self.active_region_pointer
     ):
         return
@@ -374,20 +375,19 @@ def find_and_activate_instancers(object):
             return ob
 
 
-def mouse_raycast(context, mx, my):
-    r = context.region
-    rv3d = context.region_data
+def mouse_raycast(region, rv3d, mx, my):
     coord = mx, my
+
     # get the ray from the viewport and mouse
-    view_vector = view3d_utils.region_2d_to_vector_3d(r, rv3d, coord)
+    view_vector = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
     if rv3d.view_perspective == "CAMERA" and rv3d.is_perspective == False:
         #  ortographic cameras don'w work with region_2d_to_origin_3d
         view_position = rv3d.view_matrix.inverted().translation
         ray_origin = view3d_utils.region_2d_to_location_3d(
-            r, rv3d, coord, depth_location=view_position
+            region, rv3d, coord, depth_location=view_position
         )
     else:
-        ray_origin = view3d_utils.region_2d_to_origin_3d(r, rv3d, coord, clamp=1.0)
+        ray_origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord, clamp=1.0)
 
     ray_target = ray_origin + (view_vector * 1000000000)
 
@@ -400,7 +400,7 @@ def mouse_raycast(context, mx, my):
         face_index,
         object,
         matrix,
-    ) = deep_ray_cast(context, ray_origin, vec)
+    ) = deep_ray_cast(ray_origin, vec)
 
     # backface snapping inversion
     if view_vector.angle(snapped_normal) < math.pi / 2:
@@ -451,9 +451,8 @@ def mouse_raycast(context, mx, my):
     )
 
 
-def floor_raycast(context, mx, my):
-    r = context.region
-    rv3d = context.region_data
+def floor_raycast(r, rv3d, mx, my):
+
     coord = mx, my
 
     # get the ray from the viewport and mouse
@@ -503,11 +502,11 @@ def floor_raycast(context, mx, my):
     )
 
 
-def deep_ray_cast(context, ray_origin, vec):
+def deep_ray_cast(ray_origin, vec):
     # this allows to ignore some objects, like objects with bounding box draw style or particle objects
     object = None
     # while object is None or object.draw
-    depsgraph = context.view_layer.depsgraph
+    depsgraph = bpy.context.view_layer.depsgraph
     (
         has_hit,
         snapped_location,
@@ -523,7 +522,7 @@ def deep_ray_cast(context, ray_origin, vec):
     while try_object and (
         try_object.display_type == "BOUNDS"
         or object_in_particle_collection(try_object)
-        or not try_object.visible_get(viewport=context.space_data)
+        or not try_object.visible_get(viewport=bpy.context.space_data)
     ):
         ray_origin = snapped_location + vec.normalized() * 0.0003
         (
@@ -1037,35 +1036,32 @@ class AssetDragOperator(bpy.types.Operator):
         # Handle 3D View drop
         self.handle_view3d_drop(context)
 
-    def find_active_region(self, x, y, context=None):
-        """Find the region and area under the mouse cursor."""
+    def find_active_region(self, x, y, context=None, window=None):
+        """Find the region and area under the mouse cursor in the specified window."""
         if context is None:
             context = bpy.context
-
-        for window in context.window_manager.windows:
-            for area in window.screen.areas:
-                for region in area.regions:
-                    if region.type != "WINDOW":
-                        continue
-                    if (
-                        region.x <= x < region.x + region.width
-                        and region.y <= y < region.y + region.height
-                    ):
-                        return region, area
+        if window is None:
+            window = context.window
+        for area in window.screen.areas:
+            for region in area.regions:
+                if region.type != "WINDOW":
+                    continue
+                if (
+                    region.x <= x < region.x + region.width
+                    and region.y <= y < region.y + region.height
+                ):
+                    return region, area
         return None, None
 
-    def find_active_area(self, x, y, context=None):
-        """Find the area under the mouse cursor."""
+    def find_active_area(self, x, y, context=None, window=None):
+        """Find the area under the mouse cursor in the specified window."""
         if context is None:
             context = bpy.context
-        for window in context.window_manager.windows:
-            for area in window.screen.areas:
-
-                if (
-                    area.x <= x < area.x + area.width
-                    and area.y <= y < area.y + area.height
-                ):
-                    return area
+        if window is None:
+            window = context.window
+        for area in window.screen.areas:
+            if area.x <= x < area.x + area.width and area.y <= y < area.y + area.height:
+                return area
         return None
 
     def find_outliner_element_under_mouse(self, context, x, y):
@@ -1158,7 +1154,6 @@ class AssetDragOperator(bpy.types.Operator):
 
     def modal(self, context, event):
         ui_props = bpy.context.window_manager.blenderkitUI
-        context.area.tag_redraw()
 
         # if event.type == 'MOUSEMOVE':
         if not hasattr(self, "start_mouse_x"):
@@ -1174,8 +1169,24 @@ class AssetDragOperator(bpy.types.Operator):
 
         # Find the active region under the mouse cursor
         active_region, active_area = self.find_active_region(
-            event.mouse_x, event.mouse_y, context
+            event.mouse_x, event.mouse_y, context, context.window
         )
+
+        # --- CURSOR VISIBILITY FIX ---
+        if active_region is None or active_area is None:
+            bpy.context.window.cursor_set("DEFAULT")
+        else:
+            if self.drag:
+                bpy.context.window.cursor_set("NONE")
+
+        # --- REDRAW ALL WINDOWS/AREAS FOR MULTI-WINDOW DRAG ---
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                area.tag_redraw()
+
+        if active_area is not None:
+            active_area.tag_redraw()
+
         current_area_type = active_area.type if active_area else None
 
         # Check if we're transitioning out of the outliner
@@ -1284,8 +1295,11 @@ class AssetDragOperator(bpy.types.Operator):
         ):
             # Find active region for raycasting
             active_region, active_area = self.find_active_region(
-                event.mouse_x, event.mouse_y, context
+                event.mouse_x, event.mouse_y, context, context.window
             )
+            # sometimes active area can be None, so we need to check for that
+            if active_area is None:
+                return {"RUNNING_MODAL"}
 
             # Only perform raycasting in 3D view areas
             if active_region and active_area and active_area.type == "VIEW_3D":
@@ -1293,6 +1307,9 @@ class AssetDragOperator(bpy.types.Operator):
                 region_mouse_x = event.mouse_x - active_region.x
                 region_mouse_y = event.mouse_y - active_region.y
 
+                for space in active_area.spaces:
+                    if space.type == "VIEW_3D":
+                        region_data = space.region_3d
                 # Need to temporarily override context for raycasting
                 with bpy.context.temp_override(area=active_area, region=active_region):
                     (
@@ -1303,7 +1320,12 @@ class AssetDragOperator(bpy.types.Operator):
                         self.face_index,
                         object,
                         self.matrix,
-                    ) = mouse_raycast(bpy.context, region_mouse_x, region_mouse_y)
+                    ) = mouse_raycast(
+                        active_region,
+                        region_data,
+                        region_mouse_x,
+                        region_mouse_y,
+                    )
 
                     if object is not None:
                         self.object_name = object.name
@@ -1327,7 +1349,9 @@ class AssetDragOperator(bpy.types.Operator):
                         self.face_index,
                         object,
                         self.matrix,
-                    ) = floor_raycast(bpy.context, region_mouse_x, region_mouse_y)
+                    ) = floor_raycast(
+                        active_region, region_data, region_mouse_x, region_mouse_y
+                    )
 
                     if object is not None:
                         self.object_name = object.name
@@ -1353,6 +1377,26 @@ class AssetDragOperator(bpy.types.Operator):
         # pass event to assetbar so it can close itself
         if ui_props.assetbar_on and ui_props.turn_off:
             return {"PASS_THROUGH"}
+
+        # --- WINDOW HANDOVER LOGIC ---
+        # Find which window the mouse is currently over
+        mouse_window = None
+        for window in bpy.context.window_manager.windows:
+            # Window bounds are in screen coordinates
+            x, y = window.x, window.y
+            width, height = window.width, window.height
+            if (x <= event.mouse_x < x + width) and (y <= event.mouse_y < y + height):
+                mouse_window = window
+                break
+        if mouse_window is not None and mouse_window != context.window:
+            # Cancel in old window
+            self.handlers_remove()
+            bpy.context.window.cursor_set("DEFAULT")
+            ui_props = bpy.context.window_manager.blenderkitUI
+            ui_props.dragging = False
+            # Start the operator in the new window
+            bpy.ops.view3d.asset_drag_drop("INVOKE_DEFAULT")
+            return {"CANCELLED"}
 
         return {"RUNNING_MODAL"}
 
