@@ -23,9 +23,10 @@ import random
 
 import bpy
 import mathutils
-from bpy.props import IntProperty, StringProperty, BoolProperty
+from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
+from typing import Union
 
 from . import (
     bg_blender,
@@ -452,7 +453,6 @@ def mouse_raycast(region, rv3d, mx, my):
 
 
 def floor_raycast(r, rv3d, mx, my):
-
     coord = mx, my
 
     # get the ray from the viewport and mouse
@@ -1064,32 +1064,49 @@ class AssetDragOperator(bpy.types.Operator):
                 return area
         return None
 
-    def find_outliner_element_under_mouse(self, context, x, y):
+    def find_outliner_element_under_mouse(
+        self, context: Union[bpy.types.Context, dict], x, y
+    ):
         """Find and select the element under the mouse in the outliner.
         Returns the selected object, collection, or None."""
+        if isinstance(context, dict):
+            area = context["area"]
+            region = context["region"]
+            window = context["window"]
+            selected_objects = context["selected_objects"]
+            active_object = context["active_object"]
+            view_layer = context["view_layer"]
+        else:
+            area = context.area
+            region = context.region
+            window = context.window
+            selected_objects = context.selected_objects
+            active_object = context.active_object
+            view_layer = context.view_layer
 
-        if not context.area or context.area.type != "OUTLINER":
+        if not area or area.type != "OUTLINER":
             return None
 
         # Store original selection to restore if needed
-        orig_selected_objects = context.selected_objects.copy()
-        orig_active_object = context.active_object
+        orig_selected_objects = selected_objects.copy()
+        orig_active_object = active_object
         # Store original active collection
-        orig_active_collection = context.view_layer.active_layer_collection
+        orig_active_collection = view_layer.active_layer_collection
 
         # Use outliner's built-in selection to find what's under the mouse
-        region = context.region
-        with bpy.context.temp_override(
-            region=region,
-            area=context.area,
-            window=context.window,
-        ):
-            # Calculate coordinates relative to region
+        if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+            override = {
+                "window": window,
+                "screen": window.screen,
+                "area": area,
+                "region": region,
+                "scene": context["scene"],
+                "view_layer": view_layer,
+            }
             rel_x = x - region.x
             rel_y = y - region.y
-
-            # Try to select what's under the mouse
             bpy.ops.outliner.select_box(
+                override,
                 xmin=rel_x - 1,
                 xmax=rel_x + 1,
                 ymin=rel_y - 1,
@@ -1097,6 +1114,25 @@ class AssetDragOperator(bpy.types.Operator):
                 wait_for_input=False,
                 mode="SET",
             )
+        else:  # B3.2+ can use context.temp_override()
+            with bpy.context.temp_override(
+                region=region,
+                area=area,
+                window=window,
+            ):
+                # Calculate coordinates relative to region
+                rel_x = x - region.x
+                rel_y = y - region.y
+
+                # Try to select what's under the mouse
+                bpy.ops.outliner.select_box(
+                    xmin=rel_x - 1,
+                    xmax=rel_x + 1,
+                    ymin=rel_y - 1,
+                    ymax=rel_y + 1,
+                    wait_for_input=False,
+                    mode="SET",
+                )
 
         # Get the newly selected element using selected_ids
         selected_element = None
@@ -1147,10 +1183,24 @@ class AssetDragOperator(bpy.types.Operator):
             # Instead, we can deselect in the outliner
             if self.prev_area_type == "OUTLINER":
                 # need to create a new context to deselect in the outliner
-                with bpy.context.temp_override(
-                    area=self.outliner_area, region=self.outliner_region
-                ):
-                    bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
+                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+                    context = bpy.context
+                    override = {
+                        "window": context.window,
+                        "screen": context.screen,
+                        "area": self.outliner_area,
+                        "region": self.outliner_region,
+                        "scene": context.scene,
+                        "view_layer": context.view_layer,
+                    }
+                    bpy.ops.outliner.item_activate(
+                        override, extend=False, deselect_all=True
+                    )
+                else:  # B3.2+ can use context.temp_override()
+                    with bpy.context.temp_override(
+                        area=self.outliner_area, region=self.outliner_region
+                    ):
+                        bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
 
     def modal(self, context, event):
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -1231,16 +1281,38 @@ class AssetDragOperator(bpy.types.Operator):
             # Handle outliner interaction
             if active_area.type == "OUTLINER":
                 # Need to temporarily override context to work with the outliner
-                with bpy.context.temp_override(area=active_area, region=active_region):
-                    # Find and highlight the element under the mouse
+                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+                    context_override = {
+                        "window": context.window,
+                        "screen": context.screen,
+                        "area": active_area,
+                        "region": active_region,
+                        "scene": context.scene,
+                        "view_layer": context.view_layer,
+                        "selected_objects": context.selected_objects,
+                        "active_object": context.active_object,
+                    }
                     self.hovered_outliner_element = (
                         self.find_outliner_element_under_mouse(
-                            bpy.context, event.mouse_x, event.mouse_y
+                            context_override, event.mouse_x, event.mouse_y
                         )
                     )
                     # Store outliner area and region for mouse release handling
                     self.outliner_area = active_area
                     self.outliner_region = active_region
+                else:  # B3.2+ can use context.temp_override()
+                    with bpy.context.temp_override(
+                        area=active_area, region=active_region
+                    ):
+                        # Find and highlight the element under the mouse
+                        self.hovered_outliner_element = (
+                            self.find_outliner_element_under_mouse(
+                                bpy.context, event.mouse_x, event.mouse_y
+                            )
+                        )
+                        # Store outliner area and region for mouse release handling
+                        self.outliner_area = active_area
+                        self.outliner_region = active_region
             else:
                 # Reset outliner tracking
                 self.hovered_outliner_element = None
@@ -1311,7 +1383,18 @@ class AssetDragOperator(bpy.types.Operator):
                     if space.type == "VIEW_3D":
                         region_data = space.region_3d
                 # Need to temporarily override context for raycasting
-                with bpy.context.temp_override(area=active_area, region=active_region):
+                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+                    override = {
+                        "window": context.window,
+                        "screen": context.screen,
+                        "area": active_area,
+                        "region": active_region,
+                        "region_data": active_area.spaces[
+                            0
+                        ].region_3d,  # Get region_data from space_data
+                        "scene": context.scene,
+                        "view_layer": context.view_layer,
+                    }
                     (
                         self.has_hit,
                         self.snapped_location,
@@ -1320,15 +1403,24 @@ class AssetDragOperator(bpy.types.Operator):
                         self.face_index,
                         object,
                         self.matrix,
-                    ) = mouse_raycast(
-                        active_region,
-                        region_data,
-                        region_mouse_x,
-                        region_mouse_y,
-                    )
-
+                    ) = mouse_raycast(override, region_mouse_x, region_mouse_y)
                     if object is not None:
                         self.object_name = object.name
+                else:  # B3.2+ can use context.temp_override()
+                    with bpy.context.temp_override(
+                        area=active_area, region=active_region
+                    ):
+                        (
+                            self.has_hit,
+                            self.snapped_location,
+                            self.snapped_normal,
+                            self.snapped_rotation,
+                            self.face_index,
+                            object,
+                            self.matrix,
+                        ) = mouse_raycast(bpy.context, region_mouse_x, region_mouse_y)
+                        if object is not None:
+                            self.object_name = object.name
 
             # MODELS can be dragged on scene floor
             if not self.has_hit and self.asset_data["assetType"] in [
@@ -1340,7 +1432,18 @@ class AssetDragOperator(bpy.types.Operator):
                 region_mouse_y = event.mouse_y - active_region.y
 
                 # Need to temporarily override context for raycasting
-                with bpy.context.temp_override(area=active_area, region=active_region):
+                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+                    override = {
+                        "window": context.window,
+                        "screen": context.screen,
+                        "area": active_area,
+                        "region": active_region,
+                        "region_data": active_area.spaces[
+                            0
+                        ].region_3d,  # Get region_data from space_data
+                        "scene": context.scene,
+                        "view_layer": context.view_layer,
+                    }
                     (
                         self.has_hit,
                         self.snapped_location,
@@ -1349,12 +1452,24 @@ class AssetDragOperator(bpy.types.Operator):
                         self.face_index,
                         object,
                         self.matrix,
-                    ) = floor_raycast(
-                        active_region, region_data, region_mouse_x, region_mouse_y
-                    )
-
+                    ) = floor_raycast(override, region_mouse_x, region_mouse_y)
                     if object is not None:
                         self.object_name = object.name
+                else:  # B3.2+ can use context.temp_override()
+                    with bpy.context.temp_override(
+                        area=active_area, region=active_region
+                    ):
+                        (
+                            self.has_hit,
+                            self.snapped_location,
+                            self.snapped_normal,
+                            self.snapped_rotation,
+                            self.face_index,
+                            object,
+                            self.matrix,
+                        ) = floor_raycast(bpy.context, region_mouse_x, region_mouse_y)
+                        if object is not None:
+                            self.object_name = object.name
 
             if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
