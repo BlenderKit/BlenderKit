@@ -1403,7 +1403,9 @@ class AssetDragOperator(bpy.types.Operator):
                         self.face_index,
                         object,
                         self.matrix,
-                    ) = mouse_raycast(override, region_mouse_x, region_mouse_y)
+                    ) = mouse_raycast(
+                        active_region, region_data, region_mouse_x, region_mouse_y
+                    )
                     if object is not None:
                         self.object_name = object.name
                 else:  # B3.2+ can use context.temp_override()
@@ -1418,7 +1420,9 @@ class AssetDragOperator(bpy.types.Operator):
                             self.face_index,
                             object,
                             self.matrix,
-                        ) = mouse_raycast(bpy.context, region_mouse_x, region_mouse_y)
+                        ) = mouse_raycast(
+                            active_region, region_data, region_mouse_x, region_mouse_y
+                        )
                         if object is not None:
                             self.object_name = object.name
 
@@ -1452,7 +1456,9 @@ class AssetDragOperator(bpy.types.Operator):
                         self.face_index,
                         object,
                         self.matrix,
-                    ) = floor_raycast(override, region_mouse_x, region_mouse_y)
+                    ) = floor_raycast(
+                        active_region, region_data, region_mouse_x, region_mouse_y
+                    )
                     if object is not None:
                         self.object_name = object.name
                 else:  # B3.2+ can use context.temp_override()
@@ -1467,7 +1473,9 @@ class AssetDragOperator(bpy.types.Operator):
                             self.face_index,
                             object,
                             self.matrix,
-                        ) = floor_raycast(bpy.context, region_mouse_x, region_mouse_y)
+                        ) = floor_raycast(
+                            active_region, region_data, region_mouse_x, region_mouse_y
+                        )
                         if object is not None:
                             self.object_name = object.name
 
