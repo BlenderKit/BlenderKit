@@ -1193,14 +1193,29 @@ class AssetDragOperator(bpy.types.Operator):
                         "scene": context.scene,
                         "view_layer": context.view_layer,
                     }
-                    bpy.ops.outliner.item_activate(
-                        override, extend=False, deselect_all=True
-                    )
+                    # Only try to deselect if we have valid area and region
+                    if self.outliner_area and self.outliner_region:
+                        bpy.ops.outliner.select_box(
+                            override,
+                            xmin=0,
+                            xmax=1,
+                            ymin=0,
+                            ymax=1,
+                            wait_for_input=False,
+                            mode="SET",
+                        )  # Use a very small selection box in the corner to deselect everything
                 else:  # B3.2+ can use context.temp_override()
                     with bpy.context.temp_override(
                         area=self.outliner_area, region=self.outliner_region
                     ):
-                        bpy.ops.outliner.item_activate(extend=False, deselect_all=True)
+                        bpy.ops.outliner.select_box(
+                            xmin=0,
+                            xmax=1,
+                            ymin=0,
+                            ymax=1,
+                            wait_for_input=False,
+                            mode="SET",
+                        )  # Use a very small selection box in the corner to deselect everything
 
     def modal(self, context, event):
         ui_props = bpy.context.window_manager.blenderkitUI
