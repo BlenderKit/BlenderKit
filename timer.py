@@ -342,7 +342,7 @@ def handle_task(task: client_tasks.Task):
 
     # BKCLIENTJS - Download from web
     if task.task_type == "bkclientjs/get_asset":
-        return download.handle_bkclientjs_get_asset(task)
+        return search.handle_bkclientjs_get_asset(task)
 
     # HANDLE MESSAGE FROM CLIENT
     if (
