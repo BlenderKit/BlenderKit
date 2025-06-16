@@ -449,7 +449,13 @@ def append_particle_system(
 
 
 def append_objects(
-    file_name, obnames=None, location=(0, 0, 0), link=False, collection="", **kwargs
+    file_name,
+    obnames=None,
+    location=(0, 0, 0),
+    link=False,
+    parent=None,
+    collection="",
+    **kwargs,
 ):
     """Append object into scene individually. 2 approaches based in definition of name argument.
     TODO: really split this function into 2 functions: kwargs.get('name')==None and else.
@@ -521,8 +527,8 @@ def append_objects(
         if kwargs.get("rotation"):
             main_object.rotation_euler = kwargs["rotation"]
 
-        if kwargs.get("parent") is not None:
-            main_object.parent = bpy.data.objects[kwargs["parent"]]
+        if parent is not None:
+            main_object.parent = bpy.data.objects[parent]
             main_object.matrix_world.translation = location
 
         # move objects that should be hidden to a sub collection
@@ -639,8 +645,8 @@ def append_objects(
     if kwargs.get("rotation") is not None:
         main_object.rotation_euler = kwargs["rotation"]
 
-    if kwargs.get("parent") is not None:
-        main_object.parent = bpy.data.objects[kwargs["parent"]]
+    if parent is not None:
+        main_object.parent = bpy.data.objects[parent]
         main_object.matrix_world.translation = location
 
     try:

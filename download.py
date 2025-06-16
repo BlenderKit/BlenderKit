@@ -1365,6 +1365,12 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         default="",
     )
 
+    parent: StringProperty(  # type: ignore[valid-type]
+        name="Parent Object",
+        description="Object to parent the new asset to",
+        default="",
+    )
+
     material_target_slot: IntProperty(  # type: ignore[valid-type]
         name="Asset Index", description="asset index in search results", default=0
     )
@@ -1553,6 +1559,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "model_rotation": tuple(self.model_rotation),
             "replace": False,
             "replace_resolution": self.replace_resolution,
+            "parent": self.parent,
             "resolution": resolution,
             "node_x": self.node_x,
             "node_y": self.node_y,

@@ -104,6 +104,29 @@ def draw_callback_dragging(self, context):
                 16,
                 (0.9, 0.9, 0.9, 1.0),
             )
+        elif self.asset_data["assetType"] in ["model", "printable"]:
+            message = ""
+            if self.shift_pressed and self.object_name:
+                message = f"Drop to Set Parent to ({self.object_name})"
+            else:
+                collection_name = (
+                    context.view_layer.active_layer_collection.collection.name
+                )
+                if self.object_name:
+                    message = (
+                        f"Drop into collection '{collection_name}' (Shift to parent)"
+                    )
+                else:
+                    message = f"Drop into collection '{collection_name}'"
+
+            if message:
+                ui_bgl.draw_text(
+                    message,
+                    self.mouse_x,
+                    self.mouse_y - linelength - 20 - ui_props.thumb_size,
+                    16,
+                    (0.9, 0.9, 0.9, 1.0),
+                )
 
     # Add node editor specific hints
     if hasattr(self, "in_node_editor") and self.in_node_editor:
@@ -170,6 +193,35 @@ def draw_callback_dragging(self, context):
             16,
             (0.9, 0.9, 0.9, 1.0),
         )
+
+    # Outliner specific hints
+    if (
+        context.area.type == "OUTLINER"
+        and hasattr(self, "hovered_outliner_element")
+        and self.hovered_outliner_element is not None
+    ):
+        message = ""
+        if isinstance(self.hovered_outliner_element, bpy.types.Object):
+            if self.shift_pressed:
+                message = "Drop to Set Parent"
+            else:
+                collection_name = ""
+                if self.hovered_outliner_element.users_collection:
+                    collection_name = self.hovered_outliner_element.users_collection[
+                        0
+                    ].name
+                message = f"Drop into collection '{collection_name}' (Shift to parent)"
+        elif isinstance(self.hovered_outliner_element, bpy.types.Collection):
+            message = f"Drop into collection '{self.hovered_outliner_element.name}'"
+
+        if message:
+            ui_bgl.draw_text(
+                message,
+                self.mouse_x,
+                self.mouse_y - linelength - 20 - ui_props.thumb_size,
+                16,
+                (0.9, 0.9, 0.9, 1.0),
+            )
 
 
 def draw_callback_3d_dragging(self, context):
@@ -607,10 +659,21 @@ class AssetDragOperator(bpy.types.Operator):
                 self.snapped_location = scene.cursor.location
                 self.snapped_rotation = (0, 0, 0)
 
-            target_object = ""
-            if self.object_name is not None:
-                target_object = self.object_name
-                target_slot = ""
+            parent = ""
+            target_collection = ""
+
+            if self.object_name is not None and self.shift_pressed:
+                parent = self.object_name
+
+            # If parent is set, put asset in parent's collection. Otherwise, active collection.
+            if parent:
+                parent_obj = bpy.data.objects.get(parent)
+                if parent_obj and parent_obj.users_collection:
+                    target_collection = parent_obj.users_collection[0].name
+            else:
+                target_collection = (
+                    context.view_layer.active_layer_collection.collection.name
+                )
 
             if "particle_plants" in self.asset_data["tags"]:
                 bpy.ops.object.blenderkit_particles_drop(
@@ -618,7 +681,7 @@ class AssetDragOperator(bpy.types.Operator):
                     asset_search_index=self.asset_search_index,
                     model_location=self.snapped_location,
                     model_rotation=self.snapped_rotation,
-                    target_object=target_object,
+                    target_object=self.object_name or "",
                 )
             else:
                 bpy.ops.scene.blenderkit_download(
@@ -626,7 +689,8 @@ class AssetDragOperator(bpy.types.Operator):
                     asset_index=self.asset_search_index,
                     model_location=self.snapped_location,
                     model_rotation=self.snapped_rotation,
-                    target_object=target_object,
+                    parent=parent,
+                    target_collection=target_collection,
                 )
 
         if self.asset_data["assetType"] == "material":
@@ -741,7 +805,7 @@ class AssetDragOperator(bpy.types.Operator):
     def handle_outliner_drop(self, context):
         """Handle dropping assets in the outliner."""
         if self.asset_data["assetType"] in ["model", "printable"]:
-            target_object = ""
+            parent = ""
             target_collection = ""
 
             # Check what type of element we're dropping on
@@ -750,9 +814,14 @@ class AssetDragOperator(bpy.types.Operator):
             # If dropping on a collection, set target_collection parameter
             if isinstance(self.hovered_outliner_element, bpy.types.Collection):
                 target_collection = self.hovered_outliner_element.name
-            # Otherwise if dropping on an object, set it as parent
+            # Otherwise if dropping on an object, place it in the same collection
             elif isinstance(self.hovered_outliner_element, bpy.types.Object):
-                target_object = self.hovered_outliner_element.name
+                hovered_object = self.hovered_outliner_element
+                if self.shift_pressed:
+                    parent = hovered_object.name
+                # even if we have parent, we also want the colleciton to be parented correctly
+                if hovered_object.users_collection:
+                    target_collection = hovered_object.users_collection[0].name
             else:
                 # Unsupported element type - just continue with default values
                 pass
@@ -767,7 +836,7 @@ class AssetDragOperator(bpy.types.Operator):
                 asset_index=self.asset_search_index,
                 model_location=self.snapped_location,
                 model_rotation=self.snapped_rotation,
-                target_object=target_object,
+                parent=parent,
                 target_collection=target_collection,
             )
 
@@ -1263,6 +1332,12 @@ class AssetDragOperator(bpy.types.Operator):
             # If we're leaving the outliner, restore the original selection
             self.restore_original_selection()
 
+        # shift pressed
+        if event.shift:
+            self.shift_pressed = True
+        else:
+            self.shift_pressed = False
+
         # Track if we're in a node editor
         self.in_node_editor = False
         self.node_editor_type = None
@@ -1295,6 +1370,7 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Handle outliner interaction
             if active_area.type == "OUTLINER":
+
                 # Need to temporarily override context to work with the outliner
                 if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
                     context_override = {
@@ -1606,6 +1682,8 @@ class AssetDragOperator(bpy.types.Operator):
         # Initialize node editor tracking
         self.in_node_editor = False
         self.node_editor_type = None
+
+        self.shift_pressed = False
 
         # Initialize has_hit to False, and set other 3D properties
         # We'll only use these in 3D views, not in outliner
