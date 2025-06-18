@@ -99,6 +99,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
             self.hover_bg_color = (0.127, 0.034, 1, 1.0)
         self.text_color = (0.9, 0.9, 0.9, 1)
 
+        print("@ BlenderKitDisclaimerOperator.__init__ message is: ", self.message)
         pix_size = get_text_size(
             font_id=1,
             text=self.message,
@@ -241,6 +242,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
 
 def run_disclaimer_task(message: str, url: str, tip: bool):
+    message = " ".join(message.split())
     fake_context = utils.get_fake_context(bpy.context)
     if bpy.app.version < (4, 0, 0):
         bpy.ops.view3d.blenderkit_disclaimer_widget(  # type: ignore[attr-defined]
