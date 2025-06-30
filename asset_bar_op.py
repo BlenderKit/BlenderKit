@@ -1094,9 +1094,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.history_back_button.bg_color = self.button_bg_color
         self.history_back_button.hover_bg_color = self.button_hover_color
-        self.history_back_button.text = "◀"
-        self.history_back_button.text_size = button_size * 0.5
-        self.history_back_button.text_color = self.text_color
+        self.history_back_button.text = ""
+        icon_size = int(button_size * 0.6)
+        margin_lr = int((button_size - icon_size) / 2)
+        self.history_back_button.set_image(
+            paths.get_addon_thumbnail_path("history_back.png")
+        )
+        self.history_back_button.set_image_size((icon_size, icon_size))
+        self.history_back_button.set_image_position((margin_lr, margin_lr))
 
         self.history_forward_button = BL_UI_Button(
             margin * 2 + button_size,
@@ -1106,9 +1111,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.history_forward_button.bg_color = self.button_bg_color
         self.history_forward_button.hover_bg_color = self.button_hover_color
-        self.history_forward_button.text = "▶"
-        self.history_forward_button.text_size = button_size * 0.5
-        self.history_forward_button.text_color = self.text_color
+        self.history_forward_button.text = ""
+        self.history_forward_button.set_image(
+            paths.get_addon_thumbnail_path("history_forward.png")
+        )
+        self.history_forward_button.set_image_size((icon_size, icon_size))
+        self.history_forward_button.set_image_position((margin_lr, margin_lr))
 
         # Tab buttons
         tabs = global_vars.TABS["tabs"]
