@@ -432,7 +432,6 @@ def extension_draw_item_override(
     extensions_warnings,  # `dict[str, list[str]]`
     show_developer_ui=False,  # `bool`
 ):
-    print("BlenderKit Debug: ENTERING extension_draw_item_override")
     # filter by verification state, only for blenderkit repository
     if repo_item.remote_url == EXTENSIONS_API_URL:
         extension_draw_item_blenderkit(
