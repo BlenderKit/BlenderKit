@@ -25,7 +25,7 @@ import time
 from webbrowser import open_new_tab
 
 import bpy
-from bpy.props import IntProperty, StringProperty
+from bpy.props import IntProperty, StringProperty, FloatVectorProperty, EnumProperty
 from bpy.types import Context, Menu, Panel, UILayout
 
 from . import (
@@ -3802,6 +3802,115 @@ def ui_message(title, message):
     bpy.context.window_manager.popup_menu(draw_message, title=title, icon="INFO")
 
 
+class NodegroupDropDialog(bpy.types.Operator):
+    """Dialog for choosing how to add a nodegroup when dropped on an object or in node editor"""
+
+    bl_idname = "wm.blenderkit_nodegroup_drop_dialog"
+    bl_label = "Add Nodegroup"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    # Store the parameters needed for the download
+    asset_search_index: bpy.props.IntProperty(default=-1)  # type: ignore[valid-type]
+    target_object_name: bpy.props.StringProperty(default="")  # type: ignore[valid-type]
+    snapped_location: bpy.props.FloatVectorProperty(size=3)  # type: ignore[valid-type]
+    snapped_rotation: bpy.props.FloatVectorProperty(size=3)  # type: ignore[valid-type]
+
+    # Node editor positioning (when dropped in node editor)
+    node_x: bpy.props.FloatProperty(default=0.0)  # type: ignore[valid-type]
+    node_y: bpy.props.FloatProperty(default=0.0)  # type: ignore[valid-type]
+
+    # Option for how to add the nodegroup
+    add_mode: bpy.props.EnumProperty(  # type: ignore[valid-type]
+        name="Add Mode",
+        description="How to add the nodegroup",
+        items=[
+            (
+                "MODIFIER",
+                "As Modifier",
+                "Add the nodegroup as a new modifier on the object",
+            ),
+            ("NODE", "As Node", "Add the nodegroup as a node in an existing node tree"),
+        ],
+        default="MODIFIER",
+    )
+
+    def draw(self, context):
+        layout = self.layout
+
+        # Get asset data for display
+        sr = search.get_search_results()
+        if self.asset_search_index >= 0 and self.asset_search_index < len(sr):
+            asset_data = sr[self.asset_search_index]
+
+            col = layout.column(align=True)
+            col.label(text=f"Adding nodegroup: {asset_data['displayName']}")
+
+            if self.target_object_name:
+                col.label(text=f"To object: {self.target_object_name}")
+            else:
+                col.label(text="A new target object will be created")
+
+            col.separator()
+
+            col.prop(self, "add_mode", expand=True)
+
+            col.separator()
+
+            # Add description based on selected mode
+            if self.add_mode == "MODIFIER":
+                if self.target_object_name:
+                    col.label(text="The nodegroup will be added as a new")
+                    col.label(text="geometry nodes modifier on the object.")
+                else:
+                    col.label(text="A new cube will be created and the")
+                    col.label(text="nodegroup added as a modifier.")
+            else:
+                if self.target_object_name:
+                    col.label(text="The nodegroup will be added as a node")
+                    col.label(text="in the geometry nodes editor.")
+                else:
+                    col.label(text="A new cube will be created and the")
+                    col.label(text="nodegroup added as a node.")
+                # Show node position if we have it
+                if self.node_x != 0.0 or self.node_y != 0.0:
+                    col.label(
+                        text=f"Position: ({self.node_x:.1f}, {self.node_y:.1f})",
+                        icon="NODE",
+                    )
+
+    def execute(self, context):
+        # Download the nodegroup with the specified mode
+        target_object = ""
+        if self.target_object_name:
+            target_object = self.target_object_name
+
+        # When adding as a node, use node positioning; when adding as modifier, use 3D positioning
+        if self.add_mode == "NODE":
+            bpy.ops.scene.blenderkit_download(
+                True,
+                asset_index=self.asset_search_index,
+                node_x=self.node_x,
+                node_y=self.node_y,
+                target_object=target_object,
+                nodegroup_mode=self.add_mode,
+                model_location=self.snapped_location,
+                model_rotation=self.snapped_rotation,
+            )
+        else:  # MODIFIER mode
+            bpy.ops.scene.blenderkit_download(
+                True,
+                asset_index=self.asset_search_index,
+                model_location=self.snapped_location,
+                model_rotation=self.snapped_rotation,
+                target_object=target_object,
+                nodegroup_mode=self.add_mode,
+            )
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=400)
+
+
 classes = (
     SetCategoryOperatorOrigin,
     SetCategoryOperator,
@@ -3850,6 +3959,7 @@ classes = (
     NotificationOpenTarget,
     MarkAllNotificationsRead,
     LoginPopupDialog,
+    NodegroupDropDialog,
 )
 
 

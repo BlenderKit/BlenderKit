@@ -583,15 +583,23 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 fake_user=False,
                 node_x=kwargs.get("node_x", 0),
                 node_y=kwargs.get("node_y", 0),
+                target_object=kwargs.get("target_object"),
+                nodegroup_mode=kwargs.get("nodegroup_mode", ""),
             )
-            # Show a message to the user if the node was not added to an editor
+            # Show a message to the user if the node was not added to an editor or modifier
             if not added_to_editor:
-                reports.add_report(
-                    f"Node group '{nodegroup.name}' was added to the Blender file but no suitable node editor was found to place the node.",
-                    type="INFO",
-                )
+                if kwargs.get("nodegroup_mode") == "MODIFIER":
+                    reports.add_report(
+                        f"Node group '{nodegroup.name}' was added to the Blender file but could not be applied as a modifier.",
+                        type="WARNING",
+                    )
+                else:
+                    reports.add_report(
+                        f"Node group '{nodegroup.name}' was added to the Blender file but no suitable node editor was found to place the node.",
+                        type="INFO",
+                    )
         else:
-            # If nodegroup was already in scene, we still want to try to add it to the editor
+            # If nodegroup was already in scene, we still want to try to add it to the editor or modifier
             _, added_to_editor = append_link.append_nodegroup(
                 file_names[-1],
                 nodegroupname=asset_data["name"],
@@ -599,6 +607,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 fake_user=False,
                 node_x=kwargs.get("node_x", 0),
                 node_y=kwargs.get("node_y", 0),
+                target_object=kwargs.get("target_object"),
+                nodegroup_mode=kwargs.get("nodegroup_mode", ""),
             )
         bk_logger.info(f"appended nodegroup: {nodegroup}")
         asset_main = nodegroup
@@ -1440,6 +1450,13 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         default=0.0,
     )
 
+    nodegroup_mode: StringProperty(  # type: ignore[valid-type]
+        name="Nodegroup Mode",
+        description="How to add the nodegroup: 'MODIFIER' for new modifier, 'NODE' for node in existing tree, 'SHOW_DIALOG' to show dialog",
+        default="",
+        options={"SKIP_SAVE"},
+    )
+
     # close_window: BoolProperty(name='Close window',
     #                            description='Try to close the window below mouse before download',
     #                            default=False)
@@ -1538,6 +1555,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                     "resolution": resolution,
                     "node_x": self.node_x,
                     "node_y": self.node_y,
+                    "nodegroup_mode": self.nodegroup_mode,
                 }
                 bk_logger.debug(
                     f"Replace kwargs with target_collection={kwargs['target_collection']}"
@@ -1563,6 +1581,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "resolution": resolution,
             "node_x": self.node_x,
             "node_y": self.node_y,
+            "nodegroup_mode": self.nodegroup_mode,
         }
         bk_logger.debug(
             f"Final kwargs with target_collection={kwargs['target_collection']}"
@@ -1601,6 +1620,28 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
         if self.invoke_scene_settings:
             return wm.invoke_props_dialog(self)
+
+        # Handle nodegroup dialog for geometry nodes
+        if self.nodegroup_mode == "SHOW_DIALOG":
+            self.asset_data = self.get_asset_data(context)
+            if (
+                self.asset_data["assetType"] == "nodegroup"
+                and self.asset_data["dictParameters"].get("nodeType") == "geometry"
+            ):
+                # Show the nodegroup drop dialog
+                # Use active object if available, otherwise append_nodegroup will create one
+                active_object = context.active_object
+                target_object_name = active_object.name if active_object else ""
+
+                bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
+                    "INVOKE_DEFAULT",
+                    asset_search_index=self.asset_index,
+                    target_object_name=target_object_name,
+                    snapped_location=self.model_location,
+                    snapped_rotation=self.model_rotation,
+                )
+                return {"FINISHED"}
+
         # if self.close_window:
         #     time.sleep(0.1)
         #     context.region.tag_redraw()
