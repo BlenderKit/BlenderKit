@@ -3834,6 +3834,19 @@ class NodegroupDropDialog(bpy.types.Operator):
         default="MODIFIER",
     )
 
+    # Option for overwriting existing geometry nodes modifier
+    overwrite_modifier: bpy.props.BoolProperty(  # type: ignore[valid-type]
+        name="Overwrite Last Geometry Nodes Modifier",
+        description="Replace the last geometry nodes modifier instead of creating a new one (recommended to avoid recursion)",
+        default=True,
+    )
+
+    def get_existing_geometry_modifiers(self, target_obj):
+        """Get list of existing geometry nodes modifiers on target object"""
+        if not target_obj:
+            return []
+        return [mod for mod in target_obj.modifiers if mod.type == "NODES"]
+
     def draw(self, context):
         layout = self.layout
 
@@ -3845,7 +3858,14 @@ class NodegroupDropDialog(bpy.types.Operator):
             col = layout.column(align=True)
             col.label(text=f"Adding nodegroup: {asset_data['displayName']}")
 
+            # Get target object and check for existing geometry nodes modifiers
+            target_obj = None
+            existing_geo_modifiers = []
             if self.target_object_name:
+                target_obj = bpy.data.objects.get(self.target_object_name)
+                existing_geo_modifiers = self.get_existing_geometry_modifiers(
+                    target_obj
+                )
                 col.label(text=f"To object: {self.target_object_name}")
             else:
                 col.label(text="A new target object will be created")
@@ -3854,13 +3874,42 @@ class NodegroupDropDialog(bpy.types.Operator):
 
             col.prop(self, "add_mode", expand=True)
 
+            # Show overwrite option only for MODIFIER mode when there are existing geometry nodes modifiers
+            if self.add_mode == "MODIFIER" and existing_geo_modifiers:
+                col.separator()
+
+                # Show info about existing modifiers
+                if len(existing_geo_modifiers) == 1:
+                    col.label(text=f"Found 1 geometry nodes modifier:", icon="INFO")
+                else:
+                    col.label(
+                        text=f"Found {len(existing_geo_modifiers)} geometry nodes modifiers:",
+                        icon="INFO",
+                    )
+
+                # Show the last modifier name
+                last_modifier = existing_geo_modifiers[-1]
+                col.label(text=f"  • {last_modifier.name} (will be affected)")
+
+                col.separator()
+                col.prop(self, "overwrite_modifier")
+
             col.separator()
 
             # Add description based on selected mode
             if self.add_mode == "MODIFIER":
                 if self.target_object_name:
-                    col.label(text="The nodegroup will be added as a new")
-                    col.label(text="geometry nodes modifier on the object.")
+                    if existing_geo_modifiers and self.overwrite_modifier:
+                        col.label(text="The last geometry nodes modifier will be")
+                        col.label(text="replaced with the new nodegroup.")
+                        col.label(
+                            text="(Recommended to avoid recursion)", icon="CHECKMARK"
+                        )
+                    else:
+                        col.label(text="The nodegroup will be added as a new")
+                        col.label(text="geometry nodes modifier on the object.")
+                        if existing_geo_modifiers:
+                            col.label(text="⚠ May cause recursion issues", icon="ERROR")
                 else:
                     col.label(text="A new cube will be created and the")
                     col.label(text="nodegroup added as a modifier.")
@@ -3883,6 +3932,22 @@ class NodegroupDropDialog(bpy.types.Operator):
         target_object = ""
         if self.target_object_name:
             target_object = self.target_object_name
+
+        # Handle modifier overwrite if requested
+        if self.add_mode == "MODIFIER" and self.overwrite_modifier and target_object:
+
+            target_obj = bpy.data.objects.get(target_object)
+            if target_obj:
+                existing_geo_modifiers = self.get_existing_geometry_modifiers(
+                    target_obj
+                )
+                if existing_geo_modifiers:
+                    # Remove the last geometry nodes modifier
+                    last_modifier = existing_geo_modifiers[-1]
+                    bk_logger.info(
+                        f"Removed geometry nodes modifier '{last_modifier.name}' before adding new nodegroup"
+                    )
+                    target_obj.modifiers.remove(last_modifier)
 
         # When adding as a node, use node positioning; when adding as modifier, use 3D positioning
         if self.add_mode == "NODE":

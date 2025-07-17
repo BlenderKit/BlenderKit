@@ -585,6 +585,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 node_y=kwargs.get("node_y", 0),
                 target_object=kwargs.get("target_object"),
                 nodegroup_mode=kwargs.get("nodegroup_mode", ""),
+                model_location=kwargs.get("model_location", (0, 0, 0)),
+                model_rotation=kwargs.get("model_rotation", (0, 0, 0)),
             )
             # Show a message to the user if the node was not added to an editor or modifier
             if not added_to_editor:
@@ -609,6 +611,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 node_y=kwargs.get("node_y", 0),
                 target_object=kwargs.get("target_object"),
                 nodegroup_mode=kwargs.get("nodegroup_mode", ""),
+                model_location=kwargs.get("model_location", (0, 0, 0)),
+                model_rotation=kwargs.get("model_rotation", (0, 0, 0)),
             )
         bk_logger.info(f"appended nodegroup: {nodegroup}")
         asset_main = nodegroup
