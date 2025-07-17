@@ -819,32 +819,31 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Only handle geometry nodegroups for now
             if nodegroup_type == "geometry":
-                if self.object_name is not None and self.has_hit:
-                    # Dropped on an object - show dialog to choose how to add
+                target_object_name = ""
+                target_location = self.snapped_location
+                target_rotation = self.snapped_rotation
+
+                if not self.drag:
+                    # Click interaction - use active object like materials do
+                    active_object = context.active_object
+                    if active_object and active_object.type in ["MESH", "CURVE"]:
+                        target_object_name = active_object.name
+                        target_location = active_object.location
+                        target_rotation = (0, 0, 0)
+                elif self.object_name is not None and self.has_hit:
+                    # Drag interaction - use object under mouse
                     target_object = bpy.data.objects.get(self.object_name)
                     if target_object and target_object.type in ["MESH", "CURVE"]:
-                        bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
-                            "INVOKE_DEFAULT",
-                            asset_search_index=self.asset_search_index,
-                            target_object_name=self.object_name,
-                            snapped_location=self.snapped_location,
-                            snapped_rotation=self.snapped_rotation,
-                        )
-                    else:
-                        # Object type not supported
-                        ui_panels.ui_message(
-                            title="Unsupported object type",
-                            message=f"Geometry nodegroups can only be applied to mesh and curve objects.",
-                        )
-                else:
-                    # Dropped in empty space - use consistent popup pattern like HDR/scene
-                    bpy.ops.scene.blenderkit_download(
-                        "INVOKE_DEFAULT",
-                        asset_index=self.asset_search_index,
-                        model_location=self.snapped_location,
-                        model_rotation=self.snapped_rotation,
-                        nodegroup_mode="SHOW_DIALOG",
-                    )
+                        target_object_name = self.object_name
+
+                # Show dialog for geometry nodegroups
+                bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
+                    "INVOKE_DEFAULT",
+                    asset_search_index=self.asset_search_index,
+                    target_object_name=target_object_name,
+                    snapped_location=target_location,
+                    snapped_rotation=target_rotation,
+                )
             else:
                 # For non-geometry nodegroups, use regular download
                 bpy.ops.scene.blenderkit_download(
@@ -946,8 +945,6 @@ class AssetDragOperator(bpy.types.Operator):
 
     def make_node_editor_switch(self, nodegroup_type, node_editor_type):
         """Make a node editor switch."""
-        print("making node editor switch")
-        print(nodegroup_type, node_editor_type)
         nodeTypes2NodeEditorType = {
             "shader": "ShaderNodeTree",
             "geometry": "GeometryNodeTree",
@@ -956,7 +953,6 @@ class AssetDragOperator(bpy.types.Operator):
         node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
         area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
         area.ui_type = node_editor_type
-        print(node_editor_type)
 
     def handle_node_editor_drop_material(self, context):
         """Handle dropping materials in the node editor."""
@@ -1562,8 +1558,8 @@ class AssetDragOperator(bpy.types.Operator):
             active_region, active_area = self.find_active_region(
                 event.mouse_x, event.mouse_y, context, context.window
             )
-            # sometimes active area can be None, so we need to check for that
-            if active_area is None:
+            # sometimes active area or region can be None, so we need to check for that
+            if active_area is None or active_region is None:
                 return {"RUNNING_MODAL"}
 
             # Only perform raycasting in 3D view areas
@@ -1575,6 +1571,10 @@ class AssetDragOperator(bpy.types.Operator):
                 for space in active_area.spaces:
                     if space.type == "VIEW_3D":
                         region_data = space.region_3d
+                # # sometimes region_data can be None, even in 3d view, which is weird but let's check for that
+                # if region_data is None:
+                #     return {"RUNNING_MODAL"}
+
                 # Need to temporarily override context for raycasting
                 if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
                     override = {
@@ -1619,45 +1619,33 @@ class AssetDragOperator(bpy.types.Operator):
                         if object is not None:
                             self.object_name = object.name
 
-            # MODELS can be dragged on scene floor
-            if not self.has_hit and self.asset_data["assetType"] in [
-                "model",
-                "printable",
-            ]:
-                # Use mouse coordinates relative to the active region
-                region_mouse_x = event.mouse_x - active_region.x
-                region_mouse_y = event.mouse_y - active_region.y
+                # MODELS and NODEGROUPS can be dragged on scene floor
+                if not self.has_hit and self.asset_data["assetType"] in [
+                    "model",
+                    "printable",
+                    "nodegroup",
+                ]:
+                    # Use mouse coordinates relative to the active region
+                    region_mouse_x = event.mouse_x - active_region.x
+                    region_mouse_y = event.mouse_y - active_region.y
 
-                # Need to temporarily override context for raycasting
-                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
-                    override = {
-                        "window": context.window,
-                        "screen": context.screen,
-                        "area": active_area,
-                        "region": active_region,
-                        "region_data": active_area.spaces[
-                            0
-                        ].region_3d,  # Get region_data from space_data
-                        "scene": context.scene,
-                        "view_layer": context.view_layer,
-                    }
-                    (
-                        self.has_hit,
-                        self.snapped_location,
-                        self.snapped_normal,
-                        self.snapped_rotation,
-                        self.face_index,
-                        object,
-                        self.matrix,
-                    ) = floor_raycast(
-                        active_region, region_data, region_mouse_x, region_mouse_y
-                    )
-                    if object is not None:
-                        self.object_name = object.name
-                else:  # B3.2+ can use context.temp_override()
-                    with bpy.context.temp_override(
-                        area=active_area, region=active_region
-                    ):
+                    # Need to temporarily override context for raycasting
+                    if bpy.app.version < (
+                        3,
+                        2,
+                        0,
+                    ):  # B3.0, B3.1 - custom context override
+                        override = {
+                            "window": context.window,
+                            "screen": context.screen,
+                            "area": active_area,
+                            "region": active_region,
+                            "region_data": active_area.spaces[
+                                0
+                            ].region_3d,  # Get region_data from space_data
+                            "scene": context.scene,
+                            "view_layer": context.view_layer,
+                        }
                         (
                             self.has_hit,
                             self.snapped_location,
@@ -1671,6 +1659,30 @@ class AssetDragOperator(bpy.types.Operator):
                         )
                         if object is not None:
                             self.object_name = object.name
+                        else:
+                            self.object_name = None
+                    else:  # B3.2+ can use context.temp_override()
+                        with bpy.context.temp_override(
+                            area=active_area, region=active_region
+                        ):
+                            (
+                                self.has_hit,
+                                self.snapped_location,
+                                self.snapped_normal,
+                                self.snapped_rotation,
+                                self.face_index,
+                                object,
+                                self.matrix,
+                            ) = floor_raycast(
+                                active_region,
+                                region_data,
+                                region_mouse_x,
+                                region_mouse_y,
+                            )
+                            if object is not None:
+                                self.object_name = object.name
+                            else:
+                                self.object_name = None
 
             if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])

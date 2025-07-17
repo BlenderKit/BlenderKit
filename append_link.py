@@ -113,6 +113,42 @@ def append_nodegroup(
         bpy.context.view_layer.objects.active = target_obj
         target_obj.select_set(True)
 
+    # Mapping dict for node editor tree types to node group node types
+    sdict = {
+        "GeometryNodeTree": "GeometryNodeGroup",
+        "ShaderNodeTree": "ShaderNodeGroup",
+        "CompositorNodeTree": "CompositorNodeGroup",
+    }
+
+    # Get the nodegroup type
+    nodegroup_type = nodegroup.bl_rna.identifier
+
+    # If no explicit mode is set, try to detect if we should add to an existing editor first
+    # This allows drag-drop into existing node editors to work properly
+    if not nodegroup_mode:
+        # Find a suitable node editor
+        for area in bpy.context.screen.areas:
+            if area.type != "NODE_EDITOR":
+                continue
+
+            if area.spaces.active.tree_type == nodegroup_type:
+                nt = area.spaces.active.edit_tree
+                if nt is None:
+                    continue
+
+                # Add node to this editor
+                for n in nt.nodes:
+                    n.select = False
+
+                node_type = sdict.get(nodegroup_type)
+                if node_type:
+                    node = nt.nodes.new(node_type)
+                    node.node_tree = nodegroup
+                    node.location = (node_x, node_y)
+                    node.select = True
+                    nt.nodes.active = node
+                    return (nodegroup, True)
+
     # Handle modifier mode for geometry nodegroups
     if nodegroup_mode == "MODIFIER" and target_object:
         target_obj = bpy.data.objects.get(target_object)
@@ -131,35 +167,75 @@ def append_nodegroup(
                 True,
             )  # Return True as we "added" it successfully to the modifier
 
-    # Mapping dict for node editor tree types to node group node types
-    sdict = {
-        "GeometryNodeTree": "GeometryNodeGroup",
-        "ShaderNodeTree": "ShaderNodeGroup",
-        "CompositorNodeTree": "CompositorNodeGroup",
-    }
+    # Handle node mode for geometry nodegroups with target object
+    # Create a modifier setup and then add the nodegroup as a node to the tree
+    if (
+        nodegroup_mode == "NODE"
+        and target_object
+        and nodegroup.bl_rna.identifier == "GeometryNodeTree"
+    ):
+        target_obj = bpy.data.objects.get(target_object)
+        if target_obj:
+            # Select the target object to make it active
+            bpy.context.view_layer.objects.active = target_obj
+            if target_obj not in bpy.context.selected_objects:
+                target_obj.select_set(True)
+            # look for the geometry nodes modifier
+            gn_mod = None
+            for mod in target_obj.modifiers:
+                if mod.type == "NODES" and mod.node_group:
+                    gn_mod = mod
+                    break
+            if not gn_mod:
+                # create a new geometry nodes modifier
+                gn_mod = target_obj.modifiers.new(name="GeometryNodes", type="NODES")
+            if not gn_mod.node_group:
+                # create a new node group
+                bpy.ops.node.new_geometry_node_group_assign()
 
-    # Get the nodegroup type
-    nodegroup_type = nodegroup.bl_rna.identifier
+            node_tree = gn_mod.node_group
 
-    # Find a suitable node editor
+            if node_tree:
+                # Add the nodegroup as a node to the tree
+                group_node = node_tree.nodes.new("GeometryNodeGroup")
+                group_node.node_tree = nodegroup
+                group_node.location = (node_x, node_y)
+                group_node.select = True
+                node_tree.nodes.active = group_node
+
+            return (nodegroup, True)
+
+    # If not added yet through modes or if no mode specified, try to find any compatible editor
     added_to_editor = False
 
-    # First try: exact match for tree type
+    # Try any compatible editor
     for area in bpy.context.screen.areas:
         if area.type != "NODE_EDITOR":
             continue
 
-        if area.spaces.active.tree_type == nodegroup_type:
-            nt = area.spaces.active.edit_tree
-            if nt is None:
-                continue
+        nt = area.spaces.active.edit_tree
+        if nt is None:
+            continue
 
+        # Check if this editor type is compatible
+        if area.spaces.active.tree_type in sdict:
             # Add node to this editor
             for n in nt.nodes:
                 n.select = False
 
-            node_type = sdict.get(nodegroup_type)
+            node_type = sdict.get(area.spaces.active.tree_type)
             if node_type:
+                # Check if nodegroup is compatible with this editor
+                # For example, don't add shader nodegroups to geometry node editor
+                if (
+                    nodegroup_type == "ShaderNodeTree"
+                    and area.spaces.active.tree_type != "ShaderNodeTree"
+                ) or (
+                    nodegroup_type == "GeometryNodeTree"
+                    and area.spaces.active.tree_type != "GeometryNodeTree"
+                ):
+                    continue
+
                 node = nt.nodes.new(node_type)
                 node.node_tree = nodegroup
                 node.location = (node_x, node_y)
@@ -167,43 +243,6 @@ def append_nodegroup(
                 nt.nodes.active = node
                 added_to_editor = True
                 break
-
-    # If not added yet, try any compatible editor
-    if not added_to_editor:
-        for area in bpy.context.screen.areas:
-            if area.type != "NODE_EDITOR":
-                continue
-
-            nt = area.spaces.active.edit_tree
-            if nt is None:
-                continue
-
-            # Check if this editor type is compatible
-            if area.spaces.active.tree_type in sdict:
-                # Add node to this editor
-                for n in nt.nodes:
-                    n.select = False
-
-                node_type = sdict.get(area.spaces.active.tree_type)
-                if node_type:
-                    # Check if nodegroup is compatible with this editor
-                    # For example, don't add shader nodegroups to geometry node editor
-                    if (
-                        nodegroup_type == "ShaderNodeTree"
-                        and area.spaces.active.tree_type != "ShaderNodeTree"
-                    ) or (
-                        nodegroup_type == "GeometryNodeTree"
-                        and area.spaces.active.tree_type != "GeometryNodeTree"
-                    ):
-                        continue
-
-                    node = nt.nodes.new(node_type)
-                    node.node_tree = nodegroup
-                    node.location = (node_x, node_y)
-                    node.select = True
-                    nt.nodes.active = node
-                    added_to_editor = True
-                    break
 
     return nodegroup, added_to_editor
 
