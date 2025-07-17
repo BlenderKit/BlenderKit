@@ -94,104 +94,121 @@ def draw_callback_dragging(self, context):
         2,
         colors.WHITE,
     )
-    # text messages in 3d view
+    # Determine hint message and colors based on context
+    main_message = ""
+    main_color = (0.9, 0.9, 0.9, 1.0)  # Default white
+    secondary_message = ""
+    secondary_color = (0.7, 0.7, 0.7, 1.0)  # Default gray
+
+    # Base text position
+    text_x = self.mouse_x
+    text_y_main = self.mouse_y - linelength - 20 - ui_props.thumb_size
+    text_y_secondary = self.mouse_y - linelength - 40 - ui_props.thumb_size
+
+    # Determine messages based on area type and asset type
     if context.area.type == "VIEW_3D":
         if self.asset_data["assetType"] == "material":
-            ui_bgl.draw_text(
-                f"Assign material to {self.object_name}",
-                self.mouse_x,
-                self.mouse_y - linelength - 20 - ui_props.thumb_size,
-                16,
-                (0.9, 0.9, 0.9, 1.0),
-            )
+            if self.asset_data["dictParameters"].get("nodeType") == "shader":
+                main_message = "Drop to replace active material"
+            else:
+                main_message = "Drop to assign material"
         elif self.asset_data["assetType"] in ["model", "printable"]:
-            message = ""
             if self.shift_pressed and self.object_name:
-                message = f"Drop to Set Parent to ({self.object_name})"
+                main_message = f"Drop to Set Parent to ({self.object_name})"
             else:
                 collection_name = (
                     context.view_layer.active_layer_collection.collection.name
                 )
                 if self.object_name:
-                    message = (
-                        f"Drop into collection '{collection_name}' (Shift to parent)"
+                    main_message = (
+                        f"Drop into active collection '{collection_name}'"
                     )
+                    secondary_message = "(Shift to parent)"
                 else:
-                    message = f"Drop into collection '{collection_name}'"
+                    main_message = f"Drop into collection '{collection_name}'"
 
-            if message:
-                ui_bgl.draw_text(
-                    message,
-                    self.mouse_x,
-                    self.mouse_y - linelength - 20 - ui_props.thumb_size,
-                    16,
-                    (0.9, 0.9, 0.9, 1.0),
-                )
+        elif self.asset_data["assetType"] == "nodegroup":
+            nodegroup_type = self.asset_data["dictParameters"].get("nodeType")
 
-    # Add node editor specific hints
-    if hasattr(self, "in_node_editor") and self.in_node_editor:
+            if nodegroup_type == "geometry":
+                if hasattr(self, "object_name") and self.object_name is not None:
+                    # Hovering over an object
+                    target_object = bpy.data.objects.get(self.object_name)
+                    if target_object and target_object.type in ["MESH", "CURVE"]:
+                        main_message = f"Drop to show options for {self.object_name}"
+                        secondary_message = "(Add as modifier or node)"
+                    else:
+                        main_message = f"Unsupported object type: {target_object.type if target_object else 'Unknown'}"
+                        main_color = (1.0, 0.5, 0.5, 1.0)  # Error red
+                        secondary_message = (
+                            "Geometry nodes work with Mesh/Curve objects"
+                        )
+                        secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red
+                else:
+                    main_message = "Drop to add geometry nodegroup"
+            else:
+                nodegroup_type_display = nodegroup_type or "nodegroup"
+                main_message = f"Drop to add {nodegroup_type_display} nodegroup"
+
+    elif hasattr(self, "in_node_editor") and self.in_node_editor:
         if self.asset_data["assetType"] not in ["material", "nodegroup"]:
-            # Draw warning for incompatible asset types
-            ui_bgl.draw_text(
-                "Cancel Drag & Drop",
-                self.mouse_x,
-                self.mouse_y - linelength - 20 - ui_props.thumb_size,
-                16,
-                (0.9, 0.9, 0.9, 1.0),
-            )
+            main_message = "Cancel Drag & Drop"
         elif (
             self.asset_data["assetType"] == "material"
             and self.node_editor_type == "shader"
         ):
-            # Draw material hints for shader editor
-            ui_bgl.draw_text(
-                "Drop to replace active material",
-                self.mouse_x,
-                self.mouse_y - linelength - 20 - ui_props.thumb_size,
-                16,
-                (0.9, 0.9, 0.9, 1.0),
-            )
+            main_message = "Drop to replace active material"
         elif self.asset_data["assetType"] == "nodegroup":
-            # Draw nodegroup hints
             nodegroup_type = self.asset_data["dictParameters"].get("nodeType")
-
             if self.is_nodegroup_compatible_with_editor(
                 nodegroup_type, self.node_editor_type
             ):
-                ui_bgl.draw_text(
-                    "Drop to add node group",
-                    self.mouse_x,
-                    self.mouse_y - linelength - 20 - ui_props.thumb_size,
-                    16,
-                    (0.9, 0.9, 0.9, 1.0),
-                )
-            else:
-                # More specific message about what will happen
-                switch_message = f"Drop to switch to "
-                if nodegroup_type == "shader":
-                    switch_message += "shader editor"
-                elif nodegroup_type == "geometry":
-                    switch_message += "geometry nodes editor"
-                elif nodegroup_type == "compositor":
-                    switch_message += "compositor"
+                if nodegroup_type == "geometry":
+                    # For geometry nodes, show dialog option
+                    active_object = bpy.context.active_object
+                    if active_object and active_object.type in ["MESH", "CURVE"]:
+                        main_message = "Drop to show options"
+                        secondary_message = (
+                            f"(Add as modifier or node to {active_object.name})"
+                        )
+                    else:
+                        main_message = "Drop to add node group"
+                        secondary_message = (
+                            "Select mesh/curve object for modifier option"
+                        )
+                        secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
                 else:
-                    switch_message = "Drop to switch editor type"
+                    # For other nodegroup types, just add as node
+                    main_message = "Drop to add node group"
+            else:
+                if nodegroup_type == "shader":
+                    main_message = "Drop to switch to shader editor"
+                elif nodegroup_type == "geometry":
+                    active_object = bpy.context.active_object
+                    if active_object and active_object.type in ["MESH", "CURVE"]:
+                        main_message = "Drop to switch & show options"
+                        secondary_message = f"(Geometry nodes for {active_object.name})"
+                    else:
+                        main_message = "Drop to switch to geometry nodes editor"
+                        secondary_message = (
+                            "Select mesh/curve object for modifier option"
+                        )
+                        secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
+                elif nodegroup_type == "compositor":
+                    main_message = "Drop to switch to compositor"
+                else:
+                    main_message = "Drop to switch editor type"
 
-                ui_bgl.draw_text(
-                    switch_message,
-                    self.mouse_x,
-                    self.mouse_y - linelength - 20 - ui_props.thumb_size,
-                    16,
-                    (0.9, 0.9, 0.9, 1.0),
-                )
     elif context.area.type not in ["VIEW_3D", "OUTLINER"]:
-        # draw under the image
+        main_message = "Cancel Drag & Drop"
+
+    # Draw the text messages if we have any
+    if main_message:
+        ui_bgl.draw_text(main_message, text_x, text_y_main, 16, main_color)
+
+    if secondary_message:
         ui_bgl.draw_text(
-            "Cancel Drag & Drop",
-            self.mouse_x,
-            self.mouse_y - linelength - 20 - ui_props.thumb_size,
-            16,
-            (0.9, 0.9, 0.9, 1.0),
+            secondary_message, text_x, text_y_secondary, 14, secondary_color
         )
 
     # Outliner specific hints
@@ -796,6 +813,46 @@ class AssetDragOperator(bpy.types.Operator):
                 asset_index=self.asset_search_index,
             )
 
+        if self.asset_data["assetType"] == "nodegroup":
+            # Handle nodegroup drop in 3D view
+            nodegroup_type = self.asset_data["dictParameters"].get("nodeType")
+
+            # Only handle geometry nodegroups for now
+            if nodegroup_type == "geometry":
+                target_object_name = ""
+                target_location = self.snapped_location
+                target_rotation = self.snapped_rotation
+
+                if not self.drag:
+                    # Click interaction - use active object like materials do
+                    active_object = context.active_object
+                    if active_object and active_object.type in ["MESH", "CURVE"]:
+                        target_object_name = active_object.name
+                        target_location = active_object.location
+                        target_rotation = (0, 0, 0)
+                elif self.object_name is not None and self.has_hit:
+                    # Drag interaction - use object under mouse
+                    target_object = bpy.data.objects.get(self.object_name)
+                    if target_object and target_object.type in ["MESH", "CURVE"]:
+                        target_object_name = self.object_name
+
+                # Show dialog for geometry nodegroups
+                bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
+                    "INVOKE_DEFAULT",
+                    asset_search_index=self.asset_search_index,
+                    target_object_name=target_object_name,
+                    snapped_location=target_location,
+                    snapped_rotation=target_rotation,
+                )
+            else:
+                # For non-geometry nodegroups, use regular download
+                bpy.ops.scene.blenderkit_download(
+                    True,
+                    asset_index=self.asset_search_index,
+                    model_location=self.snapped_location,
+                    model_rotation=self.snapped_rotation,
+                )
+
         if self.asset_data["assetType"] in ["material", "model"]:
             bpy.ops.view3d.blenderkit_download_gizmo_widget(
                 "INVOKE_REGION_WIN",
@@ -888,8 +945,6 @@ class AssetDragOperator(bpy.types.Operator):
 
     def make_node_editor_switch(self, nodegroup_type, node_editor_type):
         """Make a node editor switch."""
-        print("making node editor switch")
-        print(nodegroup_type, node_editor_type)
         nodeTypes2NodeEditorType = {
             "shader": "ShaderNodeTree",
             "geometry": "GeometryNodeTree",
@@ -898,7 +953,6 @@ class AssetDragOperator(bpy.types.Operator):
         node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
         area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
         area.ui_type = node_editor_type
-        print(node_editor_type)
 
     def handle_node_editor_drop_material(self, context):
         """Handle dropping materials in the node editor."""
@@ -961,11 +1015,47 @@ class AssetDragOperator(bpy.types.Operator):
             ):
                 self.make_node_editor_switch(nodegroup_type, self.node_editor_type)
 
+            # Special handling for geometry nodegroups - show dialog if active object supports it
             if nodegroup_type == "geometry":
-                # Try to switch to geometry nodes
                 active_object = context.active_object
                 if active_object and active_object.type in ["MESH", "CURVE"]:
+                    # Get node position for passing to dialog
+                    active_node_area = self.find_active_area(
+                        self.mouse_screen_x, self.mouse_screen_y, context
+                    )
+                    node_region = None
+                    for region_check in active_node_area.regions:
+                        if region_check.type == "WINDOW":
+                            node_region = region_check
+                            break
 
+                    if node_region:
+                        node_pos = self.get_node_editor_cursor_position(
+                            context, node_region, active_node_area
+                        )
+                    else:
+                        node_pos = (0, 0)
+
+                    # Show dialog to choose how to add the geometry nodegroup
+                    bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
+                        "INVOKE_DEFAULT",
+                        asset_search_index=self.asset_search_index,
+                        target_object_name=active_object.name,
+                        snapped_location=(0, 0, 0),  # Not used for node editor
+                        snapped_rotation=(0, 0, 0),  # Not used for node editor
+                        node_x=node_pos[0],
+                        node_y=node_pos[1],
+                    )
+                    return
+                else:
+                    # No compatible object, just add as node
+                    reports.add_report(
+                        "No compatible object selected, adding as node only",
+                        type="INFO",
+                    )
+
+                # Prepare geometry nodes editor (for when user chooses "As Node" or no object)
+                if active_object and active_object.type in ["MESH", "CURVE"]:
                     # Check if there's a geometry nodes modifier
                     gn_mod = None
                     for mod in active_object.modifiers:
@@ -1020,15 +1110,10 @@ class AssetDragOperator(bpy.types.Operator):
 
                     # Make sure we have a node tree to work with
                     node_tree = gn_mod.node_group
+                    # Set the node tree in the editor
+                    node_space.spaces[0].node_tree = node_tree
                     # redraw the area so we get correct coordinates
                     node_space.tag_redraw()
-
-                else:
-                    reports.add_report(
-                        "Need an active object for geometry nodes",
-                        type="ERROR",
-                    )
-                    return
 
             # Third case: need to switch to shader nodes for shader nodegroup
             elif nodegroup_type == "shader":
@@ -1068,12 +1153,25 @@ class AssetDragOperator(bpy.types.Operator):
                 node_space.spaces[0].node_tree = node_tree
                 # Force a redraw to make sure the editor updates
 
-            # Finally doing the real stuff
-            # Get node position
-            region = context.region
-            node_pos = self.get_node_editor_cursor_position(context, region)
+            # Finally doing the real stuff (only if we didn't show a dialog)
+            # Get node position relative to the active node editor area
+            active_node_area = self.find_active_area(
+                self.mouse_screen_x, self.mouse_screen_y, context
+            )
+            node_region = None
+            for region_check in active_node_area.regions:
+                if region_check.type == "WINDOW":
+                    node_region = region_check
+                    break
 
-            # Download the nodegroup
+            if node_region:
+                node_pos = self.get_node_editor_cursor_position(
+                    context, node_region, active_node_area
+                )
+            else:
+                node_pos = (0, 0)
+
+            # Download the nodegroup with correct positioning
             bpy.ops.scene.blenderkit_download(
                 True,
                 asset_index=self.asset_search_index,
@@ -1460,8 +1558,8 @@ class AssetDragOperator(bpy.types.Operator):
             active_region, active_area = self.find_active_region(
                 event.mouse_x, event.mouse_y, context, context.window
             )
-            # sometimes active area can be None, so we need to check for that
-            if active_area is None:
+            # sometimes active area or region can be None, so we need to check for that
+            if active_area is None or active_region is None:
                 return {"RUNNING_MODAL"}
 
             # Only perform raycasting in 3D view areas
@@ -1473,6 +1571,10 @@ class AssetDragOperator(bpy.types.Operator):
                 for space in active_area.spaces:
                     if space.type == "VIEW_3D":
                         region_data = space.region_3d
+                # # sometimes region_data can be None, even in 3d view, which is weird but let's check for that
+                # if region_data is None:
+                #     return {"RUNNING_MODAL"}
+
                 # Need to temporarily override context for raycasting
                 if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
                     override = {
@@ -1517,45 +1619,33 @@ class AssetDragOperator(bpy.types.Operator):
                         if object is not None:
                             self.object_name = object.name
 
-            # MODELS can be dragged on scene floor
-            if not self.has_hit and self.asset_data["assetType"] in [
-                "model",
-                "printable",
-            ]:
-                # Use mouse coordinates relative to the active region
-                region_mouse_x = event.mouse_x - active_region.x
-                region_mouse_y = event.mouse_y - active_region.y
+                # MODELS and NODEGROUPS can be dragged on scene floor
+                if not self.has_hit and self.asset_data["assetType"] in [
+                    "model",
+                    "printable",
+                    "nodegroup",
+                ]:
+                    # Use mouse coordinates relative to the active region
+                    region_mouse_x = event.mouse_x - active_region.x
+                    region_mouse_y = event.mouse_y - active_region.y
 
-                # Need to temporarily override context for raycasting
-                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
-                    override = {
-                        "window": context.window,
-                        "screen": context.screen,
-                        "area": active_area,
-                        "region": active_region,
-                        "region_data": active_area.spaces[
-                            0
-                        ].region_3d,  # Get region_data from space_data
-                        "scene": context.scene,
-                        "view_layer": context.view_layer,
-                    }
-                    (
-                        self.has_hit,
-                        self.snapped_location,
-                        self.snapped_normal,
-                        self.snapped_rotation,
-                        self.face_index,
-                        object,
-                        self.matrix,
-                    ) = floor_raycast(
-                        active_region, region_data, region_mouse_x, region_mouse_y
-                    )
-                    if object is not None:
-                        self.object_name = object.name
-                else:  # B3.2+ can use context.temp_override()
-                    with bpy.context.temp_override(
-                        area=active_area, region=active_region
-                    ):
+                    # Need to temporarily override context for raycasting
+                    if bpy.app.version < (
+                        3,
+                        2,
+                        0,
+                    ):  # B3.0, B3.1 - custom context override
+                        override = {
+                            "window": context.window,
+                            "screen": context.screen,
+                            "area": active_area,
+                            "region": active_region,
+                            "region_data": active_area.spaces[
+                                0
+                            ].region_3d,  # Get region_data from space_data
+                            "scene": context.scene,
+                            "view_layer": context.view_layer,
+                        }
                         (
                             self.has_hit,
                             self.snapped_location,
@@ -1569,6 +1659,30 @@ class AssetDragOperator(bpy.types.Operator):
                         )
                         if object is not None:
                             self.object_name = object.name
+                        else:
+                            self.object_name = None
+                    else:  # B3.2+ can use context.temp_override()
+                        with bpy.context.temp_override(
+                            area=active_area, region=active_region
+                        ):
+                            (
+                                self.has_hit,
+                                self.snapped_location,
+                                self.snapped_normal,
+                                self.snapped_rotation,
+                                self.face_index,
+                                object,
+                                self.matrix,
+                            ) = floor_raycast(
+                                active_region,
+                                region_data,
+                                region_mouse_x,
+                                region_mouse_y,
+                            )
+                            if object is not None:
+                                self.object_name = object.name
+                            else:
+                                self.object_name = None
 
             if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
@@ -1748,21 +1862,26 @@ class AssetDragOperator(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
-    def get_node_editor_cursor_position(self, context, region):
+    def get_node_editor_cursor_position(self, context, region, area=None):
         """Get the cursor position in the node editor space."""
-        # Convert mouse position to node editor space
-        area = self.find_active_area(self.mouse_x, self.mouse_y, context)
-        for region_check in area.regions:
-            if region_check.type == "WINDOW":
-                region = region_check
+        if area is None:
+            area = self.find_active_area(
+                self.mouse_screen_x, self.mouse_screen_y, context
+            )
+
+        # Calculate mouse position relative to the node editor region
+        mouse_region_x = self.mouse_screen_x - region.x
+        mouse_region_y = self.mouse_screen_y - region.y
 
         # Get view2d from region
         ui_scale = context.preferences.system.ui_scale
 
         # Convert region coordinates to view coordinates using view2d
-        x, y = region.view2d.region_to_view(float(self.mouse_x), float(self.mouse_y))
+        x, y = region.view2d.region_to_view(
+            float(mouse_region_x), float(mouse_region_y)
+        )
 
-        # Scale by UI scale
+        # Scale by UI scale - this ensures proper positioning
         x = x / ui_scale
         y = y / ui_scale
         return (x, y)
