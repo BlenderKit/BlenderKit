@@ -53,7 +53,7 @@ ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 
 bk_logger = logging.getLogger(__name__)
 
-last_time_dropdown_active = 0.0
+last_time_overlay_panel_active = 0.0
 
 
 def draw_not_logged_in(source, message="Please Login/Signup to use this feature"):
@@ -1563,8 +1563,8 @@ class VIEW3D_PT_blenderkit_categories(Panel):
     def draw(self, context):
         # measure time since last dropdown activation/ mouse hover e.t.c.
         # this is then used in asset_bar_op.py to cancel asset drag drop if the time is too small and thus means double clicking.
-        global last_time_dropdown_active
-        last_time_dropdown_active = time.time()
+        global last_time_overlay_panel_active
+        last_time_overlay_panel_active = time.time()
         draw_panel_categories(self.layout, context)
 
 
@@ -3134,6 +3134,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # box.label(text=str(comment['flags']))
 
     def draw(self, context):
+        global last_time_overlay_panel_active
+        last_time_overlay_panel_active = time.time()
+
         layout = self.layout
         # top draggable bar with name of the asset
         top_row = layout.row()
