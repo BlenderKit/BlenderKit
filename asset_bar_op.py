@@ -1664,7 +1664,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         now = time.time()
         # avoid double click to download assets under panels, mainly category panel
-        if now - ui_panels.last_time_dropdown_active < 0.5:
+        if now - ui_panels.last_time_overlay_panel_active < 0.5:
             return
         # start drag drop
         bpy.ops.view3d.asset_drag_drop(
@@ -1902,6 +1902,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def handle_key_input(self, event):
+        # Check if enough time has passed since last popup/text input activity
+        # to prevent shortcuts from triggering while typing in text fields
+        now = time.time()
+        if now - ui_panels.last_time_overlay_panel_active < 0.5:
+            return False
+
         # Shortcut: Toggle between normal and photo thumbnail
         if event.type in {"ONE"}:
             if self.show_photo_thumbnail == True:

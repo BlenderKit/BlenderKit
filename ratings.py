@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
+import time
 
 import bpy
 from bpy.props import StringProperty
@@ -185,6 +186,11 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
 
         ratings_utils.ensure_rating(self.asset_id)
         self.prefill_ratings()
+
+        # Update last popup activity time to prevent shortcut interference
+        from . import ui_panels
+
+        ui_panels.last_time_dropdown_active = time.time()
 
         if self.asset_type in ("model", "scene"):
             # spawn a wider one for validators for the enum buttons
