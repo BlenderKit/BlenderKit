@@ -55,11 +55,34 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
 
 
 def append_nodegroup(
-    file_name, nodegroupname=None, link=False, fake_user=True, node_x=0, node_y=0
+    file_name,
+    nodegroupname=None,
+    link=False,
+    fake_user=True,
+    node_x=0,
+    node_y=0,
+    target_object=None,
+    nodegroup_mode="",
+    model_location=(0, 0, 0),
+    model_rotation=(0, 0, 0),
+    **kwargs,
 ):
     """Append selected node group. If nodegroupname is None, first node group is appended.
     If node group with the same name is already in the scene, it is not appended again.
-    Try to look for a suitable node editor and insert the node group there, in the middle of the area.
+    Try to look for a suitable node editor and insert the node group there, or create/use modifier based on mode.
+    For geometry nodegroups, if no target object is provided, a target object will be created automatically.
+
+    Args:
+        file_name: Path to the .blend file containing the nodegroup
+        nodegroupname: Name of the nodegroup to append
+        link: Whether to link or append
+        fake_user: Whether to set fake user
+        node_x: X position for node placement in editor
+        node_y: Y position for node placement in editor
+        target_object: Target object for modifier mode (name string). If None and nodegroup is geometry type, a target object will be created
+        nodegroup_mode: How to add the nodegroup - "MODIFIER" for new modifier, "NODE" for node in editor, "" for default behavior
+        model_location: Location for the target object (used when creating new target)
+        model_rotation: Rotation for the target object (used when creating new target)
 
     Returns:
         tuple: (nodegroup, added_to_editor) - The nodegroup and whether it was added to an editor
@@ -76,6 +99,20 @@ def append_nodegroup(
     nodegroup = bpy.data.node_groups[nodegroupname]
     nodegroup.use_fake_user = fake_user
 
+    # Create target object automatically for geometry nodegroups when no target is provided
+    if nodegroup.bl_rna.identifier == "GeometryNodeTree" and not target_object:
+        # Create a default mesh cube
+        bpy.ops.mesh.primitive_cube_add(
+            size=2, location=model_location, rotation=model_rotation
+        )
+        target_obj = bpy.context.active_object
+        target_obj.name = "GeometryNodeTarget"
+        target_object = target_obj.name
+
+        # Make sure it's selected and active
+        bpy.context.view_layer.objects.active = target_obj
+        target_obj.select_set(True)
+
     # Mapping dict for node editor tree types to node group node types
     sdict = {
         "GeometryNodeTree": "GeometryNodeGroup",
@@ -86,25 +123,119 @@ def append_nodegroup(
     # Get the nodegroup type
     nodegroup_type = nodegroup.bl_rna.identifier
 
-    # Find a suitable node editor
+    # If no explicit mode is set, try to detect if we should add to an existing editor first
+    # This allows drag-drop into existing node editors to work properly
+    if not nodegroup_mode:
+        # Find a suitable node editor
+        for area in bpy.context.screen.areas:
+            if area.type != "NODE_EDITOR":
+                continue
+
+            if area.spaces.active.tree_type == nodegroup_type:
+                nt = area.spaces.active.edit_tree
+                if nt is None:
+                    continue
+
+                # Add node to this editor
+                for n in nt.nodes:
+                    n.select = False
+
+                node_type = sdict.get(nodegroup_type)
+                if node_type:
+                    node = nt.nodes.new(node_type)
+                    node.node_tree = nodegroup
+                    node.location = (node_x, node_y)
+                    node.select = True
+                    nt.nodes.active = node
+                    return (nodegroup, True)
+
+    # Handle modifier mode for geometry nodegroups
+    if nodegroup_mode == "MODIFIER" and target_object:
+        target_obj = bpy.data.objects.get(target_object)
+        if target_obj and nodegroup.bl_rna.identifier == "GeometryNodeTree":
+            # Create a new geometry nodes modifier with this nodegroup
+            gn_mod = target_obj.modifiers.new(name=nodegroup.name, type="NODES")
+            gn_mod.node_group = nodegroup
+
+            # Select the target object to make the change visible
+            bpy.context.view_layer.objects.active = target_obj
+            if target_obj not in bpy.context.selected_objects:
+                target_obj.select_set(True)
+
+            return (
+                nodegroup,
+                True,
+            )  # Return True as we "added" it successfully to the modifier
+
+    # Handle node mode for geometry nodegroups with target object
+    # Create a modifier setup and then add the nodegroup as a node to the tree
+    if (
+        nodegroup_mode == "NODE"
+        and target_object
+        and nodegroup.bl_rna.identifier == "GeometryNodeTree"
+    ):
+        target_obj = bpy.data.objects.get(target_object)
+        if target_obj:
+            # Select the target object to make it active
+            bpy.context.view_layer.objects.active = target_obj
+            if target_obj not in bpy.context.selected_objects:
+                target_obj.select_set(True)
+            # look for the geometry nodes modifier
+            gn_mod = None
+            for mod in target_obj.modifiers:
+                if mod.type == "NODES" and mod.node_group:
+                    gn_mod = mod
+                    break
+            if not gn_mod:
+                # create a new geometry nodes modifier
+                gn_mod = target_obj.modifiers.new(name="GeometryNodes", type="NODES")
+            if not gn_mod.node_group:
+                # create a new node group
+                bpy.ops.node.new_geometry_node_group_assign()
+
+            node_tree = gn_mod.node_group
+
+            if node_tree:
+                # Add the nodegroup as a node to the tree
+                group_node = node_tree.nodes.new("GeometryNodeGroup")
+                group_node.node_tree = nodegroup
+                group_node.location = (node_x, node_y)
+                group_node.select = True
+                node_tree.nodes.active = group_node
+
+            return (nodegroup, True)
+
+    # If not added yet through modes or if no mode specified, try to find any compatible editor
     added_to_editor = False
 
-    # First try: exact match for tree type
+    # Try any compatible editor
     for area in bpy.context.screen.areas:
         if area.type != "NODE_EDITOR":
             continue
 
-        if area.spaces.active.tree_type == nodegroup_type:
-            nt = area.spaces.active.edit_tree
-            if nt is None:
-                continue
+        nt = area.spaces.active.edit_tree
+        if nt is None:
+            continue
 
+        # Check if this editor type is compatible
+        if area.spaces.active.tree_type in sdict:
             # Add node to this editor
             for n in nt.nodes:
                 n.select = False
 
-            node_type = sdict.get(nodegroup_type)
+            node_type = sdict.get(area.spaces.active.tree_type)
             if node_type:
+                # Check if nodegroup is compatible with this editor
+                # For example, don't add shader nodegroups to geometry node editor
+                if (
+                    nodegroup_type == "ShaderNodeTree"
+                    and area.spaces.active.tree_type != "ShaderNodeTree"
+                ) or (
+                    nodegroup_type == "GeometryNodeTree"
+                    and area.spaces.active.tree_type != "GeometryNodeTree"
+                ):
+                    continue
+
                 node = nt.nodes.new(node_type)
                 node.node_tree = nodegroup
                 node.location = (node_x, node_y)
@@ -112,43 +243,6 @@ def append_nodegroup(
                 nt.nodes.active = node
                 added_to_editor = True
                 break
-
-    # If not added yet, try any compatible editor
-    if not added_to_editor:
-        for area in bpy.context.screen.areas:
-            if area.type != "NODE_EDITOR":
-                continue
-
-            nt = area.spaces.active.edit_tree
-            if nt is None:
-                continue
-
-            # Check if this editor type is compatible
-            if area.spaces.active.tree_type in sdict:
-                # Add node to this editor
-                for n in nt.nodes:
-                    n.select = False
-
-                node_type = sdict.get(area.spaces.active.tree_type)
-                if node_type:
-                    # Check if nodegroup is compatible with this editor
-                    # For example, don't add shader nodegroups to geometry node editor
-                    if (
-                        nodegroup_type == "ShaderNodeTree"
-                        and area.spaces.active.tree_type != "ShaderNodeTree"
-                    ) or (
-                        nodegroup_type == "GeometryNodeTree"
-                        and area.spaces.active.tree_type != "GeometryNodeTree"
-                    ):
-                        continue
-
-                    node = nt.nodes.new(node_type)
-                    node.node_tree = nodegroup
-                    node.location = (node_x, node_y)
-                    node.select = True
-                    nt.nodes.active = node
-                    added_to_editor = True
-                    break
 
     return nodegroup, added_to_editor
 
