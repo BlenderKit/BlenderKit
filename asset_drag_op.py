@@ -112,6 +112,7 @@ def draw_callback_dragging(self, context):
                 main_message = "Drop to replace active material"
             else:
                 main_message = "Drop to assign material"
+
         elif self.asset_data["assetType"] in ["model", "printable"]:
             if self.shift_pressed and self.object_name:
                 main_message = f"Drop to Set Parent to ({self.object_name})"
@@ -120,9 +121,8 @@ def draw_callback_dragging(self, context):
                     context.view_layer.active_layer_collection.collection.name
                 )
                 if self.object_name:
-                    main_message = (
-                        f"Drop into active collection '{collection_name}'"
-                    )
+                    main_message = f"Drop into active collection '{collection_name}'"
+
                     secondary_message = "(Shift to parent)"
                 else:
                     main_message = f"Drop into collection '{collection_name}'"
@@ -176,6 +176,7 @@ def draw_callback_dragging(self, context):
                         secondary_message = (
                             "Select mesh/curve object for modifier option"
                         )
+
                         secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
                 else:
                     # For other nodegroup types, just add as node
