@@ -256,6 +256,23 @@ def draw_panel_nodegroup_search(self, context):
     utils.label_multiline(layout, text=props.report)
 
 
+def draw_common_filters(layout, ui_props):
+    """Draw common filter elements shared by multiple asset type panels.
+
+    Args:
+        layout: The UI layout to draw in
+        ui_props: The UI properties containing filter settings
+    """
+    layout.separator()
+
+    row = layout.row()
+    row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
+    row.prop(ui_props, "own_only", icon="USER")
+    layout.prop(ui_props, "free_only")
+    layout.prop(ui_props, "quality_limit", slider=True)
+    layout.prop(ui_props, "search_license")
+
+
 def draw_thumbnail_upload_panel(layout, props):
     tex = autothumb.get_texture_ui(props.thumbnail, ".upload_preview")
     if not tex or not tex.image:
@@ -1457,19 +1474,8 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "SCENE"
 
     def draw_layout(self, layout):
-        wm = bpy.context.window_manager
-        props = wm.blenderkit_scene
-        ui_props = wm.blenderkitUI
-
-        layout.separator()
-
-        row = layout.row()
-        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(ui_props, "own_only", icon="USER")
-
-        layout.prop(ui_props, "free_only")
-        layout.prop(ui_props, "quality_limit", slider=True)
-        layout.prop(ui_props, "search_license")
+        ui_props = bpy.context.window_manager.blenderkitUI
+        draw_common_filters(layout, ui_props)
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -1497,20 +1503,14 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
         ui_props = wm.blenderkitUI
 
         layout = self.layout
-        layout.separator()
+        draw_common_filters(layout, ui_props)
 
-        row = layout.row()
-        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(ui_props, "own_only", icon="USER")
-        layout.prop(ui_props, "free_only")
         layout.prop(props, "true_hdr")
         layout.prop(props, "search_texture_resolution", text="Texture Resolutions")
         if props.search_texture_resolution:
             row = layout.row(align=True)
             row.prop(props, "search_texture_resolution_min", text="Min")
             row.prop(props, "search_texture_resolution_max", text="Max")
-        layout.prop(ui_props, "quality_limit", slider=True)
-        layout.prop(ui_props, "search_license")
 
 
 class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
@@ -1528,17 +1528,53 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "BRUSH"
 
     def draw_layout(self, layout):
-        wm = bpy.context.window_manager
-        ui_props = wm.blenderkitUI
+        ui_props = bpy.context.window_manager.blenderkitUI
+        draw_common_filters(layout, ui_props)
 
-        layout.separator()
+    def draw(self, context):
+        self.draw_layout(self.layout)
 
-        row = layout.row()
-        row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
-        row.prop(ui_props, "own_only", icon="USER")
-        layout.prop(ui_props, "free_only")
-        layout.prop(ui_props, "quality_limit", slider=True)
-        layout.prop(ui_props, "search_license")
+
+class VIEW3D_PT_blenderkit_advanced_nodegroup_search(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_nodegroup_search"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_label = "Search filters"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if not global_vars.CLIENT_RUNNING:
+            return False
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "NODEGROUP"
+
+    def draw(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        draw_common_filters(self.layout, ui_props)
+
+
+class VIEW3D_PT_blenderkit_advanced_printable_search(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_printable_search"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_label = "Search filters"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if not global_vars.CLIENT_RUNNING:
+            return False
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "PRINTABLE"
+
+    def draw_layout(self, layout):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        draw_common_filters(layout, ui_props)
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -3767,6 +3803,18 @@ def header_search_draw(self, context):
             text="",
             icon_value=icon_id,
         )
+    elif ui_props.asset_type == "NODEGROUP":
+        layout.popover(
+            panel="VIEW3D_PT_blenderkit_advanced_nodegroup_search",
+            text="",
+            icon_value=icon_id,
+        )
+    elif ui_props.asset_type == "PRINTABLE":
+        layout.popover(
+            panel="VIEW3D_PT_blenderkit_advanced_printable_search",
+            text="",
+            icon_value=icon_id,
+        )
 
     # NSFW filter shield badge - only for models right now
     if preferences.nsfw_filter and ui_props.asset_type == "MODEL":
@@ -3995,6 +4043,8 @@ classes = (
     VIEW3D_PT_blenderkit_advanced_scene_search,
     VIEW3D_PT_blenderkit_advanced_HDR_search,
     VIEW3D_PT_blenderkit_advanced_brush_search,
+    VIEW3D_PT_blenderkit_advanced_nodegroup_search,
+    VIEW3D_PT_blenderkit_advanced_printable_search,
     VIEW3D_PT_blenderkit_categories,
     VIEW3D_PT_blenderkit_import_settings,
     VIEW3D_PT_blenderkit_model_properties,
