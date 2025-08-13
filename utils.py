@@ -530,8 +530,8 @@ def save_prefs_without_save_userpref(user_preferences, context):
 
 
 def save_prefs(user_preferences, context, **kwargs):
-    # first check context, so we don't do this on registration or blender startup
-    if bpy.app.background is True:
+    # first check context, so we don't do this on registration, blender startup, or blender factory startup
+    if bpy.app.background is True or bpy.app.factory_startup is True:
         return
 
     global_vars.PREFS = get_preferences_as_dict()
