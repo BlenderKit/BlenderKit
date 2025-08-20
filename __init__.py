@@ -1927,7 +1927,11 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     api_key: StringProperty(
         name="BlenderKit API Key",
-        description="Your blenderkit API Key. Get it from your page on the website",
+        description=(
+            "Your unique API key authenticates downloads and requests inside the add-on. "
+            "No manual setup is required, the API Key is auto-filled at login and cleared at logout. "
+            "However, you can also paste the key from your profile settings on the BlenderKit website."
+        ),
         default="",
         subtype="PASSWORD",
         update=utils.api_key_property_updated,
