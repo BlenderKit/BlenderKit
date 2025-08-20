@@ -3429,7 +3429,7 @@ class PopupDialog(bpy.types.Operator):
 
 
 class UrlPopupDialog(bpy.types.Operator):
-    """Generate Cycles thumbnail for model assets"""
+    """Show a popup asking the user to subscribe or log in to access the locked asset"""
 
     bl_idname = "wm.blenderkit_url_dialog"
     bl_label = "BlenderKit message:"
@@ -3443,14 +3443,12 @@ class UrlPopupDialog(bpy.types.Operator):
 
     message: bpy.props.StringProperty(name="Text", description="text", default="")  # type: ignore[valid-type]
 
-    # @classmethod
-    # def poll(cls, context):
-    #     return bpy.context.view_layer.objects.active is not None
+    width: bpy.props.IntProperty(name="width", description="width", default=300)  # type: ignore[valid-type]
 
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        row.label(text=self.message)
+        utils.label_multiline(layout, text=self.message, width=300)
         row.operator("view3d.close_popup_button", text="", icon="CANCEL")
 
         layout.active_default = True
@@ -3458,19 +3456,19 @@ class UrlPopupDialog(bpy.types.Operator):
         if not utils.user_logged_in():
             utils.label_multiline(
                 layout,
-                text="Already subscribed? You need to login to access your Full Plan.",
+                text="Already subscribed? Log in to access your account.",
                 width=300,
             )
 
             layout.operator_context = "EXEC_DEFAULT"
-            layout.operator("wm.blenderkit_login", text="Login", icon="URL").signup = (
-                False
-            )
+            layout.operator(
+                "wm.blenderkit_login", text="Welcome Home", icon="URL"
+            ).signup = False
         op.url = self.url
 
     def execute(self, context):
         wm = bpy.context.window_manager
-        return wm.invoke_popup(self, width=300)
+        return wm.invoke_popup(self, width=self.width)
 
 
 class LoginPopupDialog(bpy.types.Operator):

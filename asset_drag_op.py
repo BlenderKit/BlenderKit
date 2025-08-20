@@ -1735,8 +1735,8 @@ class AssetDragOperator(bpy.types.Operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         self.asset_data = dict(sr[ui_props.active_index])
         if not self.asset_data.get("canDownload"):
-            message = "Let's support asset creators and Open source."
-            link_text = "Unlock the asset."
+            message = "This asset is included in Full Plan.\nSupport asset creators & open-source by subscribing."
+            link_text = "Unlock All Assets"
             url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
             bpy.ops.wm.blenderkit_url_dialog(
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
