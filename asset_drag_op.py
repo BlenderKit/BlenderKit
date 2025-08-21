@@ -1817,11 +1817,15 @@ class AssetDragOperator(bpy.types.Operator):
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname
 
         if not self.asset_data.get("canDownload"):
-            message = "Let's support asset creators and Open source."
-            link_text = "Unlock the asset."
+            message = "This asset is included in Full Plan.\nSupport asset creators & open-source by subscribing."
+            link_text = "Unlock Everything Now"
             url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
             bpy.ops.wm.blenderkit_url_dialog(
-                "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
+                "INVOKE_REGION_WIN",
+                url=url,
+                message=message,
+                link_text=link_text,
+                width=280,
             )
             return {"CANCELLED"}
 
