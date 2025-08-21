@@ -1730,10 +1730,49 @@ class AssetDragOperator(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def invoke(self, context, event):
-        # We now accept all area types
-        # if context.area.type not in ["VIEW_3D", "OUTLINER"]:
-        #     self.report({"WARNING"}, "View3D or Outliner not found, cannot run operator")
-        #     return {"CANCELLED"}
+        # Before registering callbacks, check for canceling situations: login and localdir popups, sculpt popup/switch
+        sr = search.get_search_results()
+        ui_props = bpy.context.window_manager.blenderkitUI
+        self.asset_data = dict(sr[ui_props.active_index])
+        if not self.asset_data.get("canDownload"):
+            message = "Let's support asset creators and Open source."
+            link_text = "Unlock the asset."
+            url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
+            bpy.ops.wm.blenderkit_url_dialog(
+                "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
+            )
+            return {"CANCELLED"}
+
+        dir_behaviour = bpy.context.preferences.addons[
+            __package__
+        ].preferences.directory_behaviour
+        if dir_behaviour == "LOCAL" and bpy.data.filepath == "":
+            message = "Save the project to download in local directory mode."
+            link_text = "See documentation"
+            url = "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-Preferences#use-directories"
+            bpy.ops.wm.blenderkit_url_dialog(
+                "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
+            )
+            return {"CANCELLED"}
+
+        if self.asset_data.get("assetType") == "brush":
+            if not (context.sculpt_object or context.image_paint_object):
+                # either switch to sculpt mode and layout automatically or show a popup message
+                if context.active_object and context.active_object.type == "MESH":
+                    bpy.ops.object.mode_set(mode="SCULPT")
+                    self.mouse_release(context)  # does the main job with assets
+
+                    if bpy.data.workspaces.get("Sculpting") is not None:
+                        bpy.context.window.workspace = bpy.data.workspaces["Sculpting"]
+                    reports.add_report(
+                        "Automatically switched to sculpt mode to use brushes."
+                    )
+                else:
+                    message = "Select a mesh and switch to sculpt or image paint modes to use the brushes."
+                    bpy.ops.wm.blenderkit_popup_dialog(
+                        "INVOKE_REGION_WIN", message=message, width=500
+                    )
+                return {"CANCELLED"}
 
         # the arguments we pass the the callback
         args = (self, context)
@@ -1809,52 +1848,8 @@ class AssetDragOperator(bpy.types.Operator):
         self.face_index = 0
         self.matrix = None
 
-        ui_props = bpy.context.window_manager.blenderkitUI
-        sr = search.get_search_results()
-        self.asset_data = dict(sr[ui_props.active_index])
-
         self.iname = f'.{self.asset_data["thumbnail_small"]}'
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname
-
-        if not self.asset_data.get("canDownload"):
-            message = "Let's support asset creators and Open source."
-            link_text = "Unlock the asset."
-            url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
-            bpy.ops.wm.blenderkit_url_dialog(
-                "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
-            )
-            return {"CANCELLED"}
-
-        dir_behaviour = bpy.context.preferences.addons[
-            __package__
-        ].preferences.directory_behaviour
-        if dir_behaviour == "LOCAL" and bpy.data.filepath == "":
-            message = "Save the project to download in local directory mode."
-            link_text = "See documentation"
-            url = "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-Preferences#use-directories"
-            bpy.ops.wm.blenderkit_url_dialog(
-                "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
-            )
-            return {"CANCELLED"}
-
-        if self.asset_data.get("assetType") == "brush":
-            if not (context.sculpt_object or context.image_paint_object):
-                # either switch to sculpt mode and layout automatically or show a popup message
-                if context.active_object and context.active_object.type == "MESH":
-                    bpy.ops.object.mode_set(mode="SCULPT")
-                    self.mouse_release(context)  # does the main job with assets
-
-                    if bpy.data.workspaces.get("Sculpting") is not None:
-                        bpy.context.window.workspace = bpy.data.workspaces["Sculpting"]
-                    reports.add_report(
-                        "Automatically switched to sculpt mode to use brushes."
-                    )
-                else:
-                    message = "Select a mesh and switch to sculpt or image paint modes to use the brushes."
-                    bpy.ops.wm.blenderkit_popup_dialog(
-                        "INVOKE_REGION_WIN", message=message, width=500
-                    )
-                return {"CANCELLED"}
 
         bpy.context.window.cursor_set("NONE")
         ui_props = bpy.context.window_manager.blenderkitUI
