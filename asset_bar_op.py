@@ -369,6 +369,34 @@ asset_bar_operator = None
 # BL_UI_Button.handle_event = handle_event
 
 
+def get_addon_pricing_data(asset_data):
+    """Helper function to get addon pricing information from extensions cache"""
+    is_for_sale = False
+    base_price = None
+
+    try:
+        # Import here to avoid circular imports
+        from . import override_extension_draw
+
+        override_extension_draw.ensure_repo_cache()
+        bk_ext_cache = bpy.context.window_manager.get(
+            "blenderkit_extensions_repo_cache", {}
+        )
+
+        # Try to match by extensionId first, then by assetBaseId
+        extension_id = asset_data.get("dictParameters", {}).get("extensionId")
+
+        matching_pkg = bk_ext_cache.get(extension_id)
+
+        if matching_pkg:
+            is_for_sale = matching_pkg.get("is_for_sale", False)
+            base_price = matching_pkg.get("base_price")
+    except Exception as e:
+        print(f"BlenderKit: Error fetching extension pricing data: {e}")
+
+    return is_for_sale, base_price
+
+
 def get_tooltip_data(asset_data):
     tooltip_data = asset_data.get("tooltip_data")
     if tooltip_data is not None:
@@ -385,7 +413,11 @@ def get_tooltip_data(asset_data):
             print("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
 
     aname = asset_data["displayName"]
-    aname = aname[0].upper() + aname[1:]
+    if len(aname) == 0:
+        # this shouldn't happen, but obviously did on server in addons section.
+        aname = ""
+    else:
+        aname = aname[0].upper() + aname[1:]
     if len(aname) > 36:
         aname = f"{aname[:33]}..."
 
@@ -397,10 +429,49 @@ def get_tooltip_data(asset_data):
         rcount = min(rc.get("quality", 0), rc.get("workingHours", 0))
     if rcount > show_rating_threshold:
         quality = str(round(asset_data["ratingsAverage"].get("quality")))
+
+    # Add pricing information
+    price_text = ""
+    price_color = (1.0, 0.8, 0.2, 1.0)  # Default golden color
+
+    # Check if asset is free or paid (works for all asset types)
+    is_free = asset_data.get("isFree", True)
+    can_download = asset_data.get("canDownload", True)
+
+    if asset_data.get("assetType") == "addon":
+        # Get pricing info from extensions cache
+        is_for_sale, base_price = get_addon_pricing_data(asset_data)
+
+        if is_for_sale and not can_download and base_price:
+            price_text = f"${base_price}"
+            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid addons
+        elif not is_free and not is_for_sale:
+            price_text = "Full Plan"
+            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid addons
+        elif (
+            is_for_sale and can_download
+        ):  # purchased, but not yet downloaded, so we can't show price
+            price_text = f"Purchased (${base_price})"
+            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid addons
+        else:
+            price_text = "Free"
+            price_color = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
+    else:
+        # For other asset types, show basic pricing info
+        if not can_download:
+            price_text = "Full Plan"
+            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid assets
+        elif is_free:
+            price_text = "Free"
+            price_color = (0.4, 0.8, 0.4, 1.0)  # Green for free assets
+        # Don't show price text for regular paid assets that can be downloaded
+
     tooltip_data = {
         "aname": aname,
         "author_text": author_text,
         "quality": quality,
+        "price_text": price_text,
+        "price_color": price_color,
     }
     asset_data["tooltip_data"] = tooltip_data
 
@@ -576,6 +647,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.tooltip_widgets.append(quality_label)
         self.quality_label = quality_label
+
+        # Add price label for addons
+        price_label = self.new_text(
+            "",
+            self.tooltip_margin,
+            self.tooltip_height
+            - int(self.asset_name_text_size + 2 * self.tooltip_margin),
+            height=self.asset_name_text_size,
+            text_size=self.asset_name_text_size,
+        )
+        price_label.text_color = (1.0, 0.8, 0.2, 1.0)  # Golden color for price
+        self.tooltip_widgets.append(price_label)
+        self.price_label = price_label
 
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         offset = 0
@@ -1610,10 +1694,28 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             self.asset_name.text = an
             self.authors_name.text = asset_data["tooltip_data"]["author_text"]
-            quality_text = asset_data["tooltip_data"]["quality"]
-            if utils.profile_is_validator():
-                quality_text += f" / {int(asset_data['score'])}"
-            self.quality_label.text = quality_text
+
+            # Hide ratings for addons
+            is_addon = asset_data.get("assetType") == "addon"
+            if not is_addon:
+                quality_text = asset_data["tooltip_data"]["quality"]
+                if utils.profile_is_validator():
+                    quality_text += f" / {int(asset_data['score'])}"
+                self.quality_label.text = quality_text
+                self.quality_label.visible = True
+                self.quality_star.visible = True
+            else:
+                self.quality_label.visible = False
+                self.quality_star.visible = False
+
+            # Update price label for addons
+            price_text = asset_data["tooltip_data"].get("price_text", "")
+            price_color = asset_data["tooltip_data"].get(
+                "price_color", (1.0, 0.8, 0.2, 1.0)
+            )
+            self.price_label.text = price_text
+            self.price_label.text_color = price_color
+            self.price_label.visible = bool(price_text)
 
             # preview comments for validators
             self.update_comments_for_validators(asset_data)
@@ -1806,12 +1908,37 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             else:
                 asset_button.validation_icon.visible = False
         else:
-            if asset_data.get("canDownload", True) == 0:
-                img_fp = paths.get_addon_thumbnail_path("locked.png")
-                asset_button.validation_icon.set_image(img_fp)
-                asset_button.validation_icon.visible = True
+            # Check for addon-specific purchasing information
+            if asset_data.get("assetType") == "addon":
+                # For addons, check purchasing status like in extension override
+                can_download = asset_data.get(
+                    "canDownload"
+                )  # Note: corrected field name
+                is_free = asset_data.get("isFree")  # Note: corrected field name
+
+                # Get pricing info from extensions cache
+                is_for_sale, base_price = get_addon_pricing_data(asset_data)
+
+                # Locked addons: for sale but not downloadable (not purchased)
+                if is_for_sale and not can_download:
+                    img_fp = paths.get_addon_thumbnail_path("locked.png")
+                    asset_button.validation_icon.set_image(img_fp)
+                    asset_button.validation_icon.visible = True
+                # Full plan addons: not free and not for sale (subscription required)
+                elif not is_free and not is_for_sale:
+                    img_fp = paths.get_addon_thumbnail_path("locked.png")
+                    asset_button.validation_icon.set_image(img_fp)
+                    asset_button.validation_icon.visible = True
+                else:
+                    asset_button.validation_icon.visible = False
             else:
-                asset_button.validation_icon.visible = False
+                # Regular asset lock logic
+                if asset_data.get("canDownload", True) == 0:
+                    img_fp = paths.get_addon_thumbnail_path("locked.png")
+                    asset_button.validation_icon.set_image(img_fp)
+                    asset_button.validation_icon.visible = True
+                else:
+                    asset_button.validation_icon.visible = False
 
     def update_image(self, asset_id):
         """should be run after thumbs are retrieved so they can be updated"""

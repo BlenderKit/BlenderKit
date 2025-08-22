@@ -297,6 +297,12 @@ def asset_type_callback(self, context):
                 6,
             ),
         ]
+
+        # Only add addon option for Blender 4.2+
+        import bpy
+
+        if bpy.app.version >= (4, 2, 0):
+            items.append(("ADDON", "Addons", "Find addons", "PLUGIN", 7))
     else:
         items = [
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
@@ -313,6 +319,12 @@ def asset_type_callback(self, context):
                 6,
             ),
         ]
+
+        # Only add addon option for Blender 4.2+
+        import bpy
+
+        if bpy.app.version >= (4, 2, 0):
+            items.append(("ADDON", "Addon", "Upload an addon", "PLUGIN", 7))
 
     return items
 
@@ -1162,6 +1174,19 @@ class BlenderKitBrushSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
 
 class BlenderKitGeoToolSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     pass
+
+
+class BlenderKitAddonSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
+    search_installed: BoolProperty(
+        name="Installed Only",
+        description="Show only addons that are already installed in Blender",
+        default=False,
+        update=lambda self, context: (
+            search.refresh_search()
+            if context.window_manager.blenderkitUI.asset_type == "ADDON"
+            else None
+        ),
+    )
 
 
 class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -2401,6 +2426,12 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=search.search_update,
     )  # In future we can subsets like sexualized, pornography or violence subset. And allow users choose what is part of NSFW.
 
+    temp_enabled_addons: StringProperty(
+        name="Temporarily Enabled Addons",
+        description="JSON string of temporarily enabled addon package IDs that should be disabled on next session",
+        default="[]",
+    )
+
     def draw(self, context):
         layout = self.layout
         if self.api_key.strip() == "":
@@ -2507,6 +2538,7 @@ classes = (
     BlenderKitBrushUploadProps,
     BlenderKitGeoToolSearchProps,
     BlenderKitNodeGroulUploadProps,
+    BlenderKitAddonSearchProps,
 )
 
 
@@ -2572,6 +2604,9 @@ def register():
     )
     bpy.types.NodeTree.blenderkit = PointerProperty(  # for uploads, not now...
         type=BlenderKitNodeGroulUploadProps
+    )
+    bpy.types.WindowManager.blenderkit_addon = PointerProperty(
+        type=BlenderKitAddonSearchProps
     )
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences

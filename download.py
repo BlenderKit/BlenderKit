@@ -37,6 +37,398 @@ from . import (
 
 bk_logger = logging.getLogger(__name__)
 
+
+def get_addon_installation_status(asset_data):
+    """Get the installation and enablement status of an addon.
+
+    Returns:
+        dict: {
+            "installed": bool,
+            "enabled": bool,
+            "pkg_id": str,
+            "cached_pkg": dict or None
+        }
+    """
+    import bpy
+    from . import override_extension_draw
+
+    # Get the correct package ID
+    extension_id = asset_data.get("dictParameters", {}).get("extensionId")
+    if not extension_id:
+        return {
+            "installed": False,
+            "enabled": False,
+            "pkg_id": None,
+            "cached_pkg": None,
+        }
+
+        # Check if addon is installed and enabled using Blender's addon system
+    import addon_utils
+
+    # Method 1: Check if it's in the enabled addons list
+    # For new extension system, addons have format: bl_ext.repository_name.package_name
+    enabled_addons = [addon.module for addon in bpy.context.preferences.addons]
+
+    # Check direct match first
+    is_enabled = extension_id in enabled_addons
+
+    # If not found, check for extension format: bl_ext.www_blenderkit_com.package_name
+    if not is_enabled:
+        extension_module_name = f"bl_ext.www_blenderkit_com.{extension_id}"
+        is_enabled = extension_module_name in enabled_addons
+        bk_logger.info(
+            f"Checking extension format: {extension_module_name} -> enabled: {is_enabled}"
+        )
+
+        # Also try other possible repository name formats
+        if not is_enabled:
+            for addon_module in enabled_addons:
+                if addon_module.endswith(
+                    f".{extension_id}"
+                ) and addon_module.startswith("bl_ext."):
+                    is_enabled = True
+                    bk_logger.info(
+                        f"Found enabled addon with extension format: {addon_module}"
+                    )
+                    break
+
+    # Method 2: Check if it's installed (may be disabled) using addon_utils
+    is_installed = False
+    try:
+        for addon_module in addon_utils.modules():
+            # Check direct match
+            if addon_module.__name__ == extension_id:
+                is_installed = True
+                break
+            # Check extension format match
+            elif addon_module.__name__.endswith(
+                f".{extension_id}"
+            ) and addon_module.__name__.startswith("bl_ext."):
+                is_installed = True
+                bk_logger.info(
+                    f"Found installed addon with extension format: {addon_module.__name__}"
+                )
+                break
+    except Exception as e:
+        bk_logger.warning(f"Error checking addon_utils.modules(): {e}")
+
+    # If found through addon_utils, we know it's installed
+    # But we need to double-check enabled status using the correct module name
+    if is_installed and not is_enabled:
+        # Try to find the correct module name format for this addon
+        try:
+            for addon_module in addon_utils.modules():
+                if addon_module.__name__ == extension_id or (
+                    addon_module.__name__.endswith(f".{extension_id}")
+                    and addon_module.__name__.startswith("bl_ext.")
+                ):
+                    # Check if this specific module name is enabled
+                    is_enabled = addon_module.__name__ in enabled_addons
+                    if is_enabled:
+                        bk_logger.info(f"Found enabled addon: {addon_module.__name__}")
+                    break
+        except Exception as e:
+            bk_logger.warning(f"Error double-checking enabled status: {e}")
+
+    # Method 3: If not found through traditional addon system, check extensions system
+    if not is_installed:
+        try:
+            override_extension_draw.ensure_repo_cache()
+            bk_ext_cache = bpy.context.window_manager.get(
+                "blenderkit_extensions_repo_cache", {}
+            )
+
+            for cache_key, pkg_data in bk_ext_cache.items():
+                if isinstance(pkg_data, dict) and pkg_data.get("id") == extension_id:
+                    # Check if it's actually installed in the extension system
+                    is_installed = pkg_data.get("installed", False)
+                    # For extensions, enabled status might be in the cache
+                    if is_installed and not is_enabled:
+                        is_enabled = pkg_data.get("enabled", False)
+                    break
+        except Exception as e:
+            bk_logger.warning(f"Error checking extension cache: {e}")
+
+    # Method 4: Check through Blender's extension repositories directly
+    if not is_installed:
+        try:
+            from . import global_vars
+
+            # Look for BlenderKit repository and check its packages
+            for repo in bpy.context.preferences.extensions.repos:
+                if not repo.enabled:
+                    continue
+                if not (
+                    (repo.remote_url and global_vars.SERVER in repo.remote_url)
+                    or "blenderkit" in repo.name.lower()
+                ):
+                    continue
+
+                # This is a BlenderKit repository, try to find our package
+                # Note: The actual package checking would require deeper access to the repository data
+                # For now, we'll rely on the previous methods
+                break
+        except Exception as e:
+            bk_logger.warning(f"Error checking extension repositories: {e}")
+
+    # Debug: Show some enabled addons for reference
+    blenderkit_addons = [
+        addon
+        for addon in enabled_addons
+        if "blenderkit" in addon.lower() or addon.endswith(extension_id)
+    ]
+    if blenderkit_addons:
+        bk_logger.info(f"Found BlenderKit-related enabled addons: {blenderkit_addons}")
+
+    bk_logger.info(
+        f"Addon status check for '{extension_id}': installed={is_installed}, enabled={is_enabled}"
+    )
+
+    return {
+        "installed": is_installed,
+        "enabled": is_enabled,
+        "pkg_id": extension_id,
+        "cached_pkg": None,  # Not using cached_pkg anymore
+    }
+
+
+def call_extension_operator_with_ui_context(context, operator_func, *args, **kwargs):
+    """
+    Call a Blender extension operator with proper UI context to ensure
+    error messages are displayed in the status bar.
+    """
+    try:
+        # Create a context override with UI area if available
+        override_context = {"window": context.window}
+
+        # Try to find a preferences area or any UI area for proper error display
+        for area in context.window.screen.areas:
+            if area.type == "PREFERENCES":
+                override_context["area"] = area
+                override_context["region"] = area.regions[
+                    -1
+                ]  # Use last region (usually main)
+                break
+
+        # If no preferences area found, use any available area
+        if "area" not in override_context and context.window.screen.areas:
+            override_context["area"] = context.window.screen.areas[0]
+            override_context["region"] = context.window.screen.areas[0].regions[-1]
+
+        # Call with override context so operator can display its native error messages
+        with bpy.context.temp_override(**override_context):
+            return operator_func("INVOKE_DEFAULT", *args, **kwargs)
+    except Exception as e:
+        # If context override fails, fall back to regular call
+        bk_logger.warning(f"Context override failed, using regular operator call: {e}")
+        return operator_func(*args, **kwargs)
+
+
+def install_addon_from_url(asset_data):
+    """Install an addon using Blender's extensions API with proper parameters."""
+    import bpy
+    from . import global_vars
+    from . import override_extension_draw
+
+    addon_name = asset_data.get("name", "Unknown Addon")
+    asset_id = asset_data.get("id", "")
+
+    # Check if Blender version supports extensions (4.2+)
+    if bpy.app.version < (4, 2, 0):
+        error_msg = f"Addon installation requires Blender 4.2 or newer. Current version: {'.'.join(map(str, bpy.app.version[:2]))}"
+        reports.add_report(error_msg, type="ERROR")
+        raise Exception(error_msg)
+
+    if not asset_id:
+        error_msg = f"No asset ID found for addon '{addon_name}'"
+        reports.add_report(error_msg, type="ERROR")
+        raise Exception(error_msg)
+
+    try:
+        # Check if the addon is already installed and find the correct package ID
+        # First look in the BlenderKit extension repository cache
+        override_extension_draw.ensure_repo_cache()
+        bk_ext_cache = bpy.context.window_manager.get(
+            "blenderkit_extensions_repo_cache", {}
+        )
+
+        # Find the correct package ID from BlenderKit asset data
+        actual_pkg_id = None
+        cached_pkg = None
+
+        # First, try to get the extension ID from BlenderKit asset data
+        extension_id = asset_data.get("dictParameters", {}).get("extensionId")
+        if extension_id:
+            actual_pkg_id = extension_id
+            bk_logger.info(f"Using extensionId from asset data: '{extension_id}'")
+
+            # Try to find this package in the cache
+            for cache_key, pkg_data in bk_ext_cache.items():
+                if isinstance(pkg_data, dict) and pkg_data.get("id") == extension_id:
+                    cached_pkg = pkg_data
+                    break
+        else:
+            # Fallback: Search through cache to find package with matching BlenderKit asset ID
+            for cache_key, pkg_data in bk_ext_cache.items():
+                if isinstance(pkg_data, dict):
+                    # Check if this package corresponds to our BlenderKit asset
+                    pkg_blenderkit_id = pkg_data.get("blenderkit_id") or pkg_data.get(
+                        "id", ""
+                    )
+                    if (
+                        pkg_blenderkit_id == asset_id
+                        or pkg_blenderkit_id.startswith(asset_id)
+                        or asset_id in pkg_blenderkit_id
+                    ):
+                        actual_pkg_id = pkg_data.get("id", cache_key)
+                        cached_pkg = pkg_data
+                        bk_logger.info(
+                            f"Found package mapping: BlenderKit ID '{asset_id}' -> Package ID '{actual_pkg_id}'"
+                        )
+                        break
+
+            # If we still didn't find a mapping, try using the asset_id as-is (final fallback)
+            if not actual_pkg_id:
+                actual_pkg_id = asset_id
+                cache_key = asset_id[:32]
+                cached_pkg = bk_ext_cache.get(cache_key)
+                bk_logger.warning(
+                    f"No package mapping found, using asset_id as package_id: '{actual_pkg_id}'"
+                )
+
+        if cached_pkg and cached_pkg.get("installed", False):
+            reports.add_report(
+                f"Addon '{addon_name}' is already installed", type="INFO"
+            )
+            return
+
+        # Find BlenderKit extension repository
+        repo_index = -1
+        blenderkit_repo = None
+
+        # Look for BlenderKit repository in extensions (only enabled repos)
+        enabled_repos = [
+            repo for repo in bpy.context.preferences.extensions.repos if repo.enabled
+        ]
+        bk_logger.info(
+            f"Searching through {len(enabled_repos)} enabled repositories (total: {len(bpy.context.preferences.extensions.repos)})..."
+        )
+
+        for i, repo in enumerate(enabled_repos):
+            bk_logger.info(
+                f"  Enabled Repo {i}: '{repo.name}' - URL: '{repo.remote_url}'"
+            )
+            # Check if this is a BlenderKit repository (by URL or name)
+            if (
+                repo.remote_url and global_vars.SERVER in repo.remote_url
+            ) or "blenderkit" in repo.name.lower():
+                repo_index = i
+                blenderkit_repo = repo
+                bk_logger.info(
+                    f"Found BlenderKit repository at enabled index {i}: {repo.name}"
+                )
+                break
+
+        if repo_index == -1:
+            bk_logger.warning(
+                "No BlenderKit repository found in extension repositories"
+            )
+
+        # Try repository-based installation first (your working method)
+        if repo_index >= 0:
+            try:
+                # Use the simple approach that works (like your example)
+                bk_logger.info(
+                    f"Installing package: repo_index={repo_index}, pkg_id='{actual_pkg_id}'"
+                )
+                bk_logger.info(
+                    f"Repository name: '{blenderkit_repo.name}', URL: '{blenderkit_repo.remote_url}'"
+                )
+                # Try to call with UI context first, but since we don't have context here,
+                # fall back to regular call with verification
+                result = bpy.ops.extensions.package_install(
+                    repo_index=repo_index,
+                    pkg_id=actual_pkg_id,
+                )
+                if "FINISHED" not in result and "RUNNING_MODAL" not in result:
+                    raise Exception(
+                        f"Installation failed - operation returned: {result}"
+                    )
+
+                # Verify installation was successful
+                post_install_status = get_addon_installation_status(asset_data)
+                if not post_install_status["installed"]:
+                    raise Exception(
+                        f"Installation verification failed: '{addon_name}' was not installed. "
+                        f"This may be due to version compatibility issues or other requirements not being met."
+                    )
+
+                reports.add_report(
+                    f"Successfully installed addon '{addon_name}' from BlenderKit repository",
+                    type="INFO",
+                )
+                return
+            except Exception as repo_ex:
+                bk_logger.warning(f"Repository installation failed: {repo_ex}")
+                # Fall through to file-based installation
+        else:
+            bk_logger.warning("No BlenderKit repository found")
+
+        # Fallback: File-based installation
+        # Get the download URL and use package_install_files instead
+        bk_logger.info("Trying file-based installation as fallback")
+        download_url = None
+        for f in asset_data.get("files", []):
+            if f["fileType"] == "zip_file":
+                download_url = f["downloadUrl"]
+                break
+
+        if download_url:
+            # Download the file temporarily and install from file
+            import tempfile
+            import urllib.request
+
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
+                try:
+                    urllib.request.urlretrieve(download_url, tmp_file.name)
+
+                    result = bpy.ops.extensions.package_install_files(
+                        filepath=tmp_file.name,
+                        enable_on_install=True,
+                    )
+                    if "FINISHED" not in result:
+                        raise Exception(
+                            f"File-based installation failed - operation returned: {result}"
+                        )
+
+                    # Verify installation was successful
+                    post_install_status = get_addon_installation_status(asset_data)
+                    if not post_install_status["installed"]:
+                        raise Exception(
+                            f"Installation verification failed: '{addon_name}' was not installed. "
+                            f"This may be due to version compatibility issues or other requirements not being met."
+                        )
+                finally:
+                    # Clean up temporary file
+                    import os
+
+                    try:
+                        os.unlink(tmp_file.name)
+                    except:
+                        pass  # Ignore cleanup errors
+
+            reports.add_report(
+                f"Successfully installed addon '{addon_name}' as extension", type="INFO"
+            )
+        else:
+            raise Exception(
+                "No BlenderKit repository found and no download URL available"
+            )
+    except Exception as e:
+        bk_logger.error(f"Failed to install addon '{addon_name}': {e}")
+        raise Exception(f"Failed to install addon '{addon_name}': {e}")
+
+
 import bpy
 from bpy.app.handlers import persistent
 from bpy.props import (
@@ -117,6 +509,71 @@ def check_unused():
             l.user_clear()
 
 
+def get_temp_enabled_addons():
+    """Get list of temporarily enabled addons from preferences."""
+    import json
+
+    try:
+        prefs = bpy.context.preferences.addons[__package__].preferences
+        temp_addons_json = prefs.temp_enabled_addons
+        return json.loads(temp_addons_json)
+    except Exception as e:
+        bk_logger.warning(f"Error reading temporary addons from preferences: {e}")
+        return []
+
+
+def set_temp_enabled_addons(addon_list):
+    """Save list of temporarily enabled addons to preferences."""
+    import json
+
+    try:
+        prefs = bpy.context.preferences.addons[__package__].preferences
+        prefs.temp_enabled_addons = json.dumps(addon_list)
+        bk_logger.info(f"Saved {len(addon_list)} temporary addons to preferences")
+    except Exception as e:
+        bk_logger.error(f"Error saving temporary addons to preferences: {e}")
+
+
+def add_temp_enabled_addon(pkg_id):
+    """Add an addon to the temporary enabled list."""
+    temp_enabled = get_temp_enabled_addons()
+    if pkg_id not in temp_enabled:
+        temp_enabled.append(pkg_id)
+        set_temp_enabled_addons(temp_enabled)
+        bk_logger.info(f"Added {pkg_id} to temporary addons list")
+
+
+def cleanup_temp_enabled_addons():
+    """Disable temporarily enabled addons."""
+    import bpy
+
+    try:
+        temp_enabled = get_temp_enabled_addons()
+
+        if not temp_enabled:
+            bk_logger.info("No temporarily enabled addons to clean up")
+            return
+
+        bk_logger.info(f"Cleaning up {len(temp_enabled)} temporarily enabled addons")
+
+        # Disable all temporarily enabled addons using preferences API
+        for pkg_id in temp_enabled:
+            try:
+                full_module_name = f"bl_ext.www_blenderkit_com.{pkg_id}"
+                bpy.ops.preferences.addon_disable(module=full_module_name)
+                bk_logger.info(f"Disabled temporarily enabled addon: {pkg_id}")
+            except Exception as e:
+                bk_logger.warning(
+                    f"Failed to disable temporarily enabled addon {pkg_id}: {e}"
+                )
+
+        # Clear the list in preferences
+        set_temp_enabled_addons([])
+        bk_logger.info("Temporary addon cleanup completed")
+    except Exception as e:
+        bk_logger.error(f"Error during temporary addon cleanup: {e}")
+
+
 @persistent
 def scene_save(context):
     """Do cleanup of blenderkit props and send a message to the server about assets used."""
@@ -129,6 +586,12 @@ def scene_save(context):
     )  # TODO: FIX OR REMOVE THIS (now returns empty dict all the time) https://github.com/BlenderKit/blenderkit/issues/1013
     if report_data != {}:
         client_lib.report_usages(report_data)
+
+
+@persistent
+def scene_load_pre(context):
+    """Clean up temporarily enabled addons before loading new file."""
+    cleanup_temp_enabled_addons()
 
 
 @persistent
@@ -634,9 +1097,20 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         bk_logger.info(f"appended nodegroup: {nodegroup}")
         asset_main = nodegroup
 
+    elif asset_data["assetType"] == "addon":
+        # Handle addon installation using extensions API
+        try:
+            install_addon_from_url(asset_data)
+            asset_main = None  # Addons don't have a main asset object
+        except Exception as e:
+            bk_logger.error(f"Failed to install addon: {e}")
+            reports.add_report(f"Failed to install addon: {e}", type="ERROR")
+            return
+
     asset_data["resolution"] = kwargs["resolution"]
     udpate_asset_data_in_dicts(asset_data)
-    update_asset_metadata(asset_main, asset_data)
+    if asset_main is not None:
+        update_asset_metadata(asset_main, asset_data)
 
     bpy.ops.ed.undo_push(
         "INVOKE_REGION_WIN", message="add %s to scene" % asset_data["name"]
@@ -1271,8 +1745,525 @@ asset_types = (
     ("MATERIAL", "Material", "any .blend Material"),
     ("TEXTURE", "Texture", "a texture, or texture set"),
     ("BRUSH", "Brush", "brush, can be any type of blender brush"),
-    ("ADDON", "Addon", "addnon"),
+    ("ADDON", "Addon", "addon"),
 )
+
+
+class BlenderkitAddonManagerOperator(bpy.types.Operator):
+    """Manage BlenderKit addon installation, enabling, and disabling"""
+
+    bl_idname = "scene.blenderkit_addon_manager"
+    bl_label = "Addon Manager"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    asset_data: bpy.props.StringProperty()  # JSON encoded asset data
+    action: bpy.props.EnumProperty(
+        items=[
+            ("INSTALL", "Install", "Install the addon"),
+            ("UNINSTALL", "Uninstall", "Uninstall the addon"),
+            ("ENABLE", "Enable", "Enable the addon"),
+            ("DISABLE", "Disable", "Disable the addon"),
+            ("TEMP_ENABLE", "Enable Temporarily", "Enable until end of session"),
+        ]
+    )
+
+    def execute(self, context):
+        import json
+        from . import global_vars
+
+        try:
+            asset_data = json.loads(self.asset_data)
+        except:
+            reports.add_report("Invalid asset data", type="ERROR")
+            return {"CANCELLED"}
+
+        addon_name = asset_data.get("name", "Unknown Addon")
+        status = get_addon_installation_status(asset_data)
+        pkg_id = status["pkg_id"]
+
+        if not pkg_id:
+            reports.add_report("No extension ID found for this addon", type="ERROR")
+            return {"CANCELLED"}
+
+        # Find the BlenderKit repository
+        enabled_repos = [
+            repo for repo in bpy.context.preferences.extensions.repos if repo.enabled
+        ]
+        repo_index = -1
+        for i, repo in enumerate(enabled_repos):
+            if (
+                repo.remote_url and global_vars.SERVER in repo.remote_url
+            ) or "blenderkit" in repo.name.lower():
+                repo_index = i
+                break
+
+        if repo_index == -1:
+            reports.add_report("BlenderKit repository not found", type="ERROR")
+            return {"CANCELLED"}
+
+        try:
+            if self.action == "INSTALL":
+                # Check if already installed before attempting installation
+                pre_install_status = get_addon_installation_status(
+                    json.loads(self.asset_data)
+                )
+
+                # Call the operator with proper UI context so it can show its own error messages
+                result = call_extension_operator_with_ui_context(
+                    context,
+                    bpy.ops.extensions.package_install,
+                    repo_index=repo_index,
+                    pkg_id=pkg_id,
+                )
+
+                # Handle modal operations properly
+                if "RUNNING_MODAL" in result:
+                    # Modal operation started - this is normal for UI-invoked operations
+                    # DON'T report success yet - let the modal operation complete and report its own result
+                    bk_logger.info(
+                        f"Modal installation started for '{addon_name}' - waiting for completion"
+                    )
+                    # Return early without reporting success - Blender will handle the reporting
+                    return {"FINISHED"}
+                elif "FINISHED" in result:
+                    # Non-modal operation completed, verify it succeeded
+                    post_install_status = get_addon_installation_status(
+                        json.loads(self.asset_data)
+                    )
+                    if not post_install_status["installed"]:
+                        raise Exception(
+                            f"Installation verification failed: '{addon_name}' was not installed. "
+                            f"Check the status bar for specific error details."
+                        )
+                    # Only report success for verified non-modal operations
+                    reports.add_report(
+                        f"Successfully installed '{addon_name}'", type="INFO"
+                    )
+                    self.report({"INFO"}, f"Successfully installed '{addon_name}'")
+                else:
+                    # Operation failed immediately
+                    raise Exception(
+                        f"Installation failed - operation returned: {result}"
+                    )
+
+            elif self.action == "UNINSTALL":
+                result = bpy.ops.extensions.package_uninstall(
+                    repo_index=repo_index, pkg_id=pkg_id
+                )
+                if "FINISHED" not in result:
+                    raise Exception(
+                        f"Uninstallation failed - operation returned: {result}"
+                    )
+                reports.add_report(
+                    f"Successfully uninstalled '{addon_name}'", type="INFO"
+                )
+                self.report({"INFO"}, f"Successfully uninstalled '{addon_name}'")
+
+            elif self.action == "ENABLE":
+                result = bpy.ops.extensions.package_enable(
+                    repo_index=repo_index, pkg_id=pkg_id
+                )
+                if "FINISHED" not in result:
+                    raise Exception(f"Enable failed - operation returned: {result}")
+                reports.add_report(f"Successfully enabled '{addon_name}'", type="INFO")
+                self.report({"INFO"}, f"Successfully enabled '{addon_name}'")
+
+            elif self.action == "DISABLE":
+                result = bpy.ops.extensions.package_disable(
+                    repo_index=repo_index, pkg_id=pkg_id
+                )
+                if "FINISHED" not in result:
+                    raise Exception(f"Disable failed - operation returned: {result}")
+                reports.add_report(f"Successfully disabled '{addon_name}'", type="INFO")
+                self.report({"INFO"}, f"Successfully disabled '{addon_name}'")
+
+            elif self.action == "TEMP_ENABLE":
+                result = bpy.ops.extensions.package_enable(
+                    repo_index=repo_index, pkg_id=pkg_id
+                )
+                if "FINISHED" not in result:
+                    raise Exception(
+                        f"Temporary enable failed - operation returned: {result}"
+                    )
+                # Store the package for later disabling
+                wm = context.window_manager
+                temp_enabled = wm.get("blenderkit_temp_enabled_addons", [])
+                if pkg_id not in temp_enabled:
+                    temp_enabled.append(pkg_id)
+                    wm["blenderkit_temp_enabled_addons"] = temp_enabled
+                reports.add_report(
+                    f"Temporarily enabled '{addon_name}' (will disable on session end)",
+                    type="INFO",
+                )
+                self.report({"INFO"}, f"Temporarily enabled '{addon_name}'")
+
+        except Exception as e:
+            error_msg = f"Failed to {self.action.lower()} '{addon_name}': {e}"
+            reports.add_report(error_msg, type="ERROR")
+            self.report({"ERROR"}, error_msg)
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
+
+
+class BlenderkitAddonChoiceOperator(bpy.types.Operator):
+    """Show addon management options popup"""
+
+    bl_idname = "scene.blenderkit_addon_choice"
+    bl_label = "Addon Options"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    asset_data: bpy.props.StringProperty()  # JSON encoded asset data
+
+    # Actions for not installed addons
+    action_not_installed: bpy.props.EnumProperty(
+        name="Action",
+        description="Choose what to do with this addon",
+        items=[
+            (
+                "INSTALL_AND_ENABLE",
+                "Install and Enable",
+                "Install the addon and enable it immediately",
+                "CHECKBOX_HLT",
+                0,
+            ),
+            (
+                "INSTALL_AND_TEMP_ENABLE",
+                "Install and Enable Temporarily",
+                "Install and enable until end of session",
+                "TIME",
+                1,
+            ),
+            (
+                "INSTALL_ONLY",
+                "Install Only",
+                "Install the addon but keep it disabled",
+                "IMPORT",
+                2,
+            ),
+        ],
+    )
+
+    # Actions for installed and enabled addons
+    action_installed_enabled: bpy.props.EnumProperty(
+        name="Action",
+        description="Choose what to do with this addon",
+        items=[
+            ("DISABLE", "Disable", "Disable the addon", "CHECKBOX_DEHLT", 0),
+            ("UNINSTALL", "Uninstall", "Completely remove the addon", "CANCEL", 1),
+        ],
+    )
+
+    # Actions for installed but disabled addons
+    action_installed_disabled: bpy.props.EnumProperty(
+        name="Action",
+        description="Choose what to do with this addon",
+        items=[
+            ("ENABLE", "Enable", "Enable the addon permanently", "CHECKBOX_HLT", 0),
+            (
+                "TEMP_ENABLE",
+                "Enable Temporarily",
+                "Enable until end of session",
+                "TIME",
+                1,
+            ),
+            ("UNINSTALL", "Uninstall", "Completely remove the addon", "CANCEL", 2),
+        ],
+    )
+
+    def draw(self, context):
+        import json
+
+        layout = self.layout
+
+        try:
+            asset_data = json.loads(self.asset_data)
+        except:
+            layout.label(text="Invalid asset data")
+            return
+
+        addon_name = asset_data.get("name", "Unknown Addon")
+        status = get_addon_installation_status(asset_data)
+
+        layout.label(text=f"Addon: {addon_name}")
+        layout.separator()
+
+        layout = layout.column()
+        # Show current status and appropriate action enum
+        if not status["installed"]:
+            layout.label(text="Status: Not Installed", icon="QUESTION")
+            layout.separator()
+            layout.prop(self, "action_not_installed", expand=True)
+        elif status["enabled"]:
+            layout.label(text="Status: Installed and Enabled", icon="CHECKMARK")
+            layout.separator()
+            layout.prop(self, "action_installed_enabled", expand=True)
+        else:
+            layout.label(text="Status: Installed but Disabled", icon="X")
+            layout.separator()
+            layout.prop(self, "action_installed_disabled", expand=True)
+
+    def invoke(self, context, event):
+        # Set default values for each enum
+        self.action_not_installed = "INSTALL_AND_ENABLE"
+        self.action_installed_enabled = "DISABLE"
+        self.action_installed_disabled = "ENABLE"
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self, width=350)
+
+    def execute(self, context):
+        import json
+        from . import global_vars
+
+        try:
+            asset_data = json.loads(self.asset_data)
+        except:
+            reports.add_report("Invalid asset data", type="ERROR")
+            return {"CANCELLED"}
+
+        addon_name = asset_data.get("name", "Unknown Addon")
+        status = get_addon_installation_status(asset_data)
+        pkg_id = status["pkg_id"]
+
+        # Get the selected action based on addon status
+        if not status["installed"]:
+            selected_action = self.action_not_installed
+        elif status["enabled"]:
+            selected_action = self.action_installed_enabled
+        else:
+            selected_action = self.action_installed_disabled
+
+        if not pkg_id:
+            reports.add_report("No extension ID found for this addon", type="ERROR")
+            return {"CANCELLED"}
+
+        # Find the BlenderKit repository
+        enabled_repos = [
+            repo for repo in bpy.context.preferences.extensions.repos if repo.enabled
+        ]
+        repo_index = -1
+        for i, repo in enumerate(enabled_repos):
+            if (
+                repo.remote_url and global_vars.SERVER in repo.remote_url
+            ) or "blenderkit" in repo.name.lower():
+                repo_index = i
+                break
+
+        if repo_index == -1:
+            reports.add_report("BlenderKit repository not found", type="ERROR")
+            return {"CANCELLED"}
+
+        try:
+            if selected_action == "INSTALL_AND_ENABLE":
+                # Call the operator with proper UI context so it can show its own error messages
+                result = call_extension_operator_with_ui_context(
+                    context,
+                    bpy.ops.extensions.package_install,
+                    repo_index=repo_index,
+                    pkg_id=pkg_id,
+                )
+
+                # Handle modal operations properly
+                if "RUNNING_MODAL" in result:
+                    # Modal operation started - this is normal for UI-invoked operations
+                    # DON'T report success yet - let the modal operation complete and report its own result
+                    bk_logger.info(
+                        f"Modal installation started for '{addon_name}' - waiting for completion"
+                    )
+                    # Return early without reporting success - Blender will handle the reporting
+                    return {"FINISHED"}
+                elif "FINISHED" in result:
+                    # Non-modal operation completed, verify it succeeded
+                    post_install_status = get_addon_installation_status(asset_data)
+                    if not post_install_status["installed"]:
+                        raise Exception(
+                            f"Installation verification failed: '{addon_name}' was not installed. "
+                            f"Check the status bar for specific error details."
+                        )
+                    # Only report success for verified non-modal operations
+                    # No need to enable separately, install usually enables by default
+                    reports.add_report(
+                        f"Successfully installed and enabled '{addon_name}'",
+                        type="INFO",
+                    )
+                    self.report(
+                        {"INFO"}, f"Successfully installed and enabled '{addon_name}'"
+                    )
+                else:
+                    # Operation failed immediately
+                    raise Exception(
+                        f"Installation failed - operation returned: {result}"
+                    )
+
+            elif selected_action == "INSTALL_AND_TEMP_ENABLE":
+                # Call the operator with proper UI context so it can show its own error messages
+                result = call_extension_operator_with_ui_context(
+                    context,
+                    bpy.ops.extensions.package_install,
+                    repo_index=repo_index,
+                    pkg_id=pkg_id,
+                )
+
+                # Handle modal operations properly
+                if "RUNNING_MODAL" in result:
+                    # Modal operation started - this is normal for UI-invoked operations
+                    # DON'T report success yet - let the modal operation complete and report its own result
+                    bk_logger.info(
+                        f"Modal installation started for '{addon_name}' - waiting for completion"
+                    )
+                    # Return early without reporting success - Blender will handle the reporting
+                    return {"FINISHED"}
+                elif "FINISHED" in result:
+                    # Non-modal operation completed, verify it succeeded
+                    post_install_status = get_addon_installation_status(asset_data)
+                    if not post_install_status["installed"]:
+                        raise Exception(
+                            f"Installation verification failed: '{addon_name}' was not installed. "
+                            f"Check the status bar for specific error details."
+                        )
+                    # Only report success for verified non-modal operations
+                    # Store the package for temporary disabling later
+                    add_temp_enabled_addon(pkg_id)
+                    reports.add_report(
+                        f"Successfully installed and temporarily enabled '{addon_name}' (will disable on session end)",
+                        type="INFO",
+                    )
+                    self.report(
+                        {"INFO"},
+                        f"Successfully installed and temporarily enabled '{addon_name}'",
+                    )
+                else:
+                    # Operation failed immediately
+                    raise Exception(
+                        f"Installation failed - operation returned: {result}"
+                    )
+
+            elif selected_action == "INSTALL_ONLY":
+                # Call the operator with proper UI context so it can show its own error messages
+                result = call_extension_operator_with_ui_context(
+                    context,
+                    bpy.ops.extensions.package_install,
+                    repo_index=repo_index,
+                    pkg_id=pkg_id,
+                )
+
+                # Handle modal operations properly
+                if "RUNNING_MODAL" in result:
+                    # Modal operation started - this is normal for UI-invoked operations
+                    # DON'T report success yet - let the modal operation complete and report its own result
+                    bk_logger.info(
+                        f"Modal installation started for '{addon_name}' - waiting for completion"
+                    )
+                    # Return early without reporting success - Blender will handle the reporting
+                    return {"FINISHED"}
+                elif "FINISHED" in result:
+                    # Non-modal operation completed, verify it succeeded
+                    post_install_status = get_addon_installation_status(asset_data)
+                    if not post_install_status["installed"]:
+                        raise Exception(
+                            f"Installation verification failed: '{addon_name}' was not installed. "
+                            f"Check the status bar for specific error details."
+                        )
+                    # Only report success for verified non-modal operations
+                    # Disable after install using preferences API
+                    full_module_name = f"bl_ext.www_blenderkit_com.{pkg_id}"
+                    try:
+                        bpy.ops.preferences.addon_disable(module=full_module_name)
+                    except Exception as e:
+                        bk_logger.error(f"Failed to disable after install: {e}")
+                    reports.add_report(
+                        f"Successfully installed '{addon_name}' (disabled)", type="INFO"
+                    )
+                    self.report(
+                        {"INFO"}, f"Successfully installed '{addon_name}' (disabled)"
+                    )
+                else:
+                    # Operation failed immediately
+                    raise Exception(
+                        f"Installation failed - operation returned: {result}"
+                    )
+
+            elif selected_action == "UNINSTALL":
+                result = bpy.ops.extensions.package_uninstall(
+                    repo_index=repo_index, pkg_id=pkg_id
+                )
+                if "FINISHED" not in result:
+                    raise Exception(
+                        f"Uninstallation failed - operation returned: {result}"
+                    )
+                reports.add_report(
+                    f"Successfully uninstalled '{addon_name}'", type="INFO"
+                )
+                self.report({"INFO"}, f"Successfully uninstalled '{addon_name}'")
+
+            elif selected_action == "ENABLE":
+                # Enable using preferences API
+                full_module_name = f"bl_ext.www_blenderkit_com.{pkg_id}"
+                try:
+                    result = bpy.ops.preferences.addon_enable(module=full_module_name)
+                    if "FINISHED" not in result:
+                        raise Exception(f"Enable operation failed - returned: {result}")
+                    reports.add_report(
+                        f"Successfully enabled '{addon_name}'", type="INFO"
+                    )
+                    self.report({"INFO"}, f"Successfully enabled '{addon_name}'")
+                except Exception as e:
+                    bk_logger.error(f"Failed to enable addon: {e}")
+                    reports.add_report(
+                        f"Failed to enable '{addon_name}': {e}", type="ERROR"
+                    )
+
+            elif selected_action == "DISABLE":
+                # Disable using preferences API
+                full_module_name = f"bl_ext.www_blenderkit_com.{pkg_id}"
+                try:
+                    result = bpy.ops.preferences.addon_disable(module=full_module_name)
+                    if "FINISHED" not in result:
+                        raise Exception(
+                            f"Disable operation failed - returned: {result}"
+                        )
+                    reports.add_report(
+                        f"Successfully disabled '{addon_name}'", type="INFO"
+                    )
+                    self.report({"INFO"}, f"Successfully disabled '{addon_name}'")
+                except Exception as e:
+                    bk_logger.error(f"Failed to disable addon: {e}")
+                    reports.add_report(
+                        f"Failed to disable '{addon_name}': {e}", type="ERROR"
+                    )
+
+            elif selected_action == "TEMP_ENABLE":
+                # Temporarily enable using preferences API
+                full_module_name = f"bl_ext.www_blenderkit_com.{pkg_id}"
+                try:
+                    result = bpy.ops.preferences.addon_enable(module=full_module_name)
+                    if "FINISHED" not in result:
+                        raise Exception(
+                            f"Temporary enable operation failed - returned: {result}"
+                        )
+                except Exception as e:
+                    bk_logger.error(f"Failed to temp enable addon: {e}")
+                    reports.add_report(
+                        f"Failed to enable '{addon_name}': {e}", type="ERROR"
+                    )
+                    return {"CANCELLED"}
+
+                # Store the package for later disabling
+                add_temp_enabled_addon(pkg_id)
+                reports.add_report(
+                    f"Temporarily enabled '{addon_name}' (will disable on session end)",
+                    type="INFO",
+                )
+                self.report({"INFO"}, f"Temporarily enabled '{addon_name}'")
+
+        except Exception as e:
+            bk_logger.error(f"Addon operation failed for '{addon_name}': {e}")
+            error_msg = f"Failed to {selected_action.lower().replace('_', ' ')} '{addon_name}': {e}"
+            reports.add_report(error_msg, type="ERROR")
+            self.report({"ERROR"}, error_msg)
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
 
 
 class BlenderkitKillDownloadOperator(bpy.types.Operator):
@@ -1315,6 +2306,10 @@ def available_resolutions_callback(self, context):
 
 def has_asset_files(asset_data):
     """Check if asset has files."""
+    # Addons are handled separately by the extension system
+    if asset_data["assetType"] == "addon":
+        return True
+
     for f in asset_data["files"]:
         if f["fileType"] in ("blend", "zip_file"):
             return True
@@ -1491,6 +2486,15 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             return {"CANCELLED"}
 
         asset_type = self.asset_data["assetType"]
+
+        # Handle addon assets with popup
+        if asset_type == "addon":
+            import json
+
+            bpy.ops.scene.blenderkit_addon_choice(
+                "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
+            )
+            return {"FINISHED"}
         if (
             (asset_type == "model" or asset_type == "material")
             and (bpy.context.mode != "OBJECT")
@@ -1636,12 +2640,20 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 def register_download():
     bpy.utils.register_class(BlenderkitDownloadOperator)
     bpy.utils.register_class(BlenderkitKillDownloadOperator)
+    # bpy.utils.register_class(BlenderkitAddonManagerOperator)  # Replaced by BlenderkitAddonChoiceOperator
+    bpy.utils.register_class(BlenderkitAddonChoiceOperator)
     bpy.app.handlers.load_post.append(scene_load)
     bpy.app.handlers.save_pre.append(scene_save)
+    bpy.app.handlers.load_pre.append(scene_load_pre)
 
 
 def unregister_download():
     bpy.utils.unregister_class(BlenderkitDownloadOperator)
     bpy.utils.unregister_class(BlenderkitKillDownloadOperator)
+    # bpy.utils.unregister_class(BlenderkitAddonManagerOperator)  # Replaced by BlenderkitAddonChoiceOperator
+    bpy.utils.unregister_class(BlenderkitAddonChoiceOperator)
     bpy.app.handlers.load_post.remove(scene_load)
     bpy.app.handlers.save_pre.remove(scene_save)
+    bpy.app.handlers.load_pre.remove(scene_load_pre)
+    # Clean up any remaining temporarily enabled addons
+    cleanup_temp_enabled_addons()
