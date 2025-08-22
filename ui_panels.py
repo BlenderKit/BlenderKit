@@ -87,6 +87,9 @@ def draw_upload_common(layout, props, asset_type, context):
         url = (
             paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
         )  # Reuse model instructions since prints are similar
+    if asset_type == "ADDON":
+        asset_type_text = asset_type
+        url = paths.BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
     op = layout.operator(
         "wm.url_open", text=f"Read {asset_type} upload instructions", icon="QUESTION"
     )
@@ -223,6 +226,21 @@ def draw_panel_hdr_search(self, context):
     draw_assetbar_show_hide(row, props)
 
     utils.label_multiline(layout, text=props.report)
+
+
+def draw_panel_addon_search(self, context):
+    import bpy
+
+    wm = context.window_manager
+    ui_props = wm.blenderkitUI
+    addon_props = wm.blenderkit_addon
+
+    layout = self.layout
+    row = layout.row()
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
+    draw_assetbar_show_hide(row, addon_props)
+
+    utils.label_multiline(layout, text=addon_props.report)
 
 
 def draw_panel_nodegroup_upload(self, context):
@@ -1563,6 +1581,32 @@ class VIEW3D_PT_blenderkit_advanced_nodegroup_search(Panel):
         draw_common_filters(self.layout, ui_props)
 
 
+class VIEW3D_PT_blenderkit_advanced_addon_search(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_addon_search"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_label = "Search filters"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if not global_vars.CLIENT_RUNNING:
+            return False
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "ADDON"
+
+    def draw(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        draw_common_filters(self.layout, ui_props)
+        layout = self.layout
+        addon_props = bpy.context.window_manager.blenderkit_addon
+        # Add installed filter for addons
+        row = layout.row()
+        row.prop(addon_props, "search_installed", text="Installed Only")
+
+
 class VIEW3D_PT_blenderkit_advanced_printable_search(Panel):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_printable_search"
@@ -1819,6 +1863,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         if ui_props.asset_type == "NODEGROUP":
             return draw_panel_nodegroup_search(self, context)
 
+        if ui_props.asset_type == "ADDON":
+            return draw_panel_addon_search(self, context)
+
     def draw_upload(self, context, layout, ui_props):
         obj = utils.get_active_asset()
         props = getattr(obj, "blenderkit", None)
@@ -1860,6 +1907,15 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
         if ui_props.asset_type == "NODEGROUP":
             return draw_panel_nodegroup_upload(self, context)
+
+        if ui_props.asset_type == "ADDON":
+            layout.label(text="Addon uploads are managed through")
+            layout.label(text="the BlenderKit website.")
+            op = layout.operator(
+                "wm.url_open", text="Go to BlenderKit Website", icon="URL"
+            )
+            op.url = paths.BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
+            return
 
 
 class BlenderKitWelcomeOperator(bpy.types.Operator):
@@ -2655,38 +2711,155 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         # self.draw_property(box, 'Tags', self.asset_data['tags']) #TODO make them clickable!
 
-        # Free/Full plan or private Access
+        # Free/Full plan or private Access - with special handling for addons
         plans_tooltip = (
             "BlenderKit has 2 plans:\n"
             "  *  Free plan - more than 50% of all assets\n"
             "  *  Full plan - unlimited access to everything\n"
             "Click to go to subscriptions page"
         )
-        if self.asset_data["isPrivate"]:
-            t = "Private"
-            self.draw_property(box, "Access", t, icon="LOCKED")
-        elif self.asset_data["isFree"]:
-            t = "Free plan"
-            icon = pcoll["free"]
-            self.draw_property(
-                box,
-                "Access",
-                t,
-                icon_value=icon.icon_id,
-                tooltip=plans_tooltip,
-                url=paths.BLENDERKIT_PLANS_URL,
+
+        # Special pricing display for addons
+        if self.asset_data.get("assetType") == "addon":
+            from . import asset_bar_op
+
+            can_download = self.asset_data.get("canDownload")
+            is_free = self.asset_data.get("isFree")
+
+            # Get pricing info from extensions cache
+            is_for_sale, base_price = asset_bar_op.get_addon_pricing_data(
+                self.asset_data
             )
+
+            if self.asset_data["isPrivate"]:
+                t = "Private"
+                self.draw_property(box, "Access", t, icon="LOCKED")
+            elif is_for_sale and not can_download and base_price:
+                t = f"${base_price} (Not purchased)"
+                icon = pcoll["full"]
+                self.draw_property(
+                    box,
+                    "Price",
+                    t,
+                    icon_value=icon.icon_id,
+                    tooltip="This addon is for sale but you haven't purchased it yet",
+                )
+            elif is_for_sale and can_download and base_price:
+                t = f"${base_price} (Purchased)"
+                icon = pcoll["full"]
+                self.draw_property(
+                    box,
+                    "Price",
+                    t,
+                    icon_value=icon.icon_id,
+                    tooltip="You have purchased this addon",
+                )
+            elif not is_free and not is_for_sale:
+                t = "Full plan required"
+                icon = pcoll["full"]
+                self.draw_property(
+                    box,
+                    "Access",
+                    t,
+                    icon_value=icon.icon_id,
+                    tooltip=plans_tooltip,
+                    url=paths.BLENDERKIT_PLANS_URL,
+                )
+            else:
+                t = "Free"
+                icon = pcoll["free"]
+                self.draw_property(
+                    box,
+                    "Access",
+                    t,
+                    icon_value=icon.icon_id,
+                    tooltip="This addon is free to use",
+                )
+
+            # Display Blender version requirements for addons
+            dict_params = self.asset_data.get("dictParameters", {})
+            min_version = dict_params.get("blenderVersionMin")
+            max_version = dict_params.get("blenderVersionMax")
+
+            if min_version or max_version:
+                version_text = ""
+                if min_version and max_version:
+                    version_text = f"{min_version} - {max_version}"
+                elif min_version:
+                    version_text = f"{min_version}+"
+                elif max_version:
+                    version_text = f"≤ {max_version}"
+
+                # Check if current Blender version is compatible
+                current_version = (
+                    f"{bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}"
+                )
+                is_compatible = True
+
+                if min_version:
+                    try:
+                        current_tuple = tuple(map(int, current_version.split(".")))
+                        min_tuple = tuple(map(int, min_version.split(".")))
+                        if current_tuple < min_tuple:
+                            is_compatible = False
+                    except (ValueError, AttributeError):
+                        pass  # If version parsing fails, assume compatible
+
+                if max_version and is_compatible:
+                    try:
+                        current_tuple = tuple(map(int, current_version.split(".")))
+                        max_tuple = tuple(map(int, max_version.split(".")))
+                        if current_tuple > max_tuple:
+                            is_compatible = False
+                    except (ValueError, AttributeError):
+                        pass  # If version parsing fails, assume compatible
+
+                # Display version requirement with appropriate warning
+                if not is_compatible:
+                    box.alert = True
+                    self.draw_property(
+                        box,
+                        "Blender versions",
+                        f"{version_text} (Incompatible!)",
+                        icon="ERROR",
+                        tooltip=f"This addon requires Blender {version_text}, but you're using {current_version}",
+                    )
+                    box.alert = False
+                else:
+                    self.draw_property(
+                        box,
+                        "Blender versions",
+                        version_text,
+                        icon="CHECKMARK",
+                        tooltip=f"This addon is compatible with your Blender version ({current_version})",
+                    )
         else:
-            t = "Full plan"
-            icon = pcoll["full"]
-            self.draw_property(
-                box,
-                "Access",
-                t,
-                icon_value=icon.icon_id,
-                tooltip=plans_tooltip,
-                url=paths.BLENDERKIT_PLANS_URL,
-            )
+            # Regular asset access display
+            if self.asset_data["isPrivate"]:
+                t = "Private"
+                self.draw_property(box, "Access", t, icon="LOCKED")
+            elif self.asset_data["isFree"]:
+                t = "Free plan"
+                icon = pcoll["free"]
+                self.draw_property(
+                    box,
+                    "Access",
+                    t,
+                    icon_value=icon.icon_id,
+                    tooltip=plans_tooltip,
+                    url=paths.BLENDERKIT_PLANS_URL,
+                )
+            else:
+                t = "Full plan"
+                icon = pcoll["full"]
+                self.draw_property(
+                    box,
+                    "Access",
+                    t,
+                    icon_value=icon.icon_id,
+                    tooltip=plans_tooltip,
+                    url=paths.BLENDERKIT_PLANS_URL,
+                )
 
         if utils.profile_is_validator():
             date = self.asset_data["created"][:10]
@@ -3222,8 +3395,12 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         left_column = split_left.column()
         self.draw_thumbnail_box(left_column, width=int(self.width * split_ratio))
 
-        if not utils.user_is_owner(asset_data=self.asset_data):
+        if (
+            not utils.user_is_owner(asset_data=self.asset_data)
+            and self.asset_data.get("assetType") != "addon"
+        ):
             # Draw ratings, but not for owners of assets - doesn't make sense.
+            # also addons are now disabled until we figure out how to handle them.
             ratings_box = left_column.box()
             self.prefill_ratings()
             ratings.draw_ratings_menu(self, context, ratings_box)
@@ -3695,6 +3872,7 @@ def header_search_draw(self, context):
         "HDR": wm.blenderkit_HDR,
         "SCENE": wm.blenderkit_scene,
         "NODEGROUP": wm.blenderkit_nodegroup,
+        "ADDON": wm.blenderkit_addon,
     }
     props = props_dict[ui_props.asset_type]
     pcoll = icons.icon_collections["main"]
@@ -3708,6 +3886,7 @@ def header_search_draw(self, context):
         "HDR": "WORLD",
         "SCENE": "SCENE_DATA",
         "NODEGROUP": "NODETREE",
+        "ADDON": "PLUGIN",
     }
 
     asset_type_icon = icons_dict[ui_props.asset_type]
@@ -3842,6 +4021,12 @@ def header_search_draw(self, context):
     elif ui_props.asset_type == "NODEGROUP":
         layout.popover(
             panel="VIEW3D_PT_blenderkit_advanced_nodegroup_search",
+            text="",
+            icon_value=icon_id,
+        )
+    elif ui_props.asset_type == "ADDON":
+        layout.popover(
+            panel="VIEW3D_PT_blenderkit_advanced_addon_search",
             text="",
             icon_value=icon_id,
         )
@@ -4080,6 +4265,7 @@ classes = (
     VIEW3D_PT_blenderkit_advanced_HDR_search,
     VIEW3D_PT_blenderkit_advanced_brush_search,
     VIEW3D_PT_blenderkit_advanced_nodegroup_search,
+    VIEW3D_PT_blenderkit_advanced_addon_search,
     VIEW3D_PT_blenderkit_advanced_printable_search,
     VIEW3D_PT_blenderkit_categories,
     VIEW3D_PT_blenderkit_import_settings,
