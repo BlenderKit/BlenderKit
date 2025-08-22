@@ -209,9 +209,15 @@ def draw_callback_dragging(
                 asset_node_type_display = asset_node_type or "nodegroup"
                 main_message = f"Drop to add {asset_node_type_display} nodegroup"
 
+        elif asset_type == "addon":
+            main_message = "Drop to install addon"
+
     elif self.in_node_editor:
         if asset_type not in ["material", "nodegroup"]:
-            main_message = "Cancel Drag & Drop"
+            if asset_type == "addon":
+                main_message = "Drop to install addon"
+            else:
+                main_message = "Cancel Drag & Drop"
         elif asset_type == "material" and self.node_editor_type == "shader":
             main_message = "Drop to replace active material"
         elif asset_type == "material" and self.node_editor_type == "compositing":
@@ -1063,6 +1069,14 @@ class AssetDragOperator(bpy.types.Operator):
                     model_rotation=self.snapped_rotation,
                 )
 
+        if self.asset_data["assetType"] == "addon":
+            # Show addon management popup instead of direct installation
+            import json
+
+            bpy.ops.scene.blenderkit_addon_choice(
+                "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
+            )
+
         if self.asset_data["assetType"] in ["material", "model"]:
             bpy.ops.view3d.blenderkit_download_gizmo_widget(
                 "INVOKE_REGION_WIN",
@@ -1186,6 +1200,16 @@ class AssetDragOperator(bpy.types.Operator):
             # If we reach this point, the nodegroup is valid for dropping
             self.restore_original_selection()
 
+        elif self.asset_data["assetType"] == "addon":
+            # Handle addon drop in outliner - show management popup
+            import json
+
+            bpy.ops.scene.blenderkit_addon_choice(
+                "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
+            )
+            # Restore original selection
+            self.restore_original_selection()
+
     def make_node_editor_switch(
         self, nodegroup_type: str, node_editor_type: Optional[str] = None
     ) -> bool:
@@ -1246,10 +1270,16 @@ class AssetDragOperator(bpy.types.Operator):
         """Handle dropping assets in the node editor."""
         # Check if asset type is compatible with the node editor
         if self.asset_data["assetType"] not in ["material", "nodegroup"]:
-            reports.add_report(
-                f"{self.asset_data['assetType'].capitalize()} assets cannot be used in node editors",
-                type="ERROR",
-            )
+            if self.asset_data["assetType"] == "addon":
+                reports.add_report(
+                    "Addons cannot be dropped in node editors. Please drop in 3D view or outliner to install.",
+                    type="ERROR",
+                )
+            else:
+                reports.add_report(
+                    f"{self.asset_data['assetType'].capitalize()} assets cannot be used in node editors",
+                    type="ERROR",
+                )
             return
 
         # Handle material drop in shader editor
