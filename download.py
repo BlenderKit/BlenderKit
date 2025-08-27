@@ -588,6 +588,44 @@ def scene_save(context):
         client_lib.report_usages(report_data)
 
 
+def refresh_addon_search_results_status():
+    """Refresh installation status in addon search results after installation operations."""
+    from . import search
+
+    try:
+        # Get current search results
+        sr = search.get_search_results()
+        if not sr:
+            return
+
+        # Check if we're currently viewing addons
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if ui_props.asset_type != "ADDON":
+            return
+
+        # Update installation status for all addon search results
+        for asset_data in sr:
+            if asset_data.get("assetType") == "addon":
+                try:
+                    status = get_addon_installation_status(asset_data)
+                    is_installed = status.get("installed", False)
+                    is_enabled = status.get("enabled", False)
+
+                    # Update the status in search results
+                    asset_data["downloaded"] = 100 if is_installed else 0
+                    asset_data["enabled"] = is_enabled
+
+                except Exception as e:
+                    bk_logger.warning(
+                        f"Could not refresh status for addon {asset_data.get('name', 'Unknown')}: {e}"
+                    )
+                    asset_data["downloaded"] = 0
+                    asset_data["enabled"] = False
+
+    except Exception as e:
+        bk_logger.warning(f"Error refreshing addon search results status: {e}")
+
+
 @persistent
 def scene_load_pre(context):
     """Clean up temporarily enabled addons before loading new file."""
@@ -1840,6 +1878,7 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
                         f"Successfully installed '{addon_name}'", type="INFO"
                     )
                     self.report({"INFO"}, f"Successfully installed '{addon_name}'")
+                    refresh_addon_search_results_status()
                 else:
                     # Operation failed immediately
                     raise Exception(
@@ -1858,6 +1897,7 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
                     f"Successfully uninstalled '{addon_name}'", type="INFO"
                 )
                 self.report({"INFO"}, f"Successfully uninstalled '{addon_name}'")
+                refresh_addon_search_results_status()
 
             elif self.action == "ENABLE":
                 result = bpy.ops.extensions.package_enable(
@@ -1867,6 +1907,7 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
                     raise Exception(f"Enable failed - operation returned: {result}")
                 reports.add_report(f"Successfully enabled '{addon_name}'", type="INFO")
                 self.report({"INFO"}, f"Successfully enabled '{addon_name}'")
+                refresh_addon_search_results_status()
 
             elif self.action == "DISABLE":
                 result = bpy.ops.extensions.package_disable(
@@ -1876,6 +1917,7 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
                     raise Exception(f"Disable failed - operation returned: {result}")
                 reports.add_report(f"Successfully disabled '{addon_name}'", type="INFO")
                 self.report({"INFO"}, f"Successfully disabled '{addon_name}'")
+                refresh_addon_search_results_status()
 
             elif self.action == "TEMP_ENABLE":
                 result = bpy.ops.extensions.package_enable(
@@ -1896,6 +1938,7 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
                     type="INFO",
                 )
                 self.report({"INFO"}, f"Temporarily enabled '{addon_name}'")
+                refresh_addon_search_results_status()
 
         except Exception as e:
             error_msg = f"Failed to {self.action.lower()} '{addon_name}': {e}"
@@ -2089,6 +2132,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                     self.report(
                         {"INFO"}, f"Successfully installed and enabled '{addon_name}'"
                     )
+                    refresh_addon_search_results_status()
                 else:
                     # Operation failed immediately
                     raise Exception(
@@ -2132,6 +2176,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                         {"INFO"},
                         f"Successfully installed and temporarily enabled '{addon_name}'",
                     )
+                    refresh_addon_search_results_status()
                 else:
                     # Operation failed immediately
                     raise Exception(
@@ -2177,6 +2222,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                     self.report(
                         {"INFO"}, f"Successfully installed '{addon_name}' (disabled)"
                     )
+                    refresh_addon_search_results_status()
                 else:
                     # Operation failed immediately
                     raise Exception(
@@ -2195,6 +2241,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                     f"Successfully uninstalled '{addon_name}'", type="INFO"
                 )
                 self.report({"INFO"}, f"Successfully uninstalled '{addon_name}'")
+                refresh_addon_search_results_status()
 
             elif selected_action == "ENABLE":
                 # Enable using preferences API
@@ -2207,6 +2254,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                         f"Successfully enabled '{addon_name}'", type="INFO"
                     )
                     self.report({"INFO"}, f"Successfully enabled '{addon_name}'")
+                    refresh_addon_search_results_status()
                 except Exception as e:
                     bk_logger.error(f"Failed to enable addon: {e}")
                     reports.add_report(
@@ -2226,6 +2274,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                         f"Successfully disabled '{addon_name}'", type="INFO"
                     )
                     self.report({"INFO"}, f"Successfully disabled '{addon_name}'")
+                    refresh_addon_search_results_status()
                 except Exception as e:
                     bk_logger.error(f"Failed to disable addon: {e}")
                     reports.add_report(
@@ -2255,6 +2304,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                     type="INFO",
                 )
                 self.report({"INFO"}, f"Temporarily enabled '{addon_name}'")
+                refresh_addon_search_results_status()
 
         except Exception as e:
             bk_logger.error(f"Addon operation failed for '{addon_name}': {e}")
