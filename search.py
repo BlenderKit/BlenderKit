@@ -391,13 +391,19 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         if comments is None:
             client_lib.get_comments(asset_data["assetBaseId"])
 
-    # Apply addon-specific filtering if needed
+    # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
+        # Always process addon search results to store installation status
+        result_field = filter_addon_search_results(
+            result_field, filter_installed_only=False
+        )
+
         addon_props = bpy.context.window_manager.blenderkit_addon
         if addon_props.search_installed:
-            result_field = filter_addon_search_results(
-                result_field, filter_installed_only=True
-            )
+            # Filter to only show installed addons
+            result_field = [
+                asset for asset in result_field if asset.get("downloaded", 0) > 0
+            ]
 
     # Store results in history step
     history_step["search_results"] = result_field
@@ -952,17 +958,15 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
     """
     Filter addon search results based on local installation status.
     This is called after search results arrive since installation info isn't stored on server.
+    Also stores installation and enablement status in the search results data.
 
     Args:
         search_results: List of addon asset data from search
         filter_installed_only: If True, only return installed addons
 
     Returns:
-        Filtered list of addon assets
+        Filtered list of addon assets with installation status stored
     """
-    if not filter_installed_only:
-        return search_results
-
     from . import download
 
     filtered_results = []
@@ -970,19 +974,39 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
     for asset in search_results:
         if asset.get("assetType") != "addon":
             # Skip non-addon assets (shouldn't happen in addon search but safety check)
+            if not filter_installed_only:
+                filtered_results.append(asset)
             continue
 
-        # Check if this addon is installed
+        # Check installation and enablement status for addon
         try:
             status = download.get_addon_installation_status(asset)
-            if status.get("installed", False):
+            is_installed = status.get("installed", False)
+            is_enabled = status.get("enabled", False)
+
+            # Store installation status in asset data using existing 'downloaded' field
+            # Use 100 for installed, 0 for not installed (matching existing pattern)
+            asset["downloaded"] = 100 if is_installed else 0
+
+            # Store enablement status in new 'enabled' field
+            asset["enabled"] = is_enabled
+
+            if filter_installed_only:
+                if is_installed:
+                    filtered_results.append(asset)
+            else:
                 filtered_results.append(asset)
+
         except Exception as e:
-            # If we can't determine status, skip this addon to be safe
+            # If we can't determine status, mark as not installed/enabled
             bk_logger.warning(
                 f"Could not determine installation status for addon {asset.get('name', 'Unknown')}: {e}"
             )
-            continue
+            asset["downloaded"] = 0
+            asset["enabled"] = False
+
+            if not filter_installed_only:
+                filtered_results.append(asset)
 
     return filtered_results
 
