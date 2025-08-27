@@ -496,9 +496,8 @@ class VIEW3D_PT_blenderkit_model_properties(Panel):
     def poll(cls, context):
         if bpy.context.view_layer.objects.active is None:
             return False
-        # if bpy.context.view_layer.objects.get('asset_data') is None:
-        #     return False
-        return True
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        return not preferences.sidebar_panels
 
     def draw(self, context):
         draw_model_context_menu(self, context)
@@ -665,7 +664,8 @@ class VIEW3D_PT_blenderkit_profile(Panel):
 
     @classmethod
     def poll(cls, context):
-        return True
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        return not preferences.sidebar_panels
 
     def draw_header(self, context):
         layout = self.layout
@@ -1682,6 +1682,11 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         "HEADER_LAYOUT_EXPAND",
     }
     bl_label = ""
+
+    @classmethod
+    def poll(cls, context):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        return not user_preferences.sidebar_panels
 
     def draw_header(self, context):
         layout = self.layout
