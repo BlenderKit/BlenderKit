@@ -1980,6 +1980,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs,
     )
 
+    sidebar_panels: BoolProperty(
+        name="Hide sidebar panels",
+        description="Hide BlenderKit sidebar panels (search, upload, and selected model functionality)",
+        default=False,
+        update=utils.save_prefs,
+    )
+
     header_menu_fold: BoolProperty(
         name="Header menu fold", default=False, update=ui_panels.update_header_menu_fold
     )
@@ -2365,6 +2372,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "max_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
+        gui_settings.prop(self, "sidebar_panels")
         gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
