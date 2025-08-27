@@ -1042,7 +1042,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         new_button.bookmark_button = bookmark_button
         self.bookmark_buttons.append(bookmark_button)
         progress_bar = BL_UI_Widget(
-            asset_x, asset_y + self.button_size - 3, self.button_size, 3
+            asset_x, asset_y + self.button_size - 6, self.button_size, 6
         )
         progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
         new_button.progress_bar = progress_bar
@@ -1395,7 +1395,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_y + self.button_margin + self.validation_icon_margin,
                 )
                 button.progress_bar.set_location(
-                    asset_x, asset_y + self.button_size - 3
+                    asset_x, asset_y + self.button_size - 6
                 )
                 if asset_idx < len(sr):
                     button.visible = True
@@ -1821,7 +1821,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_progress_bar(self, asset_button, asset_data):
         if asset_data["downloaded"] > 0:
             pb = asset_button.progress_bar
-            w = int(self.button_size * asset_data["downloaded"] / 100.0)
+
+            # For addons, always show full bar when installed, with color based on enabled status
+            if asset_data.get("assetType") == "addon":
+                w = self.button_size  # Full width for installed addons
+                is_enabled = asset_data.get("enabled", False)
+                if is_enabled:
+                    # Green for installed and enabled addons
+                    asset_button.progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
+                else:
+                    # Pale blue for installed but disabled addons
+                    asset_button.progress_bar.bg_color = (0.5, 0.8, 1.0, 0.3)
+            else:
+                # For other asset types, use existing progress-based width and green color
+                w = int(self.button_size * asset_data["downloaded"] / 100.0)
+                asset_button.progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
+
             asset_button.progress_bar.width = w
             asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
             asset_button.progress_bar.visible = True
