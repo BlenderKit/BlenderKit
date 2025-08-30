@@ -19,6 +19,8 @@
 import json
 import os
 import sys
+import shutil
+import zipfile
 
 import addon_utils  # type: ignore[import-not-found]
 import bpy
@@ -145,7 +147,142 @@ if __name__ == "__main__":
             bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=False)
         except Exception as e:
             print(f"Exception {type(e)} during save_as_mainfile(): {e}")
-        os.remove(export_data["source_filepath"])
+        # Remove temp source copy
+        try:
+            os.remove(export_data["source_filepath"])
+        except Exception as e:
+            print(f"Exception {type(e)} during source cleanup: {e}")
+
+        # Build a single zip containing the .blend and only dependencies referenced by the file
+        try:
+            deps_files: set[str] = set()
+            deps_dirs: set[str] = set()
+
+            # Alembic/USD and similar cache files
+            for cf in bpy.data.cache_files:  # type: ignore[attr-defined]
+                fp = bpy.path.abspath(cf.filepath)
+                if fp and os.path.isfile(fp):
+                    deps_files.add(fp)
+
+            # Volumes (OpenVDB). Include file; for sequences include containing directory
+            for v in getattr(bpy.data, "volumes", []):
+                fp = bpy.path.abspath(getattr(v, "filepath", ""))
+                if not fp:
+                    continue
+                if os.path.isdir(fp):
+                    deps_dirs.add(fp)
+                elif os.path.isfile(fp):
+                    # Heuristic: sequence often resides in the directory of the file
+                    if getattr(v, "is_sequence", False):
+                        deps_dirs.add(os.path.dirname(fp))
+                    else:
+                        deps_files.add(fp)
+
+            # Movie clips
+            for clip in bpy.data.movieclips:  # type: ignore[attr-defined]
+                fp = bpy.path.abspath(clip.filepath)
+                if fp and os.path.isfile(fp):
+                    deps_files.add(fp)
+
+            # Fluid domain caches (directories)
+            for ob in bpy.data.objects:
+                for mod in ob.modifiers:
+                    if (
+                        getattr(mod, "type", "") == "FLUID"
+                        and getattr(mod, "fluid_type", "") == "DOMAIN"
+                    ):
+                        domain = getattr(mod, "domain_settings", None)
+                        if domain is not None:
+                            cache_dir = getattr(domain, "cache_directory", "")
+                            if cache_dir:
+                                cdir = bpy.path.abspath(cache_dir)
+                                if os.path.isdir(cdir):
+                                    deps_dirs.add(cdir)
+
+            # Map dependencies into a single subdirectory inside the zip and rewrite paths to relative
+            def _zip_arc_for(p: str) -> str:
+                base = os.path.basename(p)
+                return os.path.join("caches", base)
+
+            def _arc_for_path(p: str) -> str:
+                pn = os.path.normpath(bpy.path.abspath(p))
+                best_root = ""
+                for d in deps_dirs:
+                    dn = os.path.normpath(d)
+                    if pn.startswith(dn) and len(dn) > len(best_root):
+                        best_root = dn
+                if best_root:
+                    rel = os.path.relpath(pn, best_root)
+                    return os.path.join("caches", os.path.basename(best_root), rel)
+                return os.path.join("caches", os.path.basename(pn))
+
+            # Rewrite datablock paths to relative locations
+            for cf in bpy.data.cache_files:  # type: ignore[attr-defined]
+                fp = bpy.path.abspath(cf.filepath)
+                if fp and os.path.isfile(fp):
+                    cf.filepath = "//" + _arc_for_path(fp).replace(os.sep, "/")
+
+            for v in getattr(bpy.data, "volumes", []):
+                fp = bpy.path.abspath(getattr(v, "filepath", ""))
+                if fp:
+                    if os.path.isdir(fp):
+                        target = os.path.join("caches", os.path.basename(fp))
+                    else:
+                        target = _arc_for_path(fp)
+                    v.filepath = "//" + target.replace(os.sep, "/")
+
+            for clip in bpy.data.movieclips:  # type: ignore[attr-defined]
+                fp = bpy.path.abspath(clip.filepath)
+                if fp and os.path.isfile(fp):
+                    clip.filepath = "//" + _arc_for_path(fp).replace(os.sep, "/")
+
+            for ob in bpy.data.objects:
+                for mod in ob.modifiers:
+                    if (
+                        getattr(mod, "type", "") == "FLUID"
+                        and getattr(mod, "fluid_type", "") == "DOMAIN"
+                    ):
+                        domain = getattr(mod, "domain_settings", None)
+                        if domain is not None:
+                            cache_dir = getattr(domain, "cache_directory", "")
+                            if cache_dir:
+                                domain.cache_directory = "//" + _zip_arc_for(
+                                    cache_dir
+                                ).replace(os.sep, "/")
+
+            # skip next steps if there are no dependencies
+            if not deps_files and not deps_dirs:
+                print("No dependencies found, skipping zip creation")
+                sys.exit(0)
+
+            # Re-save the .blend to include updated relative paths
+            try:
+                bpy.ops.wm.save_mainfile(filepath=fpath)
+            except Exception as e:
+                print(f"Exception {type(e)} during save_mainfile(): {e}")
+
+            # Create one zip with .blend and referenced caches/media
+            zip_path = os.path.join(
+                export_data["temp_dir"], upload_data["assetBaseId"] + ".zip"
+            )
+            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                # Put .blend at root with stable name
+                zf.write(fpath, os.path.basename(fpath))
+                # Add files
+                for fp in sorted(deps_files):
+                    if os.path.isfile(fp):
+                        arc = _arc_for_path(fp)
+                        zf.write(fp, arc)
+                # Add directories recursively
+                for d in sorted(deps_dirs):
+                    if os.path.isdir(d):
+                        for r, _, fs in os.walk(d):
+                            for fn in fs:
+                                sp = os.path.join(r, fn)
+                                arc = _arc_for_path(sp)
+                                zf.write(sp, arc)
+        except Exception as e:
+            print(f"Exception {type(e)} during building asset zip: {e}")
     except Exception as e:
         print(f"Exception {type(e)} in upload_bg.py: {e}")
         sys.exit(1)

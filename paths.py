@@ -273,6 +273,7 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
         resolution, so that other processess can pass correctly which resolution is downloaded.
     """
     orig = None
+    zipf = None
     res = None
     closest = None
     target_resolution = resolutions.get(resolution)
@@ -284,6 +285,8 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
             if resolution == "blend":
                 # orig file found, return.
                 return orig, "blend"
+        if f.get("fileType") == "zip_file":
+            zipf = f
 
         if f["fileType"] == resolution:
             # exact match found, return.
@@ -296,7 +299,10 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
                 closest = f
                 mindist = rdiff
     if not res and not closest:
-        return orig, "blend"
+        if orig is not None:
+            return orig, "blend"
+        if zipf is not None:
+            return zipf, "zip_file"
     return closest, closest["fileType"]
 
 

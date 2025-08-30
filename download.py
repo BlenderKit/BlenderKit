@@ -1316,7 +1316,7 @@ def available_resolutions_callback(self, context):
 def has_asset_files(asset_data):
     """Check if asset has files."""
     for f in asset_data["files"]:
-        if f["fileType"] == "blend":
+        if f["fileType"] in ("blend", "zip_file"):
             return True
     return False
 
