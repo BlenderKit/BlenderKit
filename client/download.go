@@ -19,6 +19,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -221,6 +222,9 @@ func doAssetDownload(
 		Message:  "Getting filepaths",
 	}
 	downloadFilePaths := GetDownloadFilepaths(downloadAssetData, downloadDirs, fileName)
+	// Keep a copy for result we send back to add-on (may differ when we extract archives)
+	resultFilePaths := make([]string, len(downloadFilePaths))
+	copy(resultFilePaths, downloadFilePaths)
 
 	// CHECK IF FILE EXISTS ON HARD DRIVE
 	TaskProgressUpdateCh <- &TaskProgressUpdate{
@@ -288,6 +292,50 @@ func doAssetDownload(
 		fmt.Println("PLACING THE FILE")
 	}
 
+	// If the downloaded (or placed) file is a packaged archive, extract it always and use the contained .blend
+	isZip := strings.HasSuffix(strings.ToLower(fileName), ".zip")
+	if isZip {
+		// Ensure fp points to the existing zip in both branches
+		if action != "download" {
+			fp = existingFiles[0]
+		}
+		targetDir := filepath.Dir(fp)
+		TaskMessageCh <- &TaskMessageUpdate{AppID: appID, TaskID: taskID, Message: "Extracting archive"}
+		if r, err := zip.OpenReader(fp); err == nil {
+			for _, f := range r.File {
+				path := filepath.Join(targetDir, f.Name)
+				if f.FileInfo().IsDir() {
+					os.MkdirAll(path, 0755)
+					continue
+				}
+				os.MkdirAll(filepath.Dir(path), 0755)
+				rc, err := f.Open()
+				if err == nil {
+					if out, err := os.Create(path); err == nil {
+						io.Copy(out, rc)
+						out.Close()
+					}
+					rc.Close()
+				}
+			}
+			r.Close()
+			// Best-effort: remove the archive after extraction
+			_ = os.Remove(fp)
+		}
+		// Find a .blend in targetDir (root)
+		var blendPath string
+		if matches, _ := filepath.Glob(filepath.Join(targetDir, "*.blend")); len(matches) > 0 {
+			blendPath = matches[0]
+		}
+		if blendPath == "" {
+			TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("archive does not contain a .blend at root")}
+			return
+		}
+		// Switch to extracted .blend for next steps and result
+		fp = blendPath
+		resultFilePaths = []string{fp}
+	}
+
 	// UNPACKING (Only after download? By now unpack is triggered always,
 	// to ensure assets that weren't unpacked get unpacked for resolution switching )
 	if unpackFiles {
@@ -341,7 +389,7 @@ func doAssetDownload(
 
 	}
 
-	result := map[string]interface{}{"file_paths": downloadFilePaths, "url": downloadURL}
+	result := map[string]interface{}{"file_paths": resultFilePaths, "url": downloadURL}
 	TaskFinishCh <- &TaskFinish{
 		AppID:   appID,
 		TaskID:  taskID,
@@ -363,6 +411,30 @@ func UnpackAsset(
 	downloadAssetData DownloadAssetData,
 	//prefs PREFS,
 ) error {
+    // Extract sidecar zip (caches/media) if present next to the blend
+    zipPath := strings.TrimSuffix(blendPath, ".blend") + ".zip"
+    if exists, _, _ := FileExists(zipPath); exists {
+        TaskMessageCh <- &TaskMessageUpdate{AppID: appID, TaskID: taskID, Message: "Extracting caches"}
+        targetDir := filepath.Dir(blendPath)
+        if r, err := zip.OpenReader(zipPath); err == nil {
+            for _, f := range r.File {
+                fp := filepath.Join(targetDir, f.Name)
+                if f.FileInfo().IsDir() {
+                    os.MkdirAll(fp, 0755)
+                    continue
+                }
+                os.MkdirAll(filepath.Dir(fp), 0755)
+                if rc, err := f.Open(); err == nil {
+                    if out, err := os.Create(fp); err == nil {
+                        io.Copy(out, rc)
+                        out.Close()
+                    }
+                    rc.Close()
+                }
+            }
+            r.Close()
+        }
+    }
 	if assetType == "hdr" { // Skip unpacking for HDRi files
 		TaskMessageCh <- &TaskMessageUpdate{
 			AppID:   appID,
@@ -635,7 +707,7 @@ func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) 
 		"resolution_4K":   4096,
 		"resolution_8K":   8192,
 	}
-	var originalFile, closest AssetFile
+	var originalFile, closest, zipFile AssetFile
 	var targetResInt, mindist = resolutionsMap[targetRes], 100000000
 
 	fmt.Println(">> Target resolution:", targetRes)
@@ -649,6 +721,9 @@ func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) 
 			if targetRes == "ORIGINAL" {
 				return f, "blend"
 			}
+		}
+		if f.FileType == "zip_file" {
+			zipFile = f
 		}
 		// Special handling for file type "gltf" or "gltf_godot"
 		if strings.Contains(targetRes, "gltf") && f.FileType == targetRes {
@@ -674,6 +749,9 @@ func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) 
 
 	if (closest != AssetFile{}) {
 		return closest, closest.FileType
+	}
+	if (zipFile != AssetFile{}) {
+		return zipFile, "zip_file"
 	}
 
 	return originalFile, "blend"

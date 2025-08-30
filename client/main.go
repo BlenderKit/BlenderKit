@@ -2477,12 +2477,13 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 		}
 
 		if filetype == "MAINFILE" {
-			file := UploadFile{
-				Type:     "blend",
-				Index:    0,
-				FilePath: fpath,
+			// Prefer uploading the exact archive if created; otherwise fallback to .blend
+			zipPath := filepath.Join(export_data.TempDir, upload_data.AssetBaseID+".zip")
+			if exists, _, _ := FileExists(zipPath); exists {
+				files = append(files, UploadFile{Type: "zip_file", Index: 0, FilePath: zipPath})
+			} else {
+				files = append(files, UploadFile{Type: "blend", Index: 0, FilePath: fpath})
 			}
-			files = append(files, file)
 			continue
 		}
 	}
