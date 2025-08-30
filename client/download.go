@@ -159,6 +159,44 @@ func syncDirsBidirectional(sourceDir, targetDir string) error {
 	return syncDirs(targetDir, sourceDir)
 }
 
+// extractZip extracts zipPath into targetDir.
+func extractZip(zipPath, targetDir string) error {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	for _, f := range r.File {
+		path := filepath.Join(targetDir, f.Name)
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(path, 0755); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return err
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.Create(path)
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		if _, err := io.Copy(out, rc); err != nil {
+			out.Close()
+			rc.Close()
+			return err
+		}
+		out.Close()
+		rc.Close()
+	}
+	return nil
+}
+
 func doAssetDownload(
 	origJSON map[string]interface{},
 	taskID string,
@@ -301,27 +339,12 @@ func doAssetDownload(
 		}
 		targetDir := filepath.Dir(fp)
 		TaskMessageCh <- &TaskMessageUpdate{AppID: appID, TaskID: taskID, Message: "Extracting archive"}
-		if r, err := zip.OpenReader(fp); err == nil {
-			for _, f := range r.File {
-				path := filepath.Join(targetDir, f.Name)
-				if f.FileInfo().IsDir() {
-					os.MkdirAll(path, 0755)
-					continue
-				}
-				os.MkdirAll(filepath.Dir(path), 0755)
-				rc, err := f.Open()
-				if err == nil {
-					if out, err := os.Create(path); err == nil {
-						io.Copy(out, rc)
-						out.Close()
-					}
-					rc.Close()
-				}
-			}
-			r.Close()
-			// Best-effort: remove the archive after extraction
-			_ = os.Remove(fp)
+		if err := extractZip(fp, targetDir); err != nil {
+			TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("failed to extract archive: %w", err)}
+			return
 		}
+		// Best-effort: remove the archive after extraction
+		_ = os.Remove(fp)
 		// Find a .blend in targetDir (root)
 		var blendPath string
 		if matches, _ := filepath.Glob(filepath.Join(targetDir, "*.blend")); len(matches) > 0 {
@@ -411,30 +434,6 @@ func UnpackAsset(
 	downloadAssetData DownloadAssetData,
 	//prefs PREFS,
 ) error {
-    // Extract sidecar zip (caches/media) if present next to the blend
-    zipPath := strings.TrimSuffix(blendPath, ".blend") + ".zip"
-    if exists, _, _ := FileExists(zipPath); exists {
-        TaskMessageCh <- &TaskMessageUpdate{AppID: appID, TaskID: taskID, Message: "Extracting caches"}
-        targetDir := filepath.Dir(blendPath)
-        if r, err := zip.OpenReader(zipPath); err == nil {
-            for _, f := range r.File {
-                fp := filepath.Join(targetDir, f.Name)
-                if f.FileInfo().IsDir() {
-                    os.MkdirAll(fp, 0755)
-                    continue
-                }
-                os.MkdirAll(filepath.Dir(fp), 0755)
-                if rc, err := f.Open(); err == nil {
-                    if out, err := os.Create(fp); err == nil {
-                        io.Copy(out, rc)
-                        out.Close()
-                    }
-                    rc.Close()
-                }
-            }
-            r.Close()
-        }
-    }
 	if assetType == "hdr" { // Skip unpacking for HDRi files
 		TaskMessageCh <- &TaskMessageUpdate{
 			AppID:   appID,
