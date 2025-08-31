@@ -26,6 +26,25 @@ import addon_utils  # type: ignore[import-not-found]
 import bpy
 
 
+# Map dependencies into a single subdirectory inside the zip and rewrite paths to relative
+def _zip_arc_for(p: str, deps_dirs: set[str]) -> str:
+    base = os.path.basename(p)
+    return os.path.join("caches", base)
+
+
+def _arc_for_path(p: str, deps_dirs: set[str]) -> str:
+    pn = os.path.normpath(bpy.path.abspath(p))
+    best_root = ""
+    for d in deps_dirs:
+        dn = os.path.normpath(d)
+        if pn.startswith(dn) and len(dn) > len(best_root):
+            best_root = dn
+    if best_root:
+        rel = os.path.relpath(pn, best_root)
+        return os.path.join("caches", os.path.basename(best_root), rel)
+    return os.path.join("caches", os.path.basename(pn))
+
+
 def get_deps_files_and_dirs():
     """Get all dependencies files and directories."""
     deps_files: set[str] = set()
@@ -72,28 +91,11 @@ def get_deps_files_and_dirs():
                         if os.path.isdir(cdir):
                             deps_dirs.add(cdir)
 
-    # Map dependencies into a single subdirectory inside the zip and rewrite paths to relative
-    def _zip_arc_for(p: str) -> str:
-        base = os.path.basename(p)
-        return os.path.join("caches", base)
-
-    def _arc_for_path(p: str) -> str:
-        pn = os.path.normpath(bpy.path.abspath(p))
-        best_root = ""
-        for d in deps_dirs:
-            dn = os.path.normpath(d)
-            if pn.startswith(dn) and len(dn) > len(best_root):
-                best_root = dn
-        if best_root:
-            rel = os.path.relpath(pn, best_root)
-            return os.path.join("caches", os.path.basename(best_root), rel)
-        return os.path.join("caches", os.path.basename(pn))
-
     # Rewrite datablock paths to relative locations
     for cf in bpy.data.cache_files:  # type: ignore[attr-defined]
         fp = bpy.path.abspath(cf.filepath)
         if fp and os.path.isfile(fp):
-            cf.filepath = "//" + _arc_for_path(fp).replace(os.sep, "/")
+            cf.filepath = "//" + _arc_for_path(fp, deps_dirs).replace(os.sep, "/")
 
     for v in getattr(bpy.data, "volumes", []):
         fp = bpy.path.abspath(getattr(v, "filepath", ""))
@@ -101,13 +103,13 @@ def get_deps_files_and_dirs():
             if os.path.isdir(fp):
                 target = os.path.join("caches", os.path.basename(fp))
             else:
-                target = _arc_for_path(fp)
+                target = _arc_for_path(fp, deps_dirs)
             v.filepath = "//" + target.replace(os.sep, "/")
 
     for clip in bpy.data.movieclips:  # type: ignore[attr-defined]
         fp = bpy.path.abspath(clip.filepath)
         if fp and os.path.isfile(fp):
-            clip.filepath = "//" + _arc_for_path(fp).replace(os.sep, "/")
+            clip.filepath = "//" + _arc_for_path(fp, deps_dirs).replace(os.sep, "/")
 
     for ob in bpy.data.objects:
         for mod in ob.modifiers:
@@ -119,9 +121,9 @@ def get_deps_files_and_dirs():
                 if domain is not None:
                     cache_dir = getattr(domain, "cache_directory", "")
                     if cache_dir:
-                        domain.cache_directory = "//" + _zip_arc_for(cache_dir).replace(
-                            os.sep, "/"
-                        )
+                        domain.cache_directory = "//" + _zip_arc_for(
+                            cache_dir, deps_dirs
+                        ).replace(os.sep, "/")
     return deps_files, deps_dirs
 
 
@@ -277,7 +279,7 @@ if __name__ == "__main__":
                 # Add files
                 for fp in sorted(deps_files):
                     if os.path.isfile(fp):
-                        arc = _arc_for_path(fp)
+                        arc = _arc_for_path(fp, deps_dirs)
                         zf.write(fp, arc)
                 # Add directories recursively
                 for d in sorted(deps_dirs):
@@ -285,7 +287,7 @@ if __name__ == "__main__":
                         for r, _, fs in os.walk(d):
                             for fn in fs:
                                 sp = os.path.join(r, fn)
-                                arc = _arc_for_path(sp)
+                                arc = _arc_for_path(sp, deps_dirs)
                                 zf.write(sp, arc)
         except Exception as e:
             print(f"Exception {type(e)} during building asset zip: {e}")
