@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import json
 import logging
 import math
 import os
@@ -1071,7 +1072,6 @@ class AssetDragOperator(bpy.types.Operator):
 
         if self.asset_data["assetType"] == "addon":
             # Show addon management popup instead of direct installation
-            import json
 
             bpy.ops.scene.blenderkit_addon_choice(
                 "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
@@ -1202,7 +1202,6 @@ class AssetDragOperator(bpy.types.Operator):
 
         elif self.asset_data["assetType"] == "addon":
             # Handle addon drop in outliner - show management popup
-            import json
 
             bpy.ops.scene.blenderkit_addon_choice(
                 "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)

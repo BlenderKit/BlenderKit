@@ -38,6 +38,7 @@ from . import (
     client_tasks,
     comments_utils,
     datas,
+    download,
     global_vars,
     image_utils,
     paths,
@@ -965,9 +966,8 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
         filter_installed_only: If True, only return installed addons
 
     Returns:
-        Filtered list of addon assets with installation status stored
+        Filtered list of add-on assets with installation status stored
     """
-    from . import download
 
     filtered_results = []
 
