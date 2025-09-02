@@ -28,12 +28,14 @@ from bpy.props import BoolProperty, StringProperty
 from . import (
     comments_utils,
     global_vars,
+    override_extension_draw,
     paths,
     ratings_utils,
     search,
     ui,
     ui_panels,
     utils,
+    colors,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
@@ -375,8 +377,6 @@ def get_addon_pricing_data(asset_data):
     base_price = None
 
     try:
-        # Import here to avoid circular imports
-        from . import override_extension_draw
 
         override_extension_draw.ensure_repo_cache()
         bk_ext_cache = bpy.context.window_manager.get(
@@ -392,7 +392,7 @@ def get_addon_pricing_data(asset_data):
             is_for_sale = matching_pkg.get("is_for_sale", False)
             base_price = matching_pkg.get("base_price")
     except Exception as e:
-        print(f"BlenderKit: Error fetching extension pricing data: {e}")
+        bk_logger.warning(f"BlenderKit: Error fetching extension pricing data: {e}")
 
     return is_for_sale, base_price
 
@@ -410,7 +410,7 @@ def get_tooltip_data(asset_data):
             if len(author.firstName) > 0 or len(author.lastName) > 0:
                 author_text = f"by {author.firstName} {author.lastName}"
         else:
-            print("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
+            bk_logger.warning(f"get_tooltip_data() AUTHOR NOT FOUND: {author_id}")
 
     aname = asset_data["displayName"]
     if len(aname) == 0:
@@ -432,39 +432,31 @@ def get_tooltip_data(asset_data):
 
     # Add pricing information
     price_text = ""
-    price_color = (1.0, 0.8, 0.2, 1.0)  # Default golden color
+    price_color = colors.WHITE
 
     # Check if asset is free or paid (works for all asset types)
     is_free = asset_data.get("isFree", True)
     can_download = asset_data.get("canDownload", True)
 
     if asset_data.get("assetType") == "addon":
-        # Get pricing info from extensions cache
+        # Get pricing info from extensions cache.
+        # Pricing info is shown only for add-ons.
         is_for_sale, base_price = get_addon_pricing_data(asset_data)
 
         if is_for_sale and not can_download and base_price:
             price_text = f"${base_price}"
-            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid addons
+            price_color = colors.PURPLE
         elif not is_free and not is_for_sale:
             price_text = "Full Plan"
-            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid addons
+            price_color = colors.PURPLE
         elif (
             is_for_sale and can_download
         ):  # purchased, but not yet downloaded, so we can't show price
             price_text = f"Purchased (${base_price})"
-            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid addons
+            price_color = colors.PURPLE
         else:
             price_text = "Free"
-            price_color = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
-    else:
-        # For other asset types, show basic pricing info
-        if not can_download:
-            price_text = "Full Plan"
-            price_color = (0.8, 0.4, 1.0, 1.0)  # Purple for paid assets
-        elif is_free:
-            price_text = "Free"
-            price_color = (0.4, 0.8, 0.4, 1.0)  # Green for free assets
-        # Don't show price text for regular paid assets that can be downloaded
+            price_color = colors.GREEN_FREE
 
     tooltip_data = {
         "aname": aname,

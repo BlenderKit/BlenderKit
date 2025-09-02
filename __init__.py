@@ -302,7 +302,7 @@ def asset_type_callback(self, context):
         import bpy
 
         if bpy.app.version >= (4, 2, 0):
-            items.append(("ADDON", "Addons", "Find addons", "PLUGIN", 7))
+            items.append(("ADDON", "Add-ons", "Find add-ons", "PLUGIN", 7))
     else:
         items = [
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
@@ -324,7 +324,7 @@ def asset_type_callback(self, context):
         import bpy
 
         if bpy.app.version >= (4, 2, 0):
-            items.append(("ADDON", "Addon", "Upload an addon", "PLUGIN", 7))
+            items.append(("ADDON", "Add-on", "Upload an addon", "PLUGIN", 7))
 
     return items
 

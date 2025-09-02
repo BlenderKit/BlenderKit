@@ -229,8 +229,6 @@ def draw_panel_hdr_search(self, context):
 
 
 def draw_panel_addon_search(self, context):
-    import bpy
-
     wm = context.window_manager
     ui_props = wm.blenderkitUI
     addon_props = wm.blenderkit_addon
@@ -2803,7 +2801,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                         if current_tuple < min_tuple:
                             is_compatible = False
                     except (ValueError, AttributeError):
-                        pass  # If version parsing fails, assume compatible
+                        bk_logger.debug(
+                            f"Version parsing failed for {current_version} and {min_version}"
+                        )
 
                 if max_version and is_compatible:
                     try:
@@ -2812,7 +2812,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                         if current_tuple > max_tuple:
                             is_compatible = False
                     except (ValueError, AttributeError):
-                        pass  # If version parsing fails, assume compatible
+                        bk_logger.debug(
+                            f"Version parsing failed for {current_version} and {max_version}"
+                        )
 
                 # Display version requirement with appropriate warning
                 if not is_compatible:
