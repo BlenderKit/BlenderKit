@@ -1986,7 +1986,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     sidebar_panels: BoolProperty(
         name="Hide sidebar panels",
-        description="Hide BlenderKit sidebar panels (search, upload, and selected model functionality). This prevents upload and it's also the only place for import settings, so reenble this to access these features.",
+        description="Hide BlenderKit sidebar panels (search, upload, and selected model functionality). This prevents upload and it's also the only place for import settings. Reenable this to access these features.",
         default=False,
         update=utils.save_prefs,
     )
