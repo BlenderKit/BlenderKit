@@ -21,7 +21,6 @@ import math
 import os
 import re
 import time
-from typing import List, Dict, Any, TypedDict
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
@@ -31,7 +30,6 @@ from . import (
     global_vars,
     paths,
     ratings_utils,
-    reports,
     search,
     ui,
     ui_panels,
@@ -43,7 +41,6 @@ from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .bl_ui_widgets.bl_ui_label import BL_UI_Label
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
-from . import client_tasks
 
 
 bk_logger = logging.getLogger(__name__)
@@ -2246,6 +2243,49 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.tab_index,
             global_vars.TABS["tabs"][widget.tab_index]["history_index"],
         )
+
+
+def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
+    """Handle incoming bkclientjs/get_asset task after the user asked for download in online gallery. How it goes:
+    1. set search in the history
+    2. set the results in the history step
+    3. open the asset bar
+    We handle the task in asset_bar_op because we need access to the asset_bar_operator without circular import from search.
+    """
+    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result['asset_data']['name']}")
+
+    # Get asset data from task result
+    asset_data = task.result.get("asset_data")
+    if not asset_data:
+        bk_logger.error("No asset data found in task")
+        return
+
+    # Parse the asset data
+    parsed_asset_data = search.parse_result(asset_data)
+    if not parsed_asset_data:
+        bk_logger.error("Failed to parse asset data")
+        return
+
+    search.append_history_step(
+        search_keywords=f"asset_base_id:{asset_data['assetBaseId']}",
+        search_results=[parsed_asset_data],
+        asset_type=asset_data.get("assetType", "").upper(),
+        search_results_orig={"results": [asset_data], "count": 1},
+    )
+
+    # If asset bar is not open, try to open it
+    if asset_bar_operator is None:
+        try:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
+        except Exception as e:
+            bk_logger.error(f"Failed to open asset bar: {e}")
+            return
+
+    # Force redraw of the region if asset bar exists
+    if asset_bar_operator and asset_bar_operator.area:
+        search.load_preview(parsed_asset_data)
+        asset_bar_operator.update_image(parsed_asset_data["assetBaseId"])
+        asset_bar_operator.area.tag_redraw()
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]
