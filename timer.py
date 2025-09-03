@@ -25,6 +25,7 @@ import bpy
 
 from . import (
     addon_updater_ops,
+    asset_bar_op,
     bg_blender,
     bkit_oauth,
     categories,
@@ -342,7 +343,7 @@ def handle_task(task: client_tasks.Task):
 
     # BKCLIENTJS - Download from web
     if task.task_type == "bkclientjs/get_asset":
-        return search.handle_bkclientjs_get_asset(task)
+        return asset_bar_op.handle_bkclientjs_get_asset(task)
 
     # HANDLE MESSAGE FROM CLIENT
     if (

@@ -29,10 +29,7 @@ from typing import Optional, Union
 
 import bpy
 from bpy.app.handlers import persistent
-from bpy.props import (  # TODO only keep the ones actually used when cleaning
-    BoolProperty,
-    StringProperty,
-)
+from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
 from . import (
@@ -44,7 +41,6 @@ from . import (
     global_vars,
     image_utils,
     paths,
-    ratings_utils,
     reports,
     resolutions,
     tasks_queue,
@@ -1873,48 +1869,3 @@ def get_search_results() -> list[dict]:
 def get_active_tab():
     """Get the active tab."""
     return global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
-
-
-def handle_bkclientjs_get_asset(task: client_tasks.Task):
-    """Handle incoming bkclientjs/get_asset task. User asked for download in online gallery. How it goes:
-    1. set search in the history
-    2. set the results in the history step
-    3. open the asset bar
-    """
-    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result['asset_data']['name']}")
-
-    # Get asset data from task result
-    asset_data = task.result.get("asset_data")
-    if not asset_data:
-        bk_logger.error("No asset data found in task")
-        return
-
-    # Parse the asset data
-    parsed_asset_data = parse_result(asset_data)
-    if not parsed_asset_data:
-        bk_logger.error("Failed to parse asset data")
-        return
-
-    append_history_step(
-        search_keywords=f"asset_base_id:{asset_data['assetBaseId']}",
-        search_results=[parsed_asset_data],
-        asset_type=asset_data.get("assetType", "").upper(),
-        search_results_orig={"results": [asset_data], "count": 1},
-    )
-
-    # Import here to avoid circular imports
-    from .asset_bar_op import asset_bar_operator
-
-    # If asset bar is not open, try to open it
-    if asset_bar_operator is None:
-        try:
-            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
-        except Exception as e:
-            bk_logger.error(f"Failed to open asset bar: {e}")
-            return
-
-    # Force redraw of the region if asset bar exists
-    if asset_bar_operator and asset_bar_operator.area:
-        load_preview(parsed_asset_data)
-        asset_bar_operator.update_image(parsed_asset_data["assetBaseId"])
-        asset_bar_operator.area.tag_redraw()
