@@ -127,7 +127,7 @@ def get_daily_builds(jobs: list):
     resp = request.urlopen("https://builder.blender.org/download/daily/")
     page = resp.read().decode("utf-8")
     releases = re.findall(
-        r"(https://builder.blender.org/download/daily/blender-(((?:4|5)\.\d)\.\d-\w+)\+\S{1,6}\.(\S{12})-linux\.x86_64-release\.tar\.xz)",
+        r"(https://cdn.builder.blender.org/download/daily/blender-(((?:4|5)\.\d)\.\d-\w+)\+\S{1,6}\.(\S{12})-linux\.x86_64-release\.tar\.xz)",
         page,
     )
     for release in releases:
