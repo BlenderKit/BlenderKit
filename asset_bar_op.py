@@ -30,7 +30,6 @@ from . import (
     global_vars,
     paths,
     ratings_utils,
-    reports,
     search,
     ui,
     ui_panels,
@@ -1717,14 +1716,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bookmark_button.set_image(img_fp)
 
     def update_progress_bar(self, asset_button, asset_data):
-        if asset_data["downloaded"] > 0:
-            pb = asset_button.progress_bar
-            w = int(self.button_size * asset_data["downloaded"] / 100.0)
-            asset_button.progress_bar.width = w
-            asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
-            asset_button.progress_bar.visible = True
-        else:
+        """Update progress bar for an asset button."""
+        pb = asset_button.progress_bar
+        if pb is None:
+            return
+
+        if asset_data["downloaded"] == 0:
             asset_button.progress_bar.visible = False
+            return
+
+        w = int(self.button_size * asset_data["downloaded"] / 100.0)
+        asset_button.progress_bar.width = w
+        asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
+        asset_button.progress_bar.visible = True
+        if bpy.context.region is not None:
+            bpy.context.region.tag_redraw()
 
     def update_validation_icon(self, asset_button, asset_data: dict):
         if utils.profile_is_validator():
@@ -2237,6 +2243,49 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.tab_index,
             global_vars.TABS["tabs"][widget.tab_index]["history_index"],
         )
+
+
+def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
+    """Handle incoming bkclientjs/get_asset task after the user asked for download in online gallery. How it goes:
+    1. set search in the history
+    2. set the results in the history step
+    3. open the asset bar
+    We handle the task in asset_bar_op because we need access to the asset_bar_operator without circular import from search.
+    """
+    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result['asset_data']['name']}")
+
+    # Get asset data from task result
+    asset_data = task.result.get("asset_data")
+    if not asset_data:
+        bk_logger.error("No asset data found in task")
+        return
+
+    # Parse the asset data
+    parsed_asset_data = search.parse_result(asset_data)
+    if not parsed_asset_data:
+        bk_logger.error("Failed to parse asset data")
+        return
+
+    search.append_history_step(
+        search_keywords=f"asset_base_id:{asset_data['assetBaseId']}",
+        search_results=[parsed_asset_data],
+        asset_type=asset_data.get("assetType", "").upper(),
+        search_results_orig={"results": [asset_data], "count": 1},
+    )
+
+    # If asset bar is not open, try to open it
+    if asset_bar_operator is None:
+        try:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
+        except Exception as e:
+            bk_logger.error(f"Failed to open asset bar: {e}")
+            return
+
+    # Force redraw of the region if asset bar exists
+    if asset_bar_operator and asset_bar_operator.area:
+        search.load_preview(parsed_asset_data)
+        asset_bar_operator.update_image(parsed_asset_data["assetBaseId"])
+        asset_bar_operator.area.tag_redraw()
 
 
 BlenderKitAssetBarOperator.modal = asset_bar_modal  # type: ignore[method-assign]
