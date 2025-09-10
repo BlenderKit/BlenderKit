@@ -19,6 +19,7 @@
 import logging
 import os
 import queue
+import random
 import requests
 
 import bpy
@@ -118,12 +119,26 @@ def handle_failed_reports(exception: Exception) -> float:
     return min(30.0, 0.1 * global_vars.CLIENT_FAILED_REPORTS)
 
 
+timer_blocked_count = 0
+
+
 @bpy.app.handlers.persistent
 def client_communication_timer():
     """Recieve all responses from Client and run according followup commands.
     This function is the only one responsible for keeping the Client up and running.
     """
-    global pending_tasks
+    global pending_tasks, timer_blocked_count
+    # Block timer work while Blender is in restricted draw state
+    if utils.is_context_restricted():
+        reports.add_report(
+            f"Blender is in restricted draw state, appending downloaded objects will be delayed. This might be caused by other addons.",
+            type="INFO",
+            timeout=1.5,
+        )
+        timer_blocked_count += 1
+    else:
+        timer_blocked_count = 0
+
     bk_logger.debug("Getting tasks from Client")
     search.check_clipboard()
     results = list()
@@ -168,13 +183,20 @@ def client_communication_timer():
 
     bk_logger.debug("Task handling finished")
     delay = bpy.context.preferences.addons[__package__].preferences.client_polling
+    # Always add randomization to break timing synchronization with other addons
+    jitter = random.uniform(0.05, 0.2)  # 50-200ms jitter
     if len(download.download_tasks) > 0:
-        return min(0.2, delay)
-    return delay
+        # More aggressive jitter when downloads are active (higher collision risk)
+        return delay + random.uniform(0.1, 0.3)
+    return delay + jitter
 
 
 @bpy.app.handlers.persistent
 def timer_image_cleanup():
+    # Block timer work while Blender is in restricted draw state
+    if utils.is_context_restricted():
+        # Add randomization to break timing synchronization
+        return 0.8 + random.uniform(0.2, 0.6)  # 1.0-1.4s with jitter
     imgs = bpy.data.images[:]
     for i in imgs:
         if (
@@ -183,7 +205,8 @@ def timer_image_cleanup():
             and i.users == 0
         ):
             bpy.data.images.remove(i)
-    return 60
+    # Add randomization to normal cleanup interval too
+    return 55 + random.uniform(5, 15)  # 60-70s with jitter
 
 
 def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
@@ -256,11 +279,18 @@ def task_error_overdrive(task: client_tasks.Task) -> None:
 
 def handle_task(task: client_tasks.Task):
     """Handle incomming task information. Sort tasks by type and call apropriate functions."""
+    global pending_tasks
     if task.status == "error":
         task_error_overdrive(task)
 
     # HANDLE ASSET DOWNLOAD
     if task.task_type == "asset_download":
+        if task.status == "finished" and timer_blocked_count > 0:
+            # add task to the task queue instead of handling it
+            # tasks_queue.add_task((download.handle_download_task, (task,)))
+            # not sure why, adding to tasks queue seems better than pending_tasks.
+            pending_tasks.append(task)
+            return
         return download.handle_download_task(task)
 
     # HANDLE ASSET UPLOAD
@@ -273,6 +303,9 @@ def handle_task(task: client_tasks.Task):
     # HANDLE SEARCH (candidate to be a function)
     if task.task_type == "search":
         if task.status == "finished":
+            # if timer_blocked_count > 0:
+            #     pending_tasks.append(task)
+            #     return
             return search.handle_search_task(task)
         elif task.status == "error":
             return search.handle_search_task_error(task)
