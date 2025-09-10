@@ -121,6 +121,7 @@ def handle_failed_reports(exception: Exception) -> float:
 
 timer_blocked_count = 0
 
+
 @bpy.app.handlers.persistent
 def client_communication_timer():
     """Recieve all responses from Client and run according followup commands.
@@ -129,9 +130,8 @@ def client_communication_timer():
     global pending_tasks, timer_blocked_count
     # Block timer work while Blender is in restricted draw state
     if utils.is_context_restricted():
-
         reports.add_report(
-            f"Blender is in restricted draw state, appending downloaded objects will be delayed.",
+            f"Blender is in restricted draw state, appending downloaded objects will be delayed. This might be caused by other addons.",
             type="INFO",
             timeout=0.4,
         )
@@ -183,18 +183,20 @@ def client_communication_timer():
 
     bk_logger.debug("Task handling finished")
     delay = bpy.context.preferences.addons[__package__].preferences.client_polling
+    # Always add randomization to break timing synchronization with other addons
+    jitter = random.uniform(0.05, 0.2)  # 50-200ms jitter
     if len(download.download_tasks) > 0:
-        return (
-            delay + random.random() * 0.1
-        )  # adding random value to avoid interference with other addons
-    return delay
+        # More aggressive jitter when downloads are active (higher collision risk)
+        return delay + random.uniform(0.1, 0.3)
+    return delay + jitter
 
 
 @bpy.app.handlers.persistent
 def timer_image_cleanup():
     # Block timer work while Blender is in restricted draw state
     if utils.is_context_restricted():
-        return 1.0
+        # Add randomization to break timing synchronization
+        return 0.8 + random.uniform(0.2, 0.6)  # 1.0-1.4s with jitter
     imgs = bpy.data.images[:]
     for i in imgs:
         if (
@@ -203,7 +205,8 @@ def timer_image_cleanup():
             and i.users == 0
         ):
             bpy.data.images.remove(i)
-    return 60
+    # Add randomization to normal cleanup interval too
+    return 55 + random.uniform(5, 15)  # 60-70s with jitter
 
 
 def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
