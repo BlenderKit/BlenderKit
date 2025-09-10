@@ -575,15 +575,7 @@ def append_objects(
                 if layer_collection:
                     bpy.context.view_layer.active_layer_collection = layer_collection  # type: ignore[union-attr]
 
-        try:
-            bpy.ops.object.select_all(action="DESELECT")
-        except Exception as e:
-            reports.add_report(
-                f"append_objects.1: {str(e)}",
-                3,
-                type="ERROR",
-            )
-            raise e
+        bpy.ops.object.select_all(action="DESELECT")
 
         path = file_name + "/Collection"
         collection_name = kwargs.get("name")
@@ -669,15 +661,7 @@ def append_objects(
                 utils.exclude_collection(hide_collection.name)
                 hidden_collections.append(hide_collection)
 
-        try:
-            bpy.ops.object.select_all(action="DESELECT")
-        except Exception as e:
-            reports.add_report(
-                f"append_objects.2: {str(e)}",
-                3,
-                type="ERROR",
-            )
-            raise e
+        bpy.ops.object.select_all(action="DESELECT")
 
         # Restore original active collection
         if orig_active_collection:
@@ -705,15 +689,7 @@ def append_objects(
     # link them to scene
     scene = bpy.context.scene
     sel = utils.selection_get()
-    try:
-        bpy.ops.object.select_all(action="DESELECT")
-    except Exception as e:
-        reports.add_report(
-            f"append_objects.3: {str(e)}",
-            3,
-            type="ERROR",
-        )
-        raise e
+    bpy.ops.object.select_all(action="DESELECT")
 
     return_obs = []  # this might not be needed, but better be sure to rewrite the list.
     main_object = None
@@ -747,15 +723,7 @@ def append_objects(
         main_object.parent = bpy.data.objects[parent]  # type: ignore[union-attr]
         main_object.matrix_world.translation = location  # type: ignore[union-attr]
 
-    try:
-        bpy.ops.object.select_all(action="DESELECT")
-    except Exception as e:
-        reports.add_report(
-            f"append_objects.4: {str(e)}",
-            3,
-            type="ERROR",
-        )
-        raise e
+    bpy.ops.object.select_all(action="DESELECT")
     utils.selection_set(sel)
 
     return main_object, return_obs
