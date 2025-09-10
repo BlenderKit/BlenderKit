@@ -25,6 +25,7 @@ import platform
 import re
 import shutil
 import sys
+import time
 import uuid
 from typing import Optional
 
@@ -1538,3 +1539,25 @@ class BlenderkitAppendException(BlenderkitException):
     """Exception raised when an append or link of the asset fails."""
 
     pass
+
+
+def is_context_restricted() -> bool:
+    """Return True if Blender currently blocks data modifications (e.g. drawing/rendering/modal state).
+    Detect by attempting a no-op assignment on an always-present datablock (scene name).
+    """
+    # let's measure the time it takes to execute this
+    start_time = time.time()
+    try:
+
+        bpy.context.scene.name += "1"
+        bpy.context.scene.name = bpy.context.scene.name[:-1]
+        end_time = time.time()
+        # bk_logger.debug(
+        #     f"Context is not restricted. Time taken: {end_time - start_time} seconds"
+        # )
+        return False
+    except Exception as e:
+        # bk_logger.debug(f"Exception in is_context_restricted: {str(e)}")
+        end_time = time.time()
+        # bk_logger.debug(f"Time taken: {end_time - start_time} seconds")
+        return True

@@ -85,6 +85,8 @@ def add_task(
 # @bpy.app.handlers.persistent
 def queue_worker():
     # utils.p('start queue worker timer')
+    if utils.is_context_restricted():
+        return 0.3
 
     # bk_logger.debug('timer queue worker')
     time_step = 0.3
