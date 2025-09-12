@@ -1673,6 +1673,25 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
         # layout.prop(props, 'unpack_files')
 
 
+def deferred_set_name(props, expected_obj_name):
+    """Deferred timer to set empty name of uploaded asset to active Object's name.
+    We check if the names of active_now object and expected object are the same, because active object could have changed.
+    This is one-shot timer = return None.
+    """
+    active_now = utils.get_active_asset()
+    if props.name != "":
+        return None
+    if not active_now:
+        return None
+    if active_now.name != expected_obj_name:
+        return None  # active object is different from the one on which we have called the timer
+    props.name_old = (
+        expected_obj_name  # prevents utils.name_update() from running twice
+    )
+    props.name = expected_obj_name  # this ultimately triggers utils.name_update()
+    return None
+
+
 class VIEW3D_PT_blenderkit_unified(Panel):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_unified"
@@ -1794,6 +1813,13 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             return draw_panel_nodegroup_search(self, context)
 
     def draw_upload(self, context, layout, ui_props):
+        obj = utils.get_active_asset()
+        props = getattr(obj, "blenderkit", None)
+        if props and not props.name:
+            bpy.app.timers.register(
+                lambda p=props, n=obj.name: deferred_set_name(p, n), first_interval=0.0
+            )
+
         if ui_props.asset_type == "MODEL" or ui_props.asset_type == "PRINTABLE":
             if bpy.context.view_layer.objects.active is not None:
                 return draw_panel_model_upload(self, context)
