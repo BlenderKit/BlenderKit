@@ -2725,9 +2725,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             is_free = self.asset_data.get("isFree")
 
             # Get pricing info from extensions cache
-            is_for_sale, base_price = asset_bar_op.get_addon_pricing_data(
-                self.asset_data
-            )
+            base_price = self.asset_data.get("basePrice")
+            is_for_sale = self.asset_data.get("isForSale")
 
             if self.asset_data["isPrivate"]:
                 t = "Private"

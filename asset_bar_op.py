@@ -368,35 +368,6 @@ BL_UI_Button.set_mouse_down_right = set_mouse_down_right  # type: ignore[attr-de
 asset_bar_operator = None
 
 
-# BL_UI_Button.handle_event = handle_event
-
-
-def get_addon_pricing_data(asset_data):
-    """Helper function to get addon pricing information from extensions cache"""
-    is_for_sale = False
-    base_price = None
-
-    try:
-
-        override_extension_draw.ensure_repo_cache()
-        bk_ext_cache = bpy.context.window_manager.get(
-            "blenderkit_extensions_repo_cache", {}
-        )
-
-        # Try to match by extensionId first, then by assetBaseId
-        extension_id = asset_data.get("dictParameters", {}).get("extensionId")
-
-        matching_pkg = bk_ext_cache.get(extension_id)
-
-        if matching_pkg:
-            is_for_sale = matching_pkg.get("is_for_sale", False)
-            base_price = matching_pkg.get("base_price")
-    except Exception as e:
-        bk_logger.warning(f"BlenderKit: Error fetching extension pricing data: {e}")
-
-    return is_for_sale, base_price
-
-
 def get_tooltip_data(asset_data):
     tooltip_data = asset_data.get("tooltip_data")
     if tooltip_data is not None:
@@ -441,7 +412,8 @@ def get_tooltip_data(asset_data):
     if asset_data.get("assetType") == "addon":
         # Get pricing info from extensions cache.
         # Pricing info is shown only for add-ons.
-        is_for_sale, base_price = get_addon_pricing_data(asset_data)
+        base_price = asset_data.get("basePrice")
+        is_for_sale = asset_data.get("isForSale")
 
         if is_for_sale and not can_download and base_price:
             price_text = f"${base_price}"
@@ -1928,7 +1900,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 is_free = asset_data.get("isFree")  # Note: corrected field name
 
                 # Get pricing info from extensions cache
-                is_for_sale, base_price = get_addon_pricing_data(asset_data)
+                base_price = asset_data.get("basePrice")
+                is_for_sale = asset_data.get("isForSale")
 
                 # Locked addons: for sale but not downloadable (not purchased)
                 if is_for_sale and not can_download:
