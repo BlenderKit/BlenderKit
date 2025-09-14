@@ -128,10 +128,13 @@ type Author struct {
 // Asset is a struct for storing an asset in this Client application.
 // Represents a single asset returned from the search API at: https://www.blenderkit.com/api/v1/search/.
 type Asset struct {
+	Access                           string                 `json:"access"`
+	AccessLabel                      string                 `json:"accessLabel"`
 	AddonVersion                     string                 `json:"addonVersion"`
 	AssetBaseID                      string                 `json:"assetBaseId"`
 	AssetType                        string                 `json:"assetType"`
 	Author                           Author                 `json:"author"`
+	BasePrice                        string                 `json:"basePrice"`
 	CanDownload                      bool                   `json:"canDownload"`
 	CanDownloadError                 interface{}            `json:"canDownloadError"` // False or {"messages": ["User is anonymous"], "type": "anonymous_user"} Oh yeah, tell me how is this logical!
 	Category                         string                 `json:"category"`
@@ -143,14 +146,17 @@ type Asset struct {
 	FilesSize                        float64                `json:"filesSize"`
 	ID                               string                 `json:"id"`
 	IsFree                           bool                   `json:"isFree"`
+	IsForSale                        bool                   `json:"isForSale"`
 	IsPrivate                        bool                   `json:"isPrivate"`
-	LastBlendUpload                  string                 `json:"lastBlendUpload"`
-	LastGltfUpload                   string                 `json:"lastGltfUpload"`
-	LastPhotoThumbnailUpload         string                 `json:"lastPhotoThumbnailUpload"`
-	LastResolutionUpload             string                 `json:"lastResolutionUpload"`
+	LastAnimatedThumbnailUpload      *string                `json:"lastAnimatedThumbnailUpload"`
+	LastBlendUpload                  *string                `json:"lastBlendUpload"`
+	LastGltfGodotUpload              *string                `json:"lastGltfGodotUpload"`
+	LastGltfUpload                   *string                `json:"lastGltfUpload"`
+	LastPhotoThumbnailUpload         *string                `json:"lastPhotoThumbnailUpload"`
+	LastResolutionUpload             *string                `json:"lastResolutionUpload"`
 	LastThumbnailUpload              string                 `json:"lastThumbnailUpload"`
-	LastUserInteraction              string                 `json:"lastUserInteraction"`
-	LastVideoUpload                  string                 `json:"lastVideoUpload"`
+	LastUserInteraction              *string                `json:"lastUserInteraction"`
+	LastVideoUpload                  *string                `json:"lastVideoUpload"`
 	LastZipFileUpload                string                 `json:"lastZipFileUpload"`
 	License                          string                 `json:"license"`
 	Name                             string                 `json:"name"`
@@ -183,6 +189,7 @@ type Asset struct {
 	URL                              string                 `json:"url"`
 	VerificationStatus               string                 `json:"verificationStatus"`
 	VersionNumber                    int                    `json:"versionNumber"`
+	VideoLink                        string                 `json:"videoLink"`
 	WebpGeneratedTimestamp           float64                `json:"webpGeneratedTimestamp"`
 }
 
