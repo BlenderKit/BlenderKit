@@ -2221,12 +2221,18 @@ In this case you should also set path to your system CA bundle containing proxy'
     )
 
     max_assetbar_rows: IntProperty(
-        name="Max Assetbar Rows",
-        description="max rows of assetbar in the 3D view",
-        default=1,
+        name="Maximized Assetbar Rows",
+        description="Maximum rows of assetbar in the 3D view when expanded",
+        default=4,
         min=1,
         max=20,
         update=utils.save_prefs,
+    )
+
+    assetbar_expanded: BoolProperty(
+        name="Assetbar Expanded",
+        description="Whether the assetbar is currently expanded to show maximum rows",
+        default=False,
     )
 
     thumb_size: IntProperty(

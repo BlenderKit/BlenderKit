@@ -116,9 +116,15 @@ def modal_inside(self, context, event):
         if sr is not None:
             # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
             # doesn't run that often.
+            # Calculate current max rows based on expanded state
+            if user_preferences.assetbar_expanded:
+                current_max_rows = user_preferences.max_assetbar_rows
+            else:
+                current_max_rows = 1
+
             if (
                 len(sr) - ui_props.scroll_offset
-                < (ui_props.wcount * user_preferences.max_assetbar_rows) + 15
+                < (ui_props.wcount * current_max_rows) + 15
             ):
                 self.search_more()
 
@@ -751,10 +757,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         history_step = search.get_active_history_step()
         search_results = history_step.get("search_results")
         # we need to init all possible thumb previews in advance/
-        # self.hcount = user_preferences.max_assetbar_rows
+        # Calculate hcount based on expanded state
         if search_results is not None and self.wcount > 0:
+            if user_preferences.assetbar_expanded:
+                max_rows = user_preferences.max_assetbar_rows
+            else:
+                max_rows = 1
             self.hcount = min(
-                user_preferences.max_assetbar_rows,
+                max_rows,
                 math.ceil(len(search_results) / self.wcount),
             )
             self.hcount = max(self.hcount, 1)
@@ -791,6 +801,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
+        )
+        self.button_expand.set_location(
+            self.bar_width - self.other_button_size, self.bar_height
         )
         # if hasattr(self, 'button_notifications'):
         #     self.button_notifications.set_location(self.bar_width - self.other_button_size * 2, -self.other_button_size)
@@ -1050,6 +1063,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.widgets_panel.append(self.button_close)
 
+        # Expand/collapse button (positioned at bottom of assetbar)
+        self.button_expand = BL_UI_Button(
+            self.bar_width - self.other_button_size,
+            self.bar_height,
+            self.other_button_size,
+            self.other_button_size,
+        )
+        self.button_expand.bg_color = self.button_bg_color
+        self.button_expand.hover_bg_color = self.button_hover_color
+        self.button_expand.text = ""
+        self.button_expand.text_size = self.other_button_size * 0.8
+        self.button_expand.set_image_position((0, 0))
+        self.button_expand.set_image_size(
+            (self.other_button_size, self.other_button_size)
+        )
+        self.button_expand.set_mouse_down(self.toggle_expand)
+
+        self.widgets_panel.append(self.button_expand)
+
         self.scroll_width = 30
         self.button_scroll_down = BL_UI_Button(
             -self.scroll_width, 0, self.scroll_width, self.bar_height
@@ -1243,6 +1275,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Update tab icons
         self.update_tab_icons()
 
+        # Update expand button icon
+        self.update_expand_button_icon()
+
     def update_tab_icons(self):
         """Update tab icons based on the active history step's asset type"""
         tabs = global_vars.TABS["tabs"]
@@ -1271,6 +1306,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
                     tab_button.set_image(icon_path)
                     tab_button.set_image_colorspace("")
+
+    def update_expand_button_icon(self):
+        """Update expand button icon based on current expanded state."""
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        if user_preferences.assetbar_expanded:
+            # Show up arrow when expanded (to collapse)
+            self.button_expand.text = "▲"
+        else:
+            # Show down arrow when collapsed (to expand)
+            self.button_expand.text = "▼"
 
     def position_and_hide_buttons(self):
         # position and layout buttons
@@ -1673,6 +1718,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def cancel_press(self, widget):
         self.finish()
+
+    def toggle_expand(self, widget):
+        """Toggle the expanded state of the assetbar."""
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences.assetbar_expanded = not user_preferences.assetbar_expanded
+
+        # Update the button icon
+        self.update_expand_button_icon()
+
+        # Restart the asset bar to apply the new layout
+        self.restart_asset_bar()
 
     def asset_menu(self, widget):
         self.hide_tooltip()
