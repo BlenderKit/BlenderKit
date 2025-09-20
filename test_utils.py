@@ -3,11 +3,22 @@ import datetime
 import bpy
 
 
+# Dynamically set the package context for the BlenderKit add-on
 for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
-from . import utils
+
+# Handle imports for both package and standalone execution
+try:
+    from . import utils
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import utils
 
 
 class FileSizeToTextTestCase(unittest.TestCase):

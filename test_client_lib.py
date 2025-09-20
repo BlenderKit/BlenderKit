@@ -25,11 +25,22 @@ import bpy
 import requests
 
 
+# Dynamically set the package context for the BlenderKit add-on
 for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
-from . import client_lib, datas, download, paths, utils
+
+# Handle imports for both package and standalone execution
+try:
+    from . import client_lib, datas, download, paths, utils
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import client_lib, datas, download, paths, utils
 
 
 def client_is_responding() -> tuple[bool, str]:
