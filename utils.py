@@ -539,8 +539,8 @@ def save_prefs_without_save_userpref(user_preferences, context):
 
 
 def save_prefs(user_preferences, context, **kwargs):
-    # first check context, so we don't do this on registration or blender startup
-    if bpy.app.background is True:
+    # first check context, so we don't do this on registration, blender startup, or blender factory startup
+    if bpy.app.background is True or bpy.app.factory_startup is True:
         return
 
     global_vars.PREFS = get_preferences_as_dict()
@@ -1071,9 +1071,7 @@ def name_update(props, context=None):
     Checks for name change, because it decides if whole asset has to be re-uploaded. Name is stored in the blend file
     and that's the reason.
     """
-    scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
-
     # props = get_upload_props()
     if props.name_old != props.name:
         props.name_changed = True
@@ -1083,16 +1081,23 @@ def name_update(props, context=None):
 
         if nname.isupper():
             nname = nname.lower()
-        nname = nname[0].upper() + nname[1:]
-        props.name = nname
+        if nname != "":
+            nname = nname[0].upper() + nname[1:]
+        props.name = (
+            nname  # this recursively triggers the name_update() again, so we return
+        )
+        return
         # here we need to fix the name for blender data = ' or " give problems in path evaluation down the road.
     fname = props.name
     fname = fname.replace("'", "")
     fname = fname.replace('"', "")
-    asset = get_active_asset()
-    if ui_props.asset_type != "HDR":
-        # Here we actually rename assets datablocks, but don't do that with HDR's and possibly with others
-        asset.name = fname
+    if ui_props.asset_type == "HDR" or fname == "":
+        bk_logger.info(f"Skiping the rename")
+        return  # don't rename HDR's or with empty name
+    else:
+        asset = get_active_asset()
+        if asset.name != fname:  # Here we actually rename assets datablocks
+            asset.name = fname  # change name of active object to upload Name
 
 
 def fmt_dimensions(p):

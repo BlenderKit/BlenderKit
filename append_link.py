@@ -19,6 +19,7 @@
 
 import logging
 import uuid
+from typing import Optional
 
 import bpy
 
@@ -396,11 +397,11 @@ def load_HDR(file_name, name):
 
 def link_collection(
     file_name,
-    obnames=None,
+    obnames: Optional[list] = None,
     location=(0, 0, 0),
-    link=False,
-    parent=None,
-    collection="",
+    link: bool = False,
+    parent: Optional[str] = None,
+    collection: str = "",
     **kwargs,
 ):
     """link an instanced group - model type asset"""
@@ -408,7 +409,7 @@ def link_collection(
         obnames = []
     sel = utils.selection_get()
     # Store the original active collection
-    orig_active_collection = bpy.context.view_layer.active_layer_collection
+    orig_active_collection = bpy.context.view_layer.active_layer_collection  # type: ignore[union-attr]
 
     # Activate target collection if specified
     if collection:
@@ -416,10 +417,10 @@ def link_collection(
         if target_collection:
             # Find and activate the layer collection
             layer_collection = find_layer_collection(
-                bpy.context.view_layer.layer_collection, collection
+                bpy.context.view_layer.layer_collection, collection  # type: ignore[union-attr]
             )
             if layer_collection:
-                bpy.context.view_layer.active_layer_collection = layer_collection
+                bpy.context.view_layer.active_layer_collection = layer_collection  # type: ignore[union-attr]
 
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
@@ -434,33 +435,33 @@ def link_collection(
         rotation = kwargs["rotation"]
 
     bpy.ops.object.empty_add(type="PLAIN_AXES", location=location, rotation=rotation)
-    main_object = bpy.context.view_layer.objects.active
-    main_object.instance_type = "COLLECTION"
+    main_object = bpy.context.view_layer.objects.active  # type: ignore[union-attr]
+    main_object.instance_type = "COLLECTION"  # type: ignore[union-attr]
 
-    if parent is not None:
-        main_object.parent = bpy.data.objects.get(parent)
+    if parent is not None and parent != "":
+        main_object.parent = bpy.data.objects.get(parent)  # type: ignore[union-attr]
 
-    main_object.matrix_world.translation = location
+    main_object.matrix_world.translation = location  # type: ignore[union-attr]
 
     for col in bpy.data.collections:
         if col.library is not None:
             fp = bpy.path.abspath(col.library.filepath)
             fp1 = bpy.path.abspath(file_name)
             if fp == fp1:
-                main_object.instance_collection = col
+                main_object.instance_collection = col  # type: ignore[union-attr]
                 break
 
     # sometimes, the lib might already  be without the actual link.
-    if not main_object.instance_collection and kwargs["name"]:
+    if not main_object.instance_collection and kwargs["name"]:  # type: ignore[union-attr]
         col = bpy.data.collections.get(kwargs["name"])
         if col:
-            main_object.instance_collection = col
+            main_object.instance_collection = col  # type: ignore[union-attr]
 
-    main_object.name = main_object.instance_collection.name
+    main_object.name = main_object.instance_collection.name  # type: ignore[union-attr]
 
     # Restore original active collection
     if orig_active_collection:
-        bpy.context.view_layer.active_layer_collection = orig_active_collection
+        bpy.context.view_layer.active_layer_collection = orig_active_collection  # type: ignore[union-attr]
 
     utils.selection_set(sel)
     return main_object, []
@@ -544,11 +545,11 @@ def append_particle_system(
 
 def append_objects(
     file_name,
-    obnames=None,
+    obnames: Optional[list] = None,
     location=(0, 0, 0),
-    link=False,
-    parent=None,
-    collection="",
+    link: bool = False,
+    parent: Optional[str] = None,
+    collection: str = "",
     **kwargs,
 ):
     """Append object into scene individually. 2 approaches based in definition of name argument.
@@ -561,7 +562,7 @@ def append_objects(
         scene = bpy.context.scene
         sel = utils.selection_get()
         # Store the original active collection
-        orig_active_collection = bpy.context.view_layer.active_layer_collection
+        orig_active_collection = bpy.context.view_layer.active_layer_collection  # type: ignore[union-attr]
 
         # Activate target collection if specified
         if collection:
@@ -569,10 +570,10 @@ def append_objects(
             if target_collection:
                 # Find and activate the layer collection
                 layer_collection = find_layer_collection(
-                    bpy.context.view_layer.layer_collection, collection
+                    bpy.context.view_layer.layer_collection, collection  # type: ignore[union-attr]
                 )
                 if layer_collection:
-                    bpy.context.view_layer.active_layer_collection = layer_collection
+                    bpy.context.view_layer.active_layer_collection = layer_collection  # type: ignore[union-attr]
 
         try:
             bpy.ops.object.select_all(action="DESELECT")
@@ -586,6 +587,9 @@ def append_objects(
 
         path = file_name + "/Collection"
         collection_name = kwargs.get("name")
+        if collection_name is None:
+            bk_logger.warning("collection_name is None")
+            collection_name = ""
         bpy.ops.wm.append(filename=collection_name, directory=path)
 
         # fc = utils.get_fake_context(bpy.context, area_type='VIEW_3D')
@@ -596,13 +600,13 @@ def append_objects(
         appended_collection = None
         main_object = None
         # get first at least one parent for sure
-        for ob in bpy.context.scene.objects:
+        for ob in bpy.context.scene.objects:  # type: ignore[union-attr]
             if ob.select_get():
                 if not ob.parent:
                     main_object = ob
                     ob.location = location
         # do once again to ensure hidden objects are hidden
-        for ob in bpy.context.scene.objects:
+        for ob in bpy.context.scene.objects:  # type: ignore[union-attr]
             if ob.select_get():
                 return_obs.append(ob)
                 # check for object that should be hidden
@@ -621,14 +625,14 @@ def append_objects(
         if kwargs.get("rotation"):
             main_object.rotation_euler = kwargs["rotation"]
 
-        if parent is not None:
+        if parent is not None and parent != "":
             main_object.parent = bpy.data.objects[parent]
             main_object.matrix_world.translation = location
 
         # move objects that should be hidden to a sub collection
         if len(to_hidden_collection) > 0 and appended_collection is not None:
             hidden_collections = []
-            scene_collection = bpy.context.scene.collection
+            scene_collection = bpy.context.scene.collection  # type: ignore[union-attr]
             for ob in to_hidden_collection:
                 hide_collection = ob.users_collection[0]
 
@@ -677,7 +681,7 @@ def append_objects(
 
         # Restore original active collection
         if orig_active_collection:
-            bpy.context.view_layer.active_layer_collection = orig_active_collection
+            bpy.context.view_layer.active_layer_collection = orig_active_collection  # type: ignore[union-attr]
 
         utils.selection_set(sel)
         # let collection also store info that it was created by BlenderKit, for purging reasons
@@ -718,7 +722,7 @@ def append_objects(
     for obj in data_to.objects:
         if obj is not None:
             # if obj.name not in scene.objects:
-            scene.collection.objects.link(obj)
+            scene.collection.objects.link(obj)  # type: ignore[union-attr]
             if obj.parent is None:
                 obj.location = location
                 main_object = obj
@@ -737,11 +741,11 @@ def append_objects(
             ob.hide_viewport = True
 
     if kwargs.get("rotation") is not None:
-        main_object.rotation_euler = kwargs["rotation"]
+        main_object.rotation_euler = kwargs["rotation"]  # type: ignore[union-attr]
 
-    if parent is not None:
-        main_object.parent = bpy.data.objects[parent]
-        main_object.matrix_world.translation = location
+    if parent is not None and parent != "":
+        main_object.parent = bpy.data.objects[parent]  # type: ignore[union-attr]
+        main_object.matrix_world.translation = location  # type: ignore[union-attr]
 
     try:
         bpy.ops.object.select_all(action="DESELECT")

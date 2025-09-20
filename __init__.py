@@ -1952,7 +1952,11 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     api_key: StringProperty(
         name="BlenderKit API Key",
-        description="Your blenderkit API Key. Get it from your page on the website",
+        description=(
+            "Your unique API key authenticates downloads and requests inside the add-on. "
+            "No manual setup is required, the API Key is auto-filled at login and cleared at logout. "
+            "However, you can also paste the key from your profile settings on the BlenderKit website."
+        ),
         default="",
         subtype="PASSWORD",
         update=utils.api_key_property_updated,
@@ -2002,6 +2006,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Show BlenderKit search in 3D view header",
         description="Show BlenderKit search in 3D view header",
         default=True,
+        update=utils.save_prefs,
+    )
+
+    sidebar_panels: BoolProperty(
+        name="Hide sidebar panels",
+        description="Hide BlenderKit sidebar panels (search, upload, and selected model functionality). This prevents upload and it's also the only place for import settings. Reenable this to access these features.",
+        default=False,
         update=utils.save_prefs,
     )
 
@@ -2396,6 +2407,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "max_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
+        gui_settings.prop(self, "sidebar_panels")
         gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
