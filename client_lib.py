@@ -30,7 +30,15 @@ from http.client import responses as http_responses
 import bpy
 import requests
 
-from . import datas, global_vars, reports, utils
+# Handle imports for both package and standalone execution
+try:
+    from . import datas, global_vars, reports, utils
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+    import datas, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)

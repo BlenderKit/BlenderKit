@@ -27,7 +27,15 @@ import tempfile
 
 import bpy
 
-from . import client_lib, global_vars, reports, utils
+# Handle imports for both package and standalone execution
+try:
+    from . import client_lib, global_vars, reports, utils
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+    import client_lib, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
