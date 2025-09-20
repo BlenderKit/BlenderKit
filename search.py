@@ -1296,20 +1296,21 @@ def search_update(self, context):
 
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    # Remove this feature for now, but leave the code here for future reference
     # Check if keywords contain asset type before processing clipboard
-    if ui_props.search_keywords != "":
-        detected_type, cleaned_keywords = detect_asset_type_from_keywords(
-            ui_props.search_keywords
-        )
-        if detected_type and detected_type != ui_props.asset_type:
-            # Store keywords before switching
-            ui_props.search_lock = True
-            ui_props.search_keywords = cleaned_keywords
-            # Switch asset type
-            ui_props.asset_type = detected_type
-            ui_props.search_lock = False
-            # Return since changing keywords will trigger this function again
-            # not now - let's try it with lock
+    # if ui_props.search_keywords != "":
+    #     detected_type, cleaned_keywords = detect_asset_type_from_keywords(
+    #         ui_props.search_keywords
+    #     )
+    # if detected_type and detected_type != ui_props.asset_type:
+    #     # Store keywords before switching
+    #     ui_props.search_lock = True
+    #     ui_props.search_keywords = cleaned_keywords
+    #     # Switch asset type
+    #     ui_props.asset_type = detected_type
+    #     ui_props.search_lock = False
+    # Return since changing keywords will trigger this function again
+    # not now - let's try it with lock
 
     # if ui_props.down_up != "SEARCH":
     #     ui_props.down_up = "SEARCH"
