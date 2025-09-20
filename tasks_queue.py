@@ -85,10 +85,6 @@ def add_task(
 
 # @bpy.app.handlers.persistent
 def queue_worker():
-    # utils.p('start queue worker timer')
-    if utils.is_context_restricted():
-        # Add randomization to break timing synchronization
-        return 0.25 + random.uniform(0.05, 0.15)  # 0.3-0.4s with jitter
 
     # bk_logger.debug('timer queue worker')
     time_step = 0.3
@@ -117,6 +113,11 @@ def queue_worker():
     for k in stashed.keys():
         q.put(stashed[k])
     # second round, execute or put back waiting tasks.
+    if not q.empty() and utils.is_context_restricted():
+        # Postpone with a larger time step since blender seems to be doing stuff....
+        # Add randomization to break timing synchronization
+        return 1.0 + random.uniform(0.05, 0.15)  # 1.1-1.2s with jitter
+
     back_to_queue = []
     while not q.empty():
         # print('window manager', bpy.context.window_manager)
@@ -155,7 +156,7 @@ def queue_worker():
         q.put(task)
     # utils.p('end queue worker timer')
     # Add randomization to normal queue processing too
-    return time_step + random.uniform(0.05, 0.1)  # 0.35-0.4s with jitter
+    return time_step
 
 
 def register():

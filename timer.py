@@ -127,17 +127,7 @@ def client_communication_timer():
     """Recieve all responses from Client and run according followup commands.
     This function is the only one responsible for keeping the Client up and running.
     """
-    global pending_tasks, timer_blocked_count
-    # Block timer work while Blender is in restricted draw state
-    if utils.is_context_restricted():
-        reports.add_report(
-            f"Blender is in restricted draw state, appending downloaded objects will be delayed. This might be caused by other addons.",
-            type="INFO",
-            timeout=1.5,
-        )
-        timer_blocked_count += 1
-    else:
-        timer_blocked_count = 0
+    global pending_tasks
 
     bk_logger.debug("Getting tasks from Client")
     search.check_clipboard()
@@ -206,7 +196,7 @@ def timer_image_cleanup():
         ):
             bpy.data.images.remove(i)
     # Add randomization to normal cleanup interval too
-    return 55 + random.uniform(5, 15)  # 60-70s with jitter
+    return 60
 
 
 def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
@@ -285,11 +275,22 @@ def handle_task(task: client_tasks.Task):
 
     # HANDLE ASSET DOWNLOAD
     if task.task_type == "asset_download":
-        if task.status == "finished" and timer_blocked_count > 0:
-            # add task to the task queue instead of handling it
-            # tasks_queue.add_task((download.handle_download_task, (task,)))
-            # not sure why, adding to tasks queue seems better than pending_tasks.
-            pending_tasks.append(task)
+
+        if task.status == "finished":
+            # Block timer work while Blender is in restricted draw state
+            if utils.is_context_restricted():
+                reports.add_report(
+                    f"Blender is in restricted draw state, appending downloaded objects will be delayed. This might be caused by other addons.",
+                    type="INFO",
+                    timeout=1.5,
+                )
+                timer_blocked_count += 1
+                # add task to the task queue instead of handling it
+                # tasks_queue.add_task((download.handle_download_task, (task,)))
+                # not sure why, adding to tasks queue seems better than pending_tasks.
+                pending_tasks.append(task)
+            else:
+                timer_blocked_count = 0
             return
         return download.handle_download_task(task)
 
