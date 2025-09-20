@@ -22,17 +22,34 @@ import os
 import shutil
 import time
 
-from . import (
-    append_link,
-    client_lib,
-    client_tasks,
-    paths,
-    reports,
-    resolutions,
-    search,
-    ui_panels,
-    utils,
-)
+# Handle imports for both package and standalone execution
+try:
+    from . import (
+        append_link,
+        client_lib,
+        client_tasks,
+        paths,
+        reports,
+        resolutions,
+        search,
+        ui_panels,
+        utils,
+    )
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import append_link
+    import client_lib
+    import client_tasks
+    import paths
+    import reports
+    import resolutions
+    import search
+    import ui_panels
+    import utils
 
 
 bk_logger = logging.getLogger(__name__)
