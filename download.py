@@ -21,7 +21,6 @@ import logging
 import os
 import shutil
 import time
-import traceback
 
 from . import (
     append_link,
@@ -51,6 +50,9 @@ from bpy.props import (
 
 
 download_tasks = {}
+
+INT32_MIN = -2_147_483_648
+INT32_MAX = 2_147_483_647
 
 
 def check_missing():
@@ -258,6 +260,19 @@ def get_asset_usages():
     return usage_report
 
 
+def _sanitize_for_idprops(value):
+    """Recursively sanitize a value for storage in Blender IDProperties."""
+    if isinstance(value, int):
+        if value < INT32_MIN or value > INT32_MAX:
+            return str(value)
+        return value
+    if isinstance(value, dict):
+        return {k: _sanitize_for_idprops(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_sanitize_for_idprops(v) for v in value]
+    return value
+
+
 def udpate_asset_data_in_dicts(asset_data):
     """
     updates asset data in all relevant dictionaries, after a threaded download task \
@@ -267,13 +282,16 @@ def udpate_asset_data_in_dicts(asset_data):
     asset_data - data coming back from thread, thus containing also download urls
     """
     data = asset_data.copy()
-    del data[
-        "filesSize"
-    ]  # filesSize is not needed, causes troubles: github.com/BlenderKit/BlenderKit/issues/1601
+    # filesSize is not needed, causes troubles: github.com/BlenderKit/BlenderKit/issues/1601
+    if "filesSize" in data:
+        del data["filesSize"]
 
     scene = bpy.context.scene
     scene["assets used"] = scene.get("assets used", {})
-    scene["assets used"][asset_data["assetBaseId"]] = data
+
+    # Reuse (or define if not yet present) a sanitizer for Blender IDProperties.
+    sanitized = _sanitize_for_idprops(data)
+    scene["assets used"][asset_data["assetBaseId"]] = sanitized
 
     # Get search results from history
     history_step = search.get_active_history_step()
@@ -635,9 +653,8 @@ def update_asset_metadata(asset_main, asset_data):
     asset_main.blenderkit.description = asset_data["description"]
     asset_main.blenderkit.tags = utils.list2string(asset_data["tags"])
     # BUG #554: categories needs update, but are not in asset_data
-    asset_main["asset_data"] = (
-        asset_data  # TODO remove this??? should write to blenderkit Props?
-    )
+    sanitized = _sanitize_for_idprops(asset_data)
+    asset_main["asset_data"] = sanitized  # TODO consider reducing stored fields for filesize.
 
 
 def replace_resolution_linked(file_paths, asset_data):
