@@ -90,7 +90,10 @@ def check_unused():
     return
     used_libs = []
     for ob in bpy.data.objects:
-        if ob.instance_collection is not None and ob.instance_collection.library is not None:
+        if (
+            ob.instance_collection is not None
+            and ob.instance_collection.library is not None
+        ):
             # used_libs[ob.instance_collection.name] = True
             if ob.instance_collection.library not in used_libs:
                 used_libs.append(ob.instance_collection.library)
@@ -121,7 +124,9 @@ def scene_save(context):
     if bpy.app.background:
         return
     check_unused()
-    report_data = get_asset_usages()  # TODO: FIX OR REMOVE THIS (now returns empty dict all the time) https://github.com/BlenderKit/blenderkit/issues/1013
+    report_data = (
+        get_asset_usages()
+    )  # TODO: FIX OR REMOVE THIS (now returns empty dict all the time) https://github.com/BlenderKit/blenderkit/issues/1013
     if report_data != {}:
         client_lib.report_usages(report_data)
 
@@ -322,7 +327,10 @@ def assign_material(object, material, target_slot):
             elif target_info["type"] == "GN":
                 # Assign to GN Set Material node
                 for modifier in object.modifiers:
-                    if modifier.type == "NODES" and modifier.node_group.name == target_info["tree_name"]:
+                    if (
+                        modifier.type == "NODES"
+                        and modifier.node_group.name == target_info["tree_name"]
+                    ):
                         node = modifier.node_group.nodes.get(target_info["node_name"])
                         if node and node.type == "SET_MATERIAL":
                             node.inputs["Material"].default_value = material
@@ -356,7 +364,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     if asset_data["assetType"] == "scene":
         sprops = wm.blenderkit_scene
 
-        scene = append_link.append_scene(file_names[0], link=sprops.append_link == "LINK", fake_user=False)
+        scene = append_link.append_scene(
+            file_names[0], link=sprops.append_link == "LINK", fake_user=False
+        )
         if scene is not None:
             asset_main = scene
             if sprops.switch_after_append:
@@ -393,7 +403,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 if asset_data["assetType"] == "model":
                     source_parent = get_asset_in_scene(asset_data)
                     if source_parent:
-                        asset_main, new_obs = duplicate_asset(source=source_parent, **kwargs)
+                        asset_main, new_obs = duplicate_asset(
+                            source=source_parent, **kwargs
+                        )
                         asset_main.location = kwargs["model_location"]
                         asset_main.rotation_euler = kwargs["model_rotation"]
                         # this is a case where asset is already in scene and should be duplicated instead.
@@ -417,7 +429,10 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             for downloader in downloaders:
                 # this cares for adding particle systems directly to target mesh, but I had to block it now,
                 # because of the sluggishnes of it. Possibly re-enable when it's possible to do this faster?
-                if "particle_plants" in asset_data["tags"] and kwargs["target_object"] != "":
+                if (
+                    "particle_plants" in asset_data["tags"]
+                    and kwargs["target_object"] != ""
+                ):
                     append_link.append_particle_system(
                         file_names[-1],
                         target_object=kwargs["target_object"],
@@ -483,7 +498,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             if asset_main.type == "EMPTY" and link:
                 bmin = asset_data["bbox_min"]
                 bmax = asset_data["bbox_max"]
-                size_min = min(1.0, (bmax[0] - bmin[0] + bmax[1] - bmin[1] + bmax[2] - bmin[2]) / 3)
+                size_min = min(
+                    1.0, (bmax[0] - bmin[0] + bmax[1] - bmin[1] + bmax[2] - bmin[2]) / 3
+                )
                 asset_main.empty_display_size = size_min
 
         if link:
@@ -500,7 +517,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 brush = b
                 break
         if not inscene:
-            brush = append_link.append_brush(file_names[-1], link=False, fake_user=False)
+            brush = append_link.append_brush(
+                file_names[-1], link=False, fake_user=False
+            )
 
             thumbnail_name = asset_data["thumbnail"].split(os.sep)[-1]
             tempdir = paths.get_temp_dir("brush_search")
@@ -528,14 +547,18 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             if bpy.app.version < (4, 3, 0):
                 bpy.context.tool_settings.sculpt.brush = brush
             else:
-                bpy.ops.brush.asset_activate(relative_asset_identifier=f"Brush{os.sep}{brush.name}")
+                bpy.ops.brush.asset_activate(
+                    relative_asset_identifier=f"Brush{os.sep}{brush.name}"
+                )
         elif (
             bpy.context.view_layer.objects.active.mode == "TEXTURE_PAINT"
         ):  # could be just else, but for future possible more types...
             if bpy.app.version < (4, 3, 0):
                 bpy.context.tool_settings.image_paint.brush = brush
             else:
-                bpy.ops.brush.asset_activate(relative_asset_identifier=f"Brush{os.sep}{brush.name}")
+                bpy.ops.brush.asset_activate(
+                    relative_asset_identifier=f"Brush{os.sep}{brush.name}"
+                )
         # TODO add grease pencil brushes!
 
         # bpy.context.tool_settings.image_paint.brush = brush
@@ -615,7 +638,9 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     udpate_asset_data_in_dicts(asset_data)
     update_asset_metadata(asset_main, asset_data)
 
-    bpy.ops.ed.undo_push("INVOKE_REGION_WIN", message="add %s to scene" % asset_data["name"])
+    bpy.ops.ed.undo_push(
+        "INVOKE_REGION_WIN", message="add %s to scene" % asset_data["name"]
+    )
     # moving reporting to on save.
     # report_use_success(asset_data['id'])
 
@@ -918,11 +943,15 @@ def download_post(task: client_tasks.Task) -> None:
         if ain == "LINKED":
             replace_resolution_linked(file_paths, task.data["asset_data"])
         elif ain == "APPENDED":
-            replace_resolution_appended(file_paths, task.data["asset_data"], task.data["resolution"])
+            replace_resolution_appended(
+                file_paths, task.data["asset_data"], task.data["resolution"]
+            )
         return
 
     orig_task.update(task.data)
-    try_finished_append(file_paths=file_paths, **task.data)  # exception is handled in calling function
+    try_finished_append(
+        file_paths=file_paths, **task.data
+    )  # exception is handled in calling function
     # TODO add back re-download capability for deamon - used for lost libraries
     # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
     # download(asset_data, **tcom.passargs)
@@ -997,7 +1026,9 @@ def check_existing(asset_data, resolution="blend", can_return_others=False):
     if asset_data.get("files") == None:
         return False  # this is because of some very odl files where asset data had no files structure.
 
-    file_names = paths.get_download_filepaths(asset_data, resolution, can_return_others=can_return_others)
+    file_names = paths.get_download_filepaths(
+        asset_data, resolution, can_return_others=can_return_others
+    )
     if len(file_names) == 0:
         return False
 
@@ -1034,7 +1065,9 @@ def try_finished_append(asset_data, **kwargs):
         raise utils.BlenderkitAppendException("No file_paths found")
 
     if not os.path.isfile(file_paths[-1]):
-        raise utils.BlenderkitAppendException(f"Library file does not exist: {file_paths[-1]}")
+        raise utils.BlenderkitAppendException(
+            f"Library file does not exist: {file_paths[-1]}"
+        )
 
     kwargs["name"] = asset_data["name"]
 
@@ -1090,7 +1123,9 @@ def check_selectible(obs):
     return True
 
 
-def duplicate_asset(source, **kwargs) -> tuple[bpy.types.Object, list[bpy.types.Object]]:
+def duplicate_asset(
+    source, **kwargs
+) -> tuple[bpy.types.Object, list[bpy.types.Object]]:
     """
     Duplicate asset when it's already appended in the scene,
     so that blender's append doesn't create duplicated data.
@@ -1129,7 +1164,9 @@ def duplicate_asset(source, **kwargs) -> tuple[bpy.types.Object, list[bpy.types.
     # in case of replacement,there might be a paarent relationship that can be restored
     if kwargs.get("parent"):
         parent = bpy.data.objects[kwargs["parent"]]
-        asset_main.parent = parent  # even if parent is None this is ok without if condition
+        asset_main.parent = (
+            parent  # even if parent is None this is ok without if condition
+        )
     else:
         asset_main.parent = None
     # restore original selection
@@ -1172,7 +1209,10 @@ def asset_in_scene(asset_data):
                         continue
                     if not c.library.get("asset_data"):
                         continue
-                    if c.library and c.library["asset_data"].get("assetBaseId") == base_id:
+                    if (
+                        c.library
+                        and c.library["asset_data"].get("assetBaseId") == base_id
+                    ):
                         bk_logger.info("asset found linked in the scene")
                         return "LINKED", ad.get("resolution")
             elif asset_data["assetType"] == "material":
@@ -1417,21 +1457,27 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         scene = bpy.context.scene
         if self.asset_index > -1:  # Getting the data from search results
             sr = search.get_search_results()
-            asset_data = sr[self.asset_index]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
+            asset_data = sr[
+                self.asset_index
+            ]  # TODO CHECK ALL OCCURRENCES OF PASSING BLENDER ID PROPS TO THREADS!
             asset_base_id = asset_data["assetBaseId"]
             return asset_data
 
         # Getting the data from scene
         asset_base_id = self.asset_base_id
         assets_used = scene.get("assets used", {})
-        if asset_base_id in assets_used:  # already used assets have already download link and especially file link.
+        if (
+            asset_base_id in assets_used
+        ):  # already used assets have already download link and especially file link.
             asset_data = scene["assets used"][asset_base_id].to_dict()
             return asset_data
 
         # when not in scene nor in search results, we need to get it from the server
         params = {"asset_base_id": self.asset_base_id}
         preferences = bpy.context.preferences.addons[__package__].preferences
-        results = search.get_search_simple(params, page_size=1, max_results=1, api_key=preferences.api_key)
+        results = search.get_search_simple(
+            params, page_size=1, max_results=1, api_key=preferences.api_key
+        )
         asset_data = search.parse_result(results[0])
         return asset_data
 
@@ -1473,7 +1519,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                         continue
                 parent = ob.parent
                 if parent:
-                    parent = ob.parent.name  # after this, parent is either name or None.
+                    parent = (
+                        ob.parent.name
+                    )  # after this, parent is either name or None.
 
                 kwargs = {
                     "cast_parent": self.cast_parent,
@@ -1490,7 +1538,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                     "node_y": self.node_y,
                     "nodegroup_mode": self.nodegroup_mode,
                 }
-                bk_logger.debug(f"Replace kwargs with target_collection={kwargs['target_collection']}")
+                bk_logger.debug(
+                    f"Replace kwargs with target_collection={kwargs['target_collection']}"
+                )
                 # TODO - move this After download, not before, so that the replacement
                 utils.delete_hierarchy(ob)
                 start_download(self.asset_data, **kwargs)
@@ -1514,7 +1564,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             "node_y": self.node_y,
             "nodegroup_mode": self.nodegroup_mode,
         }
-        bk_logger.debug(f"Final kwargs with target_collection={kwargs['target_collection']}")
+        bk_logger.debug(
+            f"Final kwargs with target_collection={kwargs['target_collection']}"
+        )
         start_download(self.asset_data, **kwargs)
         return {"FINISHED"}
 
@@ -1537,7 +1589,9 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
             preferences = bpy.context.preferences.addons[__package__].preferences
 
             # set initial resolutions enum activation
-            if preferences.resolution != "ORIGINAL" and int(preferences.resolution) <= int(self.max_resolution):
+            if preferences.resolution != "ORIGINAL" and int(
+                preferences.resolution
+            ) <= int(self.max_resolution):
                 self.resolution = preferences.resolution
             elif int(self.max_resolution) > 0:
                 self.resolution = str(self.max_resolution)
