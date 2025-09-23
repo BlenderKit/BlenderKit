@@ -18,7 +18,6 @@
 
 
 import logging
-import random
 import re
 import sys
 import threading
@@ -127,8 +126,8 @@ def bg_update():
     global bg_processes
     if len(bg_processes) == 0:
         # utils.p('end bg_blender timer bg_update')
-        # Add randomization even when no processes
-        return 1.8 + random.uniform(0.2, 0.4)  # 2.0-2.2s with jitter
+
+        return 2
     # cleanup dead processes first
     remove_processes = []
     for p in bg_processes:
@@ -181,11 +180,11 @@ def bg_update():
     #     bpy.app.timers.unregister(bg_update)
     if len(bg_processes) > 0:
         # utils.p('end bg_blender timer bg_update')
-        # Add randomization when processes are active
-        return 0.25 + random.uniform(0.05, 0.15)  # 0.3-0.4s with jitter
+
+        return 0.3
     # utils.p('end bg_blender timer bg_update')
-    # Add randomization for idle state
-    return 0.9 + random.uniform(0.1, 0.2)  # 1.0-1.1s with jitter
+
+    return 1.0
 
 
 process_types = (

@@ -18,7 +18,6 @@
 
 import logging
 import queue
-import random
 from typing import Tuple
 
 import bpy
@@ -87,8 +86,7 @@ def add_task(
 def queue_worker():
     # utils.p('start queue worker timer')
     if utils.is_context_restricted():
-        # Add randomization to break timing synchronization
-        return 0.25 + random.uniform(0.05, 0.15)  # 0.3-0.4s with jitter
+        return 0.3
 
     # bk_logger.debug('timer queue worker')
     time_step = 0.3
@@ -154,8 +152,7 @@ def queue_worker():
     for task in back_to_queue:
         q.put(task)
     # utils.p('end queue worker timer')
-    # Add randomization to normal queue processing too
-    return time_step + random.uniform(0.05, 0.1)  # 0.35-0.4s with jitter
+    return time_step
 
 
 def register():
