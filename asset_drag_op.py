@@ -1132,6 +1132,7 @@ class AssetDragOperator(bpy.types.Operator):
 
                 active_material = active_object.active_material
                 # Use active material
+                # TODO: material.use_nodes is expected to be removed in Blender 6.0
                 if not active_material.use_nodes:
                     active_material.use_nodes = True
                 node_tree = active_material.node_tree
@@ -1140,6 +1141,8 @@ class AssetDragOperator(bpy.types.Operator):
                 node_space.spaces[0].node_tree = node_tree
 
             # Fourth case: need to switch to compositor nodes for compositor nodegroup
+            # TODO: scene.use_nodes was removed in Blender 5
+            # TODO: scene.node_tree was removed in Blender 5, use scene.compositing_node_group instead
             elif nodegroup_type == "compositor":
 
                 # Try to find the compositor node tree
