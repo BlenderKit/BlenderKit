@@ -118,7 +118,7 @@ def modal_inside(self, context, event):
             # doesn't run that often.
             # Calculate current max rows based on expanded state
             if user_preferences.assetbar_expanded:
-                current_max_rows = user_preferences.max_assetbar_rows
+                current_max_rows = user_preferences.maximized_assetbar_rows
             else:
                 current_max_rows = 1
 
@@ -752,7 +752,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.max_hcount = math.floor(
             max(region.width, context.window.width) / self.button_size
         )
-        self.max_wcount = user_preferences.max_assetbar_rows
+        self.max_wcount = user_preferences.maximized_assetbar_rows
 
         history_step = search.get_active_history_step()
         search_results = history_step.get("search_results")
@@ -760,7 +760,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Calculate hcount based on expanded state
         if search_results is not None and self.wcount > 0:
             if user_preferences.assetbar_expanded:
-                max_rows = user_preferences.max_assetbar_rows
+                max_rows = user_preferences.maximized_assetbar_rows
             else:
                 max_rows = 1
             self.hcount = min(

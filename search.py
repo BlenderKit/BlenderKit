@@ -1121,7 +1121,7 @@ def search(get_next=False, query=None, author_id=""):
 
     active_history_step["is_searching"] = True
 
-    page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
+    page_size = min(40, ui_props.wcount * user_preferences.maximized_assetbar_rows + 5)
 
     next_url = ""
     if get_next and active_history_step.get("search_results_orig"):

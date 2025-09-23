@@ -71,7 +71,7 @@ class Test01Registration(unittest.TestCase):
             # GUI
             "show_on_start": user_preferences.show_on_start,
             "thumb_size": user_preferences.thumb_size,
-            "max_assetbar_rows": user_preferences.max_assetbar_rows,
+            "maximized_assetbar_rows": user_preferences.maximized_assetbar_rows,
             "search_field_width": user_preferences.search_field_width,
             "search_in_header": user_preferences.search_in_header,
             "tips_on_start": user_preferences.tips_on_start,

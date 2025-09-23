@@ -2220,11 +2220,11 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
-    max_assetbar_rows: IntProperty(
+    maximized_assetbar_rows: IntProperty(
         name="Maximized Assetbar Rows",
         description="Maximum rows of assetbar in the 3D view when expanded",
         default=4,
-        min=1,
+        min=2,
         max=20,
         update=utils.save_prefs,
     )
@@ -2379,7 +2379,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.label(text="GUI settings")
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
-        gui_settings.prop(self, "max_assetbar_rows")
+        gui_settings.prop(self, "maximized_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
         gui_settings.prop(self, "sidebar_panels")
