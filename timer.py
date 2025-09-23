@@ -133,7 +133,7 @@ def client_communication_timer():
         reports.add_report(
             f"Blender is in restricted draw state, appending downloaded objects will be delayed. This might be caused by other addons.",
             type="INFO",
-            timeout=1.5,
+            timeout=0.4,
         )
         timer_blocked_count += 1
     else:
