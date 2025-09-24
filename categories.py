@@ -124,6 +124,7 @@ def handle_categories_task(task: client_tasks.Task):
         "BRUSH": ["brush"],
         "NODEGROUP": ["nodegroup"],
         "PRINTABLE": ["printable"],
+        "ADDON": ["addon"],
     }
 
     if task.status == "finished":

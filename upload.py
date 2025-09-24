@@ -32,22 +32,43 @@ from bpy.props import (  # TODO only keep the ones actually used when cleaning
 )
 from bpy.types import Operator
 
-from . import (
-    asset_bar_op,
-    asset_inspector,
-    autothumb,
-    categories,
-    client_lib,
-    client_tasks,
-    global_vars,
-    image_utils,
-    overrides,
-    paths,
-    reports,
-    ui_panels,
-    utils,
-    search,
-)
+# Handle imports for both package and standalone execution
+try:
+    from . import (
+        asset_bar_op,
+        asset_inspector,
+        autothumb,
+        categories,
+        client_lib,
+        client_tasks,
+        global_vars,
+        image_utils,
+        overrides,
+        paths,
+        reports,
+        ui_panels,
+        utils,
+        search,
+    )
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+    import asset_bar_op
+    import asset_inspector
+    import autothumb
+    import categories
+    import client_lib
+    import client_tasks
+    import global_vars
+    import image_utils
+    import overrides
+    import paths
+    import reports
+    import ui_panels
+    import utils
+    import search
 
 
 NAME_MINIMUM = 3

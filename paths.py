@@ -27,7 +27,15 @@ import tempfile
 
 import bpy
 
-from . import client_lib, global_vars, reports, utils
+# Handle imports for both package and standalone execution
+try:
+    from . import client_lib, global_vars, reports, utils
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+    import client_lib, global_vars, reports, utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -45,6 +53,7 @@ BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
 BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-brush/"
 BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-hdr/"
 BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-scene/"
+BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-addon/"
 BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
 BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
@@ -152,6 +161,7 @@ def get_download_dirs(asset_type):
         "hdr": "hdrs",
         "nodegroup": "nodegroups",
         "printable": "printables",
+        "addon": "addons",
     }
 
     dirs = []

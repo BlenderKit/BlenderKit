@@ -32,20 +32,41 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
-from . import (
-    asset_bar_op,
-    client_lib,
-    client_tasks,
-    comments_utils,
-    datas,
-    global_vars,
-    image_utils,
-    paths,
-    reports,
-    resolutions,
-    tasks_queue,
-    utils,
-)
+# Handle imports for both package and standalone execution
+try:
+    from . import (
+        asset_bar_op,
+        client_lib,
+        client_tasks,
+        comments_utils,
+        datas,
+        download,
+        global_vars,
+        image_utils,
+        paths,
+        reports,
+        resolutions,
+        tasks_queue,
+        utils,
+    )
+except ImportError:
+    # Fallback for when running as standalone script
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+    import asset_bar_op
+    import client_lib
+    import client_tasks
+    import comments_utils
+    import datas
+    import download
+    import global_vars
+    import image_utils
+    import paths
+    import reports
+    import resolutions
+    import tasks_queue
+    import utils
 
 
 bk_logger = logging.getLogger(__name__)
@@ -166,6 +187,8 @@ def check_clipboard():
         target_asset_type = "PRINTABLE"
     elif asset_type_string.find("nodegroup") > -1:
         target_asset_type = "NODEGROUP"
+    elif asset_type_string.find("addon") > -1 or asset_type_string.find("add-on") > -1:
+        target_asset_type = "ADDON"
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type != target_asset_type:
         ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type
@@ -388,6 +411,20 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         if comments is None:
             client_lib.get_comments(asset_data["assetBaseId"])
+
+    # Apply addon-specific status checking and filtering if needed
+    if ui_props.asset_type == "ADDON":
+        # Always process addon search results to store installation status
+        result_field = filter_addon_search_results(
+            result_field, filter_installed_only=False
+        )
+
+        addon_props = bpy.context.window_manager.blenderkit_addon
+        if addon_props.search_installed:
+            # Filter to only show installed addons
+            result_field = [
+                asset for asset in result_field if asset.get("downloaded", 0) > 0
+            ]
 
     # Store results in history step
     history_step["search_results"] = result_field
@@ -744,7 +781,10 @@ def query_to_url(
             # for validators, sort uploaded from oldest
             order.append("last_blend_upload")
         else:
-            order.append("-last_blend_upload")
+            if query.get("asset_type") == "addon":
+                order.append("-created")
+            else:
+                order.append("-last_blend_upload")
     elif (
         query.get("author_id") is not None
         or query.get("query", "").find("+author_id:") > -1
@@ -913,6 +953,68 @@ def build_query_nodegroup(
     """Pure function to construct search query dict for nodegroups."""
     query = {"asset_type": "nodegroup"}
     return build_query_common(query, props, ui_props)
+
+
+def build_query_addon(props, ui_props) -> dict:
+    """Pure function to construct search query dict for addons."""
+    query = {"asset_type": "addon"}
+    return build_query_common(query, props, ui_props)
+
+
+def filter_addon_search_results(search_results, filter_installed_only=False):
+    """
+    Filter addon search results based on local installation status.
+    This is called after search results arrive since installation info isn't stored on server.
+    Also stores installation and enablement status in the search results data.
+
+    Args:
+        search_results: List of addon asset data from search
+        filter_installed_only: If True, only return installed addons
+
+    Returns:
+        Filtered list of add-on assets with installation status stored
+    """
+
+    filtered_results = []
+
+    for asset in search_results:
+        if asset.get("assetType") != "addon":
+            # Skip non-addon assets (shouldn't happen in addon search but safety check)
+            if not filter_installed_only:
+                filtered_results.append(asset)
+            continue
+
+        # Check installation and enablement status for addon
+        try:
+            status = download.get_addon_installation_status(asset)
+            is_installed = status.get("installed", False)
+            is_enabled = status.get("enabled", False)
+
+            # Store installation status in asset data using existing 'downloaded' field
+            # Use 100 for installed, 0 for not installed (matching existing pattern)
+            asset["downloaded"] = 100 if is_installed else 0
+
+            # Store enablement status in new 'enabled' field
+            asset["enabled"] = is_enabled
+
+            if filter_installed_only:
+                if is_installed:
+                    filtered_results.append(asset)
+            else:
+                filtered_results.append(asset)
+
+        except Exception as e:
+            # If we can't determine status, mark as not installed/enabled
+            bk_logger.warning(
+                f"Could not determine installation status for addon {asset.get('name', 'Unknown')}: {e}"
+            )
+            asset["downloaded"] = 0
+            asset["enabled"] = False
+
+            if not filter_installed_only:
+                filtered_results.append(asset)
+
+    return filtered_results
 
 
 def add_search_process(
@@ -1092,6 +1194,12 @@ def search(get_next=False, query=None, author_id=""):
                 ui_props=bpy.context.window_manager.blenderkitUI,
             )
 
+        if ui_props.asset_type == "ADDON":
+            query = build_query_addon(
+                props=bpy.context.window_manager.blenderkit_addon,
+                ui_props=bpy.context.window_manager.blenderkitUI,
+            )
+
         # crop long searches
         if query.get("query"):
             if len(query["query"]) > 50:
@@ -1217,6 +1325,8 @@ def update_filters():
         sprops.use_filters = sprops.true_hdr
     elif ui_props.asset_type == "NODEGROUP":
         sprops.use_filters = fcommon
+    elif ui_props.asset_type == "ADDON":
+        sprops.use_filters = fcommon
     return True
 
 
@@ -1265,6 +1375,8 @@ def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
         "nodegroup": "NODEGROUP",
         "node": "NODEGROUP",
         "printable": "PRINTABLE",
+        "addon": "ADDON",
+        "extension": "ADDON",
     }
 
     # Convert to lowercase for matching
@@ -1342,6 +1454,8 @@ def search_update(self, context):
                 target_asset_type = "NODEGROUP"
             elif asset_type_string.find("printable") > -1:
                 target_asset_type = "PRINTABLE"
+            elif asset_type_string.find("addon") > -1:
+                target_asset_type = "ADDON"
 
             if ui_props.asset_type != target_asset_type:
                 ui_props.search_keywords = ""
@@ -1640,6 +1754,8 @@ def get_ui_state():
         store_props = store_scene_props
     elif asset_type == "PRINTABLE":
         store_props = store_model_props
+    elif asset_type == "ADDON":
+        store_props = []  # Addons don't need to store specific props
 
     search_props = utils.get_search_props()
 
@@ -1648,6 +1764,13 @@ def get_ui_state():
     for prop_name in store_props:
         if prop_name != "rna_type":
             ui_state["search_props"][prop_name] = getattr(search_props, prop_name)
+
+    # Store addon-specific search properties
+    if ui_props.asset_type == "ADDON":
+        addon_props = bpy.context.window_manager.blenderkit_addon
+        ui_state["addon_props"] = {
+            "search_installed": addon_props.search_installed,
+        }
 
     return ui_state
 

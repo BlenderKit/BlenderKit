@@ -28,12 +28,14 @@ from bpy.props import BoolProperty, StringProperty
 from . import (
     comments_utils,
     global_vars,
+    override_extension_draw,
     paths,
     ratings_utils,
     search,
     ui,
     ui_panels,
     utils,
+    colors,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
@@ -366,9 +368,6 @@ BL_UI_Button.set_mouse_down_right = set_mouse_down_right  # type: ignore[attr-de
 asset_bar_operator = None
 
 
-# BL_UI_Button.handle_event = handle_event
-
-
 def get_tooltip_data(asset_data):
     tooltip_data = asset_data.get("tooltip_data")
     if tooltip_data is not None:
@@ -382,10 +381,14 @@ def get_tooltip_data(asset_data):
             if len(author.firstName) > 0 or len(author.lastName) > 0:
                 author_text = f"by {author.firstName} {author.lastName}"
         else:
-            print("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
+            bk_logger.warning(f"get_tooltip_data() AUTHOR NOT FOUND: {author_id}")
 
     aname = asset_data["displayName"]
-    aname = aname[0].upper() + aname[1:]
+    if len(aname) == 0:
+        # this shouldn't happen, but obviously did on server in addons section.
+        aname = ""
+    else:
+        aname = aname[0].upper() + aname[1:]
     if len(aname) > 36:
         aname = f"{aname[:33]}..."
 
@@ -397,10 +400,42 @@ def get_tooltip_data(asset_data):
         rcount = min(rc.get("quality", 0), rc.get("workingHours", 0))
     if rcount > show_rating_threshold:
         quality = str(round(asset_data["ratingsAverage"].get("quality")))
+
+    # Add pricing information
+    price_text = ""
+    price_color = colors.WHITE
+
+    # Check if asset is free or paid (works for all asset types)
+    is_free = asset_data.get("isFree", True)
+    can_download = asset_data.get("canDownload", True)
+
+    if asset_data.get("assetType") == "addon":
+        # Get pricing info from extensions cache.
+        # Pricing info is shown only for add-ons.
+        base_price = asset_data.get("basePrice")
+        is_for_sale = asset_data.get("isForSale")
+
+        if is_for_sale and not can_download and base_price:
+            price_text = f"${base_price}"
+            price_color = colors.PURPLE
+        elif not is_free and not is_for_sale:
+            price_text = "Full Plan"
+            price_color = colors.PURPLE
+        elif (
+            is_for_sale and can_download
+        ):  # purchased, but not yet downloaded, so we can't show price
+            price_text = f"Purchased (${base_price})"
+            price_color = colors.PURPLE
+        else:
+            price_text = "Free"
+            price_color = colors.GREEN_FREE
+
     tooltip_data = {
         "aname": aname,
         "author_text": author_text,
         "quality": quality,
+        "price_text": price_text,
+        "price_color": price_color,
     }
     asset_data["tooltip_data"] = tooltip_data
 
@@ -576,6 +611,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.tooltip_widgets.append(quality_label)
         self.quality_label = quality_label
+
+        # Add price label for addons
+        price_label = self.new_text(
+            "",
+            self.tooltip_margin,
+            self.tooltip_height
+            - int(self.asset_name_text_size + 2 * self.tooltip_margin),
+            height=self.asset_name_text_size,
+            text_size=self.asset_name_text_size,
+        )
+        price_label.text_color = (1.0, 0.8, 0.2, 1.0)  # Golden color for price
+        self.tooltip_widgets.append(price_label)
+        self.price_label = price_label
 
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         offset = 0
@@ -970,7 +1018,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         new_button.bookmark_button = bookmark_button
         self.bookmark_buttons.append(bookmark_button)
         progress_bar = BL_UI_Widget(
-            asset_x, asset_y + self.button_size - 3, self.button_size, 3
+            asset_x, asset_y + self.button_size - 6, self.button_size, 6
         )
         progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
         new_button.progress_bar = progress_bar
@@ -1355,7 +1403,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_y + self.button_margin + self.validation_icon_margin,
                 )
                 button.progress_bar.set_location(
-                    asset_x, asset_y + self.button_size - 3
+                    asset_x, asset_y + self.button_size - 6
                 )
                 if asset_idx < len(sr):
                     button.visible = True
@@ -1610,10 +1658,28 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             self.asset_name.text = an
             self.authors_name.text = asset_data["tooltip_data"]["author_text"]
-            quality_text = asset_data["tooltip_data"]["quality"]
-            if utils.profile_is_validator():
-                quality_text += f" / {int(asset_data['score'])}"
-            self.quality_label.text = quality_text
+
+            # Hide ratings for addons
+            is_addon = asset_data.get("assetType") == "addon"
+            if not is_addon:
+                quality_text = asset_data["tooltip_data"]["quality"]
+                if utils.profile_is_validator():
+                    quality_text += f" / {int(asset_data['score'])}"
+                self.quality_label.text = quality_text
+                self.quality_label.visible = True
+                self.quality_star.visible = True
+            else:
+                self.quality_label.visible = False
+                self.quality_star.visible = False
+
+            # Update price label for addons
+            price_text = asset_data["tooltip_data"].get("price_text", "")
+            price_color = asset_data["tooltip_data"].get(
+                "price_color", (1.0, 0.8, 0.2, 1.0)
+            )
+            self.price_label.text = price_text
+            self.price_label.text_color = price_color
+            self.price_label.visible = bool(price_text)
 
             # preview comments for validators
             self.update_comments_for_validators(asset_data)
@@ -1772,12 +1838,28 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bookmark_button.set_image(img_fp)
 
     def update_progress_bar(self, asset_button, asset_data):
-        """Update progress bar for an asset button."""
-        pb = asset_button.progress_bar
-        if pb is None:
-            return
+        if asset_data["downloaded"] > 0:
+            pb = asset_button.progress_bar
 
-        if asset_data["downloaded"] == 0:
+            # For addons, always show full bar when installed, with color based on enabled status
+            if asset_data.get("assetType") == "addon":
+                w = self.button_size  # Full width for installed addons
+                is_enabled = asset_data.get("enabled", False)
+                if is_enabled:
+                    # Green for installed and enabled addons
+                    asset_button.progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
+                else:
+                    # Pale blue for installed but disabled addons
+                    asset_button.progress_bar.bg_color = (0.5, 0.8, 1.0, 0.3)
+            else:
+                # For other asset types, use existing progress-based width and green color
+                w = int(self.button_size * asset_data["downloaded"] / 100.0)
+                asset_button.progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
+
+            asset_button.progress_bar.width = w
+            asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
+            asset_button.progress_bar.visible = True
+        else:
             asset_button.progress_bar.visible = False
             return
 
@@ -1806,12 +1888,38 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             else:
                 asset_button.validation_icon.visible = False
         else:
-            if asset_data.get("canDownload", True) == 0:
-                img_fp = paths.get_addon_thumbnail_path("locked.png")
-                asset_button.validation_icon.set_image(img_fp)
-                asset_button.validation_icon.visible = True
+            # Check for addon-specific purchasing information
+            if asset_data.get("assetType") == "addon":
+                # For addons, check purchasing status like in extension override
+                can_download = asset_data.get(
+                    "canDownload"
+                )  # Note: corrected field name
+                is_free = asset_data.get("isFree")  # Note: corrected field name
+
+                # Get pricing info from extensions cache
+                base_price = asset_data.get("basePrice")
+                is_for_sale = asset_data.get("isForSale")
+
+                # Locked addons: for sale but not downloadable (not purchased)
+                if is_for_sale and not can_download:
+                    img_fp = paths.get_addon_thumbnail_path("locked.png")
+                    asset_button.validation_icon.set_image(img_fp)
+                    asset_button.validation_icon.visible = True
+                # Full plan addons: not free and not for sale (subscription required)
+                elif not is_free and not is_for_sale:
+                    img_fp = paths.get_addon_thumbnail_path("locked.png")
+                    asset_button.validation_icon.set_image(img_fp)
+                    asset_button.validation_icon.visible = True
+                else:
+                    asset_button.validation_icon.visible = False
             else:
-                asset_button.validation_icon.visible = False
+                # Regular asset lock logic
+                if asset_data.get("canDownload", True) == 0:
+                    img_fp = paths.get_addon_thumbnail_path("locked.png")
+                    asset_button.validation_icon.set_image(img_fp)
+                    asset_button.validation_icon.visible = True
+                else:
+                    asset_button.validation_icon.visible = False
 
     def update_image(self, asset_id):
         """should be run after thumbs are retrieved so they can be updated"""
