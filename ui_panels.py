@@ -271,6 +271,7 @@ def draw_common_filters(layout, ui_props):
     layout.prop(ui_props, "free_only")
     layout.prop(ui_props, "quality_limit", slider=True)
     layout.prop(ui_props, "search_license")
+    layout.prop(ui_props, "search_order_by")
 
 
 def draw_thumbnail_upload_panel(layout, props):
@@ -1395,6 +1396,9 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         # NSFW filter
         layout.prop(preferences, "nsfw_filter")
 
+        # ORDER
+        layout.prop(ui_props, "search_order_by")
+
     def draw(self, context):
         self.draw_layout(self.layout)
 
@@ -1453,6 +1457,9 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
             row.prop(props, "search_file_size_max", text="Max")
         layout.prop(ui_props, "quality_limit", slider=True)
         layout.prop(ui_props, "search_license")
+
+        # ORDER
+        layout.prop(ui_props, "search_order_by")
 
     def draw(self, context):
         self.draw_layout(self.layout)
@@ -3791,7 +3798,7 @@ def header_search_draw(self, context):
         icon_value=icon_id,
     )
 
-    # FILTER ICON
+    # FILTER ICON: filters are default or modified
     if props.use_filters:
         icon_id = pcoll["filter_active"].icon_id
     else:

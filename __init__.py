@@ -380,6 +380,61 @@ class BlenderKitUIProps(PropertyGroup):
         max=10,
         update=search.search_update_delayed,
     )
+    search_order_by: EnumProperty(
+        name="Order",
+        description="Order the search results",
+        items=(
+            (
+                "default",
+                "Default",
+                "Sets the sorting algorithm dynamically based on the context of other search filters. This is the default behaviour well known from BlenderKit 3.16.1 and less.",
+            ),
+            ("-created", "Newest", "Sort the results from newest to oldest."),
+            ("created", "Oldest", "Sort the results from oldest to newest."),
+            (
+                "-bookmarks",
+                "▼ Bookmarks",
+                "Sort the results from most bookmarked to least.",
+            ),
+            (
+                "bookmarks",
+                "▲ Bookmarks",
+                "Sort the results from least bookmarked to most.",
+            ),
+            (
+                "-score",
+                "▼ Score",
+                "Sort the results from highest asset score to lowest.",
+            ),
+            (
+                "score",
+                "▲ Score",
+                "Sort the results from lowest asset score to highest.",
+            ),
+            (
+                "-working_hours",
+                "▼ Complexity",
+                "Sort the results from most complex to lest.",
+            ),
+            (
+                "working_hours",
+                "▲ Complexity",
+                "Sort the results from least complex to most.",
+            ),
+            (
+                "-quality",
+                "▼ Quality",
+                "Sort the results from highest quality rating to lowest.",
+            ),
+            (
+                "quality",
+                "▲ Quality",
+                "Sort the results from lowest quality rating to highest.",
+            ),
+        ),
+        default="default",
+        update=search.search_update,
+    )
     search_license: EnumProperty(
         name="License",
         items=(
