@@ -21,16 +21,7 @@ from os import environ
 from subprocess import Popen
 from typing import Any, Optional
 
-# Handle imports for both package and standalone execution
-try:
-    from . import datas
-except ImportError:
-    # Fallback for when running as standalone script
-    import sys
-    import os
-
-    sys.path.insert(0, os.path.dirname(__file__))
-    import datas
+from . import datas
 
 
 CLIENT_VERSION = "v1.6.0"

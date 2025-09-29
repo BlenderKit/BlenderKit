@@ -32,41 +32,21 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
-# Handle imports for both package and standalone execution
-try:
-    from . import (
-        asset_bar_op,
-        client_lib,
-        client_tasks,
-        comments_utils,
-        datas,
-        download,
-        global_vars,
-        image_utils,
-        paths,
-        reports,
-        resolutions,
-        tasks_queue,
-        utils,
-    )
-except ImportError:
-    # Fallback for when running as standalone script
-    import sys
-    import os
-    sys.path.insert(0, os.path.dirname(__file__))
-    import asset_bar_op
-    import client_lib
-    import client_tasks
-    import comments_utils
-    import datas
-    import download
-    import global_vars
-    import image_utils
-    import paths
-    import reports
-    import resolutions
-    import tasks_queue
-    import utils
+from . import (
+    asset_bar_op,
+    client_lib,
+    client_tasks,
+    comments_utils,
+    datas,
+    download,
+    global_vars,
+    image_utils,
+    paths,
+    reports,
+    resolutions,
+    tasks_queue,
+    utils,
+)
 
 
 bk_logger = logging.getLogger(__name__)
