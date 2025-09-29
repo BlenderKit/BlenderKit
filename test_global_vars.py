@@ -9,16 +9,7 @@ for addon in bpy.context.preferences.addons:
         __package__ = addon.module
         break
 
-# Handle imports for both package and standalone execution
-try:
-    from . import global_vars
-except ImportError:
-    # Fallback for when running as standalone script
-    import sys
-    import os
-
-    sys.path.insert(0, os.path.dirname(__file__))
-    import global_vars
+from . import global_vars
 
 
 class TestVersions(unittest.TestCase):
