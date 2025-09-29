@@ -9,27 +9,8 @@ The original method is then called from the new method, with the same arguments,
 import json
 import os
 import bpy
+import bl_pkg.bl_extension_ui as exui
 from . import icons
-
-# Handle bl_pkg import gracefully for testing environments
-try:
-    import bl_pkg.bl_extension_ui as exui
-except ImportError:
-    # Create a mock module for testing environments where bl_pkg is not available
-    class MockExtensionUI:
-        def extension_draw_item_original(self, *args, **kwargs):
-            pass
-
-        def pkg_repo_module_prefix(self, repo_item):
-            return ""
-
-        def domain_extract_from_url(self, url):
-            return url
-
-        def size_as_fmt_string(self, size):
-            return f"{size} bytes"
-
-    exui = MockExtensionUI()
 from bl_ui.space_userpref import (
     USERPREF_PT_addons,
     USERPREF_PT_extensions,
