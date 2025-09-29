@@ -28,7 +28,6 @@ from bpy.props import BoolProperty, StringProperty
 from . import (
     comments_utils,
     global_vars,
-    override_extension_draw,
     paths,
     ratings_utils,
     search,
@@ -37,6 +36,8 @@ from . import (
     utils,
     colors,
 )
+
+
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
