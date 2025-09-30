@@ -408,7 +408,7 @@ class BlenderKitUIProps(PropertyGroup):
     )
     search_blender_version_max: StringProperty(
         name="Maximum version (excluding, lower than)",
-        default="4.99",
+        default="5.99",
         description="Limit the assets by maximum version of Blender in which they were created, exluding the specified version and all newer versions from the search results. "
         + "Only assets created in LOWER THAN (< max) maximum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
         + "E.g.: exclude all Blender 4 assets by specifying 4, 4.0, or 4.0.0. Assets created in 3.6 and lower will be shown",
