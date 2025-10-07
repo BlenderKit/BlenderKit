@@ -16,16 +16,23 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import addon_utils
 import copy
+import json
 import logging
 import os
 import shutil
+import tempfile
 import time
+import urllib.request
+
 
 from . import (
     append_link,
     client_lib,
     client_tasks,
+    global_vars,
+    override_extension_draw,
     paths,
     reports,
     resolutions,
@@ -34,6 +41,17 @@ from . import (
     utils,
 )
 
+
+import bpy
+from bpy.app.handlers import persistent
+from bpy.props import (
+    BoolProperty,
+    EnumProperty,
+    FloatVectorProperty,
+    FloatProperty,
+    IntProperty,
+    StringProperty,
+)
 
 bk_logger = logging.getLogger(__name__)
 
@@ -49,8 +67,6 @@ def get_addon_installation_status(asset_data):
             "cached_pkg": dict or None
         }
     """
-    import bpy
-    from . import override_extension_draw
 
     # Get the correct package ID
     extension_id = asset_data.get("dictParameters", {}).get("extensionId")
@@ -63,7 +79,6 @@ def get_addon_installation_status(asset_data):
         }
 
         # Check if addon is installed and enabled using Blender's addon system
-    import addon_utils
 
     # Method 1: Check if it's in the enabled addons list
     # For new extension system, addons have format: bl_ext.repository_name.package_name
@@ -152,7 +167,6 @@ def get_addon_installation_status(asset_data):
     # Method 4: Check through Blender's extension repositories directly
     if not is_installed:
         try:
-            from . import global_vars
 
             # Look for BlenderKit repository and check its packages
             for repo in bpy.context.preferences.extensions.repos:
@@ -226,9 +240,6 @@ def call_extension_operator_with_ui_context(context, operator_func, *args, **kwa
 
 def install_addon_from_url(asset_data):
     """Install an addon using Blender's extensions API with proper parameters."""
-    import bpy
-    from . import global_vars
-    from . import override_extension_draw
 
     addon_name = asset_data.get("name", "Unknown Addon")
     asset_id = asset_data.get("id", "")
@@ -385,8 +396,6 @@ def install_addon_from_url(asset_data):
 
         if download_url:
             # Download the file temporarily and install from file
-            import tempfile
-            import urllib.request
 
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
                 try:
@@ -410,7 +419,6 @@ def install_addon_from_url(asset_data):
                         )
                 finally:
                     # Clean up temporary file
-                    import os
 
                     try:
                         os.unlink(tmp_file.name)
@@ -427,18 +435,6 @@ def install_addon_from_url(asset_data):
     except Exception as e:
         bk_logger.error(f"Failed to install addon '{addon_name}': {e}")
         raise Exception(f"Failed to install addon '{addon_name}': {e}")
-
-
-import bpy
-from bpy.app.handlers import persistent
-from bpy.props import (
-    BoolProperty,
-    EnumProperty,
-    FloatVectorProperty,
-    FloatProperty,
-    IntProperty,
-    StringProperty,
-)
 
 
 download_tasks = {}
@@ -511,7 +507,6 @@ def check_unused():
 
 def get_temp_enabled_addons():
     """Get list of temporarily enabled addons from preferences."""
-    import json
 
     try:
         prefs = bpy.context.preferences.addons[__package__].preferences
@@ -524,7 +519,6 @@ def get_temp_enabled_addons():
 
 def set_temp_enabled_addons(addon_list):
     """Save list of temporarily enabled addons to preferences."""
-    import json
 
     try:
         prefs = bpy.context.preferences.addons[__package__].preferences
@@ -545,7 +539,6 @@ def add_temp_enabled_addon(pkg_id):
 
 def cleanup_temp_enabled_addons():
     """Disable temporarily enabled addons."""
-    import bpy
 
     try:
         temp_enabled = get_temp_enabled_addons()
@@ -590,7 +583,6 @@ def scene_save(context):
 
 def refresh_addon_search_results_status():
     """Refresh installation status in addon search results after installation operations."""
-    from . import search
 
     try:
         # Get current search results
@@ -1806,8 +1798,6 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
     )
 
     def execute(self, context):
-        import json
-        from . import global_vars
 
         try:
             asset_data = json.loads(self.asset_data)
@@ -2015,7 +2005,6 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
     )
 
     def draw(self, context):
-        import json
 
         layout = self.layout
 
@@ -2055,8 +2044,6 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
         return wm.invoke_props_dialog(self, width=350)
 
     def execute(self, context):
-        import json
-        from . import global_vars
 
         try:
             asset_data = json.loads(self.asset_data)
@@ -2539,7 +2526,6 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
         # Handle addon assets with popup
         if asset_type == "addon":
-            import json
 
             bpy.ops.scene.blenderkit_addon_choice(
                 "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
