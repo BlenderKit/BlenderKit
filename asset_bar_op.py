@@ -26,6 +26,7 @@ import bpy
 from bpy.props import BoolProperty, StringProperty
 
 from . import (
+    colors,
     comments_utils,
     global_vars,
     paths,
@@ -34,10 +35,7 @@ from . import (
     ui,
     ui_panels,
     utils,
-    colors,
 )
-
-
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
@@ -1783,8 +1781,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bookmark_button.set_image(img_fp)
 
     def update_progress_bar(self, asset_button, asset_data):
+        """Update the progress bar for an each button in asset bar.
+        For assets shows progress, for addons by nowonly full bar is shown.
+        Enabled addons are shown in green, disabled but installed in blue."""
+        pb = asset_button.progress_bar
         if asset_data["downloaded"] > 0:
-            pb = asset_button.progress_bar
 
             # For addons, always show full bar when installed, with color based on enabled status
             if asset_data.get("assetType") == "addon":
@@ -1792,26 +1793,26 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 is_enabled = asset_data.get("enabled", False)
                 if is_enabled:
                     # Green for installed and enabled addons
-                    asset_button.progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
+                    pb.bg_color = colors.GREEN
                 else:
                     # Pale blue for installed but disabled addons
-                    asset_button.progress_bar.bg_color = (0.5, 0.8, 1.0, 0.3)
+                    pb.bg_color = colors.BLUE
             else:
                 # For other asset types, use existing progress-based width and green color
                 w = int(self.button_size * asset_data["downloaded"] / 100.0)
-                asset_button.progress_bar.bg_color = (0.0, 1.0, 0.0, 0.3)
+                pb.bg_color = colors.GREEN
 
-            asset_button.progress_bar.width = w
-            asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
-            asset_button.progress_bar.visible = True
+            pb.width = w
+            pb.update(pb.x_screen, pb.y_screen)
+            pb.visible = True
         else:
-            asset_button.progress_bar.visible = False
+            pb.visible = False
             return
 
         w = int(self.button_size * asset_data["downloaded"] / 100.0)
-        asset_button.progress_bar.width = w
-        asset_button.progress_bar.update(pb.x_screen, pb.y_screen)
-        asset_button.progress_bar.visible = True
+        pb.width = w
+        pb.update(pb.x_screen, pb.y_screen)
+        pb.visible = True
         if bpy.context.region is not None:
             bpy.context.region.tag_redraw()
 
@@ -1833,15 +1834,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             else:
                 asset_button.validation_icon.visible = False
         else:
-            # Check for addon-specific purchasing information
             if asset_data.get("assetType") == "addon":
-                # For addons, check purchasing status like in extension override
-                can_download = asset_data.get(
-                    "canDownload"
-                )  # Note: corrected field name
-                is_free = asset_data.get("isFree")  # Note: corrected field name
+                # Check for addon-specific purchasing information
 
-                # Get pricing info from extensions cache
+                can_download = asset_data.get("canDownload")
+                is_free = asset_data.get("isFree")
                 base_price = asset_data.get("basePrice")
                 is_for_sale = asset_data.get("isForSale")
 

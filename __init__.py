@@ -299,7 +299,6 @@ def asset_type_callback(self, context):
         ]
 
         # Only add addon option for Blender 4.2+
-        import bpy
 
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-ons", "Find add-ons", "PLUGIN", 7))
@@ -321,7 +320,6 @@ def asset_type_callback(self, context):
         ]
 
         # Only add addon option for Blender 4.2+
-        import bpy
 
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-on", "Upload an addon", "PLUGIN", 7))

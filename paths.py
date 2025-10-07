@@ -45,7 +45,7 @@ BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
 BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-brush/"
 BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-hdr/"
 BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-scene/"
-BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-addon/"
+BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/add-ons-upload-beta/"
 BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
 BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
