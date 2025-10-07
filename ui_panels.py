@@ -1907,7 +1907,7 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             return draw_panel_nodegroup_upload(self, context)
 
         if ui_props.asset_type == "ADDON":
-            layout.label(text="Addon uploads are managed through")
+            layout.label(text="Add-on uploads are managed through")
             layout.label(text="the BlenderKit website.")
             op = layout.operator(
                 "wm.url_open", text="Go to BlenderKit Website", icon="URL"
@@ -2566,15 +2566,15 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         box.separator()
 
         if self.asset_data.get("license") == "cc_zero":
-            t = "CC Zero          "
+            text = "CC Zero          "
             icon = pcoll["cc0"]
         else:
-            t = "Royalty free"
+            text = "Royalty free"
             icon = pcoll["royalty_free"]
         self.draw_property(
             box,
             "License",
-            t,
+            text,
             # icon_value=icon.icon_id,
             url=f"{global_vars.SERVER}/docs/licenses/",
             tooltip="All BlenderKit assets are available for commercial use. \n"
@@ -2668,8 +2668,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.draw_asset_parameter(box, key="modelStyle", pretext="Style")
 
         if utils.get_param(self.asset_data, "dimensionX"):
-            t = utils.fmt_dimensions(mparams)
-            self.draw_property(box, "Size", t)
+            text = utils.fmt_dimensions(mparams)
+            self.draw_property(box, "Size", text)
         if self.asset_data.get("filesSize"):
             fs = self.asset_data["filesSize"] * 1024
             # multiply because the number is reduced when search is done to avoind C intiger limit with large files
@@ -2719,7 +2719,6 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         # Special pricing display for addons
         if self.asset_data.get("assetType") == "addon":
-            from . import asset_bar_op
 
             can_download = self.asset_data.get("canDownload")
             is_free = self.asset_data.get("isFree")
@@ -2729,46 +2728,46 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             is_for_sale = self.asset_data.get("isForSale")
 
             if self.asset_data["isPrivate"]:
-                t = "Private"
-                self.draw_property(box, "Access", t, icon="LOCKED")
+                text = "Private"
+                self.draw_property(box, "Access", text, icon="LOCKED")
             elif is_for_sale and not can_download and base_price:
-                t = f"${base_price} (Not purchased)"
+                text = f"${base_price} (Not purchased)"
                 icon = pcoll["full"]
                 self.draw_property(
                     box,
                     "Price",
-                    t,
+                    text,
                     icon_value=icon.icon_id,
                     tooltip="This addon is for sale but you haven't purchased it yet",
                 )
             elif is_for_sale and can_download and base_price:
-                t = f"${base_price} (Purchased)"
+                text = f"${base_price} (Purchased)"
                 icon = pcoll["full"]
                 self.draw_property(
                     box,
                     "Price",
-                    t,
+                    text,
                     icon_value=icon.icon_id,
                     tooltip="You have purchased this addon",
                 )
             elif not is_free and not is_for_sale:
-                t = "Full plan required"
+                text = "Full plan required"
                 icon = pcoll["full"]
                 self.draw_property(
                     box,
                     "Access",
-                    t,
+                    text,
                     icon_value=icon.icon_id,
                     tooltip=plans_tooltip,
                     url=paths.BLENDERKIT_PLANS_URL,
                 )
             else:
-                t = "Free"
+                text = "Free"
                 icon = pcoll["free"]
                 self.draw_property(
                     box,
                     "Access",
-                    t,
+                    text,
                     icon_value=icon.icon_id,
                     tooltip="This addon is free to use",
                 )
@@ -2777,6 +2776,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             dict_params = self.asset_data.get("dictParameters", {})
             min_version = dict_params.get("blenderVersionMin")
             max_version = dict_params.get("blenderVersionMax")
+            min_version_tuple = tuple(map(int, min_version.split(".")))
+            max_version_tuple = tuple(map(int, max_version.split(".")))
 
             if min_version or max_version:
                 version_text = ""
@@ -2794,26 +2795,12 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 is_compatible = True
 
                 if min_version:
-                    try:
-                        current_tuple = tuple(map(int, current_version.split(".")))
-                        min_tuple = tuple(map(int, min_version.split(".")))
-                        if current_tuple < min_tuple:
-                            is_compatible = False
-                    except (ValueError, AttributeError):
-                        bk_logger.debug(
-                            f"Version parsing failed for {current_version} and {min_version}"
-                        )
+                    if bpy.app.version < min_version_tuple:
+                        is_compatible = False
 
                 if max_version and is_compatible:
-                    try:
-                        current_tuple = tuple(map(int, current_version.split(".")))
-                        max_tuple = tuple(map(int, max_version.split(".")))
-                        if current_tuple > max_tuple:
-                            is_compatible = False
-                    except (ValueError, AttributeError):
-                        bk_logger.debug(
-                            f"Version parsing failed for {current_version} and {max_version}"
-                        )
+                    if bpy.app.version > max_version_tuple:
+                        is_compatible = False
 
                 # Display version requirement with appropriate warning
                 if not is_compatible:
@@ -2837,26 +2824,26 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         else:
             # Regular asset access display
             if self.asset_data["isPrivate"]:
-                t = "Private"
-                self.draw_property(box, "Access", t, icon="LOCKED")
+                text = "Private"
+                self.draw_property(box, "Access", text, icon="LOCKED")
             elif self.asset_data["isFree"]:
-                t = "Free plan"
+                text = "Free plan"
                 icon = pcoll["free"]
                 self.draw_property(
                     box,
                     "Access",
-                    t,
+                    text,
                     icon_value=icon.icon_id,
                     tooltip=plans_tooltip,
                     url=paths.BLENDERKIT_PLANS_URL,
                 )
             else:
-                t = "Full plan"
+                text = "Full plan"
                 icon = pcoll["full"]
                 self.draw_property(
                     box,
                     "Access",
-                    t,
+                    text,
                     icon_value=icon.icon_id,
                     tooltip=plans_tooltip,
                     url=paths.BLENDERKIT_PLANS_URL,
