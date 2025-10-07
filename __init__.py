@@ -382,54 +382,54 @@ class BlenderKitUIProps(PropertyGroup):
     )
     search_order_by: EnumProperty(
         name="Order",
-        description="Order the search results",
+        description="Search result order",
         items=(
             (
                 "default",
                 "Default",
-                "Sets the sorting algorithm dynamically based on the context of other search filters. This is the default behaviour well known from BlenderKit 3.16.1 and less.",
+                "By default, the sorting algorithm changes dynamically based on search filters.",
             ),
-            ("-created", "Newest", "Sort the results from newest to oldest."),
-            ("created", "Oldest", "Sort the results from oldest to newest."),
+            ("-created", "Newest", "Sort results from newest to oldest."),
+            ("created", "Oldest", "Sort results from oldest to newest."),
             (
                 "-bookmarks",
                 "▼ Bookmarks",
-                "Sort the results from most bookmarked to least.",
+                "Sort results from most bookmarked to least.",
             ),
             (
                 "bookmarks",
                 "▲ Bookmarks",
-                "Sort the results from least bookmarked to most.",
+                "Sort results from least bookmarked to most.",
             ),
             (
                 "-score",
                 "▼ Score",
-                "Sort the results from highest asset score to lowest.",
+                "Sort results from highest asset score to the lowest.",
             ),
             (
                 "score",
                 "▲ Score",
-                "Sort the results from lowest asset score to highest.",
+                "Sort results from lowest asset score to the highest.",
             ),
             (
                 "-working_hours",
                 "▼ Complexity",
-                "Sort the results from most complex to lest.",
+                "Sort results from most complex to the least.",
             ),
             (
                 "working_hours",
                 "▲ Complexity",
-                "Sort the results from least complex to most.",
+                "Sort results from least complex to the most.",
             ),
             (
                 "-quality",
                 "▼ Quality",
-                "Sort the results from highest quality rating to lowest.",
+                "Sort results from highest quality rating to the lowest.",
             ),
             (
                 "quality",
                 "▲ Quality",
-                "Sort the results from lowest quality rating to highest.",
+                "Sort results from lowest quality rating to the highest.",
             ),
         ),
         default="default",
