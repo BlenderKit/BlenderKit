@@ -32,7 +32,6 @@ from . import (
     client_lib,
     client_tasks,
     global_vars,
-    override_extension_draw,
     paths,
     reports,
     resolutions,
@@ -41,8 +40,9 @@ from . import (
     utils,
 )
 
-
 import bpy
+if bpy.app.version >= (4, 2, 0):
+    from . import override_extension_draw
 from bpy.app.handlers import persistent
 from bpy.props import (
     BoolProperty,
