@@ -30,7 +30,8 @@ import bpy
 from bpy.props import BoolProperty
 
 from . import client_lib, client_tasks, datas, global_vars, reports, tasks_queue, utils
-
+if bpy.app.version >= (4, 2, 0):
+    from . import override_extension_draw
 
 CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 REFRESH_RESERVE = 60 * 60 * 24 * 3  # 3 days
@@ -103,10 +104,9 @@ def clean_login_data():
     preferences.api_key_timeout = 0
     global_vars.BKIT_PROFILE = datas.MineProfile()
     # Cleanup also the api key in the extensions repository setting and clean the cache
-    from . import override_extension_draw
-
-    override_extension_draw.ensure_repository(api_key="")
-    override_extension_draw.clear_repo_cache()
+    if bpy.app.version >= (4, 2, 0):
+        override_extension_draw.ensure_repository(api_key="")
+        override_extension_draw.clear_repo_cache()
 
 
 def logout() -> None:
@@ -158,8 +158,6 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     preferences.api_key = auth_token  # triggers api_key update function
     # write token also to extensions repository setting and clear the cache
     if bpy.app.version >= (4, 2, 0):
-        from . import override_extension_draw
-
         override_extension_draw.ensure_repository(api_key=auth_token)
         override_extension_draw.clear_repo_cache()
 
