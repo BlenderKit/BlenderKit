@@ -27,7 +27,7 @@ class Prefs:
     unpack_files: bool
     show_on_start: bool
     thumb_size: int
-    max_assetbar_rows: int
+    maximized_assetbar_rows: int
     search_field_width: int
     search_in_header: bool
     tips_on_start: bool

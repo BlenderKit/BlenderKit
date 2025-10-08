@@ -341,15 +341,18 @@ def hdr_swap(name, hdr):
     :return: None
     """
     w = bpy.context.scene.world
-    if w:
+    if not w:
+        new_hdr_world(name, hdr)
+
+    if bpy.app.version < (5, 0, 0):
         w.use_nodes = True
-        w.name = name
-        nt = w.node_tree
-        for n in nt.nodes:
-            if "ShaderNodeTexEnvironment" == n.bl_rna.identifier:
-                env_node = n
-                env_node.image = hdr
-                return
+    w.name = name
+    nt = w.node_tree
+    for n in nt.nodes:
+        if "ShaderNodeTexEnvironment" == n.bl_rna.identifier:
+            env_node = n
+            env_node.image = hdr
+            return
     new_hdr_world(name, hdr)
 
 
@@ -361,7 +364,8 @@ def new_hdr_world(name, hdr):
     :return: None
     """
     w = bpy.data.worlds.new(name=name)
-    w.use_nodes = True
+    if bpy.app.version < (5, 0, 0):
+        w.use_nodes = True
     bpy.context.scene.world = w
 
     nt = w.node_tree

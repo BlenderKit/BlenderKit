@@ -78,10 +78,22 @@ def prevalidate_model(props):
     """Check model for possible problems:
     - check if all objects does not have asymmetrical scaling. Asymmetrical scaling is a big problem.
     Anything scaled away from (1,1,1) is a smaller problem. We do not check for that.
+    - round minor drifts from 1.0
     """
+    TOLERANCE = 1e-5
     ob = utils.get_active_model()
     obs = utils.get_hierarchy(ob)
     for ob in obs:
+        if ob.scale[0] == ob.scale[1] == ob.scale[2]:
+            continue  # all totally good
+
+        if all(abs(scalar - 1.0) <= TOLERANCE for scalar in ob.scale):
+            bk_logger.info(
+                f"Snapped minor float drift on '{ob}': "
+                + f"{ob.scale[0], ob.scale[1], ob.scale[2]} → (1.0, 1.0, 1.0)"
+            )
+            ob.scale = (1.0, 1.0, 1.0)
+
         if ob.scale[0] != ob.scale[1] or ob.scale[1] != ob.scale[2]:
             write_to_report(
                 props,

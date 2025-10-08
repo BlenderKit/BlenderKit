@@ -458,7 +458,7 @@ def get_preferences_as_dict():
         # GUI
         "show_on_start": user_preferences.show_on_start,
         "thumb_size": user_preferences.thumb_size,
-        "max_assetbar_rows": user_preferences.max_assetbar_rows,
+        "maximized_assetbar_rows": user_preferences.maximized_assetbar_rows,
         "search_field_width": user_preferences.search_field_width,
         "search_in_header": user_preferences.search_in_header,
         "tips_on_start": user_preferences.tips_on_start,
@@ -509,7 +509,7 @@ def get_preferences() -> datas.Prefs:
         # GUI
         show_on_start=user_preferences.show_on_start,  # type: ignore[union-attr]
         thumb_size=user_preferences.thumb_size,  # type: ignore[union-attr]
-        max_assetbar_rows=user_preferences.max_assetbar_rows,  # type: ignore[union-attr]
+        maximized_assetbar_rows=user_preferences.maximized_assetbar_rows,  # type: ignore[union-attr]
         search_field_width=user_preferences.search_field_width,  # type: ignore[union-attr]
         search_in_header=user_preferences.search_in_header,  # type: ignore[union-attr]
         tips_on_start=user_preferences.tips_on_start,  # type: ignore[union-attr]
@@ -845,6 +845,7 @@ def get_bounds_snappable(obs, use_modifiers=False):
 
     obcount = 0  # calculates the mesh obs. Good for non-mesh objects
     matrix_parent = parent.matrix_world
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     for ob in obs:
         # bb=ob.bound_box
         mw = ob.matrix_world
@@ -855,7 +856,6 @@ def get_bounds_snappable(obs, use_modifiers=False):
         if ob.type == "MESH" or ob.type == "CURVE":
             # If to_mesh() works we can use it on curves and any other ob type almost.
             # disabled to_mesh for 2.8 by now, not wanting to use dependency graph yet.
-            depsgraph = bpy.context.evaluated_depsgraph_get()
 
             object_eval = ob.evaluated_get(depsgraph)
             if ob.type == "CURVE":
@@ -882,6 +882,36 @@ def get_bounds_snappable(obs, use_modifiers=False):
                 # bpy.data.meshes.remove(mesh)
             if ob.type == "CURVE":
                 object_eval.to_mesh_clear()
+        elif ob.type == "VOLUME":
+            # Ensure evaluated bound box (so grids/sequences are loaded)
+            object_eval = ob.evaluated_get(depsgraph)
+            bb = object_eval.bound_box
+            obcount += 1
+            for c in bb:
+                coord = c
+                parent_coord = (
+                    matrix_parent.inverted()
+                    @ mw
+                    @ Vector((coord[0], coord[1], coord[2]))
+                )
+                minx = min(minx, parent_coord.x)
+                miny = min(miny, parent_coord.y)
+                minz = min(minz, parent_coord.z)
+                maxx = max(maxx, parent_coord.x)
+                maxy = max(maxy, parent_coord.y)
+                maxz = max(maxz, parent_coord.z)
+        elif ob.type in ["LIGHT", "CAMERA"]:
+            # From these we only need center point for bounds
+            coord = ob.location
+            parent_coord = (
+                matrix_parent.inverted() @ mw @ Vector((coord[0], coord[1], coord[2]))
+            )
+            minx = min(minx, parent_coord.x)
+            miny = min(miny, parent_coord.y)
+            minz = min(minz, parent_coord.z)
+            maxx = max(maxx, parent_coord.x)
+            maxy = max(maxy, parent_coord.y)
+            maxz = max(maxz, parent_coord.z)
 
     if obcount == 0:
         minx, miny, minz, maxx, maxy, maxz = 0, 0, 0, 0, 0, 0

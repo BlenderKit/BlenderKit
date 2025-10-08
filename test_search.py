@@ -56,10 +56,91 @@ def mocked_ui_props() -> Mock:
     ui_props.search_keywords = ""
     ui_props.free_only = False
     ui_props.own_only = False
+    ui_props.search_sort_by = "default"
     return ui_props
 
 
 # TODO: Add test for build_common_query()
+
+
+class TestDecideOrdering(unittest.TestCase):
+    def test_default_sorting(self):
+        query = {"free_first": False, "search_order_by": "default"}
+        order = search.decide_ordering(query)
+        expected = ["-last_blend_upload"]
+        self.assertEqual(order, expected)
+
+    def test_bookmarks_sorting(self):
+        query = {"free_first": False, "search_order_by": "-bookmarks"}
+        order = search.decide_ordering(query)
+        expected = ["-bookmarks"]
+        self.assertEqual(order, expected)
+
+    def test_default_sorting_free_first(self):
+        query = {"free_first": True, "search_order_by": "default"}
+        order = search.decide_ordering(query)
+        expected = ["-is_free", "-last_blend_upload"]
+        self.assertEqual(order, expected)
+
+    def test_bookmarks_sorting_free_first(self):
+        query = {"free_first": True, "search_order_by": "bookmarks"}
+        order = search.decide_ordering(query)
+        expected = ["-is_free", "bookmarks"]
+        self.assertEqual(order, expected)
+
+
+class TestQueryToURL(unittest.TestCase):
+    def setUp(self):
+        self.maxDiff = None  # no limit for printing assert errors
+        self.addon_version = "3.16.1"
+        self.blender_version = "5.0.0"
+        self.scene_uuid = "12345678-abcd-abcd-abcd-12345678abcd"
+        self.page_size = 15
+        self.default_query = {
+            "asset_type": "model",
+            "sexualizedContent": "",
+            "free_first": False,
+            "search_order_by": "default",
+        }
+
+    def test_default_model_query(self):
+        url = search.query_to_url(
+            self.default_query,
+            addon_version=self.addon_version,
+            blender_version=self.blender_version,
+            scene_uuid=self.scene_uuid,
+            page_size=self.page_size,
+        )
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-last_blend_upload&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        self.assertEqual(url, expected)
+
+    def test_sorted_model_query(self):
+        query = self.default_query
+        query["search_order_by"] = "-working_hours"
+        url = search.query_to_url(
+            self.default_query,
+            addon_version=self.addon_version,
+            blender_version=self.blender_version,
+            scene_uuid=self.scene_uuid,
+            page_size=self.page_size,
+        )
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-working_hours&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        self.assertEqual(url, expected)
+
+    def test_sorted_freefirst_material_query(self):
+        query = self.default_query
+        query["search_order_by"] = "-quality"
+        query["free_first"] = True
+        query["asset_type"] = "material"
+        url = search.query_to_url(
+            self.default_query,
+            addon_version=self.addon_version,
+            blender_version=self.blender_version,
+            scene_uuid=self.scene_uuid,
+            page_size=self.page_size,
+        )
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:material+sexualizedContent:+order:-is_free,-quality&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        self.assertEqual(url, expected)
 
 
 class TestBuildQueryModel(unittest.TestCase):

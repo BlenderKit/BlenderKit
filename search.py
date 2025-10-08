@@ -722,25 +722,16 @@ def query_to_url(
         query = {}
 
     url = f"{paths.BLENDERKIT_API}/search/"
-    if query is None:
-        query = {}
 
     requeststring = "?query="
     if query.get("query") not in ("", None):
-        requeststring += urllib.parse.quote_plus(query["query"])  # .lower()
+        requeststring += urllib.parse.quote_plus(query["query"])
     for q in query:
-        if q != "query" and q != "free_first":
-            requeststring += (
-                f"+{q}:{urllib.parse.quote_plus(str(query[q]))}"  # .lower()
-            )
+        if q in ["query", "free_first", "search_order_by"]:
+            continue
+        requeststring += f"+{q}:{urllib.parse.quote_plus(str(query[q]))}"
 
     # add dict_parameters to make results smaller
-    # result ordering: _score - relevance, score - BlenderKit score
-    order = []
-    if query.get("free_first", False):
-        order = [
-            "-is_free",
-        ]
 
     # query with category_subtree:model etc gives irrelevant results
     if query.get("category_subtree") in (
@@ -754,6 +745,40 @@ def query_to_url(
     ):
         query["category_subtree"] = None
 
+    order = decide_ordering(query)
+    if requeststring.find("+order:") == -1:
+        requeststring += "+order:" + ",".join(order)
+    requeststring += "&dict_parameters=1"
+
+    requeststring += "&page_size=" + str(page_size)
+    requeststring += f"&addon_version={addon_version}"
+    if not (query.get("query") and query.get("query", "").find("asset_base_id") > -1):
+        requeststring += f"&blender_version={blender_version}"
+    if scene_uuid:
+        requeststring += f"&scene_uuid={scene_uuid}"
+
+    urlquery = url + requeststring
+    return urlquery
+
+
+def decide_ordering(query: dict) -> list:
+    """Decides which ordering should be used based on the search_order_by.
+    If search_order_by is not default, its value is used for the sorting (quality, uploaded, etc.).
+    Otherwise the 'legacy' mode is used which
+    """
+    # result ordering: _score - relevance, score - BlenderKit score
+    order = []
+    if query.get("free_first", False):
+        order = [
+            "-is_free",
+        ]
+
+    search_order_by = query.get("search_order_by", "default")
+    if search_order_by != "default":
+        order.append(search_order_by)
+        return order
+
+    # DEFAULT TRADITIONAL SMART ORDERING
     if query.get("query") is None and query.get("category_subtree") == None:
         # assumes no keywords and no category, thus an empty search that is triggered on start.
         # orders by last core file upload
@@ -775,19 +800,8 @@ def query_to_url(
             order.append("-score,_score")
         else:
             order.append("_score")
-    if requeststring.find("+order:") == -1:
-        requeststring += "+order:" + ",".join(order)
-    requeststring += "&dict_parameters=1"
 
-    requeststring += "&page_size=" + str(page_size)
-    requeststring += f"&addon_version={addon_version}"
-    if not (query.get("query") and query.get("query", "").find("asset_base_id") > -1):
-        requeststring += f"&blender_version={blender_version}"
-    if scene_uuid:
-        requeststring += f"&scene_uuid={scene_uuid}"
-
-    urlquery = url + requeststring
-    return urlquery
+    return order
 
 
 def build_query_common(query: dict, props, ui_props) -> dict:
@@ -1197,7 +1211,6 @@ def search(get_next=False, query=None, author_id=""):
 
         if author_id != "":
             query["author_id"] = author_id
-
         elif ui_props.own_only:
             # if user searches for [another] author, 'only my assets' is invalid. that's why in elif.
             profile = global_vars.BKIT_PROFILE
@@ -1206,10 +1219,11 @@ def search(get_next=False, query=None, author_id=""):
 
         # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
         query["free_first"] = ui_props.free_only
+        query["search_order_by"] = ui_props.search_order_by
 
     active_history_step["is_searching"] = True
 
-    page_size = min(40, ui_props.wcount * user_preferences.max_assetbar_rows + 5)
+    page_size = min(40, ui_props.wcount * user_preferences.maximized_assetbar_rows + 5)
 
     next_url = ""
     if get_next and active_history_step.get("search_results_orig"):
@@ -1282,6 +1296,7 @@ def update_filters():
         or ui_props.search_bookmarks
         or ui_props.search_license != "ANY"
         or ui_props.search_blender_version
+        or ui_props.search_order_by != "default"
         # NSFW filter is signaled in a special way and should not affect the filter icon
     )
 
@@ -1388,20 +1403,21 @@ def search_update(self, context):
 
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    # Remove this feature for now, but leave the code here for future reference
     # Check if keywords contain asset type before processing clipboard
-    if ui_props.search_keywords != "":
-        detected_type, cleaned_keywords = detect_asset_type_from_keywords(
-            ui_props.search_keywords
-        )
-        if detected_type and detected_type != ui_props.asset_type:
-            # Store keywords before switching
-            ui_props.search_lock = True
-            ui_props.search_keywords = cleaned_keywords
-            # Switch asset type
-            ui_props.asset_type = detected_type
-            ui_props.search_lock = False
-            # Return since changing keywords will trigger this function again
-            # not now - let's try it with lock
+    # if ui_props.search_keywords != "":
+    #     detected_type, cleaned_keywords = detect_asset_type_from_keywords(
+    #         ui_props.search_keywords
+    #     )
+    # if detected_type and detected_type != ui_props.asset_type:
+    #     # Store keywords before switching
+    #     ui_props.search_lock = True
+    #     ui_props.search_keywords = cleaned_keywords
+    #     # Switch asset type
+    #     ui_props.asset_type = detected_type
+    #     ui_props.search_lock = False
+    # Return since changing keywords will trigger this function again
+    # not now - let's try it with lock
 
     # if ui_props.down_up != "SEARCH":
     #     ui_props.down_up = "SEARCH"

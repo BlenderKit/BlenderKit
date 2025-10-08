@@ -8,18 +8,15 @@ The original method is then called from the new method, with the same arguments,
 
 import json
 import os
+import time
+
+from . import icons
+
 import bpy
 import bl_pkg.bl_extension_ui as exui
-from . import icons
-from bl_ui.space_userpref import (
-    USERPREF_PT_addons,
-    USERPREF_PT_extensions,
-    USERPREF_MT_extensions_active_repo,
-)
-from bpy.props import EnumProperty
-from bpy.props import StringProperty, IntProperty
+from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
-import time
+
 
 EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
 
@@ -330,6 +327,7 @@ def extension_draw_item_blenderkit(
 
     if show:
         import os
+
         from bpy.app.translations import pgettext_iface as iface_
 
         col = layout.column()

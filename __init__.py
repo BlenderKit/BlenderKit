@@ -390,6 +390,61 @@ class BlenderKitUIProps(PropertyGroup):
         max=10,
         update=search.search_update_delayed,
     )
+    search_order_by: EnumProperty(
+        name="Order",
+        description="Search result order",
+        items=(
+            (
+                "default",
+                "Default",
+                "By default, the sorting algorithm changes dynamically based on search filters.",
+            ),
+            ("-created", "Newest", "Sort results from newest to oldest."),
+            ("created", "Oldest", "Sort results from oldest to newest."),
+            (
+                "-bookmarks",
+                "▼ Bookmarks",
+                "Sort results from most bookmarked to least.",
+            ),
+            (
+                "bookmarks",
+                "▲ Bookmarks",
+                "Sort results from least bookmarked to most.",
+            ),
+            (
+                "-score",
+                "▼ Score",
+                "Sort results from highest asset score to the lowest.",
+            ),
+            (
+                "score",
+                "▲ Score",
+                "Sort results from lowest asset score to the highest.",
+            ),
+            (
+                "-working_hours",
+                "▼ Complexity",
+                "Sort results from most complex to the least.",
+            ),
+            (
+                "working_hours",
+                "▲ Complexity",
+                "Sort results from least complex to the most.",
+            ),
+            (
+                "-quality",
+                "▼ Quality",
+                "Sort results from highest quality rating to the lowest.",
+            ),
+            (
+                "quality",
+                "▲ Quality",
+                "Sort results from lowest quality rating to the highest.",
+            ),
+        ),
+        default="default",
+        update=search.search_update,
+    )
     search_license: EnumProperty(
         name="License",
         items=(
@@ -418,7 +473,7 @@ class BlenderKitUIProps(PropertyGroup):
     )
     search_blender_version_max: StringProperty(
         name="Maximum version (excluding, lower than)",
-        default="4.99",
+        default="5.99",
         description="Limit the assets by maximum version of Blender in which they were created, exluding the specified version and all newer versions from the search results. "
         + "Only assets created in LOWER THAN (< max) maximum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
         + "E.g.: exclude all Blender 4 assets by specifying 4, 4.0, or 4.0.0. Assets created in 3.6 and lower will be shown",
@@ -2243,13 +2298,19 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
-    max_assetbar_rows: IntProperty(
-        name="Max Assetbar Rows",
-        description="max rows of assetbar in the 3D view",
-        default=1,
-        min=1,
+    maximized_assetbar_rows: IntProperty(
+        name="Maximized Assetbar Rows",
+        description="Maximum rows of assetbar in the 3D view when expanded",
+        default=4,
+        min=2,
         max=20,
         update=utils.save_prefs,
+    )
+
+    assetbar_expanded: BoolProperty(
+        name="Assetbar Expanded",
+        description="Whether the assetbar is currently expanded to show maximum rows",
+        default=False,
     )
 
     thumb_size: IntProperty(
@@ -2402,7 +2463,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.label(text="GUI settings")
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
-        gui_settings.prop(self, "max_assetbar_rows")
+        gui_settings.prop(self, "maximized_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
         gui_settings.prop(self, "sidebar_panels")
