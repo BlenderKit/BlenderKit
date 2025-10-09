@@ -30,6 +30,7 @@ import bpy
 from bpy.props import BoolProperty
 
 from . import client_lib, client_tasks, datas, global_vars, reports, tasks_queue, utils
+
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
 
