@@ -2776,8 +2776,10 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             dict_params = self.asset_data.get("dictParameters", {})
             min_version = dict_params.get("blenderVersionMin")
             max_version = dict_params.get("blenderVersionMax")
-            min_version_tuple = tuple(map(int, min_version.split(".")))
-            max_version_tuple = tuple(map(int, max_version.split(".")))
+            if min_version:
+                min_version_tuple = tuple(map(int, min_version.split(".")))
+            if max_version:
+                max_version_tuple = tuple(map(int, max_version.split(".")))
 
             if min_version or max_version:
                 version_text = ""
