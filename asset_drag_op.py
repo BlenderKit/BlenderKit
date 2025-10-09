@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import json
 import logging
 import math
 import os
@@ -150,9 +151,15 @@ def draw_callback_dragging(self, context):
                 nodegroup_type_display = nodegroup_type or "nodegroup"
                 main_message = f"Drop to add {nodegroup_type_display} nodegroup"
 
+        elif self.asset_data["assetType"] == "addon":
+            main_message = "Drop to install addon"
+
     elif hasattr(self, "in_node_editor") and self.in_node_editor:
         if self.asset_data["assetType"] not in ["material", "nodegroup"]:
-            main_message = "Cancel Drag & Drop"
+            if self.asset_data["assetType"] == "addon":
+                main_message = "Drop to install addon"
+            else:
+                main_message = "Cancel Drag & Drop"
         elif (
             self.asset_data["assetType"] == "material"
             and self.node_editor_type == "shader"
@@ -792,28 +799,6 @@ class AssetDragOperator(bpy.types.Operator):
                     material_target_slot=target_slot,
                 )
 
-        if self.asset_data["assetType"] == "hdr":
-            bpy.ops.scene.blenderkit_download(
-                "INVOKE_DEFAULT",
-                asset_index=self.asset_search_index,
-                invoke_resolution=True,
-                use_resolution_operator=True,
-                max_resolution=self.asset_data.get("max_resolution", 0),
-            )
-
-        if self.asset_data["assetType"] == "scene":
-            bpy.ops.scene.blenderkit_download(
-                "INVOKE_DEFAULT",
-                asset_index=self.asset_search_index,
-                invoke_resolution=False,
-                invoke_scene_settings=True,
-            )
-
-        if self.asset_data["assetType"] == "brush":
-            bpy.ops.scene.blenderkit_download(
-                asset_index=self.asset_search_index,
-            )
-
         if self.asset_data["assetType"] == "nodegroup":
             # Handle nodegroup drop in 3D view
             nodegroup_type = self.asset_data["dictParameters"].get("nodeType")
@@ -1186,6 +1171,36 @@ class AssetDragOperator(bpy.types.Operator):
 
     def mouse_release(self, context):
         """Main mouse release handler that delegates to specific handlers based on area type."""
+
+        # first let's handle asset types that are independent of the area type
+        if self.asset_data["assetType"] == "hdr":
+            bpy.ops.scene.blenderkit_download(
+                "INVOKE_DEFAULT",
+                asset_index=self.asset_search_index,
+                invoke_resolution=True,
+                use_resolution_operator=True,
+                max_resolution=self.asset_data.get("max_resolution", 0),
+            )
+
+        if self.asset_data["assetType"] == "scene":
+            bpy.ops.scene.blenderkit_download(
+                "INVOKE_DEFAULT",
+                asset_index=self.asset_search_index,
+                invoke_resolution=False,
+                invoke_scene_settings=True,
+            )
+
+        if self.asset_data["assetType"] == "brush":
+            bpy.ops.scene.blenderkit_download(
+                asset_index=self.asset_search_index,
+            )
+
+        if self.asset_data["assetType"] == "addon":
+            # Show addon management popup instead of direct installation
+
+            bpy.ops.scene.blenderkit_addon_choice(
+                "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
+            )
 
         # In any other area than 3D view and outliner, we just cancel the drag&drop
         if self.prev_area_type not in ["VIEW_3D", "OUTLINER", "NODE_EDITOR"]:
