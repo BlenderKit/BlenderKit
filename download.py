@@ -39,6 +39,7 @@ from . import (
 )
 
 import bpy
+
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
 from bpy.app.handlers import persistent
