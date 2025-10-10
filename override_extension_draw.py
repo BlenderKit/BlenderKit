@@ -163,7 +163,6 @@ def extension_draw_item_blenderkit(
     cache_reloaded = ensure_repo_cache()
     if cache_reloaded:
         # If cache was just reloaded, tag UI for redraw
-        layout.tag_redraw()
         print("BlenderKit: Cache reloaded, tagging layout for redraw.")
 
     # check if the cache is already in the window manager

@@ -170,8 +170,15 @@ def check_clipboard():
     if ui_props.asset_type != target_asset_type:
         ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type
 
-    # all modifications in
-    ui_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
+    # Extract asset_base_id from clipboard
+    asset_base_id_text = current_clipboard[:asset_type_index].rstrip()
+    if asset_base_id_text.startswith("asset_base_id:"):
+        asset_base_id = asset_base_id_text[len("asset_base_id:") :]
+        # Store the asset ID to trigger drag operation after search completes
+        global_vars.DATA["outside_drag_asset_id"] = asset_base_id
+        ui_props.search_keywords = asset_base_id_text
+    else:
+        ui_props.search_keywords = asset_base_id_text
 
 
 # TODO: type annotate and check this crazy function!
@@ -420,6 +427,26 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     # show asset bar automatically, but only on first page - others are loaded also when asset bar is hidden.
     if not ui_props.assetbar_on and not task.data.get("get_next"):
         bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
+
+    # Check if this search was triggered by clipboard asset and trigger drag operation
+    outside_drag_asset_id = global_vars.DATA.get("outside_drag_asset_id")
+    if outside_drag_asset_id and not task.data.get("get_next"):
+        # Find the asset in search results
+        asset_index = -1
+        for i, asset in enumerate(result_field):
+            if asset.get("assetBaseId") == outside_drag_asset_id:
+                asset_index = i
+                break
+
+        if asset_index >= 0:
+            # Set the active index to the found asset
+            ui_props.active_index = asset_index
+            # Clear the clipboard asset ID to prevent repeated triggers
+            global_vars.DATA.pop("outside_drag_asset_id", None)
+            # Schedule drag operation to run after the current handler completes
+            tasks_queue.add_task(
+                (trigger_outside_drag_operation, ()), wait=0.1, only_last=False
+            )
 
     return True
 
@@ -1536,6 +1563,29 @@ def get_search_similar_keywords(asset_data: dict) -> str:
         keywords += f" {asset_data.get('description')} "
     keywords += " ".join(asset_data.get("tags", []))
     return keywords
+
+
+def trigger_outside_drag_operation():
+    """Trigger drag operation for asset found via clipboard."""
+    try:
+        # Get proper context for 3D viewport, similar to how asset bar handles it
+        C_dict = utils.get_fake_context(area_type="VIEW_3D")
+
+        if not C_dict.get("window"):
+            bk_logger.info("No 3D viewport found, skipping clipboard drag operation")
+            return
+
+        # Use context override to trigger drag operation in 3D viewport
+        if bpy.app.version < (4, 0, 0):
+            bpy.ops.view3d.asset_drag_drop(C_dict, "INVOKE_DEFAULT")
+        else:
+            with bpy.context.temp_override(**C_dict):
+                bpy.ops.view3d.asset_drag_drop("INVOKE_DEFAULT")
+
+        bk_logger.info("Triggered drag operation for clipboard asset")
+
+    except Exception as e:
+        bk_logger.warning(f"Failed to trigger clipboard drag operation: {e}")
 
 
 classes = [SearchOperator, UrlOperator, TooltipLabelOperator]
