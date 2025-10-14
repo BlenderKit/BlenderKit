@@ -53,7 +53,7 @@ handler_2d = None
 handler_3d = None
 
 
-def ensure_draw_cb_available(self, context) -> bool:
+def is_draw_cb_available(self, context) -> bool:
     """Check if drawing callbacks can be added safely.
 
     Be defensive: accessing attributes on a destroyed Operator raises ReferenceError.
@@ -88,7 +88,7 @@ def ensure_draw_cb_available(self, context) -> bool:
 def draw_callback_dragging(self, context):
     # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
 
-    if not ensure_draw_cb_available(self, context):
+    if not is_draw_cb_available(self, context):
         return
 
     try:
@@ -281,7 +281,7 @@ def draw_callback_3d_dragging(self, context):
         return
 
     # Check if operator is still valid before accessing its attributes
-    if not ensure_draw_cb_available(self, context):
+    if not is_draw_cb_available(self, context):
         return
 
     # Check if all required attributes are available
