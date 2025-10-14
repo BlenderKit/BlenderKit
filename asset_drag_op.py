@@ -53,13 +53,42 @@ handler_2d = None
 handler_3d = None
 
 
+def ensure_draw_cb_available(self, context) -> bool:
+    """Check if drawing callbacks can be added safely.
+
+    Be defensive: accessing attributes on a destroyed Operator raises ReferenceError.
+    We avoid hasattr and use getattr in a try/except to prevent log spam.
+
+    Args:
+        self: The operator instance.
+        context: Blender context.
+
+    Returns:
+        True if drawing callbacks can be added, False otherwise.
+    """
+    try:
+        if self is None:
+            return False
+        # getattr with default still calls __getattribute__, so wrap in try/except
+        active_region_ptr = getattr(self, "active_region_pointer", None)
+        if not active_region_ptr:
+            return False
+    except ReferenceError:
+        # The operator RNA is gone; skip drawing quietly
+        return False
+    except Exception:
+        return False
+
+    if context.region.as_pointer() != self.active_region_pointer:
+        return False
+
+    return True
+
+
 def draw_callback_dragging(self, context):
-    # Only draw 2D elements in the active region where the mouse is, also check if self still exists
-    if (
-        self is None
-        or not hasattr(self, "active_region_pointer")
-        or context.region.as_pointer() != self.active_region_pointer
-    ):
+    # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
+
+    if not ensure_draw_cb_available(self, context):
         return
 
     try:
@@ -249,6 +278,10 @@ def draw_callback_3d_dragging(self, context):
 
     # Only draw 3D elements in VIEW_3D areas, not in outliner
     if context.area.type != "VIEW_3D":
+        return
+
+    # Check if operator is still valid before accessing its attributes
+    if not ensure_draw_cb_available(self, context):
         return
 
     # Check if all required attributes are available
@@ -666,6 +699,9 @@ class AssetDragOperator(bpy.types.Operator):
         # Generic nodegroups can work in any editor
         elif nodegroup_type is None:
             return True
+        # check also some common cross-compatibility cases
+        elif nodegroup_type == "compositing" and editor_type == "compositor":
+            return True
         # Otherwise, not compatible
         return False
 
@@ -944,16 +980,28 @@ class AssetDragOperator(bpy.types.Operator):
             # Restore original selection
             self.restore_original_selection()
 
-    def make_node_editor_switch(self, nodegroup_type, node_editor_type):
-        """Make a node editor switch."""
-        nodeTypes2NodeEditorType = {
-            "shader": "ShaderNodeTree",
-            "geometry": "GeometryNodeTree",
-            "compositor": "CompositorNodeTree",
-        }
-        node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
-        area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
-        area.ui_type = node_editor_type
+    def make_node_editor_switch(self, nodegroup_type, node_editor_type) -> bool:
+        """Make a node editor switch safely.
+
+        Avoids raising if area or operator state is invalid. This prevents persistent
+        draw exceptions when the operator RNA gets destroyed mid-drag.
+        """
+        try:
+            nodeTypes2NodeEditorType = {
+                "shader": "ShaderNodeTree",
+                "geometry": "GeometryNodeTree",
+                "compositor": "CompositorNodeTree",
+                "compositing": "CompositorNodeTree",
+            }
+            node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
+            area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
+            area.ui_type = node_editor_type
+        except KeyError:
+            # Be silent in production to avoid repeated errors during draw
+            bk_logger.exception("make_node_editor_switch failed")
+            return False
+
+        return True
 
     def handle_node_editor_drop_material(self, context):
         """Handle dropping materials in the node editor."""
@@ -1014,8 +1062,13 @@ class AssetDragOperator(bpy.types.Operator):
             if not self.is_nodegroup_compatible_with_editor(
                 nodegroup_type, self.node_editor_type
             ):
-                self.make_node_editor_switch(nodegroup_type, self.node_editor_type)
-
+                has_switched = self.make_node_editor_switch(nodegroup_type, self.node_editor_type)
+                if not has_switched:
+                    reports.add_report(
+                        f"Nodegroup of type '{nodegroup_type}' cannot be used in {self.node_editor_type} editor",
+                        type="ERROR",
+                    )
+                    return
             # Special handling for geometry nodegroups - show dialog if active object supports it
             if nodegroup_type == "geometry":
                 active_object = context.active_object
