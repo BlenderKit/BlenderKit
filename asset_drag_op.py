@@ -485,7 +485,7 @@ def mouse_raycast(region, rv3d, mx, my):
     # get the ray from the viewport and mouse
     view_vector = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
     if rv3d.view_perspective == "CAMERA" and rv3d.is_perspective == False:
-        #  ortographic cameras don'w work with region_2d_to_origin_3d
+        #  orthographic cameras don't work with region_2d_to_origin_3d
         view_position = rv3d.view_matrix.inverted().translation
         ray_origin = view3d_utils.region_2d_to_location_3d(
             region, rv3d, coord, depth_location=view_position
@@ -1081,7 +1081,9 @@ class AssetDragOperator(bpy.types.Operator):
             if not self.is_nodegroup_compatible_with_editor(
                 nodegroup_type, self.node_editor_type
             ):
-                has_switched = self.make_node_editor_switch(nodegroup_type, self.node_editor_type)
+                has_switched = self.make_node_editor_switch(
+                    nodegroup_type, self.node_editor_type
+                )
                 if not has_switched:
                     reports.add_report(
                         f"Nodegroup of type '{nodegroup_type}' cannot be used in {self.node_editor_type} editor",
@@ -1217,7 +1219,7 @@ class AssetDragOperator(bpy.types.Operator):
             # TODO: scene.node_tree was removed in Blender 5, use scene.compositing_node_group instead
             elif nodegroup_type == "compositing":
 
-                # potenciall fix for blender5.0+
+                # potential fix for blender5.0+
                 node_tree = get_node_tree(context)
 
                 # # Try to find the compositor node tree
