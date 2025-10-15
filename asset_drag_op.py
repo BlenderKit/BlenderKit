@@ -224,8 +224,8 @@ def draw_callback_dragging(self, context):
                             "Select mesh/curve object for modifier option"
                         )
                         secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
-                elif nodegroup_type == "compositor":
-                    main_message = "Drop to switch to compositor"
+                elif nodegroup_type == "compositing":
+                    main_message = "Drop to switch to compositing"
                 else:
                     main_message = "Drop to switch editor type"
 
@@ -667,6 +667,29 @@ def object_in_particle_collection(o):
     return False
 
 
+def get_node_tree(context):
+    """Blender version invariant way to get the node tree from the current node editor."""
+    if bpy.app.version < (5, 0, 0):
+        if context.scene.use_nodes and context.scene.node_tree:
+            node_tree = context.scene.node_tree
+        else:
+            # Enable compositor nodes if not already enabled
+            context.scene.use_nodes = True
+            node_tree = context.scene.node_tree
+        return node_tree
+
+    if not context.scene.compositing_node_group:
+        bpy.ops.node.new_compositing_node_group()
+        context.scene.compositing_node_group = bpy.data.node_groups[-1]
+
+        # nd = bpy.data.node_groups.new("Compositor Nodes", type="CompositorNodeTree")
+        # context.scene.compositing_node_group = nd
+
+        return context.scene.compositing_node_group
+
+    return context.scene.compositing_node_group
+
+
 class AssetDragOperator(bpy.types.Operator):
     """Drag & drop assets into scene. Operator being drawn when dragging asset."""
 
@@ -698,9 +721,6 @@ class AssetDragOperator(bpy.types.Operator):
             return True
         # Generic nodegroups can work in any editor
         elif nodegroup_type is None:
-            return True
-        # check also some common cross-compatibility cases
-        elif nodegroup_type == "compositing" and editor_type == "compositor":
             return True
         # Otherwise, not compatible
         return False
@@ -990,7 +1010,6 @@ class AssetDragOperator(bpy.types.Operator):
             nodeTypes2NodeEditorType = {
                 "shader": "ShaderNodeTree",
                 "geometry": "GeometryNodeTree",
-                "compositor": "CompositorNodeTree",
                 "compositing": "CompositorNodeTree",
             }
             node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
@@ -1196,15 +1215,18 @@ class AssetDragOperator(bpy.types.Operator):
             # Fourth case: need to switch to compositor nodes for compositor nodegroup
             # TODO: scene.use_nodes was removed in Blender 5
             # TODO: scene.node_tree was removed in Blender 5, use scene.compositing_node_group instead
-            elif nodegroup_type == "compositor":
+            elif nodegroup_type == "compositing":
 
-                # Try to find the compositor node tree
-                if context.scene.use_nodes and context.scene.node_tree:
-                    node_tree = context.scene.node_tree
-                else:
-                    # Enable compositor nodes if not already enabled
-                    context.scene.use_nodes = True
-                    node_tree = context.scene.node_tree
+                # potenciall fix for blender5.0+
+                node_tree = get_node_tree(context)
+
+                # # Try to find the compositor node tree
+                # if context.scene.use_nodes and context.scene.node_tree:
+                #     node_tree = context.scene.node_tree
+                # else:
+                #     # Enable compositor nodes if not already enabled
+                #     context.scene.use_nodes = True
+                #     node_tree = context.scene.node_tree
 
                 # Set the node tree AFTER changing the editor type
                 node_space.spaces[0].node_tree = node_tree
@@ -1504,7 +1526,7 @@ class AssetDragOperator(bpy.types.Operator):
             elif active_area.spaces.active.tree_type == "GeometryNodeTree":
                 self.node_editor_type = "geometry"
             elif active_area.spaces.active.tree_type == "CompositorNodeTree":
-                self.node_editor_type = "compositor"
+                self.node_editor_type = "compositing"
             elif active_area.spaces.active.tree_type == "TextureNodeTree":
                 self.node_editor_type = "texture"
 
