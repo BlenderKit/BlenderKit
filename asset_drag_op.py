@@ -1610,6 +1610,11 @@ class AssetDragOperator(bpy.types.Operator):
         """
         bk_logger.info("Policy check before drop started")
         if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
+            reports.add_report(
+                f"Dropping assets in {self.prev_area_type} is not supported",
+                type="ERROR",
+                timeout=0.1,
+            )
             return False
 
         asset_type = self.asset_data.get("assetType") or ""
@@ -1665,6 +1670,7 @@ class AssetDragOperator(bpy.types.Operator):
         reports.add_report(
             f"Allowed to drop '{asset_type}'",
             type="VALIDATOR",
+            timeout=0.1,
         )
         return True
 
@@ -1675,6 +1681,11 @@ class AssetDragOperator(bpy.types.Operator):
         """
         bk_logger.info("Policy check while dragging drop started")
         if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
+            reports.add_report(
+                f"Dropping assets in {self.prev_area_type} is not supported",
+                type="ERROR",
+                timeout=0.1,
+            )
             return False
 
         asset_type = self.asset_data.get("assetType") or ""
@@ -1731,6 +1742,7 @@ class AssetDragOperator(bpy.types.Operator):
         reports.add_report(
             f"Allowed to drop '{asset_type}'",
             type="VALIDATOR",
+            timeout=0.1,
         )
         return True
 
