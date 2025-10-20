@@ -7,3 +7,6 @@ client_builds
 .pdm-python
 
 .ruff_cache
+
+# prevent publishing of dynamically created updater cache
+blenderkit_addon_updater_status.json

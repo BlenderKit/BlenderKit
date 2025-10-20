@@ -27,6 +27,13 @@ from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
 from typing import Union
+from dataclasses import dataclass
+from typing import Optional, Sequence, Tuple, Set, Any
+
+try:
+    from typing import Literal  # Py 3.8+
+except ImportError:  # pragma: no cover
+    from typing_extensions import Literal  # fallback for older envs
 
 from . import (
     bg_blender,
@@ -58,8 +65,154 @@ DEAD_ZONE = 5  # pixels
 DRAG_THRESHOLD = 10  # pixels
 """Number of pixels mouse must move to consider as a drag (vs click)."""
 
+Action = Literal["download", "dialog", "assign_material", "switch_then_add", "reject"]
 
-def is_draw_cb_available(self, context) -> bool:
+
+@dataclass(frozen=True)
+class DropRule:
+    """Declarative rule describing what drops are allowed where.
+
+    area: One of VIEW_3D | OUTLINER | NODE_EDITOR
+    asset_type: BlenderKit asset type (model, printable, material, nodegroup, hdr, scene, brush)
+    node_type: For nodegroups: geometry | shader | compositing | None (for generic)
+    editor_mode: For NODE_EDITOR only: shader | geometry | compositing | texture
+    action: What the code will do (informational for now)
+    requires_hovered_object_types: Outliner constraints (e.g., MESH, CURVE)
+    requires_active_object_types: Node editor constraints
+    """
+
+    area: Literal["VIEW_3D", "OUTLINER", "NODE_EDITOR"]
+    asset_type: str
+    node_type: Optional[str] = None
+    editor_mode: Optional[Literal["shader", "geometry", "compositing", "texture"]] = (
+        None
+    )
+    action: Action = "download"
+    requires_hovered_object_types: Optional[Sequence[str]] = None
+    requires_active_object_types: Optional[Sequence[str]] = None
+
+
+# Rules reflect current behavior in handlers, not changing runtime flow
+DROP_RULES: Tuple[DropRule, ...] = (
+    # VIEW_3D
+    DropRule("VIEW_3D", "model"),
+    DropRule("VIEW_3D", "printable"),
+    DropRule("VIEW_3D", "material"),
+    DropRule("VIEW_3D", "hdr"),
+    DropRule("VIEW_3D", "scene"),
+    DropRule("VIEW_3D", "brush"),
+    DropRule("VIEW_3D", "nodegroup", "geometry", action="dialog"),
+    DropRule("VIEW_3D", "nodegroup", "shader"),
+    DropRule("VIEW_3D", "nodegroup", "compositing"),
+    # OUTLINER
+    DropRule("OUTLINER", "model"),
+    DropRule("OUTLINER", "printable"),
+    DropRule("OUTLINER", "material", requires_hovered_object_types=["MESH", "CURVE"]),
+    DropRule(
+        "OUTLINER",
+        "nodegroup",
+        "geometry",
+        action="dialog",
+        requires_hovered_object_types=["MESH", "CURVE"],
+    ),
+    # Implicitly reject: hdr, scene, brush, non-geometry nodegroups in OUTLINER
+    # NODE_EDITOR - material only valid in shader editor
+    DropRule("NODE_EDITOR", "material", editor_mode="shader", action="assign_material"),
+    # NODE_EDITOR - nodegroups allowed across modes (switching handled in code)
+    DropRule("NODE_EDITOR", "nodegroup", "shader", editor_mode="shader"),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "geometry",
+        editor_mode="shader",
+        action="switch_then_add",
+    ),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "compositing",
+        editor_mode="shader",
+        action="switch_then_add",
+    ),
+    DropRule("NODE_EDITOR", "nodegroup", "geometry", editor_mode="geometry"),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "shader",
+        editor_mode="geometry",
+        action="switch_then_add",
+    ),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "compositing",
+        editor_mode="geometry",
+        action="switch_then_add",
+    ),
+    DropRule("NODE_EDITOR", "nodegroup", "compositing", editor_mode="compositing"),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "shader",
+        editor_mode="compositing",
+        action="switch_then_add",
+    ),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "geometry",
+        editor_mode="compositing",
+        action="switch_then_add",
+    ),
+    # Texture editor currently not used by handlers, but allow switching semantics
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "shader",
+        editor_mode="texture",
+        action="switch_then_add",
+    ),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "geometry",
+        editor_mode="texture",
+        action="switch_then_add",
+    ),
+    DropRule(
+        "NODE_EDITOR",
+        "nodegroup",
+        "compositing",
+        editor_mode="texture",
+        action="switch_then_add",
+    ),
+)
+
+
+def find_drop_rule(
+    prev_area_type: str,
+    asset_type: str,
+    node_type: Optional[str],
+    editor_mode: Optional[str],
+) -> Optional[DropRule]:
+    """Find the first matching rule for a potential drop operation.
+
+    Returns None if not allowed by policy.
+    """
+    for rule in DROP_RULES:
+        if rule.area != prev_area_type:
+            continue
+        if rule.asset_type != asset_type:
+            continue
+        if rule.node_type != node_type:
+            continue
+        if rule.area == "NODE_EDITOR" and rule.editor_mode != editor_mode:
+            continue
+        return rule
+    return None
+
+
+def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -> bool:
     """Check if drawing callbacks can be added safely.
 
     Be defensive: accessing attributes on a destroyed Operator raises ReferenceError.
@@ -75,9 +228,7 @@ def is_draw_cb_available(self, context) -> bool:
     try:
         if self is None:
             return False
-        # getattr with default still calls __getattribute__, so wrap in try/except
-        active_region_ptr = getattr(self, "active_region_pointer", None)
-        if not active_region_ptr:
+        if self.active_region_pointer is None:
             return False
     except ReferenceError:
         # The operator RNA is gone; skip drawing quietly
@@ -91,7 +242,9 @@ def is_draw_cb_available(self, context) -> bool:
     return True
 
 
-def draw_callback_dragging(self, context):
+def draw_callback_dragging(
+    self: bpy.types.Operator, context: bpy.types.Context
+) -> None:
     # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
 
     if not is_draw_cb_available(self, context):
@@ -110,7 +263,7 @@ def draw_callback_dragging(self, context):
         return
 
     linelength = 35
-    scene = bpy.context.scene
+    _scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
 
     ui_bgl.draw_image(
@@ -166,12 +319,12 @@ def draw_callback_dragging(self, context):
 
         elif asset_type == "nodegroup":
             if asset_node_type == "geometry":
-                if hasattr(self, "object_name") and self.object_name is not None:
+                if self.object_name is not None:
                     # Hovering over an object
                     target_object = bpy.data.objects.get(self.object_name)
                     if target_object and target_object.type in ["MESH", "CURVE"]:
-                        main_message = f"Drop to show options for {self.object_name}"
-                        secondary_message = "(Add as modifier or node)"
+                        main_message = f"Drop to add geometry nodegroup"
+                        secondary_message = f"(Add as modifier to {self.object_name})"
                     else:
                         main_message = f"Unsupported object type: {target_object.type if target_object else 'Unknown'}"
                         main_color = (1.0, 0.5, 0.5, 1.0)  # Error red
@@ -181,11 +334,15 @@ def draw_callback_dragging(self, context):
                         secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red
                 else:
                     main_message = "Drop to add geometry nodegroup"
+                    # if active object is mesh/curve, mention modifier option
+                    active_object = bpy.context.active_object
+                    if active_object and active_object.type in ["MESH", "CURVE"]:
+                        secondary_message = f"(Add as modifier to {active_object.name})"
             else:
                 asset_node_type_display = asset_node_type or "nodegroup"
                 main_message = f"Drop to add {asset_node_type_display} nodegroup"
 
-    elif hasattr(self, "in_node_editor") and self.in_node_editor:
+    elif self.in_node_editor:
         if asset_type not in ["material", "nodegroup"]:
             main_message = "Cancel Drag & Drop"
         elif asset_type == "material" and self.node_editor_type == "shader":
@@ -238,11 +395,7 @@ def draw_callback_dragging(self, context):
         main_message = "Cancel Drag & Drop"
 
     # Outliner specific hints
-    if (
-        context.area.type == "OUTLINER"
-        and hasattr(self, "hovered_outliner_element")
-        and self.hovered_outliner_element is not None
-    ):
+    if context.area.type == "OUTLINER" and self.hovered_outliner_element:
         main_message = ""
         if isinstance(self.hovered_outliner_element, bpy.types.Object):
             if asset_type == "nodegroup":
@@ -288,7 +441,9 @@ def draw_callback_dragging(self, context):
         )
 
 
-def draw_callback_3d_dragging(self, context):
+def draw_callback_3d_dragging(
+    self: bpy.types.Operator, context: bpy.types.Context
+) -> None:
     """Draw snapped bbox while dragging."""
     if not utils.guard_from_crash():
         return
@@ -331,8 +486,13 @@ def draw_callback_3d_dragging(self, context):
 
 
 def draw_bbox(
-    location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1, 0, 1)
-):
+    location: Vector,
+    rotation: Vector,
+    bbox_min: Vector,
+    bbox_max: Vector,
+    progress: Optional[float] = None,
+    color: Tuple[float, float, float, float] = (0, 1, 0, 1),
+) -> None:
     rotation = mathutils.Euler(rotation)
 
     smin = Vector(bbox_min)
@@ -389,7 +549,13 @@ def draw_bbox(
             ui_bgl.draw_rect_3d(r, color)
 
 
-def draw_downloader(x, y, percent=0, img=None, text=""):
+def draw_downloader(
+    x: int,
+    y: int,
+    percent: float = 0.0,
+    img: Optional[bpy.types.Image] = None,
+    text: str = "",
+) -> None:
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if img is not None:
@@ -419,7 +585,9 @@ def draw_downloader(x, y, percent=0, img=None, text=""):
     #         ui_bgl.draw_image(x + offset, y + offset, size, size, img, 0.5)
 
 
-def draw_callback_2d_progress(self, context):
+def draw_callback_2d_progress(
+    self: bpy.types.Operator, context: bpy.types.Context
+) -> None:
     if not utils.guard_from_crash():
         return
 
@@ -461,7 +629,9 @@ def draw_callback_2d_progress(self, context):
         report.fade()
 
 
-def draw_callback_3d_progress(self, context):
+def draw_callback_3d_progress(
+    self: bpy.types.Operator, context: bpy.types.Context
+) -> None:
     # 'star trek' mode is here
 
     if not utils.guard_from_crash():
@@ -480,12 +650,20 @@ def draw_callback_3d_progress(self, context):
                     )
 
 
-def draw_progress(x, y, text="", percent=None, color=colors.GREEN):
+def draw_progress(
+    x: int,
+    y: int,
+    text: str = "",
+    percent: float = 0.0,
+    color: Tuple[float, float, float, float] = colors.GREEN,
+):
     ui_bgl.draw_rect(x, y, percent, 5, color)
     ui_bgl.draw_text(text, x, y + 8, 16, color)
 
 
-def find_and_activate_instancers(object):
+def find_and_activate_instancers(
+    object: bpy.types.Object,
+) -> Optional[bpy.types.Object]:
     for ob in bpy.context.visible_objects:
         if (
             ob.instance_type == "COLLECTION"
@@ -496,7 +674,17 @@ def find_and_activate_instancers(object):
             return ob
 
 
-def mouse_raycast(region, rv3d, mx, my):
+def mouse_raycast(
+    region: bpy.types.Region, rv3d: bpy.types.RegionView3D, mx: int, my: int
+) -> Tuple[
+    bool,
+    Vector,
+    Vector,
+    Vector,
+    Optional[int],
+    Optional[bpy.types.Object],
+    Optional[mathutils.Matrix],
+]:
     coord = mx, my
 
     # get the ray from the viewport and mouse
@@ -572,7 +760,17 @@ def mouse_raycast(region, rv3d, mx, my):
     )
 
 
-def floor_raycast(r, rv3d, mx, my):
+def floor_raycast(
+    r: bpy.types.Region, rv3d: bpy.types.RegionView3D, mx: int, my: int
+) -> Tuple[
+    bool,
+    Vector,
+    Vector,
+    Vector,
+    Optional[int],
+    Optional[bpy.types.Object],
+    Optional[mathutils.Matrix],
+]:
     coord = mx, my
 
     # get the ray from the viewport and mouse
@@ -593,11 +791,17 @@ def floor_raycast(r, rv3d, mx, my):
     snapped_location = mathutils.geometry.intersect_line_plane(
         ray_origin, ray_target, (0, 0, 0), plane_normal, False
     )
+    has_hit = False
+    snapped_normal = Vector((0, 0, 1))
+    snapped_rotation = Vector((0, 0, 0))
+    face_index = None
+    out_object = None
+    matrix = None
     if snapped_location != None:
         has_hit = True
         snapped_normal = Vector((0, 0, 1))
         face_index = None
-        object = None
+        out_object = None
         matrix = None
         snapped_rotation = snapped_normal.to_track_quat("Z", "Y").to_euler()
         props = bpy.context.window_manager.blenderkit_models
@@ -617,12 +821,19 @@ def floor_raycast(r, rv3d, mx, my):
         snapped_normal,
         snapped_rotation,
         face_index,
-        object,
+        out_object,
         matrix,
     )
 
 
-def deep_ray_cast(ray_origin, vec):
+def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
+    bool,
+    Vector,
+    Vector,
+    Optional[int],
+    Optional[bpy.types.Object],
+    Optional[mathutils.Matrix],
+]:
     # this allows to ignore some objects, like objects with bounding box draw style or particle objects
     object = None
     # while object is None or object.draw
@@ -670,7 +881,7 @@ def deep_ray_cast(ray_origin, vec):
     return empty_set
 
 
-def object_in_particle_collection(o):
+def object_in_particle_collection(o: bpy.types.Object) -> bool:
     """checks if an object is in a particle system as instance, to not snap to it and not to try to attach material."""
     for p in bpy.data.particles:
         if p.render_type == "COLLECTION":
@@ -684,7 +895,7 @@ def object_in_particle_collection(o):
     return False
 
 
-def get_node_tree(context):
+def get_node_tree(context: bpy.types.Context) -> bpy.types.NodeTree:
     """Blender version invariant way to get the node tree from the current node editor."""
     if bpy.app.version < (5, 0, 0):
         if context.scene.use_nodes and context.scene.node_tree:
@@ -707,7 +918,9 @@ def get_node_tree(context):
     return context.scene.compositing_node_group
 
 
-def assign_node_tree(node_space, node_tree):
+def assign_node_tree(
+    node_space: bpy.types.SpaceNodeEditor, node_tree: bpy.types.NodeTree
+) -> None:
     """Blender version invariant way to assign a node tree to the current node editor."""
     if bpy.app.version < (5, 0, 0):
         node_space.node_tree = node_tree
@@ -732,20 +945,77 @@ class AssetDragOperator(bpy.types.Operator):
 
     object_name = None
 
-    def handlers_remove(self):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # predefine all attributes to avoid dynamic creation during draw calls
+        self.asset_data = {}
+        self.active_region_pointer = None
+
+        self._handle_3d = None
+        self._handlers_universal = {}
+
+        self.hovered_outliner_element: Union[bpy.types.Object, bpy.types.Collection] = (
+            None
+        )
+
+        self.orig_active_object = None
+        self.orig_selected_objects = None
+
+        self.downloader = None
+
+        # Mouse tracking variables
+        self.start_mouse_x = None
+        self.start_mouse_y = None
+
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.mouse_screen_x = 0
+        self.mouse_screen_y = 0
+        self.steps = 0
+
+        # Store the initial active region pointer
+        self.active_region_pointer = None
+
+        # Initialize outliner tracking variables
+        self.hovered_outliner_element = None
+        self.outliner_area = None
+        self.outliner_region = None
+        self.orig_selected_objects = None
+        self.orig_active_object = None
+        self.orig_active_collection = None
+        self.prev_area_type = None
+
+        # Initialize node editor tracking
+        self.in_node_editor = False
+        self.node_editor_type = None
+
+        self.shift_pressed = False
+
+        # Initialize has_hit to False, and set other 3D properties
+        # We'll only use these in 3D views, not in outliner
+        self.has_hit = False
+        self.snapped_location = (0, 0, 0)
+        self.snapped_normal = (0, 0, 1)
+        self.snapped_rotation = (0, 0, 0)
+        self.face_index = 0
+        self.matrix = None
+
+        self.iname = ""
+        self.drag = False
+
+    def handlers_remove(self) -> None:
         """Remove all draw handlers."""
         # Remove specific handlers for VIEW_3D and Outliner
         bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, "WINDOW")
 
         # Remove handlers for all other space types
-        if hasattr(self, "_handlers_universal"):
-            for space_type, handler in self._handlers_universal.items():
-                if handler:
-                    getattr(bpy.types, space_type).draw_handler_remove(
-                        handler, "WINDOW"
-                    )
+        for space_type, handler in self._handlers_universal.items():
+            if handler:
+                getattr(bpy.types, space_type).draw_handler_remove(handler, "WINDOW")
 
-    def is_nodegroup_compatible_with_editor(self, nodegroup_type, editor_type):
+    def is_nodegroup_compatible_with_editor(
+        self, nodegroup_type: str, editor_type: Optional[str] = None
+    ) -> bool:
         """Check if a nodegroup of a specific type is compatible with the given editor type."""
         # Direct matches
         if nodegroup_type == editor_type:
@@ -756,7 +1026,7 @@ class AssetDragOperator(bpy.types.Operator):
         # Otherwise, not compatible
         return False
 
-    def handle_view3d_drop(self, context):
+    def handle_view3d_drop(self, context: bpy.types.Context) -> None:
         """Handle dropping assets in the 3D view."""
         scene = context.scene
         if self.asset_data["assetType"] in ["model", "printable"]:
@@ -925,13 +1195,24 @@ class AssetDragOperator(bpy.types.Operator):
                         target_object_name = self.object_name
 
                 # Show dialog for geometry nodegroups
-                bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
-                    "INVOKE_DEFAULT",
-                    asset_search_index=self.asset_search_index,
-                    target_object_name=target_object_name,
-                    snapped_location=target_location,
-                    snapped_rotation=target_rotation,
-                )
+                # modify default if not target_object_name is set
+                if target_object_name:
+                    bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
+                            "INVOKE_DEFAULT",
+                            asset_search_index=self.asset_search_index,
+                            target_object_name=target_object_name,
+                            snapped_location=target_location,
+                            snapped_rotation=target_rotation,
+                        )
+                else:
+                    bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
+                        "INVOKE_DEFAULT",
+                        asset_search_index=self.asset_search_index,
+                        target_object_name=target_object_name,
+                        add_mode="NODE",
+                        snapped_location=target_location,
+                        snapped_rotation=target_rotation,
+                    )
             else:
                 # For non-geometry nodegroups, use regular download
                 bpy.ops.scene.blenderkit_download(
@@ -947,7 +1228,7 @@ class AssetDragOperator(bpy.types.Operator):
                 asset_base_id=self.asset_data["assetBaseId"],
             )
 
-    def handle_outliner_drop(self, context):
+    def handle_outliner_drop(self, context: bpy.types.Context) -> None:
         """Handle dropping assets in the outliner."""
         asset_type = self.asset_data["assetType"]
         asset_node_type = self.asset_data.get("dictParameters", {}).get("nodeType")
@@ -966,7 +1247,7 @@ class AssetDragOperator(bpy.types.Operator):
                 hovered_object = self.hovered_outliner_element
                 if self.shift_pressed:
                     parent = hovered_object.name
-                # even if we have parent, we also want the colleciton to be parented correctly
+                # even if we have parent, we also want the collection to be parented correctly
                 if hovered_object.users_collection:
                     target_collection = hovered_object.users_collection[0].name
             else:
@@ -1065,7 +1346,9 @@ class AssetDragOperator(bpy.types.Operator):
             # self.handle_node_editor_drop_nodegroup(context)
             self.restore_original_selection()
 
-    def make_node_editor_switch(self, nodegroup_type, node_editor_type) -> bool:
+    def make_node_editor_switch(
+        self, nodegroup_type: str, node_editor_type: Optional[str] = None
+    ) -> bool:
         """Make a node editor switch safely.
 
         Avoids raising if area or operator state is invalid. This prevents persistent
@@ -1079,7 +1362,8 @@ class AssetDragOperator(bpy.types.Operator):
             }
             node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
             area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
-            area.ui_type = node_editor_type
+            if area:
+                area.ui_type = node_editor_type
         except KeyError:
             # Be silent in production to avoid repeated errors during draw
             bk_logger.exception("make_node_editor_switch failed")
@@ -1087,7 +1371,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         return True
 
-    def handle_node_editor_drop_material(self, context):
+    def handle_node_editor_drop_material(self, context: bpy.types.Context) -> None:
         """Handle dropping materials in the node editor."""
         active_object = context.active_object
 
@@ -1118,7 +1402,7 @@ class AssetDragOperator(bpy.types.Operator):
         )
         return
 
-    def handle_node_editor_drop(self, context):
+    def handle_node_editor_drop(self, context: bpy.types.Context) -> None:
         """Handle dropping assets in the node editor."""
         # Check if asset type is compatible with the node editor
         if self.asset_data["assetType"] not in ["material", "nodegroup"]:
@@ -1128,9 +1412,6 @@ class AssetDragOperator(bpy.types.Operator):
             )
             return
 
-        bk_logger.debug(
-            f"Handling drop of asset type '{self.asset_data['assetType']}' in {self.node_editor_type} editor"
-        )
         # Handle material drop in shader editor
         if (
             self.asset_data["assetType"] == "material"
@@ -1167,10 +1448,11 @@ class AssetDragOperator(bpy.types.Operator):
                         self.mouse_screen_x, self.mouse_screen_y, context
                     )
                     node_region = None
-                    for region_check in active_node_area.regions:
-                        if region_check.type == "WINDOW":
-                            node_region = region_check
-                            break
+                    if active_node_area:
+                        for region_check in active_node_area.regions:
+                            if region_check.type == "WINDOW":
+                                node_region = region_check
+                                break
 
                     if node_region:
                         node_pos = self.get_node_editor_cursor_position(
@@ -1254,9 +1536,10 @@ class AssetDragOperator(bpy.types.Operator):
                     # Make sure we have a node tree to work with
                     node_tree = gn_mod.node_group
                     # Set the node tree in the editor
-                    node_space.spaces[0].node_tree = node_tree
-                    # redraw the area so we get correct coordinates
-                    node_space.tag_redraw()
+                    if node_space:
+                        node_space.spaces[0].node_tree = node_tree
+                        # redraw the area so we get correct coordinates
+                        node_space.tag_redraw()
 
             # Third case: need to switch to shader nodes for shader nodegroup
             elif nodegroup_type == "shader":
@@ -1280,7 +1563,8 @@ class AssetDragOperator(bpy.types.Operator):
                 node_tree = active_material.node_tree
 
                 # Set the node tree AFTER changing the editor type
-                node_space.spaces[0].node_tree = node_tree
+                if node_space:
+                    node_space.spaces[0].node_tree = node_tree
 
             # Fourth case: need to switch to compositor nodes for compositor nodegroup
             # TODO: scene.use_nodes was removed in Blender 5
@@ -1296,10 +1580,12 @@ class AssetDragOperator(bpy.types.Operator):
                 self.mouse_screen_x, self.mouse_screen_y, context
             )
             node_region = None
-            for region_check in active_node_area.regions:
-                if region_check.type == "WINDOW":
-                    node_region = region_check
-                    break
+
+            if active_node_area:
+                for region_check in active_node_area.regions:
+                    if region_check.type == "WINDOW":
+                        node_region = region_check
+                        break
 
             if node_region:
                 node_pos = self.get_node_editor_cursor_position(
@@ -1317,10 +1603,145 @@ class AssetDragOperator(bpy.types.Operator):
             )
             return
 
-    def mouse_release(self, context):
+    def _policy_check_before_drop(self, context: bpy.types.Context) -> bool:
+        """Validate allowed combinations for current drop.
+
+        Returns True if allowed, otherwise reports and returns False.
+        """
+        bk_logger.info("Policy check before drop started")
+        if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
+            return False
+
+        asset_type = self.asset_data.get("assetType") or ""
+        node_type = None
+        if asset_type == "nodegroup":
+            node_type = self.asset_data.get("dictParameters", {}).get("nodeType")
+
+        editor_mode = self.node_editor_type if self.prev_area_type == "NODE_EDITOR" else None
+
+        rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
+        if rule is None:
+            # Build an informative message
+            if self.prev_area_type == "NODE_EDITOR":
+                msg = (
+                    f"'{asset_type}'"
+                    + (f" ({node_type})" if node_type else "")
+                    + f" not allowed in {editor_mode or 'node'} editor"
+                )
+            else:
+                msg = (
+                    f"'{asset_type}'"
+                    + (f" ({node_type})" if node_type else "")
+                    + f" not allowed in {self.prev_area_type}"
+                )
+            reports.add_report(msg, type="ERROR")
+            # Restore selection if we were in outliner
+            if self.prev_area_type == "OUTLINER":
+                self.restore_original_selection()
+            return False
+
+        # Additional constraints
+        if self.prev_area_type == "OUTLINER" and rule.requires_hovered_object_types:
+            hov = getattr(self, "hovered_outliner_element", None)
+            hov_type = getattr(hov, "type", None)
+            if hov_type not in rule.requires_hovered_object_types:
+                reports.add_report(
+                    f"Target must be one of {list(rule.requires_hovered_object_types)}",
+                    type="ERROR",
+                )
+                self.restore_original_selection()
+                return False
+
+        if self.prev_area_type == "NODE_EDITOR" and rule.requires_active_object_types:
+            ao = context.active_object
+            if not (ao and ao.type in rule.requires_active_object_types):
+                reports.add_report(
+                    f"Active object must be one of {list(rule.requires_active_object_types)}",
+                    type="ERROR",
+                )
+                return False
+
+        # report valid rule
+        reports.add_report(
+            f"Allowed to drop '{asset_type}'",
+            type="VALIDATOR",
+        )
+        return True
+
+    def _policy_check_on_drag_start(self, context: bpy.types.Context) -> bool:
+        """Validate allowed combinations for drag start.
+
+        Returns True if allowed, otherwise reports and returns False.
+        """
+        bk_logger.info("Policy check while dragging drop started")
+        if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
+            return False
+
+        asset_type = self.asset_data.get("assetType") or ""
+        node_type = None
+        if asset_type == "nodegroup":
+            node_type = self.asset_data.get("dictParameters", {}).get("nodeType")
+
+        editor_mode = (
+            self.node_editor_type if self.prev_area_type == "NODE_EDITOR" else None
+        )
+
+        rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
+        if rule is None:
+            # Build an informative message
+            if self.prev_area_type == "NODE_EDITOR":
+                msg = (
+                    f"'{asset_type}'"
+                    + (f" ({node_type})" if node_type else "")
+                    + f" not allowed in {editor_mode or 'node'} editor"
+                )
+            else:
+                msg = (
+                    f"'{asset_type}'"
+                    + (f" ({node_type})" if node_type else "")
+                    + f" not allowed in {self.prev_area_type}"
+                )
+            reports.add_report(msg, type="ERROR")
+            # Restore selection if we were in outliner
+            if self.prev_area_type == "OUTLINER":
+                self.restore_original_selection()
+            return False
+
+        # Additional constraints
+        if self.prev_area_type == "OUTLINER" and rule.requires_hovered_object_types:
+            hov = getattr(self, "hovered_outliner_element", None)
+            hov_type = getattr(hov, "type", None)
+            if hov_type not in rule.requires_hovered_object_types:
+                reports.add_report(
+                    f"Target must be one of {list(rule.requires_hovered_object_types)}",
+                    type="ERROR",
+                )
+                self.restore_original_selection()
+                return False
+
+        if self.prev_area_type == "NODE_EDITOR" and rule.requires_active_object_types:
+            ao = context.active_object
+            if not (ao and ao.type in rule.requires_active_object_types):
+                reports.add_report(
+                    f"Active object must be one of {list(rule.requires_active_object_types)}",
+                    type="ERROR",
+                )
+                return False
+        # report valid rule
+        reports.add_report(
+            f"Allowed to drop '{asset_type}'",
+            type="VALIDATOR",
+        )
+        return True
+
+    def mouse_release(self, context: bpy.types.Context) -> None:
         """Main mouse release handler that delegates to specific handlers based on area type."""
         # In any other area than 3D view and outliner, we just cancel the drag&drop
         if self.prev_area_type not in ["VIEW_3D", "OUTLINER", "NODE_EDITOR"]:
+            return
+
+        # Policy gate: validate allowed combinations before dispatching
+        if not self._policy_check_before_drop(context):
             return
 
         # Handle Node Editor drop
@@ -1329,17 +1750,20 @@ class AssetDragOperator(bpy.types.Operator):
             return
 
         # Handle Outliner drop
-        if (
-            hasattr(self, "hovered_outliner_element")
-            and self.hovered_outliner_element is not None
-        ):
+        if self.hovered_outliner_element is not None:
             self.handle_outliner_drop(context)
             return
 
         # Handle 3D View drop
         self.handle_view3d_drop(context)
 
-    def find_active_region(self, x, y, context=None, window=None):
+    def find_active_region(
+        self,
+        x: float,
+        y: float,
+        context: bpy.types.Context = None,
+        window: bpy.types.Window = None,
+    ) -> Union[Tuple[bpy.types.Region, bpy.types.Area], Tuple[None, None]]:
         """Find the region and area under the mouse cursor in the specified window."""
         if context is None:
             context = bpy.context
@@ -1356,7 +1780,13 @@ class AssetDragOperator(bpy.types.Operator):
                     return region, area
         return None, None
 
-    def find_active_area(self, x, y, context=None, window=None):
+    def find_active_area(
+        self,
+        x: float,
+        y: float,
+        context: bpy.types.Context = None,
+        window: bpy.types.Window = None,
+    ) -> Union[bpy.types.Area, None]:
         """Find the area under the mouse cursor in the specified window."""
         if context is None:
             context = bpy.context
@@ -1368,8 +1798,8 @@ class AssetDragOperator(bpy.types.Operator):
         return None
 
     def find_outliner_element_under_mouse(
-        self, context: Union[bpy.types.Context, dict], x, y
-    ):
+        self, context: Union[bpy.types.Context, dict], x: float, y: float
+    ) -> Union[bpy.types.Object, bpy.types.Collection, None]:
         """Find and select the element under the mouse in the outliner.
         Returns the selected object, collection, or None."""
         if isinstance(context, dict):
@@ -1449,12 +1879,9 @@ class AssetDragOperator(bpy.types.Operator):
 
         return selected_element
 
-    def restore_original_selection(self):
+    def restore_original_selection(self) -> None:
         """Restore the original object selection that was active before entering the outliner."""
-        if (
-            hasattr(self, "orig_selected_objects")
-            and self.orig_selected_objects is not None
-        ):
+        if self.orig_selected_objects:
             # Deselect all objects
             bpy.ops.object.select_all(action="DESELECT")
             # Restore original selection
@@ -1469,10 +1896,7 @@ class AssetDragOperator(bpy.types.Operator):
             self.orig_active_object = None
 
         # Restore original active collection
-        if (
-            hasattr(self, "orig_active_collection")
-            and self.orig_active_collection is not None
-        ):
+        if self.orig_active_collection:
             # Restore the original active layer collection
             if hasattr(bpy.context, "view_layer"):
                 bpy.context.view_layer.active_layer_collection = (
@@ -1522,9 +1946,12 @@ class AssetDragOperator(bpy.types.Operator):
 
     def _get_drag_active_object(self, context, event, active_region, active_area):
         """Get the active object under the mouse cursor during drag."""
+
         # Use mouse coordinates relative to the active region
         region_mouse_x = event.mouse_x - active_region.x
         region_mouse_y = event.mouse_y - active_region.y
+
+        region_data = None
 
         for space in active_area.spaces:
             if space.type == "VIEW_3D":
@@ -1627,9 +2054,11 @@ class AssetDragOperator(bpy.types.Operator):
                     else:
                         self.object_name = None
 
-    def _handle_node_editor_type(self, current_area_type, active_area):
+    def _handle_node_editor_type(
+        self, current_area_type: Union[str, None], active_area: bpy.types.Area
+    ) -> None:
         """Track if we're in a node editor and what type."""
-        if current_area_type == "NODE_EDITOR":
+        if current_area_type and current_area_type == "NODE_EDITOR":
             self.in_node_editor = True
             if active_area.spaces.active.tree_type == "ShaderNodeTree":
                 self.node_editor_type = "shader"
@@ -1643,11 +2072,11 @@ class AssetDragOperator(bpy.types.Operator):
             self.in_node_editor = False
             self.node_editor_type = None
 
-    def modal(self, context, event):
+    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
 
         # if event.type == 'MOUSEMOVE':
-        if not hasattr(self, "start_mouse_x"):
+        if self.start_mouse_x is None or self.start_mouse_y is None:
             self.start_mouse_x = event.mouse_region_x
             self.start_mouse_y = event.mouse_region_y
 
@@ -1682,7 +2111,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         # Check if we're transitioning out of the outliner
         if (
-            hasattr(self, "prev_area_type")
+            self.prev_area_type
             and self.prev_area_type == "OUTLINER"
             and current_area_type != "OUTLINER"
         ):
@@ -1808,6 +2237,14 @@ class AssetDragOperator(bpy.types.Operator):
             # sometimes active area or region can be None, so we need to check for that
             if active_area is None or active_region is None:
                 return {"RUNNING_MODAL"}
+
+            # Policy gate: validate allowed combinations before dispatching
+            if not self._policy_check_on_drag_start(context):
+                return {"RUNNING_MODAL"}
+
+            # reset values
+            self.object_name = None
+            self.has_hit = False
 
             # Only perform raycasting in 3D view areas
             if active_region and active_area and active_area.type == "VIEW_3D":
@@ -1987,7 +2424,12 @@ class AssetDragOperator(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
-    def get_node_editor_cursor_position(self, context, region, area=None):
+    def get_node_editor_cursor_position(
+        self,
+        context: bpy.types.Context,
+        region: bpy.types.Region,
+        area: bpy.types.Area = None,
+    ) -> Tuple[float, float]:
         """Get the cursor position in the node editor space."""
         if area is None:
             area = self.find_active_area(
@@ -2023,9 +2465,14 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
     asset_base_id: StringProperty(name="asset base id", default="")  # type: ignore
 
-    def cancel_press(self, widget):
+    def cancel_press(self, widget: Any) -> None:
         self.finish()
         cancel_download = False
+
+        if self.downloader is None:
+            # prevent unbound
+            return
+
         for key, t in download.download_tasks.items():
             if key == self.task_key:
                 for d in t.get("downloaders", []):
@@ -2082,7 +2529,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         self.button_size = int(ui_props.thumb_size)
         self.width = pix_size[0] + 2 * margin  # adding image and cancel button to width
 
-        if bpy.context.space_data is not None and hasattr(self, "downloader"):
+        if bpy.context.space_data is not None and self.downloader is not None:
             loc = view3d_utils.location_3d_to_region_2d(
                 bpy.context.region,
                 bpy.context.space_data.region_3d,
@@ -2123,7 +2570,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         self.button_close.set_mouse_down(self.cancel_press)
         self._timer_interval = 0.04
 
-    def on_invoke(self, context, event):
+    def on_invoke(self, context: bpy.types.Context, event: bpy.types.Event):
         # Add new widgets here (TODO: perhaps a better, more automated solution?)
         self.context = context
         self.instances.append(self)
@@ -2171,7 +2618,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
             return {"PASS_THROUGH"}
 
         # if event.type == "MOUSEMOVE":
-        if bpy.context.space_data is not None:
+        if bpy.context.space_data is not None and self.downloader is not None:
             loc = view3d_utils.location_3d_to_region_2d(
                 bpy.context.region,
                 bpy.context.space_data.region_3d,
@@ -2269,9 +2716,9 @@ def create_material_mapping(object, temp_mesh):
     """Creates mapping between material indices and their sources (slots or GN nodes)"""
     mapping = {}
 
-    print(f"\nCreating mapping for {object.name}")
-    print(f"Material slots: {len(object.material_slots)}")
-    print(f"Has GN: {any(mod.type == 'NODES' for mod in object.modifiers)}")
+    bk_logger.info("\nCreating mapping for %s", object.name)
+    bk_logger.info("Material slots: %d", len(object.material_slots))
+    bk_logger.info("Has GN: %s", any(mod.type == "NODES" for mod in object.modifiers))
 
     # 1. First map regular material slots
     for slot_idx, slot in enumerate(object.material_slots):
