@@ -28,3 +28,6 @@ RED = (1, 0.5, 0.5, 0.8)
 
 BLUE = (0.8, 0.8, 1, 0.8)
 """Color for validator reports."""
+
+GRAY = (0.7, 0.7, 0.7, 0.6)
+"""Default color for debug reports."""

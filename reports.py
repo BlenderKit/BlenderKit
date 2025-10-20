@@ -21,6 +21,7 @@ from logging import getLogger
 from os.path import basename
 from re import search
 from time import time
+from typing import Literal
 
 import bpy
 
@@ -32,7 +33,7 @@ reports = []
 
 
 # check for same reports and just make them longer by the timeout.
-def add_report(text="", timeout=-1, type="INFO", details=""):
+def add_report(text: str = "", timeout: float = -1, type: Literal["INFO", "ERROR", "VALIDATOR"] = "INFO", details: str = "") -> None:
     """Add text report to GUI. Function checks for same reports and make them longer by the timeout.
     Also log the text and details into the console with levels: ERROR=RED, INFO=GREEN, VALIDATOR=BLUE.
     When timeout is not specified, default 15s will be used for ERROR, 5s for INFO/VALIDATOR.
@@ -41,6 +42,7 @@ def add_report(text="", timeout=-1, type="INFO", details=""):
     text = text.strip()
     full_message = text
     details = details.strip()
+    color = colors.GRAY
     if details != "":
         full_message = f"{text} {details}"
 
