@@ -3659,9 +3659,13 @@ class UrlPopupDialog(bpy.types.Operator):
         layout.active_default = True
         op = layout.operator("wm.url_open", text=self.link_text, icon="QUESTION")
         if not utils.user_logged_in():
+            if self.message.find("purchased") != -1:
+                text = "purchased"
+            else:
+                text = "subscribed"
             utils.label_multiline(
                 layout,
-                text="Already subscribed? Log in to access your account.",
+                text=f"Already {text}? Log in to access your account.",
                 width=300,
             )
 

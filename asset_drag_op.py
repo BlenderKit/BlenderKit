@@ -2027,7 +2027,20 @@ class AssetDragOperator(bpy.types.Operator):
         sr = search.get_search_results()
         ui_props = bpy.context.window_manager.blenderkitUI
         self.asset_data = dict(sr[ui_props.active_index])
+        # add-ons
+        if self.asset_data.get("assetType") == "addon" and not self.asset_data.get(
+            "canDownload"
+        ):
+            message = "This addon is not purchased yet."
+            link_text = "Purchase add-on online"
+            url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
+            bpy.ops.wm.blenderkit_url_dialog(
+                "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
+            )
+            return {"CANCELLED"}
+
         if not self.asset_data.get("canDownload"):
+
             message = "This asset is included in Full Plan.\nSupport asset creators & open-source by subscribing."
             link_text = "Unlock All Assets"
             url = f"{global_vars.SERVER}/get-blenderkit/{self.asset_data['id']}/?from_addon=True"
