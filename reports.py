@@ -33,7 +33,12 @@ reports = []
 
 
 # check for same reports and just make them longer by the timeout.
-def add_report(text: str = "", timeout: float = -1, type: Literal["INFO", "ERROR", "VALIDATOR"] = "INFO", details: str = "") -> None:
+def add_report(
+    text: str = "",
+    timeout: float = -1,
+    type: Literal["INFO", "ERROR", "VALIDATOR"] = "INFO",
+    details: str = "",
+) -> None:
     """Add text report to GUI. Function checks for same reports and make them longer by the timeout.
     Also log the text and details into the console with levels: ERROR=RED, INFO=GREEN, VALIDATOR=BLUE.
     When timeout is not specified, default 15s will be used for ERROR, 5s for INFO/VALIDATOR.
