@@ -1,0 +1,12 @@
+include:
+  - "**/*.py"
+
+exclude_dirs:
+  - "tests"
+  - ".venv"
+  - "__pycache__"
+
+skips:
+  - "B404" # https://bandit.readthedocs.io/en/1.7.10/blacklists/blacklist_imports.html#b404-import-subprocess
+  - "B603" # https://bandit.readthedocs.io/en/1.7.10/plugins/b603_subprocess_without_shell_equals_true.html
+  - "B608" # https://bandit.readthedocs.io/en/1.7.10/plugins/b608_hardcoded_sql_expressions.html

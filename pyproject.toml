@@ -1,12 +1,23 @@
 [project]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13" # in order to support numpy<2.0.0
 dependencies = [
     "requests>=2.18.4",
     "types-requests>=2.31.0.5",
-    "numpy<2.0.0",
-    "black==24.1.0",
-    "isort==5.13.2",
+    "numpy>=1.21.0,<2.0.0",
+]
+
+# these will not be included in build distributions
+[dependency-groups]
+dev = [
+    ## dev dependencies
+    "black==25.9.0",
+    "isort==7.0.0",
     "mypy==1.13.0",
+
+    ## I would like to enable these in the future
+    "bandit>=1.8.2", # code is currently invalid for bandit
+    "ruff>=0.14.1", # code is currently invalid for ruff
+    "pydoclint>=0.7.3", # code is currently invalid for pydoclint
 ]
 
 [tool.isort]
@@ -23,11 +34,50 @@ exclude = '''
 '''
 
 [tool.ruff]
-exclude = ["lib", "out", "addon_updater.py", "addon_updater_ops.py"]
+target-version = "py310"
+line-length = 120
+include = ["pyproject.toml",
+    "**/*.py",
+    "*.py"
+    ]
+exclude = [
+  "lib",
+  "out",
+  "addon_updater.py",
+  "addon_updater_ops.py",
+  "_debug/**",
+  "_bck/**",
+  "*.tmp",
+  "__pycache__/**",
+  ".venv/**",
+  "*.pyi",
+  "sentry_sdk",
+]
 ignore = [
     "E501", # Line too long
 ]
-target-version = "py310"
+
+[tool.ruff.format]
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "C90", "I", "N", "D", "UP", "S1", "S2", "S3", "S5", "BLE", "FBT",
+    "B", "A", "C4", "COM", "DTZ", "T10", "FA", "ISC", "ICN", "LOG", "G", "INP", "PIE", "T20", "Q", "RSE", "RET", "SLF",
+    "SLOT", "SIM", "TID",
+    "TC001", "TC004", "TC005", "TC010",
+    "INT", "ARG", "FIX", "ERA", "PL", "TRY", "FLY", "PERF", "RUF"
+]
+
+ignore = [
+    "D105", # https://docs.astral.sh/ruff/rules/undocumented-magic-method/
+    "D107", # https://docs.astral.sh/ruff/rules/undocumented-public-init/
+    "PLC0415", # https://docs.astral.sh/ruff/rules/import-outside-top-level/
+    "RET504", # https://docs.astral.sh/ruff/rules/unnecessary-assign/
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 
 [tool.mypy]
 exclude = ['test_*', 'out', 'lib']
@@ -46,3 +96,10 @@ module = [
 ]
 ignore_missing_imports = true  # Ignore missing type hints for bpy
 
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-docstring = false
+check-return-types = false
+ignore-private-args = true
+ignore-underscore-args = true
+exclude = "\\.venv|\\sentry_sdk"

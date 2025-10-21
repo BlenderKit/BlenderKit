@@ -4,7 +4,7 @@
 
   Quick and easy asset search, download and upload directly from Blender.
 
-  
+
   ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/blenderkit/blenderkit/total?color=blue)
   ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/blenderkit/blenderkit/latest/total?color=blue)
   [![GitHub Release](https://img.shields.io/github/v/release/blenderkit/blenderkit?color=green)](https://github.com/BlenderKit/BlenderKit/releases/latest)
