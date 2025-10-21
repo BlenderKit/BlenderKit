@@ -1,0 +1,135 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    // define custom variables
+
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Run Project Setup",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "runtimeExecutable": "${workspaceFolder}/.vscode/pdm_setup_project.bat",
+            },
+            "linux": {
+                "runtimeExecutable": "${workspaceFolder}/.vscode/pdm_setup_project.sh",
+            },
+            "osx": {
+                "runtimeExecutable": "${workspaceFolder}/.vscode/pdm_setup_project.sh",
+            }
+        },
+
+        {
+            "name": "[BLACK] Run black on all",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "black",
+            "args": [
+                "${workspaceFolder}/*.py",
+                "--check", "--diff",
+
+            ],
+            "console": "integratedTerminal",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[BLACK] Run black on git changed files",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/.vscode/black_git_changed.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[FUTURE][RUFF] Check All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "ruff",
+            "args": [
+                "check",
+                "."
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[FUTURE][BANDIT] Check All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bandit",
+            "args": [
+                "-c", "_bandit.yaml", // dont forget to include config file
+                "-ll",
+                "-r", ".",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[FUTURE][PYDOCS] Check All",
+            "type": "node",
+            "request": "launch",
+            // Default: hidden; unhide per-OS below
+            // "presentation": { "hidden": true },
+            "args": ["."],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+
+            "windows": {
+                "runtimeExecutable": "${workspaceFolder}/.venv/Scripts/pydoclint.exe",
+            },
+            "linux": {
+                "runtimeExecutable": "${workspaceFolder}/.venv/bin/pydoclint",
+            },
+            "osx": {
+                "runtimeExecutable": "${workspaceFolder}/.venv/bin/pydoclint",
+            }
+        },
+
+    ]
+}

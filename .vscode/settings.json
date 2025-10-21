@@ -1,0 +1,85 @@
+{
+    "python.experiments.optInto": ["pythonTerminalEnvVarActivation"],
+    "python.envFile": "${workspaceFolder}/.env",
+    // Don't hardcode interpreter path; let the Python extension discover the venv on each OS
+    // If you really need to force it, prefer per-OS launch configs instead of settings.json
+
+    "python.terminal.activateEnvironment": true,
+
+    "terminal.integrated.env.windows": {
+        // Keep PATH and PYTHONPATH usable on Windows (.venv\Scripts)
+        "PATH": "${env:PATH};${workspaceFolder};${workspaceFolder}/.venv/Scripts;${workspaceFolder}/.tests;${workspaceFolder}/.tests/unittests",
+        "PYTHONPATH": "${env:PYTHONPATH};${workspaceFolder};${workspaceFolder}/.tests;${workspaceFolder}/.tests/unittests"
+    },
+
+    // Cross-platform shells (Linux/macOS) use .venv/bin
+    "terminal.integrated.env.linux": {
+        "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}",
+        "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}:${workspaceFolder}/.tests:${workspaceFolder}/.tests/unittests"
+    },
+    "terminal.integrated.env.osx": {
+        "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}",
+        "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}:${workspaceFolder}/.tests:${workspaceFolder}/.tests/unittests"
+    },
+
+    // Let the selected interpreter provide site-packages; add only project-local paths
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/",
+        "${workspaceFolder}/.tests",
+        "${workspaceFolder}/.tests/unittests",
+        // Optional: set BLENDER_PY_MODULES env var to inject platform-specific Blender scripts path
+        "${env:BLENDER_PY_MODULES}"
+    ],
+
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/",
+        "${workspaceFolder}/.tests",
+        "${workspaceFolder}/.tests/unittests",
+        // Optional: set BLENDER_PY_MODULES env var to inject platform-specific Blender scripts path
+        "${env:BLENDER_PY_MODULES}"
+    ],
+
+    "python.testing.unittestArgs": [
+        // "-v",
+        "-s",
+        "${workspaceFolder}/.tests/unittests/",
+    ],
+
+    "python.testing.unittestEnabled": true,
+    "python.testing.pytestEnabled": false,
+
+    "python.analysis.typeEvaluation.deprecateTypingAliases": true,
+    "python.analysis.typeEvaluation.enableTypeIgnoreComments": true,
+    "python.analysis.typeEvaluation.strictParameterNoneValue": true,
+
+    "python.analysis.autoFormatStrings": true,
+
+    "files.insertFinalNewline": true,
+
+    "ruff.enable": false,
+
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        //// flip if we go with ruff
+        // "editor.defaultFormatter": "charliermarsh.ruff",
+
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.formatOnType": true,
+        "editor.renderFinalNewline": "on"
+    },
+
+    "cSpell.words": [
+    ],
+
+    "chat.agent.enabled": true,
+    "github.copilot.chat.agent.currentEditorContext.enabled": true,
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "github.copilot.chat.agent.thinkingTool": true,
+    "chat.instructionsFilesLocations": {
+        ".github/instructions": true,
+        "/Users/vscode/repos/instructions": true
+    },
+    "iis.configDir": ""
+
+}
