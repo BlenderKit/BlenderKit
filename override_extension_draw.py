@@ -510,7 +510,7 @@ def clear_repo_cache():
 
 
 def ensure_repo_cache():
-    """
+    r"""
     Reads the .json file blender stores in \extensions\www_blenderkit_com\.blender_ext
     and parses it to a dict from json, we can use it then for drawing purposes and have the extra data BlenderKit api provides.
     Checks the modification time of the cache file and reloads it if necessary.
