@@ -1846,21 +1846,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         if asset_data["downloaded"] > 0:
+            pb.bg_color = colors.GREEN
             # For addons, always show full bar when installed, with color based on enabled status
             if asset_data.get("assetType") == "addon":
                 w = self.button_size  # Full width for installed addons
                 is_enabled = asset_data.get("enabled", False)
-                if is_enabled:
-                    # Green for installed and enabled addons
-                    pb.bg_color = colors.GREEN
-                else:
+                if not is_enabled:
                     # Pale blue for installed but disabled addons
                     pb.bg_color = colors.BLUE
-            else:
-                # For other asset types, use existing progress-based width and green color
-                w = int(self.button_size * asset_data["downloaded"] / 100.0)
-                pb.bg_color = colors.GREEN
-
+            w = int(self.button_size * asset_data["downloaded"] / 100.0)
             pb.width = w
             pb.update(pb.x_screen, pb.y_screen)
             pb.visible = True
@@ -1868,10 +1862,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             pb.visible = False
             return
 
-        w = int(self.button_size * asset_data["downloaded"] / 100.0)
-        pb.width = w
-        pb.update(pb.x_screen, pb.y_screen)
-        pb.visible = True
         if bpy.context.region is not None:
             bpy.context.region.tag_redraw()
 
@@ -1893,34 +1883,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             else:
                 asset_button.validation_icon.visible = False
         else:
-            if asset_data.get("assetType") == "addon":
-                # Check for addon-specific purchasing information
-
-                can_download = asset_data.get("canDownload")
-                is_free = asset_data.get("isFree")
-                base_price = asset_data.get("basePrice")
-                is_for_sale = asset_data.get("isForSale")
-
-                # Locked addons: for sale but not downloadable (not purchased)
-                if is_for_sale and not can_download:
-                    img_fp = paths.get_addon_thumbnail_path("locked.png")
-                    asset_button.validation_icon.set_image(img_fp)
-                    asset_button.validation_icon.visible = True
-                # Full plan addons: not free and not for sale (subscription required)
-                elif not is_free and not is_for_sale:
-                    img_fp = paths.get_addon_thumbnail_path("locked.png")
-                    asset_button.validation_icon.set_image(img_fp)
-                    asset_button.validation_icon.visible = True
-                else:
-                    asset_button.validation_icon.visible = False
+            if asset_data.get("canDownload", True) == 0:
+                img_fp = paths.get_addon_thumbnail_path("locked.png")
+                asset_button.validation_icon.set_image(img_fp)
+                asset_button.validation_icon.visible = True
             else:
-                # Regular asset lock logic
-                if asset_data.get("canDownload", True) == 0:
-                    img_fp = paths.get_addon_thumbnail_path("locked.png")
-                    asset_button.validation_icon.set_image(img_fp)
-                    asset_button.validation_icon.visible = True
-                else:
-                    asset_button.validation_icon.visible = False
+                asset_button.validation_icon.visible = False
 
     def update_image(self, asset_id):
         """should be run after thumbs are retrieved so they can be updated"""
