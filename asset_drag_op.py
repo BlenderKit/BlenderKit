@@ -232,6 +232,7 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
             return False
     except ReferenceError:
         # The operator RNA is gone; skip drawing quietly
+        bk_logger.exception("Operator RNA is gone; skipping drawing callback.")
         return False
     except Exception:
         return False
