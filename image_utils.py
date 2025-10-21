@@ -18,6 +18,7 @@
 
 import os
 import time
+from functools import lru_cache
 
 import bpy
 
@@ -93,18 +94,63 @@ def set_colorspace(img, colorspace: str = ""):
 
         if colorspace == "Non-Color":
             img.colorspace_settings.is_data = True
-        else:
+        elif colorspace:
             img.colorspace_settings.name = colorspace
     except Exception as e:
         print(f"Colorspace {colorspace} not found: {e}")
 
 
-def guess_colorspace():
+@lru_cache(maxsize=1)
+def list_available_image_colorspaces():
+    """Lists available color spaces in blender by creating a temporary image if needed.
+
+    Returns:
+        List of color space names.
+    """
+    # Check if there are existing images
+    temp_image = None
+    if bpy.data.images:
+        img = bpy.data.images[0]
+    else:
+        # Create temporary image
+        temp_image = bpy.data.images.new(
+            "TempImage_ForColorSpaceList", width=1, height=1
+        )
+        img = temp_image
+
+    # Get available color spaces
+    color_spaces = [
+        cs.identifier
+        for cs in img.colorspace_settings.bl_rna.properties["name"].enum_items
+    ]
+
+    # Clean up temporary image if created
+    if temp_image:
+        bpy.data.images.remove(temp_image)
+
+    return color_spaces
+
+
+def guess_colorspace() -> str:
+    """Tries to guess the colorspace from the current display device and available color spaces."""
     display_device = bpy.context.scene.display_settings.display_device
     if display_device == "sRGB":
         return "sRGB"
     if display_device == "ACES":
         return "aces"
+
+    # detect available color spaces on image data
+    all_clr_spaces = list_available_image_colorspaces()
+
+    # try to match display device with color space
+    for cs in all_clr_spaces:
+        if display_device.lower() in cs.lower():
+            return cs
+
+    # fallback
+    if "sRGB" in all_clr_spaces:
+        return "sRGB"
+    return ""
 
 
 def analyze_image_is_true_hdr(image):

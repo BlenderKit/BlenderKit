@@ -1198,12 +1198,12 @@ class AssetDragOperator(bpy.types.Operator):
                 # modify default if not target_object_name is set
                 if target_object_name:
                     bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
-                            "INVOKE_DEFAULT",
-                            asset_search_index=self.asset_search_index,
-                            target_object_name=target_object_name,
-                            snapped_location=target_location,
-                            snapped_rotation=target_rotation,
-                        )
+                        "INVOKE_DEFAULT",
+                        asset_search_index=self.asset_search_index,
+                        target_object_name=target_object_name,
+                        snapped_location=target_location,
+                        snapped_rotation=target_rotation,
+                    )
                 else:
                     bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
                         "INVOKE_DEFAULT",
@@ -1622,7 +1622,9 @@ class AssetDragOperator(bpy.types.Operator):
         if asset_type == "nodegroup":
             node_type = self.asset_data.get("dictParameters", {}).get("nodeType")
 
-        editor_mode = self.node_editor_type if self.prev_area_type == "NODE_EDITOR" else None
+        editor_mode = (
+            self.node_editor_type if self.prev_area_type == "NODE_EDITOR" else None
+        )
 
         rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
         if rule is None:
