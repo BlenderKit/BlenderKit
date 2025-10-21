@@ -93,7 +93,7 @@
             "request": "launch",
             "module": "bandit",
             "args": [
-                "-c", "_bandit.yaml", // dont forget to include config file
+                "-c", "_bandit.yaml",
                 "-ll",
                 "-r", ".",
             ],
@@ -114,8 +114,6 @@
             "name": "[FUTURE][PYDOCS] Check All",
             "type": "node",
             "request": "launch",
-            // Default: hidden; unhide per-OS below
-            // "presentation": { "hidden": true },
             "args": ["."],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
