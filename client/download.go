@@ -331,8 +331,9 @@ func doAssetDownload(
 	}
 
 	// If the downloaded (or placed) file is a packaged archive, extract it always and use the contained .blend
+	// add-ons are never extracted, since blender needs them as .zip
 	isZip := strings.HasSuffix(strings.ToLower(fileName), ".zip")
-	if isZip {
+	if isZip && downloadAssetData.AssetType != "addon" {
 		// Ensure fp points to the existing zip in both branches
 		if action != "download" {
 			fp = existingFiles[0]
