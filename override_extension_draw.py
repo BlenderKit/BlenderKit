@@ -75,7 +75,8 @@ class BK_OT_buy_extension_and_watch(Operator):
         print(
             f"BlenderKit: Started watching repository index {self.repo_index} for updates."
         )
-        context.area.tag_redraw()  # Update UI to show operator is running if needed
+        if context and context.area:
+            context.area.tag_redraw()  # Update UI to show operator is running if needed
         return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
@@ -135,10 +136,29 @@ class BK_OT_buy_extension_and_watch(Operator):
             wm.event_timer_remove(self._timer)
             self._timer = None
             print("BlenderKit: Watcher timer removed.")
-        context.area.tag_redraw()  # Update UI
+        if context and context.area:
+            context.area.tag_redraw()  # Update UI
 
 
 # --- End New Modal Operator ---
+
+
+def redraw_preferences_once():
+    """Tag the redraw on the Blender preferences.
+    Meant to be registered as a timer, runs just once.
+    """
+    for window in bpy.context.window_manager.windows:
+        screen = window.screen
+        if not screen:
+            continue
+        for area in screen.areas:
+            if area.type != "PREFERENCES":
+                continue
+            for region in area.regions:
+                if region.type in {"UI", "WINDOW"}:
+                    region.tag_redraw()
+
+    return None
 
 
 def extension_draw_item_blenderkit(
@@ -163,8 +183,11 @@ def extension_draw_item_blenderkit(
     cache_reloaded = ensure_repo_cache()
     if cache_reloaded:
         # If cache was just reloaded, tag UI for redraw
-        layout.tag_redraw()
-        print("BlenderKit: Cache reloaded, tagging layout for redraw.")
+        # as UILayout doesn't have tag_redraw we call a custom function
+        if bpy.app.timers.is_registered(redraw_preferences_once):
+            bpy.app.timers.unregister(redraw_preferences_once)
+        bpy.app.timers.register(redraw_preferences_once, first_interval=0.01)
+        print("BlenderKit: Cache reloaded, tagging preferences for redraw.")
 
     # check if the cache is already in the window manager
     if "blenderkit_extensions_repo_cache" not in bpy.context.window_manager:
