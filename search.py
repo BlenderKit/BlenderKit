@@ -787,6 +787,7 @@ def decide_ordering(query: dict) -> list:
             order.append("last_blend_upload")
         else:
             if query.get("asset_type") == "addon":
+                # addons don't have athe blend so need to sort by created
                 order.append("-created")
             else:
                 order.append("-last_blend_upload")
@@ -1371,6 +1372,7 @@ def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
         "node": "NODEGROUP",
         "printable": "PRINTABLE",
         "addon": "ADDON",
+        "add-on": "ADDON",
         "extension": "ADDON",
     }
 

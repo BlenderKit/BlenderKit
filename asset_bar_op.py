@@ -1837,10 +1837,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bookmark_button.set_image(img_fp)
 
     def update_progress_bar(self, asset_button, asset_data):
-        """Update the progress bar for an each button in asset bar.
-        For assets shows progress, for addons by nowonly full bar is shown.
+        """Update the progress bar for  each button in asset bar.
         Enabled addons are shown in green, disabled but installed in blue."""
-        
+
         pb = asset_button.progress_bar
         if pb is None:
             return
