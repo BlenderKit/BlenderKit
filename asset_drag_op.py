@@ -65,152 +65,6 @@ DEAD_ZONE = 5  # pixels
 DRAG_THRESHOLD = 10  # pixels
 """Number of pixels mouse must move to consider as a drag (vs click)."""
 
-Action = Literal["download", "dialog", "assign_material", "switch_then_add", "reject"]
-
-
-@dataclass(frozen=True)
-class DropRule:
-    """Declarative rule describing what drops are allowed where.
-
-    area: One of VIEW_3D | OUTLINER | NODE_EDITOR
-    asset_type: BlenderKit asset type (model, printable, material, nodegroup, hdr, scene, brush)
-    node_type: For nodegroups: geometry | shader | compositing | None (for generic)
-    editor_mode: For NODE_EDITOR only: shader | geometry | compositing | texture
-    action: What the code will do (informational for now)
-    requires_hovered_object_types: Outliner constraints (e.g., MESH, CURVE)
-    requires_active_object_types: Node editor constraints
-    """
-
-    area: Literal["VIEW_3D", "OUTLINER", "NODE_EDITOR"]
-    asset_type: str
-    node_type: Optional[str] = None
-    editor_mode: Optional[Literal["shader", "geometry", "compositing", "texture"]] = (
-        None
-    )
-    action: Action = "download"
-    requires_hovered_object_types: Optional[Sequence[str]] = None
-    requires_active_object_types: Optional[Sequence[str]] = None
-
-
-# Rules reflect current behavior in handlers, not changing runtime flow
-DROP_RULES: Tuple[DropRule, ...] = (
-    # VIEW_3D
-    DropRule("VIEW_3D", "model"),
-    DropRule("VIEW_3D", "printable"),
-    DropRule("VIEW_3D", "material"),
-    DropRule("VIEW_3D", "hdr"),
-    DropRule("VIEW_3D", "scene"),
-    DropRule("VIEW_3D", "brush"),
-    DropRule("VIEW_3D", "nodegroup", "geometry", action="dialog"),
-    DropRule("VIEW_3D", "nodegroup", "shader"),
-    DropRule("VIEW_3D", "nodegroup", "compositing"),
-    # OUTLINER
-    DropRule("OUTLINER", "model"),
-    DropRule("OUTLINER", "printable"),
-    DropRule("OUTLINER", "material", requires_hovered_object_types=["MESH", "CURVE"]),
-    DropRule(
-        "OUTLINER",
-        "nodegroup",
-        "geometry",
-        action="dialog",
-        requires_hovered_object_types=["MESH", "CURVE"],
-    ),
-    # Implicitly reject: hdr, scene, brush, non-geometry nodegroups in OUTLINER
-    # NODE_EDITOR - material only valid in shader editor
-    DropRule("NODE_EDITOR", "material", editor_mode="shader", action="assign_material"),
-    # NODE_EDITOR - nodegroups allowed across modes (switching handled in code)
-    DropRule("NODE_EDITOR", "nodegroup", "shader", editor_mode="shader"),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "geometry",
-        editor_mode="shader",
-        action="switch_then_add",
-    ),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "compositing",
-        editor_mode="shader",
-        action="switch_then_add",
-    ),
-    DropRule("NODE_EDITOR", "nodegroup", "geometry", editor_mode="geometry"),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "shader",
-        editor_mode="geometry",
-        action="switch_then_add",
-    ),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "compositing",
-        editor_mode="geometry",
-        action="switch_then_add",
-    ),
-    DropRule("NODE_EDITOR", "nodegroup", "compositing", editor_mode="compositing"),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "shader",
-        editor_mode="compositing",
-        action="switch_then_add",
-    ),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "geometry",
-        editor_mode="compositing",
-        action="switch_then_add",
-    ),
-    # Texture editor currently not used by handlers, but allow switching semantics
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "shader",
-        editor_mode="texture",
-        action="switch_then_add",
-    ),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "geometry",
-        editor_mode="texture",
-        action="switch_then_add",
-    ),
-    DropRule(
-        "NODE_EDITOR",
-        "nodegroup",
-        "compositing",
-        editor_mode="texture",
-        action="switch_then_add",
-    ),
-)
-
-
-def find_drop_rule(
-    prev_area_type: str,
-    asset_type: str,
-    node_type: Optional[str],
-    editor_mode: Optional[str],
-) -> Optional[DropRule]:
-    """Find the first matching rule for a potential drop operation.
-
-    Returns None if not allowed by policy.
-    """
-    for rule in DROP_RULES:
-        if rule.area != prev_area_type:
-            continue
-        if rule.asset_type != asset_type:
-            continue
-        if rule.node_type != node_type:
-            continue
-        if rule.area == "NODE_EDITOR" and rule.editor_mode != editor_mode:
-            continue
-        return rule
-    return None
-
 
 def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -> bool:
     """Check if drawing callbacks can be added safely.
@@ -233,12 +87,6 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
     except ReferenceError:
         # The operator RNA is gone; skip drawing quietly
         bk_logger.exception("Operator RNA is gone; skipping drawing callback.")
-
-        # TODO: recover from this
-        # once we end up here, the addon is dead.
-        # all previously registered handlers in self._handlers_universal need to be removed
-        # but they cannot be accessed here anymore.
-        # somehow reset global state?
 
         return False
     except Exception:
@@ -300,6 +148,7 @@ def draw_callback_dragging(
         2,
         line_color,
     )
+
     # Determine hint message and colors based on context
     main_message = ""
     main_color = (0.9, 0.9, 0.9, 1.0)  # Default white
@@ -1590,91 +1439,10 @@ class AssetDragOperator(bpy.types.Operator):
             )
             return
 
-    def _policy_check_before_drop(self, context: bpy.types.Context) -> bool:
-        """Validate allowed combinations for current drop.
-
-        Returns True if allowed, otherwise reports and returns False.
-        """
-        if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
-            return False
-
-        asset_type = self.asset_data.get("assetType") or ""
-        node_type = None
-        if asset_type == "nodegroup":
-            node_type = self.asset_data.get("dictParameters", {}).get("nodeType")
-
-        editor_mode = (
-            self.node_editor_type if self.prev_area_type == "NODE_EDITOR" else None
-        )
-
-        rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
-        if rule is None:
-            # Restore selection if we were in outliner
-            if self.prev_area_type == "OUTLINER":
-                self.restore_original_selection()
-            return False
-
-        # Additional constraints
-        if self.prev_area_type == "OUTLINER" and rule.requires_hovered_object_types:
-            hov = getattr(self, "hovered_outliner_element", None)
-            hov_type = getattr(hov, "type", None)
-            if hov_type not in rule.requires_hovered_object_types:
-                self.restore_original_selection()
-                return False
-
-        if self.prev_area_type == "NODE_EDITOR" and rule.requires_active_object_types:
-            ao = context.active_object
-            if not (ao and ao.type in rule.requires_active_object_types):
-                return False
-
-        return True
-
-    def _policy_check_on_drag_start(self, context: bpy.types.Context) -> bool:
-        """Validate allowed combinations for drag start.
-
-        Returns True if allowed, otherwise reports and returns False.
-        """
-        if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
-            return False
-
-        asset_type = self.asset_data.get("assetType") or ""
-        node_type = None
-        if asset_type == "nodegroup":
-            node_type = self.asset_data.get("dictParameters", {}).get("nodeType")
-
-        editor_mode = (
-            self.node_editor_type if self.prev_area_type == "NODE_EDITOR" else None
-        )
-
-        rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
-        if rule is None:
-            # Restore selection if we were in outliner
-            if self.prev_area_type == "OUTLINER":
-                self.restore_original_selection()
-            return False
-
-        # Additional constraints
-        if self.prev_area_type == "OUTLINER" and rule.requires_hovered_object_types:
-            hov = getattr(self, "hovered_outliner_element", None)
-            hov_type = getattr(hov, "type", None)
-            if hov_type not in rule.requires_hovered_object_types:
-                self.restore_original_selection()
-                return False
-
-        if self.prev_area_type == "NODE_EDITOR" and rule.requires_active_object_types:
-            ao = context.active_object
-            if not (ao and ao.type in rule.requires_active_object_types):
-                return False
-        return True
-
     def mouse_release(self, context: bpy.types.Context) -> None:
         """Main mouse release handler that delegates to specific handlers based on area type."""
         # In any other area than 3D view and outliner, we just cancel the drag&drop
         if self.prev_area_type not in ["VIEW_3D", "OUTLINER", "NODE_EDITOR"]:
-            return
-
-        # Policy gate: validate allowed combinations before dispatching
-        if not self._policy_check_before_drop(context):
             return
 
         # Handle Node Editor drop
@@ -1804,6 +1572,14 @@ class AssetDragOperator(bpy.types.Operator):
         selected_element = None
         if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
             selected_element = bpy.context.selected_ids[0]
+
+        # Fallback: Outliner often selects a LayerCollection (non-ID),
+        # especially for the root "Scene Collection" which won't appear in selected_ids.
+        # In that case, use the active_layer_collection's underlying Collection datablock.
+        if selected_element is None and hasattr(view_layer, "active_layer_collection"):
+            alc = view_layer.active_layer_collection
+            if alc is not None and hasattr(alc, "collection"):
+                selected_element = alc.collection
 
         # Keep the highlight for visual feedback, but store the original selection
         self.orig_selected_objects = orig_selected_objects
@@ -2071,7 +1847,6 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = active_region.as_pointer()
             # Make sure all 3D views get redrawn
             for area in context.screen.areas:
-                # if area.type in ['VIEW_3D', 'OUTLINER']:
                 area.tag_redraw()
 
             # Handle outliner interaction
@@ -2167,10 +1942,6 @@ class AssetDragOperator(bpy.types.Operator):
 
             # sometimes active area or region can be None, so we need to check for that
             if active_area is None or active_region is None:
-                return {"RUNNING_MODAL"}
-
-            # Policy gate: validate allowed combinations before dispatching
-            if not self._policy_check_on_drag_start(context):
                 return {"RUNNING_MODAL"}
 
             # reset values
