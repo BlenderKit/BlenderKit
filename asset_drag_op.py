@@ -233,6 +233,13 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
     except ReferenceError:
         # The operator RNA is gone; skip drawing quietly
         bk_logger.exception("Operator RNA is gone; skipping drawing callback.")
+
+        # TODO: recover from this
+        # once we end up here, the addon is dead.
+        # all previously registered handlers in self._handlers_universal need to be removed
+        # but they cannot be accessed here anymore.
+        # somehow reset global state?
+
         return False
     except Exception:
         return False
@@ -246,6 +253,15 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
 def draw_callback_dragging(
     self: bpy.types.Operator, context: bpy.types.Context
 ) -> None:
+    """Draw drag & drop hints while dragging an asset.
+
+    Args:
+        self: The operator instance.
+        context: Blender context.
+
+    Returns:
+        None
+    """
     # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
 
     if not is_draw_cb_available(self, context):
@@ -256,20 +272,21 @@ def draw_callback_dragging(
         if img is None:
             # thumbnail can be sometimes missing (probably removed by Blender) so lets add it
             directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
-            tpath = os.path.join(directory, self.asset_data["thumbnail_small"])
-            img = bpy.data.images.load(tpath)
+            thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
+            img = bpy.data.images.load(thumbnail_path)
             img.name = self.iname
-    except Exception as e:
-        print("draw_callback_dragging error:", e)
+    except Exception:
+        bk_logger.exception("Error loading image while drawing:")
         return
 
-    linelength = 35
-    _scene = bpy.context.scene
+    line_length = 35
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    line_color = colors.WHITE
+
     ui_bgl.draw_image(
-        self.mouse_x + linelength,
-        self.mouse_y - linelength - ui_props.thumb_size,
+        self.mouse_x + line_length,
+        self.mouse_y - line_length - ui_props.thumb_size,
         ui_props.thumb_size,
         ui_props.thumb_size,
         img,
@@ -278,10 +295,10 @@ def draw_callback_dragging(
     ui_bgl.draw_line2d(
         self.mouse_x,
         self.mouse_y,
-        self.mouse_x + linelength,
-        self.mouse_y - linelength,
+        self.mouse_x + line_length,
+        self.mouse_y - line_length,
         2,
-        colors.WHITE,
+        line_color,
     )
     # Determine hint message and colors based on context
     main_message = ""
@@ -291,8 +308,8 @@ def draw_callback_dragging(
 
     # Base text position
     text_x = self.mouse_x
-    text_y_main = self.mouse_y - linelength - 20 - ui_props.thumb_size
-    text_y_secondary = self.mouse_y - linelength - 40 - ui_props.thumb_size
+    text_y_main = self.mouse_y - line_length - 20 - ui_props.thumb_size
+    text_y_secondary = self.mouse_y - line_length - 40 - ui_props.thumb_size
 
     # Determine messages based on area type and asset type
     asset_type = self.asset_data["assetType"]
@@ -324,7 +341,7 @@ def draw_callback_dragging(
                     # Hovering over an object
                     target_object = bpy.data.objects.get(self.object_name)
                     if target_object and target_object.type in ["MESH", "CURVE"]:
-                        main_message = f"Drop to add geometry nodegroup"
+                        main_message = "Drop to add geometry nodegroup"
                         secondary_message = f"(Add as modifier to {self.object_name})"
                     else:
                         main_message = f"Unsupported object type: {target_object.type if target_object else 'Unknown'}"
@@ -475,8 +492,6 @@ def draw_callback_3d_dragging(
     if not self.has_hit:
         return
 
-    ui_props = bpy.context.window_manager.blenderkitUI
-    # print(self.asset_data["assetType"], self.has_hit, self.snapped_location)
     if self.asset_data["assetType"] in ["model", "printable"]:
         draw_bbox(
             self.snapped_location,
@@ -496,20 +511,20 @@ def draw_bbox(
 ) -> None:
     rotation = mathutils.Euler(rotation)
 
-    smin = Vector(bbox_min)
-    smax = Vector(bbox_max)
-    v0 = Vector(smin)
-    v1 = Vector((smax.x, smin.y, smin.z))
-    v2 = Vector((smax.x, smax.y, smin.z))
-    v3 = Vector((smin.x, smax.y, smin.z))
-    v4 = Vector((smin.x, smin.y, smax.z))
-    v5 = Vector((smax.x, smin.y, smax.z))
-    v6 = Vector((smax.x, smax.y, smax.z))
-    v7 = Vector((smin.x, smax.y, smax.z))
+    side_min = Vector(bbox_min)
+    side_max = Vector(bbox_max)
+    v0 = Vector(side_min)
+    v1 = Vector((side_max.x, side_min.y, side_min.z))
+    v2 = Vector((side_max.x, side_max.y, side_min.z))
+    v3 = Vector((side_min.x, side_max.y, side_min.z))
+    v4 = Vector((side_min.x, side_min.y, side_max.z))
+    v5 = Vector((side_max.x, side_min.y, side_max.z))
+    v6 = Vector((side_max.x, side_max.y, side_max.z))
+    v7 = Vector((side_min.x, side_max.y, side_max.z))
 
-    arrowx = smin.x + (smax.x - smin.x) / 2
-    arrowy = smin.y - (smax.x - smin.x) / 2
-    v8 = Vector((arrowx, arrowy, smin.z))
+    arrow_x = side_min.x + (side_max.x - side_min.x) / 2
+    arrow_y = side_min.y - (side_max.x - side_min.x) / 2
+    v8 = Vector((arrow_x, arrow_y, side_min.z))
 
     vertices = [v0, v1, v2, v3, v4, v5, v6, v7, v8]
     for v in vertices:
@@ -533,7 +548,7 @@ def draw_bbox(
         [1, 8],
     ]
     ui_bgl.draw_lines(vertices, lines, color)
-    if progress != None:
+    if progress is not None:
         color = (color[0], color[1], color[2], 0.2)
         progress = progress * 0.01
         vz0 = (v4 - v0) * progress + v0
@@ -568,22 +583,9 @@ def draw_downloader(
         )
 
     ui_bgl.draw_rect(x - 3, y - 3, 6, 6, (1, 0, 0, 0.3))
-    # if asset_data is not None:
-    #     ui_bgl.draw_text(asset_data['name'], x, y, colors.TEXT)
-    #     ui_bgl.draw_text(asset_data['filesSize'])
+
     if text:
         ui_bgl.draw_text(text, x, y - 15, 12, colors.TEXT)
-    #
-    # if asset_bar_op.asset_bar_operator is not None:
-    #     ab = asset_bar_op.asset_bar_operator
-    #     img_fp = paths.get_addon_thumbnail_path("vs_rejected.png")
-    #
-    #     imgname = f".{os.path.basename(img_fp)}"
-    #     img = bpy.data.images.get(imgname)
-    #     if img is not None:
-    #         size = ab.other_button_size
-    #         offset = ui_props.thumb_size - size / 2
-    #         ui_bgl.draw_image(x + offset, y + offset, size, size, img, 0.5)
 
 
 def draw_callback_2d_progress(
@@ -591,11 +593,6 @@ def draw_callback_2d_progress(
 ) -> None:
     if not utils.guard_from_crash():
         return
-
-    green = (0.2, 1, 0.2, 0.3)
-    offset = 0
-    row_height = 35
-
     ui = bpy.context.window_manager.blenderkitUI
 
     x = ui.reports_x
@@ -604,14 +601,14 @@ def draw_callback_2d_progress(
     for key, task in download.download_tasks.items():
         asset_data = task["asset_data"]
 
-        directory = paths.get_temp_dir("%s_search" % asset_data["assetType"])
-        tpath = os.path.join(directory, asset_data["thumbnail_small"])
-        img = utils.get_hidden_image(tpath, asset_data["id"])
+        directory = paths.get_temp_dir(f"{asset_data['assetType']}_search")
+        thumbnail_path = os.path.join(directory, asset_data["thumbnail_small"])
+        img = utils.get_hidden_image(thumbnail_path, asset_data["id"])
         if not task.get("downloaders"):
             draw_progress(
                 x,
                 y - index * 30,
-                text="downloading %s" % asset_data["name"],
+                text=f"downloading {asset_data['name']}",
                 percent=task["progress"],
             )
             index += 1
@@ -621,10 +618,9 @@ def draw_callback_2d_progress(
         n = ""
         if tcom.name is not None:
             n = tcom.name + ": "
-        draw_progress(x, y - index * 30, "%s" % n + tcom.lasttext, tcom.progress)
+        draw_progress(x, y - index * 30, f"{n}{tcom.lasttext}", tcom.progress)
         index += 1
     for report in reports.reports:
-        # print('drawing reports', x, y, report.text)
         report.draw(x, y - index * 30)
         index += 1
         report.fade()
@@ -663,13 +659,13 @@ def draw_progress(
 
 
 def find_and_activate_instancers(
-    object: bpy.types.Object,
+    obj: bpy.types.Object,
 ) -> Optional[bpy.types.Object]:
     for ob in bpy.context.visible_objects:
         if (
             ob.instance_type == "COLLECTION"
             and ob.instance_collection
-            and object.name in ob.instance_collection.objects
+            and obj.name in ob.instance_collection.objects
         ):
             utils.activate(ob)
             return ob
@@ -708,16 +704,15 @@ def mouse_raycast(
         snapped_location,
         snapped_normal,
         face_index,
-        object,
+        obj,
         matrix,
     ) = deep_ray_cast(ray_origin, vec)
 
     # backface snapping inversion
     if view_vector.angle(snapped_normal) < math.pi / 2:
         snapped_normal = -snapped_normal
-    # print(has_hit, snapped_location, snapped_normal, face_index, object, matrix)
-    # rote = mathutils.Euler((0, 0, math.pi))
-    randoffset = math.pi
+
+    random_offset = math.pi
     if has_hit:
         props = bpy.context.window_manager.blenderkit_models
         up = Vector((0, 0, 1))
@@ -734,21 +729,20 @@ def mouse_raycast(
         snapped_rotation = snapped_normal.to_track_quat("Z", "Y").to_euler()
 
         if props.randomize_rotation and snapped_normal.angle(up) < math.radians(10.0):
-            randoffset = (
+            random_offset = (
                 props.offset_rotation_amount
                 + math.pi
                 + (random.random() - 0.5) * props.randomize_rotation_amount
             )
         else:
-            randoffset = (
+            random_offset = (
                 props.offset_rotation_amount
-            )  # we don't rotate this way on walls and ceilings. + math.pi
-        # snapped_rotation.z += math.pi + (random.random() - 0.5) * .2
+            )  # we don't rotate this way on walls and ceilings.
 
     else:
         snapped_rotation = mathutils.Quaternion((0, 0, 0, 0)).to_euler()
 
-    snapped_rotation.rotate_axis("Z", randoffset)
+    snapped_rotation.rotate_axis("Z", random_offset)
 
     return (
         has_hit,
@@ -756,7 +750,7 @@ def mouse_raycast(
         snapped_normal,
         snapped_rotation,
         face_index,
-        object,
+        obj,
         matrix,
     )
 
@@ -798,7 +792,7 @@ def floor_raycast(
     face_index = None
     out_object = None
     matrix = None
-    if snapped_location != None:
+    if snapped_location is not None:
         has_hit = True
         snapped_normal = Vector((0, 0, 1))
         face_index = None
@@ -807,14 +801,14 @@ def floor_raycast(
         snapped_rotation = snapped_normal.to_track_quat("Z", "Y").to_euler()
         props = bpy.context.window_manager.blenderkit_models
         if props.randomize_rotation:
-            randoffset = (
+            random_offset = (
                 props.offset_rotation_amount
                 + math.pi
                 + (random.random() - 0.5) * props.randomize_rotation_amount
             )
         else:
-            randoffset = props.offset_rotation_amount + math.pi
-        snapped_rotation.rotate_axis("Z", randoffset)
+            random_offset = props.offset_rotation_amount + math.pi
+        snapped_rotation.rotate_axis("Z", random_offset)
 
     return (
         has_hit,
@@ -836,7 +830,7 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
     Optional[mathutils.Matrix],
 ]:
     # this allows to ignore some objects, like objects with bounding box draw style or particle objects
-    object = None
+    obj = None
     # while object is None or object.draw
     depsgraph = bpy.context.view_layer.depsgraph
     (
@@ -844,13 +838,13 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
         snapped_location,
         snapped_normal,
         face_index,
-        object,
+        obj,
         matrix,
     ) = bpy.context.scene.ray_cast(depsgraph, ray_origin, vec)
     empty_set = False, Vector((0, 0, 0)), Vector((0, 0, 1)), None, None, None
-    if not object:
+    if not obj:
         return empty_set
-    try_object = object
+    try_object = obj
     while try_object and (
         try_object.display_type == "BOUNDS"
         or object_in_particle_collection(try_object)
@@ -867,7 +861,7 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
         ) = bpy.context.scene.ray_cast(depsgraph, ray_origin, vec)
         if try_has_hit:
             # this way only good hits are returned, otherwise
-            has_hit, snapped_location, snapped_normal, face_index, object, matrix = (
+            has_hit, snapped_location, snapped_normal, face_index, obj, matrix = (
                 try_has_hit,
                 try_snapped_location,
                 try_snapped_normal,
@@ -875,10 +869,8 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
                 try_object,
                 try_matrix,
             )
-    if not (
-        object.display_type == "BOUNDS" or object_in_particle_collection(try_object)
-    ):  # or not object.visible_get()):
-        return has_hit, snapped_location, snapped_normal, face_index, object, matrix
+    if not (obj.display_type == "BOUNDS" or object_in_particle_collection(try_object)):
+        return has_hit, snapped_location, snapped_normal, face_index, obj, matrix
     return empty_set
 
 
@@ -907,12 +899,11 @@ def get_node_tree(context: bpy.types.Context) -> bpy.types.NodeTree:
             node_tree = context.scene.node_tree
         return node_tree
 
+    # blender 5.0+
+    # FUTURE check if valid in 5.RC
     if not context.scene.compositing_node_group:
         bpy.ops.node.new_compositing_node_group()
         context.scene.compositing_node_group = bpy.data.node_groups[-1]
-
-        # nd = bpy.data.node_groups.new("Compositor Nodes", type="CompositorNodeTree")
-        # context.scene.compositing_node_group = nd
 
         return context.scene.compositing_node_group
 
@@ -1070,46 +1061,46 @@ class AssetDragOperator(bpy.types.Operator):
                 )
 
         if self.asset_data["assetType"] == "material":
-            object = None
+            obj = None
             target_object = ""
             target_slot = ""
             if not self.drag:
                 # click interaction
-                object = context.active_object
-                if object is None:
+                obj = context.active_object
+                if obj is None:
                     ui_panels.ui_message(
                         title="Nothing selected",
-                        message=f"Select something to assign materials by clicking.",
+                        message="Select something to assign materials by clicking.",
                     )
                     return
-                target_object = object.name
-                target_slot = object.active_material_index
-                self.snapped_location = object.location
+                target_object = obj.name
+                target_slot = obj.active_material_index
+                self.snapped_location = obj.location
             elif self.object_name is not None and self.has_hit:
                 # first, test if object can have material applied.
-                object = bpy.data.objects[self.object_name]
+                obj = bpy.data.objects[self.object_name]
                 # this enables to run Bring to scene automatically when dropping on a linked objects.
                 if (
-                    object is not None
-                    and not object.is_library_indirect
-                    and object.type in utils.supported_material_drag
+                    obj is not None
+                    and not obj.is_library_indirect
+                    and obj.type in utils.supported_material_drag
                 ):
-                    target_object = object.name
+                    target_object = obj.name
                     # create final mesh to extract correct material slot
                     depsgraph = context.evaluated_depsgraph_get()
-                    object_eval = object.evaluated_get(depsgraph)
+                    object_eval = obj.evaluated_get(depsgraph)
 
-                    if object.type == "MESH":
+                    if obj.type == "MESH":
                         temp_mesh = object_eval.to_mesh()
-                        mapping = create_material_mapping(object, temp_mesh)
+                        mapping = create_material_mapping(obj, temp_mesh)
                         target_slot = temp_mesh.polygons[self.face_index].material_index
                         object_eval.to_mesh_clear()
                     else:
-                        self.snapped_location = object.location
-                        target_slot = object.active_material_index
-            if not object:
+                        self.snapped_location = obj.location
+                        target_slot = obj.active_material_index
+            if not obj:
                 return
-            if object.is_library_indirect:
+            if obj.is_library_indirect:
                 ui_panels.ui_message(
                     title="This object is linked from outer file",
                     message="Please select the model,"
@@ -1117,19 +1108,19 @@ class AssetDragOperator(bpy.types.Operator):
                     "in BlenderKit and hit 'Bring to Scene' first.",
                 )
                 return
-            if object.type not in utils.supported_material_drag:
-                if object.type in utils.supported_material_click:
+            if obj.type not in utils.supported_material_drag:
+                if obj.type in utils.supported_material_click:
                     ui_panels.ui_message(
                         title="Unsupported object type",
-                        message=f"Use click interaction for {object.type.lower()} object.",
+                        message=f"Use click interaction for {obj.type.lower()} object.",
                     )
                     return
-                else:
-                    ui_panels.ui_message(
-                        title="Unsupported object type",
-                        message=f"Can't assign materials to {object.type.lower()} object.",
-                    )
-                    return
+
+                ui_panels.ui_message(
+                    title="Unsupported object type",
+                    message=f"Can't assign materials to {obj.type.lower()} object.",
+                )
+                return
 
             if target_object != "":
                 # position is for downloader:
@@ -1282,7 +1273,7 @@ class AssetDragOperator(bpy.types.Operator):
                 and self.hovered_outliner_element.type in ["MESH", "CURVE"]
             ):
                 reports.add_report(
-                    f"Can't assign materials to this outliner element.",
+                    "Can't assign materials to this outliner element.",
                     type="ERROR",
                 )
                 return
@@ -1318,7 +1309,7 @@ class AssetDragOperator(bpy.types.Operator):
         elif asset_type == "nodegroup":
             if asset_node_type != "geometry":
                 reports.add_report(
-                    f"Only geometry nodegroups can be dropped in the outliner.",
+                    "Only geometry nodegroups can be dropped in the outliner.",
                     type="ERROR",
                 )
                 return
@@ -1330,7 +1321,7 @@ class AssetDragOperator(bpy.types.Operator):
                 and self.hovered_outliner_element.type in ["MESH", "CURVE"]
             ):
                 reports.add_report(
-                    f"Can't assign geometry node group to this outliner element.",
+                    "Can't assign geometry node group to this outliner element.",
                     type="ERROR",
                 )
                 return
@@ -1344,7 +1335,6 @@ class AssetDragOperator(bpy.types.Operator):
             )
 
             # If we reach this point, the nodegroup is valid for dropping
-            # self.handle_node_editor_drop_nodegroup(context)
             self.restore_original_selection()
 
     def make_node_editor_switch(
@@ -1356,12 +1346,12 @@ class AssetDragOperator(bpy.types.Operator):
         draw exceptions when the operator RNA gets destroyed mid-drag.
         """
         try:
-            nodeTypes2NodeEditorType = {
+            node_types_to_node_editor_type = {
                 "shader": "ShaderNodeTree",
                 "geometry": "GeometryNodeTree",
                 "compositing": "CompositorNodeTree",
             }
-            node_editor_type = nodeTypes2NodeEditorType[nodegroup_type]
+            node_editor_type = node_types_to_node_editor_type[nodegroup_type]
             area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
             if area:
                 area.ui_type = node_editor_type
@@ -1473,12 +1463,12 @@ class AssetDragOperator(bpy.types.Operator):
                         node_y=node_pos[1],
                     )
                     return
-                else:
-                    # No compatible object, just add as node
-                    reports.add_report(
-                        "No compatible object selected, adding as node only",
-                        type="INFO",
-                    )
+
+                # No compatible object, just add as node
+                reports.add_report(
+                    "No compatible object selected, adding as node only",
+                    type="INFO",
+                )
 
                 # Prepare geometry nodes editor (for when user chooses "As Node" or no object)
                 if active_object and active_object.type in ["MESH", "CURVE"]:
@@ -1567,11 +1557,7 @@ class AssetDragOperator(bpy.types.Operator):
                 if node_space:
                     node_space.spaces[0].node_tree = node_tree
 
-            # Fourth case: need to switch to compositor nodes for compositor nodegroup
-            # TODO: scene.use_nodes was removed in Blender 5
-            # TODO: scene.node_tree was removed in Blender 5, use scene.compositing_node_group instead
             elif nodegroup_type == "compositing":
-
                 # potential fix for blender5.0+
                 node_tree = get_node_tree(context)
 
@@ -1609,13 +1595,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         Returns True if allowed, otherwise reports and returns False.
         """
-        bk_logger.info("Policy check before drop started")
         if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
-            reports.add_report(
-                f"Dropping assets in {self.prev_area_type} is not supported",
-                type="ERROR",
-                timeout=0.1,
-            )
             return False
 
         asset_type = self.asset_data.get("assetType") or ""
@@ -1629,20 +1609,6 @@ class AssetDragOperator(bpy.types.Operator):
 
         rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
         if rule is None:
-            # Build an informative message
-            if self.prev_area_type == "NODE_EDITOR":
-                msg = (
-                    f"'{asset_type}'"
-                    + (f" ({node_type})" if node_type else "")
-                    + f" not allowed in {editor_mode or 'node'} editor"
-                )
-            else:
-                msg = (
-                    f"'{asset_type}'"
-                    + (f" ({node_type})" if node_type else "")
-                    + f" not allowed in {self.prev_area_type}"
-                )
-            reports.add_report(msg, type="ERROR")
             # Restore selection if we were in outliner
             if self.prev_area_type == "OUTLINER":
                 self.restore_original_selection()
@@ -1653,28 +1619,14 @@ class AssetDragOperator(bpy.types.Operator):
             hov = getattr(self, "hovered_outliner_element", None)
             hov_type = getattr(hov, "type", None)
             if hov_type not in rule.requires_hovered_object_types:
-                reports.add_report(
-                    f"Target must be one of {list(rule.requires_hovered_object_types)}",
-                    type="ERROR",
-                )
                 self.restore_original_selection()
                 return False
 
         if self.prev_area_type == "NODE_EDITOR" and rule.requires_active_object_types:
             ao = context.active_object
             if not (ao and ao.type in rule.requires_active_object_types):
-                reports.add_report(
-                    f"Active object must be one of {list(rule.requires_active_object_types)}",
-                    type="ERROR",
-                )
                 return False
 
-        # report valid rule
-        reports.add_report(
-            f"Allowed to drop '{asset_type}'",
-            type="VALIDATOR",
-            timeout=0.1,
-        )
         return True
 
     def _policy_check_on_drag_start(self, context: bpy.types.Context) -> bool:
@@ -1682,13 +1634,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         Returns True if allowed, otherwise reports and returns False.
         """
-        bk_logger.info("Policy check while dragging drop started")
         if self.prev_area_type not in ("VIEW_3D", "OUTLINER", "NODE_EDITOR"):
-            reports.add_report(
-                f"Dropping assets in {self.prev_area_type} is not supported",
-                type="ERROR",
-                timeout=0.1,
-            )
             return False
 
         asset_type = self.asset_data.get("assetType") or ""
@@ -1702,20 +1648,6 @@ class AssetDragOperator(bpy.types.Operator):
 
         rule = find_drop_rule(self.prev_area_type, asset_type, node_type, editor_mode)
         if rule is None:
-            # Build an informative message
-            if self.prev_area_type == "NODE_EDITOR":
-                msg = (
-                    f"'{asset_type}'"
-                    + (f" ({node_type})" if node_type else "")
-                    + f" not allowed in {editor_mode or 'node'} editor"
-                )
-            else:
-                msg = (
-                    f"'{asset_type}'"
-                    + (f" ({node_type})" if node_type else "")
-                    + f" not allowed in {self.prev_area_type}"
-                )
-            reports.add_report(msg, type="ERROR")
             # Restore selection if we were in outliner
             if self.prev_area_type == "OUTLINER":
                 self.restore_original_selection()
@@ -1726,27 +1658,13 @@ class AssetDragOperator(bpy.types.Operator):
             hov = getattr(self, "hovered_outliner_element", None)
             hov_type = getattr(hov, "type", None)
             if hov_type not in rule.requires_hovered_object_types:
-                reports.add_report(
-                    f"Target must be one of {list(rule.requires_hovered_object_types)}",
-                    type="ERROR",
-                )
                 self.restore_original_selection()
                 return False
 
         if self.prev_area_type == "NODE_EDITOR" and rule.requires_active_object_types:
             ao = context.active_object
             if not (ao and ao.type in rule.requires_active_object_types):
-                reports.add_report(
-                    f"Active object must be one of {list(rule.requires_active_object_types)}",
-                    type="ERROR",
-                )
                 return False
-        # report valid rule
-        reports.add_report(
-            f"Allowed to drop '{asset_type}'",
-            type="VALIDATOR",
-            timeout=0.1,
-        )
         return True
 
     def mouse_release(self, context: bpy.types.Context) -> None:
@@ -1920,44 +1838,44 @@ class AssetDragOperator(bpy.types.Operator):
             self.orig_active_collection = None
 
         # Clear outliner selection
-        if hasattr(bpy.context, "selected_ids"):
+        if hasattr(bpy.context, "selected_ids") and self.prev_area_type == "OUTLINER":
             # This is a read-only property, so we can't directly clear it
             # Instead, we can deselect in the outliner
-            if self.prev_area_type == "OUTLINER":
-                # need to create a new context to deselect in the outliner
-                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
-                    context = bpy.context
-                    override = {
-                        "window": context.window,
-                        "screen": context.screen,
-                        "area": self.outliner_area,
-                        "region": self.outliner_region,
-                        "scene": context.scene,
-                        "view_layer": context.view_layer,
-                    }
-                    # Only try to deselect if we have valid area and region
-                    if self.outliner_area and self.outliner_region:
-                        bpy.ops.outliner.select_box(
-                            override,
-                            xmin=0,
-                            xmax=1,
-                            ymin=0,
-                            ymax=1,
-                            wait_for_input=False,
-                            mode="SET",
-                        )  # Use a very small selection box in the corner to deselect everything
-                else:  # B3.2+ can use context.temp_override()
-                    with bpy.context.temp_override(
-                        area=self.outliner_area, region=self.outliner_region
-                    ):
-                        bpy.ops.outliner.select_box(
-                            xmin=0,
-                            xmax=1,
-                            ymin=0,
-                            ymax=1,
-                            wait_for_input=False,
-                            mode="SET",
-                        )  # Use a very small selection box in the corner to deselect everything
+
+            # need to create a new context to deselect in the outliner
+            if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+                context = bpy.context
+                override = {
+                    "window": context.window,
+                    "screen": context.screen,
+                    "area": self.outliner_area,
+                    "region": self.outliner_region,
+                    "scene": context.scene,
+                    "view_layer": context.view_layer,
+                }
+                # Only try to deselect if we have valid area and region
+                if self.outliner_area and self.outliner_region:
+                    bpy.ops.outliner.select_box(
+                        override,
+                        xmin=0,
+                        xmax=1,
+                        ymin=0,
+                        ymax=1,
+                        wait_for_input=False,
+                        mode="SET",
+                    )  # Use a very small selection box in the corner to deselect everything
+            else:  # B3.2+ can use context.temp_override()
+                with bpy.context.temp_override(
+                    area=self.outliner_area, region=self.outliner_region
+                ):
+                    bpy.ops.outliner.select_box(
+                        xmin=0,
+                        xmax=1,
+                        ymin=0,
+                        ymax=1,
+                        wait_for_input=False,
+                        mode="SET",
+                    )  # Use a very small selection box in the corner to deselect everything
 
     def _get_drag_active_object(self, context, event, active_region, active_area):
         """Get the active object under the mouse cursor during drag."""
@@ -1991,13 +1909,13 @@ class AssetDragOperator(bpy.types.Operator):
                 self.snapped_normal,
                 self.snapped_rotation,
                 self.face_index,
-                object,
+                obj,
                 self.matrix,
             ) = mouse_raycast(
                 active_region, region_data, region_mouse_x, region_mouse_y
             )
-            if object is not None:
-                self.object_name = object.name
+            if obj is not None:
+                self.object_name = obj.name
         else:  # B3.2+ can use context.temp_override()
             with bpy.context.temp_override(area=active_area, region=active_region):
                 (
@@ -2006,13 +1924,13 @@ class AssetDragOperator(bpy.types.Operator):
                     self.snapped_normal,
                     self.snapped_rotation,
                     self.face_index,
-                    object,
+                    obj,
                     self.matrix,
                 ) = mouse_raycast(
                     active_region, region_data, region_mouse_x, region_mouse_y
                 )
-                if object is not None:
-                    self.object_name = object.name
+                if obj is not None:
+                    self.object_name = obj.name
 
         # MODELS and NODEGROUPS can be dragged on scene floor
         if not self.has_hit and self.asset_data["assetType"] in [
@@ -2039,13 +1957,13 @@ class AssetDragOperator(bpy.types.Operator):
                     self.snapped_normal,
                     self.snapped_rotation,
                     self.face_index,
-                    object,
+                    obj,
                     self.matrix,
                 ) = floor_raycast(
                     active_region, region_data, region_mouse_x, region_mouse_y
                 )
-                if object is not None:
-                    self.object_name = object.name
+                if obj is not None:
+                    self.object_name = obj.name
                 else:
                     self.object_name = None
             else:  # B3.2+ can use context.temp_override()
@@ -2056,7 +1974,7 @@ class AssetDragOperator(bpy.types.Operator):
                         self.snapped_normal,
                         self.snapped_rotation,
                         self.face_index,
-                        object,
+                        obj,
                         self.matrix,
                     ) = floor_raycast(
                         active_region,
@@ -2064,8 +1982,8 @@ class AssetDragOperator(bpy.types.Operator):
                         region_mouse_x,
                         region_mouse_y,
                     )
-                    if object is not None:
-                        self.object_name = object.name
+                    if obj is not None:
+                        self.object_name = obj.name
                     else:
                         self.object_name = None
 
@@ -2110,9 +2028,8 @@ class AssetDragOperator(bpy.types.Operator):
         # --- CURSOR VISIBILITY FIX ---
         if active_region is None or active_area is None:
             bpy.context.window.cursor_set("DEFAULT")
-        else:
-            if self.drag:
-                bpy.context.window.cursor_set("NONE")
+        elif self.drag:
+            bpy.context.window.cursor_set("NONE")
 
         # --- REDRAW ALL WINDOWS/AREAS FOR MULTI-WINDOW DRAG ---
         for window in bpy.context.window_manager.windows:
@@ -2159,7 +2076,6 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Handle outliner interaction
             if active_area.type == "OUTLINER":
-
                 # Need to temporarily override context to work with the outliner
                 if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
                     context_override = {
@@ -2318,15 +2234,16 @@ class AssetDragOperator(bpy.types.Operator):
         if not self.asset_data.get("canDownload"):
             message = "This asset is included in Full Plan.\nSupport asset creators & open-source by subscribing."
             link_text = "Unlock All Assets"
-            url = f'{global_vars.SERVER}/get-blenderkit/{self.asset_data["id"]}/?from_addon=True'
+            url = f"{global_vars.SERVER}/get-blenderkit/{self.asset_data['id']}/?from_addon=True"
             bpy.ops.wm.blenderkit_url_dialog(
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
             return {"CANCELLED"}
 
-        dir_behaviour = bpy.context.preferences.addons[
-            __package__
-        ].preferences.directory_behaviour
+        prefs = bpy.context.preferences.addons[__package__].preferences
+
+        dir_behaviour = prefs.directory_behaviour
+
         if dir_behaviour == "LOCAL" and bpy.data.filepath == "":
             message = "Save the project to download in local directory mode."
             link_text = "See documentation"
@@ -2392,9 +2309,11 @@ class AssetDragOperator(bpy.types.Operator):
                 handler = space_class.draw_handler_add(
                     draw_callback_dragging, args, "WINDOW", "POST_PIXEL"
                 )
+                # we should store the handler to be able to remove it later
+                # but if RNA Struct fails we are not longer able to remove it, so we log an error and store None
                 self._handlers_universal[space_type] = handler
             except (AttributeError, TypeError) as e:
-                print(f"Could not register handler for {space_type}: {e}")
+                bk_logger.error(f"Could not register handler for {space_type}: {e}")
                 self._handlers_universal[space_type] = None
 
         self.mouse_x = 0
@@ -2429,7 +2348,7 @@ class AssetDragOperator(bpy.types.Operator):
         self.face_index = 0
         self.matrix = None
 
-        self.iname = f'.{self.asset_data["thumbnail_small"]}'
+        self.iname = f".{self.asset_data['thumbnail_small']}"
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname
 
         bpy.context.window.cursor_set("NONE")
@@ -2525,7 +2444,6 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         text_size = int(10 * ui_scale)
         margin = int(5 * ui_scale)
-        area_margin = int(50 * ui_scale)
 
         self.bg_color = (0.05, 0.05, 0.05, 0.3)
         self.hover_bg_color = (0.05, 0.05, 0.05, 0.5)
@@ -2571,7 +2489,6 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         self.label.bg_color = self.bg_color
         self.label.hover_bg_color = self.hover_bg_color
-        # self.label.set_mouse_down(self.open_link)
 
         self.button_close = BL_UI_Button(
             self.button_size * 0.75,
@@ -2603,16 +2520,15 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         img_fp = paths.get_addon_thumbnail_path("vs_rejected.png")
         img_size = self.button_size
         button_size = int(self.button_size / 2)
-        button_pos = self.button_size * 0.75
 
         self.button_close.set_image(img_fp)
         self.button_close.set_image_size((button_size, button_size))
         self.button_close.set_image_position((0, 0))
 
         directory = paths.get_temp_dir("%s_search" % self.asset_data["assetType"])
-        tpath = os.path.join(directory, self.asset_data["thumbnail_small"])
+        thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
 
-        self.image.set_image(tpath)
+        self.image.set_image(thumbnail_path)
         self.image.set_image_size((img_size, img_size))
         self.image.set_image_position((0, 0))
 
@@ -2656,18 +2572,18 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
     @classmethod
     def unregister(cls):
-        bk_logger.debug(f"unregistering class {cls}")
+        bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug(f"- class instance {instance}")
+            bk_logger.debug("- class instance %s", instance)
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:
-                bk_logger.debug(f"-- error unregister_handlers(): {e}")
+                bk_logger.debug("-- error unregister_handlers(): %s", e)
             try:
                 instance.on_finish(instance.context)
             except Exception as e:
-                bk_logger.debug(f"-- error calling on_finish() {e}")
+                bk_logger.debug("-- error calling on_finish(): %s", e)
             if bpy.context.region is not None:
                 bpy.context.region.tag_redraw()
 
@@ -2678,19 +2594,20 @@ def analyze_gn_tree(tree, materials):
     """Recursively analyze GN tree and its node groups for Set Material nodes"""
     current_mapping = {}
 
-    print("\nAnalyzing GN tree:", tree.name)
+    bk_logger.info("\nAnalyzing GN tree: %s", tree.name)
     for node in tree.nodes:
-        print(f"Checking node: {node.name}, type: {node.type}")
+        bk_logger.info("Checking node: %s, type: %s", node.name, node.type)
         if node.type == "SET_MATERIAL":
             # Find material index in evaluated mesh
             mat = node.inputs["Material"].default_value
-            print(
-                f"Found Set Material node with material: {mat.name if mat else 'None'}"
+            bk_logger.info(
+                "Found Set Material node with material: %s", mat.name if mat else "None"
             )
+
             if mat:
                 for mat_idx, temp_mat in enumerate(materials):
                     if compare_material_names(temp_mat, mat):
-                        print(f"Matched material to index {mat_idx}")
+                        bk_logger.info("Matched material to index %d", mat_idx)
                         current_mapping[mat_idx] = {
                             "type": "GN",
                             "node_name": node.name,
@@ -2702,7 +2619,7 @@ def analyze_gn_tree(tree, materials):
                 used_indices = set(current_mapping.keys())
                 for i in range(len(materials)):
                     if i not in used_indices:
-                        print(f"Using empty Set Material node for index {i}")
+                        bk_logger.info("Using empty Set Material node for index %d", i)
                         current_mapping[i] = {
                             "type": "GN",
                             "node_name": node.name,
@@ -2722,21 +2639,21 @@ def compare_material_names(mat1, mat2):
     """Compare two materials by name, but if one is None, use 'None' instead of mat1.name"""
     if mat1 is None:
         return mat2 is None
-    elif mat2 is None:  #
+    if mat2 is None:
         return False
     return mat1.name == mat2.name
 
 
-def create_material_mapping(object, temp_mesh):
+def create_material_mapping(obj, temp_mesh):
     """Creates mapping between material indices and their sources (slots or GN nodes)"""
     mapping = {}
 
-    bk_logger.info("\nCreating mapping for %s", object.name)
-    bk_logger.info("Material slots: %d", len(object.material_slots))
-    bk_logger.info("Has GN: %s", any(mod.type == "NODES" for mod in object.modifiers))
+    bk_logger.info("\nCreating mapping for %s", obj.name)
+    bk_logger.info("Material slots: %d", len(obj.material_slots))
+    bk_logger.info("Has GN: %s", any(mod.type == "NODES" for mod in obj.modifiers))
 
     # 1. First map regular material slots
-    for slot_idx, slot in enumerate(object.material_slots):
+    for slot_idx, slot in enumerate(obj.material_slots):
         # Find matching material in evaluated mesh
         for mat_idx, mat in enumerate(temp_mesh.materials):
             if compare_material_names(mat, slot.material):
@@ -2745,7 +2662,7 @@ def create_material_mapping(object, temp_mesh):
 
     # 2. Check Geometry Nodes
     has_gn = False
-    for modifier in object.modifiers:
+    for modifier in obj.modifiers:
         if modifier.type == "NODES":
             has_gn = True
             gn_mapping = analyze_gn_tree(modifier.node_group, temp_mesh.materials)
@@ -2756,15 +2673,15 @@ def create_material_mapping(object, temp_mesh):
                         mapping[idx] = map_data
 
     # 3. If no material slots and no GN, create a mapping for slot 0
-    if len(object.material_slots) == 0 and not has_gn:
-        print("Creating default mapping to slot 0")
+    if len(obj.material_slots) == 0 and not has_gn:
+        bk_logger.info("Creating default mapping to slot 0")
         mapping[0] = {"type": "SLOT", "index": 0}
 
-    print(f"Final mapping: {mapping}")
+    bk_logger.info("Final mapping: %s", mapping)
 
     # Store mapping as custom property (convert to serializable format)
     mapping_data = {str(k): v for k, v in mapping.items()}
-    object["material_mapping"] = mapping_data
+    obj["material_mapping"] = mapping_data
 
     return mapping
 
@@ -2786,10 +2703,10 @@ def add_set_material_node(tree):
 
         # Connect nodes
         last_geometry_socket = None
-        for input in output_node.inputs:
-            if input.type == "GEOMETRY":
-                if input.is_linked:
-                    last_geometry_socket = input.links[0].from_socket
+        for source in output_node.inputs:
+            if source.type == "GEOMETRY":
+                if source.is_linked:
+                    last_geometry_socket = source.links[0].from_socket
                 break
 
         if last_geometry_socket:
