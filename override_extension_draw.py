@@ -9,6 +9,7 @@ The original method is then called from the new method, with the same arguments,
 import json
 import os
 import time
+import logging
 
 from . import icons
 
@@ -19,6 +20,8 @@ from bpy.types import Operator
 
 
 EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
+
+bk_logger = logging.getLogger(__name__)
 
 
 # --- New Modal Operator ---
@@ -56,7 +59,7 @@ class BK_OT_buy_extension_and_watch(Operator):
         # Open the URL
         try:
             bpy.ops.wm.url_open(url=self.url)
-            print(f"BlenderKit: Opening buy URL: {self.url}")
+            bk_logger.info("Opening buy URL: %s.", self.url)
         except Exception as e:
             self.report({"ERROR"}, f"Could not open URL: {e}")
             # Don't cancel, maybe the user still wants the refresh?
@@ -72,8 +75,8 @@ class BK_OT_buy_extension_and_watch(Operator):
         self._last_refresh_time = (
             self._start_time
         )  # Initialize to avoid immediate refresh
-        print(
-            f"BlenderKit: Started watching repository index {self.repo_index} for updates."
+        bk_logger.info(
+            "Started watching repository index %s for updates.", self.repo_index
         )
         if context and context.area:
             context.area.tag_redraw()  # Update UI to show operator is running if needed
@@ -85,19 +88,19 @@ class BK_OT_buy_extension_and_watch(Operator):
         # --- Exit Conditions ---
         # 1. User closed Preferences or changed area
         if context.area is None or context.area.type != "PREFERENCES":
-            print("BlenderKit: Preferences window closed or changed, stopping watcher.")
+            bk_logger.info("Preferences window closed or changed, stopping watcher.")
             self.cancel(context)
             return {"CANCELLED"}
 
         # 2. Timeout
         if current_time - self._start_time > self._max_duration:
-            print("BlenderKit: Watcher timed out, stopping.")
+            bk_logger.info("Watcher timed out, stopping.")
             self.cancel(context)
             return {"CANCELLED"}
 
         # 3. User cancellation
         if event.type in {"RIGHTMOUSE", "ESC"}:
-            print("BlenderKit: Watcher cancelled by user.")
+            bk_logger.info("Watcher cancelled by user.")
             self.cancel(context)
             return {"CANCELLED"}
 
@@ -105,24 +108,25 @@ class BK_OT_buy_extension_and_watch(Operator):
         if event.type == "TIMER":
             # Check if refresh interval has passed
             if current_time - self._last_refresh_time >= self._refresh_interval:
-                print(
-                    f"BlenderKit: Refresh interval reached, attempting sync for repo index {self.repo_index}..."
+                bk_logger.info(
+                    "Refresh interval reached, attempting sync for repo index %s...",
+                    self.repo_index,
                 )
                 try:
                     # Check if repo still exists at that index
                     if self.repo_index < len(context.preferences.extensions.repos):
                         bpy.ops.extensions.repo_sync(repo_index=self.repo_index)
-                        print(
-                            f"BlenderKit: repo_sync called for index {self.repo_index}."
+                        bk_logger.info(
+                            "repo_sync called for index %s.", self.repo_index
                         )
                     else:
-                        print(
-                            f"BlenderKit: Repository index {self.repo_index} no longer valid."
+                        bk_logger.info(
+                            "Repository index %s no longer valid.", self.repo_index
                         )
                         # Optionally cancel here if repo is gone
-                except Exception as e:
+                except:
                     # This might fail if another operation is in progress
-                    print(f"BlenderKit: extensions.repo_sync failed: {e}")
+                    bk_logger.exception("extensions.repo_sync failed.")
                 finally:
                     self._last_refresh_time = (
                         current_time  # Reset timer regardless of success
@@ -135,7 +139,7 @@ class BK_OT_buy_extension_and_watch(Operator):
             wm = context.window_manager
             wm.event_timer_remove(self._timer)
             self._timer = None
-            print("BlenderKit: Watcher timer removed.")
+            bk_logger.info("Watcher timer removed.")
         if context and context.area:
             context.area.tag_redraw()  # Update UI
 
@@ -187,13 +191,13 @@ def extension_draw_item_blenderkit(
         if bpy.app.timers.is_registered(redraw_preferences_once):
             bpy.app.timers.unregister(redraw_preferences_once)
         bpy.app.timers.register(redraw_preferences_once, first_interval=0.01)
-        print("BlenderKit: Cache reloaded, tagging preferences for redraw.")
+        bk_logger.info("Cache reloaded, tagging preferences for redraw.")
 
     # check if the cache is already in the window manager
     if "blenderkit_extensions_repo_cache" not in bpy.context.window_manager:
         # Log if cache is missing after trying to ensure it
-        print(
-            "BlenderKit: Extension cache not available in window_manager after ensure_repo_cache call."
+        bk_logger.info(
+            "Extension cache not available in window_manager after ensure_repo_cache call."
         )
         # Optionally draw a minimal representation or return early to avoid errors
         # For now, just return to avoid potential errors accessing bk_ext_cache
@@ -548,10 +552,10 @@ def ensure_repo_cache():
         # If repo doesn't exist, clear cache if it exists in window manager
         if cache_key in wm:
             del wm[cache_key]
-            print(f"BlenderKit: Cleared stale extension cache for missing repository.")
+            bk_logger.info("Cleared stale extension cache for missing repository.")
         if mtime_key in wm:
             del wm[mtime_key]
-        print(f"BlenderKit Debug: Repository not found, exiting check.")
+        bk_logger.debug("Repository not found, exiting check.")
         return False  # No repo, nothing loaded
 
     # get the path to the cache file which is in repository directory under /.blender_ext/index.json
@@ -564,13 +568,11 @@ def ensure_repo_cache():
         if os.path.exists(cache_file):
             current_mtime = os.path.getmtime(cache_file)
     except OSError as e:  # Handle potential race condition or permission issue
-        print(
-            f"BlenderKit: Warning - Could not get modification time for {cache_file}: {e}"
-        )
+        bk_logger.exception("Could not get modification time for %s.", cache_file)
         # Clear cache if we can't verify its freshness? Safer approach.
         if cache_key in wm:
             del wm[cache_key]
-            print(f"BlenderKit: Cleared extension cache due to mtime access error.")
+            bk_logger.info("Cleared extension cache due to mtime access error.")
         if mtime_key in wm:
             del wm[mtime_key]
         return False  # Error, nothing loaded
@@ -624,7 +626,7 @@ def ensure_repo_cache():
             ):  # Ensure pkg is a dict and 'id' key exists
                 new_cache[pkg["id"][:32]] = pkg
             else:
-                print(f"BlenderKit: Skipping invalid package entry in cache: {pkg}")
+                bk_logger.info("Skipping invalid package entry in cache: %s.", pkg)
 
         wm[cache_key] = new_cache
         wm[mtime_key] = current_mtime  # Update mtime only on successful load
@@ -632,21 +634,21 @@ def ensure_repo_cache():
         reloaded_flag = True  # Mark that we reloaded successfully
 
     except json.JSONDecodeError:
-        print(
-            f"BlenderKit: Error decoding JSON from {cache_file}. Cache not loaded/updated."
+        bk_logger.warning(
+            "Error decoding JSON from %s. Cache not loaded/updated.", cache_file
         )
         # Clear potentially corrupt cache? Or leave old one? Clearing is safer.
         if cache_key in wm:
             del wm[cache_key]
-            print("BlenderKit: Cleared cache due to JSON error.")
+            bk_logger.info("Cleared cache due to JSON error.")
         if mtime_key in wm:
             del wm[mtime_key]
-    except Exception as e:
-        print(f"BlenderKit: Error reading or processing cache file {cache_file}: {e}")
+    except Exception:
+        bk_logger.exception("Error reading or processing cache file %s.", cache_file)
         # Clear potentially corrupt cache?
         if cache_key in wm:
             del wm[cache_key]
-            print("BlenderKit: Cleared cache due to file processing error.")
+            bk_logger.info("Cleared cache due to file processing error.")
         if mtime_key in wm:
             del wm[mtime_key]
 
