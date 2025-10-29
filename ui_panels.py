@@ -16,10 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import ctypes
 import logging
 import os
-import platform
 import random
 import time
 from webbrowser import open_new_tab
@@ -3579,35 +3577,18 @@ class ClearSearchKeywords(bpy.types.Operator):
 
 
 class ClosePopupButton(bpy.types.Operator):
-    """Close popup window"""
+    """Close the popup window. It can also be closed by pressing Esc or clicking outside it."""
 
     bl_idname = "view3d.close_popup_button"
-    bl_label = "Close popup"
+    bl_label = "Close Popup"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def win_close(self):
-        VK_ESCAPE = 0x1B
-        ctypes.windll.user32.keybd_event(VK_ESCAPE)
-        return True
-
-    def mouse_trick(self, context, x, y):
-        # import time
-        context.area.tag_redraw()
-        w = context.window
-        w.cursor_warp(w.x + 15, w.y + w.height - 15)
-        # time.sleep(.12)
-        w.cursor_warp(x, y)
-        context.area.tag_redraw()
-
     def invoke(self, context, event):
-        if platform.system() == "Windows":
-            self.win_close()
-        else:
-            self.mouse_trick(context, event.mouse_x, event.mouse_y)
+        """Force the (containing, parent) popup to close.
+        This was done by emulating Esc or hacking mouse, but stopped working in B5.
+        But can be effectively done by just tweaking screen: https://blender.stackexchange.com/a/329900
+        """
+        bpy.context.window.screen = bpy.context.window.screen
         return {"FINISHED"}
 
 
