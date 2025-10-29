@@ -1323,7 +1323,6 @@ def download(asset_data, **kwargs):
         report = f"Maximum retries exceeded for {asset_data['name']}"
         sprops.report = report
         reports.add_report(report, type="ERROR")
-
         bk_logger.debug(sprops.report)
         return
 
@@ -1337,6 +1336,8 @@ def download(asset_data, **kwargs):
     # inject resolution into prefs.
     prefs = utils.get_preferences_as_dict()
     prefs["resolution"] = kwargs.get("resolution", "original")
+    if "unpack_files" in kwargs:  # for add-on download
+        prefs["unpack_files"] = kwargs["unpack_files"]
 
     data = {
         "asset_data": asset_data,
@@ -1917,9 +1918,12 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
 
                 # Enable on install for both INSTALL_AND_ENABLE and INSTALL_AND_TEMP_ENABLE
                 enable_on_install = selected_action != "INSTALL_ONLY"
-                # Start the download
+                # Start the download, disable unpacking
                 download(
-                    asset_data, resolution="blend", enable_on_install=enable_on_install
+                    asset_data,
+                    resolution="blend",
+                    unpack_files=False,
+                    enable_on_install=enable_on_install,
                 )
                 return {"FINISHED"}
 
