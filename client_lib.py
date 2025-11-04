@@ -679,6 +679,8 @@ def start_blenderkit_client():
 
 def decide_client_binary_name() -> str:
     """Decide the name of the BlenderKit-Client binary based on the current operating system and architecture.
+    We unify the OS and CPU architecture naming to make it more accessible for general public.
+    Darwin is renamed to MacOS. The CPU architecture is aligned to x86_64 or arm64.
     Possible return values:
     - blenderkit-client-windows-x86_64.exe
     - blenderkit-client-windows-arm64.exe
@@ -687,14 +689,17 @@ def decide_client_binary_name() -> str:
     - blenderkit-client-macos-x86_64
     - blenderkit-client-macos-arm64
     """
-    os_name = platform.system()
-    architecture = platform.machine()
-    if os_name == "Darwin":  # more user-friendly name for macOS
+    os_name = platform.system().lower()
+    if os_name == "darwin":  # more user-friendly name for macOS
         os_name = "macos"
-    if architecture == "AMD64":  # fix for windows
-        architecture = "x86_64"
 
-    if os_name == "Windows":
+    architecture = platform.machine().lower()
+    if architecture == "amd64":  # align Windows convention
+        architecture = "x86_64"
+    elif architecture == "aarch64":  # align Linux convention
+        architecture = "arm64"
+
+    if os_name == "windows":
         return f"blenderkit-client-{os_name}-{architecture}.exe".lower()
 
     return f"blenderkit-client-{os_name}-{architecture}".lower()
