@@ -180,7 +180,8 @@ def check_clipboard():
 # TODO: type annotate and check this crazy function!
 # Are we sure it behaves correctly on network issues, malfunctioning search etc?
 def parse_result(r) -> dict:
-    """Needed to generate some extra data in the result(by now)
+    """Parse search result into an asset_data by tweaking some of its parameters.
+    We need to generate some extra data in the result (for now).
     Parameters
     ----------
     r - search result, also called asset_data
@@ -195,10 +196,6 @@ def parse_result(r) -> dict:
         utils.p("asset with no files-size")
 
     asset_type = r["assetType"]
-    # TODO remove this condition so all assets are parsed?
-    if len(r["files"]) == 0:
-        return {}
-
     adata = r["author"]
     social_networks = datas.parse_social_networks(adata.pop("socialNetworks", []))
     author = datas.UserProfile(**adata, socialNetworks=social_networks)
