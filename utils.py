@@ -1279,27 +1279,38 @@ def guard_from_crash():
 
 
 def get_largest_area(context=None, area_type="VIEW_3D"):
+    """Get the largest area of the given type."""
     maxsurf = 0
     maxa = None
     maxw = None
     region = None
     if context is None:
-        windows = bpy.data.window_managers[0].windows
+        if bpy.context.window is not None:
+            windows = [bpy.context.window]
+        else:
+            windows = bpy.data.window_managers.windows
     else:
         windows = context.window_manager.windows
     for w in windows:
-        for a in w.screen.areas:
-            if a.type == area_type:
-                asurf = a.width * a.height
-                if asurf > maxsurf:
-                    maxa = a
-                    maxw = w
-                    maxsurf = asurf
+        if bpy.context.area is not None and bpy.context.area.type == area_type:
+            maxa = bpy.context.area
+            maxw = bpy.context.window
+            maxsurf = maxa.width * maxa.height
+            region = maxa.regions[-1]
+        else:
+            areas = w.screen.areas
+            for a in w.screen.areas:
+                if a.type == area_type:
+                    asurf = a.width * a.height
+                    if asurf > maxsurf:
+                        maxa = a
+                        maxw = w
+                        maxsurf = asurf
 
-                    region = a.regions[-1]
-                    # for r in a.regions:
-                    #     if r.type == 'WINDOW':
-                    #         region = r
+                        region = a.regions[-1]
+                        # for r in a.regions:
+                        #     if r.type == 'WINDOW':
+                        #         region = r
 
     if maxw is None or maxa is None:
         return None, None, None

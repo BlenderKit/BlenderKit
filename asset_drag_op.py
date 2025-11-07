@@ -21,6 +21,8 @@ import logging
 import math
 import os
 import random
+import sys
+import ctypes
 
 import bpy
 import mathutils
@@ -881,6 +883,8 @@ class AssetDragOperator(bpy.types.Operator):
                     target_object=self.object_name or "",
                 )
             else:
+                # TODO: after we drop the support for B3.0, B3.1, we can update all the download operators called from the drag drop operator to use
+                # context.temp_override(), so the download is triggered in the area/window where it was dropped
                 bpy.ops.scene.blenderkit_download(
                     "EXEC_DEFAULT",
                     asset_index=self.asset_search_index,
@@ -1169,9 +1173,8 @@ class AssetDragOperator(bpy.types.Operator):
                 "compositing": "CompositorNodeTree",
             }
             node_editor_type = node_types_to_node_editor_type[nodegroup_type]
-            area = self.find_active_area(self.mouse_x, self.mouse_y, bpy.context)
-            if area:
-                area.ui_type = node_editor_type
+            if self.active_area:
+                self.active_area.ui_type = node_editor_type
         except KeyError:
             # Be silent in production to avoid repeated errors during draw
             bk_logger.exception("make_node_editor_switch failed")
@@ -1231,7 +1234,6 @@ class AssetDragOperator(bpy.types.Operator):
         # Handle nodegroup drop
         if self.asset_data["assetType"] == "nodegroup":
             # Get the mouse position in the node editor
-            node_space = self.find_active_area(self.mouse_x, self.mouse_y, context)
             nodegroup_type = self.asset_data["dictParameters"].get("nodeType")
 
             # Check if the nodegroup type is compatible with the current editor
@@ -1252,22 +1254,7 @@ class AssetDragOperator(bpy.types.Operator):
                 active_object = context.active_object
                 if active_object and active_object.type in ["MESH", "CURVE"]:
                     # Get node position for passing to dialog
-                    active_node_area = self.find_active_area(
-                        self.mouse_screen_x, self.mouse_screen_y, context
-                    )
-                    node_region = None
-                    if active_node_area:
-                        for region_check in active_node_area.regions:
-                            if region_check.type == "WINDOW":
-                                node_region = region_check
-                                break
-
-                    if node_region:
-                        node_pos = self.get_node_editor_cursor_position(
-                            context, node_region, active_node_area
-                        )
-                    else:
-                        node_pos = (0, 0)
+                    node_pos = self.get_node_editor_cursor_position()
 
                     # Show dialog to choose how to add the geometry nodegroup
                     bpy.ops.wm.blenderkit_nodegroup_drop_dialog(
@@ -1344,10 +1331,10 @@ class AssetDragOperator(bpy.types.Operator):
                     # Make sure we have a node tree to work with
                     node_tree = gn_mod.node_group
                     # Set the node tree in the editor
-                    if node_space:
-                        node_space.spaces[0].node_tree = node_tree
+                    if self.active_area:
+                        self.active_area.spaces[0].node_tree = node_tree
                         # redraw the area so we get correct coordinates
-                        node_space.tag_redraw()
+                        self.active_area.tag_redraw()
 
             # Third case: need to switch to shader nodes for shader nodegroup
             elif nodegroup_type == "shader":
@@ -1371,8 +1358,8 @@ class AssetDragOperator(bpy.types.Operator):
                 node_tree = active_material.node_tree
 
                 # Set the node tree AFTER changing the editor type
-                if node_space:
-                    node_space.spaces[0].node_tree = node_tree
+                if self.active_area:
+                    self.active_area.spaces[0].node_tree = node_tree
 
             elif nodegroup_type == "compositing":
                 # potential fix for blender5.0+
@@ -1380,23 +1367,7 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Finally doing the real stuff (only if we didn't show a dialog)
             # Get node position relative to the active node editor area
-            active_node_area = self.find_active_area(
-                self.mouse_screen_x, self.mouse_screen_y, context
-            )
-            node_region = None
-
-            if active_node_area:
-                for region_check in active_node_area.regions:
-                    if region_check.type == "WINDOW":
-                        node_region = region_check
-                        break
-
-            if node_region:
-                node_pos = self.get_node_editor_cursor_position(
-                    context, node_region, active_node_area
-                )
-            else:
-                node_pos = (0, 0)
+            node_pos = self.get_node_editor_cursor_position()
 
             # Download the nodegroup with correct positioning
             bpy.ops.scene.blenderkit_download(
@@ -1461,83 +1432,70 @@ class AssetDragOperator(bpy.types.Operator):
         self,
         x: float,
         y: float,
-        context: bpy.types.Context = None,
-        window: bpy.types.Window = None,
     ) -> Union[Tuple[bpy.types.Region, bpy.types.Area], Tuple[None, None]]:
         """Find the region and area under the mouse cursor in the specified window."""
-        if context is None:
-            context = bpy.context
-        if window is None:
-            window = context.window
-        for area in window.screen.areas:
-            for region in area.regions:
-                if region.type != "WINDOW":
-                    continue
-                if (
-                    region.x <= x < region.x + region.width
-                    and region.y <= y < region.y + region.height
-                ):
-                    return region, area
-        return None, None
 
-    def find_active_area(
-        self,
-        x: float,
-        y: float,
-        context: bpy.types.Context = None,
-        window: bpy.types.Window = None,
-    ) -> Union[bpy.types.Area, None]:
-        """Find the area under the mouse cursor in the specified window."""
-        if context is None:
-            context = bpy.context
-        if window is None:
-            window = context.window
-        for area in window.screen.areas:
-            if area.x <= x < area.x + area.width and area.y <= y < area.y + area.height:
-                return area
-        return None
+        # Iterate windows bacwards, so we go from the topmost window to the bottommost window
+        for window in reversed(bpy.context.window_manager.windows):
+            # first let's test if it's in this window, so we know we shall continue
+            # if (
+            #     x < window.x
+            #     or x > window.x + window.width
+            #     or y < window.y
+            #     or y > window.y + window.height
+            # ):
+            #     continue
+            for area in window.screen.areas:
+                # first let's test if it's in this area, so we know we shall continue
+                # if (
+                #     x < area.x
+                #     or x > area.x + area.width
+                #     or y < area.y
+                #     or y > area.y + area.height
+                # ):
+                #     continue
+                for region in area.regions:
+                    region_x = window.x + region.x
+                    region_y = window.y + region.y
+                    if region.type != "WINDOW":
+                        continue
+                    if (
+                        region_x <= x < region_x + region.width
+                        and region_y <= y < region_y + region.height
+                    ):
+                        return window, area, region
+        return None, None, None
 
     def find_outliner_element_under_mouse(
-        self, context: Union[bpy.types.Context, dict], x: float, y: float
+        self,
     ) -> Union[bpy.types.Object, bpy.types.Collection, None]:
         """Find and select the element under the mouse in the outliner.
         Returns the selected object, collection, or None."""
-        if isinstance(context, dict):
-            area = context["area"]
-            region = context["region"]
-            window = context["window"]
-            selected_objects = context["selected_objects"]
-            active_object = context["active_object"]
-            view_layer = context["view_layer"]
-        else:
-            area = context.area
-            region = context.region
-            window = context.window
-            selected_objects = context.selected_objects
-            active_object = context.active_object
-            view_layer = context.view_layer
-
-        if not area or area.type != "OUTLINER":
+        if not self.active_area or self.active_area.type != "OUTLINER":
             return None
 
-        # Store original selection to restore if needed
+        context = bpy.context
+        scene = context.scene
+        view_layer = context.view_layer
+        selected_objects = context.selected_objects
+        active_object = context.active_object
+
         orig_selected_objects = selected_objects.copy()
         orig_active_object = active_object
-        # Store original active collection
         orig_active_collection = view_layer.active_layer_collection
 
-        # Use outliner's built-in selection to find what's under the mouse
-        if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
+        rel_x = self.mouse_x - self.active_region.x
+        rel_y = self.mouse_y - self.active_region.y
+
+        if bpy.app.version < (3, 2, 0):
             override = {
-                "window": window,
-                "screen": window.screen,
-                "area": area,
-                "region": region,
-                "scene": context["scene"],
+                "window": self.active_window,
+                "screen": self.active_window.screen,
+                "area": self.active_area,
+                "region": self.active_region,
+                "scene": scene,
                 "view_layer": view_layer,
             }
-            rel_x = x - region.x
-            rel_y = y - region.y
             bpy.ops.outliner.select_box(
                 override,
                 xmin=rel_x - 1,
@@ -1547,17 +1505,12 @@ class AssetDragOperator(bpy.types.Operator):
                 wait_for_input=False,
                 mode="SET",
             )
-        else:  # B3.2+ can use context.temp_override()
+        else:
             with bpy.context.temp_override(
-                region=region,
-                area=area,
-                window=window,
+                window=self.active_window,
+                area=self.active_area,
+                region=self.active_region,
             ):
-                # Calculate coordinates relative to region
-                rel_x = x - region.x
-                rel_y = y - region.y
-
-                # Try to select what's under the mouse
                 bpy.ops.outliner.select_box(
                     xmin=rel_x - 1,
                     xmax=rel_x + 1,
@@ -1572,15 +1525,11 @@ class AssetDragOperator(bpy.types.Operator):
         if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
             selected_element = bpy.context.selected_ids[0]
 
-        # Fallback: Outliner often selects a LayerCollection (non-ID),
-        # especially for the root "Scene Collection" which won't appear in selected_ids.
-        # In that case, use the active_layer_collection's underlying Collection datablock.
         if selected_element is None and hasattr(view_layer, "active_layer_collection"):
             alc = view_layer.active_layer_collection
             if alc is not None and hasattr(alc, "collection"):
                 selected_element = alc.collection
 
-        # Keep the highlight for visual feedback, but store the original selection
         self.orig_selected_objects = orig_selected_objects
         self.orig_active_object = orig_active_object
         self.orig_active_collection = orig_active_collection
@@ -1641,7 +1590,9 @@ class AssetDragOperator(bpy.types.Operator):
                     )  # Use a very small selection box in the corner to deselect everything
             else:  # B3.2+ can use context.temp_override()
                 with bpy.context.temp_override(
-                    area=self.outliner_area, region=self.outliner_region
+                    window=self.outliner_window,
+                    area=self.outliner_area,
+                    region=self.outliner_region,
                 ):
                     bpy.ops.outliner.select_box(
                         xmin=0,
@@ -1652,12 +1603,15 @@ class AssetDragOperator(bpy.types.Operator):
                         mode="SET",
                     )  # Use a very small selection box in the corner to deselect everything
 
-    def _get_drag_active_object(self, context, event, active_region, active_area):
+    def drag_raycast_3d_view(
+        self, context, event, active_window, active_region, active_area
+    ):
         """Get the active object under the mouse cursor during drag."""
 
-        # Use mouse coordinates relative to the active region
-        region_mouse_x = event.mouse_x - active_region.x
-        region_mouse_y = event.mouse_y - active_region.y
+        # Use mouse coordinates relative to the active region,
+        # cannot use event.mouse_region_x because active region isn't always same as context.region
+        region_mouse_x = self.mouse_screen_x - active_window.x - active_region.x
+        region_mouse_y = self.mouse_screen_y - active_window.y - active_region.y
 
         region_data = None
 
@@ -1668,8 +1622,8 @@ class AssetDragOperator(bpy.types.Operator):
         # Need to temporarily override context for raycasting
         if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
             override = {
-                "window": context.window,
-                "screen": context.screen,
+                "window": active_window,
+                "screen": active_window.screen,
                 "area": active_area,
                 "region": active_region,
                 "region_data": active_area.spaces[
@@ -1692,7 +1646,9 @@ class AssetDragOperator(bpy.types.Operator):
             if obj is not None:
                 self.object_name = obj.name
         else:  # B3.2+ can use context.temp_override()
-            with bpy.context.temp_override(area=active_area, region=active_region):
+            with bpy.context.temp_override(
+                window=active_window, area=active_area, region=active_region
+            ):
                 (
                     self.has_hit,
                     self.snapped_location,
@@ -1702,7 +1658,10 @@ class AssetDragOperator(bpy.types.Operator):
                     obj,
                     self.matrix,
                 ) = mouse_raycast(
-                    active_region, region_data, region_mouse_x, region_mouse_y
+                    active_region,
+                    region_data,
+                    region_mouse_x,
+                    region_mouse_y,
                 )
                 if obj is not None:
                     self.object_name = obj.name
@@ -1716,13 +1675,11 @@ class AssetDragOperator(bpy.types.Operator):
             # Need to temporarily override context for raycasting
             if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
                 override = {
-                    "window": context.window,
-                    "screen": context.screen,
+                    "window": active_window,
+                    "screen": active_window.screen,
                     "area": active_area,
                     "region": active_region,
-                    "region_data": active_area.spaces[
-                        0
-                    ].region_3d,  # Get region_data from space_data
+                    "region_data": region_data,
                     "scene": context.scene,
                     "view_layer": context.view_layer,
                 }
@@ -1735,14 +1692,19 @@ class AssetDragOperator(bpy.types.Operator):
                     obj,
                     self.matrix,
                 ) = floor_raycast(
-                    active_region, region_data, region_mouse_x, region_mouse_y
+                    active_region,
+                    region_data,
+                    region_mouse_x,
+                    region_mouse_y,
                 )
                 if obj is not None:
                     self.object_name = obj.name
                 else:
                     self.object_name = None
             else:  # B3.2+ can use context.temp_override()
-                with bpy.context.temp_override(area=active_area, region=active_region):
+                with bpy.context.temp_override(
+                    window=active_window, area=active_area, region=active_region
+                ):
                     (
                         self.has_hit,
                         self.snapped_location,
@@ -1783,38 +1745,35 @@ class AssetDragOperator(bpy.types.Operator):
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        # if event.type == 'MOUSEMOVE':
-        if self.start_mouse_x is None or self.start_mouse_y is None:
-            self.start_mouse_x = event.mouse_region_x
-            self.start_mouse_y = event.mouse_region_y
+        self.mouse_screen_x = context.window.x + event.mouse_x
+        self.mouse_screen_y = context.window.y + event.mouse_y
 
-        self.mouse_x = event.mouse_region_x
-        self.mouse_y = event.mouse_region_y
-
-        # Store the actual screen coordinates for finding the active region
-        self.mouse_screen_x = event.mouse_x
-        self.mouse_screen_y = event.mouse_y
-
-        # Find the active region under the mouse cursor
-        active_region, active_area = self.find_active_region(
-            event.mouse_x, event.mouse_y, context, context.window
+        # Find the active region under the mouse cursor using actual screen coordinates
+        self.active_window, self.active_area, self.active_region = (
+            self.find_active_region(self.mouse_screen_x, self.mouse_screen_y)
         )
-
         # --- CURSOR VISIBILITY FIX ---
-        if active_region is None or active_area is None:
-            bpy.context.window.cursor_set("DEFAULT")
+        if self.active_region is None or self.active_area is None:
+            bpy.context.window.cursor_modal_set("STOP")
+            return {"PASS_THROUGH"}
         elif self.drag:
-            bpy.context.window.cursor_set("NONE")
+            bpy.context.window.cursor_modal_set("NONE")
+
+        # Convert screen coords (bottom-left) to region-local coords
+        # window.x/y and region.x/y are also in bottom-left coordinate system
+        self.mouse_x = self.mouse_screen_x - self.active_window.x - self.active_region.x
+        self.mouse_y = self.mouse_screen_y - self.active_window.y - self.active_region.y
+
+        if self.start_mouse_x is None or self.start_mouse_y is None:
+            self.start_mouse_x = self.mouse_x
+            self.start_mouse_y = self.mouse_y
 
         # --- REDRAW ALL WINDOWS/AREAS FOR MULTI-WINDOW DRAG ---
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
                 area.tag_redraw()
 
-        if active_area is not None:
-            active_area.tag_redraw()
-
-        current_area_type = active_area.type if active_area else None
+        current_area_type = self.active_area.type if self.active_area else None
 
         # Check if we're transitioning out of the outliner
         if (
@@ -1832,60 +1791,30 @@ class AssetDragOperator(bpy.types.Operator):
             self.shift_pressed = False
 
         # Track if we're in a node editor
-        self._handle_node_editor_type(current_area_type, active_area)
+        self._handle_node_editor_type(current_area_type, self.active_area)
 
         # Update the previous area type for the next frame
         if current_area_type:
             self.prev_area_type = current_area_type
 
-        if active_region and active_area:
-            # Recalculate mouse_region_x and mouse_region_y for the new region
-            self.mouse_x = event.mouse_x - active_region.x
-            self.mouse_y = event.mouse_y - active_region.y
+        if self.active_region and self.active_area:
             # Store the active region pointer for drawing 2D elements only in this region
-            self.active_region_pointer = active_region.as_pointer()
+            self.active_region_pointer = self.active_region.as_pointer()
+
             # Make sure all 3D views get redrawn
             for area in context.screen.areas:
                 area.tag_redraw()
 
             # Handle outliner interaction
-            if active_area.type == "OUTLINER":
-                # Need to temporarily override context to work with the outliner
-                if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
-                    context_override = {
-                        "window": context.window,
-                        "screen": context.screen,
-                        "area": active_area,
-                        "region": active_region,
-                        "scene": context.scene,
-                        "view_layer": context.view_layer,
-                        "selected_objects": context.selected_objects,
-                        "active_object": context.active_object,
-                    }
-                    self.hovered_outliner_element = (
-                        self.find_outliner_element_under_mouse(
-                            context_override, event.mouse_x, event.mouse_y
-                        )
-                    )
-                    # Store outliner area and region for mouse release handling
-                    self.outliner_area = active_area
-                    self.outliner_region = active_region
-                else:  # B3.2+ can use context.temp_override()
-                    with bpy.context.temp_override(
-                        area=active_area, region=active_region
-                    ):
-                        # Find and highlight the element under the mouse
-                        self.hovered_outliner_element = (
-                            self.find_outliner_element_under_mouse(
-                                bpy.context, event.mouse_x, event.mouse_y
-                            )
-                        )
-                        # Store outliner area and region for mouse release handling
-                        self.outliner_area = active_area
-                        self.outliner_region = active_region
+            if self.active_area.type == "OUTLINER":
+                self.hovered_outliner_element = self.find_outliner_element_under_mouse()
+                self.outliner_window = self.active_window
+                self.outliner_area = self.active_area
+                self.outliner_region = self.active_region
             else:
                 # Reset outliner tracking
                 self.hovered_outliner_element = None
+                self.outliner_window = None
                 self.outliner_area = None
                 self.outliner_region = None
         else:
@@ -1915,7 +1844,7 @@ class AssetDragOperator(bpy.types.Operator):
             self.restore_original_selection()
 
             self.handlers_remove()
-            bpy.context.window.cursor_set("DEFAULT")
+            bpy.context.window.cursor_modal_restore()
             ui_props.dragging = False
             bpy.ops.view3d.blenderkit_asset_bar_widget(
                 "INVOKE_REGION_WIN", do_search=False
@@ -1934,13 +1863,9 @@ class AssetDragOperator(bpy.types.Operator):
             or event.type == "WHEELUPMOUSE"
             or event.type == "WHEELDOWNMOUSE"
         ):
-            # Find active region for raycasting
-            active_region, active_area = self.find_active_region(
-                event.mouse_x, event.mouse_y, context, context.window
-            )
 
             # sometimes active area or region can be None, so we need to check for that
-            if active_area is None or active_region is None:
+            if self.active_area is None or self.active_region is None:
                 return {"RUNNING_MODAL"}
 
             # reset values
@@ -1948,21 +1873,31 @@ class AssetDragOperator(bpy.types.Operator):
             self.has_hit = False
 
             # Only perform raycasting in 3D view areas
-            if active_region and active_area and active_area.type == "VIEW_3D":
+            if (
+                self.active_region
+                and self.active_area
+                and self.active_area.type == "VIEW_3D"
+            ):
                 # prefetch the drag active object info
-                self._get_drag_active_object(context, event, active_region, active_area)
+                self.drag_raycast_3d_view(
+                    context,
+                    event,
+                    self.active_window,
+                    self.active_region,
+                    self.active_area,
+                )
 
             if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
                 self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
-            elif active_area.type != "VIEW_3D":
+            elif self.active_area.type != "VIEW_3D":
                 # In outliner, don't do raycasting, but keep has_hit to avoid errors
                 self.has_hit = False
 
         if event.type == "LEFTMOUSE" and event.value == "RELEASE":
             self.mouse_release(context)  # Pass context here
             self.handlers_remove()
-            bpy.context.window.cursor_set("DEFAULT")
+            bpy.context.window.cursor_modal_restore()
 
             bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
             ui_props.dragging = False
@@ -1974,33 +1909,15 @@ class AssetDragOperator(bpy.types.Operator):
         if ui_props.assetbar_on and ui_props.turn_off:
             return {"PASS_THROUGH"}
 
-        # --- WINDOW HANDOVER LOGIC ---
-        # Find which window the mouse is currently over
-        mouse_window = None
-        for window in bpy.context.window_manager.windows:
-            # Window bounds are in screen coordinates
-            x, y = window.x, window.y
-            width, height = window.width, window.height
-            if (x <= event.mouse_x < x + width) and (y <= event.mouse_y < y + height):
-                mouse_window = window
-                break
-        if mouse_window is not None and mouse_window != context.window:
-            # Cancel in old window
-            self.handlers_remove()
-            bpy.context.window.cursor_set("DEFAULT")
-            ui_props = bpy.context.window_manager.blenderkitUI
-            ui_props.dragging = False
-            # Start the operator in the new window
-            bpy.ops.view3d.asset_drag_drop("INVOKE_DEFAULT")
-            return {"CANCELLED"}
-
         return {"RUNNING_MODAL"}
 
     def invoke(self, context, event):
         # Before registering callbacks, check for canceling situations: login and localdir popups, sculpt popup/switch
         sr = search.get_search_results()
         ui_props = bpy.context.window_manager.blenderkitUI
-        self.asset_data = dict(sr[ui_props.active_index])
+        # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
+        # This is critical for multi-window support where active_index is shared across windows
+        self.asset_data = dict(sr[self.asset_search_index])
         # add-ons
         if self.asset_data.get("assetType") == "addon" and not self.asset_data.get(
             "canDownload"
@@ -2134,7 +2051,7 @@ class AssetDragOperator(bpy.types.Operator):
         self.iname = f".{self.asset_data['thumbnail_small']}"
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname
 
-        bpy.context.window.cursor_set("NONE")
+        bpy.context.window.cursor_modal_set("NONE")
         ui_props = bpy.context.window_manager.blenderkitUI
         ui_props.dragging = True
         self.drag = False
@@ -2143,25 +2060,18 @@ class AssetDragOperator(bpy.types.Operator):
 
     def get_node_editor_cursor_position(
         self,
-        context: bpy.types.Context,
-        region: bpy.types.Region,
-        area: bpy.types.Area = None,
     ) -> Tuple[float, float]:
         """Get the cursor position in the node editor space."""
-        if area is None:
-            area = self.find_active_area(
-                self.mouse_screen_x, self.mouse_screen_y, context
-            )
 
         # Calculate mouse position relative to the node editor region
-        mouse_region_x = self.mouse_screen_x - region.x
-        mouse_region_y = self.mouse_screen_y - region.y
+        mouse_region_x = self.mouse_x - self.active_window.x - self.active_region.x
+        mouse_region_y = self.mouse_y - self.active_window.y - self.active_region.y
 
         # Get view2d from region
-        ui_scale = context.preferences.system.ui_scale
+        ui_scale = bpy.context.preferences.system.ui_scale
 
         # Convert region coordinates to view coordinates using view2d
-        x, y = region.view2d.region_to_view(
+        x, y = self.active_region.view2d.region_to_view(
             float(mouse_region_x), float(mouse_region_y)
         )
 
