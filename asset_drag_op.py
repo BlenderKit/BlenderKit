@@ -21,20 +21,15 @@ import logging
 import math
 import os
 import random
+import copy
 
 import bpy
 import mathutils
 from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
-from typing import Union
-from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple, Set, Any
 
-try:
-    from typing import Literal  # Py 3.8+
-except ImportError:  # pragma: no cover
-    from typing_extensions import Literal  # fallback for older envs
+from typing import Any, Optional, Sequence, Tuple, Set, Union
 
 from . import (
     bg_blender,
@@ -60,11 +55,43 @@ bk_logger = logging.getLogger(__name__)
 handler_2d = None
 handler_3d = None
 
+
 DEAD_ZONE = 5  # pixels
 """Number of pixels mouse must move to start drag operation."""
 
 DRAG_THRESHOLD = 10  # pixels
 """Number of pixels mouse must move to consider as a drag (vs click)."""
+
+# TODO: remove this debug point loading when not needed
+# load real points from asset files
+def get_dog_points() -> Tuple[Sequence[Vector], Sequence[Tuple[float, float, float, float]]]:
+    """Ready debug points in unit cube with colors for XYZ axes."""
+    debug_points = []
+    debug_colors = []
+
+    # read local debug points
+    from pathlib import Path
+    point_file = Path(os.path.dirname(__file__)) / 'proxy_cloud.json.gz'
+    if not point_file.exists():
+        return debug_points, debug_colors
+
+    import gzip
+
+    if point_file.suffix == ".gz":
+        with gzip.open(point_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        with open(point_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
+
+    points = data.get("points", [])
+    colors = data.get("colors", [])
+
+    pts_out = [Vector(p) for p in points]
+
+    return pts_out, colors
+
+DEBUG_POINTS, DEBUG_COLORS = get_dog_points()
 
 
 def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -> bool:
@@ -356,6 +383,16 @@ def draw_callback_3d_dragging(
             self.snapped_bbox_max,
         )
 
+        # for testing we pre-inject DEBUG cloud points
+        draw_cloud(
+            self.snapped_location,
+            self.snapped_rotation,
+            self.snapped_bbox_min,
+            self.snapped_bbox_max,
+            cloud_vectors=DEBUG_POINTS,
+            colors=DEBUG_COLORS,
+        )
+
 
 def draw_bbox(
     location: Vector,
@@ -421,6 +458,46 @@ def draw_bbox(
             ui_bgl.draw_rect_3d(r, color)
 
 
+def draw_cloud(
+    location: Vector,
+    rotation: Vector,
+    bbox_min: Vector,
+    bbox_max: Vector,
+    cloud_vectors: Sequence[Vector],
+    color: Tuple[float, float, float, float] = (0, 1, 0, 1),
+    colors: Optional[Sequence[Tuple[float, float, float, float]]] = None,
+    progress: Optional[float] = None,
+) -> None:
+    """Draw a point cloud inside a bounding box with minimal overhead."""
+    if not cloud_vectors:
+        return
+
+    unit_points = copy.copy(cloud_vectors)
+
+    # Shorten point cloud based on progress
+    if progress is not None:
+        factor = max(0.0, min(1.0, progress * 0.01))
+        cut = max(0, min(len(unit_points), int(len(unit_points) * factor)))
+        unit_points = unit_points[:cut]
+
+    if not unit_points:
+        return
+
+    # Compose transform matrix: M = T(location) * R(rotation) * T(bbox_min) * S(extents)
+    rot_euler = mathutils.Euler(rotation)
+    side_min = Vector(bbox_min)
+    side_max = Vector(bbox_max)
+    extents = side_max - side_min
+
+    S = mathutils.Matrix.Diagonal((extents.x, extents.y, extents.z, 1.0))
+    T_min = mathutils.Matrix.Translation(side_min)
+    R = rot_euler.to_matrix().to_4x4()
+    T_loc = mathutils.Matrix.Translation(Vector(location))
+    m = T_loc @ R @ T_min @ S
+
+    ui_bgl.draw_points(unit_points, size=6, color=color, colors=colors, matrix=m)
+
+
 def draw_downloader(
     x: int,
     y: int,
@@ -431,7 +508,7 @@ def draw_downloader(
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if img is not None:
-        ui_bgl.draw_image(x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5)
+            ui_bgl.draw_image(x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5)
 
     if percent > 0:
         ui_bgl.draw_rect(
@@ -499,6 +576,17 @@ def draw_callback_3d_progress(
                         d["rotation"],
                         asset_data["bbox_min"],
                         asset_data["bbox_max"],
+                        progress=task["progress"],
+                    )
+
+                    # for testing we pre-inject DEBUG cloud points
+                    draw_cloud(
+                        d["location"],
+                        d["rotation"],
+                        asset_data["bbox_min"],
+                        asset_data["bbox_max"],
+                        cloud_vectors=DEBUG_POINTS,
+                        colors=DEBUG_COLORS,
                         progress=task["progress"],
                     )
 
@@ -2318,7 +2406,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         # no task, no downloader...
         if self._finished:
-            return {"FINISHED"}
+            return None
 
         widgets_panel = [self.label, self.image, self.button_close]
         widgets = [self.panel]
