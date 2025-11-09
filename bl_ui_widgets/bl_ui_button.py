@@ -1,4 +1,6 @@
 import os
+import logging
+from typing import Optional
 
 import blf
 import bpy
@@ -6,9 +8,14 @@ import gpu
 
 from .. import image_utils, ui_bgl
 from .bl_ui_widget import BL_UI_Widget
+from .bl_ui_image import BL_UI_Image
+
+bk_logger = logging.getLogger(__name__)
 
 
 class BL_UI_Button(BL_UI_Widget):
+    """Image Button for assets in asset bar."""
+
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
         self._text_color = (1.0, 1.0, 1.0, 1.0)
@@ -89,7 +96,7 @@ class BL_UI_Button(BL_UI_Widget):
         except Exception as e:
             self.__image = None
 
-    def set_image_colorspace(self, colorspace):
+    def set_image_colorspace(self, colorspace: str = ""):
         image_utils.set_colorspace(self.__image, colorspace)
 
     def set_image(self, rel_filepath):
@@ -98,22 +105,10 @@ class BL_UI_Button(BL_UI_Widget):
         try:
             if self.__image is None or self.__image.filepath != rel_filepath:
                 imgname = f".{os.path.basename(rel_filepath)}"
-                img = bpy.data.images.get(imgname)
-                if img is not None:
-                    self.__image = img
-                else:
-                    self.__image = bpy.data.images.load(
-                        rel_filepath, check_existing=True
-                    )
-                    self.__image.name = imgname
+                self.__image = image_utils.IMG(name=imgname, filepath=rel_filepath)
 
-                self.__image.gl_load()
-
-            if self.__image and len(self.__image.pixels) == 0:
-                self.__image.reload()
-                self.__image.gl_load()
-        except Exception as e:
-            print(f"BL_UI_BUTTON set_image() error: {e}")
+        except Exception:
+            bk_logger.exception("BL_UI_BUTTON set_image() error:")
             self.__image = None
 
     def get_image_path(self):
@@ -185,7 +180,7 @@ class BL_UI_Button(BL_UI_Widget):
             y_screen_flip = self.get_area_height() - self.y_screen
             off_x, off_y = self.__image_position
             sx, sy = self.__image_size
-            ui_bgl.draw_image(
+            ui_bgl.draw_image_runtime(
                 self.x_screen + off_x,
                 y_screen_flip - off_y - sy,
                 sx,
@@ -206,10 +201,22 @@ class BL_UI_Button(BL_UI_Widget):
             self.__state = 1
             try:
                 self.mouse_down_func(self)
-            except Exception as e:
-                import traceback
+            except Exception:
+                bk_logger.exception("BL_UI_BUTTON mouse_down() error:")
 
-                traceback.print_exc()
+            return True
+
+        return False
+
+    def set_mouse_down_right(self, mouse_down_right_func):
+        self.mouse_down_right_func = mouse_down_right_func
+
+    def mouse_down_right(self, x, y):
+        if self.is_in_rect(x, y):
+            try:
+                self.mouse_down_right_func(self)
+            except Exception:
+                bk_logger.exception("BL_UI_BUTTON mouse_down_right() error:")
 
             return True
 

@@ -99,7 +99,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
             self.hover_bg_color = (0.127, 0.034, 1, 1.0)
         self.text_color = (0.9, 0.9, 0.9, 1)
 
-        print("@ BlenderKitDisclaimerOperator.__init__ message is: ", self.message)
+        bk_logger.info("%s", self.message)
+
         pix_size = get_text_size(
             font_id=1,
             text=self.message,

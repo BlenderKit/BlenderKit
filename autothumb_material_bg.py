@@ -104,7 +104,7 @@ if __name__ == "__main__":
             asset_data["files"][0]["file_name"] = file_name
             if not has_url:
                 bg_blender.progress(
-                    "couldn't download asset for thumnbail re-rendering"
+                    "couldn't download asset for thumbnail re-rendering"
                 )
                 exit()
             # download first, or rather make sure if it's already downloaded

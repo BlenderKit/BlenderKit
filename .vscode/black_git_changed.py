@@ -1,50 +1,73 @@
 #!/usr/bin/env python3
 """
-Platform-independent script to run Black on git-changed Python files.
-Works on Windows, macOS, and Linux.
+Run Black on Python files changed by the current branch (commits) relative to its base.
+
+Behavior:
+- Detect base as origin/HEAD when available (typically origin/main), otherwise fallback
+  to origin/main, origin/master, main, master.
+- List files changed in commits on this branch: git diff --name-only <merge-base>..HEAD
+- Filter to .py files and run: black --check --diff <files>
+
+No script arguments by design (keep it simple like the original black_git_changed).
 """
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 
-def get_git_changed_files():
-    """Get list of changed Python files from git."""
+def _run_git(args: List[str], check: bool = True) -> str:
+    res = subprocess.run(["git", *args], capture_output=True, text=True)
+    if check and res.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed: {res.stderr.strip()}")
+    return res.stdout.strip()
+
+
+def _detect_origin_head() -> Optional[str]:
     try:
-        # Get changed files (staged + unstaged)
-        result = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
+        # e.g., 'origin/main'
+        ref = _run_git(
+            ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]
         )
+        return ref or None
+    except Exception:
+        return None
 
-        changed_files = (
-            result.stdout.strip().split("\n") if result.stdout.strip() else []
+
+def _pick_default_base() -> str:
+    ref = _detect_origin_head()
+    if ref:
+        return ref
+    for cand in ("origin/main", "origin/master", "main", "master"):
+        try:
+            _run_git(["rev-parse", "--verify", cand])
+            return cand
+        except Exception:
+            continue
+    # Last resort
+    return "origin/main"
+
+
+def _merge_base(a: str, b: str) -> str:
+    return _run_git(["merge-base", a, b])
+
+
+def get_git_changed_files_branch() -> List[str]:
+    """Get list of Python files changed by the branch relative to base (committed work).
+
+    Uses: git diff --name-only --diff-filter=ACMRT <merge-base(base, HEAD)>..HEAD
+    """
+    try:
+        base = _pick_default_base()
+        mb = _merge_base(base, "HEAD")
+        diff_range = f"{mb}..HEAD"
+        out = _run_git(
+            ["diff", "--name-only", "--diff-filter=ACMRT", diff_range], check=True
         )
-
-        # Also get staged files
-        staged_result = subprocess.run(
-            ["git", "diff", "--name-only", "--cached"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        staged_files = (
-            staged_result.stdout.strip().split("\n")
-            if staged_result.stdout.strip()
-            else []
-        )
-
-        # Combine and filter for Python files
-        all_files = set(changed_files + staged_files)
-        python_files = [f for f in all_files if f.endswith(".py") and f != ""]
-
-        return python_files
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error getting git changed files: {e}")
+        files = [f for f in (out.splitlines() if out else []) if f.endswith(".py")]
+        return files
+    except RuntimeError as e:
+        print(f"Error getting branch-changed files: {e}")
         return []
     except FileNotFoundError:
         print("Git not found in PATH")
@@ -64,8 +87,8 @@ def main():
 
     os.chdir(workspace_root)
 
-    # Get changed Python files
-    changed_files = get_git_changed_files()
+    # Get changed Python files for this branch (committed relative to base)
+    changed_files = get_git_changed_files_branch()
 
     if not changed_files:
         print("No changed Python files found.")
@@ -75,8 +98,8 @@ def main():
     for file in changed_files:
         print(f"  - {file}")
 
-    # Run Black on changed files
-    black_args = ["black", "--check", "--diff"] + changed_files
+    # Run Black on changed files (no script args, fixed flags like original)
+    black_args = ["black", "--check", "--diff", *changed_files]
 
     print(f"\nRunning: {' '.join(black_args)}")
 

@@ -32,3 +32,10 @@ GREEN_FREE = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
 
 GRAY = (0.7, 0.7, 0.7, 0.6)
 """Default color for debug reports."""
+
+# pure colors
+PURE_WHITE = (1, 1, 1, 1)
+PURE_BLACK = (0, 0, 0, 1)
+PURE_GREEN = (0, 1, 0, 1)
+PURE_RED = (1, 0, 0, 1)
+PURE_BLUE = (0, 0, 1, 1)

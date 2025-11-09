@@ -1,6 +1,10 @@
-import traceback
+import logging
+from typing import Optional
+
 import bpy
 from bpy.types import Operator
+
+bk_logger = logging.getLogger(__name__)
 
 
 class BL_UI_OT_draw_operator(Operator):
@@ -23,7 +27,7 @@ class BL_UI_OT_draw_operator(Operator):
         for widget in self.widgets:
             widget.init(context)
 
-    def on_invoke(self, context, event):
+    def on_invoke(self, context, event) -> Optional[bool]:
         pass
 
     def on_finish(self, context):
@@ -105,7 +109,7 @@ class BL_UI_OT_draw_operator(Operator):
 
 
 def draw_callback_px_separated(self, op, context):
-    # separated only for puprpose of profiling
+    # separated only for purpose of profiling
     try:
         # hide during animation playback, to improve performance
         if context.screen.is_animation_playing:
@@ -113,5 +117,5 @@ def draw_callback_px_separated(self, op, context):
         if context.area.as_pointer() == self.active_area_pointer:
             for widget in self.widgets:
                 widget.draw()
-    except Exception as e:
-        traceback.print_exc()
+    except Exception:
+        bk_logger.exception("Error in draw_callback_px_separated: ")

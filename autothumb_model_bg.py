@@ -163,7 +163,7 @@ if __name__ == "__main__":
             asset_data["files"][0]["file_name"] = file_name
             if has_url is not True:
                 bg_blender.progress(
-                    "couldn't download asset for thumnbail re-rendering"
+                    "couldn't download asset for thumbnail re-rendering"
                 )
             bg_blender.progress("downloading asset")
             fpath = bg_utils.download_asset_file(

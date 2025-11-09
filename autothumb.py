@@ -82,7 +82,7 @@ def get_texture_ui(tpath, iname):
 
 
 def check_thumbnail(props, imgpath):
-    # TODO implement check if the file exists, if size is corect etc. needs some care
+    # TODO implement check if the file exists, if size is correct etc. needs some care
     if imgpath == "":
         props.has_thumbnail = False
         return None

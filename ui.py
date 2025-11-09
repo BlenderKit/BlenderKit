@@ -225,7 +225,7 @@ class ParticlesDropDialog(bpy.types.Operator):
         layout = self.layout
         message = (
             "This asset is a particle setup. BlenderKit can apply particles to the active/drag-drop object."
-            "The number of particles is caluclated automatically, but if there are too many particles,"
+            "The number of particles is calculated automatically, but if there are too many particles,"
             " BlenderKit can do the following steps to make sure Blender continues to run:\n"
             "\n1.Switch to bounding box view of the particles."
             "\n2.Turn down number of particles that are shown in the view."

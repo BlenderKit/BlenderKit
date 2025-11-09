@@ -656,10 +656,11 @@ def img_to_preview(img, copy_original=False):
 def get_hidden_image(
     tpath, bdata_name, force_reload: bool = False, colorspace: str = ""
 ):
+    """Get hidden image by name. If not found, load it from tpath."""
     if bdata_name[0] == ".":
         hidden_name = bdata_name
     else:
-        hidden_name = ".%s" % bdata_name
+        hidden_name = f".{bdata_name}"
     img = bpy.data.images.get(hidden_name)  # type: ignore[union-attr]
 
     if tpath.startswith("//"):
@@ -696,13 +697,13 @@ def get_hidden_image(
 
 
 def get_thumbnail(name):
+    """Get addon thumbnail image by name."""
     p = paths.get_addon_thumbnail_path(name)
-    name = ".%s" % name
+    name = f".{name}"
     img = bpy.data.images.get(name)
-    if img == None:
+    if img is None:
         img = bpy.data.images.load(p, check_existing=True)
         image_utils.set_colorspace(img)
-        img.name = name
         img.name = name
 
     return img

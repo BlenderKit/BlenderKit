@@ -27,20 +27,15 @@ import mathutils
 from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
-from typing import Union
-from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple, Set, Any
 
-try:
-    from typing import Literal  # Py 3.8+
-except ImportError:  # pragma: no cover
-    from typing_extensions import Literal  # fallback for older envs
+from typing import Any, Optional, Tuple, Set, Union
 
 from . import (
     bg_blender,
     colors,
     download,
     global_vars,
+    image_utils,
     paths,
     reports,
     ui,
@@ -59,6 +54,7 @@ bk_logger = logging.getLogger(__name__)
 
 handler_2d = None
 handler_3d = None
+
 
 DEAD_ZONE = 5  # pixels
 """Number of pixels mouse must move to start drag operation."""
@@ -117,13 +113,10 @@ def draw_callback_dragging(
         return
 
     try:
-        img = bpy.data.images.get(self.iname)
-        if img is None:
-            # thumbnail can be sometimes missing (probably removed by Blender) so lets add it
-            directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
-            thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
-            img = bpy.data.images.load(thumbnail_path)
-            img.name = self.iname
+        ## optimized
+        directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
+        thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
+        img = image_utils.IMG(name=self.iname, filepath=thumbnail_path)
     except Exception:
         bk_logger.exception("Error loading image while drawing:")
         return
@@ -133,7 +126,7 @@ def draw_callback_dragging(
 
     line_color = colors.WHITE
 
-    ui_bgl.draw_image(
+    ui_bgl.draw_image_runtime(
         self.mouse_x + line_length,
         self.mouse_y - line_length - ui_props.thumb_size,
         ui_props.thumb_size,
@@ -363,9 +356,9 @@ def draw_bbox(
     bbox_min: Vector,
     bbox_max: Vector,
     progress: Optional[float] = None,
-    color: Tuple[float, float, float, float] = (0, 1, 0, 1),
+    color: Tuple[float, float, float, float] = colors.PURE_GREEN,
 ) -> None:
-    rotation = mathutils.Euler(rotation)
+    rot_euler = mathutils.Euler(rotation)
 
     side_min = Vector(bbox_min)
     side_max = Vector(bbox_max)
@@ -384,7 +377,7 @@ def draw_bbox(
 
     vertices = [v0, v1, v2, v3, v4, v5, v6, v7, v8]
     for v in vertices:
-        v.rotate(rotation)
+        v.rotate(rot_euler)
         v += Vector(location)
 
     lines = [
@@ -405,6 +398,7 @@ def draw_bbox(
     ]
     ui_bgl.draw_lines(vertices, lines, color)
     if progress is not None:
+        # Draw side fill quads based on progress along +Z of the local bbox
         color = (color[0], color[1], color[2], 0.2)
         progress = progress * 0.01
         vz0 = (v4 - v0) * progress + v0
@@ -431,7 +425,12 @@ def draw_downloader(
     ui_props = bpy.context.window_manager.blenderkitUI
 
     if img is not None:
-        ui_bgl.draw_image(x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5)
+        if isinstance(img, image_utils.IMG):
+            ui_bgl.draw_image_runtime(
+                x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5
+            )
+        else:
+            ui_bgl.draw_image(x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5)
 
     if percent > 0:
         ui_bgl.draw_rect(
@@ -456,10 +455,6 @@ def draw_callback_2d_progress(
     index = 0
     for key, task in download.download_tasks.items():
         asset_data = task["asset_data"]
-
-        directory = paths.get_temp_dir(f"{asset_data['assetType']}_search")
-        thumbnail_path = os.path.join(directory, asset_data["thumbnail_small"])
-        img = utils.get_hidden_image(thumbnail_path, asset_data["id"])
         if not task.get("downloaders"):
             draw_progress(
                 x,
@@ -2318,7 +2313,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         # no task, no downloader...
         if self._finished:
-            return {"FINISHED"}
+            return False
 
         widgets_panel = [self.label, self.image, self.button_close]
         widgets = [self.panel]
@@ -2343,6 +2338,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
 
         self.init_widgets(context, widgets)
         self.panel.add_widgets(widgets_panel)
+        return True
 
     def modal(self, context, event):
         if self._finished:
