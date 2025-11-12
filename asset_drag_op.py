@@ -882,7 +882,7 @@ class AssetDragOperator(bpy.types.Operator):
                 )
             else:
                 bpy.ops.scene.blenderkit_download(
-                    True,
+                    "INVOKE_DEFAULT",
                     asset_index=self.asset_search_index,
                     model_location=self.snapped_location,
                     model_rotation=self.snapped_rotation,
