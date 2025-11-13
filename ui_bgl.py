@@ -36,6 +36,113 @@ cached_images = {}
 
 cached_gpu_textures = {}
 
+_cached_image_shader: Optional[gpu.types.GPUShader] = None
+
+
+VERTEX_SHADER_LEGACY = """
+uniform mat4 ModelViewProjectionMatrix;
+in vec2 pos;
+in vec2 texCoord;
+out vec2 uv;
+
+void main()
+{
+    uv = texCoord;
+    gl_Position = ModelViewProjectionMatrix * vec4(pos.xy, 0.0, 1.0);
+}
+"""
+
+
+FRAGMENT_SHADER_LEGACY = """
+in vec2 uv;
+out vec4 fragColor;
+uniform sampler2D image;
+uniform float transparency;
+uniform int color_space_mode;
+
+vec3 linear_to_srgb(vec3 linear_color)
+{
+    vec3 cutoff = vec3(0.0031308);
+    vec3 lower = linear_color * 12.92;
+    vec3 higher = 1.055 * pow(max(linear_color, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
+    return mix(lower, higher, step(cutoff, linear_color));
+}
+
+void main()
+{
+    vec4 color = texture(image, uv);
+    if (color_space_mode == 1) {
+        color.rgb = linear_to_srgb(color.rgb);
+    }
+    color.a *= transparency;
+    fragColor = color;
+}
+"""
+
+
+def create_image_shader():
+    """Return a cached shader that supports transparency across Blender versions."""
+    global _cached_image_shader
+
+    if _cached_image_shader is not None:
+        return _cached_image_shader
+
+    shader = None
+
+    if app.version >= (4, 5, 0):
+        try:
+            shader_info = gpu.types.GPUShaderCreateInfo()
+            shader_info.vertex_in(0, "VEC2", "pos")
+            shader_info.vertex_in(1, "VEC2", "texCoord")
+
+            stage_iface = gpu.types.GPUStageInterfaceInfo("uv_iface")
+            stage_iface.smooth("VEC2", "uv")
+            shader_info.vertex_out(stage_iface)
+
+            shader_info.push_constant("MAT4", "ModelViewProjectionMatrix")
+            shader_info.push_constant("FLOAT", "transparency")
+            shader_info.push_constant("INT", "color_space_mode")
+            shader_info.sampler(0, "FLOAT_2D", "image")
+
+            shader_info.fragment_out(0, "VEC4", "fragColor")
+            shader_info.vertex_source(
+                """
+                void main()
+                {
+                    uv = texCoord;
+                    gl_Position = ModelViewProjectionMatrix * vec4(pos.xy, 0.0, 1.0);
+                }
+            """
+            )
+            shader_info.fragment_source(
+                """
+                void main()
+                {
+                    vec4 color = texture(image, uv);
+                    if (color_space_mode == 1) {
+                        vec3 cutoff = vec3(0.0031308);
+                        vec3 lower = color.rgb * 12.92;
+                        vec3 higher = 1.055 * pow(max(color.rgb, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
+                        color.rgb = mix(lower, higher, step(cutoff, color.rgb));
+                    }
+                    color.a *= transparency;
+                    fragColor = color;
+                }
+            """
+            )
+            shader = gpu.shader.create_from_info(shader_info)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError("Failed to create image shader via create_info") from exc
+
+    if shader is None:
+        try:
+            shader = gpu.types.GPUShader(VERTEX_SHADER_LEGACY, FRAGMENT_SHADER_LEGACY)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError("Failed to create image shader") from exc
+
+    _cached_image_shader = shader
+    return shader
+
 
 def draw_rect(x, y, width, height, color):
     """Used for drawing 2D rectangle backgrounds."""
@@ -148,88 +255,15 @@ def draw_rect_3d(coords, color):
     batch.draw(shader)
 
 
-def draw_image(
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-    image: bpy.types.Image,
-    transparency: float,
-    crop: Tuple[float, float, float, float] = (0, 0, 1, 1),
-    batch: Optional[gpu.types.GPUBatch] = None,
-) -> Optional[gpu.types.GPUBatch]:
-    """Draws an image at given location with given size.
+def _resolve_color_space_mode() -> int:
+    """Return shader color conversion mode for the current drawing context.
 
-    Returns:
-        The batch object if successful, or None if the image is invalid.
-    """
-    try:
-        image.name
-    except Exception:
-        bk_logger.warning("Image is invalid- draw function")
-        return None
+    area over non-3D means UI overlay, so we need to apply sRGB conversion."""
+    area = getattr(bpy.context, "area", None)
+    if area and area.type != "VIEW_3D":
+        return 1
 
-    image_shader = None
-    texture = None
-    ci = cached_images.get(image.filepath)
-    if ci is not None:
-        if (
-            ci["x"] == x
-            and ci["y"] == y
-            and ci["width"] == width
-            and ci["height"] == height
-        ):
-            batch = ci["batch"]
-            image_shader = ci["image_shader"]
-            texture = ci["texture"]
-
-    if not batch:
-        coords = [(x, y), (x + width, y), (x, y + height), (x + width, y + height)]
-
-        uvs = [
-            (crop[0], crop[1]),
-            (crop[2], crop[1]),
-            (crop[0], crop[3]),
-            (crop[2], crop[3]),
-        ]
-
-        indices = [(0, 1, 2), (2, 1, 3)]
-
-        if app.version < (4, 0, 0):
-            image_shader = gpu.shader.from_builtin("2D_IMAGE")
-        else:
-            image_shader = gpu.shader.from_builtin("IMAGE")
-        batch = batch_for_shader(
-            image_shader, "TRIS", {"pos": coords, "texCoord": uvs}, indices=indices
-        )
-
-        texture = gpu.texture.from_image(image)
-
-        # tell shader to use the image that is bound to image unit 0
-        cached_images[image.filepath] = {
-            "x": x,
-            "y": y,
-            "width": width,
-            "height": height,
-            "batch": batch,
-            "image_shader": image_shader,
-            "texture": texture,
-        }
-
-    # send image to gpu if it isn't there already
-    if image.gl_load():
-        raise Exception()
-
-    if batch is None or image_shader is None or texture is None:
-        return None
-
-    gpu.state.blend_set("ALPHA")
-
-    image_shader.bind()
-    image_shader.uniform_sampler("image", texture)
-    batch.draw(image_shader)
-
-    return batch
+    return 0
 
 
 def draw_image_runtime(
@@ -250,7 +284,8 @@ def draw_image_runtime(
     if not image.name or not image.filepath:
         return None
 
-    image_shader = None
+    image_shader = create_image_shader()
+
     texture = None
     ci = cached_images.get(image.filepath + "GPU_TEXTURE")
     if ci is not None:
@@ -276,10 +311,6 @@ def draw_image_runtime(
 
         indices = [(0, 1, 2), (2, 1, 3)]
 
-        if app.version < (4, 0, 0):
-            image_shader = gpu.shader.from_builtin("2D_IMAGE")
-        else:
-            image_shader = gpu.shader.from_builtin("IMAGE")
         batch = batch_for_shader(
             image_shader, "TRIS", {"pos": coords, "texCoord": uvs}, indices=indices
         )
@@ -301,10 +332,18 @@ def draw_image_runtime(
         return None
 
     if image_shader and texture:
+        color_space_mode = _resolve_color_space_mode()
+
         gpu.state.blend_set("ALPHA")
 
         image_shader.bind()
         image_shader.uniform_sampler("image", texture)
+
+        # set floats
+        image_shader.uniform_float("transparency", transparency)
+
+        # set color space mode
+        image_shader.uniform_int("color_space_mode", color_space_mode)
         batch.draw(image_shader)
 
     return batch
@@ -325,9 +364,6 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
         return None
     img = bpy.data.images.load(path, check_existing=False)
     img.gl_load()
-
-    if app.version >= (5, 0, 0):
-        img.colorspace_settings.is_data = True
 
     tex = gpu.texture.from_image(img)
     cached_gpu_textures[path] = tex

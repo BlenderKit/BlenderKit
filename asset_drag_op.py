@@ -36,6 +36,7 @@ from . import (
     download,
     global_vars,
     image_utils,
+    icons,
     paths,
     reports,
     ui,
@@ -114,9 +115,15 @@ def draw_callback_dragging(
 
     try:
         ## optimized
-        directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
-        thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
-        img = image_utils.IMG(name=self.iname, filepath=thumbnail_path)
+        if hasattr(self, "_faux_img") and self._faux_img is not None:
+            img = self._faux_img
+        else:
+            # load mini thumbnail of a file and store in the previews collection
+            directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
+            thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
+            img = self._faux_img = image_utils.IMG(
+                name=self.iname, filepath=thumbnail_path
+            )
     except Exception:
         bk_logger.exception("Error loading image while drawing:")
         return
@@ -413,34 +420,6 @@ def draw_bbox(
         )
         for r in rects:
             ui_bgl.draw_rect_3d(r, color)
-
-
-def draw_downloader(
-    x: int,
-    y: int,
-    percent: float = 0.0,
-    img: Optional[bpy.types.Image] = None,
-    text: str = "",
-) -> None:
-    ui_props = bpy.context.window_manager.blenderkitUI
-
-    if img is not None:
-        if isinstance(img, image_utils.IMG):
-            ui_bgl.draw_image_runtime(
-                x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5
-            )
-        else:
-            ui_bgl.draw_image(x, y, ui_props.thumb_size, ui_props.thumb_size, img, 0.5)
-
-    if percent > 0:
-        ui_bgl.draw_rect(
-            x, y, ui_props.thumb_size, int(0.5 * percent), (0.2, 1, 0.2, 0.3)
-        )
-
-    ui_bgl.draw_rect(x - 3, y - 3, 6, 6, (1, 0, 0, 0.3))
-
-    if text:
-        ui_bgl.draw_text(text, x, y - 15, 12, colors.TEXT)
 
 
 def draw_callback_2d_progress(
