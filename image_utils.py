@@ -650,3 +650,27 @@ def make_possible_reductions_on_image(
     ims.color_mode = orig_color_mode
     ims.compression = orig_compression
     ims.color_depth = orig_depth
+
+
+def preview_to_image(preview, name: str = "") -> bpy.types.Image:
+    """Convert a Blender preview image to a bpy.types.Image."""
+    import numpy
+
+    w, h = preview.image_size
+
+    # Extract pixel data
+    raw = numpy.array(preview.image_pixels_float, dtype=numpy.float32)
+    # length = w * h * 4 ?
+    expected_len = w * h * 4
+    if len(raw) != expected_len:
+        # recalculate actual dimensions if needed
+        total_px = len(raw) // 4
+        side_guess = int(total_px**0.5)
+        w = h = side_guess  # fallback for square preview
+
+    # Create new Image datablock
+    img = bpy.data.images.new("FromPreview", width=w, height=h, float_buffer=True)
+    img.pixels = raw.tolist()
+    img.update()
+
+    return img

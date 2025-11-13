@@ -2957,25 +2957,18 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         author_box = row.box()
         author_box.scale_y = 0.6  # get text lines closer to each other
         author_box.label(text="Author")  # just one extra line to give spacing
-        # Prefer a previews collection icon if available, fallback to Image preview
+        # Prefer a previews collection icon
         icon_id = None
-        used_gimg = False
-        pcoll = getattr(self, "_pcoll", None)
-        pkey = getattr(self, "_pkey_author", None)
-        if pcoll and pkey:
+        acoll = icons.icon_collections.get("authors")
+        if acoll and self._pkey_author:
             try:
-                icon_id = pcoll[pkey].icon_id
+                icon_id = acoll[self._pkey_author].icon_id
             except Exception:
                 icon_id = None
-        if icon_id is None and self.gimg:
-            icon_id = self.gimg.preview.icon_id
-            used_gimg = True
 
         if icon_id is not None:
             author_left = author_box.split(factor=image_split)
             author_left.template_icon(icon_value=icon_id, scale=7)
-            if used_gimg:
-                self.gimg.gl_touch()
 
             text_area = author_left.split()
             text_width = int(text_width * (1 - image_split))
@@ -3057,52 +3050,33 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         box_thumbnail = layout.box()
 
         box_thumbnail.scale_y = 0.4
-        # Prefer previews collection for main thumbnail if available
+        # Prefer previews collection
         main_icon_id = None
-        used_img_preview = False
-        tpcoll = getattr(self, "_pcoll", None)
-        tkey = getattr(self, "_pkey_thumb_main", None)
-        if tpcoll and tkey:
+        prcoll = icons.icon_collections.get("previews")
+        if prcoll and self._pkey_thumb_main:
             try:
-                main_icon_id = tpcoll[tkey].icon_id
+                main_icon_id = prcoll[self._pkey_thumb_main].icon_id
             except Exception:
                 main_icon_id = None
-        if main_icon_id is None and self.img:
-            main_icon_id = self.img.preview.icon_id
-            used_img_preview = True
         if main_icon_id is not None:
             box_thumbnail.template_icon(icon_value=main_icon_id, scale=width * 0.12)
-            if used_img_preview and self.img:
-                self.img.gl_touch()
 
         # Display photo thumbnail for printable objects
         if self.asset_data.get("assetType") == "printable":
             box_thumbnail.scale_y = 0.4
             # Prefer previews collection for full photo thumbnail if available
             full_icon_id = None
-            used_full_img_preview = False
-            tpcoll = getattr(self, "_pcoll", None)
-            fkey = getattr(self, "_pkey_thumb_full", None)
-            if tpcoll and fkey:
+            fcoll = icons.icon_collections.get("full_photos")
+            if fcoll and self._pkey_thumb_full:
                 try:
-                    full_icon_id = tpcoll[fkey].icon_id
+                    full_icon_id = fcoll[self._pkey_thumb_full].icon_id
                 except Exception:
                     full_icon_id = None
-            # Fallback to Image preview only if attribute exists
-            if (
-                full_icon_id is None
-                and hasattr(self, "full_photo_thumbnail")
-                and self.full_photo_thumbnail
-            ):
-                full_icon_id = self.full_photo_thumbnail.preview.icon_id
-                used_full_img_preview = True
             if full_icon_id is not None:
                 box_thumbnail.template_icon(
                     icon_value=full_icon_id,
                     scale=width * 0.12,
                 )
-                if used_full_img_preview:
-                    self.full_photo_thumbnail.gl_touch()
 
         # op = row.operator('view3d.asset_drag_drop', text='Drag & Drop from here', depress=True)
         # From here on, only ratings are drawn, which won't be displayed for private assets from now on.
@@ -3476,81 +3450,82 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         sr = history_step.get("search_results", [])
         asset_data = sr[ui_props.active_index]
         self.asset_data = asset_data
-        # Create unified previews collection for thumbnails and author icon
-        self._pcoll = None
+
+        # handlers for previews
         self._pkey_thumb_main = None
         self._pkey_thumb_full = None
         self._pkey_author = None
-        try:
-            self._pcoll = _previews.new()
-            # Main thumbnail (compute file path without creating an Image datablock)
-            try:
-                ui_props = bpy.context.window_manager.blenderkitUI
-                directory = paths.get_temp_dir(f"{ui_props.asset_type.lower()}_search")
-                thumb_name = asset_data.get("thumbnail") or ""
-                tpath = os.path.join(directory, thumb_name)
-                image_ready = global_vars.DATA["images available"].get(tpath)
-                if image_ready is False or not thumb_name:
-                    tpath = paths.get_addon_thumbnail_path(
-                        "thumbnail_not_available.jpg"
-                    )
-                if image_ready is None:
-                    tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-                _fp = bpy.path.abspath(tpath)
-                self._pcoll.load("thumb_main", _fp, "IMAGE")
-                self._pkey_thumb_main = "thumb_main"
-            except Exception as e:
-                bk_logger.warning("Could not load main thumbnail preview: '%s'", e)
 
-            # Full photo thumbnail for printable assets
-            if asset_data.get("assetType") == "printable":
-                try:
-                    # Locate the photo thumbnail file and resolve local temp path
-                    photo_name = None
-                    for f in asset_data.get("files", []):
-                        if f.get("fileType") == "photo_thumbnail":
-                            url = f.get("thumbnailMiddleUrl")
-                            if url:
-                                photo_name = os.path.basename(url)
-                            break
-                    if photo_name:
-                        directory = paths.get_temp_dir(
-                            f"{ui_props.asset_type.lower()}_search"
-                        )
-                        fpath = os.path.join(directory, photo_name)
-                        if os.path.exists(fpath):
-                            _fp2 = bpy.path.abspath(fpath)
-                            self._pcoll.load("thumb_full", _fp2, "IMAGE")
-                            self._pkey_thumb_full = "thumb_full"
-                except Exception as e:
-                    bk_logger.warning(
-                        "Could not load full photo thumbnail preview: '%s'", e
-                    )
+        # this whole charade is to load previews without leaving images in scene
+        # which would bloat the memory and be hard to clean up.
+
+        # Main thumbnail (compute file path without storing an Image datablock)
+        prcoll = icons.icon_collections.get("previews")
+        if prcoll is None:
+            icons.icon_collections["previews"] = prcoll = _previews.new()
+        try:
+            i_name = f"thumb_main_{asset_data['id']}"
+            if i_name in prcoll:
+                self._pkey_thumb_main = i_name
+            else:
+                tpath = ui.get_large_thumbnail_image_path(asset_data)
+                if tpath.startswith("//"):
+                    tpath = bpy.path.abspath(tpath)
+                prcoll.load(i_name, tpath, "IMAGE")
+                self._pkey_thumb_main = i_name
+                utils.enhance_preview(prcoll[i_name], tpath)
 
         except Exception as e:
-            bk_logger.warning("Could not create thumbnail previews: '%s'", e)
+            bk_logger.warning("Could not load main thumbnail preview: %s", e)
+
+        # Full photo thumbnail for printable assets
+        if asset_data.get("assetType") == "printable":
+            fcoll = icons.icon_collections.get("full_photos")
+            if fcoll is None:
+                icons.icon_collections["full_photos"] = fcoll = _previews.new()
+            try:
+                a_name = f"thumb_full_{asset_data['id']}"
+                if a_name in fcoll:
+                    self._pkey_thumb_full = a_name
+                else:
+                    # Locate the photo thumbnail file and resolve local temp path
+                    result = ui.get_full_photo_thumbnail_path(asset_data)
+                    if not result:
+                        raise Exception("No full photo thumbnail path found")
+                    fpath, _photo_name = result
+                    if fpath.startswith("//"):
+                        fpath = bpy.path.abspath(fpath)
+                    fcoll.load(a_name, fpath, "IMAGE")
+                    self._pkey_thumb_full = a_name
+                    utils.enhance_preview(fcoll[a_name], fpath)
+
+            except Exception as e:
+                bk_logger.warning(
+                    "Could not load full photo thumbnail preview: %s", e
+                )
 
         self.asset_type = asset_data["assetType"]
         self.asset_id = asset_data["id"]
-        # self.tex = utils.get_hidden_texture(self.img)
-        # self.tex.update_tag()
 
+        # load author also into icon_collection
         author_id = int(asset_data["author"]["id"])
         author = global_vars.BKIT_AUTHORS.get(author_id)
         # Load author icon into unified previews collection
         if author and author.gravatarImg:
+            acoll = icons.icon_collections.get("authors")
+            if acoll is None:
+                icons.icon_collections["authors"] = acoll = _previews.new()
+
             try:
-                if getattr(self, "_pcoll", None) is None:
-                    self._pcoll = _previews.new()
                 key = f"author_{author_id}"
-                self._pcoll.load(key, author.gravatarImg, "IMAGE")
-                self._pkey_author = key
+                if key in acoll:
+                    self._pkey_author = key
+                else:
+                    acoll.load(key, author.gravatarImg, "IMAGE")
+                    self._pkey_author = key
+                    utils.enhance_preview(acoll[key], author.gravatarImg)
             except Exception as e:
                 bk_logger.warning("Could not load author preview: %s", e)
-        # No Image datablock fallback; rely on previews only to avoid Outliner entries
-        self.gimg = None
-
-        self.img = None
 
         self.tip = f"Tip: {random.choice(global_vars.TIPS)[0]}"
 
@@ -3579,21 +3554,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
     def cancel(self, context):
         # Cleanup unified previews collection
-        pcoll = getattr(self, "_pcoll", None)
-        if pcoll is not None:
-            try:
-                _previews.remove(pcoll)
-            except Exception as e:
-                bk_logger.warning(
-                    "Could not remove unified previews collection: '%s'", e
-                )
-
-            self._pcoll = None
-            self._pkey_thumb_main = None
-            self._pkey_thumb_full = None
-            self._pkey_author = None
-        # Do not remove self.gimg; it's managed by utils and may be cached globally
-        # Note: Operator.cancel must return None
+        self._pkey_thumb_main = None
+        self._pkey_thumb_full = None
+        self._pkey_author = None
         return None
 
 

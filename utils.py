@@ -607,6 +607,34 @@ def get_hidden_texture(name, force_reload=False):
     return t
 
 
+def enhance_preview(preview, img_path):
+    """Return enhanced preview image from original image path.
+
+    If we were to use preview collections, the preview would be low res.
+    But we can generate the preview manually here. and inject back to preview collection.
+    """
+    img = bpy.data.images.load(img_path, check_existing=False)
+    if bpy.app.version[0] >= 3:
+        img.preview_ensure()
+
+    # Update preview
+    if preview.image_size != img.size:
+        preview.image_size = (img.size[0], img.size[1])
+    if preview.icon_size != img.size:
+        preview.icon_size = (img.size[0], img.size[1])
+
+    pixels = img.pixels[:]
+
+    # Convert back to flat array and update preview pixels
+    preview.image_pixels_float = pixels
+    preview.is_image_custom = True
+
+    # remove image to avoid memory leak
+    bpy.data.images.remove(img)
+
+    return preview
+
+
 def img_to_preview(img, copy_original=False):
     """
     Convert image to preview,

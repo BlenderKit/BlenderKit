@@ -85,10 +85,9 @@ def draw_text_block(
         ui_bgl.draw_text(l, x, ytext, font_size, color)
 
 
-def get_large_thumbnail_image(asset_data):
-    """Get thumbnail image from asset data"""
+def get_large_thumbnail_image_path(asset_data):
+    """Get thumbnail image path from asset data"""
     ui_props = bpy.context.window_manager.blenderkitUI
-    iname = utils.previmg_name(ui_props.active_index, fullsize=True)
     directory = paths.get_temp_dir(f"{ui_props.asset_type.lower()}_search")
     tpath = os.path.join(directory, asset_data["thumbnail"])
     # if asset_data['assetType'] == 'hdr':
@@ -98,14 +97,21 @@ def get_large_thumbnail_image(asset_data):
         tpath = paths.get_addon_thumbnail_path("thumbnail_not_available.jpg")
     if image_ready is None:
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+    return tpath
 
+
+def get_large_thumbnail_image(asset_data):
+    """Get thumbnail image from asset data"""
+    ui_props = bpy.context.window_manager.blenderkitUI
+    iname = utils.previmg_name(ui_props.active_index, fullsize=True)
+    tpath = get_large_thumbnail_image_path(asset_data)
     img = utils.get_hidden_image(tpath, iname, colorspace="")
     return img
 
 
-def get_full_photo_thumbnail(asset_data):
-    """Get full photo thumbnail from asset data. This is different from the large thumbnail
-    as the photo_thumbnails are not available on the asset data root, but inside the files[].
+def get_full_photo_thumbnail_path(asset_data):
+    """Get full photo thumbnail path from asset data. This is different from the large thumbnail
+    as the photo_thumbnails are not available on the asset data root, but inside the files
     We need to get the data from files[] where assetType=='photo_thumbnail'."""
     # Find the photo thumbnail file
     photo_file = None
@@ -129,8 +135,21 @@ def get_full_photo_thumbnail(asset_data):
     photo_name = os.path.basename(photo_url)
     tpath = os.path.join(directory, photo_name)
 
+    return (tpath, photo_name)
+
+
+def get_full_photo_thumbnail(asset_data):
+    """Get full photo thumbnail from asset data. This is different from the large thumbnail
+    as the photo_thumbnails are not available on the asset data root, but inside the files[].
+    We need to get the data from files[] where assetType=='photo_thumbnail'."""
+    result = get_full_photo_thumbnail_path(asset_data)
+    if result is None:
+        return None
+
+    tpath, photo_name = result
+
     # Load the image into Blender
-    if os.path.exists(tpath):
+    if tpath and os.path.exists(tpath):
         img = utils.get_hidden_image(tpath, photo_name, colorspace="")
         return img
 

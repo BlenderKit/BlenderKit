@@ -121,7 +121,15 @@ def register_icons():
         # iprev.image_pixels_float = img.pixels[:]
 
     icon_collections["main"] = pcoll
+
+    # used for asset previews <for best result use utils.enhance_preview>
+    icon_collections["thumbnails"] = bpy.utils.previews.new()
+    # used for bigger asset previews <for best result use utils.enhance_preview>
     icon_collections["previews"] = bpy.utils.previews.new()
+    # use for full photo previews [printables] <for best result use utils.enhance_preview>
+    icon_collections["full_photos"] = bpy.utils.previews.new()
+    # use for author gravatar previews <for best result use utils.enhance_preview>
+    icon_collections["authors"] = bpy.utils.previews.new()
 
 
 def unregister_icons():
