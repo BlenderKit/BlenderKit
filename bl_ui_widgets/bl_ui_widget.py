@@ -20,6 +20,11 @@ class BL_UI_Widget:
         self._is_visible = True
         self._is_active = True  # if the widget needs to be disabled
 
+        if bpy.app.version < (4, 0, 0):
+            self.shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+        else:
+            self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+
     def set_location(self, x, y):
         # if self.x != x or self.y != y or self.x_screen != x or self.y_screen != y:
         #     bpy.context.region.tag_redraw()
@@ -71,6 +76,8 @@ class BL_UI_Widget:
         if not self._is_visible:
             return
 
+        gpu.state.blend_set("ALPHA")
+
         self.shader.bind()
         self.shader.uniform_float("color", self._bg_color)
 
@@ -96,11 +103,6 @@ class BL_UI_Widget:
             (self.x_screen + self.width, y_screen_flip - self.height),
             (self.x_screen + self.width, y_screen_flip),
         )
-
-        if bpy.app.version < (4, 0, 0):
-            self.shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-        else:
-            self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
 
         self.batch_panel = batch_for_shader(
             self.shader, "TRIS", {"pos": vertices}, indices=indices
@@ -187,8 +189,8 @@ class BL_UI_Widget:
         ):
             # print('is in rect!?')
             # print('area height', area_height)
-            # print ('x sceen ',self.x_screen,'x ', x, 'width', self.width)
-            # print ('widghet y', widget_y,'y', y, 'height',self.height)
+            # print ('x screen ',self.x_screen,'x ', x, 'width', self.width)
+            # print ('widget y', widget_y,'y', y, 'height',self.height)
             return True
 
         return False

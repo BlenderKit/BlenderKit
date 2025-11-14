@@ -19,8 +19,23 @@
 import os
 import time
 from functools import lru_cache
+import logging
+from dataclasses import dataclass
 
 import bpy
+
+
+bk_logger = logging.getLogger(__name__)
+
+
+@dataclass
+class IMG:
+    name: str
+    filepath: str
+
+    def gl_load(self):
+        """Imitates bpy.types.Image.gl_load() behavior."""
+        return None
 
 
 def get_orig_render_settings():
@@ -92,12 +107,14 @@ def set_colorspace(img, colorspace: str = ""):
         if colorspace == "":
             colorspace = guess_colorspace()
 
-        if colorspace == "Non-Color":
-            img.colorspace_settings.is_data = True
-        elif colorspace:
-            img.colorspace_settings.name = colorspace
-    except Exception as e:
-        print(f"Colorspace {colorspace} not found: {e}")
+        if hasattr(img, "colorspace_settings") and colorspace:
+            if colorspace == "Non-Color":
+                img.colorspace_settings.is_data = True
+            else:
+                img.colorspace_settings.name = colorspace
+
+    except Exception:
+        bk_logger.exception("Colorspace '%s' not found: ", colorspace)
 
 
 @lru_cache(maxsize=1)
