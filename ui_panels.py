@@ -4199,7 +4199,7 @@ class NodegroupDropDialog(bpy.types.Operator):
         # When adding as a node, use node positioning; when adding as modifier, use 3D positioning
         if self.add_mode == "NODE":
             bpy.ops.scene.blenderkit_download(
-                True,
+                "EXEC_DEFAULT",
                 asset_index=self.asset_search_index,
                 node_x=self.node_x,
                 node_y=self.node_y,
@@ -4210,7 +4210,7 @@ class NodegroupDropDialog(bpy.types.Operator):
             )
         else:  # MODIFIER mode
             bpy.ops.scene.blenderkit_download(
-                True,
+                "EXEC_DEFAULT",
                 asset_index=self.asset_search_index,
                 model_location=self.snapped_location,
                 model_rotation=self.snapped_rotation,

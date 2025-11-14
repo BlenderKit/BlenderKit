@@ -908,7 +908,7 @@ class AssetDragOperator(bpy.types.Operator):
                 )
             else:
                 bpy.ops.scene.blenderkit_download(
-                    "INVOKE_DEFAULT",
+                    "EXEC_DEFAULT",
                     asset_index=self.asset_search_index,
                     model_location=self.snapped_location,
                     model_rotation=self.snapped_rotation,
@@ -989,7 +989,7 @@ class AssetDragOperator(bpy.types.Operator):
                     tex_size=self.asset_data.get("texture_size_meters", 1.0),
                 )
                 bpy.ops.scene.blenderkit_download(
-                    True,
+                    "EXEC_DEFAULT",
                     asset_index=self.asset_search_index,
                     model_location=loc,
                     model_rotation=rotation,
@@ -1042,7 +1042,7 @@ class AssetDragOperator(bpy.types.Operator):
             else:
                 # For non-geometry nodegroups, use regular download
                 bpy.ops.scene.blenderkit_download(
-                    True,
+                    "EXEC_DEFAULT",
                     asset_index=self.asset_search_index,
                     model_location=self.snapped_location,
                     model_rotation=self.snapped_rotation,
@@ -1086,7 +1086,7 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Download the asset with the target collection or parent
             bpy.ops.scene.blenderkit_download(
-                True,
+                "EXEC_DEFAULT",
                 asset_index=self.asset_search_index,
                 model_location=self.snapped_location,
                 model_rotation=self.snapped_rotation,
@@ -1129,7 +1129,7 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Download the material
             bpy.ops.scene.blenderkit_download(
-                True,
+                "EXEC_DEFAULT",
                 asset_index=self.asset_search_index,
                 model_location=loc,
                 model_rotation=rotation,
@@ -1227,7 +1227,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         # Download the material
         bpy.ops.scene.blenderkit_download(
-            True,
+            "EXEC_DEFAULT",
             asset_index=self.asset_search_index,
             model_location=(0, 0, 0),
             model_rotation=(0, 0, 0),
@@ -1426,7 +1426,7 @@ class AssetDragOperator(bpy.types.Operator):
 
             # Download the nodegroup with correct positioning
             bpy.ops.scene.blenderkit_download(
-                True,
+                "EXEC_DEFAULT",
                 asset_index=self.asset_search_index,
                 node_x=node_pos[0],
                 node_y=node_pos[1],
