@@ -29,6 +29,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2657,9 +2658,17 @@ func DictToParams(inputs map[string]interface{}) []map[string]string {
 
 // Browser (via bkclient-js) gets status of the Client and all connected softwares.
 func bkclientjsStatusHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	allowed := allowOrigin(w, r)
+	if !allowed {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	if r.Method == http.MethodOptions {
+		setCorsPreflightHeaders(w)
+		return
+	}
 
 	data := ClientStatus{
 		ClientVersion: ClientVersion,
@@ -2706,13 +2715,15 @@ type bkclientjsDownloadData struct {
 // User has clicked on Get This Model, or another words browser (via bkclientjs)
 // orders the Client to download the specified asset to specified software.
 func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	allowed := allowOrigin(w, r)
+	if !allowed {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	if r.Method == http.MethodOptions {
-		// The browser performs what is called a "preflight" request using the OPTIONS method
-		// to check if the actual request is safe to send. This preflight request is part of the CORS protocol
-		w.WriteHeader(http.StatusOK)
+		setCorsPreflightHeaders(w)
 		return
 	}
 
@@ -2739,6 +2750,40 @@ func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+// Check request origin and allow CORS only if the request comes from *.blenderkit.com or from localhost.
+// If origin is allowed
+func allowOrigin(w http.ResponseWriter, r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	host := strings.ToLower(u.Hostname())
+	allowed := host == "blenderkit.com" ||
+		strings.HasSuffix(host, ".blenderkit.com") ||
+		host == "localhost"
+
+	if allowed {
+		w.Header().Set("Access-Control-Allow-Origin", origin) // reflect exact origin
+		w.Header().Set("Vary", "Origin")                      // important for caches
+	}
+	return allowed
+}
+
+// Set CORS headers for CORS OPTION request. The browser performs what is called a "preflight" request using the OPTIONS method
+// to check if the actual request is safe to send. This preflight request is part of the CORS protocol.
+// Also set Access-Control-Allow-Private-Network which is required by Chromium based browsers for Private Network Access (PNA).
+func setCorsPreflightHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Private-Network", "true")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type GetThisModelData struct {

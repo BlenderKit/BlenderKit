@@ -318,15 +318,149 @@ func TestUpdateAvailableSoftware(t *testing.T) {
 	AvailableSoftwares = make(map[int]Software)
 	AvailableSoftwaresMux = sync.Mutex{}
 }
+
+// Test if the Client handles the CORS preflight checks (OPTIONS requests) correctly.
+// For correct origins the allow-methods, allow-headers and allow-private-network should be set.
+func TestBkclientjsPreflightResponses(t *testing.T) {
+	tests := []struct {
+		name                        string
+		endpoint                    string
+		origin                      string
+		expectedStatus              int
+		expectedAllowCredentials    string
+		expectedAllowMethods        string
+		expectedAllowHeaders        string
+		expectedAllowPrivateNetwork string
+	}{
+		{ // bkclientjsStatusHandler
+			name:                        "/status CORS preflight headers are set for localhost",
+			endpoint:                    "/status",
+			origin:                      "http://localhost:8765",
+			expectedStatus:              http.StatusNoContent,
+			expectedAllowCredentials:    "true",
+			expectedAllowMethods:        "GET, POST, OPTIONS",
+			expectedAllowHeaders:        "Content-Type",
+			expectedAllowPrivateNetwork: "true",
+		}, {
+			name:                        "/status CORS preflight headers are set for blenderkit.com",
+			endpoint:                    "/status",
+			origin:                      "https://blenderkit.com",
+			expectedStatus:              http.StatusNoContent,
+			expectedAllowCredentials:    "true",
+			expectedAllowMethods:        "GET, POST, OPTIONS",
+			expectedAllowHeaders:        "Content-Type",
+			expectedAllowPrivateNetwork: "true",
+		}, {
+			name:                        "/status CORS preflight headers are set for test.blenderkit.com",
+			endpoint:                    "/status",
+			origin:                      "https://test.blenderkit.com",
+			expectedStatus:              http.StatusNoContent,
+			expectedAllowCredentials:    "true",
+			expectedAllowMethods:        "GET, POST, OPTIONS",
+			expectedAllowHeaders:        "Content-Type",
+			expectedAllowPrivateNetwork: "true",
+		}, {
+			name:                        "/status CORS preflight not allowed for wrong domain",
+			endpoint:                    "/status",
+			origin:                      "https://hacker.net",
+			expectedStatus:              http.StatusForbidden,
+			expectedAllowCredentials:    "",
+			expectedAllowMethods:        "",
+			expectedAllowHeaders:        "",
+			expectedAllowPrivateNetwork: "",
+		},
+
+		{ // bkclientjsGetAssetHandler
+			name:                        "/get_asset CORS preflight headers are set for localhost",
+			endpoint:                    "/get_asset",
+			origin:                      "http://localhost:8765",
+			expectedStatus:              http.StatusNoContent,
+			expectedAllowCredentials:    "true",
+			expectedAllowMethods:        "GET, POST, OPTIONS",
+			expectedAllowHeaders:        "Content-Type",
+			expectedAllowPrivateNetwork: "true",
+		}, {
+			name:                        "/get_asset CORS preflight headers are set for blenderkit.com",
+			endpoint:                    "/get_asset",
+			origin:                      "https://blenderkit.com",
+			expectedStatus:              http.StatusNoContent,
+			expectedAllowCredentials:    "true",
+			expectedAllowMethods:        "GET, POST, OPTIONS",
+			expectedAllowHeaders:        "Content-Type",
+			expectedAllowPrivateNetwork: "true",
+		}, {
+			name:                        "/get_asset CORS preflight headers are set for test.blenderkit.com",
+			endpoint:                    "/get_asset",
+			origin:                      "https://test.blenderkit.com",
+			expectedStatus:              http.StatusNoContent,
+			expectedAllowCredentials:    "true",
+			expectedAllowMethods:        "GET, POST, OPTIONS",
+			expectedAllowHeaders:        "Content-Type",
+			expectedAllowPrivateNetwork: "true",
+		}, {
+			name:                        "/get_asset CORS preflight not allowed for wrong domain",
+			endpoint:                    "/get_asset",
+			origin:                      "https://hacker.net",
+			expectedStatus:              http.StatusForbidden,
+			expectedAllowCredentials:    "",
+			expectedAllowMethods:        "",
+			expectedAllowHeaders:        "",
+			expectedAllowPrivateNetwork: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("OPTIONS", "/status", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Origin", tt.origin)
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(bkclientjsStatusHandler)
+			handler.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v, expected %v", status, tt.expectedStatus)
+			}
+
+			allow_credentials := rr.Header().Get("Access-Control-Allow-Credentials")
+			if allow_credentials != tt.expectedAllowCredentials {
+				t.Errorf("handler set wrong header Access-Control-Allow-Credentials: got %s, expected %s", allow_credentials, tt.expectedAllowCredentials)
+			}
+
+			allow_methods := rr.Header().Get("Access-Control-Allow-Methods")
+			if allow_methods != tt.expectedAllowMethods {
+				t.Errorf("handler set wrong header Access-Control-Allow-Methods: got %s, expected %s", allow_methods, tt.expectedAllowMethods)
+			}
+
+			allow_headers := rr.Header().Get("Access-Control-Allow-Headers")
+			if allow_headers != tt.expectedAllowHeaders {
+				t.Errorf("handler set wrong header Access-Control-Allow-Headers: got %s, expected %s", allow_headers, tt.expectedAllowHeaders)
+			}
+
+			allow_private_network := rr.Header().Get("Access-Control-Allow-Private-Network")
+			if allow_private_network != tt.expectedAllowPrivateNetwork {
+				t.Errorf("handler set wrong header Access-Control-Allow-Private-Network: got %s, expected %s", allow_private_network, tt.expectedAllowPrivateNetwork)
+			}
+		})
+	}
+}
+
+// Test the actual request comming to get the bkclientjs /status.
+// Browsers only do this request after the OPTIONS preflight check for CORS and private_network passes.
 func TestBkclientjsStatusHandler(t *testing.T) {
 	tests := []struct {
 		name                 string
+		origin               string
 		availableSoftwares   map[int]Software
 		expectedStatus       int
 		expectedClientStatus ClientStatus
 	}{
 		{
 			name:               "Empty software list",
+			origin:             "http://localhost:8765",
 			availableSoftwares: map[int]Software{},
 			expectedStatus:     http.StatusOK,
 			expectedClientStatus: ClientStatus{
@@ -335,7 +469,28 @@ func TestBkclientjsStatusHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "Single software",
+			name:               "Origin from blenderkit.com",
+			origin:             "https://blenderkit.com",
+			availableSoftwares: map[int]Software{},
+			expectedStatus:     http.StatusOK,
+			expectedClientStatus: ClientStatus{
+				ClientVersion: ClientVersion,
+				Softwares:     nil,
+			},
+		},
+		{
+			name:               "Origin from subdomain test.blenderkit.com",
+			origin:             "https://test.blenderkit.com",
+			availableSoftwares: map[int]Software{},
+			expectedStatus:     http.StatusOK,
+			expectedClientStatus: ClientStatus{
+				ClientVersion: ClientVersion,
+				Softwares:     nil,
+			},
+		},
+		{
+			name:   "Single software",
+			origin: "http://localhost:8765",
 			availableSoftwares: map[int]Software{
 				1001: {AppID: 1001, Name: "Blender", Version: "4.2.1", AddonVersion: "3.13.0"},
 			},
@@ -348,7 +503,8 @@ func TestBkclientjsStatusHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "Multiple softwares",
+			name:   "Multiple softwares",
+			origin: "http://localhost:8765",
 			availableSoftwares: map[int]Software{
 				1001: {AppID: 1001, Name: "Blender", Version: "4.2.1", AddonVersion: "3.13.0"},
 				2222: {AppID: 2222, Name: "Godot", Version: "4.3.0", AddonVersion: "0.1.0"},
@@ -373,14 +529,14 @@ func TestBkclientjsStatusHandler(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			req.Header.Set("Origin", tt.origin)
 
 			rr := httptest.NewRecorder()
 			handler := http.HandlerFunc(bkclientjsStatusHandler)
-
 			handler.ServeHTTP(rr, req)
 
 			if status := rr.Code; status != tt.expectedStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
+				t.Errorf("handler returned wrong status code: got %v, expected %v", status, tt.expectedStatus)
 			}
 
 			var clientStatus ClientStatus
@@ -392,19 +548,12 @@ func TestBkclientjsStatusHandler(t *testing.T) {
 			sortSoftwares(clientStatus.Softwares)
 			sortSoftwares(tt.expectedClientStatus.Softwares)
 			if !reflect.DeepEqual(clientStatus, tt.expectedClientStatus) {
-				t.Errorf("handler returned unexpected clientStatus: got %v want %v", clientStatus, tt.expectedClientStatus)
+				t.Errorf("handler returned unexpected clientStatus: got %v, expected %v", clientStatus, tt.expectedClientStatus)
 			}
 
-			if rr.Header().Get("Access-Control-Allow-Origin") != "*" {
-				t.Errorf("handler did not set correct Access-Control-Allow-Origin header")
-			}
-
-			if rr.Header().Get("Access-Control-Allow-Methods") != "GET, POST, OPTIONS" {
-				t.Errorf("handler did not set correct Access-Control-Allow-Methods header")
-			}
-
-			if rr.Header().Get("Access-Control-Allow-Headers") != "Content-Type" {
-				t.Errorf("handler did not set correct Access-Control-Allow-Headers header")
+			allow_origin := rr.Header().Get("Access-Control-Allow-Origin")
+			if allow_origin != tt.origin {
+				t.Errorf("handler set wrong Access-Control-Allow-Origin: got %s, expected %s", allow_origin, tt.origin)
 			}
 
 			// clean global variables after the test
