@@ -21,6 +21,7 @@ import math
 import os
 import re
 import time
+from typing import Any, Dict
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
@@ -72,246 +73,235 @@ BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 
 
 def modal_inside(self, context, event):
-    if 1:
-        ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
+    ui_props = bpy.context.window_manager.blenderkitUI
 
-        # HANDLE PHOTO THUMBNAIL SWITCH
-        if hasattr(self, "needs_tooltip_update") and self.needs_tooltip_update:
-            self.needs_tooltip_update = False
-            sr = search.get_search_results()
-            if sr and self.active_index < len(sr):
-                asset_data = sr[self.active_index]
-                if asset_data["assetType"].lower() == "printable":
-                    if self.show_photo_thumbnail:
-                        photo_img = ui.get_full_photo_thumbnail(asset_data)
-                        if photo_img:
-                            self.tooltip_image.set_image(photo_img.filepath)
-                            self.tooltip_image.set_image_colorspace("")
-                        else:
-                            self.tooltip_image.set_image(
-                                paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-                            )
-                    else:
-                        set_thumb_check(
-                            self.tooltip_image, asset_data, thumb_type="thumbnail"
-                        )
+    if ui_props.turn_off:
+        ui_props.turn_off = False
+        self.finish()
 
-        if ui_props.turn_off:
-            ui_props.turn_off = False
-            self.finish()
+    if self._finished:
+        return {"FINISHED"}
 
-        if self._finished:
-            return {"FINISHED"}
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
 
-        if not context.area:
-            self.finish()
-            w, a, r = utils.get_largest_area(area_type="VIEW_3D")
-            if a is not None:
-                bpy.ops.view3d.run_assetbar_fix_context(
-                    keep_running=True, do_search=False
-                )
-            return {"FINISHED"}
-
+    # HANDLE PHOTO THUMBNAIL SWITCH
+    if hasattr(self, "needs_tooltip_update") and self.needs_tooltip_update:
+        self.needs_tooltip_update = False
         sr = search.get_search_results()
-        if sr is not None:
-            # this check runs more search, usefull especially for first search. Could be moved to a better place where the check
-            # doesn't run that often.
-            # Calculate current max rows based on expanded state
-            if user_preferences.assetbar_expanded:
-                current_max_rows = user_preferences.maximized_assetbar_rows
-            else:
-                current_max_rows = 1
-
-            if (
-                len(sr) - ui_props.scroll_offset
-                < (ui_props.wcount * current_max_rows) + 15
-            ):
-                self.search_more()
-
-        time_diff = time.time() - self.update_timer_start
-        if time_diff > self.update_timer_limit:
-            self.update_timer_start = time.time()
-            # self.update_buttons()
-
-            # progress bar
-            # change - let's try to optimize and redraw only when needed
-            change = False
-            for asset_button in self.asset_buttons:
-                if not asset_button.visible:
-                    continue
-                if sr is not None and len(sr) > asset_button.asset_index:
-                    asset_data = sr[asset_button.asset_index]
-                    self.update_progress_bar(asset_button, asset_data)
-            if change:
-                context.region.tag_redraw()
-
-        # Check for tab shortcut keys directly in the modal function
-        if (
-            event.ctrl
-            and event.value == "PRESS"
-            and self.panel.is_in_rect(self.mouse_x, self.mouse_y)
-        ):
-            if event.type == "T" and not event.shift:
-                bk_logger.info("Ctrl+T pressed - add new tab")
-                if hasattr(self, "new_tab_button"):  # Only if we can add more tabs
-                    self.add_new_tab(None)
-                return {"RUNNING_MODAL"}
-            elif event.type == "W" and not event.shift:
-                bk_logger.info("Ctrl+W pressed - close tab")
-                if len(global_vars.TABS["tabs"]) > 1:  # Don't close last tab
-                    self.remove_tab(
-                        self.close_tab_buttons[global_vars.TABS["active_tab"]]
-                    )
-                return {"RUNNING_MODAL"}
-            elif event.type == "TAB":
-                bk_logger.info("Ctrl+Tab pressed - switch tab")
-                tabs = global_vars.TABS["tabs"]
-                current = global_vars.TABS["active_tab"]
-                if event.shift:
-                    # Go to previous tab
-                    new_index = (current - 1) % len(tabs)
+        if sr and self.active_index < len(sr):
+            asset_data = sr[self.active_index]
+            if asset_data["assetType"].lower() == "printable":
+                if self.show_photo_thumbnail:
+                    photo_img = ui.get_full_photo_thumbnail(asset_data)
+                    if photo_img:
+                        self.tooltip_image.set_image(photo_img.filepath)
+                        self.tooltip_image.set_image_colorspace("")
+                    else:
+                        self.tooltip_image.set_image(
+                            paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+                        )
                 else:
-                    # Go to next tab
-                    new_index = (current + 1) % len(tabs)
-                self.switch_to_history_step(new_index, tabs[new_index]["history_index"])
-                return {"RUNNING_MODAL"}
-            elif event.type in {
-                "ONE",
-                "TWO",
-                "THREE",
-                "FOUR",
-                "FIVE",
-                "SIX",
-                "SEVEN",
-                "EIGHT",
-                "NINE",
-            }:
-                # Convert numkey to index (0-based)
-                tab_idx = {
-                    "ONE": 0,
-                    "TWO": 1,
-                    "THREE": 2,
-                    "FOUR": 3,
-                    "FIVE": 4,
-                    "SIX": 5,
-                    "SEVEN": 6,
-                    "EIGHT": 7,
-                    "NINE": 8,
-                }[event.type]
-
-                if tab_idx < len(global_vars.TABS["tabs"]):
-                    bk_logger.info(f"Ctrl+{tab_idx+1} pressed - go to tab {tab_idx+1}")
-                    self.switch_to_history_step(
-                        tab_idx, global_vars.TABS["tabs"][tab_idx]["history_index"]
+                    set_thumb_check(
+                        self.tooltip_image, asset_data, thumb_type="thumbnail"
                     )
-                return {"RUNNING_MODAL"}
 
-        # Handle Alt+Left/Right for history navigation
-        elif (
-            event.alt
-            and event.value == "PRESS"
-            and self.panel.is_in_rect(self.mouse_x, self.mouse_y)
-        ):
-            if event.type == "LEFT_ARROW":
-                bk_logger.info("Alt+Left pressed - history back")
-                active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
-                if active_tab["history_index"] > 0:
-                    self.history_back(None)  # None instead of widget
-                return {"RUNNING_MODAL"}
-            elif event.type == "RIGHT_ARROW":
-                bk_logger.info("Alt+Right pressed - history forward")
-                active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
-                if active_tab["history_index"] < len(active_tab["history"]) - 1:
-                    self.history_forward(None)  # None instead of widget
-                return {"RUNNING_MODAL"}
+    if not context.area:
+        self.finish()
+        w, a, r = utils.get_largest_area(area_type="VIEW_3D")
+        if a is not None:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        return {"FINISHED"}
 
-        # ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
-        if self.handle_widget_events(event):
+    sr = search.get_search_results()
+    if sr is not None:
+        # this check runs more search, useful especially for first search. Could be moved to a better place where the check
+        # doesn't run that often.
+        # Calculate current max rows based on expanded state
+        if user_preferences.assetbar_expanded:
+            current_max_rows = user_preferences.maximized_assetbar_rows
+        else:
+            current_max_rows = 1
+
+        if len(sr) - ui_props.scroll_offset < (ui_props.wcount * current_max_rows) + 15:
+            self.search_more()
+
+    time_diff = time.time() - self.update_timer_start
+    if time_diff > self.update_timer_limit:
+        self.update_timer_start = time.time()
+        # self.update_buttons()
+
+        # progress bar
+        # change - let's try to optimize and redraw only when needed
+        change = False
+        for asset_button in self.asset_buttons:
+            if not asset_button.visible:
+                continue
+            if sr is not None and len(sr) > asset_button.asset_index:
+                asset_data = sr[asset_button.asset_index]
+                self.update_progress_bar(asset_button, asset_data)
+        if change:
+            context.region.tag_redraw()
+
+    # Check for tab shortcut keys directly in the modal function
+    if (
+        event.ctrl
+        and event.value == "PRESS"
+        and self.panel.is_in_rect(self.mouse_x, self.mouse_y)
+    ):
+        if event.type == "T" and not event.shift:
+            bk_logger.info("Ctrl+T pressed - add new tab")
+            if hasattr(self, "new_tab_button"):  # Only if we can add more tabs
+                self.add_new_tab(None)
+            return {"RUNNING_MODAL"}
+        elif event.type == "W" and not event.shift:
+            bk_logger.info("Ctrl+W pressed - close tab")
+            if len(global_vars.TABS["tabs"]) > 1:  # Don't close last tab
+                self.remove_tab(self.close_tab_buttons[global_vars.TABS["active_tab"]])
+            return {"RUNNING_MODAL"}
+        elif event.type == "TAB":
+            bk_logger.info("Ctrl+Tab pressed - switch tab")
+            tabs = global_vars.TABS["tabs"]
+            current = global_vars.TABS["active_tab"]
+            if event.shift:
+                # Go to previous tab
+                new_index = (current - 1) % len(tabs)
+            else:
+                # Go to next tab
+                new_index = (current + 1) % len(tabs)
+            self.switch_to_history_step(new_index, tabs[new_index]["history_index"])
+            return {"RUNNING_MODAL"}
+        elif event.type in {
+            "ONE",
+            "TWO",
+            "THREE",
+            "FOUR",
+            "FIVE",
+            "SIX",
+            "SEVEN",
+            "EIGHT",
+            "NINE",
+        }:
+            # Convert numkey to index (0-based)
+            tab_idx = {
+                "ONE": 0,
+                "TWO": 1,
+                "THREE": 2,
+                "FOUR": 3,
+                "FIVE": 4,
+                "SIX": 5,
+                "SEVEN": 6,
+                "EIGHT": 7,
+                "NINE": 8,
+            }[event.type]
+
+            if tab_idx < len(global_vars.TABS["tabs"]):
+                bk_logger.info(f"Ctrl+{tab_idx+1} pressed - go to tab {tab_idx+1}")
+                self.switch_to_history_step(
+                    tab_idx, global_vars.TABS["tabs"][tab_idx]["history_index"]
+                )
             return {"RUNNING_MODAL"}
 
-        if event.type in {"ESC"} and event.value == "PRESS":
-            # just escape dragging when dragging, not appending.
-            if not ui_props.dragging:
-                self.finish()
+    # Handle Alt+Left/Right for history navigation
+    elif (
+        event.alt
+        and event.value == "PRESS"
+        and self.panel.is_in_rect(self.mouse_x, self.mouse_y)
+    ):
+        if event.type == "LEFT_ARROW":
+            bk_logger.info("Alt+Left pressed - history back")
+            active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+            if active_tab["history_index"] > 0:
+                self.history_back(None)  # None instead of widget
+            return {"RUNNING_MODAL"}
+        elif event.type == "RIGHT_ARROW":
+            bk_logger.info("Alt+Right pressed - history forward")
+            active_tab = global_vars.TABS["tabs"][global_vars.TABS["active_tab"]]
+            if active_tab["history_index"] < len(active_tab["history"]) - 1:
+                self.history_forward(None)  # None instead of widget
+            return {"RUNNING_MODAL"}
 
-        self.mouse_x = event.mouse_region_x
-        self.mouse_y = event.mouse_region_y
+    # ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
+    if self.handle_widget_events(event):
+        return {"RUNNING_MODAL"}
 
-        # TRACKPAD SCROLL
-        if event.type == "TRACKPADPAN" and self.panel.is_in_rect(
-            self.mouse_x, self.mouse_y
-        ):
-            # accumulate trackpad inputs
-            self.trackpad_x_accum -= event.mouse_x - event.mouse_prev_x
-            self.trackpad_y_accum += event.mouse_y - event.mouse_prev_y
+    if event.type in {"ESC"} and event.value == "PRESS":
+        # just escape dragging when dragging, not appending.
+        if not ui_props.dragging:
+            self.finish()
 
-            step = 0
-            multiplier = 30
-            if (
-                abs(self.trackpad_x_accum) > abs(self.trackpad_y_accum)
-                or self.hcount < 2
-            ):
-                step = math.floor(self.trackpad_x_accum / multiplier)
-                self.trackpad_x_accum -= step * multiplier
-                # reset the other axis not to accidentally scroll it
-                if step != 0:
-                    self.trackpad_y_accum = 0
-            if abs(self.trackpad_y_accum) > 0 and self.hcount > 1:
-                step = self.wcount * math.floor(self.trackpad_x_accum / multiplier)
-                self.trackpad_y_accum -= step * multiplier
-                # reset the other axis not to accidentally scroll it
-                if step != 0:
-                    self.trackpad_x_accum = 0
+            # return {"FINISHED"} # we can jump out immediately
+
+    self.mouse_x = event.mouse_region_x
+    self.mouse_y = event.mouse_region_y
+
+    # TRACKPAD SCROLL
+    if event.type == "TRACKPADPAN" and self.panel.is_in_rect(
+        self.mouse_x, self.mouse_y
+    ):
+        # accumulate trackpad inputs
+        self.trackpad_x_accum -= event.mouse_x - event.mouse_prev_x
+        self.trackpad_y_accum += event.mouse_y - event.mouse_prev_y
+
+        step = 0
+        multiplier = 30
+        if abs(self.trackpad_x_accum) > abs(self.trackpad_y_accum) or self.hcount < 2:
+            step = math.floor(self.trackpad_x_accum / multiplier)
+            self.trackpad_x_accum -= step * multiplier
+            # reset the other axis not to accidentally scroll it
             if step != 0:
-                self.scroll_offset += step
-                self.scroll_update()
-            return {"RUNNING_MODAL"}
-
-        # MOUSEWHEEL SCROLL
-        if event.type == "WHEELUPMOUSE" and self.panel.is_in_rect(
-            self.mouse_x, self.mouse_y
-        ):
-            if self.hcount > 1:
-                self.scroll_offset -= self.wcount
-            else:
-                self.scroll_offset -= 2
+                self.trackpad_y_accum = 0
+        if abs(self.trackpad_y_accum) > 0 and self.hcount > 1:
+            step = self.wcount * math.floor(self.trackpad_x_accum / multiplier)
+            self.trackpad_y_accum -= step * multiplier
+            # reset the other axis not to accidentally scroll it
+            if step != 0:
+                self.trackpad_x_accum = 0
+        if step != 0:
+            self.scroll_offset += step
             self.scroll_update()
-            return {"RUNNING_MODAL"}
+        return {"RUNNING_MODAL"}
 
-        elif event.type == "WHEELDOWNMOUSE" and self.panel.is_in_rect(
-            self.mouse_x, self.mouse_y
-        ):
-            if self.hcount > 1:
-                self.scroll_offset += self.wcount
-            else:
-                self.scroll_offset += 2
+    # MOUSEWHEEL SCROLL
+    if event.type == "WHEELUPMOUSE" and self.panel.is_in_rect(
+        self.mouse_x, self.mouse_y
+    ):
+        if self.hcount > 1:
+            self.scroll_offset -= self.wcount
+        else:
+            self.scroll_offset -= 2
+        self.scroll_update()
+        return {"RUNNING_MODAL"}
 
-            self.scroll_update()
-            return {"RUNNING_MODAL"}
-        if self.check_ui_resized(context) or self.check_new_search_results(context):
-            self.update_assetbar_sizes(context)
-            self.update_assetbar_layout(context)
-            self.scroll_update(
-                always=True
-            )  # one extra update for scroll for correct redraw, updates all buttons
+    elif event.type == "WHEELDOWNMOUSE" and self.panel.is_in_rect(
+        self.mouse_x, self.mouse_y
+    ):
+        if self.hcount > 1:
+            self.scroll_offset += self.wcount
+        else:
+            self.scroll_offset += 2
 
-        # this was here to check if sculpt stroke is running, but obviously that didn't help,
-        #  since the RELEASE event is cought by operator and thus there is no way to detect a stroke has ended...
-        if bpy.context.mode in ("SCULPT", "PAINT_TEXTURE"):
-            if (
-                event.type == "MOUSEMOVE"
-            ):  # ASSUME THAT SCULPT OPERATOR ACTUALLY STEALS THESE EVENTS,
-                # SO WHEN THERE ARE SOME WE CAN APPEND BRUSH...
-                bpy.context.window_manager["appendable"] = True
-            if event.type == "LEFTMOUSE":
-                if event.value == "PRESS":
-                    bpy.context.window_manager["appendable"] = False
-        return {"PASS_THROUGH"}
-    # except Exception as e:
-    #     bk_logger.warning(f"{e}")
-    #     self.finish()
-    #     return {"FINISHED"}
+        self.scroll_update()
+        return {"RUNNING_MODAL"}
+
+    if self.check_ui_resized(context) or self.check_new_search_results(context):
+        self.update_assetbar_sizes(context)
+        self.update_assetbar_layout(context)
+        self.scroll_update(
+            always=True
+        )  # one extra update for scroll for correct redraw, updates all buttons
+
+    # this was here to check if sculpt stroke is running, but obviously that didn't help,
+    #  since the RELEASE event is caught by operator and thus there is no way to detect a stroke has ended...
+    if bpy.context.mode in ("SCULPT", "PAINT_TEXTURE"):
+        if (
+            event.type == "MOUSEMOVE"
+        ):  # ASSUME THAT SCULPT OPERATOR ACTUALLY STEALS THESE EVENTS,
+            # SO WHEN THERE ARE SOME WE CAN APPEND BRUSH...
+            bpy.context.window_manager["appendable"] = True
+        if event.type == "LEFTMOUSE":
+            if event.value == "PRESS":
+                bpy.context.window_manager["appendable"] = False
+    return {"PASS_THROUGH"}
 
 
 def asset_bar_modal(self, context, event):
@@ -319,7 +309,9 @@ def asset_bar_modal(self, context, event):
 
 
 def asset_bar_invoke(self, context, event):
-    if not self.on_invoke(context, event):
+    # sprinkling of black magic
+    result = self.on_invoke(context, event)
+    if not result:
         return {"CANCELLED"}
     if not context.window:
         return {"CANCELLED"}
@@ -344,25 +336,25 @@ def asset_bar_invoke(self, context, event):
     return {"RUNNING_MODAL"}
 
 
-def set_mouse_down_right(self, mouse_down_right_func):
-    self.mouse_down_right_func = mouse_down_right_func
+# def set_mouse_down_right(self, mouse_down_right_func):
+#     self.mouse_down_right_func = mouse_down_right_func
 
 
-def mouse_down_right(self, x, y):
-    if self.is_in_rect(x, y):
-        self.__state = 1
-        try:
-            self.mouse_down_right_func(self)
-        except Exception as e:
-            bk_logger.warning(f"{e}")
+# def mouse_down_right(self, x, y):
+#     if self.is_in_rect(x, y):
+#         self.__state = 1
+#         try:
+#             self.mouse_down_right_func(self)
+#         except Exception as e:
+#             bk_logger.warning(f"{e}")
 
-        return True
+#         return True
 
-    return False
+#     return False
 
 
-BL_UI_Button.mouse_down_right = mouse_down_right  # type: ignore[method-assign]
-BL_UI_Button.set_mouse_down_right = set_mouse_down_right  # type: ignore[attr-defined]
+# BL_UI_Button.mouse_down_right = mouse_down_right  # type: ignore[method-assign]
+# BL_UI_Button.set_mouse_down_right = set_mouse_down_right  # type: ignore[attr-defined]
 
 asset_bar_operator = None
 
@@ -439,7 +431,9 @@ def get_tooltip_data(asset_data):
     asset_data["tooltip_data"] = tooltip_data
 
 
-def set_thumb_check(element, asset, thumb_type="thumbnail_small"):
+def set_thumb_check(
+    element: BL_UI_Button, asset: Dict[str, Any], thumb_type: str = "thumbnail_small"
+) -> None:
     """Set image in case it is loaded in search results. Checks global_vars.DATA["images available"].
     - if image download failed, it will be set to 'thumbnail_not_available.jpg'
     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
@@ -496,9 +490,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     @classmethod
     def description(cls, context, properties):
+        """Get the description for the asset bar operator."""
         return properties.tooltip
 
     def new_text(self, text, x, y, width=100, height=15, text_size=None, halign="LEFT"):
+        """Create a new text label widget."""
         label = BL_UI_Label(x, y, width, height)
         label.text = text
         if text_size is None:
@@ -509,6 +505,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return label
 
     def init_tooltip(self):
+        """Initialize the tooltip panel and its widgets."""
         self.tooltip_widgets = []
         self.tooltip_scale = 1.0
         self.tooltip_height = self.tooltip_size
@@ -659,17 +656,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.version_warning = version_warning
 
     def hide_tooltip(self):
+        """Hide the tooltip panel and its widgets."""
         self.tooltip_panel.visible = False
         for w in self.tooltip_widgets:
             w.visible = False
 
     def show_tooltip(self):
+        """Show the tooltip panel and its widgets."""
         self.tooltip_panel.visible = True
         self.tooltip_panel.active = False
         for w in self.tooltip_widgets:
             w.visible = True
 
     def show_notifications(self, widget):
+        """Show notifications on the asset bar."""
         bpy.ops.wm.show_notifications()
         if comments_utils.check_notifications_read():
             widget.visible = False
@@ -694,6 +694,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return False
 
     def get_region_size(self, context):
+        """Get the size of the region."""
         # just check the size of region..
 
         region = context.region
@@ -709,6 +710,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return total_width, region.height
 
     def check_ui_resized(self, context):
+        """Check if the UI has been resized."""
         # TODO this should only check if region was resized, not really care about the UI elements size.
         region_width, region_height = self.get_region_size(context)
 
@@ -862,6 +864,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.panel.set_location(self.bar_x, self.panel.y)
 
+        ## the block bellow can be probably removed
         # Update tab icons positions
         for i, tab_button in enumerate(self.tab_buttons):
             if hasattr(tab_button, "asset_type_icon"):
@@ -877,6 +880,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 )
 
     def update_tooltip_layout(self, context):
+        """Update the layout of the tooltip"""
         # update Tooltip size /scale for HDR or if area too small
 
         self.tooltip_panel.width = self.tooltip_width
@@ -888,7 +892,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.tooltip_image.set_image_size((self.tooltip_width, self.tooltip_height))
         self.tooltip_image.set_location(0, 0)
-        # print(self.tooltip_image.width, self.tooltip_image.height)
 
         self.gravatar_image.set_location(
             self.tooltip_width - self.gravatar_size,
@@ -945,20 +948,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.update_tooltip_layout(context)
 
     def asset_button_init(self, asset_x, asset_y, button_idx):
+        """Initialize an asset button at the given position with the given index."""
         button_bg_color = (0.2, 0.2, 0.2, 0.1)
         button_hover_color = (0.8, 0.8, 0.8, 0.2)
         fully_transparent_color = (0.2, 0.2, 0.2, 0.0)
         new_button = BL_UI_Button(asset_x, asset_y, self.button_size, self.button_size)
 
-        # asset_data = sr[asset_idx]
-        # iname = utils.previmg_name(asset_idx)
-        # img = bpy.data.images.get(iname)
-
         new_button.bg_color = button_bg_color
         new_button.hover_bg_color = button_hover_color
         new_button.text = ""  # asset_data['name']
-        # if img:
-        #     new_button.set_image(img.filepath)
 
         new_button.set_image_size((self.thumb_size, self.thumb_size))
         new_button.set_image_position((self.button_margin, self.button_margin))
@@ -969,8 +967,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         new_button.set_mouse_enter(self.enter_button)
         new_button.set_mouse_exit(self.exit_button)
         new_button.text_input = self.handle_key_input
-        # add validation icon to button
 
+        # add validation icon to button
         validation_icon = BL_UI_Image(
             asset_x
             + self.button_size
@@ -1042,6 +1040,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return new_button
 
     def init_ui(self):
+        """Initialize the asset bar UI and its widgets."""
         self.button_bg_color = (0.2, 0.2, 0.2, 1.0)
         self.button_hover_color = (0.8, 0.8, 0.8, 1.0)
         self.button_selected_color = (0.5, 0.5, 0.5, 1.0)
@@ -1365,6 +1364,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_expand.text = "▼"
 
     def position_and_hide_buttons(self):
+        """Position asset buttons in the asset bar and hide unused buttons."""
         # position and layout buttons
         sr = search.get_search_results()
         if sr is None:
@@ -1441,6 +1441,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         super().__init__(*args, **kwargs)
 
     def on_init(self, context):
+        """Initialize the asset bar operator."""
         self.tooltip_base_size_pixels = 512
         self.tooltip_scale = 1.0
         self.bottom_panel_fraction = 0.15
@@ -1467,15 +1468,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.trackpad_y_accum = 0
 
     def setup_widgets(self, context, event):
+        """Set up all widgets for the asset bar and tooltip."""
         widgets_panel = []
         widgets_panel.extend(self.widgets_panel)
         widgets_panel.extend(self.buttons)
 
         widgets_panel.extend(self.asset_buttons)
         widgets_panel.extend(self.red_alerts)
-        widgets_panel.extend(
-            self.bookmark_buttons
-        )  # we try to put bookmark_buttons before others, because they're on top
+        # we try to put bookmark_buttons before others, because they're on top
+        widgets_panel.extend(self.bookmark_buttons)
         widgets_panel.extend(self.validation_icons)
         widgets_panel.extend(self.progress_bars)
 
@@ -1490,10 +1491,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.add_widgets(self.tooltip_widgets)
 
     def on_invoke(self, context, event):
+        """Invoke the asset bar operator."""
         self.context = context
         self.instances.append(self)
         if not context.area:
-            return {"CANCELLED"}
+            return False
 
         self.on_init(context)
         self.context = context
@@ -1504,7 +1506,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         ui_props = context.window_manager.blenderkitUI
         if ui_props.assetbar_on:
-            # TODO solve this otehrwise to enable more asset bars?
+            # TODO solve this otherwise to enable more asset bars?
             # we don't want to run the assetbar many times, that's why it has a switch on/off behaviour,
             # unless being called with 'keep_running'
 
@@ -1517,8 +1519,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 # if there was an error, we need to turn off these props so we can restart after 2 clicks
                 ui_props.assetbar_on = False
 
-            else:
-                pass
             return False
 
         ui_props.assetbar_on = True
@@ -1565,7 +1565,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._finished = True
 
     def update_tooltip_image(self, asset_id):
-        """Update tootlip image when it finishes downloading and the downloaded image matches the active one."""
+        """Update tooltip image when it finishes downloading and the downloaded image matches the active one."""
         search_results = search.get_search_results()
         if search_results is None:
             return
@@ -1581,31 +1581,34 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
 
     def update_comments_for_validators(self, asset_data):
-        if utils.profile_is_validator():
+        """Update the comments section in the tooltip for validator profiles."""
+        if not utils.profile_is_validator():
+            return
 
-            comments = global_vars.DATA.get("asset comments", {})
-            comments = comments.get(asset_data["assetBaseId"], [])
-            comment_text = "No comments yet."
-            if comments is not None:
-                comment_text = ""
-                # iterate comments from last to first
-                for comment in reversed(comments):
-                    comment_text += f"{comment['userName']}:\n"
-                    # strip urls and stuff
-                    comment_lines = comment["comment"].split("\n")
-                    for line in comment_lines:
-                        urls, text = utils.has_url(line)
-                        if urls:
-                            comment_text += f"{text}{urls[0][0]}\n"
-                        else:
-                            comment_text += f"{text}\n"
-                    comment_text += "\n"
+        comments = global_vars.DATA.get("asset comments", {})
+        comments = comments.get(asset_data["assetBaseId"], [])
+        comment_text = "No comments yet."
+        if comments is not None:
+            comment_text = ""
+            # iterate comments from last to first
+            for comment in reversed(comments):
+                comment_text += f"{comment['userName']}:\n"
+                # strip urls and stuff
+                comment_lines = comment["comment"].split("\n")
+                for line in comment_lines:
+                    urls, text = utils.has_url(line)
+                    if urls:
+                        comment_text += f"{text}{urls[0][0]}\n"
+                    else:
+                        comment_text += f"{text}\n"
+                comment_text += "\n"
 
-            self.comments.text = comment_text
+        self.comments.text = comment_text
 
     # handlers
     def enter_button(self, widget):
-        if not hasattr(widget, "button_index"):
+        """Handle mouse enter on an asset button."""
+        if not hasattr(widget, "button_index") or widget.button_index < 0:
             return  # click on left/right arrow button gave no attr button_index
             # we should detect on which button_index scroll/left/right happened to refresh shown thumbnail
         bpy.context.window.cursor_set("HAND")
@@ -1697,7 +1700,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             author_id = int(asset_data["author"]["id"])
             author = global_vars.BKIT_AUTHORS.get(author_id)
             if author is None:
-                print("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
+                bk_logger.info("\n\n\nget_tooltip_data() AUTHOR NOT FOUND", author_id)
 
             if author is not None and author.gravatarImg:
                 self.gravatar_image.set_image(author.gravatarImg)
@@ -1730,11 +1733,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
             # show bookmark button - always on mouse enter
-            widget.bookmark_button.visible = True
+            if widget.bookmark_button:
+                widget.bookmark_button.visible = True
 
             # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
     def exit_button(self, widget):
+        """Handle mouse exit from an asset button."""
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
         if self.active_index == widget.button_index + self.scroll_offset:
             ui_props = bpy.context.window_manager.blenderkitUI
@@ -1755,11 +1760,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
     def bookmark_asset(self, widget):
+        """Bookmark the asset linked to this button."""
         # bookmark the asset linked to this button
         if not utils.user_logged_in():
             bpy.ops.wm.blenderkit_login_dialog(
                 "INVOKE_DEFAULT",
-                message="Please login to bookmark your favourite assets.",
+                message="Please login to bookmark your favorite assets.",
             )
             return
 
@@ -1770,7 +1776,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.update_bookmark_icon(widget)
 
     def drag_drop_asset(self, widget):
-
+        """Start drag and drop operation for the asset linked to this button."""
         now = time.time()
         # avoid double click to download assets under panels, mainly category panel
         if now - ui_panels.last_time_overlay_panel_active < 0.5:
@@ -1782,6 +1788,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
     def cancel_press(self, widget):
+        """Handle cancel/close button press."""
         self.finish()
 
     def toggle_expand(self, widget):
@@ -1796,11 +1803,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.restart_asset_bar()
 
     def asset_menu(self, widget):
+        """Open the asset menu for the asset linked to this button."""
         self.hide_tooltip()
         bpy.ops.wm.blenderkit_asset_popup("INVOKE_DEFAULT")
         # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_asset_menu')
 
     def search_more(self):
+        """Search for more assets."""
         history_step = search.get_active_history_step()
         sro = history_step.get("search_results_orig")
         if sro is None:
@@ -1815,6 +1824,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search(get_next=True)
 
     def update_bookmark_icon(self, bookmark_button: BL_UI_Button):
+        """Update the bookmark icon for a given bookmark button."""
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         asset_index = bookmark_button.asset_index  # type: ignore
@@ -1865,6 +1875,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             bpy.context.region.tag_redraw()
 
     def update_validation_icon(self, asset_button, asset_data: dict):
+        """Update the validation icon for each button in asset bar."""
         if utils.profile_is_validator():
             rating = global_vars.RATINGS.get(asset_data["id"])
             v_icon = ui.verification_icons[
@@ -1903,6 +1914,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     )
 
     def update_buttons(self):
+        """Update asset buttons in the asset bar based on current search results and scroll offset."""
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results")
         if not sr:
@@ -1959,6 +1971,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.red_alert.visible = False
 
     def scroll_update(self, always=False):
+        """Update scroll position and visibility of scroll buttons."""
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results")
         sro = history_step.get("search_results_orig")
@@ -1999,6 +2012,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.update_buttons()
 
     def search_by_author(self, asset_index):
+        """Search for assets by the author of the selected asset."""
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
@@ -2020,6 +2034,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return True
 
     def search_similar(self, asset_index):
+        """Search for similar assets to the selected asset."""
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
@@ -2029,6 +2044,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def search_in_category(self, asset_index):
+        """Search for assets in the same category as the selected asset."""
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
@@ -2040,6 +2056,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search.search()
 
     def handle_key_input(self, event):
+        """Handle keyboard shortcuts for asset bar operations."""
         # Check if enough time has passed since last popup/text input activity
         # to prevent shortcuts from triggering while typing in text fields
         now = time.time()
@@ -2069,7 +2086,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.search_by_author(self.active_index)
             return True
 
-        # Shortcut: Delete asset from harddrive
+        # Shortcut: Delete asset from hard-drive
         if event.type == "X" and self.active_index > -1:
             # delete downloaded files for this asset
             sr = search.get_search_results()
@@ -2086,12 +2103,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             author_id = int(asset_data["author"]["id"])
             author = global_vars.BKIT_AUTHORS.get(author_id)
             if author is None:
-                print("author is none")
+                bk_logger.warning("author is none")
                 return True
             utils.p("author:", author)
             url = author.get("aboutMeUrl")
             if url is None:
-                print("url is none")
+                bk_logger.warning("url is none")
                 return True
             bpy.ops.wm.url_open(url=url)
             return True
@@ -2191,17 +2208,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return False  # Let other shortcuts be handled
 
     def scroll_up(self, widget):
+        """Scroll up in the asset bar."""
         self.scroll_offset += self.wcount * self.hcount
         self.scroll_update()
         self.enter_button(widget)
 
     def scroll_down(self, widget):
+        """Scroll down in the asset bar."""
         self.scroll_offset -= self.wcount * self.hcount
         self.scroll_update()
         self.enter_button(widget)
 
     @classmethod
     def unregister(cls):
+        """Unregister the asset bar operator and clean up instances."""
         bk_logger.debug(f"unregistering class {cls}")
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
@@ -2285,7 +2305,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def switch_to_history_step(self, tab_index, history_index):
         """Switch to a specific tab and history step."""
-
         # Update UI properties without triggering update callbacks
         ui_props = bpy.context.window_manager.blenderkitUI
         # lock the search

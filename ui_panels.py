@@ -472,6 +472,8 @@ def draw_model_context_menu(self, context):
     layout = self.layout
 
     o = utils.get_active_model()
+    if not o:
+        return
     if o.get("asset_data") is None:
         utils.label_multiline(
             layout,
@@ -2177,10 +2179,11 @@ def draw_asset_context_menu(
                     op.asset_base_id = asset_data["assetBaseId"]
                     if asset_data["assetType"] == "model":
                         o = utils.get_active_model()
-                        op.model_location = o.location
-                        op.model_rotation = o.rotation_euler
-                        op.target_object = o.name
-                        op.material_target_slot = o.active_material_index
+                        if o is not None:
+                            op.model_location = o.location
+                            op.model_rotation = o.rotation_euler
+                            op.target_object = o.name
+                            op.material_target_slot = o.active_material_index
 
                     elif asset_data["assetType"] == "material":
                         aob = bpy.context.active_object
@@ -2490,8 +2493,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             icon=icon,
             emboss=emboss,
         )
-        # additional questionmark icon where it's important?
-        # Embossed elements are visibly clickable, so we don't need the questionmark icon
+        # additional 'question mark' icon where it's important?
+        # Embossed elements are visibly clickable, so we don't need the 'question mark' icon
         if url != "" and not emboss:
             split = split.split()
             op = split.operator("wm.blenderkit_url", text="", icon="QUESTION")
@@ -2891,7 +2894,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             )
 
         # Add TwinBru specific parameters for material assets
-        # only if they have twinbruReference in the dictparameters
+        # only if they have 'twinbruReference' in the 'dictParameters'
         if self.asset_data.get("dictParameters").get("twinbruReference"):
             box.separator()
             box.label(text="TwinBru physical material categories")
@@ -3381,6 +3384,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         split_ratio = 0.45
         split_left = row.split(factor=split_ratio)
         left_column = split_left.column()
+
         self.draw_thumbnail_box(left_column, width=int(self.width * split_ratio))
 
         if (
