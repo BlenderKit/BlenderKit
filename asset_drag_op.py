@@ -269,6 +269,7 @@ def draw_callback_dragging(
         main_message = "Cancel Drag & Drop"
 
     # Outliner specific hints
+    # TODO: drop obs into collections if they are hovered, not their parent collection
     if context.area.type == "OUTLINER" and self.hovered_outliner_element:
         main_message = ""
         if isinstance(self.hovered_outliner_element, bpy.types.Object):
@@ -1435,29 +1436,24 @@ class AssetDragOperator(bpy.types.Operator):
         Tuple[None, None, None],
     ]:
         """Find the window, region and area under the mouse cursor."""
-
         # Iterate windows backwards, so we go from the top-most window to the bottommost window
         for window in reversed(bpy.context.window_manager.windows):
             # first let's test if it's in this window, so we know we shall continue
-            # if (
-            #     x < window.x
-            #     or x > window.x + window.width
-            #     or y < window.y
-            #     or y > window.y + window.height
-            # ):
-            #     continue
+            window_x = window.x * self.resolution_factor
+            window_y = window.y * self.resolution_factor
+            window_width = window.width * self.resolution_factor
+            window_height = window.height * self.resolution_factor
+            if (
+                x < window_x
+                or x > window_x + window_width
+                or y < window_y
+                or y > window_y + window_height
+            ):
+                continue
             for area in window.screen.areas:
-                # first let's test if it's in this area, so we know we shall continue
-                # if (
-                #     x < area.x
-                #     or x > area.x + area.width
-                #     or y < area.y
-                #     or y > area.y + area.height
-                # ):
-                #     continue
                 for region in area.regions:
-                    region_x = window.x + region.x
-                    region_y = window.y + region.y
+                    region_x = window_x + region.x
+                    region_y = window_y + region.y
                     if region.type != "WINDOW":
                         continue
                     if (
@@ -1485,9 +1481,6 @@ class AssetDragOperator(bpy.types.Operator):
         orig_active_object = active_object
         orig_active_collection = view_layer.active_layer_collection
 
-        rel_x = self.mouse_x - self.active_region.x
-        rel_y = self.mouse_y - self.active_region.y
-
         if bpy.app.version < (3, 2, 0):
             override = {
                 "window": self.active_window,
@@ -1499,10 +1492,10 @@ class AssetDragOperator(bpy.types.Operator):
             }
             bpy.ops.outliner.select_box(
                 override,
-                xmin=rel_x - 1,
-                xmax=rel_x + 1,
-                ymin=rel_y - 1,
-                ymax=rel_y + 1,
+                xmin=self.mouse_x - 1,
+                xmax=self.mouse_x + 1,
+                ymin=self.mouse_y - 1,
+                ymax=self.mouse_y + 1,
                 wait_for_input=False,
                 mode="SET",
             )
@@ -1513,10 +1506,10 @@ class AssetDragOperator(bpy.types.Operator):
                 region=self.active_region,
             ):
                 bpy.ops.outliner.select_box(
-                    xmin=rel_x - 1,
-                    xmax=rel_x + 1,
-                    ymin=rel_y - 1,
-                    ymax=rel_y + 1,
+                    xmin=self.mouse_x - 1,
+                    xmax=self.mouse_x + 1,
+                    ymin=self.mouse_y - 1,
+                    ymax=self.mouse_y + 1,
                     wait_for_input=False,
                     mode="SET",
                 )
@@ -1609,11 +1602,6 @@ class AssetDragOperator(bpy.types.Operator):
     ):
         """Get the active object under the mouse cursor during drag."""
 
-        # Use mouse coordinates relative to the active region,
-        # cannot use event.mouse_region_x because active region isn't always same as context.region
-        region_mouse_x = self.mouse_screen_x - active_window.x - active_region.x
-        region_mouse_y = self.mouse_screen_y - active_window.y - active_region.y
-
         region_data = None
 
         for space in active_area.spaces:
@@ -1641,9 +1629,7 @@ class AssetDragOperator(bpy.types.Operator):
                 self.face_index,
                 obj,
                 self.matrix,
-            ) = mouse_raycast(
-                active_region, region_data, region_mouse_x, region_mouse_y
-            )
+            ) = mouse_raycast(active_region, region_data, self.mouse_x, self.mouse_y)
             if obj is not None:
                 self.object_name = obj.name
         else:  # B3.2+ can use context.temp_override()
@@ -1661,8 +1647,8 @@ class AssetDragOperator(bpy.types.Operator):
                 ) = mouse_raycast(
                     active_region,
                     region_data,
-                    region_mouse_x,
-                    region_mouse_y,
+                    self.mouse_x,
+                    self.mouse_y,
                 )
                 if obj is not None:
                     self.object_name = obj.name
@@ -1695,8 +1681,8 @@ class AssetDragOperator(bpy.types.Operator):
                 ) = floor_raycast(
                     active_region,
                     region_data,
-                    region_mouse_x,
-                    region_mouse_y,
+                    self.mouse_x,
+                    self.mouse_y,
                 )
                 if obj is not None:
                     self.object_name = obj.name
@@ -1717,8 +1703,8 @@ class AssetDragOperator(bpy.types.Operator):
                     ) = floor_raycast(
                         active_region,
                         region_data,
-                        region_mouse_x,
-                        region_mouse_y,
+                        self.mouse_x,
+                        self.mouse_y,
                     )
                     if obj is not None:
                         self.object_name = obj.name
@@ -1746,8 +1732,16 @@ class AssetDragOperator(bpy.types.Operator):
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        self.mouse_screen_x = context.window.x + event.mouse_x
-        self.mouse_screen_y = context.window.y + event.mouse_y
+        self.resolution_factor = (
+            bpy.context.preferences.system.pixel_size
+            / bpy.context.preferences.view.ui_scale
+        )
+        self.mouse_screen_x = int(
+            context.window.x * self.resolution_factor + event.mouse_x
+        )
+        self.mouse_screen_y = int(
+            context.window.y * self.resolution_factor + event.mouse_y
+        )
 
         # Find the active region under the mouse cursor using actual screen coordinates
         self.active_window, self.active_area, self.active_region = (
@@ -1762,8 +1756,16 @@ class AssetDragOperator(bpy.types.Operator):
 
         # Convert screen coords (bottom-left) to region-local coords
         # window.x/y and region.x/y are also in bottom-left coordinate system
-        self.mouse_x = self.mouse_screen_x - self.active_window.x - self.active_region.x
-        self.mouse_y = self.mouse_screen_y - self.active_window.y - self.active_region.y
+        self.mouse_x = int(
+            self.mouse_screen_x
+            - self.active_window.x * self.resolution_factor
+            - self.active_region.x
+        )
+        self.mouse_y = int(
+            self.mouse_screen_y
+            - self.active_window.y * self.resolution_factor
+            - self.active_region.y
+        )
 
         if self.start_mouse_x is None or self.start_mouse_y is None:
             self.start_mouse_x = self.mouse_x
@@ -2064,16 +2066,12 @@ class AssetDragOperator(bpy.types.Operator):
     ) -> Tuple[float, float]:
         """Get the cursor position in the node editor space."""
 
-        # Calculate mouse position relative to the node editor region
-        mouse_region_x = self.mouse_x - self.active_window.x - self.active_region.x
-        mouse_region_y = self.mouse_y - self.active_window.y - self.active_region.y
-
         # Get view2d from region
         ui_scale = bpy.context.preferences.system.ui_scale
 
         # Convert region coordinates to view coordinates using view2d
         x, y = self.active_region.view2d.region_to_view(
-            float(mouse_region_x), float(mouse_region_y)
+            float(self.mouse_x), float(self.mouse_y)
         )
 
         # Scale by UI scale - this ensures proper positioning
