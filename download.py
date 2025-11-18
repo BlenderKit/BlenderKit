@@ -682,10 +682,9 @@ def assign_material(object, material, target_slot):
 
 
 def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
-    """Link or append an asset to the scene based on its type and settings.
+    """Link or append an asset to the scene based on its type and preferences.
     This function handles the process of bringing an asset into the scene, supporting different
-    asset types (model, material, brush, scene, hdr, etc.) and different import methods
-    (link vs append).
+    asset types (model, material, brush, scene, hdr, etc.) and different import methods (link vs append).
     """
 
     file_names = kwargs.get("file_paths")
@@ -727,37 +726,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         # copy for override
         al = sprops.append_link
         # set consistency for objects already in scene, otherwise this literally breaks blender :)
-        ain, resolution = asset_in_scene(asset_data)
-        # this is commented out since it already happens in start_download function.
-        # if resolution:
-        #     kwargs['resolution'] = resolution
-        # override based on history
-        if ain is not False:
-            if ain == "LINKED":
-                al = "LINK"
-            else:
-                al = "APPEND"
-                if asset_data["assetType"] == "model":
-                    source_parent = get_asset_in_scene(asset_data)
-                    if source_parent:
-                        asset_main, new_obs = duplicate_asset(
-                            source=source_parent, **kwargs
-                        )
-                        asset_main.location = kwargs["model_location"]
-                        asset_main.rotation_euler = kwargs["model_rotation"]
-                        # this is a case where asset is already in scene and should be duplicated instead.
-                        # there is a big chance that the duplication wouldn't work perfectly(hidden or unselectable objects)
-                        # so here we need to check and return if there was success
-                        # also, if it was successful, no other operations are needed , basically all asset data is already ready from the original asset
-                        if new_obs:
-                            # update here assets rated/used because there might be new download urls?
-                            udpate_asset_data_in_dicts(asset_data)
-                            bpy.ops.ed.undo_push(
-                                "INVOKE_REGION_WIN",
-                                message="add %s to scene" % asset_data["name"],
-                            )
-
-                            return
 
         # first get conditions for append link
         link = al == "LINK"
@@ -1050,116 +1018,6 @@ def replace_resolution_appended(file_paths, asset_data, resolution):
                     pf.filepath = fp
                 i.reload()
     udpate_asset_data_in_dicts(asset_data)
-
-
-# TODO: keep this until we check resolution replacement and other features from this one are supported in daemon.
-# @bpy.app.handlers.persistent
-# def download_timer():
-#     # TODO might get moved to handle all blenderkit stuff, not to slow down.
-#     '''
-#     check for running and finished downloads.
-#     Running downloads get checked for progress which is passed to UI.
-#     Finished downloads are processed and linked/appended to scene.
-#      '''
-#     global download_threads
-#     # utils.p('start download timer')
-#
-#     # bk_logger.debug('timer download')
-#     print(len(download_threads))
-#     if len(download_threads) == 0:
-#         # utils.p('end download timer')
-#
-#         return 2
-#     s = bpy.context.scene
-#
-#     for threaddata in download_threads:
-#         t = threaddata[0]
-#         asset_data = threaddata[1]
-#         tcom = threaddata[2]
-#
-#         progress_bars = []
-#         downloaders = []
-#
-#         if t.is_alive():  # set downloader size
-#             sr = global_vars.DATA.get('search results')
-#             if sr is not None:
-#                 for r in sr:
-#                     if asset_data['id'] == r['id']:
-#                         r['downloaded'] = 0.5  # tcom.progress
-#         if not t.is_alive():
-#             if tcom.error:
-#                 sprops = utils.get_search_props()
-#                 sprops.report = tcom.report
-#                 download_threads.remove(threaddata)
-#                 # utils.p('end download timer')
-#                 return
-#
-#             file_paths = paths.get_download_filepaths(asset_data, tcom.passargs['resolution'])
-#             if len(file_paths) == 0:
-#                 bk_logger.debug('library names not found in asset data after download')
-#                 download_threads.remove(threaddata)
-#                 break
-#
-#             wm = bpy.context.window_manager
-#
-#             at = asset_data['assetType']
-#             if ((bpy.context.mode == 'OBJECT' and \
-#                  (at == 'model' or at == 'material'))) \
-#                     or ((at == 'brush') \
-#                         and wm.get('appendable') == True) or at == 'scene' or at == 'hdr':
-#                 # don't do this stuff in editmode and other modes, just wait...
-#                 download_threads.remove(threaddata)
-#
-#                 # duplicate file if the global and subdir are used in prefs
-#                 if len(file_paths) == 2:  # todo this should try to check if both files exist and are ok.
-#                     utils.copy_asset(file_paths[0], file_paths[1])
-#                     # shutil.copyfile(file_paths[0], file_paths[1])
-#
-#                 bk_logger.debug('appending asset')
-#                 # progress bars:
-#
-#                 # we need to check if mouse isn't down, which means an operator can be running.
-#                 # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
-#                 #
-#
-#                 if tcom.passargs.get('redownload'):
-#                     # handle lost libraries here:
-#                     for l in bpy.data.libraries:
-#                         if l.get('asset_data') is not None and l['asset_data']['id'] == asset_data['id']:
-#                             l.filepath = file_paths[-1]
-#                             l.reload()
-#
-#                 if tcom.passargs.get('replace_resolution'):
-#                     # try to relink
-#                     # HDRs are always swapped, so their swapping is handled without the replace_resolution option
-#
-#                     ain, resolution = asset_in_scene(asset_data)
-#
-#                     if ain == 'LINKED':
-#                         replace_resolution_linked(file_paths, asset_data)
-#
-#
-#                     elif ain == 'APPENDED':
-#                         replace_resolution_appended(file_paths, asset_data, tcom.passargs['resolution'])
-#
-#
-#
-#                 else:
-#                     done = try_finished_append(asset_data, **tcom.passargs)
-#                     if not done:
-#                         at = asset_data['assetType']
-#                         tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
-#                         download(asset_data, **tcom.passargs)
-#
-#                     if global_vars.DATA['search results'] is not None and done:
-#                         for sres in global_vars.DATA['search results']:
-#                             if asset_data['id'] == sres['id']:
-#                                 sres['downloaded'] = 100
-#
-#                 bk_logger.debug('finished download thread')
-#     # utils.p('end download timer')
-#
-#     return .5
 
 
 def handle_download_task(task: client_tasks.Task):
