@@ -169,7 +169,7 @@ def create_image_shader():
     return shader
 
 
-def draw_rect(x, y, width, height, color):
+def draw_rect(x, y, width, height, color, line_width=1):
     """Used for drawing 2D rectangle backgrounds."""
     xmax = x + width
     ymax = y + height
@@ -188,12 +188,38 @@ def draw_rect(x, y, width, height, color):
     batch = batch_for_shader(shader, "TRIS", {"pos": points}, indices=indices)
 
     gpu.state.blend_set("ALPHA")
+    gpu.state.line_width_set(line_width)
     shader.bind()
     shader.uniform_float("color", color)
     batch.draw(shader)
 
 
-def draw_line2d(x1, y1, x2, y2, width, color):
+def draw_rect_outline(x, y, width, height, color, line_width=1):
+    """Used for drawing 2D rectangle outlines."""
+    xmax = x + width
+    ymax = y + height
+    points = (
+        (x, y),  # (x, y)
+        (x, ymax),  # (x, y)
+        (xmax, ymax),  # (x, y)
+        (xmax, y),  # (x, y)
+    )
+    indices = ((0, 1), (1, 2), (2, 3), (3, 0))
+
+    if app.version < (4, 0, 0):
+        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+    else:
+        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    batch = batch_for_shader(shader, "LINES", {"pos": points}, indices=indices)
+
+    gpu.state.blend_set("ALPHA")
+    gpu.state.line_width_set(line_width)
+    shader.bind()
+    shader.uniform_float("color", color)
+    batch.draw(shader)
+
+
+def draw_line2d(x1, y1, x2, y2, color, line_width=1):
     """Used for drawing line from dragged thumbnail to the 3D bounding box."""
     coords = ((x1, y1), (x2, y2))
     indices = ((0, 1),)
@@ -207,7 +233,9 @@ def draw_line2d(x1, y1, x2, y2, width, color):
         shader = gpu.shader.create_from_info(shader_info)
 
     batch = batch_for_shader(shader, "LINES", {"pos": coords}, indices=indices)
+
     gpu.state.blend_set("ALPHA")
+    gpu.state.line_width_set(line_width)
     shader.bind()
     shader.uniform_float("color", color)
     batch.draw(shader)

@@ -105,12 +105,21 @@ def modal_inside(self, context, event):
                         self.tooltip_image, asset_data, thumb_type="thumbnail"
                     )
 
-    if not context.area:
-        self.finish()
-        w, a, r = utils.get_largest_area(area_type="VIEW_3D")
-        if a is not None:
-            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
-        return {"FINISHED"}
+        if ui_props.turn_off:
+            ui_props.turn_off = False
+            self.finish()
+
+        if self._finished:
+            return {"FINISHED"}
+
+        if not context.area:
+            self.finish()
+            w, a, r = utils.get_largest_area(area_type="VIEW_3D")
+            if a is not None:
+                bpy.ops.view3d.run_assetbar_fix_context(
+                    keep_running=True, do_search=False
+                )
+            return {"FINISHED"}
 
     sr = search.get_search_results()
     if sr is not None:

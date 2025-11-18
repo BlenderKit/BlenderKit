@@ -128,27 +128,10 @@ def draw_callback_dragging(
         bk_logger.exception("Error loading image while drawing:")
         return
 
+    invalid_area = False
+
     line_length = 35
     ui_props = bpy.context.window_manager.blenderkitUI
-
-    line_color = colors.WHITE
-
-    ui_bgl.draw_image_runtime(
-        self.mouse_x + line_length,
-        self.mouse_y - line_length - ui_props.thumb_size,
-        ui_props.thumb_size,
-        ui_props.thumb_size,
-        img,
-        1,
-    )
-    ui_bgl.draw_line2d(
-        self.mouse_x,
-        self.mouse_y,
-        self.mouse_x + line_length,
-        self.mouse_y - line_length,
-        2,
-        line_color,
-    )
 
     # Determine hint message and colors based on context
     main_message = ""
@@ -219,11 +202,13 @@ def draw_callback_dragging(
                 main_message = "Drop to install addon"
             else:
                 main_message = "Cancel Drag & Drop"
+                invalid_area = True
         elif asset_type == "material" and self.node_editor_type == "shader":
             main_message = "Drop to replace active material"
         elif asset_type == "material" and self.node_editor_type == "compositing":
             main_message = "Cancel Drag & Drop"
             secondary_message = "Unsupported asset type for node editor type"
+            invalid_area = True
         elif asset_type == "nodegroup":
             if self.is_nodegroup_compatible_with_editor(
                 asset_node_type, self.node_editor_type
@@ -267,6 +252,7 @@ def draw_callback_dragging(
 
     elif context.area.type not in ["VIEW_3D", "OUTLINER"]:
         main_message = "Cancel Drag & Drop"
+        invalid_area = True
 
     # Outliner specific hints
     if context.area.type == "OUTLINER" and self.hovered_outliner_element:
@@ -275,6 +261,7 @@ def draw_callback_dragging(
             if asset_type == "nodegroup":
                 if asset_node_type != "geometry":
                     main_message = "Cancel Drag & Drop"
+                    invalid_area = True
                 else:
                     # Hovering over an object
                     target_object = bpy.data.objects.get(
@@ -285,6 +272,7 @@ def draw_callback_dragging(
                         secondary_message = f"(Geometry nodes for {target_object.name})"
                     else:
                         main_message = f"Unsupported object type: {target_object.type if target_object else 'Unknown'}"
+                        invalid_area = True
 
             elif asset_type == "material":
                 main_message = "Drop to replace active material"
@@ -304,6 +292,48 @@ def draw_callback_dragging(
             main_message = (
                 f"Drop into collection '{self.hovered_outliner_element.name}'"
             )
+
+    line_color = colors.WHITE
+    transparency = 1.0
+    if invalid_area:
+        line_color = colors.RED
+        transparency = 0.4
+
+    ui_bgl.draw_image_runtime(
+        self.mouse_x + line_length,
+        self.mouse_y - line_length - ui_props.thumb_size,
+        ui_props.thumb_size,
+        ui_props.thumb_size,
+        img,
+        transparency=transparency,
+    )
+    ui_bgl.draw_line2d(
+        self.mouse_x,
+        self.mouse_y,
+        self.mouse_x + line_length,
+        self.mouse_y - line_length,
+        line_color,
+        2,
+    )
+    if invalid_area:
+        # draw red border around thumbnail
+        ui_bgl.draw_rect_outline(
+            self.mouse_x + line_length,
+            self.mouse_y - line_length - ui_props.thumb_size,
+            ui_props.thumb_size,
+            ui_props.thumb_size,
+            colors.RED,
+            2,
+        )
+        # draw red line (bottom left to top right)
+        ui_bgl.draw_line2d(
+            self.mouse_x + line_length,
+            self.mouse_y - line_length - ui_props.thumb_size,
+            self.mouse_x + line_length + ui_props.thumb_size,
+            self.mouse_y - line_length,
+            colors.RED,
+            2,
+        )
 
     # Draw the text messages if we have any
     if main_message:
