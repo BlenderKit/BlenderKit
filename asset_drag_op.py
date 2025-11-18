@@ -21,8 +21,6 @@ import logging
 import math
 import os
 import random
-import sys
-import ctypes
 
 import bpy
 import mathutils
@@ -1432,10 +1430,13 @@ class AssetDragOperator(bpy.types.Operator):
         self,
         x: float,
         y: float,
-    ) -> Union[Tuple[bpy.types.Region, bpy.types.Area], Tuple[None, None]]:
-        """Find the region and area under the mouse cursor in the specified window."""
+    ) -> Union[
+        Tuple[bpy.types.Window, bpy.types.Region, bpy.types.Area],
+        Tuple[None, None, None],
+    ]:
+        """Find the window, region and area under the mouse cursor."""
 
-        # Iterate windows bacwards, so we go from the topmost window to the bottommost window
+        # Iterate windows backwards, so we go from the top-most window to the bottommost window
         for window in reversed(bpy.context.window_manager.windows):
             # first let's test if it's in this window, so we know we shall continue
             # if (
