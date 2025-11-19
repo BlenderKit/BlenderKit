@@ -36,7 +36,6 @@ from . import (
     download,
     global_vars,
     image_utils,
-    icons,
     paths,
     reports,
     ui,
@@ -85,7 +84,6 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
     except ReferenceError:
         # The operator RNA is gone; skip drawing quietly
         bk_logger.exception("Operator RNA is gone; skipping drawing callback.")
-
         return False
     except Exception:
         return False
@@ -128,27 +126,12 @@ def draw_callback_dragging(
         bk_logger.exception("Error loading image while drawing:")
         return
 
+    invalid_drop = False
+
     line_length = 35
     ui_props = bpy.context.window_manager.blenderkitUI
 
     line_color = colors.WHITE
-
-    ui_bgl.draw_image_runtime(
-        self.mouse_x + line_length,
-        self.mouse_y - line_length - ui_props.thumb_size,
-        ui_props.thumb_size,
-        ui_props.thumb_size,
-        img,
-        1,
-    )
-    ui_bgl.draw_line2d(
-        self.mouse_x,
-        self.mouse_y,
-        self.mouse_x + line_length,
-        self.mouse_y - line_length,
-        2,
-        line_color,
-    )
 
     # Determine hint message and colors based on context
     main_message = ""
@@ -200,6 +183,7 @@ def draw_callback_dragging(
                             "Geometry nodes work with Mesh/Curve objects"
                         )
                         secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red
+                        invalid_drop = True
                 else:
                     main_message = "Drop to add geometry nodegroup"
                     # if active object is mesh/curve, mention modifier option
@@ -219,11 +203,13 @@ def draw_callback_dragging(
                 main_message = "Drop to install addon"
             else:
                 main_message = "Cancel Drag & Drop"
+                invalid_drop = True
         elif asset_type == "material" and self.node_editor_type == "shader":
             main_message = "Drop to replace active material"
         elif asset_type == "material" and self.node_editor_type == "compositing":
             main_message = "Cancel Drag & Drop"
             secondary_message = "Unsupported asset type for node editor type"
+            invalid_drop = True
         elif asset_type == "nodegroup":
             if self.is_nodegroup_compatible_with_editor(
                 asset_node_type, self.node_editor_type
@@ -243,6 +229,7 @@ def draw_callback_dragging(
                         )
 
                         secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
+                        invalid_drop = True
                 else:
                     # For other nodegroup types, just add as node
                     main_message = "Drop to add node group"
@@ -260,6 +247,7 @@ def draw_callback_dragging(
                             "Select mesh/curve object for modifier option"
                         )
                         secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
+                        invalid_drop = True
                 elif asset_node_type == "compositing":
                     main_message = "Drop to switch to compositing"
                 else:
@@ -267,6 +255,7 @@ def draw_callback_dragging(
 
     elif context.area.type not in ["VIEW_3D", "OUTLINER"]:
         main_message = "Cancel Drag & Drop"
+        invalid_drop = True
 
     # Outliner specific hints
     # TODO: drop obs into collections if they are hovered, not their parent collection
@@ -276,6 +265,7 @@ def draw_callback_dragging(
             if asset_type == "nodegroup":
                 if asset_node_type != "geometry":
                     main_message = "Cancel Drag & Drop"
+                    invalid_drop = True
                 else:
                     # Hovering over an object
                     target_object = bpy.data.objects.get(
@@ -286,6 +276,7 @@ def draw_callback_dragging(
                         secondary_message = f"(Geometry nodes for {target_object.name})"
                     else:
                         main_message = f"Unsupported object type: {target_object.type if target_object else 'Unknown'}"
+                        invalid_drop = True
 
             elif asset_type == "material":
                 main_message = "Drop to replace active material"
@@ -305,6 +296,48 @@ def draw_callback_dragging(
             main_message = (
                 f"Drop into collection '{self.hovered_outliner_element.name}'"
             )
+
+    transparency = 1.0
+    line_color = colors.WHITE
+    if invalid_drop:
+        line_color = colors.RED
+        transparency = 0.35
+
+    ui_bgl.draw_image_runtime(
+        self.mouse_x + line_length,
+        self.mouse_y - line_length - ui_props.thumb_size,
+        ui_props.thumb_size,
+        ui_props.thumb_size,
+        img,
+        transparency=transparency,
+    )
+    ui_bgl.draw_line2d(
+        self.mouse_x,
+        self.mouse_y,
+        self.mouse_x + line_length,
+        self.mouse_y - line_length,
+        2,
+        line_color,
+    )
+
+    if invalid_drop:
+        # red border
+        ui_bgl.draw_rect_outline(
+            self.mouse_x + line_length,
+            self.mouse_y - line_length - ui_props.thumb_size,
+            ui_props.thumb_size,
+            ui_props.thumb_size,
+            line_color,
+        )
+        # simple red line over the thumbnail (bottom left to top right)
+        ui_bgl.draw_line2d(
+            self.mouse_x + line_length,
+            self.mouse_y - line_length - ui_props.thumb_size,
+            self.mouse_x + line_length + ui_props.thumb_size,
+            self.mouse_y - line_length,
+            2,
+            line_color,
+        )
 
     # Draw the text messages if we have any
     if main_message:
