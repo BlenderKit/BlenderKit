@@ -304,10 +304,16 @@ def _resolve_color_space_mode() -> int:
 
     area over non-3D means UI overlay, so we need to apply sRGB conversion."""
     area = getattr(bpy.context, "area", None)
-    if area and area.type != "VIEW_3D":
-        return 1
+    if area is None:
+        return 0
 
-    return 0
+    # Blender 5.0+ node editors already expect linear data, so avoid extra conversion there
+    node_editor_types = {"NODE_EDITOR", "VIEW_3D"}
+
+    if area.type in node_editor_types:
+        return 0
+
+    return 1
 
 
 def draw_image_runtime(
