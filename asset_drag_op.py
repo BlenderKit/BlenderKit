@@ -1514,7 +1514,7 @@ class AssetDragOperator(bpy.types.Operator):
         orig_active_object = active_object
         orig_active_collection = view_layer.active_layer_collection
 
-        
+        selected_element = None
         if bpy.app.version > (3, 1, 9):
             # doesn't make sense for lower versions, we wouldn't get the selected_ids anyway.
             #  Simply drops into active_layer_collection in prehistoric Blender.
@@ -1533,10 +1533,11 @@ class AssetDragOperator(bpy.types.Operator):
                 )
 
                 # Get the newly selected element using selected_ids
-                selected_element = None
-                if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
+                if (
+                    hasattr(bpy.context, "selected_ids")
+                    and len(bpy.context.selected_ids) > 0
+                ):
                     selected_element = bpy.context.selected_ids[0]
-                    
 
         if selected_element is None and hasattr(view_layer, "active_layer_collection"):
             alc = view_layer.active_layer_collection
