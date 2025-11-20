@@ -1514,25 +1514,10 @@ class AssetDragOperator(bpy.types.Operator):
         orig_active_object = active_object
         orig_active_collection = view_layer.active_layer_collection
 
-        if bpy.app.version < (3, 2, 0):
-            override = {
-                "window": self.active_window,
-                "screen": self.active_window.screen,
-                "area": self.active_area,
-                "region": self.active_region,
-                "scene": scene,
-                "view_layer": view_layer,
-            }
-            bpy.ops.outliner.select_box(
-                override,
-                xmin=self.mouse_x - 1,
-                xmax=self.mouse_x + 1,
-                ymin=self.mouse_y - 1,
-                ymax=self.mouse_y + 1,
-                wait_for_input=False,
-                mode="SET",
-            )
-        else:
+        
+        if bpy.app.version > (3, 1, 9):
+            # doesn't make sense for lower versions, we wouldn't get the selected_ids anyway.
+            #  Simply drops into active_layer_collection in prehistoric Blender.
             with bpy.context.temp_override(
                 window=self.active_window,
                 area=self.active_area,
@@ -1547,10 +1532,11 @@ class AssetDragOperator(bpy.types.Operator):
                     mode="SET",
                 )
 
-        # Get the newly selected element using selected_ids
-        selected_element = None
-        if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
-            selected_element = bpy.context.selected_ids[0]
+                # Get the newly selected element using selected_ids
+                selected_element = None
+                if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
+                    selected_element = bpy.context.selected_ids[0]
+                    
 
         if selected_element is None and hasattr(view_layer, "active_layer_collection"):
             alc = view_layer.active_layer_collection
