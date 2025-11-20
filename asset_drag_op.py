@@ -754,6 +754,12 @@ def object_in_particle_collection(o: bpy.types.Object) -> bool:
 
 def get_node_tree(context: bpy.types.Context) -> bpy.types.NodeTree:
     """Blender version invariant way to get the node tree from the current node editor."""
+
+    def _is_compositor_group(node_group: Optional[bpy.types.NodeTree]) -> bool:
+        return bool(
+            node_group and getattr(node_group, "bl_idname", "") == "CompositorNodeTree"
+        )
+
     if bpy.app.version < (5, 0, 0):
         if context.scene.use_nodes and context.scene.node_tree:
             node_tree = context.scene.node_tree
@@ -765,13 +771,45 @@ def get_node_tree(context: bpy.types.Context) -> bpy.types.NodeTree:
 
     # blender 5.0+
     # FUTURE check if valid in 5.RC
-    if not context.scene.compositing_node_group:
-        bpy.ops.node.new_compositing_node_group()
-        context.scene.compositing_node_group = bpy.data.node_groups[-1]
-
+    if _is_compositor_group(context.scene.compositing_node_group):
+        bk_logger.info(
+            "Using existing compositor node group '%s' from scene",
+            context.scene.compositing_node_group.name,
+        )
         return context.scene.compositing_node_group
 
-    return context.scene.compositing_node_group
+    # Try to reuse any compositor node group that already exists in the file.
+    for node_group in bpy.data.node_groups:
+        if _is_compositor_group(node_group):
+            bk_logger.info(
+                "Assigning existing compositor node group '%s' from bpy.data",
+                node_group.name,
+            )
+            context.scene.compositing_node_group = node_group
+            return node_group
+
+    # Creating a compositor node group via the operator might fail if there's no node editor context,
+    # so guard it and fall back to creating the datablock ourselves.
+    bk_logger.info("Attempting to create compositor node group via operator")
+    try:
+        bpy.ops.node.new_compositing_node_group()
+    except Exception:
+        bk_logger.exception("Operator-based compositor node group creation failed")
+        node_group = None
+    else:
+        node_group = context.scene.compositing_node_group
+        if _is_compositor_group(node_group):
+            bk_logger.info(
+                "Created compositor node group '%s' via operator",
+                node_group.name,
+            )
+            return node_group
+
+    # Fallback: create a compositor node group directly and assign it.
+    bk_logger.info("Creating fallback compositor node group datablock")
+    new_group = bpy.data.node_groups.new("BlenderKit Compositor", "CompositorNodeTree")
+    context.scene.compositing_node_group = new_group
+    return new_group
 
 
 def assign_node_tree(
