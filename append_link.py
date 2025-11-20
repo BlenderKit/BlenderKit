@@ -101,6 +101,7 @@ def append_nodegroup(
     nodegroup.use_fake_user = fake_user
 
     # Create target object automatically for geometry nodegroups when no target is provided
+    auto_created_target: Optional[bpy.types.Object] = None
     if nodegroup.bl_rna.identifier == "GeometryNodeTree" and not target_object:
         # Create a default mesh cube
         bpy.ops.mesh.primitive_cube_add(
@@ -109,6 +110,7 @@ def append_nodegroup(
         target_obj = bpy.context.active_object
         target_obj.name = "GeometryNodeTarget"
         target_object = target_obj.name
+        auto_created_target = target_obj
 
         # Make sure it's selected and active
         bpy.context.view_layer.objects.active = target_obj
@@ -244,6 +246,21 @@ def append_nodegroup(
                 nt.nodes.active = node
                 added_to_editor = True
                 break
+
+    # Ensure automatically created targets receive the nodegroup as modifier
+    if auto_created_target:
+        gn_mod = None
+        for mod in auto_created_target.modifiers:
+            if mod.type == "NODES":
+                gn_mod = mod
+                break
+        if not gn_mod:
+            gn_mod = auto_created_target.modifiers.new(
+                name=nodegroup.name, type="NODES"
+            )
+        gn_mod.node_group = nodegroup
+        auto_created_target.select_set(True)
+        bpy.context.view_layer.objects.active = auto_created_target
 
     return nodegroup, added_to_editor
 
