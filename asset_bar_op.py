@@ -810,6 +810,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if search_results is not None and self.wcount > 0:
             if user_preferences.assetbar_expanded:
                 max_rows = user_preferences.maximized_assetbar_rows
+                available_height = (
+                    region.height
+                    - self.bar_y
+                    - 2 * self.assetbar_margin
+                    - self.other_button_size
+                )
+                max_rows_by_height = math.floor(available_height / self.button_size)
+                max_rows = (
+                    min(max_rows, max_rows_by_height) if max_rows_by_height > 0 else 1
+                )
             else:
                 max_rows = 1
             self.hcount = min(
@@ -1721,7 +1731,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     - properties_width
                 ),
             )
-            tooltip_y = int(widget.y_screen + widget.height)
+
+            # Calculate space above and below the button
+            ui_scale = bpy.context.preferences.view.ui_scale
+            full_tooltip_height = self.tooltip_base_size_pixels * ui_scale
+            space_above = widget.y_screen
+            space_below = bpy.context.region.height - (widget.y_screen + widget.height)
+
+            # If space below is insufficient (would make tooltip < 70% size), position above
+            if (
+                space_below < full_tooltip_height
+                and space_below < full_tooltip_height * 0.7
+            ):
+                tooltip_y = int(widget.y_screen - full_tooltip_height)
+            else:
+                tooltip_y = int(widget.y_screen + widget.height)
+
             # need to set image here because of context issues.
             img_path = paths.get_addon_thumbnail_path("star_grey.png")
             self.quality_star.set_image(img_path)
