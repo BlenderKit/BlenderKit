@@ -2733,7 +2733,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 self.draw_property(box, "Access", text, icon="LOCKED")
             elif is_for_sale and not can_download and base_price:
                 text = f"${base_price} (Not purchased)"
-                icon = pcoll["full"]
+                icon = pcoll["for_sale"]
                 self.draw_property(
                     box,
                     "Price",
@@ -2743,7 +2743,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 )
             elif is_for_sale and can_download and base_price:
                 text = f"${base_price} (Purchased)"
-                icon = pcoll["full"]
+                icon = pcoll["for_sale"]
                 self.draw_property(
                     box,
                     "Price",
@@ -2752,7 +2752,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     tooltip="You have purchased this addon",
                 )
             elif not is_free and not is_for_sale:
-                text = "Full plan required"
+                text = "Full plan"
                 icon = pcoll["full"]
                 self.draw_property(
                     box,

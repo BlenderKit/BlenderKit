@@ -411,7 +411,7 @@ def get_tooltip_data(asset_data):
             price_color = colors.PURPLE
         elif not is_free and not is_for_sale:
             price_text = "Full Plan"
-            price_color = colors.PURPLE
+            price_color = colors.ORANGE_FULL
         elif (
             is_for_sale and can_download
         ):  # purchased, but not yet downloaded, so we can't show price
