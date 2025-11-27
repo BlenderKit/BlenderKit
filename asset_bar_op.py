@@ -767,7 +767,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         ui_scale = bpy.context.preferences.view.ui_scale
-
+        pixel_size = bpy.context.preferences.system.pixel_size
+        if pixel_size > 1:
+            # for a reason unknown,
+            #  the pixel size is modified only on mac
+            # where pixel size is 2.0
+            ui_scale = pixel_size
         # assetbar scaling
         self.button_margin = int(0 * ui_scale)
         self.assetbar_margin = int(2 * ui_scale)
