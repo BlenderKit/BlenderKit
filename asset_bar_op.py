@@ -793,6 +793,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.bar_x = int(
             tools_width + self.button_margin + ui_props.bar_x_offset * ui_scale
         )
+        # self.bar_y = region.height - ui_props.bar_y_offset * ui_scale
+
+        self.bar_y = int(ui_props.bar_y_offset * ui_scale)
+
         self.bar_end = int(ui_width + 180 * ui_scale + self.other_button_size)
         self.bar_width = int(region.width - self.bar_x - self.bar_end)
 
@@ -831,8 +835,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.hcount = 1
 
         self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
-        # self.bar_y = region.height - ui_props.bar_y_offset * ui_scale
-        self.bar_y = int(ui_props.bar_y_offset * ui_scale)
         if ui_props.down_up == "UPLOAD":
             self.reports_y = region.height - self.bar_y - 600
             ui_props.reports_y = region.height - self.bar_y - 600
