@@ -286,6 +286,12 @@ def modal_inside(self, context, event):
     if self.check_ui_resized(context) or self.check_new_search_results(context):
         self.update_assetbar_sizes(context)
         self.update_assetbar_layout(context)
+        # also update tooltip visibility
+        # if there's less results and active button is not visible, hide tooltip
+        # happened only when e.g. running new search from web browser (copying assetbaseid to clipboard)
+        # fixes issue #1766
+        if self.active_index >= len(search.get_search_results()):
+            self.hide_tooltip()
         self.scroll_update(
             always=True
         )  # one extra update for scroll for correct redraw, updates all buttons
