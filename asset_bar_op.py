@@ -728,14 +728,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Calculate all important sizes for the tooltip"""
         region = context.region
         ui_props = bpy.context.window_manager.blenderkitUI
-        ui_scale = bpy.context.preferences.view.ui_scale
+        ui_scale = self.get_ui_scale()
 
         if hasattr(self, "tooltip_panel"):
-            tooltip_y_offset = abs(region.height - self.tooltip_panel.y_screen)
+            tooltip_y_available_height = abs(
+                region.height - self.tooltip_panel.y_screen
+            )
+            # if tooltip is above, we need to reduce it's size if it's y is out of region height
+            if self.tooltip_panel.y_screen <= 0:
+                tooltip_y_available_height = (
+                    self.tooltip_base_size_pixels * ui_scale
+                    + self.tooltip_panel.y_screen
+                )
+                self.tooltip_panel.set_location(self.tooltip_panel.x, 0)
+
         else:
-            tooltip_y_offset = abs(region.height - (self.bar_height + self.bar_y))
+            tooltip_y_available_height = abs(
+                region.height - (self.bar_height + self.bar_y)
+            )
+
         self.tooltip_scale = min(
-            1.0, tooltip_y_offset / (self.tooltip_base_size_pixels * ui_scale)
+            1.0, tooltip_y_available_height / (self.tooltip_base_size_pixels * ui_scale)
         )
         self.asset_name_text_size = int(
             0.039 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
@@ -759,13 +772,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.tooltip_height * self.bottom_panel_fraction - self.tooltip_margin
         )
 
-    def update_assetbar_sizes(self, context):
-        """Calculate all important sizes for the asset bar"""
-        region = context.region
-        area = context.area
-
-        ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
+    def get_ui_scale(self):
+        """Get the UI scale"""
         ui_scale = bpy.context.preferences.view.ui_scale
         pixel_size = bpy.context.preferences.system.pixel_size
         if pixel_size > 1:
@@ -773,6 +781,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             #  the pixel size is modified only on mac
             # where pixel size is 2.0
             ui_scale = pixel_size
+        return ui_scale
+
+    def update_assetbar_sizes(self, context):
+        """Calculate all important sizes for the asset bar"""
+        region = context.region
+        area = context.area
+
+        ui_props = bpy.context.window_manager.blenderkitUI
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        ui_scale = self.get_ui_scale()
         # assetbar scaling
         self.button_margin = int(0 * ui_scale)
         self.assetbar_margin = int(2 * ui_scale)
@@ -1740,15 +1758,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             )
 
             # Calculate space above and below the button
-            ui_scale = bpy.context.preferences.view.ui_scale
+            ui_scale = self.get_ui_scale()
             full_tooltip_height = self.tooltip_base_size_pixels * ui_scale
             space_above = widget.y_screen
             space_below = bpy.context.region.height - (widget.y_screen + widget.height)
-
             # If space below is insufficient (would make tooltip < 70% size), position above
             if (
                 space_below < full_tooltip_height
                 and space_below < full_tooltip_height * 0.7
+                and space_below < space_above
             ):
                 tooltip_y = int(widget.y_screen - full_tooltip_height)
             else:
@@ -1762,7 +1780,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.update_tooltip_size(bpy.context)
             self.update_tooltip_layout(bpy.context)
-            self.tooltip_panel.set_location(tooltip_x, tooltip_y)
+            self.tooltip_panel.set_location(self.tooltip_panel.x, self.tooltip_panel.y)
             self.tooltip_panel.layout_widgets()
             # show bookmark button - always on mouse enter
             if widget.bookmark_button:
