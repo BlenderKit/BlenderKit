@@ -22,11 +22,10 @@ import unittest
 import bpy
 
 
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
-from . import client_lib, global_vars
+from .boilerplate import __package__, module
+
+client_lib = module.client_lib
+global_vars = module.global_vars
 
 
 class Test01Registration(unittest.TestCase):
@@ -35,6 +34,10 @@ class Test01Registration(unittest.TestCase):
         assert global_vars.VERSION != [0, 0, 0, 0]
         if __package__ == "blenderkit":
             import blenderkit  # relative import .. would go outside the package, so we need to import oldschool here
+
+            version = blenderkit.bl_info["version"]
+        elif __package__ == "blenderkit_dev_hl": # hard-linked
+            import blenderkit_dev_hl as blenderkit
 
             version = blenderkit.bl_info["version"]
         else:

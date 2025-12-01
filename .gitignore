@@ -6,6 +6,9 @@ client_builds
 .venv
 .pdm-python
 
+# secrets and dev ENV vars mostly for testing
+.env
+
 .ruff_cache
 
 # prevent publishing of dynamically created updater cache

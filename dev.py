@@ -309,7 +309,7 @@ def run_python_tests(extension_format: bool, fast: bool):
             "--python-exit-code",
             "1",
             "--python",
-            "test.py",
+            "./tests/test.py",
             "--",
             addon_package_name,
         ],

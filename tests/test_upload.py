@@ -1,13 +1,8 @@
 import unittest
 
-import bpy
+from .boilerplate import __package__, module
 
-
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
-from . import upload
+upload = module.upload
 
 
 class TestCheckTagsFormat(unittest.TestCase):

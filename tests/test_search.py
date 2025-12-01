@@ -19,14 +19,9 @@
 import unittest
 from unittest.mock import Mock
 
-import bpy
+from .boilerplate import __package__, module
 
-
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
-from . import search
+search = module.search
 
 
 def mocked_preferences() -> Mock:

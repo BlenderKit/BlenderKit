@@ -19,14 +19,9 @@
 import pathlib
 import unittest
 
-import bpy
+from .boilerplate import __package__, module
 
-
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
-from . import paths
+paths = module.paths
 
 
 class TestDownloadDirs(unittest.TestCase):

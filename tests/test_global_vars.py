@@ -1,15 +1,8 @@
 import unittest
 
-import bpy
+from .boilerplate import __package__, module
 
-
-# Dynamically set the package context for the BlenderKit add-on
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
-
-from . import global_vars
+global_vars = module.global_vars
 
 
 class TestVersions(unittest.TestCase):

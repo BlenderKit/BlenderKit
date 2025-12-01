@@ -21,15 +21,16 @@ import time
 import unittest
 from urllib.parse import urlparse
 
-import bpy
 import requests
 
 
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
-from . import client_lib, datas, download, paths, utils
+from .boilerplate import __package__, module
+
+client_lib = module.client_lib
+datas = module.datas
+download = module.download
+paths = module.paths
+utils = module.utils
 
 
 def client_is_responding() -> tuple[bool, str]:
