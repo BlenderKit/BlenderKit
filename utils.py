@@ -1129,6 +1129,18 @@ def name_update(props, context=None):
         asset = get_active_asset()
         if asset.name != fname:  # Here we actually rename assets datablocks
             asset.name = fname  # change name of active object to upload Name
+            # we need to set the name back for proper appending later
+            if asset.name != fname and asset.name.find(".") != -1:
+                # -  because assets end up with .001, .002, etc. names sometimes.
+                # first, let's get the datablock that blocks us from renaming the asset, and rename it to something a bit else:
+                # we need to ge the equivalent datablock ,
+                # then we can swap those names around.
+                datablock = get_equivalent_datablock(ui_props.asset_type, fname)
+                if datablock is not None:
+                    datablock.name = fname + "_temprename"
+                    replace_name = asset.name
+                    asset.name = fname
+                    datablock.name = replace_name
 
 
 def fmt_dimensions(p):
