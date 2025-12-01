@@ -339,6 +339,25 @@ def get_active_asset_by_type(asset_type="model"):
     return None
 
 
+def get_equivalent_datablock(asset_type, name):
+    """Get the datablock that blocks us from renaming the asset, and rename it to something a bit else."""
+    if asset_type == "MATERIAL":
+        return bpy.data.materials.get(name)
+    elif asset_type == "OBJECT":
+        return bpy.data.objects.get(name)
+    elif asset_type == "SCENE":
+        return bpy.data.scenes.get(name)
+    elif asset_type == "HDR":
+        return bpy.data.images.get(name)
+    elif asset_type == "BRUSH":
+        return bpy.data.brushes.get(name)
+    elif asset_type == "NODEGROUP":
+        return bpy.data.node_groups.get(name)
+    elif asset_type == "ADDON":
+        return bpy.data.addons.get(name)
+    return None
+
+
 def get_active_asset():
     scene = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
