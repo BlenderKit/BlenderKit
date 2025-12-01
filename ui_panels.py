@@ -3222,7 +3222,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             # name_row.label(text='>')
 
         name_row.label(text=aname)
-        push_op_left(name_row, strength=3)
+        push_op_left(name_row, strength=1)
         op = name_row.operator("view3d.close_popup_button", text="", icon="CANCEL")
 
     def draw_comment_response(self, context, layout, comment_id):
