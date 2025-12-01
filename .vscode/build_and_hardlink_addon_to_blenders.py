@@ -117,15 +117,43 @@ build_output_master_dir = os.path.join(
 ).replace("\\", "/")
 was_built = False
 
-client_dir = os.path.join(THIS_REPO, "client").replace("\\", "/")
+
 # find the latest build using regex
+highest_version = None
 for f in os.listdir(build_output_master_dir):
-    print(f)
     if re.match(r"v\d+\.\d+\.\d+", f):
-        latest_build_dir = os.path.join(build_output_master_dir, f).replace("\\", "/")
-        print(f"Copying latest client build from {latest_build_dir} to client/ folder.")
-        if os.path.exists(os.path.join(THIS_REPO, "client", f)):
-            shutil.rmtree(os.path.join(THIS_REPO, "client", f))
-        shutil.copytree(latest_build_dir, os.path.join(THIS_REPO, "client", f))
-        was_built = True
-        break
+        # is the version the highest?
+        version_numbers = list(map(int, f[1:].split(".")))
+        if highest_version is None:
+            highest_version = version_numbers
+        else:
+            for i in range(3):
+                if version_numbers[i] > highest_version[i]:
+                    highest_version = version_numbers
+                    break
+                elif version_numbers[i] < highest_version[i]:
+                    break
+
+
+if highest_version is None:
+    print("No client build found.")
+    sys.exit(1)
+
+# prepare the highest version folder name
+highest_version_str = "v" + ".".join(map(str, highest_version))
+
+build_output_master_dir = os.path.join(
+    build_output_master_dir, highest_version_str
+).replace("\\", "/")
+
+client_dir = os.path.join(THIS_REPO, "client", highest_version_str).replace("\\", "/")
+
+print(f"Copying built client from {build_output_master_dir} to {client_dir}")
+
+# remove existing client build folder
+_remove_existing(client_dir)
+
+# copy the build
+shutil.copytree(build_output_master_dir, client_dir)
+
+print("Client build copied successfully.")
