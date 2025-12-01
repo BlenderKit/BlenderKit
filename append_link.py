@@ -47,7 +47,7 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
         data_to,
     ):
         for m in data_from.brushes:
-            if m == brushname or brushname is None:
+            if m.strip() == brushname.strip() or brushname is None:
                 data_to.brushes = [m]
                 brushname = m
     brush = bpy.data.brushes[brushname]
@@ -93,8 +93,7 @@ def append_nodegroup(
         data_to,
     ):
         for g in data_from.node_groups:
-            print(g)
-            if g == nodegroupname or nodegroupname is None:
+            if g.strip() == nodegroupname.strip() or nodegroupname is None:
                 data_to.node_groups = [g]
                 nodegroupname = g
     nodegroup = bpy.data.node_groups[nodegroupname]
@@ -281,7 +280,7 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
         ):
             found = False
             for m in data_from.materials:
-                if m == matname or matname is None:
+                if m.strip() == matname.strip() or matname is None:
                     data_to.materials = [m]
                     matname = m
                     found = True
@@ -319,7 +318,7 @@ def append_scene(file_name, scenename=None, link=False, fake_user=False):
         data_to,
     ):
         for s in data_from.scenes:
-            if s == scenename or scenename is None:
+            if s.strip() == scenename.strip() or scenename is None:
                 data_to.scenes = [s]
                 scenename = s
     scene = bpy.data.scenes[scenename]
@@ -448,7 +447,7 @@ def link_collection(
         data_to,
     ):
         for col in data_from.collections:
-            if col == kwargs["name"]:
+            if col.strip() == kwargs["name"].strip():
                 data_to.collections = [col]
 
     rotation = (0, 0, 0)
