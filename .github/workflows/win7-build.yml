@@ -19,7 +19,16 @@ jobs:
           cache-dependency-path: './client/go.sum'
         id: go
       - name: Set version=1.20 in go.mod
-        run: go mod edit -go=1.17
+        run: go mod edit -go=1.20
+        working-directory: client
+      - name: Pin dependencies for Go 1.20
+        # color@v1.6.0 requires sys@v0.38.0, which needs go1.24+
+        run: |
+          go get github.com/gookit/color@v1.5.4  
+          go get golang.org/x/sys@v0.30.0
+        working-directory: client
+      - name: Tidy dependencies
+        run: go mod tidy
         working-directory: client
       - name: Build add-on
         run: python dev.py build

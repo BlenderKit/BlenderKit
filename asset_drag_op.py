@@ -224,34 +224,34 @@ def draw_callback_dragging(
                         )
                     else:
                         main_message = "Drop to add node group"
-                        secondary_message = (
-                            "Select mesh/curve object for modifier option"
-                        )
-
-                        secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
-                        invalid_drop = True
+                        secondary_message = "Select mesh/curve for modifier option"
+                        secondary_color = (0.9, 0.9, 0.6, 1.0)  # Soft highlight
                 else:
                     # For other nodegroup types, just add as node
                     main_message = "Drop to add node group"
             else:
+                will_switch = asset_node_type in {"shader", "geometry", "compositing"}
                 if asset_node_type == "shader":
                     main_message = "Drop to switch to shader editor"
+                    secondary_message = "Editor switches automatically"
                 elif asset_node_type == "geometry":
                     active_object = bpy.context.active_object
                     if active_object and active_object.type in ["MESH", "CURVE"]:
                         main_message = "Drop to switch & show options"
-                        secondary_message = f"(Geometry nodes for {active_object.name})"
+                        secondary_message = f"Geometry nodes for {active_object.name}"
                     else:
                         main_message = "Drop to switch to geometry nodes editor"
                         secondary_message = (
-                            "Select mesh/curve object for modifier option"
+                            "Editor will switch; mesh optional for modifier"
                         )
-                        secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red warning
-                        invalid_drop = True
+                        secondary_color = (0.9, 0.9, 0.6, 1.0)
                 elif asset_node_type == "compositing":
                     main_message = "Drop to switch to compositing"
+                    secondary_message = "Editor switches automatically"
                 else:
                     main_message = "Drop to switch editor type"
+                if not will_switch:
+                    invalid_drop = True
 
     elif context.area.type not in ["VIEW_3D", "OUTLINER"]:
         main_message = "Cancel Drag & Drop"
@@ -1362,10 +1362,8 @@ class AssetDragOperator(bpy.types.Operator):
 
                     # Make sure we have a node tree to work with
                     node_tree = gn_mod.node_group
-                    # Set the node tree in the editor
                     if self.active_area:
                         self.active_area.spaces[0].node_tree = node_tree
-                        # redraw the area so we get correct coordinates
                         self.active_area.tag_redraw()
 
             # Third case: need to switch to shader nodes for shader nodegroup
@@ -1514,25 +1512,10 @@ class AssetDragOperator(bpy.types.Operator):
         orig_active_object = active_object
         orig_active_collection = view_layer.active_layer_collection
 
-        if bpy.app.version < (3, 2, 0):
-            override = {
-                "window": self.active_window,
-                "screen": self.active_window.screen,
-                "area": self.active_area,
-                "region": self.active_region,
-                "scene": scene,
-                "view_layer": view_layer,
-            }
-            bpy.ops.outliner.select_box(
-                override,
-                xmin=self.mouse_x - 1,
-                xmax=self.mouse_x + 1,
-                ymin=self.mouse_y - 1,
-                ymax=self.mouse_y + 1,
-                wait_for_input=False,
-                mode="SET",
-            )
-        else:
+        selected_element = None
+        if bpy.app.version > (3, 1, 9):
+            # doesn't make sense for lower versions, we wouldn't get the selected_ids anyway.
+            #  Simply drops into active_layer_collection in prehistoric Blender.
             with bpy.context.temp_override(
                 window=self.active_window,
                 area=self.active_area,
@@ -1547,10 +1530,12 @@ class AssetDragOperator(bpy.types.Operator):
                     mode="SET",
                 )
 
-        # Get the newly selected element using selected_ids
-        selected_element = None
-        if hasattr(bpy.context, "selected_ids") and len(bpy.context.selected_ids) > 0:
-            selected_element = bpy.context.selected_ids[0]
+                # Get the newly selected element using selected_ids
+                if (
+                    hasattr(bpy.context, "selected_ids")
+                    and len(bpy.context.selected_ids) > 0
+                ):
+                    selected_element = bpy.context.selected_ids[0]
 
         if selected_element is None and hasattr(view_layer, "active_layer_collection"):
             alc = view_layer.active_layer_collection

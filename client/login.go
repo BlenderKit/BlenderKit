@@ -312,7 +312,7 @@ func OAuth2Logout(data RefreshTokenData) {
 		task := NewTask(data, appID, uuid.New().String(), "oauth2/logout")
 		task.Message = message
 		task.Status = status
-		task.Error = fmt.Errorf(message) // just to print it into console
+		task.Error = fmt.Errorf("%s", message) // just to print it into console
 		AddTaskCh <- task
 	}
 	TasksMux.Unlock()

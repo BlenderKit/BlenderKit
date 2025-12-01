@@ -27,8 +27,9 @@ import bpy
 icon_collections = {}
 
 icons_read = {
-    "fp.png": "free",
-    "flp.png": "full",
+    "free_plan.png": "free",
+    "full_plan.png": "full",
+    "sale_purple.png": "for_sale",
     "trophy.png": "trophy",
     "dumbbell.png": "dumbbell",
     "cc0.png": "cc0",

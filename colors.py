@@ -25,10 +25,14 @@ TEXT = (0.9, 0.9, 0.9, 0.6)
 GREEN = (0.9, 1, 0.9, 0.6)
 RED = (1, 0.5, 0.5, 0.8)
 BLUE = (0.8, 0.8, 1, 0.8)
-
-PURPLE = (0.8, 0.4, 1.0, 1.0)  # Full Plan purple
-GREEN_FREE = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
 """Color for validator reports."""
+
+PURPLE = (0.8, 0.4, 1.0, 1.0)
+"""Lavender Purple to be used on "for sale" add-ons."""
+ORANGE_FULL = (0.702, 0.349, 0.208, 1.0)
+"""Burnt Orange associated with full plan assets and add-ons."""
+GREEN_FREE = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
+"""Leaf Green associated with free plan assets and add-ons."""
 
 GRAY = (0.7, 0.7, 0.7, 0.6)
 """Default color for debug reports."""
