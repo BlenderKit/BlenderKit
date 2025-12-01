@@ -1149,7 +1149,7 @@ def name_update(props, context=None):
         if asset.name != fname:  # Here we actually rename assets datablocks
             asset.name = fname  # change name of active object to upload Name
             # we need to set the name back for proper appending later
-            if asset.name != fname and asset.name.find(".") != -1:
+            if asset.name != fname and re.search(r"\.\d+$", asset.name) is not None:
                 # -  because assets end up with .001, .002, etc. names sometimes.
                 # first, let's get the datablock that blocks us from renaming the asset, and rename it to something a bit else:
                 # we need to ge the equivalent datablock ,
