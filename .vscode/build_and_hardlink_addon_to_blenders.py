@@ -11,6 +11,7 @@ import os
 import sys
 import shutil
 import subprocess
+import re
 
 # for windows only currently --- sorry linux / mac users.
 if sys.platform != "win32":
@@ -71,6 +72,7 @@ def _try_junction(src: str, dst: str) -> bool:
         return False
 
 
+was_linked = False
 for version_path in all_versions:
     match = pattern.match(version_path)
     if not match:
@@ -88,8 +90,70 @@ for version_path in all_versions:
             print(
                 f"Linked (junction) blenderkit addon to Blender {version} addons folder."
             )
+            was_linked = True
             continue
 
         print(f"Failed to set up addon for Blender {version}. See errors above.")
     except Exception as e:
         print(f"Failed to link for Blender {version}: {e}")
+
+# make sure we have the latest build and move it to client/
+if not was_linked:
+    print("No Blender versions were linked. Exiting.")
+    sys.exit(1)
+
+# build the client if needed
+was_built = False
+build_script = os.path.join(THIS_REPO, "dev.py").replace("\\", "/")
+build_cmds = [sys.executable, build_script, "build"]
+# run and wait
+subprocess.run(build_cmds, check=True)
+
+# copy source to client/
+# this folder is ingored and will not be synced to blenderkit addon repo
+# but will be used by the addon to run the client
+build_output_master_dir = os.path.join(
+    THIS_REPO, "out", "blenderkit", "client"
+).replace("\\", "/")
+was_built = False
+
+
+# find the latest build using regex
+highest_version = None
+for f in os.listdir(build_output_master_dir):
+    if re.match(r"v\d+\.\d+\.\d+", f):
+        # is the version the highest?
+        version_numbers = list(map(int, f[1:].split(".")))
+        if highest_version is None:
+            highest_version = version_numbers
+        else:
+            for i in range(3):
+                if version_numbers[i] > highest_version[i]:
+                    highest_version = version_numbers
+                    break
+                elif version_numbers[i] < highest_version[i]:
+                    break
+
+
+if highest_version is None:
+    print("No client build found.")
+    sys.exit(1)
+
+# prepare the highest version folder name
+highest_version_str = "v" + ".".join(map(str, highest_version))
+
+build_output_master_dir = os.path.join(
+    build_output_master_dir, highest_version_str
+).replace("\\", "/")
+
+client_dir = os.path.join(THIS_REPO, "client", highest_version_str).replace("\\", "/")
+
+print(f"Copying built client from {build_output_master_dir} to {client_dir}")
+
+# remove existing client build folder
+_remove_existing(client_dir)
+
+# copy the build
+shutil.copytree(build_output_master_dir, client_dir)
+
+print("Client build copied successfully.")

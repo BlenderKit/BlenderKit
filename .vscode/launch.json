@@ -7,6 +7,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Run Project Setup",
             "type": "node",
@@ -23,6 +24,28 @@
                 "runtimeExecutable": "${workspaceFolder}/.vscode/pdm_setup_project.sh",
             }
         },
+
+        {
+            "name": "Build Addon and Hardlink",
+            "type": "debugpy",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/.vscode/build_and_hardlink_addon_to_blenders.py",
+            "args": [
+                "build",
+            ],
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
 
         {
             "name": "[BLACK] Run black on all",

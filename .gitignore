@@ -1,5 +1,8 @@
 __pycache__
 out
+# ignore built binaries
+client/v*.*.*
+
 pyproject.toml
 client_builds
 .mypy_cache
@@ -13,3 +16,6 @@ client_builds
 
 # debug folder
 _debug/
+
+# debug env variables
+.env
