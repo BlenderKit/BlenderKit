@@ -47,7 +47,7 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
         data_to,
     ):
         for m in data_from.brushes:
-            if m.strip() == brushname.strip() or brushname is None:
+            if brushname is None or m.strip() == brushname.strip():
                 data_to.brushes = [m]
                 brushname = m
     brush = bpy.data.brushes[brushname]
@@ -93,7 +93,7 @@ def append_nodegroup(
         data_to,
     ):
         for g in data_from.node_groups:
-            if g.strip() == nodegroupname.strip() or nodegroupname is None:
+            if nodegroupname is None or g.strip() == nodegroupname.strip():
                 data_to.node_groups = [g]
                 nodegroupname = g
     nodegroup = bpy.data.node_groups[nodegroupname]
@@ -280,7 +280,7 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
         ):
             found = False
             for m in data_from.materials:
-                if m.strip() == matname.strip() or matname is None:
+                if matname is None or m.strip() == matname.strip():
                     data_to.materials = [m]
                     matname = m
                     found = True
@@ -318,7 +318,7 @@ def append_scene(file_name, scenename=None, link=False, fake_user=False):
         data_to,
     ):
         for s in data_from.scenes:
-            if s.strip() == scenename.strip() or scenename is None:
+            if scenename is None or s.strip() == scenename.strip():
                 data_to.scenes = [s]
                 scenename = s
     scene = bpy.data.scenes[scenename]
