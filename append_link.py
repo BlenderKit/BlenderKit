@@ -42,6 +42,7 @@ def find_layer_collection(layer_collection, collection_name):
 
 def append_brush(file_name, brushname=None, link=False, fake_user=True):
     """append a brush"""
+    brushes_before = bpy.data.brushes[:]
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
         data_to,
@@ -50,7 +51,10 @@ def append_brush(file_name, brushname=None, link=False, fake_user=True):
             if m == brushname or brushname is None:
                 data_to.brushes = [m]
                 brushname = m
-    brush = bpy.data.brushes[brushname]
+    for b in bpy.data.brushes:
+        if b not in brushes_before:
+            brush = b
+            break
     brush.use_fake_user = fake_user
     return brush
 
