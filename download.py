@@ -877,8 +877,13 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             if asset_blender_version < (4, 3, 0) and bpy.app.version >= (4, 3, 0):
                 brush.asset_clear()
                 brush.asset_mark()
-            brush.icon_filepath = asset_thumb_path
-
+            if bpy.app.version <= (4, 5, 0):
+                brush.icon_filepath = asset_thumb_path
+            else:
+                # load asset thumbnail into brush if it's not already present
+                if brush.preview is None:
+                    with bpy.context.temp_override(id=brush):
+                        bpy.ops.ed.lib_id_load_custom_preview(filepath=asset_thumb_path)
         # set the brush active
         if bpy.context.view_layer.objects.active.mode == "SCULPT":
             if bpy.app.version < (4, 3, 0):
@@ -897,7 +902,6 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                     relative_asset_identifier=f"Brush{os.sep}{brush.name}"
                 )
         # TODO add grease pencil brushes!
-
         # bpy.context.tool_settings.image_paint.brush = brush
         asset_main = brush
 
