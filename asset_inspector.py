@@ -225,19 +225,24 @@ def has_keyframes(obj):
     This function only checks for keyframes,
     may return false negatives for objects animated with constraints, drivers, etc.
     """
-    if obj.animation_data is not None:
-        a = obj.animation_data.action
-        if a is not None:
-            # should work from at least Blender4.2+
-            if _BLE_5_PLUS:
-                # combined fcurves ranges
-                # check if start and end frames are different
-                if a.curve_frame_range[0] != a.curve_frame_range[1]:
-                    return True
-            else:
-                for c in a.fcurves:
-                    if len(c.keyframe_points) > 1:
-                        return True
+    if obj.animation_data is None:
+        return False
+
+    a = obj.animation_data.action
+    if a is None:
+        return False
+
+    # should work from at least Blender4.2+
+    if _BLE_5_PLUS:
+        # combined fcurves ranges
+        # check if start and end frames are different
+        if a.curve_frame_range[0] != a.curve_frame_range[1]:
+            return True
+    else:
+        # older Blender versions
+        for c in a.fcurves:
+            if len(c.keyframe_points) > 1:
+                return True
     return False
 
 
