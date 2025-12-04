@@ -242,7 +242,7 @@ engines = (
     ("CYCLES", "Cycles", "Blender Cycles"),
     ("EEVEE", "Eevee", "Blender eevee renderer"),
     ("EEEVE_NEXT", "Eevee Next", "Blender eevee renderer (new)"),
-    ("OCTANE", "Octane", "Octane render enginge"),
+    ("OCTANE", "Octane", "Octane render engine"),
     ("ARNOLD", "Arnold", "Arnold render engine"),
     ("V-RAY", "V-Ray", "V-Ray renderer"),
     ("UNREAL", "Unreal", "Unreal engine"),
@@ -461,12 +461,12 @@ class BlenderKitUIProps(PropertyGroup):
     search_blender_version: BoolProperty(
         name="Asset Blender Version",
         description="Limit the assets by version of Blender (minimum, maximum) in which they were created. "
-        + "Use maximum version limit to exclude incompatible assets from newer Blender versions than yours. Or set the minumum version to exclude assets created in quite old Blender versions",
+        + "Use maximum version limit to exclude incompatible assets from newer Blender versions than yours. Or set the minimum version to exclude assets created in quite old Blender versions",
     )
     search_blender_version_min: StringProperty(
         name="Minimal version (including, higher than or equal)",
         default="0.0",
-        description="Limit the assets by minimum version of Blender in which they were created, including also the specified version and exluding all older versions from the search results. "
+        description="Limit the assets by minimum version of Blender in which they were created, including also the specified version and excluding all older versions from the search results. "
         + "Only assets created in HIGHER THAN OR EQUAL (>= min) minimum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
         + "E.g.: exclude all Blender 2 assets by specifying 3, 3.0, or 3.0.0. Assets created in 3.0 or higher will be shown",
         update=search.search_update,
@@ -474,7 +474,7 @@ class BlenderKitUIProps(PropertyGroup):
     search_blender_version_max: StringProperty(
         name="Maximum version (excluding, lower than)",
         default="5.99",
-        description="Limit the assets by maximum version of Blender in which they were created, exluding the specified version and all newer versions from the search results. "
+        description="Limit the assets by maximum version of Blender in which they were created, excluding the specified version and all newer versions from the search results. "
         + "Only assets created in LOWER THAN (< max) maximum version will be shown. Use semantic versioning format: X.Y.Z.\n\n"
         + "E.g.: exclude all Blender 4 assets by specifying 4, 4.0, or 4.0.0. Assets created in 3.6 and lower will be shown",
         update=search.search_update,
@@ -580,7 +580,7 @@ class BlenderKitUIProps(PropertyGroup):
 
     rating_ui_width: IntProperty(name="Rating UI Width", default=rating_ui_scale * 600)
     rating_ui_height: IntProperty(
-        name="Rating UI Heightt", default=rating_ui_scale * 256
+        name="Rating UI Height", default=rating_ui_scale * 256
     )
 
     quality_stars_x: IntProperty(name="Rating UI Stars X", default=rating_ui_scale * 90)
@@ -1213,7 +1213,7 @@ class BlenderKitBrushUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     )
 
 
-class BlenderKitNodeGroulUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
+class BlenderKitNodeGroupUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     thumbnail: StringProperty(
         name="Thumbnail",
         description="Thumbnail path - minimum 1024x1024 square .jpg\n"
@@ -1766,7 +1766,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         update=search.search_update,
     )
     search_design_year: BoolProperty(
-        name="Sesigned in Year",
+        name="Designed in Year",
         description="When the object was approximately designed. \n"
         "Useful for search of historical or future objects",
         default=False,
@@ -1966,7 +1966,7 @@ def fix_subdir(self, context):
 
         ui_panels.ui_message(
             title="Fixed to relative path",
-            message="This path should be always realative.\n"
+            message="This path should be always relative.\n"
             " It's a directory BlenderKit creates where your .blend is \n "
             "and uses it for storing assets.",
         )
@@ -1992,7 +1992,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     preferences_lock: BoolProperty(
         name="Preferences Locked",
-        description="When this is on, preferences will not be saved. Used for programatical changes of preferences",
+        description="When this is on, preferences will not be saved. Used for programmatic changes of preferences",
         default=False,
     )
 
@@ -2233,8 +2233,8 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     proxy_address: StringProperty(
         name="Custom proxy address",
-        description="""Set custom HTTP proxy for HTTPS requests of add-on. This setting preceeds any system wide proxy settings. If left empty custom proxy will not be set.
-        
+        description="""Set custom HTTP proxy for HTTPS requests of add-on. This setting precedes any system wide proxy settings. If left empty custom proxy will not be set.
+
 If you use simple HTTP proxy, set in format http://ip:port, or http://username:password@ip:port if your HTTP proxy requires authentication (make sure to escape special characters like #$%:^&*() etc. in username and password). You have to specify the address with http:// prefix.
 
 HTTPS proxies are not supported! We wait for support in Python 3.11 and in aiohttp module. You can specify the HTTPS proxy with https:// prefix for hacking around and development purposes, but functionality cannot be guaranteed.
@@ -2435,7 +2435,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         if self.api_key.strip() == "":
             ui_panels.draw_login_buttons(layout)
             layout.label(
-                text="Sign up to bookmark your favourite assets. Get 200 MiB of private storage in Free Plan."
+                text="Sign up to bookmark your favorite assets. Get 200 MiB of private storage in Free Plan."
             )
         else:
             layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
@@ -2471,7 +2471,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
 
-        # NETWORKING SETINGS
+        # NETWORKING SETTINGS
         network_settings = layout.box()
         network_settings.alignment = "EXPAND"
         network_settings.label(text="Networking settings")
@@ -2535,7 +2535,7 @@ classes = (
     BlenderKitBrushSearchProps,
     BlenderKitBrushUploadProps,
     BlenderKitGeoToolSearchProps,
-    BlenderKitNodeGroulUploadProps,
+    BlenderKitNodeGroupUploadProps,
     BlenderKitAddonSearchProps,
 )
 
@@ -2598,10 +2598,10 @@ def register():
         type=BlenderKitGeoToolSearchProps
     )
     bpy.types.NodeGroup.blenderkit = PointerProperty(  # for uploads, not now...
-        type=BlenderKitNodeGroulUploadProps
+        type=BlenderKitNodeGroupUploadProps
     )
     bpy.types.NodeTree.blenderkit = PointerProperty(  # for uploads, not now...
-        type=BlenderKitNodeGroulUploadProps
+        type=BlenderKitNodeGroupUploadProps
     )
     bpy.types.WindowManager.blenderkit_addon = PointerProperty(
         type=BlenderKitAddonSearchProps

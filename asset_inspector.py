@@ -27,6 +27,8 @@ from . import utils
 
 RENDER_OBTYPES = ["MESH", "CURVE", "SURFACE", "METABALL", "TEXT"]
 
+_BLE_5_PLUS = bpy.app.version >= (5, 0, 0)
+
 
 def check_material(props, mat):
     e = bpy.context.scene.render.engine
@@ -217,17 +219,34 @@ def check_rig(props, obs):
             props.rig = True
 
 
+def has_keyframes(obj):
+    """Checks if object has animation data with keyframes.
+
+    This function only checks for keyframes,
+    may return false negatives for objects animated with constraints, drivers, etc.
+    """
+    if obj.animation_data is not None:
+        a = obj.animation_data.action
+        if a is not None:
+            # should work from at least Blender4.2+
+            if _BLE_5_PLUS:
+                # combined fcurves ranges
+                # check if start and end frames are different
+                if a.curve_frame_range[0] != a.curve_frame_range[1]:
+                    return True
+            else:
+                for c in a.fcurves:
+                    if len(c.keyframe_points) > 1:
+                        return True
+    return False
+
+
 def check_anim(props, obs):
     animated = False
     for ob in obs:
-        if ob.animation_data is not None:
-            a = ob.animation_data.action
-            if a is not None:
-                for c in a.fcurves:
-                    if len(c.keyframe_points) > 1:
-                        animated = True
-
-                        # c.keyframe_points.remove(c.keyframe_points[0])
+        if has_keyframes(ob):
+            animated = True
+            break
     if animated:
         props.animated = True
 
