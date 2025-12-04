@@ -71,7 +71,9 @@
 
     "cSpell.words": [
         "assetbar",
+        "autofilled",
         "automap",
+        "autotagging",
         "autothumbnailer",
         "backface",
         "behaviour",
@@ -79,6 +81,7 @@
         "blenderkit",
         "CHECKMARK",
         "datablock",
+        "denoising",
         "depsgraph",
         "downloaders",
         "GLSL",
@@ -101,8 +104,10 @@
         "questionmark",
         "RIGHTMOUSE",
         "sprops",
+        "thumbnailer",
         "trackpad",
         "twinbru",
+        "userpref",
         "vcol",
         "WHEELDOWNMOUSE",
         "WHEELUPMOUSE"
