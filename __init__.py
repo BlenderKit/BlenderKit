@@ -1548,6 +1548,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         default=False,
     )
 
+
 class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     style: EnumProperty(
         name="Style",

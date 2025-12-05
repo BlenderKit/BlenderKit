@@ -1689,10 +1689,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props.active_index = search_index  # + self.scroll_offset
 
             # Update tooltip size based on asset type
-            if (
-                asset_data["assetType"].lower() in {"printable", "model", "scene"}
-                and self.show_thumbnail_variant in {"PHOTO","WIREFRAME"}
-            ):
+            if asset_data["assetType"].lower() in {
+                "printable",
+                "model",
+                "scene",
+            } and self.show_thumbnail_variant in {"PHOTO", "WIREFRAME"}:
                 t_type = self.show_thumbnail_variant.lower()
                 if t_type == "render":
                     photo_img = ui.get_full_photo_thumbnail(asset_data)

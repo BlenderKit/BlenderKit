@@ -395,9 +395,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             )
         # Add wire thumbnail path to export_data for models and printable assets
         if asset_type in ("MODEL", "SCENE", "PRINTABLE") and props.wire_thumbnail:
-            export_data["wire_thumbnail_path"] = bpy.path.abspath(
-                props.wire_thumbnail
-            )
+            export_data["wire_thumbnail_path"] = bpy.path.abspath(props.wire_thumbnail)
 
         eval_path_computing = (
             "bpy.data.objects['%s'].blenderkit.uploading" % mainmodel.name
@@ -1215,7 +1213,10 @@ class UploadOperator(Operator):
                 upload_set.append("photo_thumbnail")
 
             # add wire_thumbnail for models if it exists
-            if self.asset_type in {"MODEL", "SCENE", "PRINTABLE"} and props.wire_thumbnail:
+            if (
+                self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
+                and props.wire_thumbnail
+            ):
                 upload_set.append("wire_thumbnail")
         else:
             if self.metadata:
