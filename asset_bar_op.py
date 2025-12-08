@@ -195,7 +195,7 @@ def modal_inside(self, context, event):
             }[event.type]
 
             if tab_idx < len(global_vars.TABS["tabs"]):
-                bk_logger.info(f"Ctrl+{tab_idx+1} pressed - go to tab {tab_idx+1}")
+                bk_logger.info("Ctrl+%d pressed - go to tab %d", tab_idx+1, tab_idx+1)
                 self.switch_to_history_step(
                     tab_idx, global_vars.TABS["tabs"][tab_idx]["history_index"]
                 )
@@ -352,7 +352,7 @@ def asset_bar_invoke(self, context, event):
 #         try:
 #             self.mouse_down_right_func(self)
 #         except Exception as e:
-#             bk_logger.warning(f"{e}")
+#             bk_logger.warning("%s", e)
 
 #         return True
 
@@ -378,7 +378,7 @@ def get_tooltip_data(asset_data):
             if len(author.firstName) > 0 or len(author.lastName) > 0:
                 author_text = f"by {author.firstName} {author.lastName}"
         else:
-            bk_logger.warning(f"get_tooltip_data() AUTHOR NOT FOUND: {author_id}")
+            bk_logger.warning("get_tooltip_data() AUTHOR NOT FOUND: %s", author_id)
 
     aname = asset_data["displayName"]
     if len(aname) == 0:
@@ -2147,7 +2147,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # delete downloaded files for this asset
             sr = search.get_search_results()
             asset_data = sr[self.active_index]
-            bk_logger.info(f'deleting asset from local drive: {asset_data["name"]}')
+            bk_logger.info("deleting asset from local drive: %s", asset_data["name"])
             paths.delete_asset_debug(asset_data)
             asset_data["downloaded"] = 0
             return True
@@ -2278,18 +2278,18 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     @classmethod
     def unregister(cls):
         """Unregister the asset bar operator and clean up instances."""
-        bk_logger.debug(f"unregistering class {cls}")
+        bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug(f"- instance {instance}")
+            bk_logger.debug("- instance %s", instance)
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:
-                bk_logger.debug(f"-- error unregister_handlers(): {e}")
+                bk_logger.debug("-- error unregister_handlers(): %s", e)
             try:
                 instance.on_finish(instance.context)
             except Exception as e:
-                bk_logger.debug(f"-- error calling on_finish(): {e}")
+                bk_logger.debug("-- error calling on_finish(): %s", e)
             cls.instances.remove(instance)
 
     def restart_asset_bar(self):
@@ -2459,7 +2459,7 @@ def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
     3. open the asset bar
     We handle the task in asset_bar_op because we need access to the asset_bar_operator without circular import from search.
     """
-    bk_logger.info(f"handle_bkclientjs_get_asset: {task.result['asset_data']['name']}")
+    bk_logger.info("handle_bkclientjs_get_asset: %s", task.result['asset_data']['name'])
 
     # Get asset data from task result
     asset_data = task.result.get("asset_data")
@@ -2485,7 +2485,7 @@ def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
         try:
             bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)  # type: ignore[attr-defined]
         except Exception as e:
-            bk_logger.error(f"Failed to open asset bar: {e}")
+            bk_logger.error("Failed to open asset bar: %s", e)
             return
 
     # Force redraw of the region if asset bar exists

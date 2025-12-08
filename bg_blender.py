@@ -139,8 +139,8 @@ def bg_update():
         estring = p[1].eval_path_computing + " = False"
         try:
             exec(estring)
-        except Exception as e:
-            bk_logger.error(f"Exception executing eval_path_computing: {e}")
+        except Exception:
+            bk_logger.exception("Exception executing eval_path_computing.")
         bg_processes.remove(p)
 
     # Parse process output

@@ -50,7 +50,7 @@ def handle_get_rating_task(task: client_tasks.Task):
     if task.status == "created":
         return
     if task.status == "error":
-        return bk_logger.warning(f"{task.task_type} task failed: {task.message}")
+        return bk_logger.warning("%s task failed: %s", task.task_type, task.message)
 
     asset_id = task.data["asset_id"]
     ratings = task.result["results"]
@@ -69,7 +69,7 @@ def handle_get_ratings_task(task: client_tasks.Task):
     Goroutine which fetches the ratings. The individual ratings are then sent as normal 'get_rating' tasks.
     """
     if task.status == "error":  # only reason this task type exists right now
-        return bk_logger.warning(f"{task.task_type} task failed: {task.message}")
+        return bk_logger.warning("%s task failed: %s", task.task_type, task.message)
 
 
 def handle_get_bookmarks_task(task: client_tasks.Task):
@@ -80,7 +80,7 @@ def handle_get_bookmarks_task(task: client_tasks.Task):
     if task.status == "created":
         return
     if task.status == "error":
-        bk_logger.warning(f"Could not load bookmarks: {task.message}")
+        bk_logger.warning("Could not load bookmarks: %s", task.message)
         return
 
     for asset in task.result["results"]:
@@ -419,7 +419,7 @@ class RatingProperties(PropertyGroup):
                     whs = "0"
                 self.rating_work_hours_ui = whs
             except Exception as e:
-                bk_logger.warning(f"exception setting rating_work_hours_ui: {e}")
+                bk_logger.warning("exception setting rating_work_hours_ui: %s", e)
 
             self.rating_work_hours = round(rating.working_hours, 2)
             self.rating_work_hours_lock = False
