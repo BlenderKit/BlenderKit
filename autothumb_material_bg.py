@@ -164,11 +164,20 @@ if __name__ == "__main__":
                 ob.data.texspace_size.x = 1  # / tscale
                 ob.data.texspace_size.y = 1  # / tscale
                 ob.data.texspace_size.z = 1  # / tscale
-                if data["adaptive_subdivision"] == True:
-                    ob.cycles.use_adaptive_subdivision = True
 
+                # this option was moved in Blender 5.0 from cycles directly to modifier
+                if bpy.app.version > (5, 0, 0):
+                    for mod in ob.modifiers:
+                        if mod.type == "SUBSURF":
+                            if data["adaptive_subdivision"] == True:
+                                mod.use_adaptive_subdivision = True
+                            else:
+                                mod.use_adaptive_subdivision = False
                 else:
-                    ob.cycles.use_adaptive_subdivision = False
+                    if data["adaptive_subdivision"] == True:
+                        ob.cycles.use_adaptive_subdivision = True
+                    else:
+                        ob.cycles.use_adaptive_subdivision = False
                 ts = data["texture_size_meters"]
                 if data["thumbnail_type"] in ["BALL", "BALL_COMPLEX", "CLOTH"]:
                     utils.automap(
@@ -179,7 +188,13 @@ if __name__ == "__main__":
                     )
         bpy.context.view_layer.update()
 
-        s.cycles.volume_step_size = tscale * 0.1
+        # this option was removed in Blender 5.0
+        # but we have option to set biased volumes
+        if bpy.app.version > (5, 0, 0):
+            # usually small speedup with little quality loss
+            c.cycles.volume_biased = True
+        else:
+            s.cycles.volume_step_size = tscale * 0.1
 
         if thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
