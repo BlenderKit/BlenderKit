@@ -124,7 +124,7 @@ def client_communication_timer():
     This function is the only one responsible for keeping the Client up and running.
     """
     global pending_tasks
-    bk_logger.debug("Getting tasks from Client")
+    bk_logger.log(5, "Getting tasks from Client")
     search.check_clipboard()
     results = list()
     try:
@@ -141,7 +141,7 @@ def client_communication_timer():
         wm = bpy.context.window_manager
         wm.blenderkitUI.logo_status = "logo"
 
-    bk_logger.debug("Handling tasks")
+    bk_logger.log(5, "Handling tasks")
     results_converted_tasks = []
 
     # convert to task type
@@ -166,7 +166,7 @@ def client_communication_timer():
     for task in results_converted_tasks:
         handle_task(task)
 
-    bk_logger.debug("Task handling finished")
+    bk_logger.log(5, "Task handling finished")
     delay = bpy.context.preferences.addons[__package__].preferences.client_polling
     if len(download.download_tasks) > 0:
         return min(0.2, delay)
