@@ -2430,6 +2430,15 @@ In this case you should also set path to your system CA bundle containing proxy'
         default="[]",
     )
 
+    # EXPERIMENTAL AND DEBUG FEATURES CAN GO BELOW
+    ignore_env_for_thumbnails: BoolProperty(
+        name="Ignore ENVIRONMENT variables for thumbnails",
+        description="If enabled, we will not modify the system environment variables for background thumbnail rendering.",
+        default=False,
+        # do not save prefs here, it's experimental
+        options={"SKIP_SAVE"},
+    )
+
     def draw(self, context):
         layout = self.layout
         if self.api_key.strip() == "":
@@ -2486,6 +2495,14 @@ In this case you should also set path to your system CA bundle containing proxy'
 
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
+
+        # EXPERIMENTAL SETTINGS
+        # only if experimental features enabled
+        if self.experimental_features:
+            experimental_settings = layout.box()
+            experimental_settings.alignment = "EXPAND"
+            experimental_settings.label(text="Experimental settings")
+            experimental_settings.prop(self, "ignore_env_for_thumbnails")
 
         # RUNTIME INFO
         globdir_op = layout.operator(
