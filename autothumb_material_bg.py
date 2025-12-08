@@ -166,7 +166,7 @@ if __name__ == "__main__":
                 ob.data.texspace_size.z = 1  # / tscale
 
                 # this option was moved in Blender 5.0 from cycles directly to modifier
-                if bpy.app.version > (5, 0, 0):
+                if bpy.app.version >= (5, 0, 0):
                     for mod in ob.modifiers:
                         if mod.type == "SUBSURF":
                             if data["adaptive_subdivision"] == True:
@@ -190,9 +190,9 @@ if __name__ == "__main__":
 
         # this option was removed in Blender 5.0
         # but we have option to set biased volumes
-        if bpy.app.version > (5, 0, 0):
+        if bpy.app.version >= (5, 0, 0):
             # usually small speedup with little quality loss
-            c.cycles.volume_biased = True
+            s.cycles.volume_biased = True
         else:
             s.cycles.volume_step_size = tscale * 0.1
 
