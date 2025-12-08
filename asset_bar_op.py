@@ -195,7 +195,9 @@ def modal_inside(self, context, event):
             }[event.type]
 
             if tab_idx < len(global_vars.TABS["tabs"]):
-                bk_logger.info("Ctrl+%d pressed - go to tab %d", tab_idx+1, tab_idx+1)
+                bk_logger.info(
+                    "Ctrl+%d pressed - go to tab %d", tab_idx + 1, tab_idx + 1
+                )
                 self.switch_to_history_step(
                     tab_idx, global_vars.TABS["tabs"][tab_idx]["history_index"]
                 )
@@ -2459,7 +2461,7 @@ def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
     3. open the asset bar
     We handle the task in asset_bar_op because we need access to the asset_bar_operator without circular import from search.
     """
-    bk_logger.info("handle_bkclientjs_get_asset: %s", task.result['asset_data']['name'])
+    bk_logger.info("handle_bkclientjs_get_asset: %s", task.result["asset_data"]["name"])
 
     # Get asset data from task result
     asset_data = task.result.get("asset_data")
