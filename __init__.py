@@ -267,6 +267,12 @@ mesh_poly_types = (
 )
 
 
+EXTRA_PATH_OPTIONS = {}
+
+if bpy.app.version >= (4, 5, 0):
+    EXTRA_PATH_OPTIONS = {"options": {"PATH_SUPPORTS_BLEND_RELATIVE"}}
+
+
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
     props = bpy.context.window_manager.blenderkitUI
@@ -1130,6 +1136,7 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         subtype="FILE_PATH",
         default="",
         update=autothumb.update_upload_material_preview,
+        **EXTRA_PATH_OPTIONS,
     )
 
     is_generating_thumbnail: BoolProperty(
@@ -1220,6 +1227,7 @@ class BlenderKitNodeGroupUploadProps(PropertyGroup, BlenderKitCommonUploadProps)
         "And make it beautiful!",
         subtype="FILE_PATH",
         default="",
+        **EXTRA_PATH_OPTIONS,
         # update=autothumb.update_upload_model_preview,
     )
     # mode: EnumProperty(
@@ -1326,6 +1334,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         subtype="FILE_PATH",
         default="",
         update=autothumb.update_upload_model_preview,
+        **EXTRA_PATH_OPTIONS,
     )
 
     thumbnail_background_lightness: FloatProperty(
@@ -1529,6 +1538,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Photo of the 3D printed object (JPG or PNG, preferred size is 1024x1024 or higher)",
         subtype="FILE_PATH",
         default="",
+        **EXTRA_PATH_OPTIONS,
     )
     photo_thumbnail_will_upload_on_website: BoolProperty(
         name="I will upload photo on website",
@@ -1603,6 +1613,7 @@ class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         subtype="FILE_PATH",
         default="",
         update=autothumb.update_upload_scene_preview,
+        **EXTRA_PATH_OPTIONS,
     )
 
     use_design_year: BoolProperty(
