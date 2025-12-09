@@ -710,7 +710,7 @@ def query_to_url(
     scene_uuid: str = "",
     page_size: int = 15,
 ) -> str:
-    """Build a new search request by parsing query dictionaty into appropriate URL.
+    """Build a new search request by parsing query dictionary into appropriate URL.
     Also modifies query and adds some stuff in there which is very misleading anti-pattern.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
     https://www.blenderkit.com/api/v1/search/
