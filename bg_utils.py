@@ -60,7 +60,7 @@ def delete_unfinished_file(file_name):
     try:
         os.remove(file_name)
     except Exception as e:
-        bk_logger.error(f"{e}")
+        bk_logger.error("Could not delete unfinished file %s: %s", file_name, e)
     asset_dir = os.path.dirname(file_name)
     if len(os.listdir(asset_dir)) == 0:
         os.rmdir(asset_dir)

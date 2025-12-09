@@ -299,7 +299,7 @@ def append_material(file_name, matname=None, link=False, fake_user=True):
                 )
 
     except Exception as e:
-        bk_logger.error(f"{e} - failed to open the asset file")
+        bk_logger.error("%s - failed to open the asset file", e)
     # we have to find the new material , due to possible name changes
     mat = None
     for m in bpy.data.materials:
@@ -682,7 +682,7 @@ def append_objects(
                 if hide_collection in hidden_collections:
                     continue
                 # All other collections are moved to be children of the model collection
-                bk_logger.info(f"{hide_collection}, {appended_collection}")
+                bk_logger.info("%s, %s", hide_collection, appended_collection)
                 # If target collection is specified, move collections there instead
                 if collection and bpy.data.collections.get(collection):
                     utils.move_collection(
