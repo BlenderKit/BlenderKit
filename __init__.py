@@ -1546,6 +1546,18 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         default=False,
     )
 
+    wire_thumbnail: StringProperty(
+        name="Wireframe Thumbnail",
+        description="Wireframe thumbnail (JPG or PNG, preferred size is 1024x1024 or higher)",
+        subtype="FILE_PATH",
+        default="",
+    )
+    wire_thumbnail_will_upload_on_website: BoolProperty(
+        name="I will upload wireframe thumbnail on website",
+        description="True if the wireframe thumbnail will upload on the website\n please read upload tutorial for more information",
+        default=False,
+    )
+
 
 class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     style: EnumProperty(
