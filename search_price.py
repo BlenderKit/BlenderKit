@@ -17,7 +17,7 @@ def _normalize_version_uuid_list(values: Optional[Iterable[str]]) -> List[str]:
     return normalized
 
 
-def query_to_price_url(
+def query_user_price(
     version_uuids: list[str] = [],
     page_size: int = 15,
     api_key: str = "",
@@ -45,6 +45,12 @@ def query_to_price_url(
         raise ValueError("No version UUIDs provided for price lookup.")
 
     headers = utils.get_headers(api_key)
+    headers.setdefault("Content-Type", "application/json")
+    # Server expects Content-Disposition with filename even for JSON payloads.
+    headers.setdefault(
+        "Content-Disposition",
+        'attachment; filename="version_uuids.json"',
+    )
 
     response = client_lib.blocking_request(
         url,

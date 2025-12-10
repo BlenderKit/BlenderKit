@@ -20,6 +20,7 @@ import copy
 import json
 import logging
 import math
+from functools import lru_cache
 import os
 import re
 import unicodedata
@@ -43,6 +44,7 @@ from . import (
     image_utils,
     paths,
     reports,
+    search_price,
     resolutions,
     tasks_queue,
     utils,
@@ -51,6 +53,67 @@ from . import (
 
 bk_logger = logging.getLogger(__name__)
 search_tasks = {}
+
+
+# @lru_cache(maxsize=1)
+def _get_active_api_key() -> str:
+    """Return current API key or empty string when unavailable."""
+    try:
+        user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore[attr-defined]
+    except Exception:
+        return ""
+    return getattr(user_preferences, "api_key", "") or ""
+
+
+def _inject_user_price_data(assets: list[dict]) -> None:
+    """Augment search results with per-user pricing info when available."""
+    if not assets:
+        bk_logger.debug("User price lookup skipped: empty assets list.")
+        return
+
+    api_key = _get_active_api_key()
+    # if not api_key:
+    #     bk_logger.debug("User price lookup skipped: no API key.")
+    #     return
+
+    version_uuids: list[str] = [ass["id"] for ass in assets]
+    if not version_uuids:
+        bk_logger.debug("User price lookup skipped: empty version UUIDs list.")
+        return
+
+    try:
+        price_response = search_price.query_user_price(
+            version_uuids=version_uuids,
+            page_size=len(version_uuids),
+            api_key=api_key,
+        )
+    except Exception as exc:
+        bk_logger.warning("Failed to fetch user prices: %s", exc)
+        return
+
+    if not price_response:
+        bk_logger.debug(
+            "User price lookup skipped: %s",
+            price_response,
+        )
+        return
+
+    price_by_uuid: dict[str, dict] = {}
+    for entry in price_response:
+        version_uuid = entry.get("versionUuid")  # maybe assetUuid ?
+        if not version_uuid:
+            continue
+        price_by_uuid[version_uuid] = entry
+
+    if not price_by_uuid:
+        return
+
+    for asset in assets:
+        version_uuid = asset["id"]
+        price_info = price_by_uuid.get(version_uuid)
+        if not price_info:
+            continue
+        asset["userPrice"] = price_info["discountedPrice"]
 
 
 def update_ad(ad):
@@ -341,7 +404,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         return True
 
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
-    # causing a lot of throuble.
+    # causing a lot of trouble.
     if bpy.context.window_manager.blenderkitUI.dragging:  # type: ignore[attr-defined]
         return False
 
@@ -402,6 +465,10 @@ def handle_search_task(task: client_tasks.Task) -> bool:
             result_field = [
                 asset for asset in result_field if asset.get("downloaded", 0) > 0
             ]
+
+        # TODO: if ever needed, implement for other future types
+        if result_field:
+            _inject_user_price_data(result_field)
 
     # Store results in history step
     history_step["search_results"] = result_field
@@ -1012,6 +1079,7 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
 def add_search_process(
     query, get_next: bool, page_size: int, next_url: str, history_id: str
 ):
+    """Initialize search task and add it to the task queue."""
     global search_tasks
     addon_version = utils.get_addon_version()
     blender_version = utils.get_blender_version()
@@ -1232,7 +1300,7 @@ def search(get_next=False, query=None, author_id=""):
 
 
 def clean_filters():
-    """Cleanup filters in case search needs to be reset, typicaly when asset id is copy pasted."""
+    """Cleanup filters in case search needs to be reset, typically when asset id is copy pasted."""
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
     ui_props.property_unset("own_only")

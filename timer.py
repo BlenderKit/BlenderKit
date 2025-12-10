@@ -120,7 +120,7 @@ def handle_failed_reports(exception: Exception) -> float:
 
 @bpy.app.handlers.persistent
 def client_communication_timer():
-    """Recieve all responses from Client and run according followup commands.
+    """Receive all responses from Client and run according followup commands.
     This function is the only one responsible for keeping the Client up and running.
     """
     global pending_tasks

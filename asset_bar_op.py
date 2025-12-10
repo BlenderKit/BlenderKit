@@ -41,7 +41,7 @@ from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
-from .bl_ui_widgets.bl_ui_label import BL_UI_Label
+from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 
@@ -399,8 +399,10 @@ def get_tooltip_data(asset_data):
         quality = str(round(asset_data["ratingsAverage"].get("quality")))
 
     # Add pricing information
-    price_text = ""
-    price_color = colors.WHITE
+    base_price_text = ""
+    user_price_text = ""
+    user_price_color = colors.WHITE
+    base_price_color = colors.WHITE
 
     # Check if asset is free or paid (works for all asset types)
     is_free = asset_data.get("isFree", True)
@@ -409,30 +411,59 @@ def get_tooltip_data(asset_data):
     if asset_data.get("assetType") == "addon":
         # Get pricing info from extensions cache.
         # Pricing info is shown only for add-ons.
-        base_price = asset_data.get("basePrice")
+        base_price_text = asset_data.get("basePrice")
+        user_price_text = asset_data.get("userPrice")
         is_for_sale = asset_data.get("isForSale")
 
-        if is_for_sale and not can_download and base_price:
-            price_text = f"${base_price}"
-            price_color = colors.PURPLE
-        elif not is_free and not is_for_sale:
-            price_text = "Full Plan"
-            price_color = colors.ORANGE_FULL
-        elif (
-            is_for_sale and can_download
-        ):  # purchased, but not yet downloaded, so we can't show price
-            price_text = f"Purchased (${base_price})"
-            price_color = colors.PURPLE
+        # for debug show both prices always
+        if utils.profile_is_validator():
+            user_price_text = f"user ${user_price_text}"
+            user_price_color = colors.PURPLE
+
+            base_price_text = f" base(${base_price_text})"
+            base_price_color = colors.RED
         else:
-            price_text = "Free"
-            price_color = colors.GREEN_FREE
+            if is_for_sale and not can_download and user_price_text and base_price_text:
+                user_price_text = f"${user_price_text}"
+                user_price_color = colors.PURPLE
+
+                base_price_text = f" (${base_price_text})"
+                base_price_color = colors.RED
+
+            if is_for_sale and not can_download and base_price_text:
+                base_price_text = f"${base_price_text}"
+                base_price_color = colors.PURPLE
+
+                user_price_text = ""
+
+            elif not is_free and not is_for_sale:
+                base_price_text = "Full Plan"
+                base_price_color = colors.ORANGE_FULL
+
+                user_price_text = ""
+
+            elif (
+                is_for_sale and can_download
+            ):  # purchased, but not yet downloaded, so we can't show price
+                # should we just say "Purchased"? to prevent confusion about user price ?
+                base_price_text = f"Purchased (${base_price_text})"
+                base_price_color = colors.PURPLE
+
+                user_price_text = ""
+
+            else:
+                base_price_text = "Free"
+                user_price_text = ""
+                base_price_color = colors.GREEN_FREE
 
     tooltip_data = {
         "aname": aname,
         "author_text": author_text,
         "quality": quality,
-        "price_text": price_text,
-        "price_color": price_color,
+        "user_price_text": user_price_text,
+        "base_price_text": base_price_text,
+        "user_price_color": user_price_color,
+        "base_price_color": base_price_color,
     }
     asset_data["tooltip_data"] = tooltip_data
 
@@ -507,6 +538,30 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             text_size = 14
         label.text_size = text_size
         label.text_color = self.text_color
+        label._halign = halign
+        return label
+
+    def new_duo_text(
+        self,
+        text_a,
+        x,
+        y,
+        text_b="",
+        width=100,
+        height=15,
+        text_size=None,
+        halign="LEFT",
+    ):
+        """Create a new text label widget."""
+        label = BL_UI_DuoLabel(x, y, width, height)
+        label.text_a = text_a
+        label.text_b = text_b
+        if text_size is None:
+            text_size = 14
+        label.text_size = text_size
+        label.text_a_color = self.text_color
+        label.text_b_color = self.text_color
+
         label._halign = halign
         return label
 
@@ -614,8 +669,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(quality_label)
         self.quality_label = quality_label
 
-        # Add price label for addons
-        price_label = self.new_text(
+        # Add user/base price label for addons
+        multi_price_label = self.new_duo_text(
             "",
             self.tooltip_margin,
             self.tooltip_height
@@ -623,9 +678,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             height=self.asset_name_text_size,
             text_size=self.asset_name_text_size,
         )
-        price_label.text_color = (1.0, 0.8, 0.2, 1.0)  # Golden color for price
-        self.tooltip_widgets.append(price_label)
-        self.price_label = price_label
+        multi_price_label.text_a_color = (
+            1.0,
+            0.8,
+            0.2,
+            1.0,
+        )  # Golden color for current price
+        multi_price_label.text_b_color = (
+            0.8,
+            0.4,
+            0.4,
+            1.0,
+        )  # Reddish color for base price
+        self.tooltip_widgets.append(multi_price_label)
+        self.multi_price_label = multi_price_label
 
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         offset = 0
@@ -1715,14 +1781,24 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 self.quality_label.visible = False
                 self.quality_star.visible = False
 
-            # Update price label for addons
-            price_text = asset_data["tooltip_data"].get("price_text", "")
-            price_color = asset_data["tooltip_data"].get(
-                "price_color", (1.0, 0.8, 0.2, 1.0)
+            # Update price labels for addons
+            user_price_text = asset_data["tooltip_data"].get("user_price_text", "")
+            user_price_color = asset_data["tooltip_data"].get(
+                "user_price_color", (1.0, 0.8, 0.2, 1.0)
             )
-            self.price_label.text = price_text
-            self.price_label.text_color = price_color
-            self.price_label.visible = bool(price_text)
+
+            base_price_text = asset_data["tooltip_data"].get("base_price_text", "")
+            base_price_color = asset_data["tooltip_data"].get(
+                "base_price_color", (1.0, 0.8, 0.2, 1.0)
+            )
+            self.multi_price_label.text_a = user_price_text
+            self.multi_price_label.text_a_color = user_price_color
+            self.multi_price_label.text_b = base_price_text
+            self.multi_price_label.text_b_color = base_price_color
+            if user_price_text or base_price_text:
+                self.multi_price_label.visible = True
+            else:
+                self.multi_price_label.visible = False
 
             # preview comments for validators
             self.update_comments_for_validators(asset_data)

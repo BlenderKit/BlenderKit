@@ -236,25 +236,25 @@ class SetBookmark(bpy.types.Operator):
         client_lib.send_rating(self.asset_id, "bookmarks", bookmark_value)
         return {"FINISHED"}
 
+## NOT USED ANYMORE
+# def rating_menu_draw(self, context):
+#     layout = self.layout
 
-def rating_menu_draw(self, context):
-    layout = self.layout
+#     ui_props = context.window_manager.blenderkitUI
+#     sr = search.get_search_results()
 
-    ui_props = context.window_manager.blenderkitUI
-    sr = search.get_search_results()
+#     asset_search_index = ui_props.active_index
+#     if asset_search_index > -1:
+#         asset_data = dict(sr["results"][asset_search_index])
 
-    asset_search_index = ui_props.active_index
-    if asset_search_index > -1:
-        asset_data = dict(sr["results"][asset_search_index])
+#     col = layout.column()
+#     layout.label(text="Admin rating Tools:")
+#     col.operator_context = "INVOKE_DEFAULT"
 
-    col = layout.column()
-    layout.label(text="Admin rating Tools:")
-    col.operator_context = "INVOKE_DEFAULT"
-
-    op = col.operator("wm.blenderkit_menu_rating_upload", text="Add Rating")
-    op.asset_id = asset_data["id"]
-    op.asset_name = asset_data["name"]
-    op.asset_type = asset_data["assetType"]
+#     op = col.operator("wm.blenderkit_menu_rating_upload", text="Add Rating")
+#     op.asset_id = asset_data["id"]
+#     op.asset_name = asset_data["name"]
+#     op.asset_type = asset_data["assetType"]
 
 
 # Coordinates (each one is a triangle).
