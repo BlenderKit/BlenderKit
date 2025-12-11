@@ -20,7 +20,6 @@ def _normalize_version_uuid_list(values: Optional[Iterable[str]]) -> List[str]:
 def query_user_price(
     version_uuids: list[str] = [],
     page_size: int = 15,
-    api_key: str = "",
     timeout: Tuple[float, float] = (1, 30),
 ) -> dict:
     """Return results for price lookup of multiple asset versions.
@@ -44,13 +43,8 @@ def query_user_price(
     if not payload["version_uuids"]:
         raise ValueError("No version UUIDs provided for price lookup.")
 
-    headers = utils.get_headers(api_key)
+    headers = utils.get_simple_headers()
     headers.setdefault("Content-Type", "application/json")
-    # Server expects Content-Disposition with filename even for JSON payloads.
-    headers.setdefault(
-        "Content-Disposition",
-        'attachment; filename="version_uuids.json"',
-    )
 
     response = client_lib.blocking_request(
         url,

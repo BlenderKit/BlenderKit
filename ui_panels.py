@@ -83,7 +83,7 @@ def draw_upload_common(layout, props, asset_type, context):
         url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "PRINTABLE":
         url = (
-            paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
+            paths.BLENDERKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL
         )  # Reuse model instructions since prints are similar
     if asset_type == "ADDON":
         asset_type_text = asset_type

@@ -55,26 +55,11 @@ bk_logger = logging.getLogger(__name__)
 search_tasks = {}
 
 
-# @lru_cache(maxsize=1)
-def _get_active_api_key() -> str:
-    """Return current API key or empty string when unavailable."""
-    try:
-        user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore[attr-defined]
-    except Exception:
-        return ""
-    return getattr(user_preferences, "api_key", "") or ""
-
-
 def _inject_user_price_data(assets: list[dict]) -> None:
     """Augment search results with per-user pricing info when available."""
     if not assets:
         bk_logger.debug("User price lookup skipped: empty assets list.")
         return
-
-    api_key = _get_active_api_key()
-    # if not api_key:
-    #     bk_logger.debug("User price lookup skipped: no API key.")
-    #     return
 
     version_uuids: list[str] = [ass["id"] for ass in assets]
     if not version_uuids:
@@ -85,7 +70,6 @@ def _inject_user_price_data(assets: list[dict]) -> None:
         price_response = search_price.query_user_price(
             version_uuids=version_uuids,
             page_size=len(version_uuids),
-            api_key=api_key,
         )
     except Exception as exc:
         bk_logger.warning("Failed to fetch user prices: %s", exc)
@@ -113,6 +97,7 @@ def _inject_user_price_data(assets: list[dict]) -> None:
         price_info = price_by_uuid.get(version_uuid)
         if not price_info:
             continue
+        bk_logger.debug("%s", price_info)
         asset["userPrice"] = price_info["discountedPrice"]
 
 

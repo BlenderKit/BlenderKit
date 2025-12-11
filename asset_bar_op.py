@@ -417,20 +417,26 @@ def get_tooltip_data(asset_data):
 
         # for debug show both prices always
         if utils.profile_is_validator():
-            user_price_text = f"user ${user_price_text}"
-            user_price_color = colors.PURPLE
+            if user_price_text:
+                user_price_text = f"user ${user_price_text}"
+            else:
+                user_price_text = ""
+            user_price_color = colors.GREEN_FREE
 
-            base_price_text = f" base(${base_price_text})"
-            base_price_color = colors.RED
+            if base_price_text:
+                base_price_text = f"base ${base_price_text}"
+            else:
+                base_price_text = ""
+            base_price_color = colors.PURPLE
         else:
             if is_for_sale and not can_download and user_price_text and base_price_text:
                 user_price_text = f"${user_price_text}"
-                user_price_color = colors.PURPLE
+                user_price_color = colors.GREEN_FREE
 
-                base_price_text = f" (${base_price_text})"
-                base_price_color = colors.RED
+                base_price_text = f"(${base_price_text})"
+                base_price_color = colors.PURPLE
 
-            if is_for_sale and not can_download and base_price_text:
+            elif is_for_sale and not can_download and base_price_text:
                 base_price_text = f"${base_price_text}"
                 base_price_color = colors.PURPLE
 
@@ -446,7 +452,7 @@ def get_tooltip_data(asset_data):
                 is_for_sale and can_download
             ):  # purchased, but not yet downloaded, so we can't show price
                 # should we just say "Purchased"? to prevent confusion about user price ?
-                base_price_text = f"Purchased (${base_price_text})"
+                base_price_text = f"Purchased"
                 base_price_color = colors.PURPLE
 
                 user_price_text = ""
@@ -569,8 +575,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Initialize the tooltip panel and its widgets."""
         self.tooltip_widgets = []
         self.tooltip_scale = 1.0
-        self.tooltip_height = self.tooltip_size
-        self.tooltip_width = self.tooltip_size
+
+        # Fallbacks in case update_tooltip_size was not called yet
+        self.tooltip_width = getattr(self, "tooltip_width", self.tooltip_size)
+        image_height = getattr(self, "tooltip_image_height", self.tooltip_size)
+        info_height = getattr(
+            self,
+            "tooltip_info_height",
+            max(
+                int(image_height * self.bottom_panel_fraction),
+                self.asset_name_text_size * 3,
+            ),
+        )
+        self.tooltip_image_height = image_height
+        self.tooltip_info_height = info_height
+        self.tooltip_height = self.tooltip_image_height + self.tooltip_info_height
+        self.labels_start = self.tooltip_image_height
+
         # total_size = tooltip# + 2 * self.margin
         self.tooltip_panel = BL_UI_Drag_Panel(
             0, 0, self.tooltip_width, self.tooltip_height
@@ -581,20 +602,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         tooltip_image = BL_UI_Image(0, 0, 1, 1)
         img_path = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
         tooltip_image.set_image(img_path)
-        tooltip_image.set_image_size((self.tooltip_width, self.tooltip_height))
+        tooltip_image.set_image_size((self.tooltip_width, self.tooltip_image_height))
         tooltip_image.set_image_position((0, 0))
         tooltip_image.set_image_colorspace("")
         self.tooltip_image = tooltip_image
         self.tooltip_widgets.append(tooltip_image)
-
-        self.bottom_panel_fraction = 0.15
-        self.labels_start = self.tooltip_height * (1 - self.bottom_panel_fraction)
-
         dark_panel = BL_UI_Widget(
             0,
             self.labels_start,
             self.tooltip_width,
-            self.tooltip_height * self.bottom_panel_fraction,
+            self.tooltip_info_height,
         )
         dark_panel.bg_color = (0.0, 0.0, 0.0, 0.7)
         self.tooltip_dark_panel = dark_panel
@@ -610,8 +627,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.asset_name = name_label
         self.tooltip_widgets.append(name_label)
 
-        self.gravatar_size = int(
-            self.tooltip_height * self.bottom_panel_fraction - self.tooltip_margin
+        self.gravatar_size = max(
+            int(self.tooltip_info_height - 2 * self.tooltip_margin),
+            self.asset_name_text_size,
         )
 
         authors_name = self.new_text(
@@ -627,8 +645,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_widgets.append(authors_name)
 
         gravatar_image = BL_UI_Image(
-            self.tooltip_width - self.gravatar_size,
-            self.tooltip_height - self.gravatar_size,
+            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_height - self.gravatar_size - self.tooltip_margin,
             1,
             1,
         )
@@ -636,8 +654,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         gravatar_image.set_image(img_path)
         gravatar_image.set_image_size(
             (
-                self.gravatar_size - 1 * self.tooltip_margin,
-                self.gravatar_size - 1 * self.tooltip_margin,
+                self.gravatar_size,
+                self.gravatar_size,
             )
         )
         gravatar_image.set_image_position((0, 0))
@@ -802,15 +820,18 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         ui_scale = self.get_ui_scale()
 
+        base_panel_height = self.tooltip_base_size_pixels * (
+            1 + self.bottom_panel_fraction
+        )
+
         if hasattr(self, "tooltip_panel"):
             tooltip_y_available_height = abs(
                 region.height - self.tooltip_panel.y_screen
             )
-            # if tooltip is above, we need to reduce it's size if it's y is out of region height
+            # if tooltip is above, we need to reduce it's size if its y is out of region height
             if self.tooltip_panel.y_screen <= 0:
                 tooltip_y_available_height = (
-                    self.tooltip_base_size_pixels * ui_scale
-                    + self.tooltip_panel.y_screen
+                    base_panel_height * ui_scale + self.tooltip_panel.y_screen
                 )
                 self.tooltip_panel.set_location(self.tooltip_panel.x, 0)
 
@@ -820,7 +841,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             )
 
         self.tooltip_scale = min(
-            1.0, tooltip_y_available_height / (self.tooltip_base_size_pixels * ui_scale)
+            1.0, tooltip_y_available_height / (base_panel_height * ui_scale)
         )
         self.asset_name_text_size = int(
             0.039 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
@@ -835,13 +856,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         if ui_props.asset_type == "HDR":
             self.tooltip_width = self.tooltip_size * 2
-            self.tooltip_height = self.tooltip_size
+            self.tooltip_image_height = self.tooltip_size
         else:
             self.tooltip_width = self.tooltip_size
-            self.tooltip_height = self.tooltip_size
+            self.tooltip_image_height = self.tooltip_size
 
-        self.gravatar_size = int(
-            self.tooltip_height * self.bottom_panel_fraction - self.tooltip_margin
+        self.tooltip_info_height = max(
+            int(self.tooltip_image_height * self.bottom_panel_fraction),
+            self.asset_name_text_size * 3,
+        )
+        self.labels_start = self.tooltip_image_height
+        self.tooltip_height = self.tooltip_image_height + self.tooltip_info_height
+
+        self.gravatar_size = max(
+            int(self.tooltip_info_height - 2 * self.tooltip_margin),
+            self.asset_name_text_size,
         )
 
     def get_ui_scale(self):
@@ -993,21 +1022,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.width = self.tooltip_width
         self.tooltip_panel.height = self.tooltip_height
         self.tooltip_image.width = self.tooltip_width
-        self.tooltip_image.height = self.tooltip_height
+        self.tooltip_image.height = self.tooltip_image_height
 
-        self.labels_start = self.tooltip_height * (1 - self.bottom_panel_fraction)
+        self.labels_start = self.tooltip_image_height
 
-        self.tooltip_image.set_image_size((self.tooltip_width, self.tooltip_height))
+        self.tooltip_image.set_image_size(
+            (self.tooltip_width, self.tooltip_image_height)
+        )
         self.tooltip_image.set_location(0, 0)
 
         self.gravatar_image.set_location(
-            self.tooltip_width - self.gravatar_size,
-            self.tooltip_height - self.gravatar_size,
+            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_height - self.gravatar_size - self.tooltip_margin,
         )
         self.gravatar_image.set_image_size(
             (
-                self.gravatar_size - 1 * self.tooltip_margin,
-                self.gravatar_size - 1 * self.tooltip_margin,
+                self.gravatar_size,
+                self.gravatar_size,
             )
         )
 
@@ -1029,9 +1060,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             0,
             self.labels_start,
         )
-        self.tooltip_dark_panel.height = (
-            self.tooltip_height * self.bottom_panel_fraction
-        )
+        self.tooltip_dark_panel.height = self.tooltip_info_height
         self.tooltip_dark_panel.width = self.tooltip_width
 
         self.quality_label.set_location(
@@ -1048,6 +1077,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.quality_star.set_image_size(
             (self.asset_name_text_size, self.asset_name_text_size)
         )
+
+        self.multi_price_label.set_location(
+            self.tooltip_margin,
+            self.tooltip_height
+            - int(self.asset_name_text_size + 2 * self.tooltip_margin),
+        )
+        self.multi_price_label.width = self.tooltip_width - 2 * self.tooltip_margin
+        self.multi_price_label.height = self.asset_name_text_size
+        self.multi_price_label.text_size = self.asset_name_text_size
 
     def update_layout(self, context, event):
         """update UI sizes after their recalculation"""
@@ -1783,22 +1821,43 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             # Update price labels for addons
             user_price_text = asset_data["tooltip_data"].get("user_price_text", "")
-            user_price_color = asset_data["tooltip_data"].get(
-                "user_price_color", (1.0, 0.8, 0.2, 1.0)
+            base_price_text = asset_data["tooltip_data"].get("base_price_text", "")
+
+            price_text_color = colors.WHITE
+
+            user_price_background_color = asset_data["tooltip_data"].get(
+                "user_price_color", ""
+            )
+            base_price_background_color = asset_data["tooltip_data"].get(
+                "base_price_color", ""
             )
 
-            base_price_text = asset_data["tooltip_data"].get("base_price_text", "")
-            base_price_color = asset_data["tooltip_data"].get(
-                "base_price_color", (1.0, 0.8, 0.2, 1.0)
-            )
             self.multi_price_label.text_a = user_price_text
-            self.multi_price_label.text_a_color = user_price_color
+            self.multi_price_label.text_a_color = price_text_color
+            self.multi_price_label.segment_background_color_a = (
+                user_price_background_color
+            )
+
             self.multi_price_label.text_b = base_price_text
-            self.multi_price_label.text_b_color = base_price_color
-            if user_price_text or base_price_text:
+            self.multi_price_label.text_b_color = price_text_color
+            self.multi_price_label.segment_background_color_b = (
+                base_price_background_color
+            )
+
+            self.multi_price_label.multiline = True
+
+            if user_price_text and base_price_text:
+                self.multi_price_label.strikethrough_b = True
                 self.multi_price_label.visible = True
+                self.multi_price_label.segment_backgrounds = True
+            elif user_price_text or base_price_text:
+                self.multi_price_label.visible = True
+                self.multi_price_label.strikethrough_b = False
+                self.multi_price_label.segment_backgrounds = True
             else:
                 self.multi_price_label.visible = False
+                self.multi_price_label.strikethrough_b = False
+                self.multi_price_label.segment_backgrounds = False
 
             # preview comments for validators
             self.update_comments_for_validators(asset_data)
@@ -1841,7 +1900,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             # Calculate space above and below the button
             ui_scale = self.get_ui_scale()
-            full_tooltip_height = self.tooltip_base_size_pixels * ui_scale
+            full_tooltip_height = self.tooltip_panel.height
             space_above = widget.y_screen
             space_below = bpy.context.region.height - (widget.y_screen + widget.height)
             # If space below is insufficient (would make tooltip < 70% size), position above

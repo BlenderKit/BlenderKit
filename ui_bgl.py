@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import math
 import os
 import logging
 from typing import Optional, Tuple, Union
@@ -169,6 +170,14 @@ def create_image_shader():
     return shader
 
 
+def _get_flat_shader_2d():
+    if app.version < (4, 0, 0):
+        shader_name = "2D_UNIFORM_COLOR"
+    else:
+        shader_name = "UNIFORM_COLOR"
+    return gpu.shader.from_builtin(shader_name)
+
+
 def draw_rect(x, y, width, height, color):
     """Used for drawing 2D rectangle backgrounds."""
     xmax = x + width
@@ -181,10 +190,7 @@ def draw_rect(x, y, width, height, color):
     )
     indices = ((0, 1, 2), (2, 3, 0))
 
-    if app.version < (4, 0, 0):
-        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    else:
-        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    shader = _get_flat_shader_2d()
     batch = batch_for_shader(shader, "TRIS", {"pos": points}, indices=indices)
 
     gpu.state.blend_set("ALPHA")
@@ -205,10 +211,7 @@ def draw_rect_outline(x, y, width, height, color, line_width=1.0):
     )
     indices = ((0, 1), (1, 2), (2, 3), (3, 0))
 
-    if app.version < (4, 0, 0):
-        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    else:
-        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    shader = _get_flat_shader_2d()
     batch = batch_for_shader(shader, "LINES", {"pos": coords}, indices=indices)
 
     gpu.state.blend_set("ALPHA")
@@ -223,19 +226,142 @@ def draw_line2d(x1, y1, x2, y2, width, color):
     coords = ((x1, y1), (x2, y2))
     indices = ((0, 1),)
 
-    if app.version < (4, 0, 0):
-        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    elif app.version < (4, 5, 0):
-        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-    else:
-        shader_info = create_shader_info()
-        shader = gpu.shader.create_from_info(shader_info)
+    shader = _get_flat_shader_2d()
 
     batch = batch_for_shader(shader, "LINES", {"pos": coords}, indices=indices)
     gpu.state.blend_set("ALPHA")
+    gpu.state.line_width_set(max(1.0, width))
     shader.bind()
     shader.uniform_float("color", color)
     batch.draw(shader)
+    gpu.state.line_width_set(1.0)
+
+
+def _rounded_rect_outline(x, y, width, height, radius, segments=6):
+    if width <= 0 or height <= 0:
+        return []
+    max_radius = max(0.0, min(width, height) / 2.0)
+
+    if isinstance(radius, (tuple, list)):
+        radii = list(radius)
+    else:
+        radii = [radius]
+    if not radii:
+        radii = [0.0]
+    while len(radii) < 4:
+        radii.append(radii[-1])
+    radii = [max(0.0, min(float(value), max_radius)) for value in radii[:4]]
+
+    r_tl, r_tr, r_br, r_bl = radii
+
+    if all(r == 0.0 for r in radii):
+        outline = [
+            (x, y),
+            (x + width, y),
+            (x + width, y + height),
+            (x, y + height),
+        ]
+        outline.append(outline[0])
+        return outline
+
+    steps = max(1, int(segments))
+    outline = []
+    steps = max(1, int(segments))
+    outline = []
+
+    def emit_corner(cx, cy, start_angle, end_angle, radius_value, fallback_point):
+        if radius_value <= 0.0:
+            outline.append(fallback_point)
+            return
+        for step in range(steps + 1):
+            t = step / steps
+            angle = start_angle + (end_angle - start_angle) * t
+            outline.append(
+                (
+                    cx + math.cos(angle) * radius_value,
+                    cy + math.sin(angle) * radius_value,
+                )
+            )
+
+    emit_corner(
+        x + r_tl,
+        y + height - r_tl,
+        math.pi,
+        math.pi / 2.0,
+        r_tl,
+        (x, y + height),
+    )
+    emit_corner(
+        x + width - r_tr,
+        y + height - r_tr,
+        math.pi / 2.0,
+        0.0,
+        r_tr,
+        (x + width, y + height),
+    )
+    emit_corner(
+        x + width - r_br,
+        y + r_br,
+        0.0,
+        -math.pi / 2.0,
+        r_br,
+        (x + width, y),
+    )
+    emit_corner(
+        x + r_bl,
+        y + r_bl,
+        -math.pi / 2.0,
+        -math.pi,
+        r_bl,
+        (x, y),
+    )
+
+    if outline and outline[0] != outline[-1]:
+        outline.append(outline[0])
+    return outline
+
+
+def draw_rounded_rect_with_border(
+    x,
+    y,
+    width,
+    height,
+    radius,
+    fill_color,
+    border_color=None,
+    border_thickness=1.0,
+):
+    if width <= 0 or height <= 0:
+        return
+    outline = _rounded_rect_outline(x, y, width, height, radius)
+    if not outline:
+        return
+    loop = outline[:-1] if len(outline) > 1 and outline[0] == outline[-1] else outline
+    if len(loop) < 3:
+        return
+    shader = _get_flat_shader_2d()
+    indices = [(0, idx, idx + 1) for idx in range(1, len(loop) - 1)]
+    batch = batch_for_shader(shader, "TRIS", {"pos": loop}, indices=indices)
+    gpu.state.blend_set("ALPHA")
+    shader.bind()
+    shader.uniform_float("color", fill_color)
+    batch.draw(shader)
+    if border_color and border_thickness > 0:
+        gpu.state.line_width_set(border_thickness)
+        if outline[0] == outline[-1]:
+            line_points = outline
+        else:
+            line_points = outline + [outline[0]]
+        line_batch = batch_for_shader(shader, "LINE_STRIP", {"pos": line_points})
+        shader.uniform_float("color", border_color)
+        line_batch.draw(shader)
+        gpu.state.line_width_set(1.0)
+
+
+def draw_strikethrough_line(x_start, x_end, y, color, thickness):
+    if x_end <= x_start:
+        return
+    draw_line2d(x_start, y, x_end, y, thickness, color)
 
 
 def create_shader_info():
