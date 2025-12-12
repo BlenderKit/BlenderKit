@@ -136,7 +136,7 @@ def check_clipboard():
     """
     global last_clipboard
     try:  # could be problematic on Linux
-        current_clipboard = bpy.context.window_manager.clipboard
+        current_clipboard = str(bpy.context.window_manager.clipboard)
     except Exception as e:
         bk_logger.warning(f"Failed to get clipboard: {e}")
         return
