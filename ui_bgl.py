@@ -293,7 +293,7 @@ def _parse_radius_value(value, *, max_radius: float, min_dimension: float) -> fl
             return max(0.0, min(px_value, max_radius))
 
     try:
-        numeric_value = float(value)
+        numeric_value = float(value)  # type: ignore
     except (TypeError, ValueError):
         numeric_value = 0.0
     return max(0.0, min(numeric_value, max_radius))
@@ -304,7 +304,7 @@ def _rounded_rect_outline(
     y: float,
     width: float,
     height: float,
-    radius: Tuple[Union[float, str], ...] = (0.0,),
+    radius: Union[tuple[Union[str, float], ...], str, float] = (0.0,),
     segments: int = 6,
 ):
     if width <= 0 or height <= 0:
@@ -400,7 +400,7 @@ def draw_rounded_rect_with_border(
     y: float,
     width: float,
     height: float,
-    radius: Tuple[Union[float, str], ...] = (0.0,),
+    radius: Union[tuple[Union[str, float], ...], str, float] = (0.0,),
     fill_color: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
     border_color: Optional[Tuple[float, float, float, float]] = None,
     border_thickness: float = 1.0,

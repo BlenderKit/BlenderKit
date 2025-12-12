@@ -63,7 +63,7 @@ class BL_UI_Widget:
         self.background_color = None
         self.background_alpha = 0.25
         # Radius can be '50%' for pill shape, each corner individually
-        self.background_corner_radius: tuple[Union[str, float], ...] = (4.0,)
+        self.background_corner_radius: Union[tuple[Union[str, float], ...], str, float] = (4.0,)
         self.background_border = False
         self.background_border_color = None
         self.background_border_tint = 0.2
