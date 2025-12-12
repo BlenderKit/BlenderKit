@@ -19,6 +19,7 @@
 import math
 import os
 import logging
+from collections.abc import Mapping
 from typing import Optional, Tuple, Union
 
 import blf
@@ -237,20 +238,93 @@ def draw_line2d(x1, y1, x2, y2, width, color):
     gpu.state.line_width_set(1.0)
 
 
-def _rounded_rect_outline(x, y, width, height, radius, segments=6):
+def _parse_radius_value(value, *, max_radius: float, min_dimension: float) -> float:
+    """Return a clamped radius in pixels.
+
+    Accepts raw pixel values, strings with percentages (e.g. "50%"),
+    mapping types containing ``percent``/``pct``/``ratio`` or ``px`` keys,
+    and falls back to treating anything else as raw pixels.
+    """
+
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith("%"):
+            number = text[:-1].strip()
+            try:
+                pct = float(number) / 100.0
+            except ValueError:
+                return 0.0
+            radius_px = pct * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        # plain numeric string interpreted as pixels
+        try:
+            value = float(text)
+        except ValueError:
+            return 0.0
+        return max(0.0, min(value, max_radius))
+
+    if isinstance(value, Mapping):
+        if "percent" in value:
+            try:
+                pct = float(value["percent"]) / 100.0
+            except (TypeError, ValueError):
+                pct = 0.0
+            radius_px = pct * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        if "pct" in value:
+            try:
+                pct = float(value["pct"]) / 100.0
+            except (TypeError, ValueError):
+                pct = 0.0
+            radius_px = pct * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        if "ratio" in value:
+            try:
+                ratio = float(value["ratio"])
+            except (TypeError, ValueError):
+                ratio = 0.0
+            radius_px = ratio * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        if "px" in value:
+            try:
+                px_value = float(value["px"])
+            except (TypeError, ValueError):
+                px_value = 0.0
+            return max(0.0, min(px_value, max_radius))
+
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        numeric_value = 0.0
+    return max(0.0, min(numeric_value, max_radius))
+
+
+def _rounded_rect_outline(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: Tuple[Union[float, str], ...] = (0.0,),
+    segments: int = 6,
+):
     if width <= 0 or height <= 0:
         return []
-    max_radius = max(0.0, min(width, height) / 2.0)
+    min_dimension = min(width, height)
+    max_radius = max(0.0, min_dimension / 2.0)
 
     if isinstance(radius, (tuple, list)):
-        radii = list(radius)
+        raw_radii = list(radius)
     else:
-        radii = [radius]
-    if not radii:
-        radii = [0.0]
-    while len(radii) < 4:
-        radii.append(radii[-1])
-    radii = [max(0.0, min(float(value), max_radius)) for value in radii[:4]]
+        raw_radii = [radius]
+    if not raw_radii:
+        raw_radii = [0.0]
+    parsed_radii = [
+        _parse_radius_value(value, max_radius=max_radius, min_dimension=min_dimension)
+        for value in raw_radii
+    ]
+    while len(parsed_radii) < 4:
+        parsed_radii.append(parsed_radii[-1])
+    radii = parsed_radii[:4]
 
     r_tl, r_tr, r_br, r_bl = radii
 
@@ -322,14 +396,14 @@ def _rounded_rect_outline(x, y, width, height, radius, segments=6):
 
 
 def draw_rounded_rect_with_border(
-    x,
-    y,
-    width,
-    height,
-    radius,
-    fill_color,
-    border_color=None,
-    border_thickness=1.0,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: Tuple[Union[float, str], ...] = (0.0,),
+    fill_color: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    border_color: Optional[Tuple[float, float, float, float]] = None,
+    border_thickness: float = 1.0,
 ):
     if width <= 0 or height <= 0:
         return

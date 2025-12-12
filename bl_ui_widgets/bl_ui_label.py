@@ -385,13 +385,7 @@ class BL_UI_DuoLabel(BL_UI_Widget):
                     values = [values[0], values[1], values[1], values[0]]
                 elif len(values) < 4:
                     values = values + [values[-1]] * (4 - len(values))
-                result = []
-                for raw in values[:4]:
-                    try:
-                        result.append(float(raw))
-                    except (TypeError, ValueError):
-                        result.append(0.0)
-                return tuple(result)
+                return tuple(values[:4])
 
             base_corner_radii = coerce_corner_radii(self.background_corner_radius)
 

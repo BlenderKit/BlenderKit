@@ -421,7 +421,7 @@ def get_tooltip_data(asset_data):
                 user_price_text = f"user ${user_price_text}"
             else:
                 user_price_text = ""
-            user_price_color = colors.GREEN_FREE
+            user_price_color = colors.GREEN
 
             if base_price_text:
                 base_price_text = f"base ${base_price_text}"
@@ -430,20 +430,20 @@ def get_tooltip_data(asset_data):
             base_price_color = colors.PURPLE
         else:
             if is_for_sale and not can_download and user_price_text and base_price_text:
-                user_price_text = f"${user_price_text}"
-                user_price_color = colors.GREEN_FREE
+                user_price_text = f" ${user_price_text} "
+                user_price_color = colors.GREEN
 
-                base_price_text = f"(${base_price_text})"
+                base_price_text = f" (${base_price_text}) "
                 base_price_color = colors.PURPLE
 
             elif is_for_sale and not can_download and base_price_text:
-                base_price_text = f"${base_price_text}"
+                base_price_text = f" ${base_price_text} "
                 base_price_color = colors.PURPLE
 
                 user_price_text = ""
 
             elif not is_free and not is_for_sale:
-                base_price_text = "Full Plan"
+                base_price_text = " Full Plan "
                 base_price_color = colors.ORANGE_FULL
 
                 user_price_text = ""
@@ -452,13 +452,13 @@ def get_tooltip_data(asset_data):
                 is_for_sale and can_download
             ):  # purchased, but not yet downloaded, so we can't show price
                 # should we just say "Purchased"? to prevent confusion about user price ?
-                base_price_text = f"Purchased"
+                base_price_text = f" Purchased "
                 base_price_color = colors.PURPLE
 
                 user_price_text = ""
 
             else:
-                base_price_text = "Free"
+                base_price_text = " Free "
                 user_price_text = ""
                 base_price_color = colors.GREEN_FREE
 
@@ -696,6 +696,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             height=self.asset_name_text_size,
             text_size=self.asset_name_text_size,
         )
+        multi_price_label.background_corner_radius = "50%"
         multi_price_label.text_a_color = (
             1.0,
             0.8,

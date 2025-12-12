@@ -5,6 +5,8 @@ from gpu_extras.batch import batch_for_shader
 
 from .. import ui_bgl
 
+from typing import Union
+
 
 def clamp(value, min_value=0.0, max_value=1.0):
     return max(min_value, min(max_value, value))
@@ -60,7 +62,8 @@ class BL_UI_Widget:
         self.background_padding = (4, 2)
         self.background_color = None
         self.background_alpha = 0.25
-        self.background_corner_radius = 4.0
+        # Radius can be '50%' for pill shape, each corner individually
+        self.background_corner_radius: tuple[Union[str, float], ...] = (4.0,)
         self.background_border = False
         self.background_border_color = None
         self.background_border_tint = 0.2
@@ -131,10 +134,10 @@ class BL_UI_Widget:
             rect_y,
             rect_width,
             rect_height,
-            corner_radius,
-            fill_color,
-            border_color,
-            self.background_border_thickness,
+            radius=corner_radius,
+            fill_color=fill_color,
+            border_color=border_color,
+            border_thickness=self.background_border_thickness,
         )
 
     def draw_strikethrough(self, min_x, max_x, y, color, *, force=False):
