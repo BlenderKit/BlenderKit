@@ -3568,6 +3568,18 @@ class SetCategoryOperatorLastInPopupCard(SetCategoryOperatorOrigin):
     bl_idname = "view3d.blenderkit_set_category_in_popup_card_last"
 
 
+class ToggleClipboardScan(bpy.types.Operator):
+    """Toggle whether asset links are set from clipboard when copied."""
+
+    bl_idname = "wm.blenderkit_toggle_clipboard_scan"
+    bl_label = "Toggle Clipboard Scan"
+
+    def execute(self, context):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences.use_clipboard_scan = not user_preferences.use_clipboard_scan
+        return {"FINISHED"}
+
+
 class ClearSearchKeywords(bpy.types.Operator):
     """Clear search keywords"""
 
@@ -3939,6 +3951,9 @@ def header_search_draw(self, context):
     # if there are search keywords, draw an x icon to clear the search keywords
     if has_search_keywords:
         layout.operator("view3d.blenderkit_clear_search_keywords", text="", icon="X")
+
+    # show toggle for clipboard scan
+    layout.prop(preferences, "use_clipboard_scan", text="", icon="PASTEDOWN")
 
     draw_assetbar_show_hide(layout, props)
     layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")
