@@ -1721,6 +1721,10 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
             layout.prop(preferences, "resolution")
         # layout.prop(props, 'unpack_files')
 
+        # general settings
+        # show toggle for clipboard scan
+        layout.prop(preferences, "use_clipboard_scan")
+
 
 def deferred_set_name(props, expected_obj_name):
     """Deferred timer to set empty name of uploaded asset to active Object's name.
@@ -3951,9 +3955,6 @@ def header_search_draw(self, context):
     # if there are search keywords, draw an x icon to clear the search keywords
     if has_search_keywords:
         layout.operator("view3d.blenderkit_clear_search_keywords", text="", icon="X")
-
-    # show toggle for clipboard scan
-    layout.prop(preferences, "use_clipboard_scan", text="", icon="PASTEDOWN")
 
     draw_assetbar_show_hide(layout, props)
     layout.prop(ui_props, "search_bookmarks", text="", icon="BOOKMARKS")

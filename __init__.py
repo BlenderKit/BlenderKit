@@ -2498,12 +2498,12 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
+        gui_settings.prop(self, "use_clipboard_scan")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
         network_settings.alignment = "EXPAND"
         network_settings.label(text="Networking settings")
-        network_settings.prop(self, "use_clipboard_scan")
         network_settings.prop(self, "client_port")
         network_settings.prop(self, "client_polling")
         network_settings.prop(self, "ip_version")
