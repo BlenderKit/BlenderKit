@@ -209,8 +209,17 @@ def start_model_thumbnailer(
     blender_user_scripts_dir = (
         Path(__file__).resolve().parents[2]
     )  # scripts/addons/blenderkit/autothumb.py
+
     env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
     env.update(os.environ)
+
+    # both must be enabled
+    if (
+        user_preferences.experimental_features
+        and user_preferences.ignore_env_for_thumbnails
+    ):
+        env = None
+
     proc = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
@@ -218,7 +227,7 @@ def start_model_thumbnailer(
         creationflags=utils.get_process_flags(),
         env=env,
     )
-    bk_logger.info(f"Started Blender executing {SCRIPT_NAME} on file {datafile}")
+    bk_logger.info("Started Blender executing %s on file %s", SCRIPT_NAME, datafile)
     eval_path_computing = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
     eval_path_state = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.thumbnail_generating_state"
     eval_path = f"bpy.data.objects['{json_args['asset_name']}']"
@@ -284,8 +293,16 @@ def start_material_thumbnailer(
     blender_user_scripts_dir = (
         Path(__file__).resolve().parents[2]
     )  # scripts/addons/blenderkit/autothumb.py
+
     env = {"BLENDER_USER_SCRIPTS": str(blender_user_scripts_dir)}
     env.update(os.environ)
+
+    if (
+        user_preferences.experimental_features
+        and user_preferences.ignore_env_for_thumbnails
+    ):
+        env = None
+
     proc = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
@@ -293,7 +310,7 @@ def start_material_thumbnailer(
         creationflags=utils.get_process_flags(),
         env=env,
     )
-    bk_logger.info(f"Started Blender executing {SCRIPT_NAME} on file {datafile}")
+    bk_logger.info("Started Blender executing %s on file %s", SCRIPT_NAME, datafile)
 
     eval_path_computing = f"bpy.data.materials['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
     eval_path_state = f"bpy.data.materials['{json_args['asset_name']}'].blenderkit.thumbnail_generating_state"

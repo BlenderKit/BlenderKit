@@ -71,6 +71,9 @@ def threadread(tcom: ThreadCom):
             return  # process terminated
         inline = tcom.proc.stdout.readline()
         inline = inline.decode("utf-8")
+        # ignore empty lines
+        if inline.strip() == "":
+            continue
         bk_logger.info(inline.strip())
         progress = re.findall(r"progress\{(.*?)\}", inline)
         if len(progress) > 0:
