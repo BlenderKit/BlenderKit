@@ -2995,7 +2995,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         )
         op.tooltip = "Search all assets by this author.\nShortcut: Hover over the asset in the asset bar and press 'A'."  # type: ignore[attr-defined]
         op.esc = True  # type: ignore[attr-defined]
-        op.keywords = ""  # type: ignore[attr-defined]
+        op.keywords = ""  # type: ignore[attr-defined] # must not be empty otherwise search will use previous keywords
+        op.force_clear = True  # type: ignore[attr-defined]
         op.author_id = str(author_id)  # type: ignore[attr-defined]
 
         button_row = button_row.row(align=True)

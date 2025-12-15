@@ -1556,6 +1556,13 @@ class SearchOperator(Operator):
         default="Runs search and displays the asset bar at the same time"
     )
 
+    force_clear: BoolProperty(  # type: ignore[valid-type]
+        name="Force clear keywords, before programmatic search",
+        description="Force clear keywords before search",
+        default=False,
+        options={"SKIP_SAVE"},
+    )
+
     @classmethod
     def description(cls, context, properties):
         return properties.tooltip
@@ -1569,16 +1576,25 @@ class SearchOperator(Operator):
         if self.esc:
             bpy.ops.view3d.close_popup_button("INVOKE_DEFAULT")
         ui_props = bpy.context.window_manager.blenderkitUI
+
+        search_keywords = str(ui_props.search_keywords)
+
+        if self.keywords != "":
+            search_keywords = self.keywords
+
+        # remove all search keywords if force_clear is set
+        if self.force_clear:
+            self.force_clear = False  # reset the force clear
+            search_keywords = ""
+
         if self.author_id != "":
             bk_logger.info(f"Author ID: {self.author_id}")
             # if there is already an author id in the search keywords, remove it first, the author_id can be any so
             # use regex to find it
-            ui_props.search_keywords = re.sub(
-                r"\+author_id:\d+", "", ui_props.search_keywords
-            )
-            ui_props.search_keywords += f"+author_id:{self.author_id}"
-        if self.keywords != "":
-            ui_props.search_keywords = self.keywords
+            search_keywords = re.sub(r"\+author_id:\d+", "", search_keywords)
+            search_keywords += f"+author_id:{self.author_id}"
+
+        ui_props.search_keywords = search_keywords
 
         search(get_next=self.get_next)
 
