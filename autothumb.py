@@ -90,7 +90,7 @@ def check_thumbnail(props, imgpath):
     if img is not None:  # and img.size[0] == img.size[1] and img.size[0] >= 512 and (
         # img.file_format == 'JPEG' or img.file_format == 'PNG'):
         props.has_thumbnail = True
-        props.thumbnail_generating_state = ""
+        props.THUMBNAIL_GENERATING_STATE = ""
 
         utils.get_hidden_texture(img.name)
         # pcoll = icons.icon_collections["previews"]
@@ -403,6 +403,127 @@ class GenerateThumbnailOperator(bpy.types.Operator):
             "filepath": filepath,
             "thumbnail_path": thumb_path,
             "tempdir": tempdir,
+        }
+        thumbnail_args = {
+            "type": asset_type,
+            "models": str(obnames),
+            "thumbnail_angle": bkit.thumbnail_angle,
+            "thumbnail_snap_to": bkit.thumbnail_snap_to,
+            "thumbnail_background_lightness": bkit.thumbnail_background_lightness,
+            "thumbnail_material_color": (
+                bkit.thumbnail_material_color[0],
+                bkit.thumbnail_material_color[1],
+                bkit.thumbnail_material_color[2],
+            ),
+            "thumbnail_resolution": bkit.thumbnail_resolution,
+            "thumbnail_samples": bkit.thumbnail_samples,
+            "thumbnail_denoising": bkit.thumbnail_denoising,
+        }
+        args_dict.update(thumbnail_args)
+
+        start_model_thumbnailer(
+            self, json_args=args_dict, props=asset.blenderkit, wait=False
+        )
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+
+        return wm.invoke_props_dialog(self, width=400)
+
+
+class GenerateWireframeThumbnailOperator(bpy.types.Operator):
+    """Generate Cycles wireframe thumbnail for model assets"""
+
+    bl_idname = "object.blenderkit_generate_wireframe_thumbnail"
+    bl_label = "BlenderKit Wireframe Thumbnail Generator"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.view_layer.objects.active is not None
+
+    def draw(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        asset_type = ui_props.asset_type
+
+        ob = utils.get_active_model()
+        props = ob.blenderkit
+        layout = self.layout
+        layout.label(text="thumbnailer settings")
+        layout.prop(props, "thumbnail_background_lightness")
+        # for printable models
+        if asset_type == "PRINTABLE":
+            layout.prop(props, "thumbnail_material_color")
+        layout.prop(props, "thumbnail_angle")
+        layout.prop(props, "thumbnail_snap_to")
+        layout.prop(props, "thumbnail_samples")
+        layout.prop(props, "thumbnail_resolution")
+        layout.prop(props, "thumbnail_denoising")
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        layout.prop(preferences, "thumbnail_use_gpu")
+
+    def execute(self, context):
+        asset = utils.get_active_model()
+        asset.blenderkit.is_generating_thumbnail = True
+        asset.blenderkit.thumbnail_generating_state = "starting blender instance"
+        tempdir = tempfile.mkdtemp()
+        ext = ".blend"
+        filepath = os.path.join(tempdir, "thumbnailer_wf_blenderkit" + ext)
+
+        path_can_be_relative = True
+        thumb_dir = os.path.dirname(bpy.data.filepath)
+        if thumb_dir == "":
+            thumb_dir = tempdir
+            path_can_be_relative = False
+
+        an_slug = paths.slugify(asset.name)
+
+        # add suffix to distinguish from regular thumbnail
+        an_slug += "_wf"
+
+        thumb_path = os.path.join(thumb_dir, an_slug)
+
+        if path_can_be_relative:
+            rel_thumb_path = f"//{an_slug}"
+        else:
+            rel_thumb_path = thumb_path
+
+        i = 0
+        while os.path.isfile(thumb_path + ".jpg"):
+            thumb_name = f"{an_slug}_{str(i).zfill(4)}"
+            thumb_path = os.path.join(thumb_dir, thumb_name)
+            if path_can_be_relative:
+                rel_thumb_path = f"//{thumb_name}"
+
+            i += 1
+        bkit = asset.blenderkit
+
+        bkit.thumbnail = rel_thumb_path + ".jpg"
+        bkit.thumbnail_generating_state = "Saving .blend file"
+
+        # if this isn't here, blender crashes.
+        if bpy.app.version >= (3, 0, 0):
+            bpy.context.preferences.filepaths.file_preview_type = "NONE"
+        # save a copy of actual scene but don't interfere with the users models
+
+        bpy.ops.wm.save_as_mainfile(filepath=filepath, compress=False, copy=True)
+        # get all included objects
+        obs = utils.get_hierarchy(asset)
+        obnames = []
+        for ob in obs:
+            obnames.append(ob.name)
+        # asset type can be model or printable
+        ui_props = bpy.context.window_manager.blenderkitUI
+        asset_type = ui_props.asset_type
+        args_dict = {
+            "type": asset_type,
+            "asset_name": asset.name,
+            "filepath": filepath,
+            "thumbnail_path": thumb_path,
+            "tempdir": tempdir,
+            "thumbnail_render_type": "WIREFRAME",
+            "thumbnail_upload_type": "wire_thumbnail",
         }
         thumbnail_args = {
             "type": asset_type,
@@ -874,6 +995,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
 def register_thumbnailer():
     bpy.utils.register_class(GenerateThumbnailOperator)
     bpy.utils.register_class(ReGenerateThumbnailOperator)
+    bpy.utils.register_class(GenerateWireframeThumbnailOperator)
     bpy.utils.register_class(GenerateMaterialThumbnailOperator)
     bpy.utils.register_class(ReGenerateMaterialThumbnailOperator)
 
@@ -881,5 +1003,6 @@ def register_thumbnailer():
 def unregister_thumbnailer():
     bpy.utils.unregister_class(GenerateThumbnailOperator)
     bpy.utils.unregister_class(ReGenerateThumbnailOperator)
+    bpy.utils.unregister_class(GenerateWireframeThumbnailOperator)
     bpy.utils.unregister_class(GenerateMaterialThumbnailOperator)
     bpy.utils.unregister_class(ReGenerateMaterialThumbnailOperator)

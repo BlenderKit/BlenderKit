@@ -316,12 +316,6 @@ def draw_panel_model_upload(self, context):
             col = layout.column()
             prop_needed(col, props, "photo_thumbnail", props.photo_thumbnail)
 
-    if asset_type in {"PRINTABLE", "MODEL", "SCENE"}:
-        layout.prop(props, "wire_thumbnail_will_upload_on_website")
-        if not props.wire_thumbnail_will_upload_on_website:
-            col = layout.column()
-            prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
-
     col = layout.column()
 
     if props.is_generating_thumbnail:
@@ -336,6 +330,20 @@ def draw_panel_model_upload(self, context):
             text="Generate thumbnail",
             icon="IMAGE",
         )
+
+    # DISABLED WIRE THUMBNAIL FOR NOW
+    # TODO: re-enable later, when the shaders are fixed for it.
+    if asset_type in {"PRINTABLE", "MODEL", "SCENE"}:
+        layout.prop(props, "wire_thumbnail_will_upload_on_website")
+        if not props.wire_thumbnail_will_upload_on_website:
+            col = layout.column()
+            prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
+            if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+                col.operator(
+                    "object.blenderkit_generate_wireframe_thumbnail",
+                    text="Generate wire thumbnail",
+                    icon="IMAGE",
+                )
 
     if props.is_generating_thumbnail:
         row = layout.row(align=True)
