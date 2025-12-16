@@ -1721,6 +1721,10 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
             layout.prop(preferences, "resolution")
         # layout.prop(props, 'unpack_files')
 
+        # general settings
+        # show toggle for clipboard scan
+        layout.prop(preferences, "use_clipboard_scan")
+
 
 def deferred_set_name(props, expected_obj_name):
     """Deferred timer to set empty name of uploaded asset to active Object's name.
@@ -3566,6 +3570,18 @@ class SetCategoryOperatorLastInPopupCard(SetCategoryOperatorOrigin):
     """Subcategory of the asset. Click to search this subcategory. Shortcut: Hover over asset in the asset bar and press 'C'."""
 
     bl_idname = "view3d.blenderkit_set_category_in_popup_card_last"
+
+
+class ToggleClipboardScan(bpy.types.Operator):
+    """Toggle whether asset links are set from clipboard when copied."""
+
+    bl_idname = "wm.blenderkit_toggle_clipboard_scan"
+    bl_label = "Toggle Clipboard Scan"
+
+    def execute(self, context):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences.use_clipboard_scan = not user_preferences.use_clipboard_scan
+        return {"FINISHED"}
 
 
 class ClearSearchKeywords(bpy.types.Operator):

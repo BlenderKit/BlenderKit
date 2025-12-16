@@ -267,6 +267,12 @@ mesh_poly_types = (
 )
 
 
+EXTRA_PATH_OPTIONS = {}
+
+if bpy.app.version >= (4, 5, 0):
+    EXTRA_PATH_OPTIONS = {"options": {"PATH_SUPPORTS_BLEND_RELATIVE"}}
+
+
 def udate_down_up(self, context):
     """Perform a search if results are empty."""
     props = bpy.context.window_manager.blenderkitUI
@@ -1130,6 +1136,7 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         subtype="FILE_PATH",
         default="",
         update=autothumb.update_upload_material_preview,
+        **EXTRA_PATH_OPTIONS,
     )
 
     is_generating_thumbnail: BoolProperty(
@@ -1220,6 +1227,7 @@ class BlenderKitNodeGroupUploadProps(PropertyGroup, BlenderKitCommonUploadProps)
         "And make it beautiful!",
         subtype="FILE_PATH",
         default="",
+        **EXTRA_PATH_OPTIONS,
         # update=autothumb.update_upload_model_preview,
     )
     # mode: EnumProperty(
@@ -1326,6 +1334,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         subtype="FILE_PATH",
         default="",
         update=autothumb.update_upload_model_preview,
+        **EXTRA_PATH_OPTIONS,
     )
 
     thumbnail_background_lightness: FloatProperty(
@@ -1529,6 +1538,7 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Photo of the 3D printed object (JPG or PNG, preferred size is 1024x1024 or higher)",
         subtype="FILE_PATH",
         default="",
+        **EXTRA_PATH_OPTIONS,
     )
     photo_thumbnail_will_upload_on_website: BoolProperty(
         name="I will upload photo on website",
@@ -1603,6 +1613,7 @@ class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         subtype="FILE_PATH",
         default="",
         update=autothumb.update_upload_scene_preview,
+        **EXTRA_PATH_OPTIONS,
     )
 
     use_design_year: BoolProperty(
@@ -2120,6 +2131,14 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs,
     )
 
+    # USE OF CLIPBOARD SCAN
+    use_clipboard_scan: BoolProperty(
+        name="Use Clipboard Scan",
+        description="Use the info from BlenderKit website clipboard for visual search",
+        default=True,
+        update=utils.save_prefs,
+    )
+
     unpack_files: BoolProperty(
         name="Unpack Files",
         description="Unpack assets after download \n "
@@ -2430,6 +2449,15 @@ In this case you should also set path to your system CA bundle containing proxy'
         default="[]",
     )
 
+    # EXPERIMENTAL AND DEBUG FEATURES CAN GO BELOW
+    ignore_env_for_thumbnails: BoolProperty(
+        name="Ignore ENVIRONMENT variables for thumbnails",
+        description="If enabled, we will not modify the system environment variables for background thumbnail rendering.",
+        default=False,
+        # do not save prefs here, it's experimental
+        options={"SKIP_SAVE"},
+    )
+
     def draw(self, context):
         layout = self.layout
         if self.api_key.strip() == "":
@@ -2470,6 +2498,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
+        gui_settings.prop(self, "use_clipboard_scan")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
@@ -2486,6 +2515,14 @@ In this case you should also set path to your system CA bundle containing proxy'
 
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
+
+        # EXPERIMENTAL SETTINGS
+        # only if experimental features enabled
+        if self.experimental_features:
+            experimental_settings = layout.box()
+            experimental_settings.alignment = "EXPAND"
+            experimental_settings.label(text="Experimental settings")
+            experimental_settings.prop(self, "ignore_env_for_thumbnails")
 
         # RUNTIME INFO
         globdir_op = layout.operator(

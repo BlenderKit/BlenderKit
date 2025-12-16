@@ -120,12 +120,14 @@ def handle_failed_reports(exception: Exception) -> float:
 
 @bpy.app.handlers.persistent
 def client_communication_timer():
-    """Recieve all responses from Client and run according followup commands.
+    """Receive all responses from Client and run according followup commands.
     This function is the only one responsible for keeping the Client up and running.
     """
     global pending_tasks
-    bk_logger.debug("Getting tasks from Client")
-    search.check_clipboard()
+    bk_logger.log(5, "Getting tasks from Client")
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
+    if user_preferences.use_clipboard_scan:
+        search.check_clipboard()
     results = list()
     try:
         results = client_lib.get_reports(os.getpid())
@@ -141,7 +143,7 @@ def client_communication_timer():
         wm = bpy.context.window_manager
         wm.blenderkitUI.logo_status = "logo"
 
-    bk_logger.debug("Handling tasks")
+    bk_logger.log(5, "Handling tasks")
     results_converted_tasks = []
 
     # convert to task type
@@ -166,8 +168,8 @@ def client_communication_timer():
     for task in results_converted_tasks:
         handle_task(task)
 
-    bk_logger.debug("Task handling finished")
-    delay = bpy.context.preferences.addons[__package__].preferences.client_polling
+    bk_logger.log(5, "Task handling finished")
+    delay = user_preferences.client_polling
     if len(download.download_tasks) > 0:
         return min(0.2, delay)
     return delay
