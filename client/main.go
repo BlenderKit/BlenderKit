@@ -764,10 +764,6 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		}
 		fullThumbsTasks = append(fullThumbsTasks, fullTask)
 
-		if result.AssetType != "printable" {
-			continue
-		}
-
 		for _, file := range result.Files {
 			var (
 				thumbTasks    *[]*Task
@@ -782,6 +778,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 				thumbTasks = &fullWireThumbsTasks
 				thumbnailType = "wire_full"
 			default:
+				BKLog.Printf("parseThumbnails: skipping fileType=%s for %s", file.FileType, result.DisplayName)
 				continue
 			}
 
@@ -798,12 +795,16 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 				ThumbnailType: thumbnailType,
 				ImagePath:     fullThumbnailPath,
 				ImageURL:      fullThumbURL,
+				AssetBaseID:   result.AssetBaseID,
+				Index:         i,
 			}
 			fullThumbnailTaskUUID := uuid.New().String()
 			fullThumbnailTask := NewTask(fullThumbnailTaskData, data.AppID, fullThumbnailTaskUUID, "thumbnail_download")
 			if fullThumbnailNameErr != nil {
 				fullThumbnailTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", fullThumbnailNameErr, result.DisplayName)
 			}
+			
+			BKLog.Printf("parseThumbnails: queued %s for %s", file.FileType, result.DisplayName)
 			*thumbTasks = append(*thumbTasks, fullThumbnailTask)
 		}
 	}

@@ -81,16 +81,31 @@ def get_texture_ui(tpath, iname):
     return tex
 
 
-def check_thumbnail(props, imgpath):
+def check_thumbnail(
+    props,
+    imgpath,
+    *,
+    texture_name="upload_preview",
+    flag_attr="has_thumbnail",
+    state_attr="thumbnail_generating_state",
+):
+    """Reload a thumbnail preview and update status attributes."""
+
+    def _set_prop(attr_name, value):
+        if attr_name and hasattr(props, attr_name):
+            setattr(props, attr_name, value)
+
     # TODO implement check if the file exists, if size is correct etc. needs some care
     if imgpath == "":
-        props.has_thumbnail = False
+        _set_prop(flag_attr, False)
         return None
-    img = utils.get_hidden_image(imgpath, "upload_preview", force_reload=True)
+    img = utils.get_hidden_image(imgpath, texture_name, force_reload=True)
     if img is not None:  # and img.size[0] == img.size[1] and img.size[0] >= 512 and (
         # img.file_format == 'JPEG' or img.file_format == 'PNG'):
-        props.has_thumbnail = True
-        props.THUMBNAIL_GENERATING_STATE = ""
+        _set_prop(flag_attr, True)
+        if hasattr(props, "THUMBNAIL_GENERATING_STATE"):
+            props.THUMBNAIL_GENERATING_STATE = ""
+        _set_prop(state_attr, "")
 
         utils.get_hidden_texture(img.name)
         # pcoll = icons.icon_collections["previews"]
@@ -98,7 +113,7 @@ def check_thumbnail(props, imgpath):
 
         return img
     else:
-        props.has_thumbnail = False
+        _set_prop(flag_attr, False)
     output = ""
     if (
         img is None
@@ -115,7 +130,7 @@ def check_thumbnail(props, imgpath):
         #     output += 'image too small, should be at least 512x512\n'
         # if img.file_format != 'JPEG' or img.file_format != 'PNG':
         #     output += 'image has to be a jpeg or png'
-    props.thumbnail_generating_state = output
+    _set_prop(state_attr, output)
 
 
 def update_upload_model_preview(self, context):
@@ -124,6 +139,20 @@ def update_upload_model_preview(self, context):
         props = ob.blenderkit
         imgpath = props.thumbnail
         check_thumbnail(props, imgpath)
+
+
+def update_wire_thumbnail_preview(self, context):
+    ob = utils.get_active_model()
+    if ob is not None:
+        props = ob.blenderkit
+        imgpath = props.wire_thumbnail
+        check_thumbnail(
+            props,
+            imgpath,
+            texture_name=".upload_preview_wire",
+            flag_attr=None,
+            state_attr="wire_thumbnail_generating_state",
+        )
 
 
 def update_upload_scene_preview(self, context):
@@ -182,9 +211,26 @@ def start_model_thumbnailer(
 ):
     """Start Blender in background and render the thumbnail."""
     SCRIPT_NAME = "autothumb_model_bg.py"
+    thumbnail_upload_type = (
+        json_args.get("thumbnail_upload_type") if json_args else None
+    )
+    is_wire_upload = thumbnail_upload_type == "wire_thumbnail"
+    computing_attr = (
+        "is_generating_wire_thumbnail" if is_wire_upload else "is_generating_thumbnail"
+    )
+    state_attr = (
+        "wire_thumbnail_generating_state"
+        if is_wire_upload
+        else "thumbnail_generating_state"
+    )
+
+    def _set_prop(attr_name, value):
+        if props and hasattr(props, attr_name):
+            setattr(props, attr_name, value)
+
     if props:
-        props.is_generating_thumbnail = True
-        props.thumbnail_generating_state = "Saving .blend file"
+        _set_prop(computing_attr, True)
+        _set_prop(state_attr, "Saving .blend file")
 
     datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons[__package__].preferences
@@ -228,9 +274,10 @@ def start_model_thumbnailer(
         env=env,
     )
     bk_logger.info("Started Blender executing %s on file %s", SCRIPT_NAME, datafile)
-    eval_path_computing = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.is_generating_thumbnail"
-    eval_path_state = f"bpy.data.objects['{json_args['asset_name']}'].blenderkit.thumbnail_generating_state"
-    eval_path = f"bpy.data.objects['{json_args['asset_name']}']"
+    eval_path_base = f"bpy.data.objects['{json_args['asset_name']}']"
+    eval_path = eval_path_base
+    eval_path_computing = f"{eval_path_base}.blenderkit.{computing_attr}"
+    eval_path_state = f"{eval_path_base}.blenderkit.{state_attr}"
     name = f"{json_args['asset_name']} thumbnailer"
     bg_blender.add_bg_process(
         name=name,
@@ -241,7 +288,7 @@ def start_model_thumbnailer(
         process=proc,
     )
     if props:
-        props.thumbnail_generating_state = "Started Blender instance"
+        _set_prop(state_attr, "Started Blender instance")
 
     if wait:
         while proc.poll() is None:
@@ -482,8 +529,8 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
 
     def execute(self, context):
         asset = utils.get_active_model()
-        asset.blenderkit.is_generating_thumbnail = True
-        asset.blenderkit.thumbnail_generating_state = "starting blender instance"
+        asset.blenderkit.is_generating_wire_thumbnail = True
+        asset.blenderkit.wire_thumbnail_generating_state = "starting blender instance"
         tempdir = tempfile.mkdtemp()
         ext = ".blend"
         filepath = os.path.join(tempdir, "thumbnailer_wf_blenderkit" + ext)
@@ -516,8 +563,8 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
             i += 1
         bkit = asset.blenderkit
 
-        bkit.thumbnail = rel_thumb_path + ".jpg"
-        bkit.thumbnail_generating_state = "Saving .blend file"
+        bkit.wire_thumbnail = rel_thumb_path + ".jpg"
+        bkit.wire_thumbnail_generating_state = "Saving .blend file"
 
         # if this isn't here, blender crashes.
         if bpy.app.version >= (3, 0, 0):
@@ -547,7 +594,7 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
             "models": str(obnames),
             "thumbnail_angle": bkit.thumbnail_angle,
             "thumbnail_snap_to": bkit.thumbnail_snap_to,
-            "thumbnail_background_lightness": bkit.thumbnail_background_lightness,
+            "thumbnail_background_lightness": 0.2,
             "thumbnail_material_color": (
                 bkit.thumbnail_material_color[0],
                 bkit.thumbnail_material_color[1],

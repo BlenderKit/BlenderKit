@@ -108,7 +108,7 @@ def get_full_thumbnail_variant(asset_data, variant: str):
 
     Args:
         asset_data: The asset data dictionary.
-        variant (str): The variant type to retrieve ('photo' or 'wireframe').
+        variant (str): The variant type to retrieve ('photo' or 'wire').
     Returns:
         The Blender image object for the requested variant, or None if not found.
     """
@@ -140,6 +140,7 @@ def get_full_thumbnail_variant(asset_data, variant: str):
     # Load the image into Blender
     if os.path.exists(tpath):
         img = utils.get_hidden_image(tpath, file_name, colorspace="")
+        bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
         return img
 
     bk_logger.debug(f"{variant} thumbnail file not found at path: {tpath}")
@@ -158,7 +159,7 @@ def get_full_photo_thumbnail(asset_data):
 def get_full_wire_thumbnail(asset_data):
     """Get full wireframe thumbnail from asset data."""
     # Find the photo thumbnail file
-    thumb = get_full_thumbnail_variant(asset_data, "wireframe")
+    thumb = get_full_thumbnail_variant(asset_data, "wire")
     return thumb
 
 

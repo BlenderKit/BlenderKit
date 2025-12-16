@@ -1526,6 +1526,13 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         update=autothumb.update_upload_model_preview,
     )
 
+    is_generating_wire_thumbnail: BoolProperty(
+        name="Generating Wire Thumbnail",
+        description="True when background process is running",
+        default=False,
+        update=autothumb.update_wire_thumbnail_preview,
+    )
+
     has_autotags: BoolProperty(
         name="Has Autotagging Done",
         description="True when autotagging done",
@@ -1551,11 +1558,19 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="Wireframe thumbnail (JPG or PNG, preferred size is 1024x1024 or higher)",
         subtype="FILE_PATH",
         default="",
+        update=autothumb.update_wire_thumbnail_preview,
+        **EXTRA_PATH_OPTIONS,
     )
     wire_thumbnail_will_upload_on_website: BoolProperty(
         name="I will upload wireframe thumbnail on website",
         description="True if the wireframe thumbnail will upload on the website\n please read upload tutorial for more information",
         default=False,
+    )
+
+    wire_thumbnail_generating_state: StringProperty(
+        name="Wire Thumbnail Generating State",
+        description="bg process reports for wireframe thumbnail generation",
+        default="Please add wireframe thumbnail (jpg or png, at least 1024x1024)",
     )
 
 

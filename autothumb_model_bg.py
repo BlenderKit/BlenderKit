@@ -72,7 +72,7 @@ def center_objs_for_thumbnail(obs: list[Any]) -> None:
     cx = (maxx - minx) / 2 + minx
     cy = (maxy - miny) / 2 + miny
     for ob in scene.collection.objects:
-        ob.select_set(select=False)
+        ob.select_set(False)
 
     bpy.context.view_layer.objects.active = parent
     parent.location = (-cx, -cy, 0)
@@ -341,7 +341,7 @@ if __name__ == "__main__":
             "Value"
         ].default_value = data["thumbnail_background_lightness"]
 
-        s.cycles.samples = data["thumbnail_samples"]
+        scene.cycles.samples = data["thumbnail_samples"]
         bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
         bpy.context.view_layer.update()
 

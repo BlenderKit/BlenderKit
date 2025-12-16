@@ -1695,7 +1695,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 "scene",
             } and self.show_thumbnail_variant in {"PHOTO", "WIREFRAME"}:
                 t_type = self.show_thumbnail_variant.lower()
-                if t_type == "render":
+                if t_type == "photo":
                     photo_img = ui.get_full_photo_thumbnail(asset_data)
                     if photo_img:
                         self.tooltip_image.set_image(photo_img.filepath)
@@ -1704,7 +1704,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         self.tooltip_image.set_image(
                             paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
                         )
-                elif t_type == "thumbnail":
+                elif t_type == "wireframe":
                     wire_img = ui.get_full_wire_thumbnail(asset_data)
                     if wire_img:
                         self.tooltip_image.set_image(wire_img.filepath)

@@ -21,6 +21,7 @@ import os
 import random
 import time
 from webbrowser import open_new_tab
+from typing import Any
 
 import bpy
 from bpy.props import IntProperty, StringProperty, FloatVectorProperty, EnumProperty
@@ -182,7 +183,7 @@ def draw_upload_common(layout, props, asset_type, context):
         layout.prop(props, "tags")
 
 
-def prop_needed(layout, props, name, value="", is_not_filled=""):
+def prop_needed(layout, props, name, value: Any = "", is_not_filled: Any = ""):
     row = layout.row()
     if value == is_not_filled:
         # row.label(text='', icon = 'ERROR')
@@ -296,6 +297,14 @@ def draw_thumbnail_upload_panel(layout, props):
     box.template_icon(icon_value=tex.image.preview.icon_id, scale=6.0)
 
 
+def draw_wire_thumbnail_upload_panel(layout, props):
+    tex = autothumb.get_texture_ui(props.wire_thumbnail, ".upload_preview_wire")
+    if not tex or not tex.image:
+        return
+    box = layout.box()
+    box.template_icon(icon_value=tex.image.preview.icon_id, scale=6.0)
+
+
 def draw_panel_model_upload(self, context):
     """Draw upload panel for model and printable assets"""
     ob = utils.get_active_model()
@@ -333,17 +342,19 @@ def draw_panel_model_upload(self, context):
 
     # DISABLED WIRE THUMBNAIL FOR NOW
     # TODO: re-enable later, when the shaders are fixed for it.
-    if asset_type in {"PRINTABLE", "MODEL", "SCENE"}:
-        layout.prop(props, "wire_thumbnail_will_upload_on_website")
-        if not props.wire_thumbnail_will_upload_on_website:
-            col = layout.column()
-            prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
-            if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
-                col.operator(
-                    "object.blenderkit_generate_wireframe_thumbnail",
-                    text="Generate wire thumbnail",
-                    icon="IMAGE",
-                )
+    # layout.prop(props, "wire_thumbnail_will_upload_on_website")
+    # if not props.wire_thumbnail_will_upload_on_website:
+    #     draw_wire_thumbnail_upload_panel(layout, props)
+    #     col = layout.column()
+    #     if getattr(props, "is_generating_wire_thumbnail", False):
+    #         col.enabled = False
+    #     prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
+    #     if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+    #         col.operator(
+    #             "object.blenderkit_generate_wireframe_thumbnail",
+    #             text="Generate wire thumbnail",
+    #             icon="IMAGE",
+    #         )
 
     if props.is_generating_thumbnail:
         row = layout.row(align=True)
@@ -353,6 +364,15 @@ def draw_panel_model_upload(self, context):
         op.process_type = "THUMBNAILER"
     elif props.thumbnail_generating_state != "":
         utils.label_multiline(layout, text=props.thumbnail_generating_state)
+
+    if getattr(props, "is_generating_wire_thumbnail", False):
+        row = layout.row(align=True)
+        row.label(text=props.wire_thumbnail_generating_state)
+        op = row.operator("object.kill_bg_process", text="", icon="CANCEL")
+        op.process_source = asset_type
+        op.process_type = "THUMBNAILER"
+    elif getattr(props, "wire_thumbnail_generating_state", "") != "":
+        utils.label_multiline(layout, text=props.wire_thumbnail_generating_state)
 
     # Only show these properties for MODEL type
     if asset_type == "MODEL":
@@ -410,6 +430,20 @@ def draw_panel_scene_upload(self, context):
     prop_needed(col, props, "thumbnail", props.has_thumbnail, False)
     # if bpy.context.scene.render.engine == 'CYCLES':
     #     col.operator("object.blenderkit_generate_thumbnail", text='Generate thumbnail', icon='IMAGE_COL')
+
+    # # DISABLED WIRE THUMBNAIL FOR NOW
+    # # TODO: re-enable later, when the shaders are fixed for it.
+    # layout.prop(props, "wire_thumbnail_will_upload_on_website")
+    # if not props.wire_thumbnail_will_upload_on_website:
+    #     draw_wire_thumbnail_upload_panel(layout, props)
+    #     col = layout.column()
+    #     prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
+    #     if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+    #         col.operator(
+    #             "object.blenderkit_generate_wireframe_thumbnail",
+    #             text="Generate wire thumbnail",
+    #             icon="IMAGE",
+    #         )
 
     # row = layout.row(align=True)
     # if props.is_generating_thumbnail:
