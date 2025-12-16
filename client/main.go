@@ -803,7 +803,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 			if fullThumbnailNameErr != nil {
 				fullThumbnailTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", fullThumbnailNameErr, result.DisplayName)
 			}
-			
+
 			BKLog.Printf("parseThumbnails: queued %s for %s", file.FileType, result.DisplayName)
 			*thumbTasks = append(*thumbTasks, fullThumbnailTask)
 		}
