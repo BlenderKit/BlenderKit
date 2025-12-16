@@ -1467,18 +1467,8 @@ class AssetDragOperator(bpy.types.Operator):
         Tuple[None, None, None],
     ]:
         """Find the window, region and area under the mouse cursor."""
-
-        wins = bpy.context.window_manager.windows[:]
-        # reverse the list, seemed to work well at least on windows.
-        wins.reverse()
-        context_win = bpy.context.window
-
-        # let's prioritize the context window
-        if context_win is not None:
-            wins.remove(context_win)
-            wins.insert(0, context_win)
-
-        for window in wins:
+        # Iterate windows backwards, so we go from the top-most window to the bottommost window
+        for window in reversed(bpy.context.window_manager.windows):
             # first let's test if it's in this window, so we know we shall continue
             window_x = window.x * self.resolution_factor
             window_y = window.y * self.resolution_factor

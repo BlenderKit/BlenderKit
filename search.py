@@ -20,6 +20,7 @@ import copy
 import json
 import logging
 import math
+from functools import lru_cache
 import os
 import re
 import unicodedata
@@ -43,6 +44,7 @@ from . import (
     image_utils,
     paths,
     reports,
+    search_price,
     resolutions,
     tasks_queue,
     utils,
@@ -51,6 +53,51 @@ from . import (
 
 bk_logger = logging.getLogger(__name__)
 search_tasks = {}
+
+
+def _inject_user_price_data(assets: list[dict]) -> None:
+    """Augment search results with per-user pricing info when available."""
+    if not assets:
+        bk_logger.debug("User price lookup skipped: empty assets list.")
+        return
+
+    version_uuids: list[str] = [ass["id"] for ass in assets]
+    if not version_uuids:
+        bk_logger.debug("User price lookup skipped: empty version UUIDs list.")
+        return
+
+    try:
+        price_response = search_price.query_user_price(
+            version_uuids=version_uuids,
+            page_size=len(version_uuids),
+        )
+    except Exception as exc:
+        bk_logger.warning("Failed to fetch user prices: %s", exc)
+        return
+
+    if not price_response:
+        bk_logger.debug(
+            "User price lookup skipped: %s",
+            price_response,
+        )
+        return
+
+    price_by_uuid: dict[str, dict] = {}
+    for entry in price_response:
+        version_uuid = entry.get("versionUuid")  # maybe assetUuid ?
+        if not version_uuid:
+            continue
+        price_by_uuid[version_uuid] = entry
+
+    if not price_by_uuid:
+        return
+
+    for asset in assets:
+        version_uuid = asset["id"]
+        price_info = price_by_uuid.get(version_uuid)
+        if not price_info:
+            continue
+        asset["userPrice"] = price_info["discountedPrice"]
 
 
 def update_ad(ad):
@@ -136,22 +183,21 @@ def check_clipboard():
     """
     global last_clipboard
     try:  # could be problematic on Linux
-        current_clipboard = str(bpy.context.window_manager.clipboard)
+        current_clipboard = bpy.context.window_manager.clipboard
     except Exception as e:
         bk_logger.warning(f"Failed to get clipboard: {e}")
         return
 
     if current_clipboard == last_clipboard:
         return
+    last_clipboard = current_clipboard
 
-    asset_type_index = current_clipboard.find("asset_type:")
+    asset_type_index = last_clipboard.find("asset_type:")
     if asset_type_index == -1:
         return
 
-    if not current_clipboard.startswith("asset_base_id:"):
+    if not last_clipboard.startswith("asset_base_id:"):
         return
-
-    last_clipboard = current_clipboard
 
     asset_type_string = current_clipboard[asset_type_index:].lower()
     if asset_type_string.find("model") > -1:
@@ -170,10 +216,6 @@ def check_clipboard():
         target_asset_type = "NODEGROUP"
     elif asset_type_string.find("addon") > -1 or asset_type_string.find("add-on") > -1:
         target_asset_type = "ADDON"
-    else:
-        bk_logger.debug("Clipboard does not contain valid asset type.")
-        return
-
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type != target_asset_type:
         ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type
@@ -346,7 +388,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         return True
 
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
-    # causing a lot of throuble.
+    # causing a lot of trouble.
     if bpy.context.window_manager.blenderkitUI.dragging:  # type: ignore[attr-defined]
         return False
 
@@ -407,6 +449,10 @@ def handle_search_task(task: client_tasks.Task) -> bool:
             result_field = [
                 asset for asset in result_field if asset.get("downloaded", 0) > 0
             ]
+
+        # TODO: if ever needed, implement for other future types
+        if result_field:
+            _inject_user_price_data(result_field)
 
     # Store results in history step
     history_step["search_results"] = result_field
@@ -715,7 +761,7 @@ def query_to_url(
     scene_uuid: str = "",
     page_size: int = 15,
 ) -> str:
-    """Build a new search request by parsing query dictionaty into appropriate URL.
+    """Build a new search request by parsing query dictionary into appropriate URL.
     Also modifies query and adds some stuff in there which is very misleading anti-pattern.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
     https://www.blenderkit.com/api/v1/search/
@@ -1017,6 +1063,7 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
 def add_search_process(
     query, get_next: bool, page_size: int, next_url: str, history_id: str
 ):
+    """Initialize search task and add it to the task queue."""
     global search_tasks
     addon_version = utils.get_addon_version()
     blender_version = utils.get_blender_version()
@@ -1237,7 +1284,7 @@ def search(get_next=False, query=None, author_id=""):
 
 
 def clean_filters():
-    """Cleanup filters in case search needs to be reset, typicaly when asset id is copy pasted."""
+    """Cleanup filters in case search needs to be reset, typically when asset id is copy pasted."""
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
     ui_props.property_unset("own_only")
