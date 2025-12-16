@@ -1559,7 +1559,7 @@ class SearchOperator(Operator):
     force_clear: BoolProperty(  # type: ignore[valid-type]
         name="Force clear keywords, before programmatic search",
         description="Force clear keywords before search",
-        default=False,
+        default=True,
         options={"SKIP_SAVE"},
     )
 
@@ -1584,7 +1584,7 @@ class SearchOperator(Operator):
 
         # remove all search keywords if force_clear is set
         if self.force_clear:
-            self.force_clear = False  # reset the force clear
+            # self.force_clear = False  # reset the force clear
             search_keywords = ""
 
         if self.author_id != "":
