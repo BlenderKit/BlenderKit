@@ -18,6 +18,7 @@ class BL_UI_Image(BL_UI_Widget):
 
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
+        self.bg_color = (1.0, 1.0, 1.0, 1.0)
 
         self.__state = 0
         self.__image = None
@@ -77,15 +78,38 @@ class BL_UI_Image(BL_UI_Widget):
             y_screen_flip = self.get_area_height() - self.y_screen
             off_x, off_y = self.__image_position
             sx, sy = self.__image_size
+            img_x = self.x_screen + off_x
+            img_y = y_screen_flip - off_y - sy
+
+            if self.use_rounded_background:
+                fill_color = self.bg_color or (1.0, 1.0, 1.0, 1.0)
+                self.draw_background_rect(
+                    img_x,
+                    img_y,
+                    sx,
+                    sy,
+                    fill_color,
+                    force=True,
+                    fill_color_override=fill_color,
+                )
+
+            corner_radius = (
+                self.background_corner_radius
+                if self.has_background_corner_radius_override()
+                else None
+            )
+
             ui_bgl.draw_image_runtime(
-                self.x_screen + off_x,
-                y_screen_flip - off_y - sy,
+                img_x,
+                img_y,
                 sx,
                 sy,
                 self.__image,
                 1.0,
                 crop=(0, 0, 1, 1),
                 batch=None,
+                corner_radius=corner_radius,
+                corner_segments=12,
             )
             return True
 

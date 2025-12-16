@@ -19,20 +19,40 @@
 Module colors defines color palette for BlenderKit UI.
 """
 
+# UI Colors
+
+TOP_BAR_BLUE = (0.2, 0.25, 0.4, 1.0)
+"""TOP_BAR_BLUE Color for BlenderKit UI top bar."""
+
 WHITE = (1, 1, 1, 0.9)
 
-TEXT = (0.9, 0.9, 0.9, 0.6)
-GREEN = (0.9, 1, 0.9, 0.6)
-RED = (1, 0.5, 0.5, 0.8)
-BLUE = (0.8, 0.8, 1, 0.8)
-"""Color for validator reports."""
+TEXT = (0.9, 0.9, 0.9, 0.9)
+"""TEXT Color for BlenderKit UI text."""
 
-PURPLE = (0.8, 0.4, 1.0, 1.0)
+TEXT_DIM = (0.8, 0.8, 0.8, 0.9)
+
+GREEN = (0.9, 1, 0.9, 0.6)
+"""GREEN Color for validator reports."""
+
+RED = (1, 0.5, 0.5, 0.8)
+"""RED Color for validator reports."""
+
+BLUE = (0.8, 0.8, 1, 0.8)
+"""BLUE Color for validator reports."""
+
+GREEN_PRICE = (0.42, 0.49, 0.19, 1.0)
+"""Emerald Green to be used on "discounted" add-ons."""
+
+PURPLE_PRICE = (0.59, 0.05, 0.82, 1.0)
 """Lavender Purple to be used on "for sale" add-ons."""
-ORANGE_FULL = (0.702, 0.349, 0.208, 1.0)
-"""Burnt Orange associated with full plan assets and add-ons."""
+
+
 GREEN_FREE = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
 """Leaf Green associated with free plan assets and add-ons."""
+
+
+ORANGE_FULL = (0.702, 0.349, 0.208, 1.0)
+"""Burnt Orange associated with full plan assets and add-ons."""
 
 GRAY = (0.7, 0.7, 0.7, 0.6)
 """Default color for debug reports."""

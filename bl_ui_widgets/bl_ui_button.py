@@ -18,6 +18,8 @@ class BL_UI_Button(BL_UI_Widget):
 
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
+        self.background = True
+        self.background_padding = (0, 0)
         self._text_color = (1.0, 1.0, 1.0, 1.0)
         self._hover_bg_color = (0.5, 0.5, 0.5, 1.0)
         self._select_bg_color = (0.7, 0.7, 0.7, 1.0)
@@ -127,19 +129,30 @@ class BL_UI_Button(BL_UI_Widget):
         area_height = self.get_area_height()
 
         gpu.state.blend_set("ALPHA")
+        fill_color = self._resolve_panel_color()
 
-        self.shader.bind()
-
-        self.set_colors()
-
-        self.batch_panel.draw(self.shader)
+        if self.use_rounded_background:
+            rect_y = area_height - self.y_screen - self.height
+            self.draw_background_rect(
+                self.x_screen,
+                rect_y,
+                self.width,
+                self.height,
+                fill_color,
+                force=True,
+                fill_color_override=fill_color,
+            )
+        else:
+            self.shader.bind()
+            self.shader.uniform_float("color", fill_color)
+            self.batch_panel.draw(self.shader)
 
         self.draw_image()
 
         # Draw text
         self.draw_text(area_height)
 
-    def set_colors(self):
+    def _resolve_panel_color(self):
         color = self._bg_color
 
         # pressed
@@ -150,7 +163,7 @@ class BL_UI_Button(BL_UI_Widget):
         elif self.__state == 2:
             color = self._hover_bg_color
 
-        self.shader.uniform_float("color", color)
+        return color
 
     def draw_text(self, area_height):
         font_id = 1
