@@ -989,12 +989,17 @@ def get_dimensions(obs):
     return dim, bbmin, bbmax
 
 
-def get_headers(api_key: str = "") -> dict[str, str]:
+def get_simple_headers() -> dict[str, str]:
     headers = {
         "accept": "application/json",
         "Platform-Version": platform.platform(),
         "addon-version": f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}",
     }
+    return headers
+
+
+def get_headers(api_key: str = "") -> dict[str, str]:
+    headers = get_simple_headers()
     if api_key != "":
         headers["Authorization"] = f"Bearer {api_key}"
 

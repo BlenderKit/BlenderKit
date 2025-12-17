@@ -83,7 +83,7 @@ def draw_upload_common(layout, props, asset_type, context):
         url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "PRINTABLE":
         url = (
-            paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
+            paths.BLENDERKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL
         )  # Reuse model instructions since prints are similar
     if asset_type == "ADDON":
         asset_type_text = asset_type
@@ -1721,10 +1721,6 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
             layout.prop(preferences, "resolution")
         # layout.prop(props, 'unpack_files')
 
-        # general settings
-        # show toggle for clipboard scan
-        layout.prop(preferences, "use_clipboard_scan")
-
 
 def deferred_set_name(props, expected_obj_name):
     """Deferred timer to set empty name of uploaded asset to active Object's name.
@@ -2729,12 +2725,23 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             is_free = self.asset_data.get("isFree")
 
             # Get pricing info from extensions cache
+            user_price = self.asset_data.get("userPrice")
             base_price = self.asset_data.get("basePrice")
             is_for_sale = self.asset_data.get("isForSale")
 
             if self.asset_data["isPrivate"]:
                 text = "Private"
                 self.draw_property(box, "Access", text, icon="LOCKED")
+            elif is_for_sale and not can_download and user_price and base_price:
+                text = f"${user_price} (Not purchased)"
+                icon = pcoll["promo_sale"]
+                self.draw_property(
+                    box,
+                    "Price",
+                    text,
+                    icon_value=icon.icon_id,
+                    tooltip="This addon is for sale but you haven't purchased it yet.\nPrice shown is your price / base price",
+                )
             elif is_for_sale and not can_download and base_price:
                 text = f"${base_price} (Not purchased)"
                 icon = pcoll["for_sale"]
@@ -2746,7 +2753,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     tooltip="This addon is for sale but you haven't purchased it yet",
                 )
             elif is_for_sale and can_download and base_price:
-                text = f"${base_price} (Purchased)"
+                text = f"Purchased"
                 icon = pcoll["for_sale"]
                 self.draw_property(
                     box,
@@ -3570,18 +3577,6 @@ class SetCategoryOperatorLastInPopupCard(SetCategoryOperatorOrigin):
     """Subcategory of the asset. Click to search this subcategory. Shortcut: Hover over asset in the asset bar and press 'C'."""
 
     bl_idname = "view3d.blenderkit_set_category_in_popup_card_last"
-
-
-class ToggleClipboardScan(bpy.types.Operator):
-    """Toggle whether asset links are set from clipboard when copied."""
-
-    bl_idname = "wm.blenderkit_toggle_clipboard_scan"
-    bl_label = "Toggle Clipboard Scan"
-
-    def execute(self, context):
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
-        user_preferences.use_clipboard_scan = not user_preferences.use_clipboard_scan
-        return {"FINISHED"}
 
 
 class ClearSearchKeywords(bpy.types.Operator):
