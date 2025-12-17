@@ -2738,7 +2738,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 self.draw_property(box, "Access", text, icon="LOCKED")
             elif is_for_sale and not can_download and user_price and base_price:
                 text = f"${user_price} (Not purchased)"
-                icon = pcoll["promo_sale"]
+                icon = pcoll["for_sale"]
                 self.draw_property(
                     box,
                     "Price",
