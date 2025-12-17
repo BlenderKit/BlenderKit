@@ -1,10 +1,7 @@
 import blf
 import bpy
-import gpu
 
 from typing import Tuple, Union
-
-from gpu_extras.batch import batch_for_shader
 
 from .bl_ui_widget import BL_UI_Widget, set_font_size
 
