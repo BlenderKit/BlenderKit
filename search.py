@@ -183,21 +183,22 @@ def check_clipboard():
     """
     global last_clipboard
     try:  # could be problematic on Linux
-        current_clipboard = bpy.context.window_manager.clipboard
+        current_clipboard = str(bpy.context.window_manager.clipboard)
     except Exception as e:
         bk_logger.warning(f"Failed to get clipboard: {e}")
         return
 
     if current_clipboard == last_clipboard:
         return
-    last_clipboard = current_clipboard
 
-    asset_type_index = last_clipboard.find("asset_type:")
+    asset_type_index = current_clipboard.find("asset_type:")
     if asset_type_index == -1:
         return
 
-    if not last_clipboard.startswith("asset_base_id:"):
+    if not current_clipboard.startswith("asset_base_id:"):
         return
+
+    last_clipboard = current_clipboard
 
     asset_type_string = current_clipboard[asset_type_index:].lower()
     if asset_type_string.find("model") > -1:
@@ -216,6 +217,10 @@ def check_clipboard():
         target_asset_type = "NODEGROUP"
     elif asset_type_string.find("addon") > -1 or asset_type_string.find("add-on") > -1:
         target_asset_type = "ADDON"
+    else:
+        bk_logger.debug("Clipboard does not contain valid asset type.")
+        return
+
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.asset_type != target_asset_type:
         ui_props.asset_type = target_asset_type  # switch asset type before placing keywords, so it does not search under wrong asset type

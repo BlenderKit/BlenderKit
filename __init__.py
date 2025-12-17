@@ -2131,6 +2131,14 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs,
     )
 
+    # USE OF CLIPBOARD SCAN
+    use_clipboard_scan: BoolProperty(
+        name="Use Clipboard Scan",
+        description="Use the info from BlenderKit website clipboard for visual search",
+        default=True,
+        update=utils.save_prefs,
+    )
+
     unpack_files: BoolProperty(
         name="Unpack Files",
         description="Unpack assets after download \n "
@@ -2490,6 +2498,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
+        gui_settings.prop(self, "use_clipboard_scan")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
