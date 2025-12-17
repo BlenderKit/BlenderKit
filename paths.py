@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from functools import lru_cache
 
 import bpy
 
@@ -39,6 +40,9 @@ BLENDERKIT_REPORT_URL = f"{global_vars.SERVER}/usage_report"
 BLENDERKIT_USER_ASSETS_URL = f"{global_vars.SERVER}/my-assets"
 BLENDERKIT_MANUAL_URL = "https://youtu.be/0P8ZjfbUjeA"
 BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/upload/"
+BLENDERKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL = (
+    f"{global_vars.SERVER}/docs/upload-printables/"
+)
 BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
     f"{global_vars.SERVER}/docs/uploading-material/"
 )
@@ -463,6 +467,8 @@ def get_addon_file(subpath=""):
 script_path = os.path.dirname(os.path.realpath(__file__))
 
 
+# cache this for minor performance boost
+@lru_cache(maxsize=128)
 def get_addon_thumbnail_path(name):
     global script_path
     # fpath = os.path.join(p, subpath)
@@ -472,6 +478,13 @@ def get_addon_thumbnail_path(name):
         next = ".jpg"
     subpath = f"thumbnails{os.sep}{name}{next}"
     return os.path.join(script_path, subpath)
+
+
+# cache this for minor performance boost
+@lru_cache(maxsize=128)
+def icon_path_exists(path: str) -> bool:
+    """Cached version of os.path.exists"""
+    return os.path.exists(path)
 
 
 def get_config_dir_path() -> str:

@@ -91,7 +91,7 @@ def ensure_minimal_data(data: Optional[dict] = None) -> dict:
     return data
 
 
-def ensure_minimal_data_class(data_class):
+def ensure_minimal_data_class(data_class: datas.SearchData) -> datas.SearchData:
     """Ensure that the data send to the BlenderKit-Client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
     - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
