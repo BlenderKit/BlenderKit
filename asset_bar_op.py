@@ -401,6 +401,7 @@ def get_tooltip_data(asset_data):
     # Add pricing information
     price_text = ""
     price_color = colors.WHITE
+    price_background = (0, 0, 0, 0)
 
     def format_price(value):
         if value is None:
@@ -430,22 +431,27 @@ def get_tooltip_data(asset_data):
             if base_price:
                 segments.append(f"Base {base_price}")
             price_text = " | ".join(segments)
-            price_color = colors.WHITE
+            price_background = colors.PURPLE_PRICE
+
         elif is_for_sale and not can_download and user_price and base_price:
-            price_text = f"{user_price} (Base {base_price})"
-            price_color = colors.GREEN_PRICE
+            price_text = f"{user_price} (was {base_price})"
+            price_background = colors.GREEN_PRICE
+
         elif is_for_sale and not can_download and base_price:
             price_text = base_price
-            price_color = colors.PURPLE_PRICE
+            price_background = colors.PURPLE_PRICE
+
         elif not is_free and not is_for_sale:
             price_text = "Full Plan"
-            price_color = colors.ORANGE_FULL
+            price_background = colors.ORANGE_FULL
+
         elif is_for_sale and can_download:
             price_text = "Purchased"
-            price_color = colors.PURPLE_PRICE
+            price_background = colors.PURPLE_PRICE
+
         else:
             price_text = "Free"
-            price_color = colors.GREEN_FREE
+            price_background = colors.GREEN_FREE
 
     tooltip_data = {
         "aname": aname,
@@ -453,6 +459,7 @@ def get_tooltip_data(asset_data):
         "quality": quality,
         "price_text": price_text,
         "price_color": price_color,
+        "price_background": price_background,
     }
     asset_data["tooltip_data"] = tooltip_data
 
@@ -659,6 +666,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             height=self.asset_name_text_size,
             text_size=self.asset_name_text_size,
         )
+        price_label.background = True
+        price_label.padding = (3, 4)
         price_label.text_color = (
             1.0,
             0.8,
@@ -1791,9 +1800,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             price_color = asset_data["tooltip_data"].get(
                 "price_color", (1.0, 0.8, 0.2, 1.0)
             )
+            price_background = asset_data["tooltip_data"].get(
+                "price_background", (0.2, 0.2, 0.2, 0.0)
+            )
             self.price_label.text = price_text
             self.price_label.text_color = price_color
             self.price_label.visible = bool(price_text)
+            self.price_label.bg_color = price_background
 
             # preview comments for validators
             self.update_comments_for_validators(asset_data)
