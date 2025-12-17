@@ -83,7 +83,7 @@ def draw_upload_common(layout, props, asset_type, context):
         url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "PRINTABLE":
         url = (
-            paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
+            paths.BLENDERKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL
         )  # Reuse model instructions since prints are similar
     if asset_type == "ADDON":
         asset_type_text = asset_type
@@ -2729,12 +2729,23 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             is_free = self.asset_data.get("isFree")
 
             # Get pricing info from extensions cache
+            user_price = self.asset_data.get("userPrice")
             base_price = self.asset_data.get("basePrice")
             is_for_sale = self.asset_data.get("isForSale")
 
             if self.asset_data["isPrivate"]:
                 text = "Private"
                 self.draw_property(box, "Access", text, icon="LOCKED")
+            elif is_for_sale and not can_download and user_price and base_price:
+                text = f"${user_price} (Not purchased)"
+                icon = pcoll["promo_sale"]
+                self.draw_property(
+                    box,
+                    "Price",
+                    text,
+                    icon_value=icon.icon_id,
+                    tooltip="This addon is for sale but you haven't purchased it yet.\nPrice shown is your price / base price",
+                )
             elif is_for_sale and not can_download and base_price:
                 text = f"${base_price} (Not purchased)"
                 icon = pcoll["for_sale"]
@@ -2746,7 +2757,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     tooltip="This addon is for sale but you haven't purchased it yet",
                 )
             elif is_for_sale and can_download and base_price:
-                text = f"${base_price} (Purchased)"
+                text = f"Purchased"
                 icon = pcoll["for_sale"]
                 self.draw_property(
                     box,
@@ -2995,7 +3006,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         )
         op.tooltip = "Search all assets by this author.\nShortcut: Hover over the asset in the asset bar and press 'A'."  # type: ignore[attr-defined]
         op.esc = True  # type: ignore[attr-defined]
-        op.keywords = ""  # type: ignore[attr-defined]
+        op.keywords = ""  # type: ignore[attr-defined] # must not be empty otherwise search will use previous keywords
         op.author_id = str(author_id)  # type: ignore[attr-defined]
 
         button_row = button_row.row(align=True)

@@ -1,5 +1,10 @@
 import blf
 import bpy
+import gpu
+
+from typing import Tuple, Union
+
+from gpu_extras.batch import batch_for_shader
 
 from .bl_ui_widget import BL_UI_Widget, set_font_size
 
@@ -19,6 +24,9 @@ class BL_UI_Label(BL_UI_Widget):
         # multiline
         self.multiline = False
         self.row_height = 20
+
+        self.padding: Union[Tuple[float, float], float] = 0
+        self.background = False
 
     @property
     def text_color(self):

@@ -29,6 +29,8 @@ icon_collections = {}
 icons_read = {
     "free_plan.png": "free",
     "full_plan.png": "full",
+    "promo_sale.png": "promo_sale",
+    "promo_sale_symbol.png": "promo_sale_symbol",
     "sale_purple.png": "for_sale",
     "trophy.png": "trophy",
     "dumbbell.png": "dumbbell",

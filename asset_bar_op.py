@@ -743,8 +743,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             0.4,
             1.0,
         )  # Reddish color for base price
-        self.tooltip_widgets.append(multi_price_label)
         self.multi_price_label = multi_price_label
+        self.tooltip_widgets.append(self.multi_price_label)
 
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         offset = 0
@@ -1112,15 +1112,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.quality_star.set_image_size(
             (self.asset_name_text_size, self.asset_name_text_size)
         )
-
-        self.multi_price_label.set_location(
-            self.tooltip_margin,
-            self.tooltip_height
-            - int(self.asset_name_text_size + 2 * self.tooltip_margin),
-        )
-        self.multi_price_label.width = self.tooltip_width - 2 * self.tooltip_margin
-        self.multi_price_label.height = self.asset_name_text_size
-        self.multi_price_label.text_size = self.asset_name_text_size
 
     def update_layout(self, context, event):
         """update UI sizes after their recalculation"""
