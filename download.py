@@ -109,8 +109,10 @@ def get_addon_installation_status(asset_data):
     if not is_enabled:
         extension_module_name = f"bl_ext.www_blenderkit_com.{extension_id}"
         is_enabled = extension_module_name in enabled_addons
-        bk_logger.info(
-            f"Checking extension format: {extension_module_name} -> enabled: {is_enabled}"
+        bk_logger.debug(
+            "Checking extension format: %s -> enabled: %s",
+            extension_module_name,
+            is_enabled,
         )
 
         # Also try other possible repository name formats
@@ -210,9 +212,11 @@ def get_addon_installation_status(asset_data):
         if "blenderkit" in addon.lower() or addon.endswith(extension_id)
     ]
     if blenderkit_addons:
-        bk_logger.info("Found BlenderKit-related enabled addons: %s", blenderkit_addons)
+        bk_logger.debug(
+            "Found BlenderKit-related enabled addons: %s", blenderkit_addons
+        )
 
-    bk_logger.info(
+    bk_logger.debug(
         "Addon status check for '%s': installed=%s, enabled=%s",
         extension_id,
         is_installed,

@@ -139,8 +139,8 @@ def login(signup: bool) -> None:
 
 
 def generate_pkce_pair() -> tuple[str, str]:
-    """Generate PKCE pair - a code verifier and code challange.
-    The challange should be sent first to the server, the verifier is used in next steps to verify identity (handles Client).
+    """Generate PKCE pair - a code verifier and code challenge.
+    The challenge should be sent first to the server, the verifier is used in next steps to verify identity (handles Client).
     """
     rand = random.SystemRandom()
     code_verifier = "".join(rand.choices(string.ascii_letters + string.digits, k=128))
@@ -161,8 +161,6 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     if bpy.app.version >= (4, 2, 0):
         override_extension_draw.ensure_repository(api_key=auth_token)
         override_extension_draw.clear_repo_cache()
-
-    #
 
 
 def ensure_token_refresh() -> bool:
