@@ -1009,7 +1009,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         self.authors_name.set_location(
-            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_width - self.gravatar_size - (self.tooltip_margin * 2),
             self.tooltip_height - self.author_text_size - self.tooltip_margin,
         )
         self.authors_name.text_size = self.author_text_size
