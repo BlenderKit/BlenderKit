@@ -62,8 +62,9 @@ class ThreadCom:  # object passed to threads to read background process stdout i
 
 
 def threadread(tcom: ThreadCom):
-    """reads stdout of background process.
-    this threads basically waits for a stdout line to come in,
+    """Reads stdout of background process.
+
+    This thread basically waits for a stdout line to come in,
     fills the data, dies."""
     found = False
     while not found:
@@ -235,6 +236,8 @@ class KillBgProcess(bpy.types.Operator):
             props.uploading = False
         if self.process_type == "THUMBNAILER":
             props.is_generating_thumbnail = False
+            if hasattr(props, "is_generating_wire_thumbnail"):
+                props.is_generating_wire_thumbnail = False
         # print('killing', self.process_source, self.process_type)
         # then go kill the process. this wasn't working for unsetting props and that was the reason for changing to the method above.
 

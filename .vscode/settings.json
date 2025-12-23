@@ -68,6 +68,11 @@
         "editor.formatOnType": true,
         "editor.renderFinalNewline": "on"
     },
+    
+    "[go]": {
+        "editor.defaultFormatter": "golang.go",
+        "editor.formatOnSave": true
+    },
 
     "cSpell.words": [
         "assetbar",
@@ -78,7 +83,9 @@
         "backface",
         "behaviour",
         "bkclientjs",
+        "bkit",
         "blenderkit",
+        "BSDF",
         "CHECKMARK",
         "datablock",
         "denoising",

@@ -512,6 +512,11 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
 
     if task.data["thumbnail_type"] == "full":
         asset_bar_op.asset_bar_operator.update_tooltip_image(task.data["assetBaseId"])
+        return
+
+    if task.data["thumbnail_type"] in {"photo_full", "wire_full"}:
+        asset_bar_op.asset_bar_operator.needs_tooltip_update = True
+        return
 
 
 def load_preview(asset):

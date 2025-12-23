@@ -634,45 +634,55 @@ def start_blenderkit_client():
     3. Start the BlenderKit-Client process which serves as bridge between BlenderKit add-on and BlenderKit server.
     """
     ensure_client_binary_installed()
-    log_path = get_client_log_path()
     client_binary_path, client_version = get_client_binary_path()
 
     creation_flags = 0
     if platform.system() == "Windows":
         creation_flags = subprocess.CREATE_NO_WINDOW
 
+    log_path = get_client_log_path()
+
+    stdout_target = None
+    stderr_target = None
+
+    log_file = open(log_path, "wb")
+    stdout_target = log_file
+    stderr_target = log_file
+
     try:
-        with open(log_path, "wb") as log:
-            global_vars.client_process = subprocess.Popen(
-                args=[
-                    client_binary_path,
-                    "--port",
-                    get_port(),
-                    "--server",
-                    global_vars.SERVER,
-                    "--proxy_which",
-                    global_vars.PREFS.get("proxy_which", ""),
-                    "--proxy_address",
-                    global_vars.PREFS.get("proxy_address", ""),
-                    "--trusted_ca_certs",
-                    global_vars.PREFS.get("trusted_ca_certs", ""),
-                    "--ssl_context",
-                    global_vars.PREFS.get("ssl_context", ""),
-                    "--version",
-                    f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}",
-                    "--software",
-                    "Blender",
-                    "--pid",
-                    str(os.getpid()),
-                ],
-                stdout=log,
-                stderr=log,
-                creationflags=creation_flags,
-            )
+        global_vars.client_process = subprocess.Popen(
+            args=[
+                client_binary_path,
+                "--port",
+                get_port(),
+                "--server",
+                global_vars.SERVER,
+                "--proxy_which",
+                global_vars.PREFS.get("proxy_which", ""),
+                "--proxy_address",
+                global_vars.PREFS.get("proxy_address", ""),
+                "--trusted_ca_certs",
+                global_vars.PREFS.get("trusted_ca_certs", ""),
+                "--ssl_context",
+                global_vars.PREFS.get("ssl_context", ""),
+                "--version",
+                f"{global_vars.VERSION[0]}.{global_vars.VERSION[1]}.{global_vars.VERSION[2]}.{global_vars.VERSION[3]}",
+                "--software",
+                "Blender",
+                "--pid",
+                str(os.getpid()),
+            ],
+            stdout=stdout_target,
+            stderr=stderr_target,
+            creationflags=creation_flags,
+        )
     except Exception as e:
         msg = f"Error: BlenderKit-Client {client_version} failed to start on {get_address()}:{e}"
         reports.add_report(msg, type="ERROR")
         raise (e)
+    finally:
+        if log_file is not None:
+            log_file.close()
 
     bk_logger.info(f"BlenderKit-Client {client_version} starting on {get_address()}")
 
