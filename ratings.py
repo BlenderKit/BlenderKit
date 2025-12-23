@@ -203,7 +203,7 @@ class SetBookmark(bpy.types.Operator):
     """Add or remove bookmarking of the asset.\nShortcut: hover over asset in the asset bar and press 'B'."""
 
     bl_idname = "wm.blenderkit_bookmark_asset"
-    bl_label = "BlenderKit bookmark assest"
+    bl_label = "BlenderKit bookmark assets"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     asset_id: StringProperty(  # type: ignore[valid-type]
@@ -233,28 +233,29 @@ class SetBookmark(bpy.types.Operator):
         ratings_utils.store_rating_local(
             self.asset_id, rating_type="bookmarks", value=bookmark_value
         )
-        client_lib.send_rating(self.asset_id, "bookmarks", bookmark_value)
+        client_lib.send_rating(self.asset_id, "bookmarks", str(bookmark_value))
         return {"FINISHED"}
 
 
-def rating_menu_draw(self, context):
-    layout = self.layout
+## NOT USED ANYMORE
+# def rating_menu_draw(self, context):
+#     layout = self.layout
 
-    ui_props = context.window_manager.blenderkitUI
-    sr = search.get_search_results()
+#     ui_props = context.window_manager.blenderkitUI
+#     sr = search.get_search_results()
 
-    asset_search_index = ui_props.active_index
-    if asset_search_index > -1:
-        asset_data = dict(sr["results"][asset_search_index])
+#     asset_search_index = ui_props.active_index
+#     if asset_search_index > -1:
+#         asset_data = dict(sr["results"][asset_search_index])
 
-    col = layout.column()
-    layout.label(text="Admin rating Tools:")
-    col.operator_context = "INVOKE_DEFAULT"
+#     col = layout.column()
+#     layout.label(text="Admin rating Tools:")
+#     col.operator_context = "INVOKE_DEFAULT"
 
-    op = col.operator("wm.blenderkit_menu_rating_upload", text="Add Rating")
-    op.asset_id = asset_data["id"]
-    op.asset_name = asset_data["name"]
-    op.asset_type = asset_data["assetType"]
+#     op = col.operator("wm.blenderkit_menu_rating_upload", text="Add Rating")
+#     op.asset_id = asset_data["id"]
+#     op.asset_name = asset_data["name"]
+#     op.asset_type = asset_data["assetType"]
 
 
 # Coordinates (each one is a triangle).
