@@ -468,13 +468,6 @@ def get_tooltip_data(asset_data):
 
                 user_price_text = ""
 
-            else:
-                base_price_text = " Free "
-                base_price_bg_color = colors.GREEN_FREE
-                base_price_color = colors.WHITE
-
-                user_price_text = ""
-
     tooltip_data = {
         "aname": aname,
         "author_text": author_text,
@@ -1078,7 +1071,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         self.authors_name.set_location(
-            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_width - self.gravatar_size - (self.tooltip_margin * 2),
             self.tooltip_height - self.author_text_size - self.tooltip_margin,
         )
         self.authors_name.text_size = self.author_text_size
@@ -1112,6 +1105,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.quality_star.set_image_size(
             (self.asset_name_text_size, self.asset_name_text_size)
         )
+
+        # right after the asset name
+        self.multi_price_label.set_location(
+            self.tooltip_margin,
+            self.labels_start + (self.tooltip_margin * 3) + self.asset_name.height,
+        )
+        self.multi_price_label.width = self.tooltip_width - 2 * self.tooltip_margin
+        self.multi_price_label.height = self.asset_name_text_size
+        self.multi_price_label.text_size = self.asset_name_text_size
 
     def update_layout(self, context, event):
         """update UI sizes after their recalculation"""
@@ -1686,7 +1688,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Initialize the asset bar operator."""
         self.tooltip_base_size_pixels = 512
         self.tooltip_scale = 1.0
-        self.bottom_panel_fraction = 0.15
+        self.bottom_panel_fraction = 0.18
         self.needs_tooltip_update = False
         self.update_ui_size(bpy.context)
 

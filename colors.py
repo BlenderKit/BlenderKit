@@ -46,11 +46,6 @@ GREEN_PRICE = (0.42, 0.49, 0.19, 1.0)
 PURPLE_PRICE = (0.59, 0.05, 0.82, 1.0)
 """Lavender Purple to be used on "for sale" add-ons."""
 
-
-GREEN_FREE = (0.4, 0.8, 0.4, 1.0)  # Green for free addons
-"""Leaf Green associated with free plan assets and add-ons."""
-
-
 ORANGE_FULL = (0.702, 0.349, 0.208, 1.0)
 """Burnt Orange associated with full plan assets and add-ons."""
 
