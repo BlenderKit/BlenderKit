@@ -26,9 +26,9 @@ bk_logger = logging.getLogger(__name__)
 
 ### COMMENTS
 def handle_get_comments_task(task: client_tasks.Task):
-    """Handle incomming task which downloads comments on asset."""
+    """Handle incoming task which downloads comments on asset."""
     if task.status == "error":
-        return bk_logger.warning(f"failed to get comments: {task.message}")
+        return bk_logger.warning("failed to get comments: %s", task.message)
     if task.status == "finished":
         comments = task.result["results"]
         store_comments_local(task.data["asset_id"], comments)
@@ -38,25 +38,25 @@ def handle_get_comments_task(task: client_tasks.Task):
 def handle_create_comment_task(task: client_tasks.Task):
     """Handle incoming task for creating a new comment."""
     if task.status == "finished":
-        return bk_logger.debug(f"Creating comment finished - {task.message}")
+        return bk_logger.debug("Creating comment finished - %s", task.message)
     if task.status == "error":
-        return bk_logger.warning(f"Creating comment failed - {task.message}")
+        return bk_logger.warning("Creating comment failed - %s", task.message)
 
 
 def handle_feedback_comment_task(task: client_tasks.Task):
-    """Handle incomming task for update of feedback on comment."""
+    """Handle incoming task for update of feedback on comment."""
     if task.status == "finished":  # action not needed
-        return bk_logger.debug(f"Comment feedback finished - {task.message}")
+        return bk_logger.debug("Comment feedback finished - %s", task.message)
     if task.status == "error":
-        return bk_logger.warning(f"Comment feedback failed - {task.message}")
+        return bk_logger.warning("Comment feedback failed - %s", task.message)
 
 
 def handle_mark_comment_private_task(task: client_tasks.Task):
-    """Handle incomming task for marking the comment as private/public."""
+    """Handle incoming task for marking the comment as private/public."""
     if task.status == "finished":  # action not needed
-        return bk_logger.debug(f"Marking comment visibility finished - {task.message}")
+        return bk_logger.debug("Marking comment visibility finished - %s", task.message)
     if task.status == "error":
-        return bk_logger.warning(f"Marking comment visibility failed - {task.message}")
+        return bk_logger.warning("Marking comment visibility failed - %s", task.message)
 
 
 def store_comments_local(asset_id, comments):
@@ -69,12 +69,12 @@ def get_comments_local(asset_id):
 
 ### NOTIFICATIONS
 def handle_notifications_task(task: client_tasks.Task):
-    """Handle incomming task with notifications data."""
+    """Handle incoming task with notifications data."""
     if task.status == "finished":
         global_vars.DATA["bkit notifications"] = task.result
         return
     if task.status == "error":
-        return bk_logger.warning(f"Could not load notifications: {task.message}")
+        return bk_logger.warning("Could not load notifications: %s", task.message)
 
 
 def check_notifications_read():

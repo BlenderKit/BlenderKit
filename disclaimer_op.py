@@ -224,18 +224,18 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
     @classmethod
     def unregister(cls):
-        bk_logger.debug(f"unregistering class {cls}")
+        bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug(f"- class instance {instance}")
+            bk_logger.debug("- class instance %s", instance)
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:
-                bk_logger.debug(f"-- error unregister_handlers(): {e}")
+                bk_logger.debug("-- error unregister_handlers(): %s", e)
             try:
                 instance.on_finish(instance.context)
             except Exception as e:
-                bk_logger.debug(f"-- error calling on_finish() {e}")
+                bk_logger.debug("-- error calling on_finish() %s", e)
             if bpy.context.region is not None:
                 bpy.context.region.tag_redraw()
 
@@ -290,7 +290,7 @@ def handle_disclaimer_task(task: client_tasks.Task):
         return
 
     if task.status == "error":
-        bk_logger.warning(f"Could not load disclaimer: {task.message}")
+        bk_logger.warning("Could not load disclaimer: %s", task.message)
         return show_random_tip()
 
 

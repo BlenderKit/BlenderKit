@@ -42,9 +42,9 @@ def write_preferences_to_JSON(preferences: dict):
     try:
         with open(preferences_path, "w", encoding="utf-8") as s:
             json.dump(preferences, s, ensure_ascii=False, indent=4)
-        bk_logger.info(f"Saved preferences to {preferences_path}")
+        bk_logger.info("Saved preferences to %s", preferences_path)
     except Exception as e:
-        bk_logger.warning(f"Failed to save preferences: {e}")
+        bk_logger.warning("Failed to save preferences: %s", e)
 
 
 def load_preferences_from_JSON():
@@ -159,7 +159,7 @@ def load_preferences_from_JSON():
 
     # IMPORT SETTINGS
     user_preferences.resolution = prefs.get("resolution", user_preferences.resolution)
-    bk_logger.info(f"Successfully loaded preferences from {preferences_path}")
+    bk_logger.info("Successfully loaded preferences from %s", preferences_path)
     user_preferences.preferences_lock = False
     return prefs
 
@@ -177,7 +177,7 @@ def property_keep_preferences_updated(user_preferences, context):
 
     try:
         os.remove(preferences_path)
-        bk_logger.info(f"Deleted preferences file {preferences_path}")
+        bk_logger.info("Deleted preferences file %s", preferences_path)
     except Exception as e:
-        bk_logger.error(f"Failed to delete preferences file {preferences_path}: {e}")
+        bk_logger.error("Failed to delete preferences file %s: %s", preferences_path, e)
     utils.save_prefs(user_preferences, context)

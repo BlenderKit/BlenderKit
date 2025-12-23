@@ -152,7 +152,7 @@ def get_reports(app_id: str):
             reorder_ports(port)
             return report
         except Exception as e:
-            bk_logger.info(f"Failed to get BlenderKit-Client reports: {e}")
+            bk_logger.info("Failed to get BlenderKit-Client reports: %s", e)
             last_exception = e
     if last_exception is not None:
         raise last_exception
@@ -176,7 +176,7 @@ def request_report(url: str, data: dict) -> dict:
 # SEARCH
 def asset_search(search_data: datas.SearchData):
     """Search for specified asset."""
-    bk_logger.info(f"Starting search request: {search_data.urlquery}")
+    bk_logger.info("Starting search request: %s", search_data.urlquery)
 
     search_data = ensure_minimal_data_class(search_data)
     with requests.Session() as session:
@@ -219,7 +219,7 @@ def asset_upload(upload_data, export_data, upload_set):
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         url = get_base_url() + "/blender/asset_upload"
-        bk_logger.debug(f"making a request to: {url}")
+        bk_logger.debug("making a request to: %s", url)
         resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
         return resp
 
@@ -674,7 +674,7 @@ def start_blenderkit_client():
         reports.add_report(msg, type="ERROR")
         raise (e)
 
-    bk_logger.info(f"BlenderKit-Client {client_version} starting on {get_address()}")
+    bk_logger.info("BlenderKit-Client %s starting on %s", client_version, get_address())
 
 
 def decide_client_binary_name() -> str:
@@ -760,11 +760,11 @@ def ensure_client_binary_installed():
         return
 
     preinstalled_client_path = get_preinstalled_client_path()
-    bk_logger.info(f"Copying BlenderKit-Client binary {preinstalled_client_path}")
+    bk_logger.info("Copying BlenderKit-Client binary %s", preinstalled_client_path)
     os.makedirs(path.dirname(client_binary_path), exist_ok=True)
     shutil.copy(preinstalled_client_path, client_binary_path)
     os.chmod(client_binary_path, 0o711)
-    bk_logger.info(f"BlenderKit-Client binary copied to {client_binary_path}")
+    bk_logger.info("BlenderKit-Client binary copied to %s", client_binary_path)
 
 
 def get_addon_dir():
