@@ -437,7 +437,7 @@ def get_tooltip_data(asset_data):
 
         elif is_for_sale and not can_download and user_price and base_price:
             price_text = f"{user_price} (was {base_price})"
-            price_background = colors.GREEN_PRICE
+            price_background = colors.PURPLE_PRICE
 
         elif is_for_sale and not can_download and base_price:
             price_text = base_price
@@ -453,7 +453,7 @@ def get_tooltip_data(asset_data):
 
         else:
             price_text = "Free"
-            price_background = colors.GREEN_FREE
+            price_background = colors.GREEN_PRICE
 
     tooltip_data = {
         "aname": aname,
@@ -1011,7 +1011,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         self.authors_name.set_location(
-            self.tooltip_width - self.gravatar_size - self.tooltip_margin,
+            self.tooltip_width - self.gravatar_size - (self.tooltip_margin * 2),
             self.tooltip_height - self.author_text_size - self.tooltip_margin,
         )
         self.authors_name.text_size = self.author_text_size
@@ -1046,10 +1046,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (self.asset_name_text_size, self.asset_name_text_size)
         )
 
+        # right after the asset name
         self.price_label.set_location(
             self.tooltip_margin,
-            self.tooltip_height
-            - int(self.asset_name_text_size + 2 * self.tooltip_margin),
+            self.labels_start + (self.tooltip_margin * 3) + self.asset_name.height,
         )
         self.price_label.width = self.tooltip_width - 2 * self.tooltip_margin
         self.price_label.height = self.asset_name_text_size
@@ -1567,7 +1567,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Initialize the asset bar operator."""
         self.tooltip_base_size_pixels = 512
         self.tooltip_scale = 1.0
-        self.bottom_panel_fraction = 0.15
+        self.bottom_panel_fraction = 0.18
         self.needs_tooltip_update = False
         self.update_ui_size(bpy.context)
 
