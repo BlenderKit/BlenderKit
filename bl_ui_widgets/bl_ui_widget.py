@@ -3,6 +3,15 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 
 
+def region_redraw(ctx: bpy.types.Context = None):
+    if ctx is not None:
+        context = ctx
+    else:
+        context = bpy.context
+    if context.region is not None:
+        context.region.tag_redraw()
+
+
 class BL_UI_Widget:
     def __init__(self, x, y, width, height):
         self.x = x
@@ -27,7 +36,7 @@ class BL_UI_Widget:
 
     def set_location(self, x, y):
         # if self.x != x or self.y != y or self.x_screen != x or self.y_screen != y:
-        #     bpy.context.region.tag_redraw()
+        #     region_redraw()
         self.x = x
         self.y = y
         self.x_screen = x
@@ -41,8 +50,7 @@ class BL_UI_Widget:
     @bg_color.setter
     def bg_color(self, value):
         self._bg_color = value
-        if bpy.context.region is not None:
-            bpy.context.region.tag_redraw()
+        region_redraw()
 
     @property
     def visible(self):
@@ -51,7 +59,7 @@ class BL_UI_Widget:
     @visible.setter
     def visible(self, value):
         if value != self._is_visible:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._is_visible = value
 
     @property
@@ -61,7 +69,7 @@ class BL_UI_Widget:
     @visible.setter
     def active(self, value):
         if value != self._is_active:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._is_active = value
 
     @property
@@ -107,7 +115,7 @@ class BL_UI_Widget:
         self.batch_panel = batch_for_shader(
             self.shader, "TRIS", {"pos": vertices}, indices=indices
         )
-        bpy.context.region.tag_redraw()
+        region_redraw()
 
     def handle_event(self, event):
         """
@@ -121,28 +129,27 @@ class BL_UI_Widget:
         if not self._is_active:
             return False
 
-        x = event.mouse_region_x
-        y = event.mouse_region_y
+        x, y = self._to_widget_region_coords(event)
 
         if event.type == "LEFTMOUSE":
             if event.value == "PRESS":
                 self._mouse_down = True
-                bpy.context.region.tag_redraw()
+                region_redraw()
                 return self.mouse_down(x, y)
             else:
                 self._mouse_down = False
-                bpy.context.region.tag_redraw()
+                region_redraw()
                 self.mouse_up(x, y)
                 return False
 
         elif event.type == "RIGHTMOUSE":
             if event.value == "PRESS":
                 self._mouse_down_right = True
-                bpy.context.region.tag_redraw()
+                region_redraw()
                 return self.mouse_down_right(x, y)
             else:
                 self._mouse_down_right = False
-                bpy.context.region.tag_redraw()
+                region_redraw()
                 self.mouse_up(x, y)
 
         elif event.type == "MOUSEMOVE":
@@ -154,13 +161,13 @@ class BL_UI_Widget:
                 self.__inrect = True
                 self.mouse_enter(event, x, y)
                 # we tag redraw since the hover colors are picked in the draw function
-                bpy.context.region.tag_redraw()
+                region_redraw()
 
             # we are leaving the rect
             elif self.__inrect and not inrect:
                 self.__inrect = False
                 self.mouse_exit(event, x, y)
-                bpy.context.region.tag_redraw()
+                region_redraw()
 
             # return always false to enable mouse exit events on other buttons.(would sometimes not hide the tooltip)
             return False  # self.__inrect
@@ -173,6 +180,26 @@ class BL_UI_Widget:
             return self.text_input(event)
 
         return False
+
+    def _to_widget_region_coords(self, event):
+        region = None
+        ctx = self.context
+        if isinstance(ctx, dict):
+            region = ctx.get("region")
+        elif hasattr(ctx, "region"):
+            region = getattr(ctx, "region")
+
+        if (
+            region is not None
+            and hasattr(event, "mouse_x")
+            and hasattr(event, "mouse_y")
+        ):
+            try:
+                return event.mouse_x - region.x, event.mouse_y - region.y
+            except AttributeError:
+                pass
+
+        return getattr(event, "mouse_region_x", 0), getattr(event, "mouse_region_y", 0)
 
     def get_input_keys(self):
         return []

@@ -21,6 +21,7 @@ import math
 import os
 import re
 import time
+from types import SimpleNamespace
 from typing import Any, Dict, Union
 
 import bpy
@@ -36,6 +37,7 @@ from . import (
     ui,
     ui_panels,
     utils,
+    viewport_utils,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
@@ -51,21 +53,35 @@ active_area_pointer = 0
 
 
 def get_area_height(self):
-    if type(self.context) != dict:
-        if self.context is None:
-            self.context = bpy.context
-        self.context = self.context.copy()
-    if self.context.get("area") is not None:
-        return self.context["area"].height
-    # else:
-    #     maxw, maxa, region = utils.get_largest_area()
-    #     if maxa:
-    #         self.context['area'] = maxa
-    #         self.context['window'] = maxw
-    #         self.context['region'] = region
-    #         self.update(self.x,self.y)
-    #
-    #         return self.context['area'].height
+    ctx = getattr(self, "context", None)
+
+    if isinstance(ctx, dict):
+        ctx_dict = ctx
+    elif isinstance(ctx, SimpleNamespace):
+        ctx_dict = {
+            "window": getattr(ctx, "window", None),
+            "area": getattr(ctx, "area", None),
+            "region": getattr(ctx, "region", None),
+        }
+    else:
+        if ctx is None:
+            ctx = bpy.context
+        ctx_dict = {
+            "window": getattr(ctx, "window", None),
+            "area": getattr(ctx, "area", None),
+            "region": getattr(ctx, "region", None),
+        }
+
+    self.context = ctx_dict
+
+    region = ctx_dict.get("region")
+    if region is not None:
+        return region.height
+
+    area = ctx_dict.get("area")
+    if area is not None:
+        return area.height
+
     return 100
 
 
@@ -111,6 +127,32 @@ def modal_inside(self, context, event):
         if a is not None:
             bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
         return {"FINISHED"}
+
+    is_quad_view = self._is_quad_view(context)
+    if getattr(self, "_quad_view_state", None) != is_quad_view:
+        self._quad_view_state = is_quad_view
+        self.active_area_pointer = None  # force refresh of area/region pointers
+        self.active_region_pointer = None
+        self.finish()
+        bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        return {"FINISHED"}
+
+    # Quad view toggles recreate areas/regions and invalidate stored pointers.
+    context_area_pointer = context.area.as_pointer() if context.area else None
+    context_region_pointer = context.region.as_pointer() if context.region else None
+    operator_area_pointer = getattr(self, "operator_area_pointer", None)
+    operator_region_pointer = getattr(self, "operator_region_pointer", None)
+    if context_area_pointer is not None and (
+        context_area_pointer != operator_area_pointer
+        or context_region_pointer != operator_region_pointer
+    ):
+        self.operator_area_pointer = context_area_pointer
+        self.operator_region_pointer = context_region_pointer
+        self._switch_active_view(context, context.area, context.region, force=True)
+
+    # Update active viewport based on cursor location so the asset bar follows the
+    # region the user is interacting with.
+    self._update_active_view_from_cursor(context, event)
 
     sr = search.get_search_results()
     if sr is not None:
@@ -231,8 +273,7 @@ def modal_inside(self, context, event):
 
             # return {"FINISHED"} # we can jump out immediately
 
-    self.mouse_x = event.mouse_region_x
-    self.mouse_y = event.mouse_region_y
+    self.mouse_x, self.mouse_y = self._event_coords_in_active_region(event)
 
     # TRACKPAD SCROLL
     if event.type == "TRACKPADPAN" and self.panel.is_in_rect(
@@ -338,29 +379,13 @@ def asset_bar_invoke(self, context, event):
     self.active_area_pointer = context.area.as_pointer()
     active_area_pointer = self.active_area_pointer
     self.active_region_pointer = context.region.as_pointer()
+    self.operator_area_pointer = self.active_area_pointer
+    self.operator_region_pointer = self.active_region_pointer
+    self._active_area_ref = context.area
+    self._active_region_ref = context.region
 
     return {"RUNNING_MODAL"}
 
-
-# def set_mouse_down_right(self, mouse_down_right_func):
-#     self.mouse_down_right_func = mouse_down_right_func
-
-
-# def mouse_down_right(self, x, y):
-#     if self.is_in_rect(x, y):
-#         self.__state = 1
-#         try:
-#             self.mouse_down_right_func(self)
-#         except Exception as e:
-#             bk_logger.warning(f"{e}")
-
-#         return True
-
-#     return False
-
-
-# BL_UI_Button.mouse_down_right = mouse_down_right  # type: ignore[method-assign]
-# BL_UI_Button.set_mouse_down_right = set_mouse_down_right  # type: ignore[attr-defined]
 
 asset_bar_operator = None
 
@@ -524,6 +549,288 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         default=False,
         options={"SKIP_SAVE"},
     )
+
+    # ------------------------------------------------------------------
+    # Context helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_window(self, context):
+        return getattr(context, "window", None) or bpy.context.window
+
+    def _validated_area(self, area):
+        if area is None:
+            return None
+        try:
+            area.as_pointer()
+        except ReferenceError:
+            return None
+        return area
+
+    def _validated_region(self, region):
+        if region is None:
+            return None
+        try:
+            region.as_pointer()
+        except ReferenceError:
+            return None
+        return region
+
+    def _safe_space_data(self, area):
+        if area is None:
+            return None
+        try:
+            return area.spaces.active
+        except ReferenceError:
+            return None
+
+    def _build_context_snapshot(self, context, area=None, region=None):
+        area = self._validated_area(area) or self._validated_area(
+            getattr(context, "area", None)
+        )
+        region = self._validated_region(region) or self._validated_region(
+            getattr(context, "region", None)
+        )
+        return SimpleNamespace(
+            window=self._resolve_window(context),
+            area=area,
+            region=region,
+            space_data=self._safe_space_data(area),
+        )
+
+    def _unwrap_area_region(self, ctx):
+        if isinstance(ctx, dict):
+            return ctx.get("area"), ctx.get("region")
+        return getattr(ctx, "area", None), getattr(ctx, "region", None)
+
+    def _event_window_coords(self, event):
+        if not hasattr(event, "mouse_x") or not hasattr(event, "mouse_y"):
+            return None, None
+        return getattr(event, "mouse_x", None), getattr(event, "mouse_y", None)
+
+    def _apply_widget_context(self, override_ctx):
+        """Apply the given override context to all widgets in the asset bar.
+
+        All widgets get the new context,
+        except for the main panel and tooltip panel (and their children).
+        """
+        self._override_context = override_ctx
+        if not hasattr(self, "widgets"):
+            return
+        panel = getattr(self, "panel", None)
+        panel_children = (
+            set(panel.widgets) if isinstance(panel, BL_UI_Drag_Panel) else set()
+        )
+        tooltip_panel = getattr(self, "tooltip_panel", None)
+        tooltip_children = (
+            set(self.tooltip_widgets) if hasattr(self, "tooltip_widgets") else set()
+        )
+
+        for widget in self.widgets:
+            widget.context = override_ctx
+            if (
+                widget is panel
+                or widget in panel_children
+                or widget is tooltip_panel
+                or widget in tooltip_children
+            ):
+                continue
+            widget.update(widget.x, widget.y)
+
+        if isinstance(panel, BL_UI_Drag_Panel):
+            panel.update(panel.x, panel.y)
+            panel.layout_widgets()
+
+        if isinstance(tooltip_panel, BL_UI_Drag_Panel):
+            tooltip_panel.update(tooltip_panel.x, tooltip_panel.y)
+            tooltip_panel.layout_widgets()
+
+    def _find_area_region_from_event(self, context, event):
+        x, y = self._event_window_coords(event)
+        if x is None or y is None:
+            return None, None
+
+        screen = getattr(self._resolve_window(context), "screen", None)
+        if screen is None:
+            return None, None
+
+        for area in screen.areas:
+            if getattr(area, "type", None) != "VIEW_3D":
+                continue
+            if not (
+                area.x <= x < area.x + area.width and area.y <= y < area.y + area.height
+            ):
+                continue
+
+            target_region = None
+            fallback_region = None
+            for region in viewport_utils.iter_view3d_window_regions(area):
+                if fallback_region is None:
+                    fallback_region = region
+                if (
+                    region.x <= x < region.x + region.width
+                    and region.y <= y < region.y + region.height
+                ):
+                    target_region = region
+                    break
+
+            return area, target_region or fallback_region
+
+        return None, None
+
+    def _cursor_inside_active_area(self, event):
+        area = self._validated_area(getattr(self, "_active_area_ref", None))
+        if area is None:
+            return False
+
+        x, y = self._event_window_coords(event)
+        if x is None or y is None:
+            return False
+
+        if not (
+            area.x <= x < area.x + area.width and area.y <= y < area.y + area.height
+        ):
+            return False
+
+        region = self._validated_region(getattr(self, "_active_region_ref", None))
+        if region is None:
+            return True
+
+        return (
+            region.x <= x < region.x + region.width
+            and region.y <= y < region.y + region.height
+        )
+
+    def _view_changed(
+        self,
+        area_pointer,
+        region_pointer,
+        previous_area_pointer,
+        previous_region_pointer,
+    ):
+        return (
+            previous_area_pointer != area_pointer
+            or previous_region_pointer != region_pointer
+        )
+
+    def _store_active_view(self, context, area, region, area_pointer, region_pointer):
+        self.active_area_pointer = area_pointer
+        self.active_region_pointer = region_pointer
+        global active_area_pointer
+        active_area_pointer = area_pointer
+        self._active_area_ref = area
+        self._active_region_ref = region
+        self.context = context
+
+    def _refresh_layout(self, override_ctx):
+        self.update_assetbar_sizes(override_ctx)
+        self.update_assetbar_layout(override_ctx)
+        self.scroll_update(always=True)
+
+    def _safe_tag_redraw(self, region):
+        if region is None:
+            return
+        try:
+            region.tag_redraw()
+        except ReferenceError:
+            pass
+
+    def _tag_regions_for_redraw(self, current_region, previous_region_ref):
+        self._safe_tag_redraw(current_region)
+        if previous_region_ref and previous_region_ref is not current_region:
+            self._safe_tag_redraw(previous_region_ref)
+
+    def _switch_active_view(self, context, area, region, *, force=False):
+        """Switch the active area/region the asset bar is attached to.
+
+        If `force` is True, the switch is applied even if the area/region
+        pointers match the previously stored ones.
+        """
+        area = self._validated_area(area)
+        region = self._validated_region(region)
+        if area is None or region is None:
+            return
+
+        area_pointer = area.as_pointer()
+        region_pointer = region.as_pointer()
+        previous_area_pointer = getattr(self, "active_area_pointer", None)
+        previous_region_pointer = getattr(self, "active_region_pointer", None)
+        if not force and not self._view_changed(
+            area_pointer,
+            region_pointer,
+            previous_area_pointer,
+            previous_region_pointer,
+        ):
+            return
+
+        previous_region_ref = getattr(self, "_active_region_ref", None)
+
+        self._store_active_view(context, area, region, area_pointer, region_pointer)
+
+        override_ctx = self._build_context_snapshot(context, area, region)
+        self._apply_widget_context(override_ctx)
+
+        if force or self._view_changed(
+            area_pointer,
+            region_pointer,
+            previous_area_pointer,
+            previous_region_pointer,
+        ):
+            # Rebuild sizes/layout whenever we truly jump to a different area (or
+            # the caller explicitly requests it) so the bar respects the new
+            # region dimensions/UI scale. Plain cursor moves within the same view
+            # keep the old layout for performance.
+            self._refresh_layout(override_ctx)
+
+        self.panel.set_location(self.bar_x, self.bar_y)
+
+        # Explicitly request redraws so the handler updates in the new region and
+        # the previous one releases its stale widgets.
+        self._tag_regions_for_redraw(region, previous_region_ref)
+
+    def _redraw_tracked_regions(self):
+        """Request redraw on any region the operator stored explicitly."""
+        _, stored_region = self._unwrap_area_region(getattr(self, "context", None))
+        regions = {
+            self._validated_region(getattr(self, "_active_region_ref", None)),
+            self._validated_region(
+                getattr(getattr(self, "_override_context", None), "region", None)
+            ),
+            self._validated_region(stored_region),
+        }
+
+        for region in regions:
+            if region is None:
+                continue
+            try:
+                region.tag_redraw()
+            except ReferenceError:
+                continue
+
+    def _update_active_view_from_cursor(self, context, event):
+        """Update the active area/region based on the current cursor location.
+
+        This makes the asset bar follow the user's cursor as they move between
+        different 3D viewports.
+        """
+        if event.type not in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE", "TRACKPADPAN"}:
+            return
+
+        if self._cursor_inside_active_area(event):
+            return
+
+        area, region = self._find_area_region_from_event(context, event)
+        if area is None or region is None:
+            return
+        self._switch_active_view(context, area, region)
+
+    def _event_coords_in_active_region(self, event):
+        region = self._validated_region(getattr(self, "_active_region_ref", None))
+        if region is not None:
+            x, y = self._event_window_coords(event)
+            if x is not None and y is not None:
+                return x - region.x, y - region.y
+
+        return getattr(event, "mouse_region_x", 0), getattr(event, "mouse_region_y", 0)
 
     @classmethod
     def description(cls, context, properties):
@@ -716,6 +1023,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.visible = False
         for w in self.tooltip_widgets:
             w.visible = False
+        self._redraw_tracked_regions()
 
     def show_tooltip(self):
         """Show the tooltip panel and its widgets."""
@@ -723,6 +1031,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.active = False
         for w in self.tooltip_widgets:
             w.visible = True
+        self._redraw_tracked_regions()
 
     def show_notifications(self, widget):
         """Show notifications on the asset bar."""
@@ -769,7 +1078,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Check if the UI has been resized."""
         # TODO this should only check if region was resized, not really care about the UI elements size.
         region_width, region_height = self.get_region_size(context)
-
         if not hasattr(self, "total_width"):
             self.total_width = region_width
             self.region_height = region_height
@@ -889,8 +1197,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.bar_end = int(ui_width + 180 * ui_scale + self.other_button_size)
         self.bar_width = int(region.width - self.bar_x - self.bar_end)
+        # Quad view and very small regions can shrink the available width below a single
+        # thumbnail. Keep the bar wide enough to host at least one column and keep the
+        # math stable so the buttons do not disappear entirely.
+        self.bar_width = max(1, self.bar_width)
 
-        self.wcount = math.floor((self.bar_width) / (self.button_size))
+        effective_bar_width = max(self.bar_width, self.button_size)
+        self.wcount = max(1, math.floor(effective_bar_width / self.button_size))
 
         self.max_hcount = math.floor(
             max(region.width, context.window.width) / self.button_size
@@ -925,6 +1238,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.hcount = 1
 
         self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
+
         if ui_props.down_up == "UPLOAD":
             self.reports_y = region.height - self.bar_y - 600
             ui_props.reports_y = region.height - self.bar_y - 600
@@ -1058,6 +1372,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.update_assetbar_layout(context)
         self.update_tooltip_layout(context)
 
+    def _is_quad_view(self, context):
+        """Return True when the current 3D view runs in quad-view layout."""
+        space_data = getattr(context, "space_data", None)
+        if not space_data or getattr(space_data, "type", "") != "VIEW_3D":
+            return False
+        quadviews = getattr(space_data, "region_quadviews", None)
+        if quadviews is None:
+            return False
+        try:
+            return len(quadviews) > 0
+        except TypeError:
+            return bool(quadviews)
+
     def asset_button_init(self, asset_x, asset_y, button_idx):
         """Initialize an asset button at the given position with the given index."""
         button_bg_color = (0.2, 0.2, 0.2, 0.1)
@@ -1144,9 +1471,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             red_alert.active = False
             new_button.red_alert = red_alert
             self.red_alerts.append(red_alert)
-
-        # if result['downloaded'] > 0:
-        #     ui_bgl.draw_rect(x, y, int(ui_props.thumb_size * result['downloaded'] / 100.0), 2, green)
 
         return new_button
 
@@ -1560,6 +1884,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._quad_view_state = None
 
     def on_init(self, context):
         """Initialize the asset bar operator."""
@@ -1568,6 +1893,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.bottom_panel_fraction = 0.18
         self.needs_tooltip_update = False
         self.update_ui_size(bpy.context)
+        self._quad_view_state = self._is_quad_view(context)
 
         # todo move all this to update UI size
         ui_props = context.window_manager.blenderkitUI
@@ -1611,6 +1937,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.panel.add_widgets(widgets_panel)
         self.tooltip_panel.add_widgets(self.tooltip_widgets)
 
+        stored_area, stored_region = self._unwrap_area_region(
+            getattr(self, "context", None)
+        )
+        override_ctx = self._build_context_snapshot(
+            context,
+            stored_area or context.area,
+            stored_region or context.region,
+        )
+        self._apply_widget_context(override_ctx)
+
     def on_invoke(self, context, event):
         """Invoke the asset bar operator."""
         self.context = context
@@ -1627,19 +1963,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         ui_props = context.window_manager.blenderkitUI
         if ui_props.assetbar_on:
-            # TODO solve this otherwise to enable more asset bars?
-            # we don't want to run the assetbar many times, that's why it has a switch on/off behaviour,
-            # unless being called with 'keep_running'
-
-            if not self.keep_running:
-                # this sends message to the originally running operator, so it quits, and then it ends this one too.
-                # If it initiated a search, the search will finish in a thread. The switch off procedure is run
-                # by the 'original' operator, since if we get here, it means
-                # same operator is already running.
-                ui_props.turn_off = True
-                # if there was an error, we need to turn off these props so we can restart after 2 clicks
-                ui_props.assetbar_on = False
-
+            # rerun always behaves as a toggle: request currently running instance to exit
+            ui_props.turn_off = True
+            # if there was an error, reset the flag so next invocation can start cleanly
+            ui_props.assetbar_on = False
             return False
 
         ui_props.assetbar_on = True
@@ -1680,10 +2007,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         ui_props.assetbar_on = False
         ui_props.scroll_offset = self.scroll_offset
 
-        # for w in wm.windows:
-        #     for a in w.screen.areas:
-        #         a.tag_redraw()
         self._finished = True
+        # to ensure the asset buttons are removed from screen
+        self._redraw_tracked_regions()
 
     def update_tooltip_image(self, asset_id):
         """Update tooltip image when it finishes downloading and the downloaded image matches the active one."""
@@ -1732,6 +2058,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not hasattr(widget, "button_index") or widget.button_index < 0:
             return  # click on left/right arrow button gave no attr button_index
             # we should detect on which button_index scroll/left/right happened to refresh shown thumbnail
+
         bpy.context.window.cursor_set("HAND")
         search_index = widget.button_index + self.scroll_offset
         if search_index < self.search_results_count:
@@ -1838,6 +2165,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             for r in bpy.context.area.regions:
                 if r.type == "UI":
                     properties_width = r.width
+
             tooltip_x = min(
                 int(widget.x_screen),
                 int(

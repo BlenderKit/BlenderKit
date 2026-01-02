@@ -7,7 +7,7 @@ import bpy
 import gpu
 
 from .. import image_utils, ui_bgl
-from .bl_ui_widget import BL_UI_Widget
+from .bl_ui_widget import BL_UI_Widget, region_redraw
 from .bl_ui_image import BL_UI_Image
 
 bk_logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class BL_UI_Button(BL_UI_Widget):
     @text_color.setter
     def text_color(self, value):
         if value != self._text_color:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._text_color = value
 
     @property
@@ -48,7 +48,7 @@ class BL_UI_Button(BL_UI_Widget):
     @text.setter
     def text(self, value):
         if value != self._text:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._text = value
 
     @property
@@ -58,7 +58,7 @@ class BL_UI_Button(BL_UI_Widget):
     @text_size.setter
     def text_size(self, value):
         if value != self._text_size:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._text_size = value
 
     @property
@@ -68,7 +68,7 @@ class BL_UI_Button(BL_UI_Widget):
     @hover_bg_color.setter
     def hover_bg_color(self, value):
         if value != self._hover_bg_color:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._hover_bg_color = value
 
     @property
@@ -78,7 +78,7 @@ class BL_UI_Button(BL_UI_Widget):
     @select_bg_color.setter
     def select_bg_color(self, value):
         if value != self._select_bg_color:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._select_bg_color = value
 
     def set_image_size(self, image_size):
