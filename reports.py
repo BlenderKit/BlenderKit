@@ -113,7 +113,7 @@ class Report:
                 try:
                     reports.remove(self)
                 except Exception as e:
-                    bk_logger.warning(f"exception in fading: {e}")
+                    bk_logger.warning("exception in fading: %s", e)
 
     def draw(self, x, y):
         if (

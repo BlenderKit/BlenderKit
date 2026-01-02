@@ -145,7 +145,7 @@ def get_addon_installation_status(asset_data):
                 )
                 break
     except Exception as e:
-        bk_logger.warning(f"Error checking addon_utils.modules(): {e}")
+        bk_logger.warning("Error checking addon_utils.modules(): %s", e)
 
     # If found through addon_utils, we know it's installed
     # But we need to double-check enabled status using the correct module name
@@ -160,10 +160,10 @@ def get_addon_installation_status(asset_data):
                     # Check if this specific module name is enabled
                     is_enabled = addon_module.__name__ in enabled_addons
                     if is_enabled:
-                        bk_logger.info(f"Found enabled addon: {addon_module.__name__}")
+                        bk_logger.info("Found enabled addon: %s", addon_module.__name__)
                     break
         except Exception as e:
-            bk_logger.warning(f"Error double-checking enabled status: {e}")
+            bk_logger.warning("Error double-checking enabled status: %s", e)
 
     # Method 3: If not found through traditional addon system, check extensions system
     if not is_installed:
@@ -182,7 +182,7 @@ def get_addon_installation_status(asset_data):
                         is_enabled = pkg_data.get("enabled", False)
                     break
         except Exception as e:
-            bk_logger.warning(f"Error checking extension cache: {e}")
+            bk_logger.warning("Error checking extension cache: %s", e)
 
     # Method 4: Check through Blender's extension repositories directly
     if not is_installed:
@@ -203,7 +203,7 @@ def get_addon_installation_status(asset_data):
                 # For now, we'll rely on the previous methods
                 break
         except Exception as e:
-            bk_logger.warning(f"Error checking extension repositories: {e}")
+            bk_logger.warning("Error checking extension repositories: %s", e)
 
     # Debug: Show some enabled addons for reference
     blenderkit_addons = [
@@ -252,7 +252,7 @@ def install_addon_from_local_file(asset_data, file_path, enable_on_install=True)
         reports.add_report(error_msg, type="ERROR")
         raise Exception(error_msg)
 
-    bk_logger.info(f"Installing addon '{addon_name}' from local file: {file_path}")
+    bk_logger.info("Installing addon '%s' from local file: %s", addon_name, file_path)
 
     status = get_addon_installation_status(asset_data)
     if status["installed"]:
@@ -348,7 +348,7 @@ def check_unused():
 
     for l in bpy.data.libraries:
         if l not in used_libs and l.getn("asset_data"):
-            bk_logger.info(f"attempt to remove this library: {l.filepath}")
+            bk_logger.info("attempt to remove this library: %s", l.filepath)
             # have to unlink all groups, since the file is a 'user' even if the groups aren't used at all...
             for user_id in l.users_id:
                 if type(user_id) == bpy.types.Collection:
@@ -364,7 +364,7 @@ def get_temp_enabled_addons():
         temp_addons_json = prefs.temp_enabled_addons
         return json.loads(temp_addons_json)
     except Exception as e:
-        bk_logger.warning(f"Error reading temporary addons from preferences: {e}")
+        bk_logger.warning("Error reading temporary addons from preferences: %s", e)
         return []
 
 
@@ -374,9 +374,9 @@ def set_temp_enabled_addons(addon_list):
     try:
         prefs = bpy.context.preferences.addons[__package__].preferences
         prefs.temp_enabled_addons = json.dumps(addon_list)
-        bk_logger.info(f"Saved {len(addon_list)} temporary addons to preferences")
+        bk_logger.info("Saved %d temporary addons to preferences", len(addon_list))
     except Exception as e:
-        bk_logger.error(f"Error saving temporary addons to preferences: {e}")
+        bk_logger.error("Error saving temporary addons to preferences: %s", e)
 
 
 def add_temp_enabled_addon(pkg_id):
@@ -385,7 +385,7 @@ def add_temp_enabled_addon(pkg_id):
     if pkg_id not in temp_enabled:
         temp_enabled.append(pkg_id)
         set_temp_enabled_addons(temp_enabled)
-        bk_logger.info(f"Added {pkg_id} to temporary addons list")
+        bk_logger.info("Added %s to temporary addons list", pkg_id)
 
 
 def cleanup_temp_enabled_addons():
@@ -398,24 +398,24 @@ def cleanup_temp_enabled_addons():
             bk_logger.info("No temporarily enabled addons to clean up")
             return
 
-        bk_logger.info(f"Cleaning up {len(temp_enabled)} temporarily enabled addons")
+        bk_logger.info("Cleaning up %d temporarily enabled addons", len(temp_enabled))
 
         # Disable all temporarily enabled addons using preferences API
         for pkg_id in temp_enabled:
             try:
                 full_module_name = f"bl_ext.www_blenderkit_com.{pkg_id}"
                 bpy.ops.preferences.addon_disable(module=full_module_name)
-                bk_logger.info(f"Disabled temporarily enabled addon: {pkg_id}")
+                bk_logger.info("Disabled temporarily enabled addon: %s", pkg_id)
             except Exception as e:
                 bk_logger.warning(
-                    f"Failed to disable temporarily enabled addon {pkg_id}: {e}"
+                    "Failed to disable temporarily enabled addon %s: %s", pkg_id, e
                 )
 
         # Clear the list in preferences
         set_temp_enabled_addons([])
         bk_logger.info("Temporary addon cleanup completed")
     except Exception as e:
-        bk_logger.error(f"Error during temporary addon cleanup: {e}")
+        bk_logger.error("Error during temporary addon cleanup: %s", e)
 
 
 @persistent
@@ -466,7 +466,7 @@ def refresh_addon_search_results_status():
                     asset_data["enabled"] = False
 
     except Exception as e:
-        bk_logger.warning(f"Error refreshing addon search results status: {e}")
+        bk_logger.warning("Error refreshing addon search results status: %s", e)
 
 
 @persistent
@@ -979,7 +979,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 model_location=kwargs.get("model_location", (0, 0, 0)),
                 model_rotation=kwargs.get("model_rotation", (0, 0, 0)),
             )
-        bk_logger.info(f"appended nodegroup: {nodegroup}")
+        bk_logger.info("appended nodegroup: %s", nodegroup)
         asset_main = nodegroup
 
     asset_data["resolution"] = kwargs["resolution"]
@@ -1188,7 +1188,7 @@ def handle_download_task(task: client_tasks.Task):
             download_tasks.pop(task.task_id)
             return
         except Exception as e:
-            bk_logger.exception(f"Asset appending/linking has failed")
+            bk_logger.exception("Asset appending/linking has failed: %s", e)
             task.message = f"Append failed: {e}"
             task.status = "error"
 
@@ -1210,7 +1210,7 @@ def download_write_progress(task_id, task):
     global download_tasks
     task_addon = download_tasks.get(task.task_id)
     if task_addon is None:
-        bk_logger.warning(f"couldn't write download progress to {task.progress}")
+        bk_logger.warning("couldn't write download progress to %s", task.progress)
         return
     task_addon["progress"] = task.progress
     task_addon["text"] = task.message
@@ -1449,7 +1449,7 @@ def try_finished_append(asset_data, **kwargs):
             try:
                 os.remove(file_path)
             except Exception as e1:
-                bk_logger.error(f"removing file {file_path} failed: {e1}")
+                bk_logger.error("removing file %s failed: %s", file_path, e1)
         raise e
 
     # Update downloaded status in search results
@@ -1619,7 +1619,7 @@ def start_download(asset_data, **kwargs) -> bool:
             try_finished_append(asset_data, **kwargs)
             return False
         except Exception as e:
-            bk_logger.info(f"Failed to append asset: {e}, continuing with download")
+            bk_logger.info("Failed to append asset: %s, continuing with download", e)
 
     if asset_data["assetType"] in ("model", "material"):
         downloader = {
@@ -1965,7 +1965,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                     self.report({"INFO"}, f"Successfully enabled '{addon_name}'")
                     refresh_addon_search_results_status()
                 except Exception as e:
-                    bk_logger.error(f"Failed to enable addon: {e}")
+                    bk_logger.error("Failed to enable addon: %s", e)
                     reports.add_report(
                         f"Failed to enable '{addon_name}': {e}", type="ERROR"
                     )
@@ -1985,7 +1985,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                     self.report({"INFO"}, f"Successfully disabled '{addon_name}'")
                     refresh_addon_search_results_status()
                 except Exception as e:
-                    bk_logger.error(f"Failed to disable addon: {e}")
+                    bk_logger.error("Failed to disable addon: %s", e)
                     reports.add_report(
                         f"Failed to disable '{addon_name}': {e}", type="ERROR"
                     )
@@ -2000,7 +2000,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                             f"Temporary enable operation failed - returned: {result}"
                         )
                 except Exception as e:
-                    bk_logger.error(f"Failed to temp enable addon: {e}")
+                    bk_logger.error("Failed to temp enable addon: %s", e)
                     reports.add_report(
                         f"Failed to enable '{addon_name}': {e}", type="ERROR"
                     )
@@ -2016,7 +2016,7 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                 refresh_addon_search_results_status()
 
         except Exception as e:
-            bk_logger.error(f"Addon operation failed for '{addon_name}': {e}")
+            bk_logger.error("Addon operation failed for '%s': %s", addon_name, e)
             error_msg = f"Failed to {selected_action.lower().replace('_', ' ')} '{addon_name}': {e}"
             reports.add_report(error_msg, type="ERROR")
             self.report({"ERROR"}, error_msg)

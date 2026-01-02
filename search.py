@@ -185,7 +185,7 @@ def check_clipboard():
     try:  # could be problematic on Linux
         current_clipboard = str(bpy.context.window_manager.clipboard)
     except Exception as e:
-        bk_logger.warning(f"Failed to get clipboard: {e}")
+        bk_logger.warning("Failed to get clipboard: %s", e)
         return
 
     if current_clipboard == last_clipboard:
@@ -713,7 +713,7 @@ def handle_get_user_profile(task: client_tasks.Task):
         return
 
     if task.status == "error":
-        bk_logger.warning(f"Could not load user profile: {task.message}")
+        bk_logger.warning("Could not load user profile: %s", task.message)
         return
 
     user_data = task.result.get("user")
@@ -1135,7 +1135,7 @@ def get_search_simple(
     page_index = 2
     page_count = math.ceil(search_results["count"] / page_size)
     while search_results.get("next") and len(results) < max_results:
-        bk_logger.info(f"getting page {page_index} , total pages {page_count}")
+        bk_logger.info("getting page %d , total pages %d", page_index, page_count)
         response = client_lib.blocking_request(search_results["next"], "GET", headers)
         search_results = response.json()
         results.extend(search_results["results"])
@@ -1146,7 +1146,7 @@ def get_search_simple(
 
     with open(filepath, "w", encoding="utf-8") as s:
         json.dump(results, s, ensure_ascii=False, indent=4)
-    bk_logger.info(f"retrieved {len(results)} assets from elastic search")
+    bk_logger.info("retrieved %d assets from elastic search", len(results))
     return results
 
 
@@ -1640,7 +1640,7 @@ class SearchOperator(Operator):
             search_keywords = ""
 
         if self.author_id != "":
-            bk_logger.info(f"Author ID: {self.author_id}")
+            bk_logger.info("Author ID: %s", self.author_id)
             # if there is already an author id in the search keywords, remove it first, the author_id can be any so
             # use regex to find it
             search_keywords = re.sub(r"\+author_id:\d+", "", search_keywords)
@@ -1893,7 +1893,7 @@ def update_tab_name(active_tab):
                 if asset_bar.area and asset_bar.area.region:
                     asset_bar.area.tag_redraw()
             except Exception as e:
-                bk_logger.debug(f"Could not update tab name in UI: {e}")
+                bk_logger.debug("Could not update tab name in UI: %s", e)
 
     return history_step
 

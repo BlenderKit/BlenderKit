@@ -2044,7 +2044,7 @@ class AssetDragOperator(bpy.types.Operator):
                 # but if RNA Struct fails we are not longer able to remove it, so we log an error and store None
                 self._handlers_universal[space_type] = handler
             except (AttributeError, TypeError) as e:
-                bk_logger.error(f"Could not register handler for {space_type}: {e}")
+                bk_logger.error("Could not register handler for %s: %s", space_type, e)
                 self._handlers_universal[space_type] = None
 
         self.mouse_x = 0

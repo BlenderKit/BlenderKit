@@ -135,7 +135,7 @@ def login(signup: bool) -> None:
     else:
         authorize_url = f"{global_vars.SERVER}{authorize_url}"
     ok = open_new_tab(authorize_url)
-    bk_logger.info(f"Login page in browser opened ({ok})")
+    bk_logger.info("Login page in browser opened (%s)", ok)
 
 
 def generate_pkce_pair() -> tuple[str, str]:
