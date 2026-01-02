@@ -135,20 +135,20 @@ def handle_categories_task(task: client_tasks.Task):
             )  # TODO: do this in Client, just saving the file so next time it is updated even without internet
         return
 
-    bk_logger.warning(f"Could not load categories: {task.message}")
+    bk_logger.warning("Could not load categories: %s", task.message)
     if not os.path.exists(categories_filepath):
         source_path = paths.get_addon_file(subpath="data" + os.sep + "categories.json")
         try:
             shutil.copy(source_path, categories_filepath)
         except Exception as e:
-            bk_logger.warning(f"Could not copy categories file: {e}")
+            bk_logger.warning("Could not copy categories file: %s", e)
             return
 
     try:
         with open(categories_filepath, "r", encoding="utf-8") as catfile:
             global_vars.DATA["bkit_categories"] = json.load(catfile)
     except Exception as e:
-        bk_logger.warning(f"Could not read categories file: {e}")
+        bk_logger.warning("Could not read categories file: %s", e)
 
 
 # def get_upload_asset_type(self):

@@ -63,7 +63,7 @@ def cleanup_old_directories():
         try:
             shutil.rmtree(orig_temp)
         except Exception as e:
-            bk_logger.error(f"could not delete old temp directory: {e}")
+            bk_logger.error("could not delete old temp directory: %s", e)
 
 
 def find_in_local(text=""):
@@ -134,11 +134,11 @@ def get_temp_dir(subdir=None):
         cleanup_old_directories()
     except Exception as e:
         reports.add_report("Cache directory not found. Resetting Cache directory path.")
-        bk_logger.warning(f"due to exception: {e}")
+        bk_logger.warning("due to exception: %s", e)
 
         p = default_global_dict()
         if p == user_preferences.global_dir:
-            message = "Global dir was already default, plese set a global directory in addon preferences to a dir where you have write permissions."
+            message = "Global dir was already default, please set a global directory in addon preferences to a dir where you have write permissions."
             reports.add_report(message)
             return None
         user_preferences.global_dir = p
@@ -423,10 +423,10 @@ def delete_asset_debug(asset_data):
             continue
         try:
             shutil.rmtree(asset_dir)
-            bk_logger.info(f"deleted {asset_dir}")
+            bk_logger.info("deleted asset dir: %s", asset_dir)
         except Exception as err:
             e = sys.exc_info()[0]
-            bk_logger.error(f"{e} - {err}")
+            bk_logger.error("%s - %s", e, err)
 
 
 def get_clean_filepath():

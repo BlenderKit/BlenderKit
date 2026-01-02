@@ -123,8 +123,8 @@ def selection_set(sel):
         bpy.context.view_layer.objects.active = sel[0]
         for ob in sel[1]:
             ob.select_set(True)
-    except Exception as e:
-        bk_logger.exception(f"failed to select objects: {str(e)}")
+    except Exception:
+        bk_logger.exception("Failed to select objects:")
 
 
 def get_active_model() -> Optional[bpy.types.Object]:
@@ -800,7 +800,7 @@ def copy_asset(fp1, fp2):
     """Synchronizes the asset between directories, including it's texture subdirectories."""
     if 1:
         bk_logger.debug("copy asset")
-        bk_logger.debug(fp1 + " " + fp2)
+        bk_logger.debug("%s %s", fp1, fp2)
         if not os.path.exists(fp2):
             shutil.copyfile(fp1, fp2)
             bk_logger.debug("copied")
@@ -1147,7 +1147,7 @@ def name_update(props, context=None):
     fname = fname.replace("'", "")
     fname = fname.replace('"', "")
     if ui_props.asset_type == "HDR" or fname == "":
-        bk_logger.info(f"Skiping the rename")
+        bk_logger.info("Skipping the rename")
         return  # don't rename HDR's or with empty name
     else:
         asset = get_active_asset()
@@ -1543,7 +1543,7 @@ def check_globaldir_permissions():
         )
         return False
     if not os.path.isdir(global_dir):
-        bk_logger.info(f"Global dir does not exist. Creating it at {global_dir}")
+        bk_logger.info("Global dir does not exist. Creating it at %s", global_dir)
         try:
             os.mkdir(global_dir)
         except Exception as e:

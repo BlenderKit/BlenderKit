@@ -134,7 +134,7 @@ def get_full_photo_thumbnail(asset_data):
         img = utils.get_hidden_image(tpath, photo_name, colorspace="")
         return img
 
-    bk_logger.info(f"Photo thumbnail file not found at path: {tpath}")
+    bk_logger.info("Photo thumbnail file not found at path: %s", tpath)
     return None
 
 

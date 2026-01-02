@@ -1469,18 +1469,18 @@ def handle_asset_metadata_upload(task: client_tasks.Task):
     new_asset_base_id = task.result.get("assetBaseId", "")
     if new_asset_base_id != "":
         asset.asset_base_id = new_asset_base_id
-        bk_logger.info(f"Assigned new asset.asset_base_id: {new_asset_base_id}")
+        bk_logger.info("Assigned new asset.asset_base_id: %s", new_asset_base_id)
     else:
         asset.asset_base_id = task.data["export_data"]["assetBaseId"]
-        bk_logger.info(f"Assigned original asset.asset_base_id: {asset.asset_base_id}")
+        bk_logger.info("Assigned original asset.asset_base_id: %s", asset.asset_base_id)
 
     new_asset_id = task.result.get("id", "")
     if new_asset_id != "":
         asset.id = new_asset_id
-        bk_logger.info(f"Assigned new asset.id: {new_asset_id}")
+        bk_logger.info("Assigned new asset.id: %s", new_asset_id)
     else:
         asset.id = task.data["export_data"]["id"]
-        bk_logger.info(f"Assigned original asset.id: {asset.id}")
+        bk_logger.info("Assigned original asset.id: %s", asset.id)
 
     return reports.add_report("Metadata upload successfull")
 
@@ -1593,7 +1593,7 @@ def mark_for_thumbnail(
             asset_id, "markThumbnailRender", json_data, api_key
         )
     except Exception as e:
-        bk_logger.error(f"Failed to mark asset for thumbnail regeneration: {e}")
+        bk_logger.error("Failed to mark asset for thumbnail regeneration: %s", e)
         return False
 
 
