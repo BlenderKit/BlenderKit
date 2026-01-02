@@ -125,14 +125,20 @@ def draw_callback_px_separated(self, op, context):
         # hide during animation playback, to improve performance
         if context.screen.is_animation_playing:
             return
-        area_pointer = context.area.as_pointer() if getattr(context, "area", None) else None
+        area_pointer = (
+            context.area.as_pointer() if getattr(context, "area", None) else None
+        )
         active_pointer = get_safely(self, "active_area_pointer", None)
         if area_pointer is None or area_pointer != active_pointer:
             return
 
         active_region_pointer = get_safely(self, "active_region_pointer", None)
         if active_region_pointer is not None:
-            region_pointer = context.region.as_pointer() if getattr(context, "region", None) else None
+            region_pointer = (
+                context.region.as_pointer()
+                if getattr(context, "region", None)
+                else None
+            )
             if region_pointer is None or region_pointer != active_region_pointer:
                 return
 
