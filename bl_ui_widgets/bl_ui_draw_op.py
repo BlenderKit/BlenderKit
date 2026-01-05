@@ -4,7 +4,19 @@ from typing import Optional
 import bpy
 from bpy.types import Operator
 
+from .bl_ui_widget import region_redraw
+
 bk_logger = logging.getLogger(__name__)
+
+
+def get_safely(obj, attr_name, default=None):
+    """Get attribute from object while tolerating freed data."""
+    try:
+        return getattr(obj, attr_name, default)
+    except ReferenceError:
+        return default
+    except Exception:
+        return default
 
 
 class BL_UI_OT_draw_operator(Operator):
@@ -47,7 +59,7 @@ class BL_UI_OT_draw_operator(Operator):
         self.active_area_pointer = context.area.as_pointer()
         self.active_region_pointer = context.region.as_pointer()
 
-        context.region.tag_redraw()
+        region_redraw(context)
         return {"RUNNING_MODAL"}
 
     def register_handlers(self, args, context, timer_interval=0.1):
@@ -80,7 +92,7 @@ class BL_UI_OT_draw_operator(Operator):
             return {"FINISHED"}
 
         if context.area:
-            context.region.tag_redraw()
+            region_redraw(context)
 
         if self.handle_widget_events(event):
             return {"RUNNING_MODAL"}
@@ -93,8 +105,7 @@ class BL_UI_OT_draw_operator(Operator):
     def finish(self):
         self.unregister_handlers(bpy.context)
         # it is possible that the area has been closed, so we check if it is still available
-        if bpy.context.region is not None:
-            bpy.context.region.tag_redraw()
+        region_redraw()
         self.on_finish(bpy.context)
 
     # Draw handler to paint onto the screen
@@ -114,8 +125,24 @@ def draw_callback_px_separated(self, op, context):
         # hide during animation playback, to improve performance
         if context.screen.is_animation_playing:
             return
-        if context.area.as_pointer() == self.active_area_pointer:
-            for widget in self.widgets:
-                widget.draw()
+        area_pointer = (
+            context.area.as_pointer() if getattr(context, "area", None) else None
+        )
+        active_pointer = get_safely(self, "active_area_pointer", None)
+        if area_pointer is None or area_pointer != active_pointer:
+            return
+
+        active_region_pointer = get_safely(self, "active_region_pointer", None)
+        if active_region_pointer is not None:
+            region_pointer = (
+                context.region.as_pointer()
+                if getattr(context, "region", None)
+                else None
+            )
+            if region_pointer is None or region_pointer != active_region_pointer:
+                return
+
+        for widget in self.widgets:
+            widget.draw()
     except Exception:
         bk_logger.exception("Error in draw_callback_px_separated: ")

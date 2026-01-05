@@ -42,6 +42,7 @@ from . import (
     ui_bgl,
     ui_panels,
     utils,
+    viewport_utils,
     search,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
@@ -1630,11 +1631,14 @@ class AssetDragOperator(bpy.types.Operator):
     ):
         """Get the active object under the mouse cursor during drag."""
 
-        region_data = None
-
-        for space in active_area.spaces:
-            if space.type == "VIEW_3D":
-                region_data = space.region_3d
+        # precise placement in ortho views, and quad view
+        region_data = viewport_utils.region_data_for_view(active_area, active_region)
+        if region_data is None:
+            for space in active_area.spaces:
+                if space.type == "VIEW_3D":
+                    region_data = getattr(space, "region_3d", None)
+                    if region_data is not None:
+                        break
 
         # Need to temporarily override context for raycasting
         if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
@@ -1643,9 +1647,7 @@ class AssetDragOperator(bpy.types.Operator):
                 "screen": active_window.screen,
                 "area": active_area,
                 "region": active_region,
-                "region_data": active_area.spaces[
-                    0
-                ].region_3d,  # Get region_data from space_data
+                "region_data": region_data,
                 "scene": context.scene,
                 "view_layer": context.view_layer,
             }

@@ -6,7 +6,7 @@ from typing import Tuple, Union
 
 from gpu_extras.batch import batch_for_shader
 
-from .bl_ui_widget import BL_UI_Widget
+from .bl_ui_widget import BL_UI_Widget, region_redraw
 
 
 class BL_UI_Label(BL_UI_Widget):
@@ -32,7 +32,7 @@ class BL_UI_Label(BL_UI_Widget):
     @text_color.setter
     def text_color(self, value):
         if value != self._text_color:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._text_color = value
 
     @property
@@ -42,7 +42,7 @@ class BL_UI_Label(BL_UI_Widget):
     @text.setter
     def text(self, value):
         if value != self._text:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._text = value
 
     @property
@@ -52,7 +52,7 @@ class BL_UI_Label(BL_UI_Widget):
     @text_size.setter
     def text_size(self, value):
         if value != self._text_size:
-            bpy.context.region.tag_redraw()
+            region_redraw()
         self._text_size = value
 
     def is_in_rect(self, x, y):
