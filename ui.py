@@ -103,39 +103,64 @@ def get_large_thumbnail_image(asset_data):
     return img
 
 
-def get_full_photo_thumbnail(asset_data):
-    """Get full photo thumbnail from asset data. This is different from the large thumbnail
-    as the photo_thumbnails are not available on the asset data root, but inside the files[].
-    We need to get the data from files[] where assetType=='photo_thumbnail'."""
-    # Find the photo thumbnail file
-    photo_file = None
+def get_full_thumbnail_variant(asset_data, variant: str):
+    """Get full thumbnail variant from asset data.
+
+    Args:
+        asset_data: The asset data dictionary.
+        variant (str): The variant type to retrieve ('photo' or 'wire').
+    Returns:
+        The Blender image object for the requested variant, or None if not found.
+    """
+    # Find the file corresponding to the requested variant
+    file_data = None
     for file in asset_data.get("files", []):
-        if file.get("fileType") == "photo_thumbnail":
-            photo_file = file
+        if file.get("fileType") == f"{variant.lower()}_thumbnail":
+            file_data = file
             break
 
-    if photo_file is None:
-        bk_logger.warning("No photo thumbnail file found in asset data")
+    if file_data is None:
+        if variant == "photo":
+            bk_logger.warning(f"No {variant} thumbnail file found in asset data")
+        else:
+            bk_logger.debug(f"No {variant} thumbnail file found in asset data")
         return None
 
-    photo_url = photo_file.get("thumbnailMiddleUrl")
-    if photo_url is None:
-        bk_logger.warning("No thumbnail URL found in photo file")
+    file_url = file_data.get("thumbnailMiddleUrl")
+    if file_url is None:
+        bk_logger.warning(f"No thumbnail URL found in {variant} file")
         return None
 
     # Get the directory and construct the path
     ui_props = bpy.context.window_manager.blenderkitUI
     directory = paths.get_temp_dir(f"{ui_props.asset_type.lower()}_search")
-    photo_name = os.path.basename(photo_url)
-    tpath = os.path.join(directory, photo_name)
+    file_name = os.path.basename(file_url)
+    tpath = os.path.join(directory, file_name)
 
     # Load the image into Blender
     if os.path.exists(tpath):
-        img = utils.get_hidden_image(tpath, photo_name, colorspace="")
+        img = utils.get_hidden_image(tpath, file_name, colorspace="")
+        bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
         return img
 
     bk_logger.info("Photo thumbnail file not found at path: %s", tpath)
     return None
+
+
+def get_full_photo_thumbnail(asset_data):
+    """Get full photo thumbnail from asset data. This is different from the large thumbnail
+    as the photo_thumbnails are not available on the asset data root, but inside the files[].
+    We need to get the data from files[] where assetType=='photo_thumbnail'."""
+    # Find the photo thumbnail file
+    thumb = get_full_thumbnail_variant(asset_data, "photo")
+    return thumb
+
+
+def get_full_wire_thumbnail(asset_data):
+    """Get full wireframe thumbnail from asset data."""
+    # Find the photo thumbnail file
+    thumb = get_full_thumbnail_variant(asset_data, "wire")
+    return thumb
 
 
 def is_rating_possible() -> tuple[bool, bool, Any, Any]:

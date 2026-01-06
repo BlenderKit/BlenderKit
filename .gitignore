@@ -14,8 +14,9 @@ client_builds
 # prevent publishing of dynamically created updater cache
 *_updater_status.json
 
-# debug folder
+# debug and backup folders
 _debug/
+_bck/
 
 # debug env variables
 .env

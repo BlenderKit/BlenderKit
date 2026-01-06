@@ -14,7 +14,7 @@ Client can be started from the add-on automatically, but it can be also started 
 When Client is started from the add-on, the add-on automatically fills some flags:
 - `--version` informing about the version of the add-on which starts Client
 - `--software` in which software starting add-on runs - for now it is just Blender
-- `--pid` the process number of the software whose add-on starts the Client 
+- `--pid` the process number of the software whose add-on starts the Client
 
 For manual start these flags are empty (if the user does not specify those from CLI).
 In the future Client could behave differently when started manually - e.g. does not shutdown automatically after a while.

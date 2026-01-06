@@ -701,7 +701,7 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 }
 
 func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
-	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks []*Task
+	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks, fullWireThumbsTasks []*Task
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
 	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avoid nesting
@@ -764,42 +764,55 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		}
 		fullThumbsTasks = append(fullThumbsTasks, fullTask)
 
-		if result.AssetType != "printable" {
-			continue
-		}
-
-		// Full Photo Thumbnail - we need to get it from files list
 		for _, file := range result.Files {
-			if file.FileType != "photo_thumbnail" {
+			var (
+				thumbTasks    *[]*Task
+				thumbnailType string
+			)
+
+			switch file.FileType {
+			case "photo_thumbnail":
+				thumbTasks = &fullPhotoThumbsTasks
+				thumbnailType = "photo_full"
+			case "wire_thumbnail":
+				thumbTasks = &fullWireThumbsTasks
+				thumbnailType = "wire_full"
+			default:
+				BKLog.Printf("parseThumbnails: skipping fileType=%s for %s", file.FileType, result.DisplayName)
 				continue
 			}
 
 			if file.ThumbnailMiddleURL == "" {
-				BKLog.Printf("Missing photo_thumbnail.ThumbnailMiddleURL for asset: %s", result.DisplayName)
+				BKLog.Printf("Missing %s.ThumbnailMiddleURL for asset: %s", file.FileType, result.DisplayName)
 				continue
 			}
-			fullPhotoThumbURL := file.ThumbnailMiddleURL
+			fullThumbURL := file.ThumbnailMiddleURL
 
-			fullPhotoThumbnailName, fullPhotoThumbnailNameErr := ExtractFilenameFromURL(fullPhotoThumbURL)
-			fullPhotoThumbnailPath := filepath.Join(data.TempDir, fullPhotoThumbnailName)
-			fullPhotoThumbnailTaskData := DownloadThumbnailData{
+			fullThumbnailName, fullThumbnailNameErr := ExtractFilenameFromURL(fullThumbURL)
+			fullThumbnailPath := filepath.Join(data.TempDir, fullThumbnailName)
+			fullThumbnailTaskData := DownloadThumbnailData{
 				AddonVersion:  data.AddonVersion,
-				ThumbnailType: "photo_full",
-				ImagePath:     fullPhotoThumbnailPath,
-				ImageURL:      fullPhotoThumbURL,
+				ThumbnailType: thumbnailType,
+				ImagePath:     fullThumbnailPath,
+				ImageURL:      fullThumbURL,
+				AssetBaseID:   result.AssetBaseID,
+				Index:         i,
 			}
-			fullPhotoThumbnailTaskUUID := uuid.New().String()
-			fullPhotoThumbnailTask := NewTask(fullPhotoThumbnailTaskData, data.AppID, fullPhotoThumbnailTaskUUID, "thumbnail_download")
-			if fullPhotoThumbnailNameErr != nil {
-				fullPhotoThumbnailTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", fullPhotoThumbnailNameErr, result.DisplayName)
+			fullThumbnailTaskUUID := uuid.New().String()
+			fullThumbnailTask := NewTask(fullThumbnailTaskData, data.AppID, fullThumbnailTaskUUID, "thumbnail_download")
+			if fullThumbnailNameErr != nil {
+				fullThumbnailTask.Error = fmt.Errorf("error extracting filename from URL: %v, for asset: %s", fullThumbnailNameErr, result.DisplayName)
 			}
-			fullPhotoThumbsTasks = append(fullPhotoThumbsTasks, fullPhotoThumbnailTask)
+
+			BKLog.Printf("parseThumbnails: queued %s for %s", file.FileType, result.DisplayName)
+			*thumbTasks = append(*thumbTasks, fullThumbnailTask)
 		}
 	}
 
 	go downloadImageBatch(smallThumbsTasks, true)
 	go downloadImageBatch(fullThumbsTasks, true)
 	go downloadImageBatch(fullPhotoThumbsTasks, true)
+	go downloadImageBatch(fullWireThumbsTasks, true)
 }
 
 func downloadImageBatch(tasks []*Task, block bool) {
@@ -2473,6 +2486,20 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				files = append(files, file)
 			} else {
 				BKLog.Printf("%s No photo_thumbnail_path provided for photo_thumbnail upload", EmoWarning)
+			}
+			continue
+		}
+
+		if filetype == "wire_thumbnail" {
+			if export_data.WireThumbnailPath != "" {
+				file := UploadFile{
+					Type:     "wire_thumbnail",
+					Index:    0,
+					FilePath: export_data.WireThumbnailPath,
+				}
+				files = append(files, file)
+			} else {
+				BKLog.Printf("%s No wire_thumbnail_path provided for wire_thumbnail upload", EmoWarning)
 			}
 			continue
 		}

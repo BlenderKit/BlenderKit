@@ -536,6 +536,17 @@ def clear_repo_cache():
         del wm[cache_key]
 
 
+def _sanitize_pkg_for_cache(pkg):
+    """Keep values stored as string to prevent C overflow."""
+    sanitized = {}
+    for k, v in pkg.items():
+        if isinstance(v, bool):
+            sanitized[k] = v
+        else:
+            sanitized[k] = str(v)
+    return sanitized
+
+
 def ensure_repo_cache():
     r"""
     Reads the .json file blender stores in \extensions\www_blenderkit_com\.blender_ext
@@ -621,12 +632,10 @@ def ensure_repo_cache():
         for pkg in data.get(
             "data", []
         ):  # Handle case where 'data' key might be missing
-            if (
-                isinstance(pkg, dict) and "id" in pkg
-            ):  # Ensure pkg is a dict and 'id' key exists
-                new_cache[pkg["id"][:32]] = pkg
-            else:
+            if not (isinstance(pkg, dict) and "id" in pkg):
                 bk_logger.info("Skipping invalid package entry in cache: %s.", pkg)
+                continue
+            new_cache[pkg["id"][:32]] = _sanitize_pkg_for_cache(pkg)
 
         wm[cache_key] = new_cache
         wm[mtime_key] = current_mtime  # Update mtime only on successful load

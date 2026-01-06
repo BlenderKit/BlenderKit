@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 # type: ignore
 
+from __future__ import annotations
 
 import json
 import math
@@ -25,6 +26,7 @@ import random
 import colorsys
 import sys
 from traceback import print_exc
+from typing import Any, Union
 
 import bpy
 
@@ -36,47 +38,66 @@ def get_obnames(BLENDERKIT_EXPORT_DATA: str):
     return obnames
 
 
-def center_obs_for_thumbnail(obs):
-    s = bpy.context.scene
-    # obs = bpy.context.selected_objects
+def center_objs_for_thumbnail(obs: list[Any]) -> None:
+    """Center and scale objects for optimal thumbnail framing.
+
+    Steps:
+    1. Center objects in world space (handles parent-child hierarchy)
+    2. Adjust camera distance based on object bounds
+    3. Scale helper objects to fit the model in frame
+
+    Args:
+        obs: List of Blender objects to center and frame.
+    """
+    scene = bpy.context.scene
     parent = obs[0]
+
+    # Handle instanced collections (linked objects)
     if parent.type == "EMPTY" and parent.instance_collection is not None:
         obs = parent.instance_collection.objects[:]
 
+    # Get top-level parent
     while parent.parent is not None:
         parent = parent.parent
-    # reset parent rotation, so we see how it really snaps.
+
+    # Reset parent rotation for accurate snapping
     parent.rotation_euler = (0, 0, 0)
     parent.location = (0, 0, 0)
     bpy.context.view_layer.update()
+
+    # Calculate bounding box in world space
     minx, miny, minz, maxx, maxy, maxz = utils.get_bounds_worldspace(obs)
 
+    # Center object at world origin
     cx = (maxx - minx) / 2 + minx
     cy = (maxy - miny) / 2 + miny
-    for ob in s.collection.objects:
+    for ob in scene.collection.objects:
         ob.select_set(False)
 
     bpy.context.view_layer.objects.active = parent
-    # parent.location += mathutils.Vector((-cx, -cy, -minz))
     parent.location = (-cx, -cy, 0)
 
-    camZ = s.camera.parent.parent
-    # camZ.location.z = (maxz - minz) / 2
-    camZ.location.z = (maxz) / 2
+    # Adjust camera position and scale based on object size
+    cam_z = scene.camera.parent.parent
+    cam_z.location.z = maxz / 2
+
+    # Calculate diagonal size of object for scaling
     dx = maxx - minx
     dy = maxy - miny
     dz = maxz - minz
     r = math.sqrt(dx * dx + dy * dy + dz * dz)
 
+    # Scale scene elements to fit object
     scaler = bpy.context.view_layer.objects["scaler"]
     scaler.scale = (r, r, r)
-    coef = 0.7
+    coef = 0.7  # Camera distance coefficient
     r *= coef
-    camZ.scale = (r, r, r)
+    cam_z.scale = (r, r, r)
     bpy.context.view_layer.update()
 
 
-def render_thumbnails():
+def render_thumbnails() -> None:
+    """Render the current scene to a still image (no animation)."""
     bpy.ops.render.render(write_still=True, animation=False)
 
 
@@ -112,23 +133,63 @@ def patch_imports(addon_module_name: str):
     print(f"- Local repository {parts[1]} added")
 
 
-def replace_materials(obs, material_name):
-    """Replace all materials on objects with the specified material
+def replace_materials(
+    obs: list[Any], material_name: str
+) -> Union[bpy.types.Material, None]:
+    """Replace all materials on the given objects with a wireframe material.
+
     Args:
-        obs: List of objects to process
-        material_name: Name of the material to apply to all objects
+        obs: List of Blender objects to modify.
+        material_name: Name of the wireframe material to use.
     """
-    material = bpy.data.materials.get(material_name)
-    if not material:
+    # Create or get the wireframe material
+    if material_name in bpy.data.materials:
+        material = bpy.data.materials[material_name]
+    else:
         bg_blender.progress(f"Material {material_name} not found")
         return
 
+    # Assign the wireframe material to all objects
     for ob in obs:
         if ob.type == "MESH":
             # Clear all material slots and add the specified material
             ob.data.materials.clear()
             ob.data.materials.append(material)
     return material
+
+
+def _str_to_color(s: str) -> tuple[float, float, float] | None:
+    """Convert a color string to an RGB tuple.
+
+    Args:
+        s: Color string in the format "#RRGGBB" or "R,G,B".
+
+    Returns:
+        A tuple of (R, G, B) values as floats in the range [0.0, 1.0], or None.
+    """
+    hex_size = 7  # e.g. "#RRGGBB"
+    rgb_size = 5  # e.g. "R,G,B"
+    rgb_count = 3
+    s = s.strip()
+    if s.startswith("#") and len(s) == hex_size:
+        r = int(s[1:3], 16) / 255.0
+        g = int(s[3:5], 16) / 255.0
+        b = int(s[5:7], 16) / 255.0
+        return (r, g, b)
+    if len(s) == rgb_size:
+        parts = s.split(",")
+        if len(parts) == rgb_count:
+            try:
+                r = float(parts[0].strip())
+                g = float(parts[1].strip())
+                b = float(parts[2].strip())
+
+            except ValueError:
+                pass
+            else:
+                return (r, g, b)
+    # Default to None
+    return None
 
 
 if __name__ == "__main__":
@@ -195,7 +256,7 @@ if __name__ == "__main__":
         }
 
         bpy.context.scene.camera = bpy.data.objects[camdict[data["thumbnail_snap_to"]]]
-        center_obs_for_thumbnail(allobs)
+        center_objs_for_thumbnail(allobs)
         bpy.context.scene.render.filepath = data["thumbnail_path"]
         if thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
@@ -214,8 +275,8 @@ if __name__ == "__main__":
             "SIDE": 4,
             "TOP": 5,
         }
-        s = bpy.context.scene
-        s.frame_set(fdict[data["thumbnail_angle"]])
+        scene = bpy.context.scene
+        scene.frame_set(fdict[data["thumbnail_angle"]])
 
         snapdict = {
             "GROUND": "Ground",
@@ -263,11 +324,15 @@ if __name__ == "__main__":
                     1,
                 )
 
+        # replace material if we need to render wireframe thumbnail
+        if data.get("thumbnail_render_type") == "WIREFRAME":
+            replace_materials(allobs, "bkit wireframe")
+
         bpy.data.materials["bkit background"].node_tree.nodes["Value"].outputs[
             "Value"
         ].default_value = data["thumbnail_background_lightness"]
 
-        s.cycles.samples = data["thumbnail_samples"]
+        scene.cycles.samples = data["thumbnail_samples"]
         bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
         bpy.context.view_layer.update()
 
@@ -297,14 +362,17 @@ if __name__ == "__main__":
             )
 
             sys.exit(0)
-
+        # get sub type if we are not generating for main beauty thumbnail
+        filetype = "thumbnail"
+        if data.get("thumbnail_upload_type"):
+            filetype = data["thumbnail_upload_type"].lower()
         bg_blender.progress("uploading thumbnail")
         fpath = data["thumbnail_path"] + ".jpg"
         ok = client_lib.complete_upload_file_blocking(
             api_key=BLENDERKIT_EXPORT_API_KEY,
             asset_id=data["asset_data"]["id"],
             filepath=fpath,
-            filetype=f"thumbnail",
+            filetype=filetype,
             fileindex=0,
         )
         if not ok:

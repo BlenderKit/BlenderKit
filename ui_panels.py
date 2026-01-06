@@ -21,6 +21,7 @@ import os
 import random
 import time
 from webbrowser import open_new_tab
+from typing import Any
 
 import bpy
 from bpy.props import IntProperty, StringProperty, FloatVectorProperty, EnumProperty
@@ -182,7 +183,7 @@ def draw_upload_common(layout, props, asset_type, context):
         layout.prop(props, "tags")
 
 
-def prop_needed(layout, props, name, value="", is_not_filled=""):
+def prop_needed(layout, props, name, value: Any = "", is_not_filled: Any = ""):
     row = layout.row()
     if value == is_not_filled:
         # row.label(text='', icon = 'ERROR')
@@ -296,6 +297,14 @@ def draw_thumbnail_upload_panel(layout, props):
     box.template_icon(icon_value=tex.image.preview.icon_id, scale=6.0)
 
 
+def draw_wire_thumbnail_upload_panel(layout, props):
+    tex = autothumb.get_texture_ui(props.wire_thumbnail, ".upload_preview_wire")
+    if not tex or not tex.image:
+        return
+    box = layout.box()
+    box.template_icon(icon_value=tex.image.preview.icon_id, scale=6.0)
+
+
 def draw_panel_model_upload(self, context):
     """Draw upload panel for model and printable assets"""
     ob = utils.get_active_model()
@@ -331,6 +340,24 @@ def draw_panel_model_upload(self, context):
             icon="IMAGE",
         )
 
+    # DISABLED WIRE THUMBNAIL FOR NOW
+    # TODO: re-enable later, when the shaders are fixed for it.
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
+    if user_preferences.enable_wire_thumbnail_upload:
+        layout.prop(props, "wire_thumbnail_will_upload_on_website")
+        if not props.wire_thumbnail_will_upload_on_website:
+            draw_wire_thumbnail_upload_panel(layout, props)
+            col = layout.column()
+            if getattr(props, "is_generating_wire_thumbnail", False):
+                col.enabled = False
+            prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
+            if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+                col.operator(
+                    "object.blenderkit_generate_wireframe_thumbnail",
+                    text="Generate wire thumbnail",
+                    icon="IMAGE",
+                )
+
     if props.is_generating_thumbnail:
         row = layout.row(align=True)
         row.label(text=props.thumbnail_generating_state)
@@ -339,6 +366,15 @@ def draw_panel_model_upload(self, context):
         op.process_type = "THUMBNAILER"
     elif props.thumbnail_generating_state != "":
         utils.label_multiline(layout, text=props.thumbnail_generating_state)
+
+    if getattr(props, "is_generating_wire_thumbnail", False):
+        row = layout.row(align=True)
+        row.label(text=props.wire_thumbnail_generating_state)
+        op = row.operator("object.kill_bg_process", text="", icon="CANCEL")
+        op.process_source = asset_type
+        op.process_type = "THUMBNAILER"
+    elif getattr(props, "wire_thumbnail_generating_state", "") != "":
+        utils.label_multiline(layout, text=props.wire_thumbnail_generating_state)
 
     # Only show these properties for MODEL type
     if asset_type == "MODEL":
@@ -396,6 +432,20 @@ def draw_panel_scene_upload(self, context):
     prop_needed(col, props, "thumbnail", props.has_thumbnail, False)
     # if bpy.context.scene.render.engine == 'CYCLES':
     #     col.operator("object.blenderkit_generate_thumbnail", text='Generate thumbnail', icon='IMAGE_COL')
+
+    # # DISABLED WIRE THUMBNAIL FOR NOW
+    # # TODO: re-enable later, when the shaders are fixed for it.
+    # layout.prop(props, "wire_thumbnail_will_upload_on_website")
+    # if not props.wire_thumbnail_will_upload_on_website:
+    #     draw_wire_thumbnail_upload_panel(layout, props)
+    #     col = layout.column()
+    #     prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
+    #     if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+    #         col.operator(
+    #             "object.blenderkit_generate_wireframe_thumbnail",
+    #             text="Generate wire thumbnail",
+    #             icon="IMAGE",
+    #         )
 
     # row = layout.row(align=True)
     # if props.is_generating_thumbnail:
@@ -2441,6 +2491,13 @@ def label_or_url_or_operator(
         layout.label(text=text)
 
 
+THUMBNAIL_MODE_ITEMS = [
+    ("main", "Render", "Show the standard asset thumbnail", "IMAGE_DATA", 0),
+    ("photo", "Photo", "Show the photo reference thumbnail", "SCENE", 1),
+    ("wire", "Wire", "Show the wireframe thumbnail", "SHADING_WIRE", 2),
+]
+
+
 class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
     """
     This is the popup card that appears when you click on an asset in the asset bar.
@@ -2451,6 +2508,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
     bl_label = "BlenderKit asset popup"
 
     width = 800
+
+    thumbnail_mode: EnumProperty(  # type: ignore[valid-type]
+        name="Thumbnail Variant",
+        description="Choose which preview image to display",
+        items=THUMBNAIL_MODE_ITEMS,
+        default="main",
+        options={"SKIP_SAVE"},
+    )
 
     @classmethod
     def poll(cls, context):
@@ -2607,6 +2672,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 "deleted": "You deleted this asset",
                 "validated": "Your asset passed our validation process, "
                 "and is now available to BlenderKit users",
+                "ready": "Your asset is validated and ready to be used by everyone",
             }
             self.draw_property(
                 box,
@@ -2614,9 +2680,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 self.asset_data["verificationStatus"],
                 icon_value=icon.icon_id,
                 url=f"{global_vars.SERVER}/docs/validation-status/",
-                tooltip=verification_status_tooltips[
-                    self.asset_data["verificationStatus"]
-                ],
+                tooltip=verification_status_tooltips.get(
+                    self.asset_data["verificationStatus"], "unknown status"
+                ),
             )
         # resolution/s
         resolution = utils.get_param(self.asset_data, "textureResolutionMax")
@@ -3049,29 +3115,71 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             op.url = url  # type: ignore[attr-defined]
             op.tooltip = f"Go to {social_network.name} profile"  # type: ignore[attr-defined]
 
+    def _get_active_thumbnail(self):
+        mode = getattr(self, "thumbnail_mode", "main")
+        if mode == "photo" and getattr(self, "full_photo_thumbnail", None):
+            return self.full_photo_thumbnail
+        if mode == "wire" and getattr(self, "full_wire_thumbnail", None):
+            return self.full_wire_thumbnail
+        return self.img
+
+    def _has_additional_thumbnails(self):
+        return bool(
+            getattr(self, "full_photo_thumbnail", None)
+            or getattr(self, "full_wire_thumbnail", None)
+        )
+
     def draw_thumbnail_box(self, layout, width=250):
         layout.emboss = "NORMAL"
 
         box_thumbnail = layout.box()
 
+        thumb_image = self._get_active_thumbnail()
         box_thumbnail.scale_y = 0.4
         box_thumbnail.template_icon(
-            icon_value=self.img.preview.icon_id, scale=width * 0.12
+            icon_value=thumb_image.preview.icon_id, scale=width * 0.12
         )
-        self.img.gl_touch()
+        thumb_image.gl_touch()
 
-        # Display photo thumbnail for printable objects
-        if (
-            self.asset_data.get("assetType") == "printable"
-            and hasattr(self, "full_photo_thumbnail")
-            and self.full_photo_thumbnail
-        ):
-            box_thumbnail.scale_y = 0.4
-            box_thumbnail.template_icon(
-                icon_value=self.full_photo_thumbnail.preview.icon_id,
-                scale=width * 0.12,
+        if self._has_additional_thumbnails():
+            selector_col = box_thumbnail.column()
+            selector_col.separator()
+            selector_col.label(text="Preview variations:")
+            buttons = selector_col.row(align=True)
+            buttons.alignment = "CENTER"
+            buttons.scale_x = 1.3
+            buttons.scale_y = 3.0
+
+            buttons.prop_enum(
+                self,
+                "thumbnail_mode",
+                "main",
+                icon="IMAGE_DATA",
+                text="",
             )
-            self.full_photo_thumbnail.gl_touch()
+            if self.asset_data.get("assetType") == "printable" and getattr(
+                self, "full_photo_thumbnail", None
+            ):
+                buttons.prop_enum(
+                    self,
+                    "thumbnail_mode",
+                    "photo",
+                    icon="SCENE",
+                    text="",
+                )
+            if self.asset_data.get("assetType") in {
+                "printable",
+                "model",
+                "scene",
+            } and getattr(self, "full_wire_thumbnail", None):
+                buttons.prop_enum(
+                    self,
+                    "thumbnail_mode",
+                    "wire",
+                    icon="SHADING_WIRE",
+                    text="",
+                )
+            selector_col.separator()
 
         # op = row.operator('view3d.asset_drag_drop', text='Drag & Drop from here', depress=True)
         # From here on, only ratings are drawn, which won't be displayed for private assets from now on.
@@ -3453,6 +3561,14 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             self.full_photo_thumbnail = ui.get_full_photo_thumbnail(asset_data)
             if self.full_photo_thumbnail:
                 utils.img_to_preview(self.full_photo_thumbnail, copy_original=True)
+
+        # NOTE: not used currently
+        if asset_data["assetType"] in {"printable", "model", "scene"}:
+            self.full_wire_thumbnail = ui.get_full_wire_thumbnail(asset_data)
+            if self.full_wire_thumbnail:
+                utils.img_to_preview(self.full_wire_thumbnail, copy_original=True)
+
+        self.thumbnail_mode = "main"
 
         self.asset_type = asset_data["assetType"]
         self.asset_id = asset_data["id"]
