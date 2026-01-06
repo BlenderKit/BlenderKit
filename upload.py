@@ -251,6 +251,24 @@ def check_missing_data(asset_type, props, upload_set):
                     "   Please check the filepath and try again.",
                 )
 
+    if "WIRE_THUMBNAIL" in upload_set:
+        if props.wire_thumbnail_will_upload_on_website:
+            pass
+        else:
+            wire_thumb_path = bpy.path.abspath(props.wire_thumbnail)
+            if props.wire_thumbnail == "":
+                write_to_report(
+                    props,
+                    "A wireframe thumbnail image has not been provided.\n"
+                    "   Please add a wireframe thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
+                )
+            elif not os.path.exists(Path(wire_thumb_path)):
+                write_to_report(
+                    props,
+                    "Wireframe thumbnail filepath does not exist on the disk.\n"
+                    "   Please check the filepath and try again.",
+                )
+
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
 
@@ -375,6 +393,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             export_data["photo_thumbnail_path"] = bpy.path.abspath(
                 props.photo_thumbnail
             )
+        # Add wire thumbnail path to export_data for models and printable assets
+        if asset_type in ("MODEL", "SCENE", "PRINTABLE") and props.wire_thumbnail:
+            export_data["wire_thumbnail_path"] = bpy.path.abspath(props.wire_thumbnail)
 
         eval_path_computing = (
             "bpy.data.objects['%s'].blenderkit.uploading" % mainmodel.name
@@ -1097,6 +1118,13 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
                 props.uploading = False
                 return False, None, None
 
+    # check if we have wire_thumbnail
+    if "wire_thumbnail" in upload_set:
+        if not os.path.exists(export_data.get("wire_thumbnail_path", "")):
+            props.upload_state = "0% - wire thumbnail not found"
+            props.uploading = False
+            return False, None, None
+
     # save a copy of the file for processing. Only for blend files
     _, ext = os.path.splitext(bpy.data.filepath)
     if not ext:
@@ -1164,6 +1192,9 @@ class UploadOperator(Operator):
     # Add new property for photo thumbnail
     photo_thumbnail: BoolProperty(name="photo thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
+    # Add new property for wire thumbnail
+    wire_thumbnail: BoolProperty(name="wire thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
+
     main_file: BoolProperty(name="main file", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
     @classmethod
@@ -1180,6 +1211,13 @@ class UploadOperator(Operator):
             # Add photo_thumbnail to the upload set for printable assets
             if self.asset_type == "PRINTABLE" and props.photo_thumbnail:
                 upload_set.append("photo_thumbnail")
+
+            # add wire_thumbnail for models if it exists
+            if (
+                self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
+                and props.wire_thumbnail
+            ):
+                upload_set.append("wire_thumbnail")
         else:
             if self.metadata:
                 upload_set.append("METADATA")
@@ -1187,6 +1225,8 @@ class UploadOperator(Operator):
                 upload_set.append("THUMBNAIL")
             if self.photo_thumbnail:
                 upload_set.append("photo_thumbnail")
+            if self.wire_thumbnail:
+                upload_set.append("wire_thumbnail")
             if self.main_file:
                 upload_set.append("MAINFILE")
 
@@ -1226,6 +1266,10 @@ class UploadOperator(Operator):
             # Show photo_thumbnail option only for printable assets
             if self.asset_type == "PRINTABLE":
                 layout.prop(self, "photo_thumbnail")
+
+            # Show wire_thumbnail option for models, scenes, and printable assets
+            if self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}:
+                layout.prop(self, "wire_thumbnail")
 
         if props.asset_base_id != "" and not self.reupload:
             utils.label_multiline(

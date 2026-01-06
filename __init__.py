@@ -1526,6 +1526,13 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         update=autothumb.update_upload_model_preview,
     )
 
+    is_generating_wire_thumbnail: BoolProperty(
+        name="Generating Wire Thumbnail",
+        description="True when background process is running",
+        default=False,
+        update=autothumb.update_wire_thumbnail_preview,
+    )
+
     has_autotags: BoolProperty(
         name="Has Autotagging Done",
         description="True when autotagging done",
@@ -1544,6 +1551,26 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         name="I will upload photo on website",
         description="True if the photo thumbnail will upload on the website\n please read upload tutorial for more information",
         default=False,
+    )
+
+    wire_thumbnail: StringProperty(
+        name="Wireframe Thumbnail",
+        description="Wireframe thumbnail (JPG or PNG, preferred size is 1024x1024 or higher)",
+        subtype="FILE_PATH",
+        default="",
+        update=autothumb.update_wire_thumbnail_preview,
+        **EXTRA_PATH_OPTIONS,
+    )
+    wire_thumbnail_will_upload_on_website: BoolProperty(
+        name="I will upload wireframe thumbnail on website",
+        description="True if the wireframe thumbnail will upload on the website\n please read upload tutorial for more information",
+        default=False,
+    )
+
+    wire_thumbnail_generating_state: StringProperty(
+        name="Wire Thumbnail Generating State",
+        description="bg process reports for wireframe thumbnail generation",
+        default="Please add wireframe thumbnail (jpg or png, at least 1024x1024)",
     )
 
 
@@ -2458,6 +2485,14 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
+    enable_wire_thumbnail_upload: BoolProperty(
+        name="Enable wire thumbnail upload",
+        description="If enabled, wireframe thumbnails will be uploaded.",
+        default=False,
+        # do not save prefs here, it's experimental
+        options={"SKIP_SAVE"},
+    )
+
     def draw(self, context):
         layout = self.layout
         if self.api_key.strip() == "":
@@ -2523,6 +2558,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.alignment = "EXPAND"
             experimental_settings.label(text="Experimental settings")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
         # RUNTIME INFO
         globdir_op = layout.operator(

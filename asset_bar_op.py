@@ -49,6 +49,12 @@ from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 bk_logger = logging.getLogger(__name__)
 
+THUMBNAIL_TYPES = [
+    "THUMBNAIL",
+    "PHOTO",
+    "WIREFRAME",
+]
+
 active_area_pointer = 0
 
 
@@ -106,11 +112,20 @@ def modal_inside(self, context, event):
         sr = search.get_search_results()
         if sr and self.active_index < len(sr):
             asset_data = sr[self.active_index]
-            if asset_data["assetType"].lower() == "printable":
-                if self.show_photo_thumbnail:
+            if asset_data["assetType"].lower() in {"printable", "model", "scene"}:
+                if self.show_thumbnail_variant == "PHOTO":
                     photo_img = ui.get_full_photo_thumbnail(asset_data)
                     if photo_img:
                         self.tooltip_image.set_image(photo_img.filepath)
+                        self.tooltip_image.set_image_colorspace("")
+                    else:
+                        self.tooltip_image.set_image(
+                            paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+                        )
+                elif self.show_thumbnail_variant == "THUMBNAIL":
+                    wire_img = ui.get_full_wire_thumbnail(asset_data)
+                    if wire_img:
+                        self.tooltip_image.set_image(wire_img.filepath)
                         self.tooltip_image.set_image_colorspace("")
                     else:
                         self.tooltip_image.set_image(
@@ -545,10 +560,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         default="Runs search and displays the asset bar at the same time"
     )
 
-    show_photo_thumbnail: BoolProperty(  # type: ignore[valid-type]
-        name="Show Photo Thumbnail",
-        description="Toggle between normal and photo thumbnail - use [ or ] to cycle through thumbnails. Currently used only for printables.",
-        default=False,
+    show_thumbnail_variant: bpy.props.EnumProperty(  # type: ignore[valid-type]
+        name="Show Thumbnail Variant",
+        description="Toggle between normal, photo and wireframe thumbnail - use [ or ] to cycle through thumbnails. Currently used only for printables, models, and scenes.",
+        default="THUMBNAIL",
+        items=[
+            ("THUMBNAIL", "Thumbnail", "Normal thumbnail"),
+            ("PHOTO", "Photo", "Photo thumbnail"),
+            ("WIREFRAME", "Wireframe", "Wireframe thumbnail"),
+        ],
         options={"SKIP_SAVE"},
     )
 
@@ -603,6 +623,24 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if isinstance(ctx, dict):
             return ctx.get("area"), ctx.get("region")
         return getattr(ctx, "area", None), getattr(ctx, "region", None)
+
+    def _current_area_region(self):
+        """Return the currently active area and region with sensible fallbacks."""
+        area = self._validated_area(getattr(self, "_active_area_ref", None))
+        region = self._validated_region(getattr(self, "_active_region_ref", None))
+
+        ctx_area, ctx_region = self._unwrap_area_region(getattr(self, "context", None))
+        if area is None:
+            area = self._validated_area(ctx_area)
+        if region is None:
+            region = self._validated_region(ctx_region)
+
+        if area is None:
+            area = self._validated_area(getattr(bpy.context, "area", None))
+        if region is None:
+            region = self._validated_region(getattr(bpy.context, "region", None))
+
+        return area, region
 
     def _event_window_coords(self, event):
         if not hasattr(event, "mouse_x") or not hasattr(event, "mouse_y"):
@@ -2078,18 +2116,30 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props.active_index = search_index  # + self.scroll_offset
 
             # Update tooltip size based on asset type
-            if (
-                asset_data["assetType"].lower() == "printable"
-                and self.show_photo_thumbnail
-            ):
-                photo_img = ui.get_full_photo_thumbnail(asset_data)
-                if photo_img:
-                    self.tooltip_image.set_image(photo_img.filepath)
-                    self.tooltip_image.set_image_colorspace("")
-                else:
-                    self.tooltip_image.set_image(
-                        paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
-                    )
+            if asset_data["assetType"].lower() in {
+                "printable",
+                "model",
+                "scene",
+            } and self.show_thumbnail_variant in {"PHOTO", "WIREFRAME"}:
+                t_type = self.show_thumbnail_variant.lower()
+                if t_type == "photo":
+                    photo_img = ui.get_full_photo_thumbnail(asset_data)
+                    if photo_img:
+                        self.tooltip_image.set_image(photo_img.filepath)
+                        self.tooltip_image.set_image_colorspace("")
+                    else:
+                        self.tooltip_image.set_image(
+                            paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+                        )
+                elif t_type == "wireframe":
+                    wire_img = ui.get_full_wire_thumbnail(asset_data)
+                    if wire_img:
+                        self.tooltip_image.set_image(wire_img.filepath)
+                        self.tooltip_image.set_image_colorspace("")
+                    else:
+                        self.tooltip_image.set_image(
+                            paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+                        )
             else:
                 set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
 
@@ -2163,25 +2213,34 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 self.gravatar_image.set_image(img_path)
             self.gravatar_image.set_image_colorspace("")
 
+            area, region = self._current_area_region()
+
             properties_width = 0
-            for r in bpy.context.area.regions:
-                if r.type == "UI":
-                    properties_width = r.width
+            if area is not None:
+                for r in getattr(area, "regions", []):
+                    if r.type == "UI":
+                        properties_width = r.width
+                        break
+
+            fallback_region = getattr(bpy.context, "region", None)
+            active_region = region or fallback_region
+            region_width = getattr(active_region, "width", None)
+            if region_width is None:
+                region_width = self.tooltip_panel.width + properties_width
+            region_height = getattr(active_region, "height", None)
+            if region_height is None:
+                region_height = self.tooltip_panel.height + widget.height
 
             tooltip_x = min(
                 int(widget.x_screen),
-                int(
-                    bpy.context.region.width
-                    - self.tooltip_panel.width
-                    - properties_width
-                ),
+                int(region_width - self.tooltip_panel.width - properties_width),
             )
+            tooltip_x = max(0, tooltip_x)
 
             # Calculate space above and below the button
-            ui_scale = self.get_ui_scale()
             full_tooltip_height = self.tooltip_panel.height
             space_above = widget.y_screen
-            space_below = bpy.context.region.height - (widget.y_screen + widget.height)
+            space_below = region_height - (widget.y_screen + widget.height)
             # If space below is insufficient (would make tooltip < 70% size), position above
             if (
                 space_below < full_tooltip_height
@@ -2198,8 +2257,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             # set location twice for size calculations updates.
             self.tooltip_panel.set_location(tooltip_x, tooltip_y)
-            self.update_tooltip_size(bpy.context)
-            self.update_tooltip_layout(bpy.context)
+            tooltip_context = self._build_context_snapshot(
+                bpy.context, area, active_region
+            )
+            self.update_tooltip_size(tooltip_context)
+            self.update_tooltip_layout(tooltip_context)
             self.tooltip_panel.set_location(self.tooltip_panel.x, self.tooltip_panel.y)
             self.tooltip_panel.layout_widgets()
             # show bookmark button - always on mouse enter
@@ -2533,21 +2595,41 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if now - ui_panels.last_time_overlay_panel_active < 0.5:
             return False
 
-        # Shortcut: Toggle between normal and photo thumbnail
+        # Shortcut: Toggle between normal, photo and wireframe thumbnail
         if event.type in {"ONE"}:
-            if self.show_photo_thumbnail == True:
-                self.show_photo_thumbnail = False
+            if self.show_thumbnail_variant != "THUMBNAIL":
+                self.show_thumbnail_variant = "THUMBNAIL"
                 self.needs_tooltip_update = True
         if event.type in {"TWO"}:
-            if self.show_photo_thumbnail == False:
-                self.show_photo_thumbnail = True
+            if self.show_thumbnail_variant != "PHOTO":
+                self.show_thumbnail_variant = "PHOTO"
+                self.needs_tooltip_update = True
+        if event.type in {"THREE"}:
+            if self.show_thumbnail_variant != "WIREFRAME":
+                self.show_thumbnail_variant = "WIREFRAME"
                 self.needs_tooltip_update = True
         if (
             event.type in {"LEFT_BRACKET", "RIGHT_BRACKET"}
             and not event.shift
             and self.active_index > -1
         ):
-            self.show_photo_thumbnail = not self.show_photo_thumbnail
+            # iterate index and update tooltip
+            c_idx = 0
+            was_thumbnail_variant = self.show_thumbnail_variant
+            if self.show_thumbnail_variant in THUMBNAIL_TYPES:
+                c_idx = THUMBNAIL_TYPES.index(self.show_thumbnail_variant)
+
+            if event.type == "LEFT_BRACKET":
+                c_idx -= 1
+            elif event.type == "RIGHT_BRACKET":
+                c_idx += 1
+            # clamp index - no rollover
+            c_idx = min(max(c_idx, 0), len(THUMBNAIL_TYPES) - 1)
+
+            if was_thumbnail_variant == THUMBNAIL_TYPES[c_idx]:
+                return True
+            # else update
+            self.show_thumbnail_variant = THUMBNAIL_TYPES[c_idx]
             self.needs_tooltip_update = True
             return True
 
