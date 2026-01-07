@@ -20,6 +20,7 @@ from bpy.types import Operator
 
 
 EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
+CACHE_DATA = {}
 
 bk_logger = logging.getLogger(__name__)
 
@@ -49,6 +50,8 @@ class BK_OT_buy_extension_and_watch(Operator):
     _max_duration = 300  # seconds (5 minutes timeout)
 
     def execute(self, context):
+        global CACHE_DATA
+
         if not self.url:
             self.report({"ERROR"}, "No URL specified.")
             return {"CANCELLED"}
@@ -65,8 +68,8 @@ class BK_OT_buy_extension_and_watch(Operator):
             # Don't cancel, maybe the user still wants the refresh?
             # Decide if you want modal to continue even if URL fails
 
-        # Add modal handler and timer
         wm = context.window_manager
+        # Add modal handler and timer
         self._timer = wm.event_timer_add(
             1.0, window=context.window
         )  # Check every second
@@ -183,6 +186,7 @@ def extension_draw_item_blenderkit(
     show_developer_ui,  # `bool`
 ):
     ### BlenderKit cache code
+    global CACHE_DATA
     # Ensure cache is up-to-date before drawing
     cache_reloaded = ensure_repo_cache()
     if cache_reloaded:
@@ -194,7 +198,7 @@ def extension_draw_item_blenderkit(
         bk_logger.info("Cache reloaded, tagging preferences for redraw.")
 
     # check if the cache is already in the window manager
-    if "blenderkit_extensions_repo_cache" not in bpy.context.window_manager:
+    if "blenderkit_extensions_repo_cache" not in CACHE_DATA:
         # Log if cache is missing after trying to ensure it
         bk_logger.info(
             "Extension cache not available in window_manager after ensure_repo_cache call."
@@ -203,7 +207,7 @@ def extension_draw_item_blenderkit(
         # For now, just return to avoid potential errors accessing bk_ext_cache
         return
 
-    bk_ext_cache = bpy.context.window_manager["blenderkit_extensions_repo_cache"]
+    bk_ext_cache = CACHE_DATA["blenderkit_extensions_repo_cache"]
     bk_cache_pkg = bk_ext_cache.get(pkg_id[:32], None)
     ### end of BlenderKit cache code
     item = item_local or item_remote
@@ -530,21 +534,10 @@ def get_repository_by_url(url: str):
 
 def clear_repo_cache():
     """Clear the repository cache."""
-    wm = bpy.context.window_manager
+    global CACHE_DATA
     cache_key = "blenderkit_extensions_repo_cache"
-    if cache_key in wm:
-        del wm[cache_key]
-
-
-def _sanitize_pkg_for_cache(pkg):
-    """Keep values stored as string to prevent C overflow."""
-    sanitized = {}
-    for k, v in pkg.items():
-        if isinstance(v, bool):
-            sanitized[k] = v
-        else:
-            sanitized[k] = str(v)
-    return sanitized
+    if cache_key in CACHE_DATA:
+        del CACHE_DATA[cache_key]
 
 
 def ensure_repo_cache():
@@ -554,18 +547,17 @@ def ensure_repo_cache():
     Checks the modification time of the cache file and reloads it if necessary.
     """
     reloaded_flag = False  # Track if we actually reloaded
-    wm = bpy.context.window_manager
     cache_key = "blenderkit_extensions_repo_cache"
     mtime_key = "blenderkit_extensions_repo_cache_mtime"
 
     blenderkit_repository = get_repository_by_url(EXTENSIONS_API_URL)
     if blenderkit_repository is None:
         # If repo doesn't exist, clear cache if it exists in window manager
-        if cache_key in wm:
-            del wm[cache_key]
+        if cache_key in CACHE_DATA:
+            del CACHE_DATA[cache_key]
             bk_logger.info("Cleared stale extension cache for missing repository.")
-        if mtime_key in wm:
-            del wm[mtime_key]
+        if mtime_key in CACHE_DATA:
+            del CACHE_DATA[mtime_key]
         bk_logger.debug("Repository not found, exiting check.")
         return False  # No repo, nothing loaded
 
@@ -581,18 +573,18 @@ def ensure_repo_cache():
     except OSError as e:  # Handle potential race condition or permission issue
         bk_logger.exception("Could not get modification time for %s.", cache_file)
         # Clear cache if we can't verify its freshness? Safer approach.
-        if cache_key in wm:
-            del wm[cache_key]
+        if cache_key in CACHE_DATA:
+            del CACHE_DATA[cache_key]
             bk_logger.info("Cleared extension cache due to mtime access error.")
-        if mtime_key in wm:
-            del wm[mtime_key]
+        if mtime_key in CACHE_DATA:
+            del CACHE_DATA[mtime_key]
         return False  # Error, nothing loaded
 
-    stored_mtime = wm.get(mtime_key, None)
+    stored_mtime = CACHE_DATA.get(mtime_key, None)
 
     # --- Determine if reload is needed ---
     should_reload = False
-    if cache_key not in wm:
+    if cache_key not in CACHE_DATA:
         if current_mtime is not None:  # Only load if file actually exists
             should_reload = True  # Cache doesn't exist, need initial load.
         else:
@@ -601,19 +593,20 @@ def ensure_repo_cache():
 
     elif current_mtime is None:
         # Cache exists in wm, but file is gone/inaccessible. Clear stale cache.
-        del wm[cache_key]
-        if mtime_key in wm:
-            del wm[mtime_key]
+        del CACHE_DATA[cache_key]
+        if mtime_key in CACHE_DATA:
+            del CACHE_DATA[mtime_key]
         return False  # Cleared stale cache, did not load new data
 
-    elif cache_key not in wm and current_mtime is None:
+    elif cache_key not in CACHE_DATA and current_mtime is None:
         # Cache doesn't exist, and file doesn't exist. Nothing to do or load.
         return False
 
     elif (
-        cache_key in wm and (stored_mtime is None or stored_mtime != current_mtime)
+        cache_key in CACHE_DATA
+        and (stored_mtime is None or stored_mtime != current_mtime)
     ) or (
-        cache_key not in wm and current_mtime is not None
+        cache_key not in CACHE_DATA and current_mtime is not None
     ):  # Reload if cache exists and is outdated, OR if cache doesn't exist but file does
         should_reload = True  # Cache exists but is outdated or missing mtime.
 
@@ -635,10 +628,10 @@ def ensure_repo_cache():
             if not (isinstance(pkg, dict) and "id" in pkg):
                 bk_logger.info("Skipping invalid package entry in cache: %s.", pkg)
                 continue
-            new_cache[pkg["id"][:32]] = _sanitize_pkg_for_cache(pkg)
+            new_cache[pkg["id"][:32]] = pkg
 
-        wm[cache_key] = new_cache
-        wm[mtime_key] = current_mtime  # Update mtime only on successful load
+        CACHE_DATA[cache_key] = new_cache
+        CACHE_DATA[mtime_key] = current_mtime  # Update mtime only on successful load
 
         reloaded_flag = True  # Mark that we reloaded successfully
 
@@ -647,19 +640,19 @@ def ensure_repo_cache():
             "Error decoding JSON from %s. Cache not loaded/updated.", cache_file
         )
         # Clear potentially corrupt cache? Or leave old one? Clearing is safer.
-        if cache_key in wm:
-            del wm[cache_key]
+        if cache_key in CACHE_DATA:
+            del CACHE_DATA[cache_key]
             bk_logger.info("Cleared cache due to JSON error.")
-        if mtime_key in wm:
-            del wm[mtime_key]
+        if mtime_key in CACHE_DATA:
+            del CACHE_DATA[mtime_key]
     except Exception:
         bk_logger.exception("Error reading or processing cache file %s.", cache_file)
         # Clear potentially corrupt cache?
-        if cache_key in wm:
-            del wm[cache_key]
+        if cache_key in CACHE_DATA:
+            del CACHE_DATA[cache_key]
             bk_logger.info("Cleared cache due to file processing error.")
-        if mtime_key in wm:
-            del wm[mtime_key]
+        if mtime_key in CACHE_DATA:
+            del CACHE_DATA[mtime_key]
 
     return reloaded_flag  # Return whether cache was actually reloaded
 
