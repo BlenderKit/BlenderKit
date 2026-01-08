@@ -1190,12 +1190,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def get_ui_scale(self):
         """Get the UI scale"""
         ui_scale = bpy.context.preferences.view.ui_scale
-        pixel_size = bpy.context.preferences.system.pixel_size
-        if pixel_size > 1:
-            # for a reason unknown,
-            #  the pixel size is modified only on mac
-            # where pixel size is 2.0
-            ui_scale = pixel_size
         return ui_scale
 
     def update_assetbar_sizes(self, context):
