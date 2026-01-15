@@ -16,8 +16,10 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import math
 import os
 import logging
+from collections.abc import Mapping
 from typing import Optional, Tuple, Union
 
 import blf
@@ -169,6 +171,14 @@ def create_image_shader():
     return shader
 
 
+def _get_flat_shader_2d():
+    if app.version < (4, 0, 0):
+        shader_name = "2D_UNIFORM_COLOR"
+    else:
+        shader_name = "UNIFORM_COLOR"
+    return gpu.shader.from_builtin(shader_name)
+
+
 def draw_rect(x, y, width, height, color):
     """Used for drawing 2D rectangle backgrounds."""
     xmax = x + width
@@ -181,10 +191,7 @@ def draw_rect(x, y, width, height, color):
     )
     indices = ((0, 1, 2), (2, 3, 0))
 
-    if app.version < (4, 0, 0):
-        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    else:
-        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    shader = _get_flat_shader_2d()
     batch = batch_for_shader(shader, "TRIS", {"pos": points}, indices=indices)
 
     gpu.state.blend_set("ALPHA")
@@ -205,10 +212,7 @@ def draw_rect_outline(x, y, width, height, color, line_width=1.0):
     )
     indices = ((0, 1), (1, 2), (2, 3), (3, 0))
 
-    if app.version < (4, 0, 0):
-        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    else:
-        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    shader = _get_flat_shader_2d()
     batch = batch_for_shader(shader, "LINES", {"pos": coords}, indices=indices)
 
     gpu.state.blend_set("ALPHA")
@@ -223,19 +227,266 @@ def draw_line2d(x1, y1, x2, y2, width, color):
     coords = ((x1, y1), (x2, y2))
     indices = ((0, 1),)
 
-    if app.version < (4, 0, 0):
-        shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-    elif app.version < (4, 5, 0):
-        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-    else:
-        shader_info = create_shader_info()
-        shader = gpu.shader.create_from_info(shader_info)
+    shader = _get_flat_shader_2d()
 
     batch = batch_for_shader(shader, "LINES", {"pos": coords}, indices=indices)
     gpu.state.blend_set("ALPHA")
+    gpu.state.line_width_set(max(1.0, width))
     shader.bind()
     shader.uniform_float("color", color)
     batch.draw(shader)
+    gpu.state.line_width_set(1.0)
+
+
+def _parse_radius_value(value, *, max_radius: float, min_dimension: float) -> float:
+    """Return a clamped radius in pixels.
+
+    Accepts raw pixel values, strings with percentages (e.g. "50%"),
+    mapping types containing ``percent``/``pct``/``ratio`` or ``px`` keys,
+    and falls back to treating anything else as raw pixels.
+    """
+
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith("%"):
+            number = text[:-1].strip()
+            try:
+                pct = float(number) / 100.0
+            except ValueError:
+                return 0.0
+            radius_px = pct * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        # plain numeric string interpreted as pixels
+        try:
+            value = float(text)
+        except ValueError:
+            return 0.0
+        return max(0.0, min(value, max_radius))
+
+    if isinstance(value, Mapping):
+        if "percent" in value:
+            try:
+                pct = float(value["percent"]) / 100.0
+            except (TypeError, ValueError):
+                pct = 0.0
+            radius_px = pct * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        if "pct" in value:
+            try:
+                pct = float(value["pct"]) / 100.0
+            except (TypeError, ValueError):
+                pct = 0.0
+            radius_px = pct * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        if "ratio" in value:
+            try:
+                ratio = float(value["ratio"])
+            except (TypeError, ValueError):
+                ratio = 0.0
+            radius_px = ratio * min_dimension
+            return max(0.0, min(radius_px, max_radius))
+        if "px" in value:
+            try:
+                px_value = float(value["px"])
+            except (TypeError, ValueError):
+                px_value = 0.0
+            return max(0.0, min(px_value, max_radius))
+
+    try:
+        numeric_value = float(value)  # type: ignore
+    except (TypeError, ValueError):
+        numeric_value = 0.0
+    return max(0.0, min(numeric_value, max_radius))
+
+
+def _rounded_rect_outline(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: Union[tuple[Union[str, float], ...], str, float] = (0.0,),
+    segments: int = 6,
+):
+    if width <= 0 or height <= 0:
+        return []
+    min_dimension = min(width, height)
+    max_radius = max(0.0, min_dimension / 2.0)
+
+    if isinstance(radius, (tuple, list)):
+        raw_radii = list(radius)
+    else:
+        raw_radii = [radius]
+    if not raw_radii:
+        raw_radii = [0.0]
+    parsed_radii = [
+        _parse_radius_value(value, max_radius=max_radius, min_dimension=min_dimension)
+        for value in raw_radii
+    ]
+    while len(parsed_radii) < 4:
+        parsed_radii.append(parsed_radii[-1])
+    radii = parsed_radii[:4]
+
+    r_tl, r_tr, r_br, r_bl = radii
+
+    if all(r == 0.0 for r in radii):
+        outline = [
+            (x, y),
+            (x + width, y),
+            (x + width, y + height),
+            (x, y + height),
+        ]
+        outline.append(outline[0])
+        return outline
+
+    steps = max(1, int(segments))
+    outline = []
+    steps = max(1, int(segments))
+    outline = []
+
+    def emit_corner(cx, cy, start_angle, end_angle, radius_value, fallback_point):
+        if radius_value <= 0.0:
+            outline.append(fallback_point)
+            return
+        for step in range(steps + 1):
+            t = step / steps
+            angle = start_angle + (end_angle - start_angle) * t
+            outline.append(
+                (
+                    cx + math.cos(angle) * radius_value,
+                    cy + math.sin(angle) * radius_value,
+                )
+            )
+
+    emit_corner(
+        x + r_tl,
+        y + height - r_tl,
+        math.pi,
+        math.pi / 2.0,
+        r_tl,
+        (x, y + height),
+    )
+    emit_corner(
+        x + width - r_tr,
+        y + height - r_tr,
+        math.pi / 2.0,
+        0.0,
+        r_tr,
+        (x + width, y + height),
+    )
+    emit_corner(
+        x + width - r_br,
+        y + r_br,
+        0.0,
+        -math.pi / 2.0,
+        r_br,
+        (x + width, y),
+    )
+    emit_corner(
+        x + r_bl,
+        y + r_bl,
+        -math.pi / 2.0,
+        -math.pi,
+        r_bl,
+        (x, y),
+    )
+
+    if outline and outline[0] != outline[-1]:
+        outline.append(outline[0])
+    return outline
+
+
+def _rounded_rect_mesh(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: Union[tuple[Union[str, float], ...], str, float],
+    crop: Tuple[float, float, float, float],
+    segments: int,
+):
+    if width <= 0.0 or height <= 0.0:
+        return None
+    outline = _rounded_rect_outline(
+        x,
+        y,
+        width,
+        height,
+        radius,
+        segments=segments,
+    )
+    if not outline:
+        return None
+    loop = outline[:-1] if len(outline) > 1 and outline[0] == outline[-1] else outline
+    if len(loop) < 3:
+        return None
+    crop_u0, crop_v0, crop_u1, crop_v1 = crop
+    u_span = crop_u1 - crop_u0
+    v_span = crop_v1 - crop_v0
+    if u_span == 0.0:
+        u_span = 1.0
+    if v_span == 0.0:
+        v_span = 1.0
+    coords = list(loop)
+    try:
+        inv_width = 1.0 / width
+    except ZeroDivisionError:
+        inv_width = 0.0
+    try:
+        inv_height = 1.0 / height
+    except ZeroDivisionError:
+        inv_height = 0.0
+    uvs = []
+    for vx, vy in coords:
+        rel_x = (vx - x) * inv_width
+        rel_y = (vy - y) * inv_height
+        u = crop_u0 + rel_x * u_span
+        v = crop_v0 + rel_y * v_span
+        uvs.append((u, v))
+    indices = [(0, idx, idx + 1) for idx in range(1, len(coords) - 1)]
+    return coords, uvs, indices
+
+
+def draw_rounded_rect_with_border(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: Union[tuple[Union[str, float], ...], str, float] = (0.0,),
+    fill_color: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    border_color: Optional[Tuple[float, float, float, float]] = None,
+    border_thickness: float = 1.0,
+):
+    if width <= 0 or height <= 0:
+        return
+    outline = _rounded_rect_outline(x, y, width, height, radius)
+    if not outline:
+        return
+    loop = outline[:-1] if len(outline) > 1 and outline[0] == outline[-1] else outline
+    if len(loop) < 3:
+        return
+    shader = _get_flat_shader_2d()
+    indices = [(0, idx, idx + 1) for idx in range(1, len(loop) - 1)]
+    batch = batch_for_shader(shader, "TRIS", {"pos": loop}, indices=indices)
+    gpu.state.blend_set("ALPHA")
+    shader.bind()
+    shader.uniform_float("color", fill_color)
+    batch.draw(shader)
+    if border_color and border_thickness > 0:
+        gpu.state.line_width_set(border_thickness)
+        if outline[0] == outline[-1]:
+            line_points = outline
+        else:
+            line_points = outline + [outline[0]]
+        line_batch = batch_for_shader(shader, "LINE_STRIP", {"pos": line_points})
+        shader.uniform_float("color", border_color)
+        line_batch.draw(shader)
+        gpu.state.line_width_set(1.0)
+
+
+def draw_strikethrough_line(x_start, x_end, y, color, thickness):
+    if x_end <= x_start:
+        return
+    draw_line2d(x_start, y, x_end, y, thickness, color)
 
 
 def create_shader_info():
@@ -325,80 +576,101 @@ def draw_image_runtime(
     transparency: Optional[float] = 1.0,
     crop: Tuple[float, float, float, float] = (0, 0, 1, 1),
     batch: Optional[gpu.types.GPUBatch] = None,
+    corner_radius: Optional[Union[tuple[Union[str, float], ...], str, float]] = None,
+    corner_segments: int = 6,
 ) -> Optional[gpu.types.GPUBatch]:
     """Draws an image at given location with given size.
+
+    Supports optional rounded corner clipping by supplying ``corner_radius``.
 
     Returns:
         The batch object if successful, or None if the image is invalid.
     """
-    if not image.name or not image.filepath:
+    if width <= 0.0 or height <= 0.0 or not image.name or not image.filepath:
         return None
 
     image_shader = create_image_shader()
+    rounded_segments = max(1, int(corner_segments))
+    cache_key = (
+        image.filepath,
+        float(x),
+        float(y),
+        float(width),
+        float(height),
+        tuple(float(component) for component in crop),
+        repr(corner_radius) if corner_radius is not None else None,
+        rounded_segments,
+    )
 
     texture = None
-    ci = cached_images.get(image.filepath + "GPU_TEXTURE")
-    if ci is not None:
-        if (
-            ci["x"] == x
-            and ci["y"] == y
-            and ci["width"] == width
-            and ci["height"] == height
-        ):
+    if batch is None:
+        ci = cached_images.get(cache_key)
+        if ci is not None:
             batch = ci["batch"]
             image_shader = ci["image_shader"]
             texture = ci["texture"]
 
-    if not batch:
-        coords = [(x, y), (x + width, y), (x, y + height), (x + width, y + height)]
-
-        uvs = [
-            (crop[0], crop[1]),
-            (crop[2], crop[1]),
-            (crop[0], crop[3]),
-            (crop[2], crop[3]),
-        ]
-
-        indices = [(0, 1, 2), (2, 1, 3)]
-
+    if batch is None:
+        coords = None
+        uvs = None
+        indices = None
+        if corner_radius is not None:
+            mesh_data = _rounded_rect_mesh(
+                x,
+                y,
+                width,
+                height,
+                corner_radius,
+                crop,
+                rounded_segments,
+            )
+            if mesh_data:
+                coords, uvs, indices = mesh_data
+        if coords is None or uvs is None or indices is None:
+            coords = [(x, y), (x + width, y), (x, y + height), (x + width, y + height)]
+            uvs = [
+                (crop[0], crop[1]),
+                (crop[2], crop[1]),
+                (crop[0], crop[3]),
+                (crop[2], crop[3]),
+            ]
+            indices = [(0, 1, 2), (2, 1, 3)]
         batch = batch_for_shader(
             image_shader, "TRIS", {"pos": coords, "texCoord": uvs}, indices=indices
         )
-
         texture = path_to_gpu_texture(image.filepath)
-
-        # tell shader to use the image that is bound to image unit 0
-        cached_images[image.filepath + "GPU_TEXTURE"] = {
-            "x": x,
-            "y": y,
-            "width": width,
-            "height": height,
+        cached_images[cache_key] = {
             "batch": batch,
             "image_shader": image_shader,
             "texture": texture,
         }
 
-    if batch is None:
+    if batch is None or image_shader is None:
         return None
 
-    if image_shader and texture:
-        color_space_mode = _resolve_color_space_mode()
+    if texture is None:
+        texture = path_to_gpu_texture(image.filepath)
 
-        gpu.state.blend_set("ALPHA")
+    if texture is None:
+        return None
 
-        image_shader.bind()
-        image_shader.uniform_sampler("image", texture)
+    color_space_mode = _resolve_color_space_mode()
 
-        # may not be available in simple shader
-        try:
-            # set floats
-            image_shader.uniform_float("transparency", transparency)
+    gpu.state.blend_set("ALPHA")
 
-            # set color space mode
-            image_shader.uniform_int("color_space_mode", color_space_mode)
-            batch.draw(image_shader)
-        except Exception:
-            pass
+    image_shader.bind()
+    image_shader.uniform_sampler("image", texture)
+
+    # may not be available in simple shader
+    try:
+        # set floats
+        image_shader.uniform_float("transparency", transparency)
+
+        # set color space mode
+        image_shader.uniform_int("color_space_mode", color_space_mode)
+        batch.draw(image_shader)
+    except Exception:
+        pass
 
     return batch
 

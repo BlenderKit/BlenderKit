@@ -1,6 +1,43 @@
+import blf
 import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
+
+from .. import ui_bgl
+
+from typing import Union
+
+
+def clamp(value, min_value=0.0, max_value=1.0):
+    return max(min_value, min(max_value, value))
+
+
+def set_font_size(font_id, size):
+    if bpy.app.version < (4, 0, 0):
+        blf.size(font_id, size, 72)
+    else:
+        blf.size(font_id, size)
+
+
+def tint_color(color, tint_amount):
+    if tint_amount == 0.0:
+        return color
+    r, g, b, a = color
+    if tint_amount > 0.0:
+        r += (1.0 - r) * tint_amount
+        g += (1.0 - g) * tint_amount
+        b += (1.0 - b) * tint_amount
+    else:
+        r *= 1.0 + tint_amount
+        g *= 1.0 + tint_amount
+        b *= 1.0 + tint_amount
+    return (clamp(r), clamp(g), clamp(b), a)
+
+
+def resolve_fill_color(preferred_color, fallback_color):
+    color = preferred_color or fallback_color or (1.0, 1.0, 1.0, 1.0)
+    r, g, b, a = color
+    return (clamp(r), clamp(g), clamp(b), clamp(a))
 
 
 def region_redraw(ctx: bpy.types.Context = None):
@@ -28,11 +65,137 @@ class BL_UI_Widget:
         self._mouse_down_right = False
         self._is_visible = True
         self._is_active = True  # if the widget needs to be disabled
+        # decorative helpers (opt-in per widget)
+        self._background_enabled = False
+        self.use_rounded_background = False
+        self.background_padding: tuple[int, int] = (0, 0)
+        # Radius can be '50%' for pill shape, each corner individually
+        self._background_corner_radius: Union[
+            tuple[Union[str, float], ...],
+            str,
+            float,
+        ] = (0.0,)
+        self._background_corner_radius_custom = False
+        self.background_border = False
+        self.background_border_color = None
+        self.background_border_tint = 0.2
+        self.background_border_thickness = 1.0
+        self.strikethrough = False
+        self.strikethrough_thickness = 1.25
 
         if bpy.app.version < (4, 0, 0):
             self.shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
         else:
             self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+
+    @property
+    def background_corner_radius(self):
+        return self._background_corner_radius
+
+    @background_corner_radius.setter
+    def background_corner_radius(self, value):
+        self._background_corner_radius = value
+        self._background_corner_radius_custom = True
+
+    @property
+    def background(self):
+        return self._background_enabled
+
+    @background.setter
+    def background(self, value):
+        enabled = bool(value)
+        self._background_enabled = enabled
+        if not enabled:
+            self.use_rounded_background = False
+        elif enabled and not self.use_rounded_background:
+            self.use_rounded_background = True
+
+    def _set_background_corner_radius_default(self, value):
+        self._background_corner_radius = value
+        self._background_corner_radius_custom = False
+
+    def has_background_corner_radius_override(self):
+        return self._background_corner_radius_custom
+
+    def resolve_background_fill(self, fallback_color, preferred_color=None):
+        base_color = fallback_color if preferred_color is None else preferred_color
+        return resolve_fill_color(
+            base_color,
+            fallback_color,
+        )
+
+    def resolve_background_border(self, fill_color):
+        if not self.background_border:
+            return None
+        if self.background_border_color:
+            return self.background_border_color
+        return tint_color(fill_color, self.background_border_tint)
+
+    def draw_background_rect(
+        self,
+        min_x,
+        min_y,
+        width,
+        height,
+        fallback_color,
+        *,
+        force=False,
+        padding_override=None,
+        corner_radius_override=None,
+        fill_color_override=None,
+    ):
+        if (not self.use_rounded_background and not force) or width <= 0 or height <= 0:
+            return
+        if padding_override is None:
+            pad_x = self.background_padding[0]
+            pad_y = self.background_padding[1]
+            pad_left = pad_right = pad_x
+            pad_bottom = pad_top = pad_y
+        else:
+            if len(padding_override) == 4:
+                pad_left, pad_right, pad_bottom, pad_top = padding_override
+            elif len(padding_override) == 2:
+                pad_left = pad_right = padding_override[0]
+                pad_bottom = pad_top = padding_override[1]
+            else:
+                pad_left = pad_right = padding_override[0]
+                pad_bottom = pad_top = padding_override[1]
+        rect_x = min_x - pad_left
+        rect_y = min_y - pad_bottom
+        rect_width = width + pad_left + pad_right
+        rect_height = height + pad_top + pad_bottom
+        fill_color = self.resolve_background_fill(
+            fallback_color,
+            preferred_color=fill_color_override,
+        )
+        border_color = self.resolve_background_border(fill_color)
+        corner_radius = (
+            corner_radius_override
+            if corner_radius_override is not None
+            else self.background_corner_radius
+        )
+        ui_bgl.draw_rounded_rect_with_border(
+            rect_x,
+            rect_y,
+            rect_width,
+            rect_height,
+            radius=corner_radius,
+            fill_color=fill_color,
+            border_color=border_color,
+            border_thickness=self.background_border_thickness,
+        )
+
+    def draw_strikethrough(self, min_x, max_x, y, color, *, force=False):
+        if (not self.strikethrough and not force) or max_x <= min_x:
+            return
+        ui_bgl.draw_line2d(
+            min_x,
+            y,
+            max_x,
+            y,
+            self.strikethrough_thickness,
+            color,
+        )
 
     def set_location(self, x, y):
         # if self.x != x or self.y != y or self.x_screen != x or self.y_screen != y:
@@ -53,6 +216,14 @@ class BL_UI_Widget:
         region_redraw()
 
     @property
+    def background_color(self):
+        return self._bg_color
+
+    @background_color.setter
+    def background_color(self, value):
+        self.bg_color = value
+
+    @property
     def visible(self):
         return self._is_visible
 
@@ -66,7 +237,7 @@ class BL_UI_Widget:
     def active(self):
         return self._is_active
 
-    @visible.setter
+    @active.setter
     def active(self, value):
         if value != self._is_active:
             region_redraw()
@@ -85,6 +256,20 @@ class BL_UI_Widget:
             return
 
         gpu.state.blend_set("ALPHA")
+
+        if self.use_rounded_background:
+            area_height = self.get_area_height()
+            rect_y = area_height - self.y_screen - self.height
+            self.draw_background_rect(
+                self.x_screen,
+                rect_y,
+                self.width,
+                self.height,
+                self._bg_color,
+                force=True,
+                fill_color_override=self._bg_color,
+            )
+            return
 
         self.shader.bind()
         self.shader.uniform_float("color", self._bg_color)
