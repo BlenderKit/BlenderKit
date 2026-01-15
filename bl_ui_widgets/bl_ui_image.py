@@ -68,10 +68,27 @@ class BL_UI_Image(BL_UI_Widget):
             return
         gpu.state.blend_set("ALPHA")
 
-        self.shader.bind()
-        self.batch_panel.draw(self.shader)
+        if self.draw_image():
+            return
 
-        self.draw_image()
+        if self.use_rounded_background:
+            area_height = self.get_area_height()
+            rect_y = area_height - self.y_screen - self.height
+            self.draw_background_rect(
+                self.x_screen,
+                rect_y,
+                self.width,
+                self.height,
+                self._bg_color,
+                force=True,
+                fill_color_override=self._bg_color,
+            )
+            return
+
+        self.shader.bind()
+        self.shader.uniform_float("color", self._bg_color)
+
+        self.batch_panel.draw(self.shader)
 
     def draw_image(self):
         if self.__image is not None:

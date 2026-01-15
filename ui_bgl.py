@@ -16,11 +16,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import math
 import os
 import logging
 from collections.abc import Mapping
 from typing import Optional, Tuple, Union
+import math
 
 import blf
 import bpy
@@ -40,6 +40,7 @@ cached_gpu_textures = {}
 
 _cached_image_shader: Optional[gpu.types.GPUShader] = None
 
+SEGMENTS_DEFAULT = 4
 
 VERTEX_SHADER_LEGACY = """
 uniform mat4 ModelViewProjectionMatrix;
@@ -171,6 +172,26 @@ def create_image_shader():
     return shader
 
 
+def get_ui_scale() -> float:
+    """Get the UI scale
+
+    Returns:
+        The UI scale factor as a float.
+    """
+    return bpy.context.preferences.system.dpi / 96.0
+    # sources:
+    # "sys" values are from system,
+    # and for current monitor on which the blender is running
+    sys_ps = bpy.context.preferences.system.pixel_size
+    # dpi scaling 72 =-> 1.0, 126 -> 1.75 (dpi -> sys_ui_scale)
+    # 96 / dpi gives correct scale factor
+    sys_dpi = bpy.context.preferences.system.dpi
+    # global scaler
+    sys_sc = bpy.context.preferences.system.ui_scale
+    # local ui scaler (can be set by user per blender window)
+    view_sc = bpy.context.preferences.view.ui_scale
+
+
 def _get_flat_shader_2d():
     if app.version < (4, 0, 0):
         shader_name = "2D_UNIFORM_COLOR"
@@ -238,13 +259,27 @@ def draw_line2d(x1, y1, x2, y2, width, color):
     gpu.state.line_width_set(1.0)
 
 
-def _parse_radius_value(value, *, max_radius: float, min_dimension: float) -> float:
+def _parse_radius_value(
+    value,
+    *,
+    max_radius: float,
+    min_dimension: float,
+    ui_scale: float = 1.0,
+) -> float:
     """Return a clamped radius in pixels.
 
     Accepts raw pixel values, strings with percentages (e.g. "50%"),
     mapping types containing ``percent``/``pct``/``ratio`` or ``px`` keys,
     and falls back to treating anything else as raw pixels.
     """
+
+    def clamp_radius(radius: float) -> float:
+        return max(0.0, min(radius, max_radius))
+
+    effective_scale = ui_scale if ui_scale > 0.0 else 1.0
+
+    def scale_px_value(px_value: float) -> float:
+        return clamp_radius(px_value * effective_scale)
 
     if isinstance(value, str):
         text = value.strip()
@@ -255,13 +290,13 @@ def _parse_radius_value(value, *, max_radius: float, min_dimension: float) -> fl
             except ValueError:
                 return 0.0
             radius_px = pct * min_dimension
-            return max(0.0, min(radius_px, max_radius))
+            return clamp_radius(radius_px)
         # plain numeric string interpreted as pixels
         try:
             value = float(text)
         except ValueError:
             return 0.0
-        return max(0.0, min(value, max_radius))
+        return scale_px_value(value)
 
     if isinstance(value, Mapping):
         if "percent" in value:
@@ -270,33 +305,33 @@ def _parse_radius_value(value, *, max_radius: float, min_dimension: float) -> fl
             except (TypeError, ValueError):
                 pct = 0.0
             radius_px = pct * min_dimension
-            return max(0.0, min(radius_px, max_radius))
+            return clamp_radius(radius_px)
         if "pct" in value:
             try:
                 pct = float(value["pct"]) / 100.0
             except (TypeError, ValueError):
                 pct = 0.0
             radius_px = pct * min_dimension
-            return max(0.0, min(radius_px, max_radius))
+            return clamp_radius(radius_px)
         if "ratio" in value:
             try:
                 ratio = float(value["ratio"])
             except (TypeError, ValueError):
                 ratio = 0.0
             radius_px = ratio * min_dimension
-            return max(0.0, min(radius_px, max_radius))
+            return clamp_radius(radius_px)
         if "px" in value:
             try:
                 px_value = float(value["px"])
             except (TypeError, ValueError):
                 px_value = 0.0
-            return max(0.0, min(px_value, max_radius))
+            return scale_px_value(px_value)
 
     try:
         numeric_value = float(value)  # type: ignore
     except (TypeError, ValueError):
         numeric_value = 0.0
-    return max(0.0, min(numeric_value, max_radius))
+    return scale_px_value(numeric_value)
 
 
 def _rounded_rect_outline(
@@ -305,7 +340,7 @@ def _rounded_rect_outline(
     width: float,
     height: float,
     radius: Union[tuple[Union[str, float], ...], str, float] = (0.0,),
-    segments: int = 6,
+    segments: int = SEGMENTS_DEFAULT,
 ):
     if width <= 0 or height <= 0:
         return []
@@ -318,8 +353,14 @@ def _rounded_rect_outline(
         raw_radii = [radius]
     if not raw_radii:
         raw_radii = [0.0]
+    ui_scale = get_ui_scale()
     parsed_radii = [
-        _parse_radius_value(value, max_radius=max_radius, min_dimension=min_dimension)
+        _parse_radius_value(
+            value,
+            max_radius=max_radius,
+            min_dimension=min_dimension,
+            ui_scale=ui_scale,
+        )
         for value in raw_radii
     ]
     while len(parsed_radii) < 4:
@@ -402,7 +443,7 @@ def _rounded_rect_mesh(
     height: float,
     radius: Union[tuple[Union[str, float], ...], str, float],
     crop: Tuple[float, float, float, float],
-    segments: int,
+    segments: int = SEGMENTS_DEFAULT,
 ):
     if width <= 0.0 or height <= 0.0:
         return None
@@ -577,7 +618,7 @@ def draw_image_runtime(
     crop: Tuple[float, float, float, float] = (0, 0, 1, 1),
     batch: Optional[gpu.types.GPUBatch] = None,
     corner_radius: Optional[Union[tuple[Union[str, float], ...], str, float]] = None,
-    corner_segments: int = 6,
+    corner_segments: int = SEGMENTS_DEFAULT,
 ) -> Optional[gpu.types.GPUBatch]:
     """Draws an image at given location with given size.
 

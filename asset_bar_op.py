@@ -35,6 +35,7 @@ from . import (
     ratings_utils,
     search,
     ui,
+    ui_bgl,
     ui_panels,
     utils,
     viewport_utils,
@@ -99,6 +100,11 @@ BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 def modal_inside(self, context, event):
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    # Initialize mouse coordinates early so shortcut handling in the first modal
+    # events does not fail on fresh operators (Blender 3.0 lacks these attrs).
+    if not hasattr(self, "mouse_x") or not hasattr(self, "mouse_y"):
+        self.mouse_x, self.mouse_y = self._event_coords_in_active_region(event)
+
     if ui_props.turn_off:
         ui_props.turn_off = False
         self.finish()
@@ -107,6 +113,8 @@ def modal_inside(self, context, event):
         return {"FINISHED"}
 
     user_preferences = bpy.context.preferences.addons[__package__].preferences
+    if self.context:
+        context = self.context
 
     # HANDLE PHOTO THUMBNAIL SWITCH
     if hasattr(self, "needs_tooltip_update") and self.needs_tooltip_update:
@@ -154,22 +162,9 @@ def modal_inside(self, context, event):
         bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
         return {"FINISHED"}
 
-    # Quad view toggles recreate areas/regions and invalidate stored pointers.
-    context_area_pointer = context.area.as_pointer() if context.area else None
-    context_region_pointer = context.region.as_pointer() if context.region else None
-    operator_area_pointer = getattr(self, "operator_area_pointer", None)
-    operator_region_pointer = getattr(self, "operator_region_pointer", None)
-    if context_area_pointer is not None and (
-        context_area_pointer != operator_area_pointer
-        or context_region_pointer != operator_region_pointer
-    ):
-        self.operator_area_pointer = context_area_pointer
-        self.operator_region_pointer = context_region_pointer
-        self._switch_active_view(context, context.area, context.region, force=True)
-
     # Update active viewport based on cursor location so the asset bar follows the
     # region the user is interacting with.
-    self._update_active_view_from_cursor(context, event)
+    self.update_active_view_from_cursor(context, event)
 
     sr = search.get_search_results()
     if sr is not None:
@@ -187,7 +182,7 @@ def modal_inside(self, context, event):
     time_diff = time.time() - self.update_timer_start
     if time_diff > self.update_timer_limit:
         self.update_timer_start = time.time()
-        # self.update_buttons()
+        self.update_buttons()
 
         # progress bar
         # change - let's try to optimize and redraw only when needed
@@ -344,8 +339,7 @@ def modal_inside(self, context, event):
         return {"RUNNING_MODAL"}
 
     if self.check_ui_resized(context) or self.check_new_search_results(context):
-        self.update_assetbar_sizes(context)
-        self.update_assetbar_layout(context)
+        self._refresh_layout(context)
         # also update tooltip visibility
         # if there's less results and active button is not visible, hide tooltip
         # happened only when e.g. running new search from web browser (copying assetbaseid to clipboard)
@@ -737,6 +731,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return None, None
 
     def _cursor_inside_active_area(self, event):
+        # return False
         area = self._validated_area(getattr(self, "_active_area_ref", None))
         if area is None:
             return False
@@ -782,8 +777,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def _refresh_layout(self, override_ctx):
         self.update_assetbar_sizes(override_ctx)
-        self.update_assetbar_layout(override_ctx)
-        self.scroll_update(always=True)
+        self.update_tooltip_size(override_ctx)
+        try:
+            self.update_assetbar_layout(override_ctx)
+            self.update_tooltip_layout(override_ctx)
+            # ensure children pick up new sizes/positions after a full refresh
+            if hasattr(self, "panel"):
+                self.panel.layout_widgets()
+            if hasattr(self, "tooltip_panel"):
+                self.tooltip_panel.layout_widgets()
+        except Exception as e:
+            bk_logger.log(1, "Error updating asset bar layout: %s", e)
 
     def _safe_tag_redraw(self, region):
         if region is None:
@@ -798,7 +802,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if previous_region_ref and previous_region_ref is not current_region:
             self._safe_tag_redraw(previous_region_ref)
 
-    def _switch_active_view(self, context, area, region, *, force=False):
+    def _switch_active_view(self, context, area, region, *, force=True):
         """Switch the active area/region the asset bar is attached to.
 
         If `force` is True, the switch is applied even if the area/region
@@ -809,18 +813,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if area is None or region is None:
             return
 
+        self.area = area
+        self.region = region
+
         area_pointer = area.as_pointer()
         region_pointer = region.as_pointer()
         previous_area_pointer = getattr(self, "active_area_pointer", None)
         previous_region_pointer = getattr(self, "active_region_pointer", None)
-        if not force and not self._view_changed(
-            area_pointer,
-            region_pointer,
-            previous_area_pointer,
-            previous_region_pointer,
-        ):
-            return
-
         previous_region_ref = getattr(self, "_active_region_ref", None)
 
         self._store_active_view(context, area, region, area_pointer, region_pointer)
@@ -840,8 +839,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # keep the old layout for performance.
             self._refresh_layout(override_ctx)
 
-        self.panel.set_location(self.bar_x, self.bar_y)
-
         # Explicitly request redraws so the handler updates in the new region and
         # the previous one releases its stale widgets.
         self._tag_regions_for_redraw(region, previous_region_ref)
@@ -858,28 +855,24 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         }
 
         for region in regions:
-            if region is None:
-                continue
-            try:
-                region.tag_redraw()
-            except ReferenceError:
-                continue
+            self._safe_tag_redraw(region)
 
-    def _update_active_view_from_cursor(self, context, event):
+    def update_active_view_from_cursor(self, context, event):
         """Update the active area/region based on the current cursor location.
 
         This makes the asset bar follow the user's cursor as they move between
         different 3D viewports.
         """
-        if event.type not in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE", "TRACKPADPAN"}:
-            return
-
-        if self._cursor_inside_active_area(event):
+        if event.type not in {"TIMER", "MOUSEMOVE"}:
             return
 
         area, region = self._find_area_region_from_event(context, event)
         if area is None or region is None:
             return
+
+        if self._cursor_inside_active_area(event):
+            return
+
         self._switch_active_view(context, area, region)
 
     def _event_coords_in_active_region(self, event):
@@ -970,6 +963,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         tooltip_image.set_image_size((self.tooltip_width, self.tooltip_image_height))
         tooltip_image.set_image_position((0, 0))
         tooltip_image.set_image_colorspace("")
+        tooltip_image.background = False
+        tooltip_image.bg_color = (0.0, 0.0, 0.0, 0.0)
+        tooltip_image.use_rounded_background = True
         tooltip_image.background_corner_radius = (
             ROUNDING_RADIUS,
             ROUNDING_RADIUS,
@@ -978,6 +974,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.tooltip_image = tooltip_image
         self.tooltip_widgets.append(tooltip_image)
+
+        tooltip_image_help = self.new_text(
+            "Left click to append. Right click for menu.",
+            self.tooltip_margin,
+            self.tooltip_image_height - self.tooltip_margin - self.author_text_size,
+            height=self.author_text_size,
+            text_size=self.author_text_size,
+        )
+        tooltip_image_help.text_color = (1.0, 0.6, 0.6, 0.9)
+        tooltip_image_help.visible = False
+        self.tooltip_image_help = tooltip_image_help
+        self.tooltip_widgets.append(self.tooltip_image_help)
+
         dark_panel = BL_UI_Widget(
             0,
             self.labels_start,
@@ -1033,6 +1042,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         gravatar_image.set_image_position((0, 0))
         gravatar_image.set_image_colorspace("")
+        gravatar_image.background_corner_radius = (
+            0,
+            0,
+            ROUNDING_RADIUS / 2,
+            0,
+        )
         self.gravatar_image = gravatar_image
         self.tooltip_widgets.append(gravatar_image)
 
@@ -1050,6 +1065,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         quality_star.set_image_position((0, 0))
         self.quality_star = quality_star
         self.tooltip_widgets.append(quality_star)
+
         quality_label = self.new_text(
             "",
             2 * self.tooltip_margin + self.asset_name_text_size,
@@ -1180,13 +1196,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Check if the UI has been resized."""
         # TODO this should only check if region was resized, not really care about the UI elements size.
         region_width, region_height = self.get_region_size(context)
+        prefs = bpy.context.preferences
+        pixel_size = getattr(prefs.system, "pixel_size", 1)
+        ui_scale = getattr(prefs.view, "ui_scale", 1.0)
+
         if not hasattr(self, "total_width"):
             self.total_width = region_width
             self.region_height = region_height
+        if not hasattr(self, "_ui_scale_state"):
+            self._ui_scale_state = (pixel_size, ui_scale)
 
-        if region_height != self.region_height or region_width != self.total_width:
+        resized = (
+            region_height != self.region_height or region_width != self.total_width
+        )
+        scale_changed = (pixel_size, ui_scale) != self._ui_scale_state
+
+        if resized or scale_changed:
             self.region_height = region_height
             self.total_width = region_width
+            self._ui_scale_state = (pixel_size, ui_scale)
             return True
         return False
 
@@ -1194,7 +1222,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Calculate all important sizes for the tooltip"""
         region = context.region
         ui_props = bpy.context.window_manager.blenderkitUI
-        ui_scale = self.get_ui_scale()
 
         base_panel_height = self.tooltip_base_size_pixels * (
             1 + self.bottom_panel_fraction
@@ -1207,7 +1234,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # if tooltip is above, we need to reduce it's size if its y is out of region height
             if self.tooltip_panel.y_screen <= 0:
                 tooltip_y_available_height = (
-                    base_panel_height * ui_scale + self.tooltip_panel.y_screen
+                    base_panel_height + self.tooltip_panel.y_screen
                 )
                 self.tooltip_panel.set_location(self.tooltip_panel.x, 0)
 
@@ -1216,18 +1243,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 region.height - (self.bar_height + self.bar_y)
             )
 
-        self.tooltip_scale = min(
-            1.0, tooltip_y_available_height / (base_panel_height * ui_scale)
-        )
+        self.tooltip_scale = min(1.0, tooltip_y_available_height / (base_panel_height))
         self.asset_name_text_size = int(
-            0.039 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
+            0.039 * self.tooltip_base_size_pixels * self.tooltip_scale
         )
         self.author_text_size = int(self.asset_name_text_size * 0.8)
-        self.tooltip_size = int(
-            self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
-        )
+        self.tooltip_size = int(self.tooltip_base_size_pixels * self.tooltip_scale)
         self.tooltip_margin = int(
-            0.017 * self.tooltip_base_size_pixels * ui_scale * self.tooltip_scale
+            0.017 * self.tooltip_base_size_pixels * self.tooltip_scale
         )
 
         if ui_props.asset_type == "HDR":
@@ -1249,17 +1272,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.asset_name_text_size,
         )
 
-    def get_ui_scale(self):
-        """Get the UI scale"""
-        ui_scale = bpy.context.preferences.view.ui_scale
-        pixel_size = bpy.context.preferences.system.pixel_size
-        if pixel_size > 1:
-            # for a reason unknown,
-            #  the pixel size is modified only on mac
-            # where pixel size is 2.0
-            ui_scale = pixel_size
-        return ui_scale
-
     def update_assetbar_sizes(self, context):
         """Calculate all important sizes for the asset bar"""
         region = context.region
@@ -1267,15 +1279,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons[__package__].preferences
-        ui_scale = self.get_ui_scale()
-        # assetbar scaling
-        self.button_margin = int(0 * ui_scale)
-        self.assetbar_margin = int(2 * ui_scale)
-        self.thumb_size = int(user_preferences.thumb_size * ui_scale)
-        self.button_size = 2 * self.button_margin + self.thumb_size
-        self.other_button_size = int(30 * ui_scale)
-        self.icon_size = int(24 * ui_scale)
-        self.validation_icon_margin = int(3 * ui_scale)
+        prefs = bpy.context.preferences
+        scale = getattr(prefs.view, "ui_scale", 1.0) * getattr(
+            prefs.system, "pixel_size", 1.0
+        )
+        self._ui_scale_factor = scale
+        # assetbar sizing (fixed, not scaled)
+
+        self.button_margin = int(round(0 * scale))
+        self.assetbar_margin = int(round(2 * scale))
+        # user preference thumb size is in logical pixels; scale to match Blender UI scaling
+        self.thumb_size = int(round(user_preferences.thumb_size * scale))
+        self.button_size = int(2 * self.button_margin + self.thumb_size)
+        self.other_button_size = int(round(30 * scale))
+        self.icon_size = int(round(24 * scale))
+        self.validation_icon_margin = int(round(3 * scale))
         reg_multiplier = 1
         if not bpy.context.preferences.system.use_region_overlap:
             reg_multiplier = 0
@@ -1291,13 +1309,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if r.type == "TOOLS":
                 tools_width = r.width * reg_multiplier
         self.bar_x = int(
-            tools_width + self.button_margin + ui_props.bar_x_offset * ui_scale
+            tools_width + self.button_margin + ui_props.bar_x_offset * scale
         )
-        # self.bar_y = region.height - ui_props.bar_y_offset * ui_scale
+        self.bar_y = int(self.button_margin + ui_props.bar_y_offset * scale)
 
-        self.bar_y = int(ui_props.bar_y_offset * ui_scale)
-
-        self.bar_end = int(ui_width + 180 * ui_scale + self.other_button_size)
+        self.bar_end = int(ui_width + 180 + self.other_button_size)
         self.bar_width = int(region.width - self.bar_x - self.bar_end)
         # Quad view and very small regions can shrink the available width below a single
         # thumbnail. Keep the bar wide enough to host at least one column and keep the
@@ -1341,6 +1357,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
 
+        # modify panel sizes based on user preferences
+        if getattr(self, "panel", None):
+            self.panel.width = self.bar_width
+            self.panel.height = self.bar_height
+
         if ui_props.down_up == "UPLOAD":
             self.reports_y = region.height - self.bar_y - 600
             ui_props.reports_y = region.height - self.bar_y - 600
@@ -1355,14 +1376,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_ui_size(self, context):
         """Calculate all important sizes for the asset bar and tooltip"""
-
-        self.update_assetbar_sizes(context)
-        self.update_tooltip_size(context)
+        self._refresh_layout(context)
 
     def update_assetbar_layout(self, context):
         """Update the layout of the asset bar"""
-        # usually restarting asset_bar completely since the widgets are too hard to get working with updates.
-
         self.scroll_update(always=True)
         self.position_and_hide_buttons()
 
@@ -1372,15 +1389,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_expand.set_location(
             self.bar_width - self.other_button_size, self.bar_height
         )
-        # if hasattr(self, 'button_notifications'):
-        #     self.button_notifications.set_location(self.bar_width - self.other_button_size * 2, -self.other_button_size)
+
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
         # Update tab area background position
         self.tab_area_bg.width = self.bar_width
 
-        self.panel.set_location(self.bar_x, self.panel.y)
+        self.panel.set_location(self.bar_x, self.bar_y)
 
         ## the block bellow can be probably removed
         # Update tab icons positions
@@ -1403,6 +1419,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.tooltip_panel.width = self.tooltip_width
         self.tooltip_panel.height = self.tooltip_height
+
+        self.tooltip_image_help.set_location(
+            self.tooltip_margin,
+            self.tooltip_image_height - self.tooltip_margin - self.author_text_size,
+        )
+
         self.tooltip_image.width = self.tooltip_width
         self.tooltip_image.height = self.tooltip_image_height
 
@@ -2055,7 +2077,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_scale = 1.0
         self.bottom_panel_fraction = 0.18
         self.needs_tooltip_update = False
-        self.update_ui_size(bpy.context)
+        self.update_ui_size(context)
         self._quad_view_state = self._is_quad_view(context)
 
         # todo move all this to update UI size
@@ -2112,7 +2134,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def on_invoke(self, context, event):
         """Invoke the asset bar operator."""
-        self.context = context
         self.instances.append(self)
         if not context.area:
             return False
@@ -2239,6 +2260,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props.active_index = search_index  # + self.scroll_offset
 
             # Update tooltip size based on asset type
+            thumbnail_found = False
+            self.tooltip_image_help.visible = False
             if asset_data["assetType"].lower() in {
                 "printable",
                 "model",
@@ -2250,20 +2273,30 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     if photo_img:
                         self.tooltip_image.set_image(photo_img.filepath)
                         self.tooltip_image.set_image_colorspace("")
+                        thumbnail_found = True
                     else:
                         self.tooltip_image.set_image(
                             paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
                         )
+                        self.tooltip_image_help.text = "Photo thumbnail not ready yet."
+                        self.tooltip_image_help.visible = True
+
                 elif t_type == "wireframe":
                     wire_img = ui.get_full_wire_thumbnail(asset_data)
                     if wire_img:
                         self.tooltip_image.set_image(wire_img.filepath)
                         self.tooltip_image.set_image_colorspace("")
+                        thumbnail_found = True
                     else:
                         self.tooltip_image.set_image(
                             paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
                         )
-            else:
+                        self.tooltip_image_help.text = (
+                            "Wireframe thumbnail not ready yet."
+                        )
+                        self.tooltip_image_help.visible = True
+
+            if not thumbnail_found:
                 set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
 
             get_tooltip_data(asset_data)
@@ -2438,13 +2471,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             ui_props.active_index = self.active_index
             bpy.context.window.cursor_set("DEFAULT")
         # hide bookmark button - only when Not bookmarked
+        # make sure to transfer some data, to prevent missing attribute
+        widget.bookmark_button.asset_index = widget.button_index
         self.update_bookmark_icon(widget.bookmark_button)
-        # popup asset card on mouse down
-        # if utils.experimental_enabled():
-        #     h = widget.get_area_height()
-        # if utils.experimental_enabled() and self.mouse_y<widget.y_screen:
-        #     self.active_index = widget.button_index + self.scroll_offset
-        # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
     def bookmark_asset(self, widget):
         """Bookmark the asset linked to this button."""
@@ -2558,8 +2587,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             pb.visible = False
             return
 
-        if bpy.context.region is not None:
-            bpy.context.region.tag_redraw()
+        self._safe_tag_redraw(bpy.context.region)
 
     def update_validation_icon(self, asset_button, asset_data: dict):
         """Update the validation icon for each button in asset bar."""
@@ -2617,18 +2645,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_data = sr[asset_button.asset_index]
                     if asset_data is None:
                         continue
-
-                    # show indices for debug purposes
-                    # asset_button.text = str(asset_button.asset_index)
+                    # update bookmark buttons
+                    asset_button.bookmark_button.asset_index = asset_button.asset_index
 
                     set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
                     # asset_button.set_image(img_filepath)
                     self.update_validation_icon(asset_button, asset_data)
-
-                    # update bookmark buttons
-                    asset_button.bookmark_button.asset_index = asset_button.asset_index
 
                     self.update_bookmark_icon(asset_button.bookmark_button)
 
