@@ -509,7 +509,7 @@ class BlenderKitUIProps(PropertyGroup):
     margin_def = 0
 
     thumb_size: IntProperty(
-        name="Thumbnail Size", default=thumb_size_def, min=-1, max=256
+        name="Thumbnail Size", default=thumb_size_def, min=1, max=256
     )
 
     margin: IntProperty(name="Margin", default=margin_def, min=-1, max=256)
@@ -2362,7 +2362,7 @@ In this case you should also set path to your system CA bundle containing proxy'
     thumb_size: IntProperty(
         name="Assetbar Thumbnail Size",
         default=96,
-        min=-1,
+        min=1,  # must newer be zero
         max=256,
         update=utils.save_prefs,
         description="Size of thumbnails of the assetbar in 3D view",

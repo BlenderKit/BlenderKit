@@ -120,10 +120,7 @@ def get_full_thumbnail_variant(asset_data, variant: str):
             break
 
     if file_data is None:
-        if variant == "photo":
-            bk_logger.warning(f"No {variant} thumbnail file found in asset data")
-        else:
-            bk_logger.debug(f"No {variant} thumbnail file found in asset data")
+        bk_logger.log(1, f"No {variant} thumbnail file found in asset data")
         return None
 
     file_url = file_data.get("thumbnailMiddleUrl")
@@ -143,7 +140,7 @@ def get_full_thumbnail_variant(asset_data, variant: str):
         bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
         return img
 
-    bk_logger.info("Photo thumbnail file not found at path: %s", tpath)
+    bk_logger.info("Thumbnail file not found at path: %s", tpath)
     return None
 
 
