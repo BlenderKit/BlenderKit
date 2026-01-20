@@ -21,8 +21,11 @@ from os import environ
 from subprocess import Popen
 from typing import Any, Optional
 
-from . import datas
-
+try:
+    from . import datas
+except ImportError:
+    # for release CI action
+    import datas  # type: ignore
 
 CLIENT_VERSION = "v1.7.0"
 CLIENT_ACCESSIBLE = False
