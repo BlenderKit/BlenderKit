@@ -233,7 +233,7 @@ class SetBookmark(bpy.types.Operator):
         ratings_utils.store_rating_local(
             self.asset_id, rating_type="bookmarks", value=bookmark_value
         )
-        client_lib.send_rating(self.asset_id, "bookmarks", str(bookmark_value))
+        client_lib.send_rating(self.asset_id, "bookmarks", bookmark_value)
         return {"FINISHED"}
 
 

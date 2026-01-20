@@ -16,6 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
+
 import dataclasses
 import logging
 import os
@@ -355,7 +357,7 @@ def get_rating(asset_id: str):
         )
 
 
-def send_rating(asset_id: str, rating_type: str, rating_value: str):
+def send_rating(asset_id: str, rating_type: str, rating_value: str | int):
     data = {
         "asset_id": asset_id,
         "rating_type": rating_type,
