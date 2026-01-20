@@ -46,7 +46,7 @@ bk_logger = logging.getLogger(__name__)
 
 
 def handle_get_rating_task(task: client_tasks.Task):
-    """Handle incomming get_rating task by saving the results into global_vars."""
+    """Handle incoming get_rating task by saving the results into global_vars."""
     if task.status == "created":
         return
     if task.status == "error":
@@ -64,7 +64,7 @@ def handle_get_rating_task(task: client_tasks.Task):
 
 
 def handle_get_ratings_task(task: client_tasks.Task):
-    """Handle incomming get_ratings task. This is a special task used only by validators which fetches the ratings
+    """Handle incoming get_ratings task. This is a special task used only by validators which fetches the ratings
     in big batch right after the search results come into the Client. This is used only to signal problems in the
     Goroutine which fetches the ratings. The individual ratings are then sent as normal 'get_rating' tasks.
     """
@@ -73,7 +73,7 @@ def handle_get_ratings_task(task: client_tasks.Task):
 
 
 def handle_get_bookmarks_task(task: client_tasks.Task):
-    """Handle incomming get_bookmarks task by saving the results into global_vars.
+    """Handle incoming get_bookmarks task by saving the results into global_vars.
     This is different from standard ratings - the results come from elastic search API
     instead of ratings API.
     """

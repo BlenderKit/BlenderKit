@@ -361,6 +361,9 @@ def send_rating(asset_id: str, rating_type: str, rating_value: str):
         "rating_type": rating_type,
         "rating_value": rating_value,
     }
+    if rating_type == "bookmarks":
+        data["rating_value"] = int(rating_value) # type: ignore
+
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(

@@ -50,7 +50,7 @@ class task_object:
         self,
         command="",
         arguments=(),
-        wait=0,
+        wait: float = 0,
         only_last=False,
         fake_context=False,
         fake_context_area="VIEW_3D",
@@ -65,7 +65,7 @@ class task_object:
 
 def add_task(
     task: Tuple,
-    wait=0,
+    wait: float = 0,
     only_last=False,
     fake_context=False,
     fake_context_area="VIEW_3D",
