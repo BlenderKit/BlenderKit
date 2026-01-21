@@ -338,7 +338,17 @@ def modal_inside(self, context, event):
         self.scroll_update()
         return {"RUNNING_MODAL"}
 
-    if self.check_ui_resized(context) or self.check_new_search_results(context):
+    if self.check_ui_resized(context):
+        # Force a clean rebuild when the viewport size changes.
+        if not getattr(self, "_restart_pending", False):
+            self._restart_pending = True
+            ui_props = bpy.context.window_manager.blenderkitUI
+            ui_props.assetbar_on = False
+            ui_props.turn_off = True
+            self.restart_asset_bar()
+        return {"FINISHED"}
+
+    if self.check_new_search_results(context) or self.check_region_changed(context):
         self._refresh_layout(context)
         # also update tooltip visibility
         # if there's less results and active button is not visible, hide tooltip
@@ -781,13 +791,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         try:
             self.update_assetbar_layout(override_ctx)
             self.update_tooltip_layout(override_ctx)
-            # ensure children pick up new sizes/positions after a full refresh
-            if hasattr(self, "panel"):
-                self.panel.layout_widgets()
             if hasattr(self, "tooltip_panel"):
                 self.tooltip_panel.layout_widgets()
         except Exception as e:
-            bk_logger.log(1, "Error updating asset bar layout: %s", e)
+            bk_logger.log(
+                1, "Error updating asset bar layout, some objects may be missing. %s", e
+            )
 
     def _safe_tag_redraw(self, region):
         if region is None:
@@ -1192,29 +1201,35 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         total_width = region.width - tools_width - ui_width
         return total_width, region.height
 
-    def check_ui_resized(self, context):
-        """Check if the UI has been resized."""
-        # TODO this should only check if region was resized, not really care about the UI elements size.
+    def check_region_changed(self, context):
+        """Check if the region has changed."""
         region_width, region_height = self.get_region_size(context)
-        prefs = bpy.context.preferences
-        pixel_size = getattr(prefs.system, "pixel_size", 1)
-        ui_scale = getattr(prefs.view, "ui_scale", 1.0)
 
         if not hasattr(self, "total_width"):
             self.total_width = region_width
             self.region_height = region_height
-        if not hasattr(self, "_ui_scale_state"):
-            self._ui_scale_state = (pixel_size, ui_scale)
 
-        resized = (
+        changed = (
             region_height != self.region_height or region_width != self.total_width
         )
-        scale_changed = (pixel_size, ui_scale) != self._ui_scale_state
 
-        if resized or scale_changed:
+        if changed:
             self.region_height = region_height
             self.total_width = region_width
-            self._ui_scale_state = (pixel_size, ui_scale)
+            return True
+        return False
+
+    def check_ui_resized(self, context):
+        """Check if the UI has been resized."""
+        scaling = ui_bgl.get_ui_scale()
+
+        if not hasattr(self, "_ui_scale_state"):
+            self._ui_scale_state = scaling
+
+        scale_changed = scaling != self._ui_scale_state
+
+        if scale_changed:
+            self._ui_scale_state = scaling
             return True
         return False
 
@@ -1279,10 +1294,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         ui_props = bpy.context.window_manager.blenderkitUI
         user_preferences = bpy.context.preferences.addons[__package__].preferences
-        prefs = bpy.context.preferences
-        scale = getattr(prefs.view, "ui_scale", 1.0) * getattr(
-            prefs.system, "pixel_size", 1.0
-        )
+        scale = ui_bgl.get_ui_scale()
         self._ui_scale_factor = scale
         # assetbar sizing (fixed, not scaled)
 
@@ -1357,11 +1369,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
 
-        # modify panel sizes based on user preferences
-        if getattr(self, "panel", None):
-            self.panel.width = self.bar_width
-            self.panel.height = self.bar_height
-
         if ui_props.down_up == "UPLOAD":
             self.reports_y = region.height - self.bar_y - 600
             ui_props.reports_y = region.height - self.bar_y - 600
@@ -1393,25 +1400,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
+
         # Update tab area background position
         self.tab_area_bg.width = self.bar_width
 
         self.panel.set_location(self.bar_x, self.bar_y)
-
-        ## the block bellow can be probably removed
-        # Update tab icons positions
-        for i, tab_button in enumerate(self.tab_buttons):
-            if hasattr(tab_button, "asset_type_icon"):
-                tab_button.asset_type_icon.set_location(
-                    tab_button.x
-                    + int(
-                        self.other_button_size * 0.05
-                    ),  # Position at left with small margin
-                    tab_button.y
-                    + int(
-                        (self.other_button_size - tab_button.asset_type_icon.height) / 2
-                    ),  # Center vertically
-                )
 
     def update_tooltip_layout(self, context):
         """Update the layout of the tooltip"""
@@ -1424,7 +1417,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.tooltip_margin,
             self.tooltip_image_height - self.tooltip_margin - self.author_text_size,
         )
-
+        self.tooltip_image_help.text_size = self.author_text_size
         self.tooltip_image.width = self.tooltip_width
         self.tooltip_image.height = self.tooltip_image_height
 
@@ -2070,6 +2063,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._quad_view_state = None
+        self._restart_pending = False
+        self.scroll_offset = 0
 
     def on_init(self, context):
         """Initialize the asset bar operator."""
@@ -2119,6 +2114,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         widgets += self.tooltip_widgets
 
         self.init_widgets(context, widgets)
+
         self.panel.add_widgets(widgets_panel)
         self.tooltip_panel.add_widgets(self.tooltip_widgets)
 
@@ -2138,6 +2134,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not context.area:
             return False
 
+        # Clear stale shutdown flag from previous sessions (e.g. undo or addon reload)
+        ui_props = context.window_manager.blenderkitUI
+        ui_props.turn_off = False
+
         self.on_init(context)
         self.context = context
 
@@ -2145,7 +2145,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not search.get_search_results():
             search.search()
 
-        ui_props = context.window_manager.blenderkitUI
         if ui_props.assetbar_on:
             # rerun always behaves as a toggle: request currently running instance to exit
             ui_props.turn_off = True
@@ -2165,11 +2164,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.set_element_images()
         self.position_and_hide_buttons()
         self.hide_tooltip()
-        # for b in self.buttons:
-        #     b.bookmark_button.visible=False
 
         self.panel.set_location(self.bar_x, self.bar_y)
-        # to hide arrows accordingly
 
         self.scroll_update(always=True)
 
@@ -2956,7 +2952,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug("- instance %s", instance)
+            try:
+                bk_logger.debug("- instance %s", instance)
+            except ReferenceError:
+                bk_logger.debug("- instance <deleted>")
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:

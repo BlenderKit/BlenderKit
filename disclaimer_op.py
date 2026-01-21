@@ -227,7 +227,10 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
         bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug("- class instance %s", instance)
+            try:
+                bk_logger.debug("- class instance %s", instance)
+            except ReferenceError:
+                bk_logger.debug("- class instance <deleted>")
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:

@@ -20,6 +20,15 @@ class BL_UI_Drag_Panel(BL_UI_Widget):
         self.widgets = widgets
         self.layout_widgets()
 
+    def remove_widgets(self):
+        self.widgets = []
+        self.update(self.x_screen, self.y_screen)
+
+    def remove_widget(self, widget):
+        if widget in self.widgets:
+            self.widgets.remove(widget)
+        self.layout_widgets()
+
     def layout_widgets(self):
         for widget in self.widgets:
             widget.update(self.x_screen + widget.x, self.y_screen + widget.y)

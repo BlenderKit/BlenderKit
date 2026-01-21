@@ -2618,6 +2618,9 @@ def register():
     global_vars.VERSION = VERSION
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
+    # Drop any downloads that might have been left running if the add-on was re-enabled mid-transfer.
+    download.cancel_running_downloads("addon register")
+
     addon_updater_ops.register({"version": VERSION})
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -2730,6 +2733,8 @@ def register():
 
 def unregister():
     bk_logger.info("Unregistering BlenderKit add-on")
+    # Stop any in-flight downloads to avoid leaving stale UI state when disabling the add-on.
+    download.cancel_running_downloads("addon unregister")
     timer.unregister_timers()
     ui_panels.unregister_ui_panels()
     ui.unregister_ui()

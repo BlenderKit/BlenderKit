@@ -129,7 +129,7 @@ def reorder_ports(port: str = ""):
     )
 
 
-def get_reports(app_id: str):
+def get_reports(app_id: int):
     """Get reports for all tasks of app_id Blender instance at once.
     If few last calls failed, then try to get reports also from other than default ports.
     """

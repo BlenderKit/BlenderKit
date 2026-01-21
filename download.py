@@ -81,8 +81,8 @@ def get_addon_installation_status(asset_data):
         dict: {
             "installed": bool,
             "enabled": bool,
-            "pkg_id": str,
-            "cached_pkg": dict or None
+            # "pkg_id": str,
+            # "cached_pkg": dict or None
         }
     """
 
@@ -92,8 +92,8 @@ def get_addon_installation_status(asset_data):
         return {
             "installed": False,
             "enabled": False,
-            "pkg_id": None,
-            "cached_pkg": None,
+            # "pkg_id": None,
+            # "cached_pkg": None,
         }
 
         # Check if addon is installed and enabled using Blender's addon system
@@ -123,7 +123,7 @@ def get_addon_installation_status(asset_data):
                 ) and addon_module.startswith("bl_ext."):
                     is_enabled = True
                     bk_logger.info(
-                        f"Found enabled addon with extension format: {addon_module}"
+                        "Found enabled addon with extension format: %s", addon_module
                     )
                     break
 
@@ -141,7 +141,8 @@ def get_addon_installation_status(asset_data):
             ) and addon_module.__name__.startswith("bl_ext."):
                 is_installed = True
                 bk_logger.info(
-                    f"Found installed addon with extension format: {addon_module.__name__}"
+                    "Found installed addon with extension format: %s",
+                    addon_module.__name__,
                 )
                 break
     except Exception as e:
@@ -173,7 +174,7 @@ def get_addon_installation_status(asset_data):
                 "blenderkit_extensions_repo_cache", {}
             )
 
-            for cache_key, pkg_data in bk_ext_cache.items():
+            for _cache_key, pkg_data in bk_ext_cache.items():
                 if isinstance(pkg_data, dict) and pkg_data.get("id") == extension_id:
                     # Check if it's actually installed in the extension system
                     is_installed = pkg_data.get("installed", False)
@@ -187,7 +188,6 @@ def get_addon_installation_status(asset_data):
     # Method 4: Check through Blender's extension repositories directly
     if not is_installed:
         try:
-
             # Look for BlenderKit repository and check its packages
             for repo in bpy.context.preferences.extensions.repos:
                 if not repo.enabled:
@@ -226,8 +226,8 @@ def get_addon_installation_status(asset_data):
     return {
         "installed": is_installed,
         "enabled": is_enabled,
-        "pkg_id": extension_id,
-        "cached_pkg": None,  # Not using cached_pkg anymore
+        # "pkg_id": extension_id,
+        # "cached_pkg": None,  # Not using cached_pkg anymore
     }
 
 
@@ -1203,6 +1203,44 @@ def clear_downloads():
     """Cancel all downloads."""
     global download_tasks
     download_tasks.clear()
+
+
+def cancel_running_downloads(reason: str = ""):
+    """Cancel all running downloads for this Blender process and reset local UI state."""
+
+    global download_tasks
+
+    if not download_tasks:
+        return
+
+    task_ids = list(download_tasks.keys())
+    asset_ids = set()
+    for task in download_tasks.values():
+        if not isinstance(task, dict):
+            continue
+        asset_id = task.get("asset_data", {}).get("id")
+        if asset_id:
+            asset_ids.add(asset_id)
+
+    suffix = f" ({reason})" if reason else ""
+    bk_logger.info("Cancelling %d running downloads%s", len(task_ids), suffix)
+
+    for task_id in task_ids:
+        try:
+            client_lib.cancel_download(task_id)
+        except Exception as e:
+            bk_logger.warning("Failed to cancel download %s: %s", task_id, e)
+
+    clear_downloads()
+
+    # Reset progress bars in current search results so UI does not show stale green boxes.
+    search_results = search.get_search_results()
+    if search_results is None or not asset_ids:
+        return
+
+    for result in search_results:
+        if result.get("id") in asset_ids:
+            result["downloaded"] = 0
 
 
 def download_write_progress(task_id, task):
