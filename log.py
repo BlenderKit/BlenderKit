@@ -32,11 +32,11 @@ class BlenderKitFormatter(logging.Formatter):
     """
 
     EMOJIS = {
-        logging.DEBUG: "🐞",
+        logging.DEBUG: "🐞 ",
         logging.INFO: "ℹ️ ",
         logging.WARNING: "⚠️ ",
-        logging.ERROR: "❌",
-        logging.CRITICAL: "🔥",
+        logging.ERROR: "❌ ",
+        logging.CRITICAL: "🔥 ",
     }
 
     def format(self, record):

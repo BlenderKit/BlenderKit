@@ -29,6 +29,7 @@ import fnmatch
 import json
 import os
 import platform
+import logging
 import shutil
 import ssl
 import threading
@@ -43,6 +44,10 @@ import addon_utils
 # Blender imports, used in limited cases.
 import bpy
 
+from . import tasks_queue
+
+
+bk_logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # The main class
@@ -134,15 +139,15 @@ class SingletonUpdater:
         self._select_link = select_link_function
 
     def print_trace(self):
-        """Print handled exception details when use_print_traces is set"""
+        """Logs handled exception details when use_print_traces is set"""
         if self._use_print_traces:
-            traceback.print_exc()
+            bk_logger.error("%s", traceback.format_exc())
 
     def print_verbose(self, msg):
-        """Print out a verbose logging message if verbose is true."""
+        """Logs verbose messages if verbose is true."""
         if not self._verbose:
             return
-        print("🔄 {}: ".format(self.addon) + msg)
+        bk_logger.info("%s", msg)
 
     # -------------------------------------------------------------------------
     # Getters and setters
@@ -177,7 +182,7 @@ class SingletonUpdater:
     def auto_reload_post_update(self, value):
         try:
             self._auto_reload_post_update = bool(value)
-        except:
+        except Exception:
             raise ValueError("auto_reload_post_update must be a boolean value")
 
     @property
@@ -227,7 +232,7 @@ class SingletonUpdater:
         elif type(tuple_values) is not tuple:
             try:
                 tuple(tuple_values)
-            except:
+            except Exception:
                 raise ValueError("current_version must be a tuple of integers")
         for i in tuple_values:
             if type(i) is not int:
@@ -277,7 +282,7 @@ class SingletonUpdater:
     def include_branch_auto_check(self, value):
         try:
             self._include_branch_auto_check = bool(value)
-        except:
+        except Exception:
             raise ValueError("include_branch_autocheck must be a boolean")
 
     @property
@@ -295,7 +300,7 @@ class SingletonUpdater:
                 )
             else:
                 self._include_branch_list = value
-        except:
+        except Exception:
             raise ValueError("include_branch_list should be a list of valid branches")
 
     @property
@@ -306,7 +311,7 @@ class SingletonUpdater:
     def include_branches(self, value):
         try:
             self._include_branches = bool(value)
-        except:
+        except Exception:
             raise ValueError("include_branches must be a boolean value")
 
     @property
@@ -329,7 +334,7 @@ class SingletonUpdater:
     def manual_only(self, value):
         try:
             self._manual_only = bool(value)
-        except:
+        except Exception:
             raise ValueError("manual_only must be a boolean value")
 
     @property
@@ -377,7 +382,7 @@ class SingletonUpdater:
     def repo(self, value):
         try:
             self._repo = str(value)
-        except:
+        except Exception:
             raise ValueError("repo must be a string value")
 
     @property
@@ -404,8 +409,8 @@ class SingletonUpdater:
         elif value is not None and not os.path.exists(value):
             try:
                 os.makedirs(value)
-            except:
-                self.print_verbose("Error trying to staging path")
+            except Exception:
+                self.print_verbose("Error trying to create staging path")
                 self.print_trace()
                 return
         self._updater_path = value
@@ -453,7 +458,7 @@ class SingletonUpdater:
     def use_releases(self, value):
         try:
             self._use_releases = bool(value)
-        except:
+        except Exception:
             raise ValueError("use_releases must be a boolean value")
 
     @property
@@ -464,7 +469,7 @@ class SingletonUpdater:
     def user(self, value):
         try:
             self._user = str(value)
-        except:
+        except Exception:
             raise ValueError("User must be a string value")
 
     @property
@@ -476,7 +481,7 @@ class SingletonUpdater:
         try:
             self._verbose = bool(value)
             self.print_verbose("Verbose is enabled")
-        except:
+        except Exception:
             raise ValueError("Verbose must be a boolean value")
 
     @property
@@ -487,7 +492,7 @@ class SingletonUpdater:
     def use_print_traces(self, value):
         try:
             self._use_print_traces = bool(value)
-        except:
+        except Exception:
             raise ValueError("use_print_traces must be a boolean value")
 
     @property
@@ -687,7 +692,7 @@ class SingletonUpdater:
         request = urllib.request.Request(url)
         try:
             context = ssl._create_unverified_context()
-        except:
+        except Exception:
             # Some blender packaged python versions don't have this, largely
             # useful for local network setups otherwise minimal impact.
             context = None
@@ -712,11 +717,11 @@ class SingletonUpdater:
             if str(e.code) == "403":
                 self._error = "HTTP error (access denied)"
                 self._error_msg = str(e.code) + " - server error response"
-                print(self._error, self._error_msg)
+                bk_logger.error("%s %s", self._error, self._error_msg)
             else:
                 self._error = "HTTP error"
                 self._error_msg = str(e.code)
-                print(self._error, self._error_msg)
+                bk_logger.error("%s %s", self._error, self._error_msg)
             self.print_trace()
             self._update_ready = None
         except urllib.error.URLError as e:
@@ -724,11 +729,11 @@ class SingletonUpdater:
             if "TLSV1_ALERT" in reason or "SSL" in reason.upper():
                 self._error = "Connection rejected, download manually"
                 self._error_msg = reason
-                print(self._error, self._error_msg)
+                bk_logger.error("%s %s", self._error, self._error_msg)
             else:
                 self._error = "URL error, check internet connection"
                 self._error_msg = reason
-                print(self._error, self._error_msg)
+                bk_logger.error("%s %s", self._error, self._error_msg)
             self.print_trace()
             self._update_ready = None
             return None
@@ -748,7 +753,7 @@ class SingletonUpdater:
                 self._error = "API response has invalid JSON format"
                 self._error_msg = str(e.reason)
                 self._update_ready = None
-                print(self._error, self._error_msg)
+                bk_logger.error("%s %s", self._error, self._error_msg)
                 self.print_trace()
                 return None
         else:
@@ -766,13 +771,13 @@ class SingletonUpdater:
             try:
                 shutil.rmtree(local)
                 os.makedirs(local)
-            except:
+            except Exception:
                 error = "failed to remove existing staging directory"
                 self.print_trace()
         else:
             try:
                 os.makedirs(local)
-            except:
+            except Exception:
                 error = "failed to create staging directory"
                 self.print_trace()
 
@@ -811,8 +816,8 @@ class SingletonUpdater:
         except Exception as e:
             self._error = "Error retrieving download, bad link?"
             self._error_msg = "Error: {}".format(e)
-            print("Error retrieving download, bad link?")
-            print("Error: {}".format(e))
+            bk_logger.error("Error retrieving download, bad link?")
+            bk_logger.error("Error: %s", e)
             self.print_trace()
             return False
 
@@ -829,7 +834,7 @@ class SingletonUpdater:
         if os.path.isdir(local):
             try:
                 shutil.rmtree(local)
-            except:
+            except Exception:
                 self.print_verbose(
                     "Failed to removed previous backup folder, continuing"
                 )
@@ -840,7 +845,7 @@ class SingletonUpdater:
         if os.path.isdir(tempdest):
             try:
                 shutil.rmtree(tempdest)
-            except:
+            except Exception:
                 self.print_verbose("Failed to remove existing temp folder, continuing")
                 self.print_trace()
 
@@ -852,15 +857,15 @@ class SingletonUpdater:
                     tempdest,
                     ignore=shutil.ignore_patterns(*self._backup_ignore_patterns),
                 )
-            except:
-                print("Failed to create backup, still attempting update.")
+            except Exception:
+                self.print_verbose("Failed to create backup, still attempting update.")
                 self.print_trace()
                 return
         else:
             try:
                 shutil.copytree(self._addon_root, tempdest)
-            except:
-                print("Failed to create backup, still attempting update.")
+            except Exception:
+                self.print_verbose("Failed to create backup, still attempting update.")
                 self.print_trace()
                 return
         shutil.move(tempdest, local)
@@ -906,23 +911,23 @@ class SingletonUpdater:
         try:
             shutil.rmtree(outdir)
             self.print_verbose("Source folder cleared")
-        except:
+        except Exception:
+            self.print_verbose("Error occurred while clearing extract dir")
             self.print_trace()
 
         # Create parent directories if needed, would not be relevant unless
         # installing addon into another location or via an addon manager.
         try:
             os.mkdir(outdir)
-        except Exception as err:
-            print("Error occurred while making extract dir:")
-            print(str(err))
+        except Exception:
+            self.print_verbose("Error occurred while making extract dir")
             self.print_trace()
             self._error = "Install failed"
             self._error_msg = "Failed to make extract directory"
             return -1
 
         if not os.path.isdir(outdir):
-            print("Failed to create source directory")
+            bk_logger.error("Failed to create source directory")
             self._error = "Install failed"
             self._error_msg = "Failed to create extract directory"
             return -1
@@ -972,7 +977,7 @@ class SingletonUpdater:
         if not os.path.isdir(unpath):
             self._error = "Install failed"
             self._error_msg = "Extracted path does not exist"
-            print("Extracted path does not exist: ", unpath)
+            bk_logger.error("Extracted path does not exist: %s", unpath)
             return -1
 
         if self._subfolder_path:
@@ -991,9 +996,8 @@ class SingletonUpdater:
             # Smarter check for additional sub folders for a single folder
             # containing the __init__.py file.
             if not os.path.isfile(os.path.join(unpath, "__init__.py")):
-                print("Not a valid addon found")
-                print("Paths:")
-                print(dirlist)
+                bk_logger.error("Not a valid addon found")
+                bk_logger.error("Paths: %s", dirlist)
                 self._error = "Install failed"
                 self._error_msg = "No __init__ file found in new source"
                 return -1
@@ -1052,8 +1056,10 @@ class SingletonUpdater:
                         self.print_verbose(
                             "Clean removing file {}".format(os.path.join(base, f))
                         )
-                    except Exception as e:
-                        print(f"Error removing file {os.path.join(base, f)}: {e}")
+                    except Exception:
+                        bk_logger.exception(
+                            "Error removing file %s:", os.path.join(base, f)
+                        )
                 for f in folders:
                     if os.path.join(base, f) is self._updater_path:
                         continue
@@ -1064,12 +1070,14 @@ class SingletonUpdater:
                                 os.path.join(base, f)
                             )
                         )
-                    except Exception as e:
-                        print(f"Error removing folder {os.path.join(base, f)}: {e}")
+                    except Exception:
+                        bk_logger.exception(
+                            "Error removing folder %s:", os.path.join(base, f)
+                        )
 
-            except Exception as err:
+            except Exception:
                 error = "failed to create clean existing addon folder"
-                print(error, str(err))
+                self.print_verbose(error)
                 self.print_trace()
 
         # Walk through the base addon folder for rules on pre-removing
@@ -1087,7 +1095,7 @@ class SingletonUpdater:
                             os.remove(fl)
                             self.print_verbose("Pre-removed file " + file)
                         except OSError:
-                            print("Failed to pre-remove " + file)
+                            self.print_verbose("Failed to pre-remove " + file)
                             self.print_trace()
 
         # Walk through the temp addon sub folder for replacements
@@ -1134,13 +1142,13 @@ class SingletonUpdater:
                         # File did not previously exist, simply move it over.
                         os.rename(srcFile, dest_file)
                         self.print_verbose("New file " + os.path.basename(dest_file))
-                except Exception as e:
-                    print(f"Error replacing file {file}: {e}")
+                except Exception:
+                    bk_logger.exception("Error replacing file %s:", file)
 
         # now remove the temp staging folder and downloaded zip
         try:
             shutil.rmtree(staging_path)
-        except:
+        except Exception:
             error = (
                 "Error: Failed to remove existing staging directory, "
                 "consider manually removing "
@@ -1152,7 +1160,7 @@ class SingletonUpdater:
         # if post_update false, skip this function
         # else, unload/reload addon & trigger popup
         if not self._auto_reload_post_update:
-            print("Restart blender to reload addon and complete update")
+            bk_logger.info("Restart blender to reload addon and complete update")
             return
 
         self.print_verbose("Reloading addon...")
@@ -1165,12 +1173,12 @@ class SingletonUpdater:
             bpy.ops.wm.addon_disable(module=self._addon_package)
             bpy.ops.wm.addon_refresh()
             bpy.ops.wm.addon_enable(module=self._addon_package)
-            print("2.7 reload complete")
+            bk_logger.info("2.7 reload complete")
         else:  # 2.8
             bpy.ops.preferences.addon_disable(module=self._addon_package)
             bpy.ops.preferences.addon_refresh()
             bpy.ops.preferences.addon_enable(module=self._addon_package)
-            print("2.8 reload complete")
+            bk_logger.info("2.8 reload complete")
 
     # -------------------------------------------------------------------------
     # Other non-api functions and setups
@@ -1190,10 +1198,10 @@ class SingletonUpdater:
         while 1:
             data = url_file.read(chunk)
             if not data:
-                # print("done.")
+                # bk_logger.info("done.")
                 break
             f.write(data)
-            # print("Read %s bytes" % len(data))
+            # bk_logger.info("Read %s bytes" % len(data))
         f.close()
 
     def version_tuple_from_text(self, text):
@@ -1249,7 +1257,9 @@ class SingletonUpdater:
             self.print_verbose("Skipping async check, already started")
             # already running the bg thread
         elif self._update_ready is None:
-            print("{} updater: Running background check for update".format(self.addon))
+            bk_logger.info(
+                "%s updater: Running background check for update", self.addon
+            )
             self.start_async_check_update(False, callback)
 
     def check_for_update_now(self, callback=None):
@@ -1266,7 +1276,7 @@ class SingletonUpdater:
             self.start_async_check_update(True, callback)
 
     def check_for_update(self, now=False):
-        """Check for update not in a syncrhonous manner.
+        """Check for update not in a synchronous manner.
 
         This function is not async, will always return in sequential fashion
         but should have a parent which calls it in another thread.
@@ -1449,7 +1459,7 @@ class SingletonUpdater:
 
             res = self.stage_repository(self._update_link)
             if not res:
-                print("Error in staging repository: " + str(res))
+                bk_logger.error("Error in staging repository: %s", str(res))
                 if callback is not None:
                     callback(self._addon_package, self._error_msg)
                 return self._error_msg
@@ -1467,7 +1477,7 @@ class SingletonUpdater:
 
             res = self.stage_repository(self._update_link)
             if not res:
-                print("Error in staging repository: " + str(res))
+                bk_logger.error("Error in staging repository: %s", str(res))
                 if callback:
                     callback(self._addon_package, self._error_msg)
                 return self._error_msg
@@ -1525,9 +1535,11 @@ class SingletonUpdater:
             os.rename(old_json_path, json_path)
         except FileNotFoundError:
             pass
-        except Exception as err:
-            print("Other OS error occurred while trying to rename old JSON")
-            print(err)
+        except Exception:
+            self.print_verbose(
+                "Other OS error occurred while trying to rename old JSON"
+            )
+
             self.print_trace()
         return json_path
 
@@ -1571,7 +1583,7 @@ class SingletonUpdater:
 
         jpath = self.get_json_path()
         if not os.path.isdir(os.path.dirname(jpath)):
-            print(
+            bk_logger.error(
                 "State error: Directory does not exist, cannot save json: ",
                 os.path.basename(jpath),
             )
@@ -1580,8 +1592,9 @@ class SingletonUpdater:
             with open(jpath, "w") as outf:
                 data_out = json.dumps(self._json, indent=4)
                 outf.write(data_out)
-        except:
-            print("Failed to open/save data to json: ", jpath)
+            self.print_verbose(f"Wrote updater JSON settings to file: {jpath}")
+        except Exception:
+            self.print_verbose(f"Failed to open/save data to json: {jpath}")
             self.print_trace()
         self.print_verbose("Wrote out updater JSON settings with content:")
         self.print_verbose(str(self._json))
@@ -1630,8 +1643,7 @@ class SingletonUpdater:
         try:
             self.check_for_update(now=now)
         except Exception as exception:
-            print("Checking for update error:")
-            print(exception)
+            self.print_verbose(f"Checking for update error: {exception}")
             self.print_trace()
             if not self._error:
                 self._update_ready = False
@@ -1644,8 +1656,11 @@ class SingletonUpdater:
         self._check_thread = None
 
         if callback:
-            self.print_verbose("Finished check update, doing callback")
-            callback(self._update_ready)
+            self.print_verbose(
+                "Finished check update, queueing callback on main thread"
+            )
+            # Run the callback on Blender's main thread to avoid bpy access from a background thread.
+            tasks_queue.add_task((callback, (self._update_ready,)), wait=0)
         self.print_verbose("BG thread: Finished check update, no callback")
 
     def stop_async_check_update(self):

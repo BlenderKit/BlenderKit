@@ -46,6 +46,17 @@
             }
         },
 
+        {
+            "name": "Run Blender 5.0.1",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "D:/blenders/5.0.1/blender.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false
+        },
+
 
         {
             "name": "[BLACK] Run black on all",
