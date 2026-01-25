@@ -54,7 +54,11 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "externalConsole": false
+            "externalConsole": false,
+            "environment": [
+                // {"name": "BK_SKIP_NEW_THUMBNAILS",
+                // "value": "1"},
+            ],
         },
 
 
