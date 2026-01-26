@@ -19,6 +19,7 @@
 import logging
 import os
 import queue
+import time
 import requests
 
 import bpy
@@ -133,6 +134,7 @@ def client_communication_timer():
         results = client_lib.get_reports(os.getpid())
         global_vars.CLIENT_FAILED_REPORTS = 0
     except Exception as e:
+        download.prune_stalled_downloads(now=time.monotonic())
         return handle_failed_reports(e)
 
     if global_vars.CLIENT_ACCESSIBLE is False:
@@ -168,6 +170,7 @@ def client_communication_timer():
     for task in results_converted_tasks:
         handle_task(task)
 
+    download.prune_stalled_downloads(now=time.monotonic())
     bk_logger.log(5, "Task handling finished")
     delay = user_preferences.client_polling
     if len(download.download_tasks) > 0:

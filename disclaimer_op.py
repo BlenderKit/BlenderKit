@@ -58,8 +58,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     )
 
     fadeout_time: IntProperty(  # type: ignore[valid-type]
-        name="Fadout time",
-        description="after how many seconds do fadout",
+        name="Fadeout time",
+        description="after how many seconds do fadeout",
         default=5,
         min=1,
         max=50,

@@ -56,6 +56,12 @@ from bpy.props import (
 
 bk_logger = logging.getLogger(__name__)
 
+STALE_DOWNLOAD_TIMEOUT = (
+    20.0  # seconds without progress before we treat a download as stalled
+)
+
+download_tasks = {}
+
 
 def get_blenderkit_repository():
     """Find the BlenderKit extensions repository index.
@@ -288,7 +294,19 @@ def install_addon_from_local_file(asset_data, file_path, enable_on_install=True)
     )
 
 
-download_tasks = {}
+def _reset_progress_for_asset_ids(asset_ids):
+    """Reset UI progress bars for the given asset ids."""
+    if not asset_ids:
+        return
+
+    search_results = search.get_search_results()
+    if search_results is None:
+        return
+
+    for result in search_results:
+        if result.get("id") in asset_ids:
+            result["downloaded"] = 0
+
 
 INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
@@ -1179,6 +1197,13 @@ def handle_download_task(task: client_tasks.Task):
     """
     global download_tasks
 
+    # If the task was already pruned/cancelled, ignore late reports from the client.
+    if task.task_id not in download_tasks:
+        bk_logger.debug(
+            "Ignoring late download task %s (no longer tracked)", task.task_id
+        )
+        return
+
     if task.status == "finished":
         # we still write progress since sometimes the progress bars wouldn't end on 100%
         download_write_progress(task.task_id, task)
@@ -1232,15 +1257,54 @@ def cancel_running_downloads(reason: str = ""):
             bk_logger.warning("Failed to cancel download %s: %s", task_id, e)
 
     clear_downloads()
+    _reset_progress_for_asset_ids(asset_ids)
 
-    # Reset progress bars in current search results so UI does not show stale green boxes.
-    search_results = search.get_search_results()
-    if search_results is None or not asset_ids:
+
+def prune_stalled_downloads(
+    max_idle_seconds: float = STALE_DOWNLOAD_TIMEOUT, now: float | None = None
+) -> None:
+    """Cancel downloads that have not reported progress for too long."""
+
+    if not download_tasks:
         return
 
-    for result in search_results:
-        if result.get("id") in asset_ids:
-            result["downloaded"] = 0
+    now = now if now is not None else time.monotonic()
+    stalled_task_ids = []
+    stalled_asset_ids = set()
+
+    for task_id, task in list(download_tasks.items()):
+        last_report_time = task.get("last_report_time") or task.get("started_at")
+        if last_report_time is None:
+            task["last_report_time"] = now
+            continue
+        if now - last_report_time < max_idle_seconds:
+            continue
+
+        stalled_task_ids.append(task_id)
+
+        asset_info = task.get("asset_data", {})
+        asset_id = asset_info.get("id")
+        asset_name = asset_info.get("name", "Asset")
+
+        reports.add_report(
+            f"Download for {asset_name} stalled and was cancelled. Please try again.",
+            type="ERROR",
+        )
+
+        if asset_id:
+            stalled_asset_ids.add(asset_id)
+
+    if not stalled_task_ids:
+        return
+
+    for task_id in stalled_task_ids:
+        try:
+            client_lib.cancel_download(task_id)
+        except Exception as e:
+            bk_logger.warning("Failed to cancel stalled download %s: %s", task_id, e)
+        download_tasks.pop(task_id, None)
+
+    _reset_progress_for_asset_ids(stalled_asset_ids)
 
 
 def download_write_progress(task_id, task):
@@ -1248,10 +1312,10 @@ def download_write_progress(task_id, task):
     global download_tasks
     task_addon = download_tasks.get(task.task_id)
     if task_addon is None:
-        bk_logger.warning("couldn't write download progress to %s", task.progress)
-        return
+        return  # task was likely cancelled/stalled and removed; ignore late progress
     task_addon["progress"] = task.progress
     task_addon["text"] = task.message
+    task_addon["last_report_time"] = time.monotonic()
 
     # go through search results to write progress to display progress bars
     sr = search.get_search_results()
@@ -1388,6 +1452,7 @@ def download(asset_data, **kwargs):
     if "unpack_files" in kwargs:  # for add-on download
         prefs["unpack_files"] = kwargs["unpack_files"]
 
+    now = time.monotonic()
     data = {
         "asset_data": asset_data,
         "PREFS": prefs,
@@ -1400,6 +1465,9 @@ def download(asset_data, **kwargs):
     data["download_dirs"] = paths.get_download_dirs(asset_data["assetType"])
     if "downloaders" in kwargs:
         data["downloaders"] = kwargs["downloaders"]
+    data.setdefault("downloaders", [])
+    data["started_at"] = now
+    data["last_report_time"] = now
 
     response = client_lib.asset_download(data)
     download_tasks[response["task_id"]] = data
