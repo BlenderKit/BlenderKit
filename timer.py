@@ -19,6 +19,7 @@
 import logging
 import os
 import queue
+import time
 import requests
 
 import bpy
@@ -49,7 +50,7 @@ bk_logger = logging.getLogger(__name__)
 reports_queue: queue.Queue = queue.Queue()
 pending_tasks = (
     list()
-)  # pending tasks are tasks that were not parsed correclty and should be tried to be parsed later.
+)  # pending tasks are tasks that were not parsed correctly and should be tried to be parsed later.
 
 
 def handle_failed_reports(exception: Exception) -> float:
@@ -133,6 +134,7 @@ def client_communication_timer():
         results = client_lib.get_reports(os.getpid())
         global_vars.CLIENT_FAILED_REPORTS = 0
     except Exception as e:
+        download.prune_stalled_downloads(now=time.monotonic())
         return handle_failed_reports(e)
 
     if global_vars.CLIENT_ACCESSIBLE is False:
@@ -168,6 +170,7 @@ def client_communication_timer():
     for task in results_converted_tasks:
         handle_task(task)
 
+    download.prune_stalled_downloads(now=time.monotonic())
     bk_logger.log(5, "Task handling finished")
     delay = user_preferences.client_polling
     if len(download.download_tasks) > 0:
@@ -201,8 +204,8 @@ def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
     try:
         cancel_all_tasks(user_preferences, context)
         client_lib.shutdown_client()
-    except Exception as e:
-        bk_logger.warning(str(e))
+    except Exception:
+        bk_logger.exception("Error shutting down client")
 
     client_lib.reorder_ports(
         user_preferences.client_port
@@ -233,7 +236,7 @@ def cancel_all_tasks(self, context):
     """Cancel all tasks."""
     global pending_tasks
     pending_tasks.clear()
-    download.clear_downloads()
+    download.cancel_running_downloads("cancel all tasks")
     search.clear_searches()
     # TODO: should add uploads
 
@@ -257,7 +260,7 @@ def task_error_overdrive(task: client_tasks.Task) -> None:
 
 
 def handle_task(task: client_tasks.Task):
-    """Handle incomming task information. Sort tasks by type and call apropriate functions."""
+    """Handle incoming task information. Sort tasks by type and call appropriate functions."""
     if task.status == "error":
         task_error_overdrive(task)
 
@@ -349,7 +352,7 @@ def handle_task(task: client_tasks.Task):
 
     # HANDLE MESSAGE FROM CLIENT
     if (
-        task.task_type == "message_from_daemon"  # TODO: depracate message_from_daemon
+        task.task_type == "message_from_daemon"  # TODO: deprecate message_from_daemon
         or task.task_type == "message_from_client"
     ):
         level = task.result.get("level", "INFO").upper()

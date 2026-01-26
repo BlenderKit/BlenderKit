@@ -24,11 +24,14 @@ Implements draw calls, popups, and operators that use the addon_updater.
 
 import os
 import traceback
+import logging
 
 import bpy
 from bpy.app.handlers import persistent
 
 from . import client_lib
+
+bk_logger = logging.getLogger(__name__)
 
 
 # Safely import the updater.
@@ -37,9 +40,9 @@ from . import client_lib
 try:
     from .addon_updater import Updater as updater
 except Exception as e:
-    print("ERROR INITIALIZING UPDATER")
-    print(str(e))
-    traceback.print_exc()
+    bk_logger.error("ERROR INITIALIZING UPDATER")
+    bk_logger.error(str(e))
+    bk_logger.error("%s", traceback.format_exc())
 
     class SingletonUpdaterNone(object):
         """Fake, bare minimum fields and functions for the updater object."""
@@ -229,9 +232,9 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
             # Should return 0, if not something happened.
             if updater.verbose:
                 if res == 0:
-                    print("Updater returned successful")
+                    bk_logger.info("Updater returned successful")
                 else:
-                    print("Updater returned {}, error occurred".format(res))
+                    bk_logger.info("Updater returned {}, error occurred".format(res))
         elif updater.update_ready is None:
             _ = updater.check_for_update(now=True)
 
@@ -322,9 +325,9 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
                 # Should return 0, if not something happened.
                 if updater.verbose:
                     if res == 0:
-                        print("Updater returned successful")
+                        bk_logger.info("Updater returned successful")
                     else:
-                        print("Updater error response: {}".format(res))
+                        bk_logger.info("Updater error response: {}".format(res))
             except Exception as expt:
                 updater._error = "Error trying to run update"
                 updater._error_msg = str(expt)
@@ -450,7 +453,7 @@ class AddonUpdaterInstallManually(bpy.types.Operator):
             layout.label(text="Updater error")
             return
 
-        # Display error if a prior autoamted install failed.
+        # Display error if a prior automated install failed.
         if self.error != "":
             col = layout.column()
             col.scale_y = 0.7
@@ -692,7 +695,7 @@ def updater_run_install_popup_handler(scene):
                 updater_run_install_popup_handler
             )
     except Exception as e:
-        print(e)
+        bk_logger.error("%s", e)
         pass
 
     if "ignore" in updater.json and updater.json["ignore"]:
@@ -833,8 +836,8 @@ def check_for_update_nonthreaded(self, context):
     settings = get_user_preferences(bpy.context)
     if not settings:
         if updater.verbose:
-            print(
-                "Could not get {} preferences, update check skipped".format(__package__)
+            bk_logger.info(
+                "Could not get %s preferences, update check skipped", __package__
             )
         return
     updater.set_check_interval(
@@ -1359,7 +1362,7 @@ def register(bl_info):
     """Registering the operators in this module"""
     # Safer failure in case of issue loading module.
     if updater.error:
-        print("Exiting updater registration, " + updater.error)
+        bk_logger.error("Exiting updater registration, %s", updater.error)
         return
     updater.clear_state()  # Clear internal vars, avoids reloading oddities.
 

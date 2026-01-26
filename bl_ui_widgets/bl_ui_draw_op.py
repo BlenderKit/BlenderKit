@@ -19,6 +19,18 @@ def get_safely(obj, attr_name, default=None):
         return default
 
 
+def restart_asset_bar():
+    # ignore failures if already gone
+    from asset_bar_op import BlenderKitAssetBarOperator
+
+    try:
+        bpy.utils.unregister_class(BlenderKitAssetBarOperator)
+    except Exception:
+        pass
+    bpy.utils.register_class(BlenderKitAssetBarOperator)
+    bpy.ops.view3d.blenderkit_asset_bar_widget("INVOKE_DEFAULT")
+
+
 class BL_UI_OT_draw_operator(Operator):
     bl_idname = "object.bl_ui_ot_draw_operator"
     bl_label = "bl ui widgets operator"
@@ -48,16 +60,15 @@ class BL_UI_OT_draw_operator(Operator):
     def invoke(self, context, event):
         self.on_invoke(context, event)
 
-        args = (self, context)
-
-        self.register_handlers(args, context, timer_interval=self._timer_interval)
-
         context.window_manager.modal_handler_add(self)
 
         # first set pointers to keep track if the area is still available
         self.active_window_pointer = context.window.as_pointer()
         self.active_area_pointer = context.area.as_pointer()
         self.active_region_pointer = context.region.as_pointer()
+
+        args = (self, context)
+        self.register_handlers(args, context, timer_interval=self._timer_interval)
 
         region_redraw(context)
         return {"RUNNING_MODAL"}
@@ -128,6 +139,8 @@ def draw_callback_px_separated(self, op, context):
         area_pointer = (
             context.area.as_pointer() if getattr(context, "area", None) else None
         )
+
+        # get area, check if RNA failed
         active_pointer = get_safely(self, "active_area_pointer", None)
         if area_pointer is None or area_pointer != active_pointer:
             return

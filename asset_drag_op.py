@@ -1762,10 +1762,8 @@ class AssetDragOperator(bpy.types.Operator):
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        self.resolution_factor = (
-            bpy.context.preferences.system.pixel_size
-            / bpy.context.preferences.view.ui_scale
-        )
+        self.resolution_factor = ui_bgl.get_ui_scale()
+
         self.mouse_screen_x = int(
             context.window.x * self.resolution_factor + event.mouse_x
         )
@@ -2298,7 +2296,10 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug("- class instance %s", instance)
+            try:
+                bk_logger.debug("- class instance %s", instance)
+            except ReferenceError:
+                bk_logger.debug("- class instance <deleted>")
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:

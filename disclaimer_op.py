@@ -58,8 +58,8 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     )
 
     fadeout_time: IntProperty(  # type: ignore[valid-type]
-        name="Fadout time",
-        description="after how many seconds do fadout",
+        name="Fadeout time",
+        description="after how many seconds do fadeout",
         default=5,
         min=1,
         max=50,
@@ -227,7 +227,10 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
         bk_logger.debug("unregistering class %s", cls)
         instances_copy = cls.instances.copy()
         for instance in instances_copy:
-            bk_logger.debug("- class instance %s", instance)
+            try:
+                bk_logger.debug("- class instance %s", instance)
+            except ReferenceError:
+                bk_logger.debug("- class instance <deleted>")
             try:
                 instance.unregister_handlers(instance.context)
             except Exception as e:

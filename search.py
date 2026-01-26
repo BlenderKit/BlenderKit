@@ -52,6 +52,10 @@ from . import (
 
 
 bk_logger = logging.getLogger(__name__)
+
+MAX_PAGE_SIZE = 80
+"""Maximum number of assets to fetch per search page."""
+
 search_tasks = {}
 
 
@@ -373,7 +377,7 @@ def cleanup_search_results():
 
 
 def handle_search_task_error(task: client_tasks.Task) -> None:
-    """Handle incomming search task error."""
+    """Handle incoming search task error."""
     # First find the history step that the task belongs to
     for history_step in get_history_steps().values():
         if task.task_id in history_step.get("search_tasks", {}).keys():
@@ -1031,10 +1035,8 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
     filtered_results = []
 
     for asset in search_results:
-        if asset.get("assetType") != "addon":
-            # Skip non-addon assets (shouldn't happen in addon search but safety check)
-            if not filter_installed_only:
-                filtered_results.append(asset)
+        if not filter_installed_only:
+            filtered_results.append(asset)
             continue
 
         # Check installation and enablement status for addon
@@ -1059,7 +1061,9 @@ def filter_addon_search_results(search_results, filter_installed_only=False):
         except Exception as e:
             # If we can't determine status, mark as not installed/enabled
             bk_logger.warning(
-                f"Could not determine installation status for addon {asset.get('name', 'Unknown')}: {e}"
+                "Could not determine installation status for addon %s : %s",
+                asset.get("name", "Unknown"),
+                e,
             )
             asset["downloaded"] = 0
             asset["enabled"] = False
@@ -1283,8 +1287,9 @@ def search(get_next=False, query=None, author_id=""):
 
     active_history_step["is_searching"] = True
 
-    page_size = min(40, ui_props.wcount * user_preferences.maximized_assetbar_rows + 5)
-
+    page_size = min(
+        MAX_PAGE_SIZE, ui_props.wcount * user_preferences.maximized_assetbar_rows + 5
+    )
     next_url = ""
     if get_next and active_history_step.get("search_results_orig"):
         next_url = active_history_step["search_results_orig"].get("next", "")

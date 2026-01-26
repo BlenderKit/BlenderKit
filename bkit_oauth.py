@@ -29,7 +29,16 @@ from webbrowser import open_new_tab
 import bpy
 from bpy.props import BoolProperty
 
-from . import client_lib, client_tasks, datas, global_vars, reports, tasks_queue, utils
+from . import (
+    client_lib,
+    client_tasks,
+    datas,
+    global_vars,
+    reports,
+    search_price,
+    tasks_queue,
+    utils,
+)
 
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
@@ -104,6 +113,7 @@ def clean_login_data():
     preferences.api_key = ""
     preferences.api_key_timeout = 0
     global_vars.BKIT_PROFILE = datas.MineProfile()
+    search_price.clear_price_cache()
     # Cleanup also the api key in the extensions repository setting and clean the cache
     if bpy.app.version >= (4, 2, 0):
         override_extension_draw.ensure_repository(api_key="")
@@ -157,6 +167,7 @@ def write_tokens(auth_token, refresh_token, oauth_response):
     preferences.login_attempt = False
     preferences.api_key_refresh = refresh_token
     preferences.api_key = auth_token  # triggers api_key update function
+    search_price.clear_price_cache()
     # write token also to extensions repository setting and clear the cache
     if bpy.app.version >= (4, 2, 0):
         override_extension_draw.ensure_repository(api_key=auth_token)

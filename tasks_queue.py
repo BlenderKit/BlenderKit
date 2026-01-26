@@ -122,9 +122,7 @@ def queue_worker():
             task.wait -= time_step
             back_to_queue.append(task)
         else:
-            bk_logger.debug(
-                "task queue task:" + str(task.command) + str(task.arguments)
-            )
+            bk_logger.debug("task queue task: %s %s", task.command, task.arguments[10:])
             try:
                 if task.fake_context:
                     fc = utils.get_fake_context(
@@ -137,12 +135,11 @@ def queue_worker():
                             task.command(*task.arguments)
                 else:
                     task.command(*task.arguments)
-            except Exception as e:
-                bk_logger.error(
-                    "task queue failed task:"
-                    + str(task.command)
-                    + str(task.arguments)
-                    + str(e)
+            except Exception:
+                bk_logger.exception(
+                    "task queue failed task: %s %s %s",
+                    task.command,
+                    task.arguments[10:],
                 )
                 # bk_logger.exception('Got exception on main handler')
                 # raise

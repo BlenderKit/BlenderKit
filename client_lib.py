@@ -38,6 +38,8 @@ from . import datas, global_vars, reports, utils
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "", "https": ""}
 TIMEOUT = (0.1, 1)
+# Shorter timeout for the frequent report polling that runs on Blender's main thread.
+POLL_TIMEOUT = (0.05, 0.25)
 
 
 def get_address() -> str:
@@ -129,7 +131,7 @@ def reorder_ports(port: str = ""):
     )
 
 
-def get_reports(app_id: str):
+def get_reports(app_id: int):
     """Get reports for all tasks of app_id Blender instance at once.
     If few last calls failed, then try to get reports also from other than default ports.
     """
@@ -165,7 +167,7 @@ def request_report(url: str, data: dict) -> dict:
     If something goes south, this function raises requests.HTTPError or requests.JSONDecodeError.
     """
     with requests.Session() as session:
-        resp = session.get(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        resp = session.get(url, json=data, timeout=POLL_TIMEOUT, proxies=NO_PROXIES)
         if resp.status_code != 200:
             # not using resp.raise_for_status() for better message
             raise requests.HTTPError(
@@ -186,7 +188,7 @@ def asset_search(search_data: datas.SearchData):
         resp = session.post(
             url, json=datas.asdict(search_data), timeout=TIMEOUT, proxies=NO_PROXIES
         )
-        bk_logger.debug("Got search response")
+        bk_logger.log(5, "Got search response")
         return resp.json()
 
 
