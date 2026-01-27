@@ -25,7 +25,7 @@ import platform
 import shutil
 import subprocess
 from os import path
-from typing import Optional
+from typing import Optional, Union
 from http.client import responses as http_responses
 
 
@@ -359,7 +359,7 @@ def get_rating(asset_id: str):
         )
 
 
-def send_rating(asset_id: str, rating_type: str, rating_value: str | int):
+def send_rating(asset_id: str, rating_type: str, rating_value: Union[str, int]):
     data = {
         "asset_id": asset_id,
         "rating_type": rating_type,

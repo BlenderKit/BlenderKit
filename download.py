@@ -16,16 +16,16 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
+
 import addon_utils
 import copy
 import json
 import logging
 import os
 import shutil
-import tempfile
 import time
-import urllib.request
-
+from typing import Optional
 
 from . import (
     append_link,
@@ -1261,7 +1261,7 @@ def cancel_running_downloads(reason: str = ""):
 
 
 def prune_stalled_downloads(
-    max_idle_seconds: float = STALE_DOWNLOAD_TIMEOUT, now: float | None = None
+    max_idle_seconds: float = STALE_DOWNLOAD_TIMEOUT, now: Optional[float] = None
 ) -> None:
     """Cancel downloads that have not reported progress for too long."""
 

@@ -22,8 +22,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import random
-import colorsys
 import sys
 from traceback import print_exc
 from typing import Any, Union
@@ -158,7 +156,7 @@ def replace_materials(
     return material
 
 
-def _str_to_color(s: str) -> tuple[float, float, float] | None:
+def _str_to_color(s: str) -> Union[tuple[float, float, float], None]:
     """Convert a color string to an RGB tuple.
 
     Args:

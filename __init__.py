@@ -2565,7 +2565,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.alignment = "EXPAND"
             experimental_settings.label(text="Experimental settings")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
-            experimental_settings.prop(self, "enable_wire_thumbnail_upload")
+            # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
         # RUNTIME INFO
         globdir_op = layout.operator(
