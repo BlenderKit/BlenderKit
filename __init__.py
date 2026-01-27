@@ -2117,6 +2117,12 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=True,
     )
 
+    assetbar_follows_cursor: BoolProperty(
+        name="Assetbar follows active viewport",
+        description="Make the assetbar follow the cursor across the screen",
+        default=False,
+    )
+
     global_dir: StringProperty(
         name="Global Directory",
         description="Global storage for your assets, will use subdirectories for the contents. Client will place its files in subdirectory 'client'",
@@ -2533,6 +2539,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "show_VIEW3D_MT_blenderkit_model_properties")
         gui_settings.prop(self, "tips_on_start")
         gui_settings.prop(self, "announcements_on_start")
+        gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
 
         # NETWORKING SETTINGS

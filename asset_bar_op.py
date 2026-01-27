@@ -875,9 +875,33 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if event.type not in {"TIMER", "MOUSEMOVE"}:
             return
 
+        user_prefs = bpy.context.preferences.addons[__package__].preferences
+        follow_cursor = getattr(user_prefs, "assetbar_follows_cursor", True)
+
+        if not follow_cursor and not self._is_quad_view(context):
+            return
+
         area, region = self._find_area_region_from_event(context, event)
         if area is None or region is None:
             return
+
+        # In quad view, only the perspective pane should host the asset bar. Keep the
+        # legacy "follow any quad" behavior here for potential reuse:
+        # if self._is_quad_view(context) and self._cursor_inside_active_area(event):
+        #     return
+        if self._is_quad_view(context) and not self._is_perspective_region(region):
+            return
+
+        # When follow is disabled, allow switching only within the same area; in quad
+        # view this lets the bar appear in the hovered quad without jumping across
+        # different 3D view areas.
+        if not follow_cursor:
+            active_area = self._validated_area(getattr(self, "_active_area_ref", None))
+            if (
+                active_area is not None
+                and area.as_pointer() != active_area.as_pointer()
+            ):
+                return
 
         if self._cursor_inside_active_area(event):
             return
@@ -1501,6 +1525,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return len(quadviews) > 0
         except TypeError:
             return bool(quadviews)
+
+    def _is_perspective_region(self, region):
+        """Return True if the given region is a perspective (or camera) view."""
+        r3d = getattr(region, "data", None) or getattr(region, "regiondata", None)
+        if r3d is None:
+            return False
+        return getattr(r3d, "view_perspective", "") in {"PERSP", "CAMERA"}
 
     def asset_button_init(self, asset_x, asset_y, button_idx):
         """Initialize an asset button at the given position with the given index."""

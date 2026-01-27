@@ -121,6 +121,9 @@ def load_preferences_from_JSON():
     user_preferences.announcements_on_start = prefs.get(
         "announcements_on_start", user_preferences.announcements_on_start
     )
+    user_preferences.assetbar_follows_cursor = prefs.get(
+        "assetbar_follows_cursor", user_preferences.assetbar_follows_cursor
+    )
 
     # NETWORK
     user_preferences.client_port = prefs.get(

@@ -482,6 +482,7 @@ def get_preferences_as_dict():
         "search_in_header": user_preferences.search_in_header,
         "tips_on_start": user_preferences.tips_on_start,
         "announcements_on_start": user_preferences.announcements_on_start,
+        "assetbar_follows_cursor": user_preferences.assetbar_follows_cursor,
         # NETWORK
         "client_port": user_preferences.client_port,
         "ip_version": user_preferences.ip_version,
@@ -533,6 +534,7 @@ def get_preferences() -> datas.Prefs:
         search_in_header=user_preferences.search_in_header,  # type: ignore[union-attr]
         tips_on_start=user_preferences.tips_on_start,  # type: ignore[union-attr]
         announcements_on_start=user_preferences.announcements_on_start,  # type: ignore[union-attr]
+        assetbar_follows_cursor=user_preferences.assetbar_follows_cursor,  # type: ignore[union-attr]
         # NETWORK
         client_port=user_preferences.client_port,  # type: ignore[union-attr]
         ip_version=user_preferences.ip_version,  # type: ignore[union-attr]
