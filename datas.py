@@ -32,6 +32,7 @@ class Prefs:
     search_in_header: bool
     tips_on_start: bool
     announcements_on_start: bool
+    assetbar_follows_cursor: bool
     client_port: str
     ip_version: str
     ssl_context: str

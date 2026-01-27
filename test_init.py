@@ -76,6 +76,7 @@ class Test01Registration(unittest.TestCase):
             "search_in_header": user_preferences.search_in_header,
             "tips_on_start": user_preferences.tips_on_start,
             "announcements_on_start": user_preferences.announcements_on_start,
+            "assetbar_follows_cursor": user_preferences.assetbar_follows_cursor,
             # NETWORK
             "client_port": user_preferences.client_port,
             "ip_version": user_preferences.ip_version,
