@@ -57,11 +57,8 @@ handler_2d = None
 handler_3d = None
 
 
-DEAD_ZONE = 5  # pixels
-"""Number of pixels mouse must move to start drag operation."""
-
-DRAG_THRESHOLD = 10  # pixels
-"""Number of pixels mouse must move to consider as a drag (vs click)."""
+DRAG_THRESHOLD = 10  # steps
+"""Number of steps we must hold to consider as a drag (vs click)."""
 
 
 def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -> bool:
@@ -107,9 +104,13 @@ def draw_callback_dragging(
     Returns:
         None
     """
-    # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
 
+    # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
     if not is_draw_cb_available(self, context):
+        return
+
+    # Skip drawing until the user moves enough to qualify as a drag
+    if not getattr(self, "drag", False) and getattr(self, "steps", 0) < DRAG_THRESHOLD:
         return
 
     try:
@@ -821,8 +822,8 @@ class AssetDragOperator(bpy.types.Operator):
         self.downloader = None
 
         # Mouse tracking variables
-        self.start_mouse_x = None
-        self.start_mouse_y = None
+        self.start_mouse_x = -1
+        self.start_mouse_y = -1
 
         self.mouse_x = 0
         self.mouse_y = 0
@@ -859,6 +860,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         self.iname = ""
         self.drag = False
+        self.closed_assetbar = False
 
     def handlers_remove(self) -> None:
         """Remove all draw handlers."""
@@ -1763,6 +1765,9 @@ class AssetDragOperator(bpy.types.Operator):
         ui_props = bpy.context.window_manager.blenderkitUI
 
         self.resolution_factor = ui_bgl.get_ui_scale()
+        if self.start_mouse_x < 0:
+            self.start_mouse_x = event.mouse_region_x
+            self.start_mouse_y = event.mouse_region_y
 
         self.mouse_screen_x = int(
             context.window.x * self.resolution_factor + event.mouse_x
@@ -1777,7 +1782,8 @@ class AssetDragOperator(bpy.types.Operator):
         )
         # --- CURSOR VISIBILITY FIX ---
         if self.active_region is None or self.active_area is None:
-            bpy.context.window.cursor_modal_set("STOP")
+            # bpy.context.window.cursor_modal_set("STOP")
+            bpy.context.window.cursor_modal_restore()
             return {"PASS_THROUGH"}
         elif self.drag:
             bpy.context.window.cursor_modal_set("NONE")
@@ -1795,11 +1801,7 @@ class AssetDragOperator(bpy.types.Operator):
             - self.active_region.y
         )
 
-        if self.start_mouse_x is None or self.start_mouse_y is None:
-            self.start_mouse_x = self.mouse_x
-            self.start_mouse_y = self.mouse_y
-
-        # --- REDRAW ALL WINDOWS/AREAS FOR MULTI-WINDOW DRAG ---
+        # redraw all windows to update cursor and other elements
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
                 area.tag_redraw()
@@ -1859,14 +1861,15 @@ class AssetDragOperator(bpy.types.Operator):
         ):
             self.drag = True
 
-        if self.drag and ui_props.assetbar_on:
-            # turn off asset bar here, shout start again after finishing drag drop.
+        if self.drag and ui_props.assetbar_on and not self.closed_assetbar:
+            # turn off asset bar here; reopen after placement when we actually dragged
             ui_props.turn_off = True
+            self.closed_assetbar = True
 
         if (
             event.type == "ESC"
             or not ui.mouse_in_region(context.region, self.mouse_x, self.mouse_y)
-        ) and (not self.drag or self.steps < DEAD_ZONE):
+        ) and (not self.drag or self.steps < DRAG_THRESHOLD):
             # this case is for canceling from inside popup card when there's an escape attempt to close the window
             return {"PASS_THROUGH"}
 
@@ -1877,6 +1880,10 @@ class AssetDragOperator(bpy.types.Operator):
             self.handlers_remove()
             bpy.context.window.cursor_modal_restore()
             ui_props.dragging = False
+            if self.closed_assetbar:
+                bpy.ops.view3d.run_assetbar_fix_context(
+                    keep_running=True, do_search=False
+                )
             bpy.ops.view3d.blenderkit_asset_bar_widget(
                 "INVOKE_REGION_WIN", do_search=False
             )
@@ -1894,7 +1901,6 @@ class AssetDragOperator(bpy.types.Operator):
             or event.type == "WHEELUPMOUSE"
             or event.type == "WHEELDOWNMOUSE"
         ):
-
             # sometimes active area or region can be None, so we need to check for that
             if self.active_area is None or self.active_region is None:
                 return {"RUNNING_MODAL"}
@@ -1930,7 +1936,10 @@ class AssetDragOperator(bpy.types.Operator):
             self.handlers_remove()
             bpy.context.window.cursor_modal_restore()
 
-            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+            if self.closed_assetbar:
+                bpy.ops.view3d.run_assetbar_fix_context(
+                    keep_running=True, do_search=False
+                )
             ui_props.dragging = False
             return {"FINISHED"}
 
@@ -1946,6 +1955,7 @@ class AssetDragOperator(bpy.types.Operator):
         # Before registering callbacks, check for canceling situations: login and localdir popups, sculpt popup/switch
         sr = search.get_search_results()
         ui_props = bpy.context.window_manager.blenderkitUI
+        self.closed_assetbar = False
         # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
         # This is critical for multi-window support where active_index is shared across windows
         self.asset_data = dict(sr[self.asset_search_index])
@@ -2082,7 +2092,7 @@ class AssetDragOperator(bpy.types.Operator):
         self.iname = f".{self.asset_data['thumbnail_small']}"
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname
 
-        bpy.context.window.cursor_modal_set("NONE")
+        bpy.context.window.cursor_modal_restore()
         ui_props = bpy.context.window_manager.blenderkitUI
         ui_props.dragging = True
         self.drag = False
