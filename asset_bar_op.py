@@ -1319,6 +1319,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.asset_name_text_size * 3,
         )
         self.labels_start = self.tooltip_image_height
+        # reserve space for comments block below the main tooltip
+        self.comments_text_size = max(
+            15,
+            int(0.034 * self.tooltip_base_size_pixels * self.tooltip_scale),
+            int(self.author_text_size),
+        )
+
         self.tooltip_height = self.tooltip_image_height + self.tooltip_info_height
 
         self.gravatar_size = max(
@@ -1522,6 +1529,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.multi_price_label.width = self.tooltip_width - 2 * self.tooltip_margin
         self.multi_price_label.height = self.asset_name_text_size
         self.multi_price_label.text_size = self.asset_name_text_size
+
+        if hasattr(self, "comments"):
+            self.comments.set_location(
+                self.tooltip_margin,
+                self.tooltip_height + self.tooltip_margin,
+            )
+            self.comments.text_size = self.comments_text_size
 
     def update_layout(self, context, event):
         """update UI sizes after their recalculation"""
