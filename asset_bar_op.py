@@ -60,6 +60,8 @@ active_area_pointer = 0
 
 ROUNDING_RADIUS = 20
 
+TOOLTIP_SIZE_PX = 512
+
 
 def get_area_height(self):
     ctx = getattr(self, "context", None)
@@ -960,10 +962,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         label._halign = halign
         return label
 
+    # region tooltip
     def init_tooltip(self):
         """Initialize the tooltip panel and its widgets."""
         self.tooltip_widgets = []
-        self.tooltip_scale = 1.0
+        self._tooltip_available_height = None
+        if not hasattr(self, "tooltip_size"):
+            self.tooltip_size = int(self.tooltip_base_size_pixels)
+        self.tooltip_scale = getattr(self, "tooltip_scale", 1.0)
 
         # Fallbacks in case update_tooltip_size was not called yet
         self.tooltip_width = getattr(self, "tooltip_width", self.tooltip_size)
@@ -1184,79 +1190,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             w.visible = True
         self._redraw_tracked_regions()
 
-    def show_notifications(self, widget):
-        """Show notifications on the asset bar."""
-        bpy.ops.wm.show_notifications()
-        if comments_utils.check_notifications_read():
-            widget.visible = False
-
-    def check_new_search_results(self, context):
-        """checks if results were replaced.
-        this can happen from search, but also by switching results.
-        We should rather trigger that update from search. maybe let's add a uuid to the results?
-        """
-        # Get search results from history
-        sr = search.get_search_results()
-        if not hasattr(self, "search_results_count"):
-            if not sr or len(sr) == 0:
-                self.search_results_count = 0
-                self.last_asset_type = ""
-                return True
-            self.search_results_count = len(sr)
-            self.last_asset_type = sr[0]["assetType"]
-        if sr is not None and len(sr) != self.search_results_count:
-            self.search_results_count = len(sr)
-            return True
-        return False
-
-    def get_region_size(self, context):
-        """Get the size of the region."""
-        # just check the size of region..
-
-        region = context.region
-        area = context.area
-        ui_width = 0
-        tools_width = 0
-        for r in area.regions:
-            if r.type == "UI":
-                ui_width = r.width
-            if r.type == "TOOLS":
-                tools_width = r.width
-        total_width = region.width - tools_width - ui_width
-        return total_width, region.height
-
-    def check_region_changed(self, context):
-        """Check if the region has changed."""
-        region_width, region_height = self.get_region_size(context)
-
-        if not hasattr(self, "total_width"):
-            self.total_width = region_width
-            self.region_height = region_height
-
-        changed = (
-            region_height != self.region_height or region_width != self.total_width
-        )
-
-        if changed:
-            self.region_height = region_height
-            self.total_width = region_width
-            return True
-        return False
-
-    def check_ui_resized(self, context):
-        """Check if the UI has been resized."""
-        scaling = ui_bgl.get_ui_scale()
-
-        if not hasattr(self, "_ui_scale_state"):
-            self._ui_scale_state = scaling
-
-        scale_changed = scaling != self._ui_scale_state
-
-        if scale_changed:
-            self._ui_scale_state = scaling
-            return True
-        return False
-
     def _reset_tooltip_dimensions(self):
         """Restore tooltip scale and panel size before recomputing layout.
 
@@ -1264,9 +1197,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         on subsequent openings (e.g. after tight vertical space).
         """
 
-        self.tooltip_scale = 1.0
-        base_size = int(self.tooltip_base_size_pixels)
+        ui_scale = ui_bgl.get_ui_scale()
+        self.tooltip_scale = ui_scale
+        self._tooltip_available_height = None
+
+        base_size = int(self.tooltip_base_size_pixels * ui_scale)
         base_height = int(base_size * (1 + self.bottom_panel_fraction))
+
+        self.tooltip_size = base_size
+        self.tooltip_height = base_height
 
         if hasattr(self, "tooltip_panel"):
             self.tooltip_panel.width = base_size
@@ -1277,32 +1216,37 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         region = context.region
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        base_panel_height = self.tooltip_base_size_pixels * (
-            1 + self.bottom_panel_fraction
-        )
+        ui_scale = ui_bgl.get_ui_scale()
+        desired_size = int(self.tooltip_base_size_pixels * ui_scale)
+        desired_full_height = int(desired_size * (1 + self.bottom_panel_fraction))
 
-        if hasattr(self, "tooltip_panel"):
-            tooltip_y_available_height = abs(
-                region.height - self.tooltip_panel.y_screen
-            )
-            # if tooltip is above, we need to reduce it's size if its y is out of region height
-            if self.tooltip_panel.y_screen <= 0:
-                tooltip_y_available_height = (
-                    base_panel_height + self.tooltip_panel.y_screen
-                )
-                self.tooltip_panel.set_location(self.tooltip_panel.x, 0)
+        available_height = getattr(self, "_tooltip_available_height", None)
+        if available_height is None:
+            tooltip_panel = getattr(self, "tooltip_panel", None)
+            anchor_y = None
+            if tooltip_panel is not None:
+                anchor_y = getattr(tooltip_panel, "y_screen", None)
+            if anchor_y is None:
+                anchor_y = self.bar_y + self.bar_height
+            anchor_y = max(-region.height, min(region.height, anchor_y))
+            if anchor_y < 0:
+                available_height = anchor_y + region.height
+            else:
+                available_height = region.height - anchor_y
 
+        available_height = max(64, int(available_height))
+        if desired_full_height > available_height:
+            scale_factor = available_height / max(desired_full_height, 1)
         else:
-            tooltip_y_available_height = abs(
-                region.height - (self.bar_height + self.bar_y)
-            )
+            scale_factor = 1.0
 
-        self.tooltip_scale = min(1.0, tooltip_y_available_height / (base_panel_height))
+        final_size = max(32, int(desired_size * scale_factor))
+        self.tooltip_scale = final_size / self.tooltip_base_size_pixels
+        self.tooltip_size = final_size
         self.asset_name_text_size = int(
             0.039 * self.tooltip_base_size_pixels * self.tooltip_scale
         )
         self.author_text_size = int(self.asset_name_text_size * 0.8)
-        self.tooltip_size = int(self.tooltip_base_size_pixels * self.tooltip_scale)
         self.tooltip_margin = int(
             0.017 * self.tooltip_base_size_pixels * self.tooltip_scale
         )
@@ -1319,7 +1263,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.asset_name_text_size * 3,
         )
         self.labels_start = self.tooltip_image_height
-        # reserve space for comments block below the main tooltip
         self.comments_text_size = max(
             15,
             int(0.034 * self.tooltip_base_size_pixels * self.tooltip_scale),
@@ -1327,130 +1270,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         self.tooltip_height = self.tooltip_image_height + self.tooltip_info_height
-
         self.gravatar_size = max(
             int(self.tooltip_info_height - 2 * self.tooltip_margin),
             self.asset_name_text_size,
         )
 
-    def update_assetbar_sizes(self, context):
-        """Calculate all important sizes for the asset bar"""
-        region = context.region
-        area = context.area
-
-        ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
-        scale = ui_bgl.get_ui_scale()
-        self._ui_scale_factor = scale
-        # assetbar sizing (fixed, not scaled)
-
-        self.button_margin = int(round(0 * scale))
-        self.assetbar_margin = int(round(2 * scale))
-        # user preference thumb size is in logical pixels; scale to match Blender UI scaling
-        self.thumb_size = int(round(user_preferences.thumb_size * scale))
-        self.button_size = int(2 * self.button_margin + self.thumb_size)
-        self.other_button_size = int(round(30 * scale))
-        self.icon_size = int(round(24 * scale))
-        self.validation_icon_margin = int(round(3 * scale))
-        reg_multiplier = 1
-        if not bpy.context.preferences.system.use_region_overlap:
-            reg_multiplier = 0
-
-        ui_width = 0
-        tools_width = 0
-        reg_multiplier = 1
-        if not bpy.context.preferences.system.use_region_overlap:
-            reg_multiplier = 0
-        for r in area.regions:
-            if r.type == "UI":
-                ui_width = r.width * reg_multiplier
-            if r.type == "TOOLS":
-                tools_width = r.width * reg_multiplier
-        self.bar_x = int(
-            tools_width + self.button_margin + ui_props.bar_x_offset * scale
-        )
-        self.bar_y = int(self.button_margin + ui_props.bar_y_offset * scale)
-
-        self.bar_end = int(ui_width + 180 + self.other_button_size)
-        self.bar_width = int(region.width - self.bar_x - self.bar_end)
-        # Quad view and very small regions can shrink the available width below a single
-        # thumbnail. Keep the bar wide enough to host at least one column and keep the
-        # math stable so the buttons do not disappear entirely.
-        self.bar_width = max(1, self.bar_width)
-
-        effective_bar_width = max(self.bar_width, self.button_size)
-        self.wcount = max(1, math.floor(effective_bar_width / self.button_size))
-
-        self.max_hcount = math.floor(
-            max(region.width, context.window.width) / self.button_size
-        )
-        self.max_wcount = user_preferences.maximized_assetbar_rows
-
-        history_step = search.get_active_history_step()
-        search_results = history_step.get("search_results")
-        # we need to init all possible thumb previews in advance/
-        # Calculate hcount based on expanded state
-        if search_results is not None and self.wcount > 0:
-            if user_preferences.assetbar_expanded:
-                max_rows = user_preferences.maximized_assetbar_rows
-                available_height = (
-                    region.height
-                    - self.bar_y
-                    - 2 * self.assetbar_margin
-                    - self.other_button_size
-                )
-                max_rows_by_height = math.floor(available_height / self.button_size)
-                max_rows = (
-                    min(max_rows, max_rows_by_height) if max_rows_by_height > 0 else 1
-                )
-            else:
-                max_rows = 1
-            self.hcount = min(
-                max_rows,
-                math.ceil(len(search_results) / self.wcount),
-            )
-            self.hcount = max(self.hcount, 1)
-        else:
-            self.hcount = 1
-
-        self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
-
-        if ui_props.down_up == "UPLOAD":
-            self.reports_y = region.height - self.bar_y - 600
-            ui_props.reports_y = region.height - self.bar_y - 600
-            self.reports_x = self.bar_x
-            ui_props.reports_x = self.bar_x
-
-        else:  # ui.bar_y - ui.bar_height - 100
-            self.reports_y = region.height - self.bar_y - self.bar_height - 50
-            ui_props.reports_y = region.height - self.bar_y - self.bar_height - 50
-            self.reports_x = self.bar_x
-            ui_props.reports_x = self.bar_x
-
-    def update_ui_size(self, context):
-        """Calculate all important sizes for the asset bar and tooltip"""
-        self._refresh_layout(context)
-
-    def update_assetbar_layout(self, context):
-        """Update the layout of the asset bar"""
-        self.scroll_update(always=True)
-        self.position_and_hide_buttons()
-
-        self.button_close.set_location(
-            self.bar_width - self.other_button_size, -self.other_button_size
-        )
-        self.button_expand.set_location(
-            self.bar_width - self.other_button_size, self.bar_height
-        )
-
-        self.button_scroll_up.set_location(self.bar_width, 0)
-        self.panel.width = self.bar_width
-        self.panel.height = self.bar_height
-
-        # Update tab area background position
-        self.tab_area_bg.width = self.bar_width
-
-        self.panel.set_location(self.bar_x, self.bar_y)
+        self._tooltip_available_height = None
 
     def update_tooltip_layout(self, context):
         """Update the layout of the tooltip"""
@@ -1537,30 +1362,50 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             )
             self.comments.text_size = self.comments_text_size
 
-    def update_layout(self, context, event):
-        """update UI sizes after their recalculation"""
-        self.update_assetbar_layout(context)
-        self.update_tooltip_layout(context)
+    def update_tooltip_image(self, asset_id):
+        """Update tooltip image when it finishes downloading and the downloaded image matches the active one."""
+        search_results = search.get_search_results()
+        if search_results is None:
+            return
 
-    def _is_quad_view(self, context):
-        """Return True when the current 3D view runs in quad-view layout."""
-        space_data = getattr(context, "space_data", None)
-        if not space_data or getattr(space_data, "type", "") != "VIEW_3D":
-            return False
-        quadviews = getattr(space_data, "region_quadviews", None)
-        if quadviews is None:
-            return False
-        try:
-            return len(quadviews) > 0
-        except TypeError:
-            return bool(quadviews)
+        if self.active_index == -1:  # prev search got no results
+            return
 
-    def _is_perspective_region(self, region):
-        """Return True if the given region is a perspective (or camera) view."""
-        r3d = getattr(region, "data", None) or getattr(region, "regiondata", None)
-        if r3d is None:
-            return False
-        return getattr(r3d, "view_perspective", "") in {"PERSP", "CAMERA"}
+        if self.active_index >= len(search_results):
+            return
+
+        asset_data = search_results[self.active_index]
+        if asset_data["assetBaseId"] == asset_id:
+            set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
+
+    def update_comments_for_validators(self, asset_data):
+        """Update the comments section in the tooltip for validator profiles."""
+        if not utils.profile_is_validator():
+            return
+
+        comments = global_vars.DATA.get("asset comments", {})
+        comments = comments.get(asset_data["assetBaseId"], [])
+        comment_text = "No comments yet."
+        if comments is not None:
+            comment_text = ""
+            # iterate comments from last to first
+            for comment in reversed(comments):
+                comment_text += f"{comment['userName']}:\n"
+                # strip urls and stuff
+                comment_lines = comment["comment"].split("\n")
+                for line in comment_lines:
+                    urls, text = utils.has_url(line)
+                    if urls:
+                        comment_text += f"{text}{urls[0][0]}\n"
+                    else:
+                        comment_text += f"{text}\n"
+                comment_text += "\n"
+
+        self.comments.text = comment_text
+
+    # endregion tooltip
+
+    # region panel
 
     def asset_button_init(self, asset_x, asset_y, button_idx):
         """Initialize an asset button at the given position with the given index."""
@@ -1987,6 +1832,231 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             active_tab["history_index"] < len(active_tab["history"]) - 1
         )
 
+    # endregion panel
+
+    def show_notifications(self, widget):
+        """Show notifications on the asset bar."""
+        bpy.ops.wm.show_notifications()
+        if comments_utils.check_notifications_read():
+            widget.visible = False
+
+    # region checks
+
+    def check_new_search_results(self, context):
+        """checks if results were replaced.
+        this can happen from search, but also by switching results.
+        We should rather trigger that update from search. maybe let's add a uuid to the results?
+        """
+        # Get search results from history
+        sr = search.get_search_results()
+        if not hasattr(self, "search_results_count"):
+            if not sr or len(sr) == 0:
+                self.search_results_count = 0
+                self.last_asset_type = ""
+                return True
+            self.search_results_count = len(sr)
+            self.last_asset_type = sr[0]["assetType"]
+        if sr is not None and len(sr) != self.search_results_count:
+            self.search_results_count = len(sr)
+            return True
+        return False
+
+    def get_region_size(self, context):
+        """Get the size of the region."""
+        # just check the size of region..
+
+        region = context.region
+        area = context.area
+        ui_width = 0
+        tools_width = 0
+        for r in area.regions:
+            if r.type == "UI":
+                ui_width = r.width
+            if r.type == "TOOLS":
+                tools_width = r.width
+        total_width = region.width - tools_width - ui_width
+        return total_width, region.height
+
+    def check_region_changed(self, context):
+        """Check if the region has changed."""
+        region_width, region_height = self.get_region_size(context)
+
+        if not hasattr(self, "total_width"):
+            self.total_width = region_width
+            self.region_height = region_height
+
+        changed = (
+            region_height != self.region_height or region_width != self.total_width
+        )
+
+        if changed:
+            self.region_height = region_height
+            self.total_width = region_width
+            return True
+        return False
+
+    def check_ui_resized(self, context):
+        """Check if the UI has been resized."""
+        scaling = ui_bgl.get_ui_scale()
+
+        if not hasattr(self, "_ui_scale_state"):
+            self._ui_scale_state = scaling
+
+        scale_changed = scaling != self._ui_scale_state
+
+        if scale_changed:
+            self._ui_scale_state = scaling
+            return True
+        return False
+
+    # endregion checks
+
+    # region updates
+
+    def update_assetbar_sizes(self, context):
+        """Calculate all important sizes for the asset bar"""
+        region = context.region
+        area = context.area
+
+        ui_props = bpy.context.window_manager.blenderkitUI
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        scale = ui_bgl.get_ui_scale()
+        self._ui_scale_factor = scale
+        # assetbar sizing (fixed, not scaled)
+
+        self.button_margin = int(round(0 * scale))
+        self.assetbar_margin = int(round(2 * scale))
+        # user preference thumb size is in logical pixels; scale to match Blender UI scaling
+        self.thumb_size = int(round(user_preferences.thumb_size * scale))
+        self.button_size = int(2 * self.button_margin + self.thumb_size)
+        self.other_button_size = int(round(30 * scale))
+        self.icon_size = int(round(24 * scale))
+        self.validation_icon_margin = int(round(3 * scale))
+        reg_multiplier = 1
+        if not bpy.context.preferences.system.use_region_overlap:
+            reg_multiplier = 0
+
+        ui_width = 0
+        tools_width = 0
+        reg_multiplier = 1
+        if not bpy.context.preferences.system.use_region_overlap:
+            reg_multiplier = 0
+        for r in area.regions:
+            if r.type == "UI":
+                ui_width = r.width * reg_multiplier
+            if r.type == "TOOLS":
+                tools_width = r.width * reg_multiplier
+        self.bar_x = int(
+            tools_width + self.button_margin + ui_props.bar_x_offset * scale
+        )
+        self.bar_y = int(self.button_margin + ui_props.bar_y_offset * scale)
+
+        self.bar_end = int(ui_width + 180 + self.other_button_size)
+        self.bar_width = int(region.width - self.bar_x - self.bar_end)
+        # Quad view and very small regions can shrink the available width below a single
+        # thumbnail. Keep the bar wide enough to host at least one column and keep the
+        # math stable so the buttons do not disappear entirely.
+        self.bar_width = max(1, self.bar_width)
+
+        effective_bar_width = max(self.bar_width, self.button_size)
+        self.wcount = max(1, math.floor(effective_bar_width / self.button_size))
+
+        self.max_hcount = math.floor(
+            max(region.width, context.window.width) / self.button_size
+        )
+        self.max_wcount = user_preferences.maximized_assetbar_rows
+
+        history_step = search.get_active_history_step()
+        search_results = history_step.get("search_results")
+        # we need to init all possible thumb previews in advance/
+        # Calculate hcount based on expanded state
+        if search_results is not None and self.wcount > 0:
+            if user_preferences.assetbar_expanded:
+                max_rows = user_preferences.maximized_assetbar_rows
+                available_height = (
+                    region.height
+                    - self.bar_y
+                    - 2 * self.assetbar_margin
+                    - self.other_button_size
+                )
+                max_rows_by_height = math.floor(available_height / self.button_size)
+                max_rows = (
+                    min(max_rows, max_rows_by_height) if max_rows_by_height > 0 else 1
+                )
+            else:
+                max_rows = 1
+            self.hcount = min(
+                max_rows,
+                math.ceil(len(search_results) / self.wcount),
+            )
+            self.hcount = max(self.hcount, 1)
+        else:
+            self.hcount = 1
+
+        self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
+
+        if ui_props.down_up == "UPLOAD":
+            self.reports_y = region.height - self.bar_y - 600
+            ui_props.reports_y = region.height - self.bar_y - 600
+            self.reports_x = self.bar_x
+            ui_props.reports_x = self.bar_x
+
+        else:  # ui.bar_y - ui.bar_height - 100
+            self.reports_y = region.height - self.bar_y - self.bar_height - 50
+            ui_props.reports_y = region.height - self.bar_y - self.bar_height - 50
+            self.reports_x = self.bar_x
+            ui_props.reports_x = self.bar_x
+
+    def update_ui_size(self, context):
+        """Calculate all important sizes for the asset bar and tooltip"""
+        self._refresh_layout(context)
+
+    def update_assetbar_layout(self, context):
+        """Update the layout of the asset bar"""
+        self.scroll_update(always=True)
+        self.position_and_hide_buttons()
+
+        self.button_close.set_location(
+            self.bar_width - self.other_button_size, -self.other_button_size
+        )
+        self.button_expand.set_location(
+            self.bar_width - self.other_button_size, self.bar_height
+        )
+
+        self.button_scroll_up.set_location(self.bar_width, 0)
+        self.panel.width = self.bar_width
+        self.panel.height = self.bar_height
+
+        # Update tab area background position
+        self.tab_area_bg.width = self.bar_width
+
+        self.panel.set_location(self.bar_x, self.bar_y)
+
+    def update_layout(self, context, event):
+        """update UI sizes after their recalculation"""
+        self.update_assetbar_layout(context)
+        self.update_tooltip_layout(context)
+
+    def _is_quad_view(self, context):
+        """Return True when the current 3D view runs in quad-view layout."""
+        space_data = getattr(context, "space_data", None)
+        if not space_data or getattr(space_data, "type", "") != "VIEW_3D":
+            return False
+        quadviews = getattr(space_data, "region_quadviews", None)
+        if quadviews is None:
+            return False
+        try:
+            return len(quadviews) > 0
+        except TypeError:
+            return bool(quadviews)
+
+    def _is_perspective_region(self, region):
+        """Return True if the given region is a perspective (or camera) view."""
+        r3d = getattr(region, "data", None) or getattr(region, "regiondata", None)
+        if r3d is None:
+            return False
+        return getattr(r3d, "view_perspective", "") in {"PERSP", "CAMERA"}
+
     def set_element_images(self):
         """set ui elements images, has to be done after init of UI."""
         # img_fp = paths.get_addon_thumbnail_path("vs_rejected.png")
@@ -2120,15 +2190,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (0, int((self.bar_height - self.button_size) / 2))
         )
 
+    # endregion updates
+
+    # region setup
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._quad_view_state = None
         self._restart_pending = False
         self.scroll_offset = 0
+        self._tooltip_available_height = None
 
     def on_init(self, context):
         """Initialize the asset bar operator."""
-        self.tooltip_base_size_pixels = 512
+        self.tooltip_base_size_pixels = TOOLTIP_SIZE_PX
         self.tooltip_scale = 1.0
         self.bottom_panel_fraction = 0.18
         self.needs_tooltip_update = False
@@ -2188,15 +2263,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self._apply_widget_context(override_ctx)
 
+    # endregion setup
+
+    # region events
+
     def on_invoke(self, context, event):
         """Invoke the asset bar operator."""
         self.instances.append(self)
         if not context.area:
             return False
 
-        # Clear stale shutdown flag from previous sessions (e.g. undo or addon reload)
         ui_props = context.window_manager.blenderkitUI
-        ui_props.turn_off = False
 
         self.on_init(context)
         self.context = context
@@ -2206,12 +2283,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             search.search()
 
         if ui_props.assetbar_on:
-            # rerun always behaves as a toggle: request currently running instance to exit
-            ui_props.turn_off = True
-            # if there was an error, reset the flag so next invocation can start cleanly
-            ui_props.assetbar_on = False
+            # keep_running=True means "reuse" the existing instance instead of toggling it off
+            if not self.keep_running:
+                ui_props.turn_off = True
+                # if there was an error, reset the flag so next invocation can start cleanly
+                ui_props.assetbar_on = False
             return False
 
+        # Clear stale shutdown flag from previous sessions (e.g. undo or addon reload)
+        ui_props.turn_off = False
         ui_props.assetbar_on = True
         global asset_bar_operator
 
@@ -2250,47 +2330,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._finished = True
         # to ensure the asset buttons are removed from screen
         self._redraw_tracked_regions()
-
-    def update_tooltip_image(self, asset_id):
-        """Update tooltip image when it finishes downloading and the downloaded image matches the active one."""
-        search_results = search.get_search_results()
-        if search_results is None:
-            return
-
-        if self.active_index == -1:  # prev search got no results
-            return
-
-        if self.active_index >= len(search_results):
-            return
-
-        asset_data = search_results[self.active_index]
-        if asset_data["assetBaseId"] == asset_id:
-            set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
-
-    def update_comments_for_validators(self, asset_data):
-        """Update the comments section in the tooltip for validator profiles."""
-        if not utils.profile_is_validator():
-            return
-
-        comments = global_vars.DATA.get("asset comments", {})
-        comments = comments.get(asset_data["assetBaseId"], [])
-        comment_text = "No comments yet."
-        if comments is not None:
-            comment_text = ""
-            # iterate comments from last to first
-            for comment in reversed(comments):
-                comment_text += f"{comment['userName']}:\n"
-                # strip urls and stuff
-                comment_lines = comment["comment"].split("\n")
-                for line in comment_lines:
-                    urls, text = utils.has_url(line)
-                    if urls:
-                        comment_text += f"{text}{urls[0][0]}\n"
-                    else:
-                        comment_text += f"{text}\n"
-                comment_text += "\n"
-
-        self.comments.text = comment_text
 
     # handlers
     def enter_button(self, widget):
@@ -2484,32 +2523,45 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             )
             tooltip_x = max(0, tooltip_x)
 
-            # Calculate space above and below the button
+            # Calculate space above and below the button to decide tooltip placement
             full_tooltip_height = self.tooltip_panel.height
             space_above = widget.y_screen
             space_below = region_height - (widget.y_screen + widget.height)
-            # If space below is insufficient (would make tooltip < 70% size), position above
-            if (
+            place_above = (
                 space_below < full_tooltip_height
                 and space_below < full_tooltip_height * 0.7
                 and space_below < space_above
-            ):
-                tooltip_y = int(widget.y_screen - full_tooltip_height)
+            )
+
+            if place_above:
+                available_height = space_above
             else:
-                tooltip_y = int(widget.y_screen + widget.height)
+                available_height = space_below
+
+            self._tooltip_available_height = max(64, int(available_height))
 
             # need to set image here because of context issues.
             img_path = paths.get_addon_thumbnail_path("star_grey.png")
             self.quality_star.set_image(img_path)
 
-            # set location twice for size calculations updates.
-            self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             tooltip_context = self._build_context_snapshot(
                 bpy.context, area, active_region
             )
             self.update_tooltip_size(tooltip_context)
             self.update_tooltip_layout(tooltip_context)
-            self.tooltip_panel.set_location(self.tooltip_panel.x, self.tooltip_panel.y)
+            tooltip_width = self.tooltip_width
+            max_x = max(0, int(region_width - tooltip_width - properties_width))
+            tooltip_x = min(max(0, int(widget.x_screen)), max_x)
+
+            if place_above:
+                tooltip_y = int(widget.y_screen - self.tooltip_height)
+            else:
+                tooltip_y = int(widget.y_screen + widget.height)
+
+            max_y = max(0, int(region_height - self.tooltip_height))
+            tooltip_y = min(max(0, tooltip_y), max_y)
+
+            self.tooltip_panel.set_location(tooltip_x, tooltip_y)
             self.tooltip_panel.layout_widgets()
             # show bookmark button - always on mouse enter
             if widget.bookmark_button:
@@ -2576,6 +2628,194 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # Restart the asset bar to apply the new layout
         self.restart_asset_bar()
+
+    def handle_key_input(self, event):
+        """Handle keyboard shortcuts for asset bar operations."""
+        # Check if enough time has passed since last popup/text input activity
+        # to prevent shortcuts from triggering while typing in text fields
+        now = time.time()
+        if now - ui_panels.last_time_overlay_panel_active < 0.5:
+            return False
+
+        # Shortcut: Toggle between normal, photo and wireframe thumbnail
+        if event.type in {"ONE"}:
+            if self.show_thumbnail_variant != "THUMBNAIL":
+                self.show_thumbnail_variant = "THUMBNAIL"
+                self.needs_tooltip_update = True
+        if event.type in {"TWO"}:
+            if self.show_thumbnail_variant != "PHOTO":
+                self.show_thumbnail_variant = "PHOTO"
+                self.needs_tooltip_update = True
+        if event.type in {"THREE"}:
+            if self.show_thumbnail_variant != "WIREFRAME":
+                self.show_thumbnail_variant = "WIREFRAME"
+                self.needs_tooltip_update = True
+        if (
+            event.type in {"LEFT_BRACKET", "RIGHT_BRACKET"}
+            and not event.shift
+            and self.active_index > -1
+        ):
+            # iterate index and update tooltip
+            c_idx = 0
+            was_thumbnail_variant = self.show_thumbnail_variant
+            if self.show_thumbnail_variant in THUMBNAIL_TYPES:
+                c_idx = THUMBNAIL_TYPES.index(self.show_thumbnail_variant)
+
+            if event.type == "LEFT_BRACKET":
+                c_idx -= 1
+            elif event.type == "RIGHT_BRACKET":
+                c_idx += 1
+            # clamp index - no rollover
+            c_idx = min(max(c_idx, 0), len(THUMBNAIL_TYPES) - 1)
+
+            if was_thumbnail_variant == THUMBNAIL_TYPES[c_idx]:
+                return True
+            # else update
+            self.show_thumbnail_variant = THUMBNAIL_TYPES[c_idx]
+            self.needs_tooltip_update = True
+            return True
+
+        # Shortcut: Search by author
+        if event.type == "A":
+            self.search_by_author(self.active_index)
+            return True
+
+        # Shortcut: Delete asset from hard-drive
+        if event.type == "X" and self.active_index > -1:
+            # delete downloaded files for this asset
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            bk_logger.info("deleting asset from local drive: %s", asset_data["name"])
+            paths.delete_asset_debug(asset_data)
+            asset_data["downloaded"] = 0
+            return True
+
+        # Shortcut: Open Author's personal Webpage
+        if event.type == "W" and self.active_index > -1:
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            author_id = int(asset_data["author"]["id"])
+            author = global_vars.BKIT_AUTHORS.get(author_id)
+            if author is None:
+                bk_logger.warning("author is none")
+                return True
+            utils.p("author:", author)
+            url = author.get("aboutMeUrl")
+            if url is None:
+                bk_logger.warning("url is none")
+                return True
+            bpy.ops.wm.url_open(url=url)
+            return True
+
+        # Shortcut: Search Similar
+        if event.type == "S" and self.active_index > -1:
+            self.search_similar(self.active_index)
+            return True
+
+        if event.type == "C" and self.active_index > -1:
+            self.search_in_category(self.active_index)
+            return True
+
+        if event.type == "B" and self.active_index > -1:
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
+            return True
+
+        # Shortcut: Open Author's profile on BlenderKit
+        if event.type == "P" and self.active_index > -1:
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            author_id = int(asset_data["author"]["id"])
+            author = global_vars.BKIT_AUTHORS.get(author_id)
+            if author is None:
+                return True
+            utils.p("author:", author)
+            url = paths.get_author_gallery_url(author.id)
+            bpy.ops.wm.url_open(url=url)
+            return True
+
+        # FastRateMenu
+        if event.type == "R" and self.active_index > -1 and not event.shift:
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            if not utils.user_is_owner(asset_data=asset_data):
+                bpy.ops.wm.blenderkit_menu_rating_upload(
+                    asset_name=asset_data["name"],
+                    asset_id=asset_data["id"],
+                    asset_type=asset_data["assetType"],
+                )
+            return True
+
+        if (
+            event.type == "V"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="validated"
+            )
+            return True
+
+        if (
+            event.type == "H"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="on_hold"
+            )
+            return True
+
+        if (
+            event.type == "U"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="uploaded"
+            )
+            return True
+
+        if (
+            event.type == "R"
+            and event.shift
+            and self.active_index > -1
+            and utils.profile_is_validator()
+        ):
+            sr = search.get_search_results()
+            asset_data = sr[self.active_index]
+            bpy.ops.object.blenderkit_change_status(
+                asset_id=asset_data["id"], state="rejected"
+            )
+            return True
+
+        return False  # Let other shortcuts be handled
+
+    def scroll_up(self, widget):
+        """Scroll up in the asset bar."""
+        self.scroll_offset += self.wcount * self.hcount
+        self.scroll_update()
+        self.enter_button(widget)
+
+    def scroll_down(self, widget):
+        """Scroll down in the asset bar."""
+        self.scroll_offset -= self.wcount * self.hcount
+        self.scroll_update()
+        self.enter_button(widget)
+
+    # endregion events
+
+    # region actions
 
     def asset_menu(self, widget):
         """Open the asset menu for the asset linked to this button."""
@@ -2825,189 +3065,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         ui_props.search_category = category
         search.search()
 
-    def handle_key_input(self, event):
-        """Handle keyboard shortcuts for asset bar operations."""
-        # Check if enough time has passed since last popup/text input activity
-        # to prevent shortcuts from triggering while typing in text fields
-        now = time.time()
-        if now - ui_panels.last_time_overlay_panel_active < 0.5:
-            return False
+    # endregion actions
 
-        # Shortcut: Toggle between normal, photo and wireframe thumbnail
-        if event.type in {"ONE"}:
-            if self.show_thumbnail_variant != "THUMBNAIL":
-                self.show_thumbnail_variant = "THUMBNAIL"
-                self.needs_tooltip_update = True
-        if event.type in {"TWO"}:
-            if self.show_thumbnail_variant != "PHOTO":
-                self.show_thumbnail_variant = "PHOTO"
-                self.needs_tooltip_update = True
-        if event.type in {"THREE"}:
-            if self.show_thumbnail_variant != "WIREFRAME":
-                self.show_thumbnail_variant = "WIREFRAME"
-                self.needs_tooltip_update = True
-        if (
-            event.type in {"LEFT_BRACKET", "RIGHT_BRACKET"}
-            and not event.shift
-            and self.active_index > -1
-        ):
-            # iterate index and update tooltip
-            c_idx = 0
-            was_thumbnail_variant = self.show_thumbnail_variant
-            if self.show_thumbnail_variant in THUMBNAIL_TYPES:
-                c_idx = THUMBNAIL_TYPES.index(self.show_thumbnail_variant)
-
-            if event.type == "LEFT_BRACKET":
-                c_idx -= 1
-            elif event.type == "RIGHT_BRACKET":
-                c_idx += 1
-            # clamp index - no rollover
-            c_idx = min(max(c_idx, 0), len(THUMBNAIL_TYPES) - 1)
-
-            if was_thumbnail_variant == THUMBNAIL_TYPES[c_idx]:
-                return True
-            # else update
-            self.show_thumbnail_variant = THUMBNAIL_TYPES[c_idx]
-            self.needs_tooltip_update = True
-            return True
-
-        # Shortcut: Search by author
-        if event.type == "A":
-            self.search_by_author(self.active_index)
-            return True
-
-        # Shortcut: Delete asset from hard-drive
-        if event.type == "X" and self.active_index > -1:
-            # delete downloaded files for this asset
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            bk_logger.info("deleting asset from local drive: %s", asset_data["name"])
-            paths.delete_asset_debug(asset_data)
-            asset_data["downloaded"] = 0
-            return True
-
-        # Shortcut: Open Author's personal Webpage
-        if event.type == "W" and self.active_index > -1:
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            author_id = int(asset_data["author"]["id"])
-            author = global_vars.BKIT_AUTHORS.get(author_id)
-            if author is None:
-                bk_logger.warning("author is none")
-                return True
-            utils.p("author:", author)
-            url = author.get("aboutMeUrl")
-            if url is None:
-                bk_logger.warning("url is none")
-                return True
-            bpy.ops.wm.url_open(url=url)
-            return True
-
-        # Shortcut: Search Similar
-        if event.type == "S" and self.active_index > -1:
-            self.search_similar(self.active_index)
-            return True
-
-        if event.type == "C" and self.active_index > -1:
-            self.search_in_category(self.active_index)
-            return True
-
-        if event.type == "B" and self.active_index > -1:
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
-            return True
-
-        # Shortcut: Open Author's profile on BlenderKit
-        if event.type == "P" and self.active_index > -1:
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            author_id = int(asset_data["author"]["id"])
-            author = global_vars.BKIT_AUTHORS.get(author_id)
-            if author is None:
-                return True
-            utils.p("author:", author)
-            url = paths.get_author_gallery_url(author.id)
-            bpy.ops.wm.url_open(url=url)
-            return True
-
-        # FastRateMenu
-        if event.type == "R" and self.active_index > -1 and not event.shift:
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            if not utils.user_is_owner(asset_data=asset_data):
-                bpy.ops.wm.blenderkit_menu_rating_upload(
-                    asset_name=asset_data["name"],
-                    asset_id=asset_data["id"],
-                    asset_type=asset_data["assetType"],
-                )
-            return True
-
-        if (
-            event.type == "V"
-            and event.shift
-            and self.active_index > -1
-            and utils.profile_is_validator()
-        ):
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            bpy.ops.object.blenderkit_change_status(
-                asset_id=asset_data["id"], state="validated"
-            )
-            return True
-
-        if (
-            event.type == "H"
-            and event.shift
-            and self.active_index > -1
-            and utils.profile_is_validator()
-        ):
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            bpy.ops.object.blenderkit_change_status(
-                asset_id=asset_data["id"], state="on_hold"
-            )
-            return True
-
-        if (
-            event.type == "U"
-            and event.shift
-            and self.active_index > -1
-            and utils.profile_is_validator()
-        ):
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            bpy.ops.object.blenderkit_change_status(
-                asset_id=asset_data["id"], state="uploaded"
-            )
-            return True
-
-        if (
-            event.type == "R"
-            and event.shift
-            and self.active_index > -1
-            and utils.profile_is_validator()
-        ):
-            sr = search.get_search_results()
-            asset_data = sr[self.active_index]
-            bpy.ops.object.blenderkit_change_status(
-                asset_id=asset_data["id"], state="rejected"
-            )
-            return True
-
-        return False  # Let other shortcuts be handled
-
-    def scroll_up(self, widget):
-        """Scroll up in the asset bar."""
-        self.scroll_offset += self.wcount * self.hcount
-        self.scroll_update()
-        self.enter_button(widget)
-
-    def scroll_down(self, widget):
-        """Scroll down in the asset bar."""
-        self.scroll_offset -= self.wcount * self.hcount
-        self.scroll_update()
-        self.enter_button(widget)
+    # region main operations
 
     @classmethod
     def unregister(cls):
@@ -3036,6 +3096,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         w, a, r = utils.get_largest_area(area_type="VIEW_3D")
         if a is not None:
             bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+
+    # endregion main operations
+
+    # region tab management
 
     def add_new_tab(self, widget):
         """Add a new tab when the + button is clicked."""
@@ -3231,6 +3295,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             widget.tab_index,
             global_vars.TABS["tabs"][widget.tab_index]["history_index"],
         )
+
+    # endregion tab management
 
 
 def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
