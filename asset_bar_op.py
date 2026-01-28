@@ -1257,6 +1257,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return True
         return False
 
+    def _reset_tooltip_dimensions(self):
+        """Restore tooltip scale and panel size before recomputing layout.
+
+        Prevents a previously downscaled tooltip from keeping a shrunken size
+        on subsequent openings (e.g. after tight vertical space).
+        """
+
+        self.tooltip_scale = 1.0
+        base_size = int(self.tooltip_base_size_pixels)
+        base_height = int(base_size * (1 + self.bottom_panel_fraction))
+
+        if hasattr(self, "tooltip_panel"):
+            self.tooltip_panel.width = base_size
+            self.tooltip_panel.height = base_height
+
     def update_tooltip_size(self, context):
         """Calculate all important sizes for the tooltip"""
         region = context.region
@@ -2436,6 +2451,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     if r.type == "UI":
                         properties_width = r.width
                         break
+
+            # reset tooltip sizing so each spawn starts from base values
+            self._reset_tooltip_dimensions()
 
             fallback_region = getattr(bpy.context, "region", None)
             active_region = region or fallback_region
