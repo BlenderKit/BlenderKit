@@ -1641,13 +1641,13 @@ class SearchOperator(Operator):
 
         search_keywords = str(ui_props.search_keywords)
 
-        if self.keywords != "":
-            search_keywords = self.keywords
-
         # remove all search keywords if force_clear is set
         if self.force_clear:
             # self.force_clear = False  # reset the force clear
             search_keywords = ""
+
+        if self.keywords != "":
+            search_keywords = self.keywords
 
         if self.author_id != "":
             bk_logger.info("Author ID: %s", self.author_id)
