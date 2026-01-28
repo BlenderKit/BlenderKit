@@ -722,7 +722,7 @@ class SingletonUpdater:
                 self._error = "HTTP error"
                 self._error_msg = str(e.code)
                 bk_logger.error("%s %s", self._error, self._error_msg)
-            self.print_trace()
+            # self.print_trace()
             self._update_ready = None
         except urllib.error.URLError as e:
             reason = str(e.reason)
@@ -734,7 +734,7 @@ class SingletonUpdater:
                 self._error = "URL error, check internet connection"
                 self._error_msg = reason
                 bk_logger.error("%s %s", self._error, self._error_msg)
-            self.print_trace()
+            # self.print_trace()
             self._update_ready = None
             return None
         else:
