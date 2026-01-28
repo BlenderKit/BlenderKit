@@ -1708,6 +1708,34 @@ class VIEW3D_PT_blenderkit_categories(Panel):
         draw_panel_categories(self.layout, context)
 
 
+class VIEW3D_PT_blenderkit_thumbnail_health(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_thumbnail_health"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_label = "Thumbnail health"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        if not global_vars.CLIENT_RUNNING:
+            return False
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if ui_props.down_up != "SEARCH":
+            return False
+        return bool(global_vars.DATA.get("thumbnail retry data"))
+
+    def draw(self, context):
+        layout = self.layout
+        retry_store = global_vars.DATA.get("thumbnail retry data", {})
+        layout.label(text=f"{len(retry_store)} thumbnail(s) failed")
+        layout.operator(
+            "view3d.blenderkit_refresh_thumbnails",
+            icon="FILE_REFRESH",
+        )
+
+
 def draw_scene_import_settings(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_scene
@@ -2099,6 +2127,26 @@ class OpenClientLog(OpenSystemDirectory):
 
     bl_idname = "wm.blenderkit_open_client_log"
     bl_label = "Open Client log"
+
+
+class VIEW3D_OT_blenderkit_refresh_thumbnails(bpy.types.Operator):
+    """Re-download thumbnails that failed validation"""
+
+    bl_idname = "view3d.blenderkit_refresh_thumbnails"
+    bl_label = "Refresh failed thumbnails"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context):
+        refreshed = search.refresh_failed_thumbnails()
+        if refreshed == 0:
+            self.report({"INFO"}, "No failed thumbnails to refresh.")
+            return {"CANCELLED"}
+        suffix = "" if refreshed == 1 else "s"
+        self.report(
+            {"INFO"},
+            f"Queued {refreshed} thumbnail refresh{suffix}.",
+        )
+        return {"FINISHED"}
 
 
 class OpenTempDirectory(OpenSystemDirectory):
@@ -4395,6 +4443,7 @@ classes = (
     VIEW3D_PT_blenderkit_advanced_addon_search,
     VIEW3D_PT_blenderkit_advanced_printable_search,
     VIEW3D_PT_blenderkit_categories,
+    VIEW3D_PT_blenderkit_thumbnail_health,
     VIEW3D_PT_blenderkit_import_settings,
     VIEW3D_PT_blenderkit_model_properties,
     VIEW3D_MT_blenderkit_model_properties,
@@ -4406,6 +4455,7 @@ classes = (
     OpenGlobalDirectory,
     OpenClientLog,
     OpenTempDirectory,
+    VIEW3D_OT_blenderkit_refresh_thumbnails,
     # VIEW3D_PT_blenderkit_ratings,
     VIEW3D_PT_blenderkit_downloads,
     # OBJECT_MT_blenderkit_resolution_menu,

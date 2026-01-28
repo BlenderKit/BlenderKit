@@ -59,6 +59,45 @@ MAX_PAGE_SIZE = 80
 search_tasks = {}
 
 
+def _thumbnail_retry_store() -> dict:
+    return global_vars.DATA.setdefault("thumbnail retry data", {})
+
+
+def queue_thumbnail_refresh(thumbnail_data: dict) -> bool:
+    """Request a thumbnail download retry for the provided payload."""
+    image_path = thumbnail_data.get("image_path")
+    if not image_path or not thumbnail_data.get("image_url"):
+        return False
+    try:
+        response = client_lib.request_thumbnail_download(thumbnail_data)
+    except Exception as exc:  # network or client unavailable
+        bk_logger.warning("Failed to queue thumbnail refresh: %s", exc)
+        return False
+    if response.status_code != 200:
+        bk_logger.warning(
+            "Client rejected thumbnail refresh (%s): %s",
+            response.status_code,
+            response.text,
+        )
+        return False
+    global_vars.DATA["images available"][image_path] = None
+    return True
+
+
+def refresh_failed_thumbnails() -> int:
+    """Retry all failed thumbnail downloads currently tracked."""
+    retry_store = _thumbnail_retry_store()
+    if not retry_store:
+        return 0
+    queued = 0
+    for image_path, payload in list(retry_store.items()):
+        if not queue_thumbnail_refresh(payload):
+            continue
+        retry_store.pop(image_path, None)
+        queued += 1
+    return queued
+
+
 def _inject_user_price_data(assets: list[dict]) -> None:
     """Augment search results with per-user pricing info when available."""
     if not assets:
@@ -499,10 +538,24 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 
 
 def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
+    image_path = task.data.get("image_path")
+    if not image_path:
+        return
+    retry_store = _thumbnail_retry_store()
     if task.status == "finished":
-        global_vars.DATA["images available"][task.data["image_path"]] = True
+        global_vars.DATA["images available"][image_path] = True
+        retry_store.pop(image_path, None)
     elif task.status == "error":
-        global_vars.DATA["images available"][task.data["image_path"]] = False
+        global_vars.DATA["images available"][image_path] = False
+        retry_store[image_path] = {
+            "image_path": image_path,
+            "image_url": task.data.get("image_url", ""),
+            "thumbnail_type": task.data.get("thumbnail_type", ""),
+            "assetBaseId": task.data.get("assetBaseId", ""),
+            "index": task.data.get("index", 0),
+            "addon_version": task.data.get("addon_version", ""),
+            "platform_version": task.data.get("platform_version", ""),
+        }
         if task.message != "":
             reports.add_report(task.message, timeout=5, type="ERROR")
     else:
@@ -530,6 +583,9 @@ def load_preview(asset):
 
     tpath = os.path.join(directory, asset["thumbnail_small"])
     tpath_exists = os.path.exists(tpath)
+    if tpath_exists and os.path.getsize(tpath) == 0:
+        global_vars.DATA["images available"][tpath] = False
+        tpath_exists = False
     if (
         not asset["thumbnail_small"]
         or asset["thumbnail_small"] == ""
@@ -553,6 +609,7 @@ def load_preview(asset):
                 return True
         except Exception as e:
             print(f"search.py: could not load image {iname}: {e}")
+            global_vars.DATA["images available"][tpath] = False
         return False
     elif img.filepath != tpath:
         if not tpath_exists:
@@ -567,6 +624,7 @@ def load_preview(asset):
             img.reload()
         except Exception as e:
             print(f"search.py: could not reload image {iname}: {e}")
+            global_vars.DATA["images available"][tpath] = False
             return False
 
     image_utils.set_colorspace(img)

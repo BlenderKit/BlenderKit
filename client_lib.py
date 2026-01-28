@@ -202,6 +202,14 @@ def asset_download(data):
         return resp.json()
 
 
+def request_thumbnail_download(data: dict) -> requests.Response:
+    """Request download (or re-download) of a thumbnail through the Client."""
+    data = ensure_minimal_data(data)
+    with requests.Session() as session:
+        url = get_base_url() + "/blender/thumbnail_download"
+        return session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+
+
 def cancel_download(task_id: str):
     """Cancel the specified task with ID on the BlenderKit-Client."""
     data = ensure_minimal_data({"task_id": task_id})

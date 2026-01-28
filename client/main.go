@@ -25,6 +25,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net"
@@ -42,6 +46,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gookit/color"
+	_ "golang.org/x/image/webp"
 )
 
 const (
@@ -319,6 +324,8 @@ func main() {
 	mux.HandleFunc("/"+vapi+"/blender/asset_download", assetDownloadHandler)
 	mux.HandleFunc("/blender/asset_search", assetSearchHandler)
 	mux.HandleFunc("/"+vapi+"/blender/asset_search", assetSearchHandler)
+	mux.HandleFunc("/blender/thumbnail_download", thumbnailDownloadHandler)
+	mux.HandleFunc("/"+vapi+"/blender/thumbnail_download", thumbnailDownloadHandler)
 	mux.HandleFunc("/blender/asset_upload", assetUploadHandler)
 	mux.HandleFunc("/"+vapi+"/blender/asset_upload", assetUploadHandler)
 
@@ -651,6 +658,35 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
+func thumbnailDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var data ThumbnailDownloadTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if data.AppID == 0 || data.ImageURL == "" || data.ImagePath == "" {
+		http.Error(w, "Missing app_id, image_path or image_url", http.StatusBadRequest)
+		return
+	}
+
+	taskID := uuid.New().String()
+	task := NewTask(data.DownloadThumbnailData, data.AppID, taskID, "thumbnail_download")
+	go downloadImageBatch([]*Task{task}, false)
+
+	resData := map[string]string{"task_id": taskID}
+	responseJSON, err := json.Marshal(resData)
+	if err != nil {
+		http.Error(w, "Error converting to JSON: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseJSON)
+}
+
 func doAssetSearch(data SearchTaskData, taskUUID string) {
 	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
 
@@ -829,6 +865,25 @@ func downloadImageBatch(tasks []*Task, block bool) {
 	}
 }
 
+func validateThumbnailFile(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.Size() == 0 {
+		return fmt.Errorf("thumbnail file is empty: %s", path)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, _, err := image.DecodeConfig(file); err != nil {
+		return fmt.Errorf("thumbnail decode failed: %w", err)
+	}
+	return nil
+}
+
 func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if t.Error != nil { // error from ExtractFilenameFromURL() in parseThumbnails()
@@ -846,8 +901,19 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	}
 
 	if _, err := os.Stat(data.ImagePath); err == nil {
-		t.Status = "finished"
-		t.Message = "thumbnail on disk"
+		if err := validateThumbnailFile(data.ImagePath); err == nil {
+			t.Status = "finished"
+			t.Message = "thumbnail on disk"
+			AddTaskCh <- t
+			return
+		}
+		BKLog.Printf("%s Removing invalid thumbnail %s: %v", EmoWarning, data.ImagePath, err)
+		if removeErr := os.Remove(data.ImagePath); removeErr != nil {
+			BKLog.Printf("%s Failed to remove thumbnail %s: %v", EmoWarning, data.ImagePath, removeErr)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		t.Status = "error"
+		t.Error = err
 		AddTaskCh <- t
 		return
 	}
@@ -894,6 +960,15 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 	// Copy the response body to the file
 	if _, err := io.Copy(file, resp.Body); err != nil {
 		t.Message = "Error copying thumbnail response body to file"
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
+		return
+	}
+
+	if err := validateThumbnailFile(data.ImagePath); err != nil {
+		_ = os.Remove(data.ImagePath)
+		t.Message = "Downloaded thumbnail is invalid"
 		t.Status = "error"
 		t.Error = err
 		AddTaskCh <- t

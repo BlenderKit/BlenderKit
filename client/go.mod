@@ -6,6 +6,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gookit/color v1.6.0
 	github.com/rapid7/go-get-proxied v0.0.0-20250207205329-09112877ac70
+	golang.org/x/image v0.35.0
 )
 
 require (

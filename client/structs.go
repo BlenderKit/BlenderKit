@@ -613,6 +613,11 @@ type DownloadThumbnailData struct {
 	Index           int    `json:"index"`
 }
 
+type ThumbnailDownloadTaskRequest struct {
+	AppID int `json:"app_id"`
+	DownloadThumbnailData
+}
+
 type SearchTaskData struct {
 	PREFS           `json:"PREFS"`
 	AddonVersion    string `json:"addon_version"`
