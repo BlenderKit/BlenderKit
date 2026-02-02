@@ -156,6 +156,22 @@ def replace_materials(
     return material
 
 
+def disable_modifier(obs: list[Any], modifier_type: str) -> None:
+    """Disable a specific type of modifier on all given objects.
+
+    Args:
+        obs: List of Blender objects to modify.
+        modifier_type: Type of the modifier to disable (e.g., 'SUBSURF').
+    """
+    for ob in obs:
+        if ob.type == "MESH":
+            for mod in ob.modifiers:
+                if mod.type == modifier_type:
+                    mod.show_viewport = False
+                    mod.show_render = False
+                    # disable only first found
+                    break
+
 def _str_to_color(s: str) -> Union[tuple[float, float, float], None]:
     """Convert a color string to an RGB tuple.
 
@@ -203,6 +219,8 @@ if __name__ == "__main__":
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
         thumbnail_use_gpu = data.get("thumbnail_use_gpu")
+        thumbnail_disable_subdivision = data.get(
+            "thumbnail_disable_subdivision", False)
 
         if data.get("do_download"):
             # if this isn't here, blender crashes.
@@ -321,6 +339,9 @@ if __name__ == "__main__":
                     1 - random_color[2],
                     1,
                 )
+        # disable subdivision for thumbnail rendering if needed
+        if thumbnail_disable_subdivision:
+            disable_modifier(allobs, 'SUBSURF')
 
         # replace material if we need to render wireframe thumbnail
         if data.get("thumbnail_render_type") == "WIREFRAME":
