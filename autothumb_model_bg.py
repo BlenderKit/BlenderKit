@@ -172,6 +172,7 @@ def disable_modifier(obs: list[Any], modifier_type: str) -> None:
                     # disable only first found
                     break
 
+
 def _str_to_color(s: str) -> Union[tuple[float, float, float], None]:
     """Convert a color string to an RGB tuple.
 
@@ -219,8 +220,7 @@ if __name__ == "__main__":
         with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
         thumbnail_use_gpu = data.get("thumbnail_use_gpu")
-        thumbnail_disable_subdivision = data.get(
-            "thumbnail_disable_subdivision", False)
+        thumbnail_disable_subdivision = data.get("thumbnail_disable_subdivision", False)
 
         if data.get("do_download"):
             # if this isn't here, blender crashes.
@@ -341,7 +341,7 @@ if __name__ == "__main__":
                 )
         # disable subdivision for thumbnail rendering if needed
         if thumbnail_disable_subdivision:
-            disable_modifier(allobs, 'SUBSURF')
+            disable_modifier(allobs, "SUBSURF")
 
         # replace material if we need to render wireframe thumbnail
         if data.get("thumbnail_render_type") == "WIREFRAME":

@@ -240,7 +240,9 @@ def start_model_thumbnailer(
             "cycles"
         ].preferences.compute_device_type
 
-    json_args["thumbnail_disable_subdivision"] = user_preferences.thumbnail_disable_subdivision
+    json_args["thumbnail_disable_subdivision"] = (
+        user_preferences.thumbnail_disable_subdivision
+    )
 
     try:
         with open(datafile, "w", encoding="utf-8") as s:
