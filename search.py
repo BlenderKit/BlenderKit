@@ -50,6 +50,11 @@ from . import (
     utils,
 )
 
+if bpy.app.version >= (4, 2, 0):
+    from . import override_extension_draw
+else:
+    override_extension_draw = None
+
 
 bk_logger = logging.getLogger(__name__)
 
@@ -462,6 +467,8 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         # TODO: if ever needed, implement for other future types
         if result_field:
             _inject_user_price_data(result_field)
+            if override_extension_draw is not None:
+                override_extension_draw.update_cache_with_asset_prices(result_field)
 
     # Store results in history step
     history_step["search_results"] = result_field
