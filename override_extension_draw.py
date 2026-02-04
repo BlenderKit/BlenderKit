@@ -9,10 +9,12 @@ The original method is then called from the new method, with the same arguments,
 import json
 import os
 import time
+import re
 import logging
 
 from . import icons
 
+import blf
 import bpy
 import bl_pkg.bl_extension_ui as exui
 from bpy.props import IntProperty, StringProperty
@@ -22,6 +24,35 @@ from bpy.types import Operator
 EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
 
 bk_logger = logging.getLogger(__name__)
+
+
+def get_perfect_price_padding(price_str: str, target_length: int = 70) -> str:
+    """Generate a padding string to align price text nicely in the UI."""
+    spaces = [
+        (19, "\u2003"),  # em space = U+2003 > 19 units
+        (2, "\u200a"),  # hair space = U+200A > 2 units
+        (3, "\u2009"),  # 6 em space = U+2009 > 3 units
+        (5, "\u2005"),  # 4 em space = U+2005 > 5 units
+        (6, "\u2004"),  # 3 em space = U+2004 > 6 units
+    ]
+    out = ""
+    size = blf.dimensions(0, price_str)
+    w_size = size[0]
+    final_size = target_length - w_size
+    if final_size <= 0:
+        return out
+    while w_size < target_length:
+        for spc_len, spc_char in spaces:
+            if w_size + spc_len <= target_length:
+                out += spc_char
+                w_size += spc_len
+                break
+        else:
+            break  # No suitable space found, exit loop
+    # double check if we are exporting only white spaces to prevent issues
+    if re.fullmatch(r"\s*", out) is None:
+        return ""
+    return out
 
 
 # --- New Modal Operator ---
@@ -288,13 +319,21 @@ def extension_draw_item_blenderkit(
             # blenderkit logo icon
             pcoll = icons.icon_collections["main"]
             icon_value = pcoll["logo"].icon_id
-            # row.label(text="", icon_value=icon_value)
+
             # only enable install for those for whom it's available
             if bk_cache_pkg is not None:
+                can_download_value = bk_cache_pkg.get("can_download")
+                is_for_sale_flag = bk_cache_pkg.get("is_for_sale") is True
+                is_free_flag = bk_cache_pkg.get("is_free") is True
+
+                # special case for blenderkit addon itself
+                if pkg_id == "blenderkit":
+                    can_download_value = True
+
                 # Free , purchased and subscribed add-ons, probably also private add-ons
-                if bk_cache_pkg.get("can_download") is True:
+                if can_download_value is True:
                     # if the addon is also for sale, it means the user purchased it and we write "install purchased"
-                    if bk_cache_pkg.get("is_for_sale") is True:
+                    if is_for_sale_flag:
                         props = row_right.operator(
                             "extensions.package_install",
                             text="Install purchased",
@@ -309,14 +348,13 @@ def extension_draw_item_blenderkit(
                     props.repo_index = repo_index
                     props.pkg_id = pkg_id
 
-                # Full plan addons
-                elif not bk_cache_pkg.get("is_free") and not bk_cache_pkg.get(
-                    "is_for_sale"
+                # Free addon but limited to full plan
+                elif (can_download_value == "Rejected in this plan") or (
+                    not is_free_flag and not is_for_sale_flag
                 ):
-                    # open website to subscribe
                     props = row_right.operator(
                         "wm.url_open",
-                        text="Subscribe to Full Plan",
+                        text="Requires Full Plan",
                         icon_value=icon_value,
                     )
                     props.url = "https://www.blenderkit.com/plans/pricing/"
@@ -324,9 +362,17 @@ def extension_draw_item_blenderkit(
                 # Paid addons get a buy button and lead to their website link
                 else:
                     # Use the new modal operator
+                    base_price_value = bk_cache_pkg.get("user_price")
+                    if base_price_value in {None, "", "None"}:
+                        base_price_value = bk_cache_pkg.get("base_price")
+                    if base_price_value in {None, "", "None"}:
+                        buy_label = "Buy online"
+                    else:
+                        pad_str = get_perfect_price_padding(base_price_value)
+                        buy_label = f"Buy online {pad_str}${base_price_value}"
                     props = row_right.operator(
                         BK_OT_buy_extension_and_watch.bl_idname,  # Use bl_idname
-                        text=f"Buy online ${bk_cache_pkg.get('base_price')}",
+                        text=buy_label,
                         icon_value=icon_value,
                     )
                     props.url = bk_cache_pkg.get("website", "")  # Pass URL
@@ -662,6 +708,42 @@ def ensure_repo_cache():
             del wm[mtime_key]
 
     return reloaded_flag  # Return whether cache was actually reloaded
+
+
+def update_cache_with_asset_prices(assets):
+    """Copy addon pricing info from search assets into the extensions cache."""
+    if not assets:
+        return
+
+    wm = bpy.context.window_manager
+    cache_key = "blenderkit_extensions_repo_cache"
+    if cache_key not in wm:
+        wm[cache_key] = {}
+
+    cache = wm[cache_key]
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        if asset.get("assetType") != "addon":
+            continue
+        dict_params = asset.get("dictParameters") or {}
+        extension_id = dict_params.get("extensionId") or asset.get("extensionId")
+        if not extension_id:
+            continue
+
+        cache_key_entry = extension_id[:32]
+        cache_entry = cache.get(cache_key_entry)
+        if cache_entry is None:
+            cache_entry = {}
+            cache[cache_key_entry] = cache_entry
+
+        base_price = asset.get("basePrice")
+        if base_price not in {None, "", "None"}:
+            cache_entry["base_price"] = str(base_price)
+
+        user_price = asset.get("userPrice")
+        if user_price not in {None, "", "None"}:
+            cache_entry["user_price"] = str(user_price)
 
 
 def ensure_repo_order():
