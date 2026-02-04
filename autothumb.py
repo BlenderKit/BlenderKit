@@ -240,6 +240,10 @@ def start_model_thumbnailer(
             "cycles"
         ].preferences.compute_device_type
 
+    json_args["thumbnail_disable_subdivision"] = (
+        user_preferences.thumbnail_disable_subdivision
+    )
+
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
@@ -526,6 +530,8 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
         layout.prop(props, "thumbnail_denoising")
         preferences = bpy.context.preferences.addons[__package__].preferences
         layout.prop(preferences, "thumbnail_use_gpu")
+        # TODO: wireframe
+        # layout.prop(preferences, "thumbnail_disable_subdivision")
 
     def execute(self, context):
         asset = utils.get_active_model()

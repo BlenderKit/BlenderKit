@@ -2350,6 +2350,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    thumbnail_disable_subdivision: BoolProperty(
+        name="Disable Subdivision for Thumbnails Rendering (For assets upload)",
+        description="By default this is off. Disable this for wireframe thumbnails to render faster",
+        default=False,
+        update=utils.save_prefs,
+    )
+
     maximized_assetbar_rows: IntProperty(
         name="Maximized Assetbar Rows",
         description="Maximum rows of assetbar in the 3D view when expanded",
