@@ -12,7 +12,7 @@ import time
 import re
 import logging
 
-from . import icons
+from . import icons, version_compare
 
 import blf
 import bpy
@@ -309,8 +309,24 @@ def extension_draw_item_blenderkit(
         if pkg_block is not None:
             row_right.label(text="Blocked   ")
         elif is_installed:
-            if is_outdated:
+            # double check if we are truly outdated
+            # local repo can have a newer version than remote if user installed a dev version
+            # so we compare versions here again
+            local_older = version_compare.compare_versions(
+                item_local.version, item_remote.version
+            )
+            if local_older < 0:
                 props = row_right.operator("extensions.package_install", text="Update")
+                props.repo_index = repo_index
+                props.pkg_id = pkg_id
+                props.enable_on_install = is_enabled
+            elif local_older == 0:
+                row_right.label(text="Up to date   ")
+            else:
+                props = row_right.operator(
+                    "extensions.package_install",
+                    text=f"Downgrade {item_remote.version}",
+                )
                 props.repo_index = repo_index
                 props.pkg_id = pkg_id
                 props.enable_on_install = is_enabled
