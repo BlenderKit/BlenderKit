@@ -1,13 +1,29 @@
+import sys
+from pathlib import Path
 import unittest
-import bpy
+
+try:  # Allow these tests to run both inside Blender and via plain Python.
+    import bpy  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - executed outside Blender only.
+    bpy = None
 
 
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
+if bpy is not None:
+    for addon in bpy.context.preferences.addons:
+        if "blenderkit" in addon.module:
+            __package__ = addon.module
+            break
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    if not __package__:
+        __package__ = PROJECT_ROOT.name
 
-from . import version_compare
+try:
+    from . import version_compare
+except ImportError:  # pragma: no cover - fallback for direct execution.
+    import version_compare  # type: ignore
 
 
 class VersionHelperFunctionsTestCase(unittest.TestCase):
@@ -25,29 +41,36 @@ class VersionHelperFunctionsTestCase(unittest.TestCase):
 
 
 class VersionOrderingMatrixTestCase(unittest.TestCase):
+    # Keep entries that should compare equal in the same bucket so that we can
+    # express ties without duplicating ordering expectations.
+    ORDERED_BUCKETS = [
+        ["v1.2", "1.2"],
+        ["1.2.0"],
+        ["1.2.0-rc1"],
+        ["1.2.0-rc1-260127"],
+        ["1.2.0-260126"],
+        ["1.2.0-260127"],
+        ["3.19_final"],
+        ["3.19"],
+        ["3.19.0-rc1"],
+        ["3.19.0-rc1-260127"],
+        ["3.19.0-260127"],
+        ["3.19.0-260128"],
+        ["build_41"],
+        ["build_42"],
+    ]
+
     ORDERED_SAMPLES = [
-        "v1.2",
-        "1.2",
-        "1.2.0",
-        "1.2.0-rc1",
-        "1.2.0-rc1-260127",
-        "1.2.0-260126",
-        "1.2.0-260127",
-        "3.19_final",
-        "3.19",
-        "3.19.0-rc1",
-        "3.19.0-rc1-260127",
-        "3.19.0-260127",
-        "3.19.0-260128",
-        "build_41",
-        "build_42",
+        (bucket_index, sample)
+        for bucket_index, bucket in enumerate(ORDERED_BUCKETS)
+        for sample in bucket
     ]
 
     def test_pairwise_ordering(self):
-        for left_index, left in enumerate(self.ORDERED_SAMPLES):
-            for right_index, right in enumerate(self.ORDERED_SAMPLES):
+        for left_rank, left in self.ORDERED_SAMPLES:
+            for right_rank, right in self.ORDERED_SAMPLES:
                 with self.subTest(left=left, right=right):
-                    expected = (left_index > right_index) - (left_index < right_index)
+                    expected = (left_rank > right_rank) - (left_rank < right_rank)
                     self.assertEqual(
                         version_compare.compare_versions(left, right), expected
                     )
