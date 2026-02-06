@@ -87,8 +87,8 @@ def get_addon_installation_status(asset_data):
         dict: {
             "installed": bool,
             "enabled": bool,
-            # "pkg_id": str,
-            # "cached_pkg": dict or None
+            "pkg_id": str,
+            "cached_pkg": dict or None
         }
     """
 
@@ -98,8 +98,8 @@ def get_addon_installation_status(asset_data):
         return {
             "installed": False,
             "enabled": False,
-            # "pkg_id": None,
-            # "cached_pkg": None,
+            "pkg_id": None,
+            "cached_pkg": None,
         }
 
         # Check if addon is installed and enabled using Blender's addon system
@@ -232,8 +232,8 @@ def get_addon_installation_status(asset_data):
     return {
         "installed": is_installed,
         "enabled": is_enabled,
-        # "pkg_id": extension_id,
-        # "cached_pkg": None,  # Not using cached_pkg anymore
+        "pkg_id": extension_id,
+        "cached_pkg": None,  # Not using cached_pkg anymore
     }
 
 
