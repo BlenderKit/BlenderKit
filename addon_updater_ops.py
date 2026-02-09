@@ -178,6 +178,10 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
         return True
 
     def invoke(self, context, event):
+        # Skip opening the popup when we already know there is nothing to show.
+        if not updater.invalid_updater and updater.update_ready is False:
+            updater.print_verbose("No update available; skipping popup")
+            return {"CANCELLED"}
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
