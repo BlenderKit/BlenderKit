@@ -21,6 +21,9 @@ import math
 import os
 import re
 import time
+from functools import partial
+import urllib.parse
+from collections import Counter
 from types import SimpleNamespace
 from typing import Any, Dict, Union
 
@@ -1512,6 +1515,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel = []
         self.tab_buttons = []
         self.close_tab_buttons = []
+        self.manufacturer_buttons = []
 
         # Create panel with extended height
         self.panel = BL_UI_Drag_Panel(
@@ -1832,6 +1836,65 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             active_tab["history_index"] < len(active_tab["history"]) - 1
         )
 
+        # Manufacturer filter buttons (stay hidden until populated)
+        button_height = getattr(self, "manufacturer_button_height", 26)
+        text_size = getattr(self, "manufacturer_button_text_size", 12)
+        for _ in range(self.max_manufacturer_filters):
+            filter_button = BL_UI_Button(0, 0, 80, button_height)
+            # start with a neutral gray; exact shade is updated when buttons are positioned
+            base_gray = 50 / 255
+            filter_button.bg_color = (base_gray, base_gray, base_gray, 0.85)
+            filter_button.hover_bg_color = (
+                base_gray + 0.1,
+                base_gray + 0.1,
+                base_gray + 0.1,
+                1.0,
+            )
+            filter_button.text = ""
+            filter_button.text_size = text_size
+            filter_button.text_color = self.text_color
+            filter_button.visible = False
+            filter_button.use_rounded_background = True
+            radius = max(6, button_height // 2)
+            filter_button.background_corner_radius = (
+                radius,
+                radius,
+                radius,
+                radius,
+            )
+            filter_button.set_mouse_down(
+                partial(self.apply_term_filter, term="manufacturer")
+            )
+            filter_button.manufacturer_name = ""
+            self.manufacturer_buttons.append(filter_button)
+
+        # Clear manufacturer filter bubble (red cross)
+        clear_width = button_height
+        clear_button = BL_UI_Button(0, 0, clear_width, button_height)
+        clear_button.bg_color = (0.3, 0.1, 0.1, 0.9)
+        clear_button.hover_bg_color = (0.6, 0.2, 0.2, 1.0)
+        clear_button.text = "×"
+        clear_button.text_size = int(button_height * 0.8)
+        clear_button.text_color = (1.0, 0.8, 0.8, 1.0)
+        clear_button.visible = False
+        clear_button.use_rounded_background = True
+        radius = max(6, button_height // 2)
+        clear_button.background_corner_radius = (
+            radius,
+            radius,
+            radius,
+            radius,
+        )
+        clear_button.set_mouse_down(
+            partial(self.clear_term_filter, term="manufacturer")
+        )
+        clear_button.manufacturer_name = ""
+        self.manufacturer_clear_button_width = clear_width
+        self.manufacturer_clear_button = clear_button
+        self.widgets_panel.append(clear_button)
+
+        self.widgets_panel.extend(self.manufacturer_buttons)
+
     # endregion panel
 
     def show_notifications(self, widget):
@@ -1849,13 +1912,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """
         # Get search results from history
         sr = search.get_search_results()
+        current_id = id(sr) if sr is not None else None
+
         if not hasattr(self, "search_results_count"):
-            if not sr or len(sr) == 0:
-                self.search_results_count = 0
-                self.last_asset_type = ""
-                return True
-            self.search_results_count = len(sr)
-            self.last_asset_type = sr[0]["assetType"]
+            self.search_results_count = len(sr) if sr else 0
+            self.last_asset_type = sr[0]["assetType"] if sr else ""
+            self._last_search_results_id = current_id
+            return True
+
+        if current_id != getattr(self, "_last_search_results_id", None):
+            self._last_search_results_id = current_id
+            self.search_results_count = len(sr) if sr else 0
+            if sr:
+                self.last_asset_type = sr[0]["assetType"]
+            return True
+
         if sr is not None and len(sr) != self.search_results_count:
             self.search_results_count = len(sr)
             return True
@@ -1993,7 +2064,18 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             self.hcount = 1
 
-        self.bar_height = (self.button_size) * self.hcount + 2 * self.assetbar_margin
+        self.manufacturer_button_height = int(round(28 * scale))
+        self.manufacturer_button_spacing = int(round(6 * scale))
+        self.manufacturer_button_padding_x = int(round(12 * scale))
+        self.manufacturer_button_text_size = max(10, int(round(12 * scale)))
+        self.manufacturer_button_min_width = int(round(70 * scale))
+        self.manufacturer_button_max_width = int(round(200 * scale))
+
+        self._base_bar_height = (
+            self.button_size * self.hcount + 2 * self.assetbar_margin
+        )
+        self._update_manufacturer_data(search_results)
+        self.bar_height = self._base_bar_height + self.manufacturer_section_height
 
         if ui_props.down_up == "UPLOAD":
             self.reports_y = region.height - self.bar_y - 600
@@ -2116,6 +2198,160 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # Show down arrow when collapsed (to expand)
             self.button_expand.text = "▼"
 
+    def _extract_manufacturer_name(self, asset_data):
+        manufacturer = asset_data.get("dictParameters", {}).get("manufacturer")
+        if not manufacturer:
+            return ""
+        return str(manufacturer).strip()
+
+    def _refresh_manufacturer_names(self, search_results):
+        current_id = id(search_results) if search_results is not None else None
+        if current_id == self._manufacturer_results_id:
+            return
+
+        if not search_results:
+            self._manufacturer_names = []
+            self._manufacturer_counts = Counter()
+            self._manufacturer_results_id = current_id
+            return
+
+        counts = Counter()
+        for asset_data in search_results:
+            name = self._extract_manufacturer_name(asset_data)
+            if name:
+                counts[name] += 1
+
+        most_common = counts.most_common(self.max_manufacturer_filters)
+        self._manufacturer_names = [name for name, _ in most_common]
+        self._manufacturer_counts = counts
+        self._manufacturer_results_id = current_id
+
+    def _estimate_manufacturer_button_width(self, label):
+        char_width = max(6, int(self.manufacturer_button_text_size * 0.6))
+        base_width = 2 * self.manufacturer_button_padding_x
+        width = base_width + char_width * len(label)
+        width = max(self.manufacturer_button_min_width, width)
+        width = min(self.manufacturer_button_max_width, width)
+        return int(width)
+
+    def _recalculate_manufacturer_layout(self):
+        names = self._manufacturer_names[: self.max_manufacturer_filters]
+        clear_slot = self._manufacturer_clear_slot()
+        content_width = max(0, self.bar_width - 2 * self.assetbar_margin - clear_slot)
+
+        if not names or content_width <= 0:
+            self._manufacturer_button_layout = []
+            self._manufacturer_rows = 0
+            self.manufacturer_section_height = 0
+            return
+
+        max_x = self.bar_width - self.assetbar_margin
+        current_x = self.assetbar_margin + clear_slot
+        current_row = 0
+        layout = []
+
+        for name in names:
+            width = self._estimate_manufacturer_button_width(name)
+            width = min(width, content_width)
+            if current_x + width > max_x and current_x > self.assetbar_margin:
+                current_row += 1
+                current_x = self.assetbar_margin
+
+            layout.append(
+                {
+                    "name": name,
+                    "width": int(width),
+                    "row": current_row,
+                    "x": int(current_x),
+                }
+            )
+            current_x += width + self.manufacturer_button_spacing
+
+        self._manufacturer_button_layout = layout
+        self._manufacturer_rows = current_row + 1 if layout else 0
+        if self._manufacturer_rows > 0:
+            self.manufacturer_section_height = (
+                self.manufacturer_button_spacing
+                + self._manufacturer_rows
+                * (self.manufacturer_button_height + self.manufacturer_button_spacing)
+            )
+        else:
+            self.manufacturer_section_height = 0
+
+    def _update_manufacturer_data(self, search_results):
+        self._refresh_manufacturer_names(search_results)
+        self._recalculate_manufacturer_layout()
+
+    def _manufacturer_clear_slot(self):
+        clear_btn = getattr(self, "manufacturer_clear_button", None)
+        if clear_btn is None:
+            return 0
+        return self.manufacturer_clear_button_width + self.manufacturer_button_spacing
+
+    def _calculate_manufacturer_gray(self, count, min_count, max_count):
+        """Map manufacturer usage count to a gray value between 50 and 120."""
+        min_gray = 50 / 255
+        max_gray = 120 / 255
+
+        if max_count <= min_count:
+            return min_gray
+
+        factor = (count - min_count) / (max_count - min_count)
+        gray = min_gray + factor * (max_gray - min_gray)
+        return min(max_gray, max(min_gray, gray))
+
+    def position_manufacturer_buttons(self):
+        if not self.manufacturer_buttons:
+            return
+
+        layout = getattr(self, "_manufacturer_button_layout", [])
+        counts = getattr(self, "_manufacturer_counts", {}) or {}
+        base_y = self.assetbar_margin + self.button_size * self.hcount
+        start_y = base_y + self.manufacturer_button_spacing
+
+        clear_btn = getattr(self, "manufacturer_clear_button", None)
+        show_clear = bool(layout) or re.search(
+            r"\+manufacturer:\s*[^+]+",
+            bpy.context.window_manager.blenderkitUI.search_keywords,
+            flags=re.IGNORECASE,
+        )
+        if clear_btn:
+            clear_btn.set_location(self.assetbar_margin, int(start_y))
+            clear_btn.width = getattr(
+                self, "manufacturer_clear_button_width", clear_btn.width
+            )
+            clear_btn.height = self.manufacturer_button_height
+            clear_btn.text_size = int(self.manufacturer_button_height * 0.8)
+            clear_btn.visible = show_clear
+        clear_slot = self._manufacturer_clear_slot()
+
+        displayed_counts = [counts.get(data["name"], 0) for data in layout]
+        min_count = min(displayed_counts) if displayed_counts else 1
+        max_count = max(displayed_counts) if displayed_counts else 1
+
+        for idx, button in enumerate(self.manufacturer_buttons):
+            if idx < len(layout):
+                data = layout[idx]
+                row_y = start_y + data["row"] * (
+                    self.manufacturer_button_height + self.manufacturer_button_spacing
+                )
+                button.set_location(data["x"], int(row_y))
+                # shift to the right so we leave space for the clear bubble
+                button.x += clear_slot
+                button.width = data["width"]
+                button.height = self.manufacturer_button_height
+                button.text = data["name"].upper()
+                button.text_size = self.manufacturer_button_text_size
+                button.visible = True
+                button.manufacturer_name = data["name"]
+                count = counts.get(data["name"], min_count)
+                gray = self._calculate_manufacturer_gray(count, min_count, max_count)
+                hover_gray = min(gray + 0.1, 1.0)
+                button.bg_color = (gray, gray, gray, 0.85)
+                button.hover_bg_color = (hover_gray, hover_gray, hover_gray, 1.0)
+            else:
+                button.visible = False
+
     def position_and_hide_buttons(self):
         """Position asset buttons in the asset bar and hide unused buttons."""
         # position and layout buttons
@@ -2181,6 +2417,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.bookmark_button.visible = False
             button.progress_bar.visible = False
 
+        self.position_manufacturer_buttons()
+
         self.button_scroll_down.height = self.bar_height
         self.button_scroll_down.set_image_position(
             (0, int((self.bar_height - self.button_size) / 2))
@@ -2200,6 +2438,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._restart_pending = False
         self.scroll_offset = 0
         self._tooltip_available_height = None
+        self.max_manufacturer_filters = 10
+        self.manufacturer_buttons = []
+        self._manufacturer_names = []
+        self._manufacturer_counts = Counter()
+        self._manufacturer_button_layout = []
+        self._manufacturer_rows = 0
+        self.manufacturer_section_height = 0
+        self._manufacturer_results_id = None
+        self._last_search_results_id = None
+        self._base_bar_height = 0
+        self.manufacturer_button_height = 26
+        self.manufacturer_button_spacing = 6
+        self.manufacturer_button_padding_x = 12
+        self.manufacturer_button_text_size = 12
+        self.manufacturer_button_min_width = 70
+        self.manufacturer_button_max_width = 200
+        self.manufacturer_clear_button_width = 26
 
     def on_init(self, context):
         """Initialize the asset bar operator."""
@@ -2816,6 +3071,45 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     # endregion events
 
     # region actions
+
+    def apply_term_filter(self, widget: BL_UI_Button, *, term: str):
+        """Apply term filter based on the clicked bubble."""
+        value = getattr(widget, f"{term}_name", "")
+        if not value:
+            self.clear_term_filter(widget, term=term)
+            return
+
+        ui_props = bpy.context.window_manager.blenderkitUI
+        existing = ui_props.search_keywords.strip()
+        cleaned_parts = self._filter_out_term(term, existing)
+
+        cleaned_parts.append(f"+{term}:{value}")
+        ui_props.search_keywords = " ".join(cleaned_parts)
+        search.search()
+
+    def clear_term_filter(self, widget: BL_UI_Button, *, term: str):
+        """Remove term filter from the search keywords."""
+        ui_props = bpy.context.window_manager.blenderkitUI
+        existing = ui_props.search_keywords.strip()
+        cleaned_parts = self._filter_out_term(term, existing)
+
+        new_keywords = " ".join(cleaned_parts)
+        ui_props.search_keywords = new_keywords
+
+        if new_keywords != existing:
+            search.search()
+
+    def _filter_out_term(self, term: str, keywords: str):
+        """Remove term:* tokens using regex; return clean token list without extra +/spaces."""
+        # strip term segments that may contain spaces until the next '+' or string end
+        without_term = re.sub(
+            rf"(?:^|\+)\s*{term}:[^+]+", "", keywords, flags=re.IGNORECASE
+        )
+        # normalize plus separators and drop empty pieces
+        tokens = [part for part in without_term.replace(" ", "").split("+") if part]
+        if not tokens:
+            tokens.append("current")
+        return tokens
 
     def asset_menu(self, widget):
         """Open the asset menu for the asset linked to this button."""
