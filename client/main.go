@@ -139,7 +139,7 @@ func handleChannels() {
 		case task := <-AddTaskCh:
 			TasksMux.Lock()
 			if Tasks[task.AppID] == nil {
-				BKLog.Printf("%s Unexpected: AppID %d not in Tasks! Add-on should first make report request, then schedule tasks, fix this!", EmoWarning, task.AppID)
+				BKLog.Printf("%s Unexpected: AppID %d not in Tasks! Add-on should first make report requst, then shedule tasks, fix this!", EmoWarning, task.AppID)
 				data := MinimalTaskData{AppID: task.AppID}
 				SubscribeNewApp(data)
 			}
@@ -666,7 +666,7 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 	if err != nil {
 		// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
 		shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
-		shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squeezes into user's screenshots
+		shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squezes into user's screenshots
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
@@ -1126,7 +1126,7 @@ func DownloadGravatarImageHandler(w http.ResponseWriter, r *http.Request) {
 
 // DownloadGravatarImage is a function for downloading the Gravatar image of the creator.
 // It first checks if Gravatar image is available locally. If not, it downloads it from the server.
-// It prefers to download the image from the server using the Avatar128 parameter,
+// It preferes to download the image from the server using the Avatar128 parameter,
 // but if it is not available, it tries to download it from Gravatar using gravatarHash.
 func DownloadGravatarImage(data FetchGravatarData) {
 	var url string
@@ -1263,7 +1263,7 @@ func GetUserProfile(data MinimalTaskData) {
 	TaskFinishCh <- &TaskFinish{
 		AppID:   data.AppID,
 		TaskID:  taskUUID,
-		Message: "data successfully fetched",
+		Message: "data suceessfully fetched",
 		Result:  respData,
 	}
 }
@@ -1356,7 +1356,7 @@ func GetRatings(searchResults SearchResults, data SearchTaskData) {
 		AppID:   data.AppID,
 		TaskID:  taskUUID,
 		Message: "Ratings data obtained",
-		Result:  nil, // no data needed to send, FetchRatings continuously sent the individual ratings
+		Result:  nil, // no data needed to send, FetchRatings continuosly sent the individual ratings
 	}
 }
 
@@ -1552,7 +1552,7 @@ func GetBookmarks(data MinimalTaskData) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		err = fmt.Errorf("get bookmarks - making request: %w", err)
+		err = fmt.Errorf("get boomarks - making request: %w", err)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
@@ -2372,7 +2372,7 @@ func uploadFileToS3(file UploadFile, uploadInfo S3UploadInfoResponse, appID int,
 	if valResp.StatusCode >= 400 {
 		valRespData, err := io.ReadAll(valResp.Body)
 		if err != nil {
-			return fmt.Errorf("upload validation failed (%d) AND failed to read upload validation response: %w", valResp.StatusCode, err)
+			return fmt.Errorf("upload validation faild (%d) AND failed to read upload validation response: %w", valResp.StatusCode, err)
 		}
 		var valRespJSON UploadValidationResponse
 		err = json.Unmarshal(valRespData, &valRespJSON)
@@ -3071,7 +3071,7 @@ func GetAvailableSoftwares() []Software {
 
 // Monitor AvailableSoftwares (connected Blender, Godot, etc) for those which are inactive for defined period of time.
 // If they are found to be inactive, function removes them from the AvailableSoftwares map and if it was last software there
-// we shutdown the Client. We handle removal/unsubscription via checking lastTimeConnected because not all softwares are able
+// we shutdown the Client. We handle removal/unsubscription via checking lastTimeConected because not all softwares are able
 // to send Request during unregistration/closing of the host software.
 func monitorAvailableSoftwares() {
 	pause := 250 * time.Millisecond
@@ -3110,7 +3110,7 @@ func monitorAvailableSoftwares() {
 // When software sends data to Client, we want to update the details in AvailableSoftwares map.
 // Especially we want to update the lastTimeConnected, because this time parameter is used to
 // monitor active and inactive softwares in order to unsubscribe them. Also we want to update
-// the name of currently opened Project, so windows can be recognized by users.
+// the name of currenly opened Project, so windows can be recognized by users.
 func updateAvailableSoftware(data Software) bool {
 	new := false
 	AvailableSoftwaresMux.Lock()
