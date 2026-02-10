@@ -2700,7 +2700,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 bk_logger.warning("author is none")
                 return True
             utils.p("author:", author)
-            url = author.get("aboutMeUrl")
+            url = author.aboutMeUrl
             if url is None:
                 bk_logger.warning("url is none")
                 return True
