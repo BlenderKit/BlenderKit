@@ -311,7 +311,7 @@ def parse_result(r) -> dict:
         r["max_resolution"] = max(r["available_resolutions"])
 
     # tooltip = generate_tooltip(r)
-    # for some reason, the id was still int on some occurances. investigate this.
+    # for some reason, the id was still int on some occurrences. investigate this.
     r["author"]["id"] = str(r["author"]["id"])
 
     # some helper props, but generally shouldn't be renaming/duplifiying original properties,
@@ -639,6 +639,7 @@ def write_block_from_value(tooltip, value, pretext="", width=2000):  # for longe
     if not value:
         return tooltip
 
+    intext = value
     if type(value) == list:
         intext = list_to_str(value)
     elif type(value) == float:
@@ -724,7 +725,7 @@ def generate_author_profile(author_data: datas.UserProfile):
 
 
 def handle_get_user_profile(task: client_tasks.Task):
-    """Handle incomming get_user_profile task which contains data about current logged-in user."""
+    """Handle incoming get_user_profile task which contains data about current logged-in user."""
     if task.status not in ["finished", "error"]:
         return
 
