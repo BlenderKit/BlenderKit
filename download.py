@@ -2415,7 +2415,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                 return {"FINISHED"}
 
         # replace resolution needs to replace all instances of the resolution in the scene
-        # and deleting originals has to be thus done after the downlaod
+        # and deleting originals has to be thus done after the download
 
         kwargs = {
             "cast_parent": self.cast_parent,
@@ -2439,7 +2439,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         return {"FINISHED"}
 
     def draw(self, context):
-        # this timer is there to not let double clicks thorugh the popups down to the asset bar.
+        # this timer is there to not let double clicks through the popups down to the asset bar.
         ui_panels.last_time_overlay_panel_active = time.time()
         layout = self.layout
         if self.invoke_resolution:

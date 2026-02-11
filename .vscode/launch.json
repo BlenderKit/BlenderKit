@@ -115,21 +115,52 @@
                     "-NoLogo",
                     "-NoProfile",
                     "-Command",
-                    "$fmt = gofmt -l ./client; if ($fmt) { Write-Host 'Go files need formatting:'; $fmt; exit 1 } else { Write-Host 'Go files are formatted.' }"
+                    "$fmt = gofmt -l ./client; if ($fmt) { Write-Host 'Go files need formatting:'; $fmt; Write-Host ''; Write-Host 'gofmt diff:'; gofmt -d ./client; exit 1 } else { Write-Host 'Go files are formatted.' }"
                 ]
             },
             "linux": {
                 "runtimeExecutable": "/bin/bash",
                 "args": [
                     "-c",
-                    "fmt_out=\"$(gofmt -l ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; exit 1; else echo 'Go files are formatted.'; fi"
+                    "fmt_out=\"$(gofmt -l ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; echo ''; echo 'gofmt diff:'; gofmt -d ./client; exit 1; else echo 'Go files are formatted.'; fi"
                 ]
             },
             "osx": {
                 "runtimeExecutable": "/bin/bash",
                 "args": [
                     "-c",
-                    "fmt_out=\"$(gofmt -l ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; exit 1; else echo 'Go files are formatted.'; fi"
+                    "fmt_out=\"$(gofmt -l ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; echo ''; echo 'gofmt diff:'; gofmt -d ./client; exit 1; else echo 'Go files are formatted.'; fi"
+                ]
+            }
+        },
+
+        {
+            "name": "[GOFMT] Fix client",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "runtimeExecutable": "powershell",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "$fmt = gofmt -w ./client; if ($fmt) { Write-Host 'Go files need formatting:'; $fmt; Write-Host ''; Write-Host 'gofmt diff:'; gofmt -d ./client; exit 1 } else { Write-Host 'Go files are formatted.' }"
+                ]
+            },
+            "linux": {
+                "runtimeExecutable": "/bin/bash",
+                "args": [
+                    "-c",
+                    "fmt_out=\"$(gofmt -w ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; echo ''; echo 'gofmt diff:'; gofmt -d ./client; exit 1; else echo 'Go files are formatted.'; fi"
+                ]
+            },
+            "osx": {
+                "runtimeExecutable": "/bin/bash",
+                "args": [
+                    "-c",
+                    "fmt_out=\"$(gofmt -w ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; echo ''; echo 'gofmt diff:'; gofmt -d ./client; exit 1; else echo 'Go files are formatted.'; fi"
                 ]
             }
         },

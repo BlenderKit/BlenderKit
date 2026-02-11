@@ -147,13 +147,18 @@ build_output_master_dir = os.path.join(
 ).replace("\\", "/")
 
 client_dir = os.path.join(THIS_REPO, "client", highest_version_str).replace("\\", "/")
+# local user client bin
+local_client_bin = os.path.join(os.path.expanduser("~"), "blenderkit_data", "client","bin", highest_version_str).replace("\\", "/")
 
 print(f"Copying built client from {build_output_master_dir} to {client_dir}")
 
 # remove existing client build folder
 _remove_existing(client_dir)
+if os.path.exists(local_client_bin):
+    _remove_existing(local_client_bin)
 
 # copy the build
 shutil.copytree(build_output_master_dir, client_dir)
+shutil.copytree(build_output_master_dir, local_client_bin)
 
 print("Client build copied successfully.")

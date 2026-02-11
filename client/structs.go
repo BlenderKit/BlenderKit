@@ -1,18 +1,18 @@
 /*##### BEGIN GPL LICENSE BLOCK #####
 
-  This program is free software; you can redistribute it and/or
-  modify it under the terms of the GNU General Public License
-  as published by the Free Software Foundation; either version 2
-  of the License, or (at your option) any later version.
+	This program is free software; you can redistribute it and/or
+	modify it under the terms of the GNU General Public License
+	as published by the Free Software Foundation; either version 2
+	of the License, or (at your option) any later version.
 
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software Foundation,
-  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software Foundation,
+	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 ##### END GPL LICENSE BLOCK #####*/
 
@@ -203,13 +203,14 @@ type SearchResults struct {
 }
 
 type PREFS struct {
-	APIKey        string `json:"api_key"`
-	APIKeyRefres  string `json:"api_key_refresh"`
-	APIKeyTimeout int    `json:"api_key_timeout"`
-	SceneID       string `json:"scene_id"`
-	AppID         int    `json:"app_id"`
-	UnpackFiles   bool   `json:"unpack_files"`
-	Resolution    string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
+	APIKey             string `json:"api_key"`
+	APIKeyRefresh      string `json:"api_key_refresh"`
+	APIKeyTimeout      int    `json:"api_key_timeout"`
+	SceneID            string `json:"scene_id"`
+	AppID              int    `json:"app_id"`
+	UnpackFiles        bool   `json:"unpack_files"`
+	WriteAssetMetadata bool   `json:"write_asset_metadata"`
+	Resolution         string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
 	// PATHS
 	ProjectSubdir   string `json:"project_subdir"`
 	GlobalDir       string `json:"global_dir"`
@@ -318,19 +319,19 @@ type AssetUploadExportData struct {
 	Brush     string   `json:"brush,omitempty"`     // Only for brush upload
 	NodeGroup string   `json:"nodegroup,omitempty"` // Only for node group upload
 	// Common parameters
-	ThumbnailPath     string `json:"thumbnail_path"`
-	FotoThumbnailPath string `json:"photo_thumbnail_path"`
-	WireThumbnailPath string `json:"wire_thumbnail_path"`
-	AssetBaseID       string `json:"assetBaseId"`
-	ID                string `json:"id"`
-	EvalPathComputing string `json:"eval_path_computing"`
-	EvalPathState     string `json:"eval_path_state"`
-	EvalPath          string `json:"eval_path"`
-	TempDir           string `json:"temp_dir"`
-	SourceFilePath    string `json:"source_filepath"`
-	BinaryPath        string `json:"binary_path"`
-	DebugValue        int    `json:"debug_value"`
-	HDRFilepath       string `json:"hdr_filepath,omitempty"`
+	ThumbnailPath      string `json:"thumbnail_path"`
+	PhotoThumbnailPath string `json:"photo_thumbnail_path"`
+	WireThumbnailPath  string `json:"wire_thumbnail_path"`
+	AssetBaseID        string `json:"assetBaseId"`
+	ID                 string `json:"id"`
+	EvalPathComputing  string `json:"eval_path_computing"`
+	EvalPathState      string `json:"eval_path_state"`
+	EvalPath           string `json:"eval_path"`
+	TempDir            string `json:"temp_dir"`
+	SourceFilePath     string `json:"source_filepath"`
+	BinaryPath         string `json:"binary_path"`
+	DebugValue         int    `json:"debug_value"`
+	HDRFilepath        string `json:"hdr_filepath,omitempty"`
 }
 
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
@@ -372,7 +373,7 @@ type AssetUploadData struct {
 	IsFree           bool        `json:"isFree"`
 	IsPrivate        bool        `json:"isPrivate"`
 	License          string      `json:"license"`
-	Name             string      `json:"name,omitempty"` // has to be ommited for metadata reupload
+	Name             string      `json:"name,omitempty"` // has to be omitted for metadata reupload
 	Parameters       interface{} `json:"parameters"`
 	SourceAppName    string      `json:"sourceAppName"`
 	SourceAppVersion string      `json:"sourceAppVersion"`

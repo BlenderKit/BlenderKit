@@ -1771,8 +1771,19 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
         if ui_props.asset_type == "HDR":
             props = wm.blenderkit_HDR
 
-        if ui_props.asset_type in ["MATERIAL", "MODEL", "HDR"]:
+        if ui_props.asset_type in [
+            "MATERIAL",
+            "MODEL",
+            "SCENE",
+            "PRINTABLE",
+            "NODEGROUP",
+            "MATERIAL",
+            "BRUSH",
+        ]:
             layout.prop(preferences, "unpack_files")
+            layout.prop(preferences, "write_asset_metadata")
+            layout.prop(preferences, "resolution")
+        elif ui_props.asset_type in ["HDR"]:
             layout.prop(preferences, "resolution")
         # layout.prop(props, 'unpack_files')
 
