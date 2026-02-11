@@ -178,7 +178,7 @@ def update_upload_brush_preview(self, context):
     brush = utils.get_active_brush()
     if brush is not None:
         props = brush.blenderkit
-        imgpath = bpy.path.abspath(brush.icon_filepath)
+        imgpath = props.thumbnail
         check_thumbnail(props, imgpath)
 
 
