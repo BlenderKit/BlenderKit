@@ -148,7 +148,9 @@ build_output_master_dir = os.path.join(
 
 client_dir = os.path.join(THIS_REPO, "client", highest_version_str).replace("\\", "/")
 # local user client bin
-local_client_bin = os.path.join(os.path.expanduser("~"), "blenderkit_data", "client","bin", highest_version_str).replace("\\", "/")
+local_client_bin = os.path.join(
+    os.path.expanduser("~"), "blenderkit_data", "client", "bin", highest_version_str
+).replace("\\", "/")
 
 print(f"Copying built client from {build_output_master_dir} to {client_dir}")
 
