@@ -63,6 +63,30 @@
 
 
         {
+            "name": "Run dev.py test install",
+            "type": "debugpy",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/dev.py",
+            "args": [
+                "test",
+                "--install-at",
+                "c:/temp/runner/blender/scripts/addons",
+            ],
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+
+        {
             "name": "[BLACK] Run black on all",
             "type": "debugpy",
             "request": "launch",
