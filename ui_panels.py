@@ -1320,6 +1320,10 @@ def draw_panel_brush_upload(self, context):
 
         draw_upload_common(layout, props, "BRUSH", context)
 
+        col = layout.column()
+        draw_thumbnail_upload_panel(col, props)
+        prop_needed(col, props, "thumbnail", props.thumbnail)
+
 
 def draw_panel_brush_search(self, context):
     wm = context.window_manager

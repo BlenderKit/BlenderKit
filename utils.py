@@ -25,6 +25,7 @@ import platform
 import re
 import shutil
 import sys
+import tempfile
 import uuid
 from typing import Optional
 
@@ -442,6 +443,41 @@ def get_active_brush():
     ):  # could be just else, but for future possible more types...
         brush = context.tool_settings.image_paint.brush
     return brush
+
+
+def get_brush_icon_path(brush) -> str:
+    """Get the path to the brush icon image.
+
+    In Blender <= 4.5, brushes have icon_filepath. In Blender 5.0+, icon_filepath
+    was removed and brush preview is stored as in-memory pixels (brush.preview).
+    For 5.0+ we save the preview pixels to a temp PNG file.
+    """
+    if bpy.app.version <= (4, 5, 0):
+        return bpy.path.abspath(brush.icon_filepath)
+
+    if brush.preview is None:
+        return ""
+    width, height = brush.preview.image_size
+    if width == 0 or height == 0:
+        return ""
+
+    filepath = os.path.join(
+        tempfile.gettempdir(), f"blenderkit_brush_{brush.name}_icon.png"
+    )
+    img = bpy.data.images.new(
+        name=f".bk_brush_preview_{brush.name}",
+        width=width,
+        height=height,
+        alpha=True,
+    )
+    try:
+        img.pixels.foreach_set(brush.preview.image_pixels_float)
+        img.filepath_raw = filepath
+        img.file_format = "PNG"
+        img.save()
+    finally:
+        bpy.data.images.remove(img)
+    return filepath
 
 
 def get_scene_id():

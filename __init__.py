@@ -1207,6 +1207,15 @@ class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
 
 
 class BlenderKitBrushUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
+    thumbnail: StringProperty(
+        name="Thumbnail",
+        description="Thumbnail path - at least 1024x1024 .jpg or .png",
+        subtype="FILE_PATH",
+        default="",
+        update=autothumb.update_upload_brush_preview,
+        **EXTRA_PATH_OPTIONS,
+    )
+
     mode: EnumProperty(
         name="Mode",
         items=(
