@@ -187,6 +187,18 @@ func GetAssetDirectoryName(assetName, assetID string) string {
 	return fmt.Sprintf("%s_%s", slugifiedName, assetID)
 }
 
+// PluralizeAssetType returns the plural form of the asset type string.
+// Mirrors the plurals_mapping in BlenderKit/paths.py:get_download_dirs().
+func PluralizeAssetType(assetType string) string {
+	irregular := map[string]string{
+		"brush": "brushes",
+	}
+	if p, ok := irregular[assetType]; ok {
+		return p
+	}
+	return assetType + "s"
+}
+
 // Slugify converts a string to a URL-friendly slug.
 // Converts to lowercase, replaces non-alphanumeric characters with hyphens.
 // Ensures only one hyphen between words and that string starts and ends with a letter or number.
