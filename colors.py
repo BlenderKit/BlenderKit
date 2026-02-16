@@ -40,6 +40,9 @@ RED = (1, 0.5, 0.5, 0.8)
 BLUE = (0.8, 0.8, 1, 0.8)
 """BLUE Color for validator reports."""
 
+ACTIVE_BLUE = (0.7, 0.8, 1.0, 1.0)
+"""ACTIVE_BLUE Color for active elements in the UI, mainly filters."""
+
 GREEN_PRICE = (0.42, 0.49, 0.19, 1.0)
 """Emerald Green to be used on "discounted" add-ons."""
 

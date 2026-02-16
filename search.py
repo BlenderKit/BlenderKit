@@ -237,12 +237,19 @@ def _sync_panel_filters_into_active(tab: dict):
     tab["active_filters"] = preserved + _collect_panel_filters()
 
 
-def set_active_filter(term: str, value: str, label: Optional[str] = None):
+def set_active_filter(
+    term: str,
+    value: str,
+    label: Optional[str] = None,
+    origin: str | None = None,
+):
     tab = get_active_tab()
     filters = _ensure_tab_filters(tab)
     # drop existing entry for the same term to keep one value per term for now
     filters = [f for f in filters if f.get("term") != term]
-    filters.append({"term": term, "value": value, "label": label or value})
+    filters.append(
+        {"term": term, "value": value, "label": label or value, "origin": origin}
+    )
     tab["active_filters"] = filters
 
 
@@ -1730,6 +1737,20 @@ def search_update(self, context):
 
     # when search is locked, don't trigger search update
     ui_props = bpy.context.window_manager.blenderkitUI
+
+    # Drop data-driven filters (e.g. manufacturer chips) when switching asset type.
+    # Seed the tracker on first run to avoid wiping filters during the initial update.
+    last_asset_type = getattr(ui_props, "_last_asset_type", None)
+    if last_asset_type is None:
+        ui_props._last_asset_type = ui_props.asset_type
+    elif last_asset_type != ui_props.asset_type:
+        tab = get_active_tab()
+        filters = _ensure_tab_filters(tab)
+        # Keep only panel-defined filters; drop all ad-hoc/data-derived ones
+        tab["active_filters"] = [
+            f for f in filters if f.get("term") in PANEL_FILTER_TERMS
+        ]
+        ui_props._last_asset_type = ui_props.asset_type
 
     if ui_props.search_lock:
         return
