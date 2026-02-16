@@ -2884,10 +2884,11 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		return
 	}
 
-	downloadDir := filepath.Join(targetSoftware.AssetsPath, assetData.AssetType)
-	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
-		os.MkdirAll(downloadDir, os.ModePerm)
-	}
+	fileName = ServerToLocalFilename(fileName, assetData.Name)
+	assetDirName := GetAssetDirectoryName(assetData.Name, assetData.ID)
+	pluralType := PluralizeAssetType(assetData.AssetType)
+	downloadDir := filepath.Join(targetSoftware.AssetsPath, pluralType, assetDirName)
+	os.MkdirAll(downloadDir, os.ModePerm)
 
 	downloadPath := filepath.Join(downloadDir, fileName)
 	fmt.Println("download path:", downloadPath)
