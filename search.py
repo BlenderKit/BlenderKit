@@ -64,6 +64,259 @@ MAX_PAGE_SIZE = 80
 search_tasks = {}
 
 
+# ------------------------------------------------------------------
+# Active filter helpers (per tab)
+# ------------------------------------------------------------------
+
+
+def _ensure_tab_filters(tab: dict) -> list[dict]:
+    if "active_filters" not in tab:
+        tab["active_filters"] = []
+    if tab["active_filters"] is None:
+        tab["active_filters"] = []
+    return tab["active_filters"]
+
+
+def get_active_filters(tab: Optional[dict] = None) -> list[dict]:
+    tab = tab or get_active_tab()
+    return copy.deepcopy(_ensure_tab_filters(tab))
+
+
+PANEL_FILTER_TERMS: set[str] = {
+    "style",
+    "geometry_nodes",
+    "design_year",
+    "polycount",
+    "texture_resolution",
+    "file_size",
+    "condition",
+    "animated",
+    "free_only",
+    "bookmarks",
+    "quality_limit",
+    "license",
+    "blender_version",
+    "order",
+}
+
+
+def _collect_panel_filters() -> list[dict]:
+    """Translate UI filter state into active filter chip descriptors."""
+    ui_props = bpy.context.window_manager.blenderkitUI
+    sprops = utils.get_search_props()
+    preferences = bpy.context.preferences.addons[__package__].preferences
+
+    panel_filters: list[dict] = []
+
+    if ui_props.free_only:
+        panel_filters.append(
+            {"term": "free_only", "value": "true", "label": "Free first"}
+        )
+
+    if ui_props.search_bookmarks:
+        panel_filters.append(
+            {"term": "bookmarks", "value": "true", "label": "Bookmarks"}
+        )
+
+    if getattr(sprops, "search_style", "ANY") != "ANY":
+        panel_filters.append(
+            {
+                "term": "style",
+                "value": sprops.search_style,
+                "label": f"Style: {sprops.search_style}",
+            }
+        )
+
+    if getattr(sprops, "search_condition", "UNSPECIFIED") != "UNSPECIFIED":
+        panel_filters.append(
+            {
+                "term": "condition",
+                "value": sprops.search_condition,
+                "label": f"Condition: {sprops.search_condition}",
+            }
+        )
+
+    if getattr(sprops, "search_design_year", False):
+        label = f"Year: {sprops.search_design_year_min}-{sprops.search_design_year_max}"
+        panel_filters.append(
+            {
+                "term": "design_year",
+                "value": label,
+                "label": label,
+            }
+        )
+
+    if getattr(sprops, "search_polycount", False):
+        label = f"Poly: {sprops.search_polycount_min}-{sprops.search_polycount_max}"
+        panel_filters.append(
+            {
+                "term": "polycount",
+                "value": label,
+                "label": label,
+            }
+        )
+
+    if getattr(sprops, "search_texture_resolution", False):
+        label = f"TexRes: {sprops.search_texture_resolution_min}-{sprops.search_texture_resolution_max}"
+        panel_filters.append(
+            {
+                "term": "texture_resolution",
+                "value": label,
+                "label": label,
+            }
+        )
+
+    if getattr(sprops, "search_file_size", False):
+        label = f"File: {sprops.search_file_size_min}-{sprops.search_file_size_max} MB"
+        panel_filters.append(
+            {
+                "term": "file_size",
+                "value": label,
+                "label": label,
+            }
+        )
+
+    if getattr(sprops, "search_animated", False):
+        panel_filters.append({"term": "animated", "value": "true", "label": "Animated"})
+
+    if getattr(sprops, "search_geometry_nodes", False):
+        panel_filters.append(
+            {
+                "term": "geometry_nodes",
+                "value": "true",
+                "label": "Geometry Nodes",
+            }
+        )
+
+    if ui_props.quality_limit > 0:
+        panel_filters.append(
+            {
+                "term": "quality_limit",
+                "value": str(ui_props.quality_limit),
+                "label": f"Quality ≥ {ui_props.quality_limit}",
+            }
+        )
+
+    if ui_props.search_license != "ANY":
+        panel_filters.append(
+            {
+                "term": "license",
+                "value": ui_props.search_license,
+                "label": f"License: {ui_props.search_license}",
+            }
+        )
+
+    if ui_props.search_blender_version:
+        label = f"Blender {ui_props.search_blender_version_min}-{ui_props.search_blender_version_max}"
+        panel_filters.append(
+            {
+                "term": "blender_version",
+                "value": label,
+                "label": label,
+            }
+        )
+
+    if ui_props.search_order_by != "default":
+        panel_filters.append(
+            {
+                "term": "order",
+                "value": ui_props.search_order_by,
+                "label": f"Order: {ui_props.search_order_by}",
+            }
+        )
+
+    # NSFW is intentionally left out; it already changes server query and badge state.
+
+    return panel_filters
+
+
+def _sync_panel_filters_into_active(tab: dict):
+    """Merge panel-derived filters with existing ad-hoc filters (e.g., manufacturer)."""
+    current = _ensure_tab_filters(tab)
+    preserved = [f for f in current if f.get("term") not in PANEL_FILTER_TERMS]
+    tab["active_filters"] = preserved + _collect_panel_filters()
+
+
+def set_active_filter(term: str, value: str, label: Optional[str] = None):
+    tab = get_active_tab()
+    filters = _ensure_tab_filters(tab)
+    # drop existing entry for the same term to keep one value per term for now
+    filters = [f for f in filters if f.get("term") != term]
+    filters.append({"term": term, "value": value, "label": label or value})
+    tab["active_filters"] = filters
+
+
+def remove_active_filter(term: str, value: Optional[str] = None):
+    tab = get_active_tab()
+    filters = _ensure_tab_filters(tab)
+    if term in PANEL_FILTER_TERMS:
+        _clear_panel_filter(term)
+    if value is None:
+        filters = [f for f in filters if f.get("term") != term]
+    else:
+        filters = [
+            f
+            for f in filters
+            if not (f.get("term") == term and f.get("value") == value)
+        ]
+    tab["active_filters"] = filters
+
+
+def set_active_filters_for_tab(tab: dict, filters: list[dict]):
+    tab["active_filters"] = copy.deepcopy(filters) if filters else []
+
+
+def _clear_panel_filter(term: str):
+    """Reset underlying filter props when a panel-derived chip is removed."""
+    ui_props = bpy.context.window_manager.blenderkitUI
+    sprops = utils.get_search_props()
+
+    if term == "style" and hasattr(sprops, "search_style"):
+        sprops.search_style = "ANY"
+    elif term == "condition" and hasattr(sprops, "search_condition"):
+        sprops.search_condition = "UNSPECIFIED"
+    elif term == "design_year" and hasattr(sprops, "search_design_year"):
+        sprops.search_design_year = False
+    elif term == "polycount" and hasattr(sprops, "search_polycount"):
+        sprops.search_polycount = False
+    elif term == "texture_resolution" and hasattr(sprops, "search_texture_resolution"):
+        sprops.search_texture_resolution = False
+    elif term == "file_size" and hasattr(sprops, "search_file_size"):
+        sprops.search_file_size = False
+    elif term == "animated" and hasattr(sprops, "search_animated"):
+        sprops.search_animated = False
+    elif term == "geometry_nodes" and hasattr(sprops, "search_geometry_nodes"):
+        sprops.search_geometry_nodes = False
+    elif term == "free_only":
+        ui_props.free_only = False
+    elif term == "bookmarks":
+        ui_props.search_bookmarks = False
+    elif term == "quality_limit":
+        ui_props.quality_limit = 0
+    elif term == "license":
+        ui_props.search_license = "ANY"
+    elif term == "blender_version":
+        ui_props.search_blender_version = False
+    elif term == "order":
+        ui_props.search_order_by = "default"
+
+
+def get_active_filter_keywords(tab: Optional[dict] = None) -> list[str]:
+    tab = tab or get_active_tab()
+    filters = _ensure_tab_filters(tab)
+    tokens = []
+    for f in filters:
+        term = f.get("term")
+        value = f.get("value")
+        # Panel-derived filters (style, free_only, order, etc.) are represented
+        # directly in query parameters and should not emit keyword tokens.
+        if term in PANEL_FILTER_TERMS:
+            continue
+        if term and value:
+            tokens.append(f"+{term}:{value}")
+    return tokens
+
+
 def _inject_user_price_data(assets: list[dict]) -> None:
     """Augment search results with per-user pricing info when available."""
     if not assets:
@@ -881,9 +1134,15 @@ def build_query_common(query: dict, props, ui_props) -> dict:
     """
     query = copy.deepcopy(query)
     query_common = {}
-    if ui_props.search_keywords != "":
-        keywords = ui_props.search_keywords.replace("&", "%26")
-        query_common["query"] = keywords
+    base_keywords = ui_props.search_keywords.strip()
+    filter_tokens = get_active_filter_keywords()
+    combined_parts = []
+    if base_keywords:
+        combined_parts.append(base_keywords.replace("&", "%26"))
+    combined_parts.extend(filter_tokens)
+    combined_keywords = " ".join(part for part in combined_parts if part)
+    if combined_keywords:
+        query_common["query"] = combined_keywords
 
     if props.search_verification_status != "ALL" and utils.profile_is_validator():
         query_common["verification_status"] = props.search_verification_status.lower()
@@ -1310,6 +1569,7 @@ def clean_filters():
     """Cleanup filters in case search needs to be reset, typically when asset id is copy pasted."""
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
+    active_tab = get_active_tab()
     ui_props.property_unset("own_only")
     sprops.property_unset("search_texture_resolution")
     sprops.property_unset("search_file_size")
@@ -1344,6 +1604,7 @@ def update_filters():
 
     sprops = utils.get_search_props()
     ui_props = bpy.context.window_manager.blenderkitUI
+    active_tab = get_active_tab()
 
     if ui_props.search_bookmarks and not utils.user_logged_in():
         ui_props.search_bookmarks = False
@@ -1359,6 +1620,8 @@ def update_filters():
         )
         return False
 
+    _sync_panel_filters_into_active(active_tab)
+
     fcommon = (
         ui_props.own_only
         or sprops.search_texture_resolution
@@ -1370,6 +1633,7 @@ def update_filters():
         or ui_props.search_license != "ANY"
         or ui_props.search_blender_version
         or ui_props.search_order_by != "default"
+        or len(get_active_filters()) > 0
         # NSFW filter is signaled in a special way and should not affect the filter icon
     )
 
@@ -1559,9 +1823,9 @@ def strip_accents(s):
 
 def refresh_search():
     """Refresh search results. Useful after login/logout."""
-    props = utils.get_search_props()
-    if props is not None:
-        props.report = ""
+    sprops = utils.get_search_props()
+    ui_props = bpy.context.window_manager.blenderkitUI
+    active_tab = get_active_tab()
 
     ui_props = bpy.context.window_manager.blenderkitUI
     if ui_props.assetbar_on:
@@ -1762,6 +2026,7 @@ def unregister_search():
 def get_ui_state():
     """Get the current UI state."""
     ui_props = bpy.context.window_manager.blenderkitUI
+    active_tab = get_active_tab()
 
     ui_state = {
         "ui_props": {
@@ -1777,6 +2042,7 @@ def get_ui_state():
             "search_blender_version_max": ui_props.search_blender_version_max,
         },
         "search_props": {},
+        "active_filters": get_active_filters(active_tab),
     }
 
     # we need to add all props manually since they are a mess now and some should not be stored.

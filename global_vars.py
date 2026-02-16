@@ -51,6 +51,7 @@ TABS: dict[str, Any] = {
             "name": "Default",  # Tab name
             "history": [],  # List of history steps
             "history_index": -1,  # Current position in history
+            "active_filters": [],  # Per-tab active filter chips
         }
     ],
 }
