@@ -19,7 +19,6 @@
 import datetime
 import json
 import logging
-import numpy as np
 import os
 import platform
 import re
@@ -674,6 +673,8 @@ def img_to_preview(img, copy_original=False):
 
     if not copy_original:
         return
+
+    import numpy as np
 
     # Only process if image has alpha channel and needs filling
     if img.channels == 4 and (
