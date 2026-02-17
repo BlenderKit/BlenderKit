@@ -2378,7 +2378,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             self.manufacturer_section_height = 0
 
-    def _update_manufacturer_data(self, search_results: list[dict] | None):
+    def _update_manufacturer_data(self, search_results: Optional[list[dict]] = None):
         if not self._filter_bubbles_enabled():
             self._manufacturer_names = []
             self._manufacturer_counts = Counter()
