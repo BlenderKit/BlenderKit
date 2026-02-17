@@ -20,7 +20,6 @@ import copy
 import json
 import logging
 import math
-from functools import lru_cache
 import os
 import re
 import unicodedata
@@ -241,7 +240,7 @@ def set_active_filter(
     term: str,
     value: str,
     label: Optional[str] = None,
-    origin: str | None = None,
+    origin: Optional[str] = None,
 ):
     tab = get_active_tab()
     filters = _ensure_tab_filters(tab)
