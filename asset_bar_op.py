@@ -1994,11 +1994,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # user preference thumb size is in logical pixels; scale to match Blender UI scaling
         self.thumb_size = int(round(user_preferences.thumb_size * scale))
         self.button_size = int(2 * self.button_margin + self.thumb_size)
-        self.free_button_margin = int(self.button_size * 0.05)
 
         self.other_button_size = int(round(30 * scale))
         self.filter_button_height = int(round(25 * scale))
         self.filter_button_text_size = int(round(20 * scale))
+
+        self.free_button_margin = int(self.button_size * 0.05)
+        self.free_button_text_size = int(self.other_button_size * 0.4)
+
         self.icon_size = int(round(24 * scale))
         self.validation_icon_margin = int(round(3 * scale))
         reg_multiplier = 1
@@ -2294,10 +2297,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         filters = search.get_active_filters()
-        layout = []
 
-        clear_slot = 0  # reserved for potential future clear-all button
-        raw_available = self.bar_width - 2 * self.assetbar_margin - clear_slot
+        raw_available = self.bar_width - 2 * self.assetbar_margin
         min_width = self.active_filter_button_min_width
         # Prevent the offset from eating all available width; keep at least one chip visible
         capped_offset = max(0, raw_available - min_width)
@@ -2308,9 +2309,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self._active_filter_rows = 0
             return
 
-        max_x = self.assetbar_margin + clear_slot + capped_offset + content_width
-        current_x = self.assetbar_margin + clear_slot + capped_offset
+        max_x = self.bar_width - self.assetbar_margin
+        current_x = self.assetbar_margin
         current_row = 0
+        layout = []
 
         for f in filters[: self.max_active_filter_chips]:
             term = f.get("term", "")
@@ -2321,7 +2323,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             width = min(width, content_width)
             if current_x + width > max_x and current_x > self.assetbar_margin:
                 current_row += 1
-                current_x = self.assetbar_margin + clear_slot
+                current_x = self.assetbar_margin
 
             layout.append(
                 {
@@ -2429,22 +2431,30 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             + self.free_button_margin * 2
         )
 
-        start_y = base_y + self.free_button_margin
-        start_y = max(start_y, -self.bar_y + self.free_button_margin)
-
+        current_left_offset = 0
         for idx, button in enumerate(self.active_filter_buttons):
             if idx < len(layout):
                 data = layout[idx]
-                row_y = start_y + data["row"] * (
-                    self.filter_button_height + self.free_button_margin * 2
+                button.set_location(
+                    self.panel.x + current_left_offset,
+                    base_y,
                 )
-                button.set_location(data["x"], int(row_y))
-                button.width = data["width"]
+                #
+                width = (
+                    ui_bgl.get_text_size(
+                        font_id=1,
+                        text=data["label"].upper(),
+                        text_size=self.free_button_text_size,
+                    )[0]
+                    + self.free_button_margin * 4
+                )
+                button.width = width
                 button.height = self.filter_button_height
                 button.text = data["label"].upper()
-                button.text_size = self.other_button_size * 0.4
+                button.text_size = self.free_button_text_size
                 button.visible = True
                 button.active_filter = {"term": data["term"], "value": data["value"]}
+                current_left_offset += width + self.free_button_margin
             else:
                 button.visible = False
 
@@ -2473,20 +2483,28 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         min_count = min(displayed_counts) if displayed_counts else 1
         max_count = max(displayed_counts) if displayed_counts else 1
 
-        manufacturer_width = 0
+        current_left_offset = 0
         for idx, button in enumerate(self.manufacturer_buttons):
             if idx < len(layout):
                 data = layout[idx]
                 button.set_location(
-                    self.panel.x + data["x"],
+                    self.panel.x + current_left_offset,
                     self.panel.y + base_y,
                 )
                 # shift to the right so we leave space for the clear bubble
                 # button.x += clear_slot
-                button.width = data["width"]
+                width = (
+                    ui_bgl.get_text_size(
+                        font_id=1,
+                        text=data.get("label", data["name"]).upper(),
+                        text_size=self.free_button_text_size,
+                    )[0]
+                    + self.free_button_margin * 4
+                )
+                button.width = width
                 button.height = self.filter_button_height
                 button.text = data.get("label", data["name"]).upper()
-                button.text_size = self.other_button_size * 0.4
+                button.text_size = self.free_button_text_size
                 button.visible = True
                 button.manufacturer_name = data["name"]
                 count = counts.get(data["name"], min_count)
@@ -2494,12 +2512,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 hover_gray = min(gray + 0.1, 1.0)
                 button.bg_color = (gray, gray, gray, 0.85)
                 button.hover_bg_color = (hover_gray, hover_gray, hover_gray, 1.0)
-
-                manufacturer_width += (
-                    data["width"]
-                    + self.free_button_margin
-                    + int(self.button_size * 0.05)
-                )
+                current_left_offset += width + self.free_button_margin
             else:
                 button.visible = False
 
