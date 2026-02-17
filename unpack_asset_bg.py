@@ -235,6 +235,7 @@ def _write_metadata(data_block, asset_data: dict) -> None:
     This includes tags, author, and description."""
     if data_block is None:
         return
+    print("📝  writing asset metadata")
     tags = data_block.asset_data.tags
     for t in tags:
         tags.remove(t)
@@ -242,8 +243,47 @@ def _write_metadata(data_block, asset_data: dict) -> None:
     for t in asset_data.get("tags", []):
         tags.new(str(t))
 
-    data_block.asset_data.author = _resolve_author_name(asset_data)
-    data_block.asset_data.description = asset_data.get("description", "")
+    # assign more metadata in tags, so it is searchable in asset browser, and also visible in metadata panel
+    other_meta = {}
+
+    if asset_data.get("assetBaseId"):
+        other_meta["id"] = asset_data["assetBaseId"]
+    if asset_data.get("assetType"):
+        other_meta["asset_type"] = asset_data.get("assetType", "")
+    if asset_data.get("sourceAppVersion"):
+        other_meta["source_app_version"] = asset_data.get("sourceAppVersion", "")
+
+    # further custom meta from dictParameters
+    dict_parameters = asset_data.get("dictParameters", {})
+    if "category" in dict_parameters:
+        other_meta["category"] = dict_parameters["category"]
+    if "condition" in dict_parameters:
+        other_meta["condition"] = dict_parameters["condition"]
+    if "pbrType" in dict_parameters:
+        other_meta["pbr_type"] = dict_parameters["pbrType"]
+    if "materialStyle" in dict_parameters:
+        other_meta["material_style"] = dict_parameters["materialStyle"]
+    if "engine" in dict_parameters:
+        other_meta["engine"] = dict_parameters["engine"]
+    if "animated" in dict_parameters and dict_parameters["animated"]:
+        other_meta["animated"] = "yes"
+    if "simulation" in dict_parameters and dict_parameters["simulation"]:
+        other_meta["simulation"] = "yes"
+
+    description = asset_data.get("description", "")
+    if description:
+        other_meta["description"] = description
+    author_name = _resolve_author_name(asset_data)
+    if author_name:
+        other_meta["author"] = author_name
+    # ad additional metadata to tags
+    for key, value in other_meta.items():
+        tags.new(f"{key}:{value}")
+
+    data_block.asset_data.author = author_name
+    data_block.asset_data.description = description
+    data_block.asset_data.copyright = asset_data.get("copyright", "")
+    data_block.asset_data.license = asset_data.get("license", "")
 
 
 def _resolve_catalog_name(asset_data: dict) -> str:
@@ -330,6 +370,7 @@ def _assign_asset_catalog(data_block, asset_data: dict) -> None:
     """
     if data_block is None or data_block.asset_data is None:
         return
+    print("📁  assigning asset to catalog")
     # TODO get this somehow from the asset data, or pass it as argument, or use some convention to find it
     library_dir = os.path.join(os.path.expanduser("~"), "blenderkit_data")
     if not os.path.exists(library_dir):
@@ -373,6 +414,11 @@ def _assign_asset_catalog(data_block, asset_data: dict) -> None:
         print(
             "Asset catalog assignment skipped: asset_data does not have catalog_id attribute."
         )
+    if hasattr(asset_meta, "catalog_simple_name"):
+        try:
+            asset_meta.catalog_simple_name = catalog_name
+        except AttributeError:
+            print("Asset catalog assignment skipped: catalog_simple_name is read-only.")
 
 
 def unpack_asset(data):
@@ -433,12 +479,6 @@ def unpack_asset(data):
                 if bpy.app.version >= (3, 0, 0):
                     ob.asset_mark()
                 data_block = ob
-        # for c in bpy.data.collections:
-        #     if c.get('asset_data') is not None:
-        #         if bpy.app.version >= (3, 0, 0):
-
-        #         c.asset_mark()
-        #         data_block = c
     elif asset_data["assetType"] == "material":
         for m in bpy.data.materials:
             if bpy.app.version >= (3, 0, 0):
@@ -450,10 +490,21 @@ def unpack_asset(data):
             data_block = bpy.context.scene
     elif asset_data["assetType"] == "brush":
         for b in bpy.data.brushes:
-            if b.get("asset_data") is not None:
+            if hasattr(b, "asset_data") and b.asset_data is not None:
                 if bpy.app.version >= (3, 0, 0):
                     b.asset_mark()
                 data_block = b
+    elif asset_data["assetType"] == "nodegroup":
+        for ng in bpy.data.node_groups:
+            if hasattr(ng, "asset_data") and ng.asset_data is not None:
+                if (
+                    ng.asset_data.copyright == "Blender Foundation"
+                    or ng.asset_data.is_property_readonly("author")
+                ):
+                    continue  # skip official node groups, they are not assets
+                if bpy.app.version >= (3, 0, 0):
+                    ng.asset_mark()
+                data_block = ng
 
     if bpy.app.version >= (3, 0, 0) and data_block is not None and write_metadata:
         _write_metadata(data_block, asset_data)
