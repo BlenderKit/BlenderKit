@@ -2235,8 +2235,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return None
 
         tokens = re.split(r"[\s,\\/|_-]+", lowered)
-        invalid_tokens = {"me", "unknown", "self", "none"}
+        invalid_tokens = {"me", "unknown", "self", "none", "n/a", "na", "null", "nil"}
         if any(t in invalid_tokens for t in tokens if t):
+            return None
+
+        # also use regex to disqualify names without any letters, or with only special characters
+        if not re.search(r"[a-zA-Z]", cleaned):
             return None
 
         return cleaned
@@ -2295,9 +2299,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         clear_slot = 0  # reserved for potential future clear-all button
         raw_available = self.bar_width - 2 * self.assetbar_margin - clear_slot
         min_width = self.active_filter_button_min_width
-        x_offset_cfg = getattr(self, "active_filter_button_x_offset", 0)
         # Prevent the offset from eating all available width; keep at least one chip visible
-        capped_offset = min(x_offset_cfg, max(0, raw_available - min_width))
+        capped_offset = max(0, raw_available - min_width)
         content_width = max(min_width, raw_available - capped_offset)
 
         if not filters or raw_available <= 0:
