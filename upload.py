@@ -1334,7 +1334,7 @@ class UploadOperator(Operator):
             utils.label_multiline(
                 layout,
                 width=500,
-                text="Would you like tu upload your asset to BlenderKit?",
+                text="Would you like to upload your asset to BlenderKit?",
             )
 
     def invoke(self, context, event):
