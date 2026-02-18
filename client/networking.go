@@ -121,11 +121,14 @@ func GetProxyFunc(proxyURL, proxyWhich string) func(*http.Request) (*url.URL, er
 
 func GetTLSConfig(sslContext string) *tls.Config {
 	switch sslContext {
+	case "":
+		BKLog.Printf("%s SSL verification is enabled by default", EmoSecure)
+		return &tls.Config{}
 	case "ENABLED":
 		BKLog.Printf("%s SSL verification is enabled", EmoSecure)
 		return &tls.Config{}
 	case "DISABLED":
-		BKLog.Printf("%s SSL verification disabled, insecure!", EmoInsecure)
+		BKLog.Printf("%s SSL verification is disabled, insecure!", EmoInsecure)
 		return &tls.Config{InsecureSkipVerify: true}
 	default:
 		BKLog.Printf("%s Defaulting to enabled SSL verification due to - unrecognized ssl_context parameter: %v", EmoSecure, sslContext)
