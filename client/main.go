@@ -256,8 +256,8 @@ func handleChannels() {
 func main() {
 	Port = flag.String("port", "62485", "port to listen on")
 	Server = flag.String("server", server_default, "server to connect to")
-	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use") // possible values: "DEFAULT", "PRECONFIGURED", "DISABLED"
-	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")        // possible values: "SYSTEM", "NONE", "CUSTOM"
+	ssl_context := flag.String("ssl_context", "", "SSL context to use") // possible values: "", "ENABLED", "DISABLED"
+	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use") // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
 	StartingAddonVersion = flag.String("version", "", "version of the add-on which starts the Client")
