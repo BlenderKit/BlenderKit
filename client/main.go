@@ -2727,6 +2727,8 @@ type Software struct {
 	AddonVersion      string    `json:"addonVersion"` // Version of the add-on
 	AssetsPath        string    `json:"assetsPath"`   // Where to download assets, only for non-Blender add-ons
 	ProjectName       string    `json:"projectName"`  // Name of currently opened project, for better identification of the window.
+	ModelFormat       string    `json:"modelFormat"`  // "gltf_godot" or "blend"
+	Resolution        string    `json:"resolution"`   // "resolution_2K" etc.
 	lastTimeConnected time.Time // To handle unsubscribe in softwares which does not allow it
 }
 
@@ -2867,7 +2869,8 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 	// OTHER SOFTWARES - JUST GODOT NOW
 	sceneID := uuid.New().String()
-	canDownload, downloadURL, _, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
+	selectedFile, _ := selectAssetFile(assetData.Files, assetData.AssetType, targetSoftware.ModelFormat, targetSoftware.Resolution)
+	canDownload, downloadURL, _, err := GetSignedURL(sceneID, selectedFile, apiKey, targetSoftware.AddonVersion, "")
 	if err != nil {
 		BKLog.Printf("%s GetDownloadURL error %v", EmoBKClientJS, err)
 		return
@@ -3115,6 +3118,12 @@ func monitorAvailableSoftwares() {
 // monitor active and inactive softwares in order to unsubscribe them. Also we want to update
 // the name of currently opened Project, so windows can be recognized by users.
 func updateAvailableSoftware(data Software) bool {
+	if data.ModelFormat == "" {
+		data.ModelFormat = "blend"
+	}
+	if data.Resolution == "" {
+		data.Resolution = "resolution_2K"
+	}
 	new := false
 	AvailableSoftwaresMux.Lock()
 	if _, ok := AvailableSoftwares[data.AppID]; !ok { // New add-on connected

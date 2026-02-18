@@ -664,16 +664,13 @@ func GetDownloadFilepaths(downloadAssetData DownloadAssetData, downloadDirs []st
 	return filteredWinPaths
 }
 
-// Get the download URL for the asset file.
+// GetSignedURL fetches a signed CDN URL for a pre-selected AssetFile.
 // canDownload - true if the file can be downloaded, false otherwise
-// downloadURL - https://assets.blenderkit.com/assets/ahksdkasd83yd928ydioayhdua/files/blend_uuid.blend?verify=123-asdavas
-// fileUploadSize - actually the size of the file we gonna download, so download size kind of
-// error - error
-func GetDownloadURL(sceneID string, files []AssetFile, resolution string, apiKey, addonVersion, platformVersion string) (bool, string, int, error) {
+// downloadURL - https://assets.blenderkit.com/assets/.../file.blend?verify=...
+// fileUploadSize - size of the file to download
+func GetSignedURL(sceneID string, file AssetFile, apiKey, addonVersion, platformVersion string) (bool, string, int, error) {
 	reqData := url.Values{}
 	reqData.Set("scene_uuid", sceneID)
-
-	file, _ := GetResolutionFile(files, resolution)
 
 	req, err := http.NewRequest("GET", file.DownloadURL, nil) // file.DownloadURL is like https://blenderkit.com/api/v1/download/123456789
 	if err != nil {
@@ -704,12 +701,42 @@ func GetDownloadURL(sceneID string, files []AssetFile, resolution string, apiKey
 		return false, "", 0, err
 	}
 
-	url, ok := respJSON["filePath"].(string)
-	if !ok || url == "" {
+	signedURL, ok := respJSON["filePath"].(string)
+	if !ok || signedURL == "" {
 		return false, "", 0, fmt.Errorf("filePath is None or invalid")
 	}
 
-	return true, url, file.FileUploadSize, nil
+	return true, signedURL, file.FileUploadSize, nil
+}
+
+// GetDownloadURL selects the best file for the given resolution and fetches a signed CDN URL.
+// Kept for Blender add-on compatibility.
+func GetDownloadURL(sceneID string, files []AssetFile, resolution string, apiKey, addonVersion, platformVersion string) (bool, string, int, error) {
+	file, _ := GetResolutionFile(files, resolution)
+	return GetSignedURL(sceneID, file, apiKey, addonVersion, platformVersion)
+}
+
+// selectAssetFile picks the best AssetFile using the modelFormat preference,
+// falling back to .blend at the given resolution. GLTF is only attempted for model assets.
+func selectAssetFile(files []AssetFile, assetType, modelFormat, resolution string) (AssetFile, string) {
+	if assetType == "model" {
+		var candidates []string
+		switch modelFormat {
+		case "gltf_godot":
+			candidates = []string{"gltf_godot", "gltf"}
+		case "gltf":
+			candidates = []string{"gltf", "gltf_godot"}
+		}
+		for _, ft := range candidates {
+			if f, got := GetResolutionFile(files, ft); got == ft {
+				return f, got
+			}
+		}
+		if candidates != nil {
+			BKLog.Printf("%s No GLTF file available for asset, falling back to .blend at %s", EmoWarning, resolution)
+		}
+	}
+	return GetResolutionFile(files, resolution)
 }
 
 func GetResolutionFile(files []AssetFile, targetRes string) (AssetFile, string) {
