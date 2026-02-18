@@ -3082,27 +3082,38 @@ func GetAvailableSoftwares() []Software {
 // we shutdown the Client. We handle removal/unsubscription via checking lastTimeConnected because not all softwares are able
 // to send Request during unregistration/closing of the host software.
 func monitorAvailableSoftwares() {
-	pause := 250 * time.Millisecond
-	tolerance := 999 * time.Millisecond
+	pause := 1 * time.Second
 	for {
 		time.Sleep(pause)
 		AvailableSoftwaresMux.Lock()
 		now := time.Now()
 		for i := range AvailableSoftwares {
 			software := AvailableSoftwares[i]
-			if now.Sub(software.lastTimeConnected) < tolerance {
-				continue // Software is active
-			}
+			// Non-Blender SW (like Godot add-on) isn't always able to
+			// unsubscribe on shutdown, so we rely on missed heartbeats to detect
+			// disconnect.
+			//
+			// The time between heartbeats can be tens of seconds in extreme
+			// conditions. For example, Godot Timers can take up to 12 s to
+			// fire when the window is suspended on Wayland (not visible on a monitor).
+			//
+			// 60 s tolerance gives a 5x safety margin while still cleaning up
+			// within a reasonable time when the software truly exits.
+			// This could be aligned with Blender's 120 s tolerance, there is little to
+			// no harm in client exiting few minutes after being used.
+			tolerance := 60 * time.Second
+			// Blender add-on unsubscribes itself explicitly, so only remove it after longer time.
 			if software.Name == blender {
-				// Blender add-on unsubscribes itself, so we them remove only in extreme cases
-				if now.Sub(software.lastTimeConnected) < 120*time.Second {
-					continue
-				}
+				tolerance = 120 * time.Second
+			}
+			inactive := now.Sub(software.lastTimeConnected)
+			if inactive < tolerance {
+				continue // Software is active
 			}
 
 			// Software found to be inactive
+			BKLog.Printf("%s %s unsubscribed: %d (inactive for %.1fs)", EmoDisconnecting, software.Name, software.AppID, inactive.Seconds())
 			delete(AvailableSoftwares, software.AppID)
-			BKLog.Printf("%s %s unsubscribed: %d", EmoDisconnecting, software.Name, software.AppID)
 
 			// Software removed and nothing is left. We shutdown Client. We do not check outside for
 			// as it could shutdown Client right after start, as availableSoftware is filled on first reports request.
