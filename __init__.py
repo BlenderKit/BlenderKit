@@ -1187,7 +1187,7 @@ class BlenderKitAddonSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         description="Show only addons that are already installed in Blender",
         default=False,
         update=lambda self, context: (
-            search.refresh_search()
+            search.search_update(self, context)
             if context.window_manager.blenderkitUI.asset_type == "ADDON"
             else None
         ),
@@ -2132,6 +2132,12 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=False,
     )
 
+    display_filter_bubbles: BoolProperty(
+        name="Display filter bubbles",
+        description="Display filter bubbles in the assetbar. Filter bubbles show you which filters are active and allow you to quickly change them.",
+        default=False,
+    )
+
     global_dir: StringProperty(
         name="Global Directory",
         description="Global storage for your assets, will use subdirectories for the contents. Client will place its files in subdirectory 'client'",
@@ -2581,6 +2587,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.alignment = "EXPAND"
             experimental_settings.label(text="Experimental settings")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            experimental_settings.prop(self, "display_filter_bubbles")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
         # RUNTIME INFO

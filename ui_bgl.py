@@ -740,7 +740,9 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
     return tex
 
 
-def get_text_size(font_id=0, text="", text_size=16, dpi=72):
+def get_text_size(
+    font_id: int = 0, text: str = "", text_size: float = 16, dpi: int = 72
+):
     if app.version < (4, 0, 0):
         blf.size(font_id, text_size, dpi)
     else:

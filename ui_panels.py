@@ -52,6 +52,17 @@ ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 
 bk_logger = logging.getLogger(__name__)
 
+# Maximum length for manufacturer labels before truncation (e.g. "Ford motor company")
+MAX_MANUFACTURER_LABEL_LEN = 17
+
+INVALID_TOKENS = {
+    "me",
+    "unknown",
+    "self",
+    "none",
+    "n/a",
+}
+
 last_time_overlay_panel_active = 0.0
 
 
@@ -1775,8 +1786,19 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
         if ui_props.asset_type == "HDR":
             props = wm.blenderkit_HDR
 
-        if ui_props.asset_type in ["MATERIAL", "MODEL", "HDR"]:
+        if ui_props.asset_type in [
+            "MATERIAL",
+            "MODEL",
+            "SCENE",
+            "PRINTABLE",
+            "NODEGROUP",
+            "MATERIAL",
+            "BRUSH",
+        ]:
             layout.prop(preferences, "unpack_files")
+            layout.prop(preferences, "write_asset_metadata")
+            layout.prop(preferences, "resolution")
+        elif ui_props.asset_type in ["HDR"]:
             layout.prop(preferences, "resolution")
         # layout.prop(props, 'unpack_files')
 
@@ -2585,30 +2607,67 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         parameter = utils.get_param(self.asset_data, key)
         if parameter == None:
             return
+
+        # Keep search value unformatted so server queries stay clean.
+        search_value = parameter
+        display_value = parameter
+
         if type(parameter) == int:
             if decimal:
-                parameter = f"{parameter:,d}"
+                display_value = f"{parameter:,d}"
             else:
-                parameter = f"{parameter}"
+                display_value = f"{parameter}"
         elif type(parameter) == float:
-            parameter = f"{parameter:,.1f}"
+            display_value = f"{parameter:,.1f}"
+        elif isinstance(parameter, str):
+            display_value = parameter.strip()
+            search_value = display_value
+
+            if key == "manufacturer":
+                lowered = display_value.lower()
+                # quick sanity checks to avoid garbage manufacturers
+                is_url = (
+                    lowered.startswith(("http://", "https://", "www."))
+                    or "://" in lowered
+                )
+                tokens = (
+                    lowered.replace(",", " ")
+                    .replace("/", " ")
+                    .replace("\\", " ")
+                    .replace("|", " ")
+                    .replace("-", " ")
+                    .strip()
+                    .split()
+                )
+                has_invalid_token = any(t in INVALID_TOKENS for t in tokens)
+
+                if is_url or has_invalid_token:
+                    return
+
+                if len(display_value) > MAX_MANUFACTURER_LABEL_LEN:
+                    display_value = (
+                        display_value[: MAX_MANUFACTURER_LABEL_LEN - 3].rstrip() + "..."
+                    )
+
+        display_value = str(display_value)
+
         if do_search:
             kwargs = {
                 "esc": True,
-                "keywords": f"+{key}:{parameter}",
-                "tooltip": f"search by {parameter}",
+                "keywords": f"+{key}:{search_value}",
+                "tooltip": f"search by {display_value}",
             }
             # search gets auto emboss
             self.draw_property(
                 layout,
                 pretext,
-                parameter,
+                display_value,
                 operator="view3d.blenderkit_search",
                 operator_kwargs=kwargs,
                 emboss=True,
             )
         else:
-            self.draw_property(layout, pretext, parameter)
+            self.draw_property(layout, pretext, display_value)
 
     def draw_description(self, layout, width=250):
         if len(self.asset_data["description"]) > 0:
