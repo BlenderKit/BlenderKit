@@ -2896,6 +2896,17 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	downloadPath := filepath.Join(downloadDir, fileName)
 	fmt.Println("download path:", downloadPath)
 
+	// Create download task so Godot plugin can track progress via /godot/report
+	taskID := uuid.New().String()
+	TasksMux.Lock()
+	if Tasks[appID] == nil {
+		SubscribeNewApp(MinimalTaskData{AppID: appID, AddonVersion: targetSoftware.AddonVersion})
+	}
+	dlTask := NewTask(nil, appID, taskID, "asset_download")
+	dlTask.Message = "Starting download"
+	Tasks[appID][taskID] = dlTask
+	TasksMux.Unlock()
+
 	exists, info, err := FileExists(downloadPath)
 	if err != nil {
 		if info.IsDir() {
@@ -2910,12 +2921,13 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	}
 	if exists {
 		fmt.Printf("file %s exists", downloadPath)
+		TaskFinishCh <- &TaskFinish{AppID: appID, TaskID: taskID, Message: "file already on disk", Result: map[string]string{"file_path": downloadPath}}
 		return
 	}
 
 	file, err := os.Create(downloadPath)
 	if err != nil {
-		fmt.Println("error creating file", err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("error creating file: %w", err)}
 		return
 	}
 	defer file.Close()
@@ -2933,32 +2945,30 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		e := DeleteFile(downloadPath)
 		if e != nil {
 			fmt.Printf("request failed: %v, failed to delete file: %v", err, e)
-			return
 		}
-		fmt.Printf("request failed: %v", err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("request failed: %w", err)}
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
+		httpErr := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
 		e := DeleteFile(downloadPath)
 		if e != nil {
-			fmt.Printf("%v, failed to delete file: %v", err, e)
-			return
+			fmt.Printf("%v, failed to delete file: %v", httpErr, e)
 		}
-		fmt.Println(err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: httpErr}
+		return
 	}
 
 	totalLength := resp.Header.Get("Content-Length")
 	if totalLength == "" {
 		e := DeleteFile(downloadPath)
 		if e != nil {
-			fmt.Printf("request failed: %v, failed to delete file: %v", err, e)
-			return
+			fmt.Printf("failed to delete file: %v", e)
 		}
-		fmt.Println("Content-Length header is missing")
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("Content-Length header is missing")}
 		return
 	}
 
@@ -2967,9 +2977,8 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		e := DeleteFile(downloadPath)
 		if e != nil {
 			fmt.Printf("length conversion failed: %v, failed to delete file: %v", err, e)
-			return
 		}
-		fmt.Println(err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("length conversion failed: %w", err)}
 		return
 	}
 
@@ -2978,15 +2987,15 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	var downloaded int64 = 0
 	progress := make(chan int64)
 	go func() {
-		var downloadMessage string
 		for p := range progress {
-			progress := int(100 * p / fileSize)
+			pct := int(100 * p / fileSize)
+			var downloadMessage string
 			if sizeInMB < 1 { // If the size is less than 1MB, show in KB
-				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), progress)
+				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), pct)
 			} else { // If the size is not a whole number, show one decimal place
-				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, progress)
+				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, pct)
 			}
-			fmt.Println(downloadMessage)
+			TaskProgressUpdateCh <- &TaskProgressUpdate{AppID: appID, TaskID: taskID, Progress: pct, Message: downloadMessage}
 		}
 	}()
 
@@ -3000,9 +3009,8 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 				err = DeleteFile(downloadPath) // Clean up; ignore error from DeleteFile to focus on writeErr
 				if err != nil {
 					fmt.Printf("%v, failed to delete file: %v", writeErr, err)
-					return
 				}
-				fmt.Print("writeErr", writeErr)
+				TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: writeErr}
 				return
 			}
 			downloaded += int64(n)
@@ -3011,15 +3019,14 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		if readErr != nil {
 			close(progress)
 			if readErr == io.EOF {
-				fmt.Println("Download completed successfully")
+				TaskFinishCh <- &TaskFinish{AppID: appID, TaskID: taskID, Message: "downloaded", Result: map[string]string{"file_path": downloadPath}}
 				return // Download completed successfully
 			}
 			err := DeleteFile(downloadPath) // Clean up; ignore error from DeleteFile to focus on readErr
 			if err != nil {
 				fmt.Printf("%v, failed to delete file: %v", readErr, err)
-				return
 			}
-			fmt.Println("readErr", readErr)
+			TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: readErr}
 			return
 		}
 	}
@@ -3139,9 +3146,10 @@ func updateAvailableSoftware(data Software) bool {
 
 // General response data to non-Blender softwares.
 type SoftwareResponse struct {
-	ClientVersion string `json:"client_version"`
-	Message       string `json:"message"`       // What to show to user
-	MessageLevel  int    `json:"message_level"` // 0=Debug, 10=Info, 20=Warning, 30=Error, 40=Fatal
+	ClientVersion string  `json:"client_version"`
+	Message       string  `json:"message"`       // What to show to user
+	MessageLevel  int     `json:"message_level"` // 0=Debug, 10=Info, 20=Warning, 30=Error, 40=Fatal
+	Tasks         []*Task `json:"tasks"`         // Pending/finished/error tasks for this app
 }
 
 func godotReportHandler(w http.ResponseWriter, r *http.Request) {
@@ -3163,18 +3171,34 @@ func godotReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	new := updateAvailableSoftware(data)
+
+	TasksMux.Lock()
+	if Tasks[data.AppID] == nil {
+		SubscribeNewApp(MinimalTaskData{AppID: data.AppID, AddonVersion: data.AddonVersion})
+	}
+	toReport := make([]*Task, 0, len(Tasks[data.AppID]))
+	for _, task := range Tasks[data.AppID] {
+		toReport = append(toReport, task)
+		if task.Status == "finished" || task.Status == "error" {
+			delete(Tasks[data.AppID], task.TaskID)
+		}
+	}
+	TasksMux.Unlock()
+
 	var response SoftwareResponse
 	if new {
 		response = SoftwareResponse{
 			ClientVersion: ClientVersion,
 			Message:       "Connected to Client",
 			MessageLevel:  10,
+			Tasks:         toReport,
 		}
 	} else {
 		response = SoftwareResponse{
 			ClientVersion: ClientVersion,
 			Message:       "",
 			MessageLevel:  0,
+			Tasks:         toReport,
 		}
 	}
 
