@@ -257,8 +257,7 @@ def can_erase_alpha(na):
     alpha = na[3::4]
     alpha_sum = alpha.sum()
     if alpha_sum == alpha.size:
-        print("image can have alpha erased")
-    # print(alpha_sum, alpha.size)
+        bk_logger.info("image can have alpha erased")
     return alpha_sum == alpha.size
 
 
@@ -269,9 +268,8 @@ def is_image_black(na):
 
     rgbsum = r.sum() + g.sum() + b.sum()
 
-    # print('rgb sum', rgbsum, r.sum(), g.sum(), b.sum())
     if rgbsum == 0:
-        print("image can have alpha channel dropped")
+        bk_logger.info("image can have alpha channel dropped")
     return rgbsum == 0
 
 
@@ -284,7 +282,7 @@ def is_image_bw(na):
     gb_equal = g == b
     rgbequal = rg_equal.all() and gb_equal.all()
     if rgbequal:
-        print("image is black and white, can have channels reduced")
+        bk_logger.info("image is black and white, can have channels reduced")
 
     return rgbequal
 
@@ -326,7 +324,6 @@ def numpytoimage(a, iname, width=0, height=0, channels=3):
     i = None
 
     for image in bpy.data.images:
-        # print(image.name[:len(iname)],iname, image.size[0],a.shape[0],image.size[1],a.shape[1])
         if (
             image.name[: len(iname)] == iname
             and image.size[0] == width
@@ -352,7 +349,7 @@ def numpytoimage(a, iname, width=0, height=0, channels=3):
     #    a = a.repeat(channels)
     #    a[3::4] = 1
     i.pixels.foreach_set(a)  # this gives big speedup!
-    print("\ntime " + str(time.time() - t))
+    bk_logger.info("\ntime " + str(time.time() - t))
     return i
 
 
@@ -363,7 +360,6 @@ def imagetonumpy_flat(i):
 
     width = i.size[0]
     height = i.size[1]
-    # print(i.channels)
 
     size = width * height * i.channels
     na = numpy.empty(size, numpy.float32)
@@ -374,7 +370,6 @@ def imagetonumpy_flat(i):
     #    na = na.reshape(height, width, i.channels)
     #    na = na.swapaxnes(0, 1)
 
-    # print('\ntime of image to numpy ' + str(time.time() - t))
     return na
 
 
@@ -385,7 +380,6 @@ def imagetonumpy(i):
 
     width = i.size[0]
     height = i.size[1]
-    # print(i.channels)
 
     size = width * height * i.channels
     na = np.empty(size, np.float32)
@@ -396,7 +390,6 @@ def imagetonumpy(i):
     na = na.reshape(height, width, i.channels)
     na = na.swapaxes(0, 1)
 
-    # print('\ntime of image to numpy ' + str(time.time() - t))
     return na
 
 
@@ -424,9 +417,9 @@ def get_rgb_mean(i):
     gmean = g.mean()
     bmean = b.mean()
 
-    rmedian = numpy.median(r)
-    gmedian = numpy.median(g)
-    bmedian = numpy.median(b)
+    # rmedian = numpy.median(r)
+    # gmedian = numpy.median(g)
+    # bmedian = numpy.median(b)
 
     #    return(rmedian,gmedian, bmedian)
     return (rmean, gmean, bmean)
@@ -514,15 +507,13 @@ def check_nmap_ogl_vs_dx(i, mask=None, generated_test_images=False):
     ogl_std = ogl.std()
     dx_std = dx.std()
 
-    # print(mean_ogl, mean_dx)
-    # print(max_ogl, max_dx)
-    print(ogl_std, dx_std)
-    print(i.name)
+    bk_logger.info("OpenGL std: %s, DirectX std: %s", ogl_std, dx_std)
+    bk_logger.info("Image name: %s", i.name)
     #    if abs(mean_ogl) > abs(mean_dx):
     if abs(ogl_std) > abs(dx_std):
-        print("this is probably a DirectX texture")
+        bk_logger.info("this is probably a DirectX texture")
     else:
-        print("this is probably an OpenGL texture")
+        bk_logger.info("this is probably an OpenGL texture")
 
     if generated_test_images:
         # red_x_comparison_img = red_x_comparison_img.swapaxes(0,1)
@@ -584,9 +575,9 @@ def make_possible_reductions_on_image(
     # setup  image depth, 8 or 16 bit.
     # this should normally divide depth with number of channels, but blender always states that number of channels is 4, even if there are only 3
 
-    print(teximage.name)
-    print(teximage.depth)
-    print(teximage.channels)
+    bk_logger.info("Image name: %s", teximage.name)
+    bk_logger.info("Image depth: %s", teximage.depth)
+    bk_logger.info("Image channels: %s", teximage.channels)
 
     bpy.context.scene.display_settings.display_device = "None"
 
@@ -594,16 +585,16 @@ def make_possible_reductions_on_image(
 
     ims.color_mode = find_color_mode(teximage)
     # image_depth = str(max(min(int(teximage.depth / 3), 16), 8))
-    print("resulting depth set to:", image_depth)
+    bk_logger.info("resulting depth set to: %s", image_depth)
 
     fp = input_filepath
     if do_reductions:
         na = imagetonumpy_flat(teximage)
 
         if can_erase_alpha(na):
-            print(teximage.file_format)
+            bk_logger.info("Image file format: %s", teximage.file_format)
             if teximage.file_format == "PNG":
-                print("changing type of image to JPG")
+                bk_logger.info("Changing type of image to JPG")
                 base, ext = os.path.splitext(fp)
                 teximage["original_extension"] = ext
 
