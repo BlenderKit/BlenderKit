@@ -78,6 +78,7 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		downloadData.DownloadAssetData,
 		downloadData.DownloadDirs,
 		downloadData.Preferences.UnpackFiles,
+		downloadData.Preferences.WriteAssetMetadata,
 		downloadData.Preferences.BinaryPath,
 		downloadData.Preferences.AddonDir,
 		downloadData.Preferences.AddonModuleName,
@@ -208,6 +209,7 @@ func doAssetDownload(
 	downloadAssetData DownloadAssetData,
 	downloadDirs []string,
 	unpackFiles bool,
+	writeAssetMetadata bool,
 	binaryPath string,
 	addonDir string,
 	addonModuleName string,
@@ -360,15 +362,18 @@ func doAssetDownload(
 		resultFilePaths = []string{fp}
 	}
 
-	// UNPACKING (Only after download? By now unpack is triggered always,
-	// to ensure assets that weren't unpacked get unpacked for resolution switching )
-	if unpackFiles {
+	// UNPACKING / METADATA WRITE
+	// Trigger unpack when either unpacking is enabled or metadata should be written.
+	shouldUnpack := unpackFiles || writeAssetMetadata
+	if shouldUnpack {
 		// If there was no download, there's risk that the file to be unpacked
 		// is only in local, but not in global directory
 		if action != "download" {
 			fp = existingFiles[0]
 		}
 		//err := UnpackAsset(fp, data, taskID)
+		assetDataRaw, _ := origJSON["asset_data"]
+
 		err := UnpackAsset(
 			fp,
 			taskID,
@@ -377,7 +382,9 @@ func doAssetDownload(
 			binaryPath,
 			addonDir,
 			addonModuleName,
-			downloadAssetData,
+			assetDataRaw,
+			unpackFiles,
+			writeAssetMetadata,
 		)
 		if err != nil {
 			e := fmt.Errorf("error unpacking asset: %w", err)
@@ -432,10 +439,12 @@ func UnpackAsset(
 	binaryPath string,
 	addonDir string,
 	addonModuleName string,
-	downloadAssetData DownloadAssetData,
+	assetDataRaw interface{},
+	unpackFiles bool,
+	writeAssetMetadata bool,
 	//prefs PREFS,
 ) error {
-	if assetType == "hdr" { // Skip unpacking for HDRi files
+	if assetType == "hdr" && !writeAssetMetadata { // Skip unpacking for HDRi files unless metadata is requested
 		TaskMessageCh <- &TaskMessageUpdate{
 			AppID:   appID,
 			TaskID:  taskID,
@@ -455,8 +464,12 @@ func UnpackAsset(
 
 	process_data := map[string]interface{}{
 		"fpath":      blendPath,
-		"asset_data": downloadAssetData,
+		"asset_data": assetDataRaw,
 		"command":    "unpack",
+		"prefs": map[string]interface{}{
+			"unpack_files":         unpackFiles,
+			"write_asset_metadata": writeAssetMetadata,
+		},
 	}
 	jsonData, err := json.Marshal(process_data)
 	if err != nil {
@@ -486,7 +499,7 @@ func UnpackAsset(
 	cmd.Stderr = &combinedOutput
 
 	err = cmd.Run()
-	color.FgGray.Printf("└> backgroung unpacking '%+v' logs:\n", cmd)
+	color.FgGray.Printf("└> background unpacking '%+v' logs:\n", cmd)
 	for _, line := range strings.Split(combinedOutput.String(), "\n") {
 		color.FgGray.Printf("   %s\n", line)
 	}

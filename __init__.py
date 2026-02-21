@@ -2199,6 +2199,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=update_unpack,
     )
 
+    write_asset_metadata: BoolProperty(
+        name="Write Asset Metadata",
+        description="Write BlenderKit metadata into downloaded files so tags, description, and preview show in other scenes",
+        default=True,
+        update=utils.save_prefs,
+    )
+
     # resolution download/import settings
     resolution: EnumProperty(
         name="Max resolution",
@@ -2547,6 +2554,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         if self.directory_behaviour in ("BOTH", "LOCAL"):
             locations_settings.prop(self, "project_subdir")
         locations_settings.prop(self, "unpack_files")
+        locations_settings.prop(self, "write_asset_metadata")
 
         # GUI SETTINGS
         gui_settings = layout.box()
