@@ -32,6 +32,7 @@ from bpy.props import (
     FloatProperty,
     IntProperty,
     FloatVectorProperty,
+    StringProperty,
 )
 
 from . import bg_blender, global_vars, paths, tasks_queue, utils, upload, search
@@ -638,6 +639,12 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         name="Asset Index", description="asset index in search results", default=-1
     )
 
+    asset_type: StringProperty(  # type: ignore[valid-type]
+        name="Asset Type",
+        description="Asset type used for thumbnail generation",
+        default="",
+    )
+
     render_locally: BoolProperty(  # type: ignore[valid-type]
         name="Render Locally",
         description="Render thumbnail locally instead of using server-side rendering",
@@ -703,7 +710,12 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.label(text="thumbnailer settings")
         layout.prop(props, "thumbnail_background_lightness")
         # for printable models
-        if self.asset_type == "PRINTABLE":
+        asset_type = (
+            getattr(self, "asset_type", "")
+            or getattr(self, "asset_data", {}).get("assetType", "")
+            or bpy.context.window_manager.blenderkitUI.asset_type
+        ).upper()
+        if asset_type == "PRINTABLE":
             layout.prop(props, "thumbnail_material_color")
         layout.prop(props, "thumbnail_angle")
         layout.prop(props, "thumbnail_snap_to")
@@ -718,6 +730,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             return {"CANCELLED"}
 
         preferences = bpy.context.preferences.addons[__package__].preferences
+
+        # Ensure asset_type is set when execution is triggered directly.
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if not getattr(self, "asset_type", ""):
+            self.asset_type = ui_props.asset_type
 
         if not self.render_locally:
             # Use server-side thumbnail regeneration
@@ -749,8 +766,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         thumb_path = os.path.join(tempdir, an_slug)
 
         # asset type can be model or printable
-        ui_props = bpy.context.window_manager.blenderkitUI
-        self.asset_type = ui_props.asset_type
+        self.asset_type = self.asset_type or ui_props.asset_type
         args_dict = {
             "type": self.asset_type,
             "asset_name": self.asset_data["name"],
@@ -781,6 +797,12 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         self.asset_data = sr[self.asset_index]
+        # Prepopulate asset_type so draw() can safely access it.
+        self.asset_type = (
+            self.asset_data.get("assetType", "")
+            if isinstance(self.asset_data, dict)
+            else ""
+        ).upper() or bpy.context.window_manager.blenderkitUI.asset_type
 
         return wm.invoke_props_dialog(self, width=400)
 
