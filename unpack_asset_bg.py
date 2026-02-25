@@ -270,15 +270,12 @@ def _write_metadata(data_block, asset_data: dict) -> None:
     if "simulation" in dict_parameters and dict_parameters["simulation"]:
         other_meta["simulation"] = "yes"
 
-    description = asset_data.get("description", "")
-    if description:
-        other_meta["description"] = description
-    author_name = _resolve_author_name(asset_data)
-    if author_name:
-        other_meta["author"] = author_name
     # ad additional metadata to tags
     for key, value in other_meta.items():
         tags.new(f"{key}:{value}")
+
+    description = asset_data.get("description", "")
+    author_name = _resolve_author_name(asset_data)
 
     data_block.asset_data.author = author_name
     data_block.asset_data.description = description

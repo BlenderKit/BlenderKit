@@ -1129,8 +1129,6 @@ def ensure_asset_metadata_on_datablock(asset_type: str, props) -> None:
         if props.simulation:
             other_meta["simulation"] = "yes"
 
-        other_meta["description"] = props.description
-        other_meta["author"] = author_name
         # ad additional metadata to tags
         for key, value in other_meta.items():
             tags_prop.new(f"{key}:{value}")
