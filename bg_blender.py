@@ -25,7 +25,15 @@ import threading
 import bpy
 from bpy.props import EnumProperty
 
-from . import utils
+from . import utils, reports
+
+
+def _safe_eval_target(eval_path: str, name: str):
+    """Try resolving eval_path; fallback to bpy.data.objects by name; return None if missing."""
+    try:
+        return eval(eval_path)
+    except Exception:
+        return bpy.data.objects.get(name) if name else None
 
 
 bk_logger = logging.getLogger(__name__)
@@ -75,7 +83,12 @@ def threadread(tcom: ThreadCom):
         # ignore empty lines
         if inline.strip() == "":
             continue
-        bk_logger.info(inline.strip())
+        # Background Blender already formats logs; strip a leading emoji/prefix to avoid double branding.
+        line = inline.strip()
+        line = re.sub(
+            r"^(?:[🐞ℹ️⚠️❌🔥]\s*)?blenderkit:\s*", "", line, flags=re.IGNORECASE
+        )
+        bk_logger.info(line)
         progress = re.findall(r"progress\{(.*?)\}", inline)
         if len(progress) > 0:
             if type(progress[0]) == int or type(progress[0]) == float:
@@ -117,8 +130,10 @@ def progress(text, n=None):
         sys.stdout.write(output)
         sys.stdout.flush()
     except Exception as e:
-        print("background progress reporting race condition")
-        print(e)
+        bk_logger.exception(
+            "background progress reporting race condition", exc_info=False
+        )
+        bk_logger.error(f"Error details: {e}")
 
 
 # @bpy.app.handlers.persistent
@@ -141,10 +156,15 @@ def bg_update():
     for p in remove_processes:
         bk_logger.info(str(p[1].outtext))
         estring = p[1].eval_path_computing + " = False"
-        try:
-            exec(estring)
-        except Exception:
-            bk_logger.exception("Exception executing eval_path_computing.")
+        target = _safe_eval_target(p[1].eval_path, p[1].name)
+        if target is not None:
+            try:
+                exec(estring)
+            except Exception as e:
+                bk_logger.exception(
+                    "Exception executing eval_path_computing.", exc_info=False
+                )
+                bk_logger.error(f"Error details: {e}")
         bg_processes.remove(p)
 
     # Parse process output
@@ -163,7 +183,7 @@ def bg_update():
                 tcom.outtext = ""
                 text = tcom.lasttext.replace("'", "")  # noqa: F841 needed in exec()
                 estring = tcom.eval_path_state + " = text"
-            # print(tcom.lasttext)
+
             if "finished successfully" in tcom.lasttext:
                 bk_logger.info(str(tcom.lasttext))
                 bg_processes.remove(p)
@@ -175,10 +195,20 @@ def bg_update():
                 readthread.start()
                 p[0] = readthread
             if estring:
-                try:
-                    exec(estring)
-                except Exception as e:
-                    print(f"Exception while reading from background process: {e}")
+                target = _safe_eval_target(tcom.eval_path, tcom.name)
+                if target is not None:
+                    try:
+                        exec(estring)
+                    except Exception as e:
+                        bk_logger.exception(
+                            "Exception while reading from background process.",
+                            exc_info=False,
+                        )
+                        bk_logger.error(f"Error details: {e}")
+                else:
+                    bk_logger.debug(
+                        "Skipping state update; target missing for %s", tcom.name
+                    )
 
     # if len(bg_processes) == 0:
     #     bpy.app.timers.unregister(bg_update)
@@ -247,36 +277,43 @@ class KillBgProcess(bpy.types.Operator):
             tcom = p[1]
             # print(tcom.process_type, self.process_type)
             if tcom.process_type == self.process_type:
-                source = eval(tcom.eval_path)
+                source = _safe_eval_target(tcom.eval_path, tcom.name)
                 kill = False
                 # TODO HDR - add killing of process
-                if source.bl_rna.name == "Object" and self.process_source == "MODEL":
-                    if source.name == bpy.context.active_object.name:
-                        kill = True
-                if source.bl_rna.name == "Scene" and self.process_source == "SCENE":
-                    if source.name == bpy.context.scene.name:
-                        kill = True
-                if source.bl_rna.name == "Image" and self.process_source == "HDR":
-                    ui_props = bpy.context.window_manager.blenderkitUI
-                    if source.name == ui_props.hdr_upload_image.name:
-                        kill = False
+                if source is not None:
+                    if (
+                        source.bl_rna.name == "Object"
+                        and self.process_source == "MODEL"
+                    ):
+                        if source.name == bpy.context.active_object.name:
+                            kill = True
+                    if source.bl_rna.name == "Scene" and self.process_source == "SCENE":
+                        if source.name == bpy.context.scene.name:
+                            kill = True
+                    if source.bl_rna.name == "Image" and self.process_source == "HDR":
+                        ui_props = bpy.context.window_manager.blenderkitUI
+                        if source.name == ui_props.hdr_upload_image.name:
+                            kill = False
 
-                if (
-                    source.bl_rna.name == "Material"
-                    and self.process_source == "MATERIAL"
-                ):
-                    if source.name == bpy.context.active_object.active_material.name:
-                        kill = True
-                if source.bl_rna.name == "Brush" and self.process_source == "BRUSH":
-                    brush = utils.get_active_brush()
-                    if brush is not None and source.name == brush.name:
-                        kill = True
-                if (
-                    source.bl_rna.name == "Object"
-                    and self.process_source == "PRINTABLE"
-                ):
-                    if source.name == bpy.context.active_object.name:
-                        kill = True
+                    if (
+                        source.bl_rna.name == "Material"
+                        and self.process_source == "MATERIAL"
+                    ):
+                        if (
+                            source.name
+                            == bpy.context.active_object.active_material.name
+                        ):
+                            kill = True
+                    if source.bl_rna.name == "Brush" and self.process_source == "BRUSH":
+                        brush = utils.get_active_brush()
+                        if brush is not None and source.name == brush.name:
+                            kill = True
+                    if (
+                        source.bl_rna.name == "Object"
+                        and self.process_source == "PRINTABLE"
+                    ):
+                        if source.name == bpy.context.active_object.name:
+                            kill = True
                 if kill:
                     estring = tcom.eval_path_computing + " = False"
                     exec(estring)
