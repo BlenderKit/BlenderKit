@@ -509,6 +509,7 @@ def get_preferences_as_dict():
         "global_dir": user_preferences.global_dir,
         "project_subdir": user_preferences.project_subdir,
         "unpack_files": user_preferences.unpack_files,
+        "write_asset_metadata": user_preferences.write_asset_metadata,
         # GUI
         "show_on_start": user_preferences.show_on_start,
         "thumb_size": user_preferences.thumb_size,
@@ -561,6 +562,7 @@ def get_preferences() -> datas.Prefs:
         global_dir=user_preferences.global_dir,  # type: ignore[union-attr]
         project_subdir=user_preferences.project_subdir,  # type: ignore[union-attr]
         unpack_files=user_preferences.unpack_files,  # type: ignore[union-attr]
+        write_asset_metadata=user_preferences.write_asset_metadata,  # type: ignore[union-attr]
         # GUI
         show_on_start=user_preferences.show_on_start,  # type: ignore[union-attr]
         thumb_size=user_preferences.thumb_size,  # type: ignore[union-attr]

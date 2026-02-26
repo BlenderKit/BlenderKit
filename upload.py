@@ -22,7 +22,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 import bpy
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
@@ -48,7 +48,6 @@ from . import (
     utils,
     search,
 )
-
 
 NAME_MINIMUM = 3
 NAME_MAXIMUM = 40
@@ -354,10 +353,13 @@ def get_upload_data(caller=None, context=None, asset_type=None):
 
     """
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-    export_data = {
+    export_data: dict[str, Any] = {
         # "type": asset_type,
     }
-    upload_params = {}
+    upload_params: dict[str, Any] = {}
+    # initialize here to prevent unbound
+    upload_data: dict[str, Any] = {}
+
     if asset_type in ("MODEL", "PRINTABLE"):
         # Prepare to save the file
         mainmodel = utils.get_active_model()
@@ -1041,6 +1043,178 @@ def storage_quota_available(props) -> bool:
     return False
 
 
+def _get_upload_datablock(asset_type: str):
+    if bpy.app.version < (3, 0, 0):
+        return None
+    if asset_type in ("MODEL", "PRINTABLE"):
+        return utils.get_active_model()
+    if asset_type == "SCENE":
+        return bpy.context.scene
+    if asset_type == "MATERIAL":
+        obj = bpy.context.active_object
+        if obj is not None:
+            return obj.active_material
+        return None
+    if asset_type == "BRUSH":
+        return utils.get_active_brush()
+    if asset_type == "NODEGROUP":
+        return bpy.context.window_manager.blenderkitUI.nodegroup_upload
+    return None
+
+
+def ensure_asset_metadata_on_datablock(asset_type: str, props) -> None:
+    """Write tags/description/author into the datablock before we save for upload."""
+
+    data_block = _get_upload_datablock(asset_type)
+    if data_block is None:
+        return
+
+    if getattr(data_block, "asset_data", None) is None:
+        mark_fn = getattr(data_block, "asset_mark", None)
+        if callable(mark_fn):
+            mark_fn()
+
+    asset_meta = getattr(data_block, "asset_data", None)
+    if asset_meta is None:
+        return
+
+    try:
+        tags_prop = asset_meta.tags
+        for tag in list(tags_prop):
+            tags_prop.remove(tag)
+        for tag in utils.string2list(props.tags):
+            tags_prop.new(str(tag))
+
+        profile = global_vars.BKIT_PROFILE
+        author_name = getattr(profile, "fullName", "") or getattr(
+            profile, "username", ""
+        )
+        asset_meta.author = author_name
+        asset_meta.description = props.description
+
+        # inject also additional metadata
+        other_meta = {}
+
+        if props.id:
+            other_meta["id"] = props.asset_base_id
+
+        # further custom meta from dictParameters
+        if props.condition:
+            other_meta["condition"] = props.condition
+        if props.pbr_type:
+            other_meta["pbr_type"] = props.pbr_type
+        if props.style:
+            other_meta["style"] = props.style
+        if props.engine:
+            other_meta["engine"] = props.engine
+        if props.animated:
+            other_meta["animated"] = "yes"
+        if props.simulation:
+            other_meta["simulation"] = "yes"
+
+        # ad additional metadata to tags
+        for key, value in other_meta.items():
+            tags_prop.new(f"{key}:{value}")
+
+    except Exception as e:  # pragma: no cover - defensive for asset_data API quirks
+        bk_logger.warning("Failed to write asset metadata before upload: %s", e)
+
+
+def _sanitize_preview_image(preview_path: str) -> str:
+    """Some thumbnail images have issues libEx support.
+
+    This function tries to sanitize the image by re-saving it as PNG from the blender.
+    """
+    if not preview_path or not os.path.exists(preview_path):
+        return ""
+    base_dir = os.path.dirname(preview_path)
+    base_name = os.path.splitext(os.path.basename(preview_path))[0]
+    sanitized_path = os.path.join(base_dir, f"{base_name}_clean.png")
+    if os.path.exists(sanitized_path):
+        return sanitized_path
+    img = None
+    try:
+        img = bpy.data.images.load(preview_path, check_existing=False)
+        img.filepath_raw = sanitized_path
+        img.file_format = "PNG"
+        img.save()
+        return sanitized_path
+    except Exception:
+        return ""
+    finally:
+        if img is not None:
+            try:
+                bpy.data.images.remove(img)
+            except Exception:
+                pass
+
+
+def _op_poll(op_callable, data_block) -> bool:
+    """Check if the operator can run in the context of the given data block."""
+    try:
+        if hasattr(bpy.context, "temp_override"):
+            with bpy.context.temp_override(id=data_block):
+                return op_callable.poll()
+        override = bpy.context.copy()
+        override["id"] = data_block
+        return op_callable.poll(override)
+    except Exception:
+        return False
+
+
+def _op_call(op_callable, data_block, **kwargs):
+    """Call the operator in the context of the given data block."""
+    if hasattr(bpy.context, "temp_override"):
+        with bpy.context.temp_override(id=data_block):
+            return op_callable(**kwargs)
+    override = bpy.context.copy()
+    override["id"] = data_block
+    return op_callable(override, **kwargs)
+
+
+def apply_asset_preview(data_block, props) -> None:
+    """Apply asset preview image to the asset data block.
+
+    It first tries to download the thumbnail from the URL provided in asset data.
+    If that fails, it falls back to generating a preview within Blender."""
+    if data_block is None:
+        return
+    if not props.thumbnail:
+        return
+    thmb_path = bpy.path.abspath(props.thumbnail)
+    if not os.path.exists(thmb_path):
+        return
+    if thmb_path:
+        clean_path = _sanitize_preview_image(thmb_path)
+        if clean_path:
+            thmb_path = clean_path
+        try:
+            loaded = False
+            if _op_poll(bpy.ops.ed.lib_id_load_custom_preview, data_block):
+                result = _op_call(
+                    bpy.ops.ed.lib_id_load_custom_preview,
+                    data_block,
+                    filepath=thmb_path,
+                )
+                loaded = "FINISHED" in result
+            if loaded:
+                bk_logger.info("Thumbnail preview applied successfully.")
+                return
+        except Exception as e:
+            bk_logger.warning(
+                "Failed to load thumbnail preview, falling back to generating preview: "
+                f"{e}"
+            )
+
+    try:
+        if _op_poll(bpy.ops.ed.lib_id_generate_preview, data_block):
+            _op_call(bpy.ops.ed.lib_id_generate_preview, data_block)
+            bk_logger.info("Generated preview applied successfully.")
+    except Exception:
+        bk_logger.warning("Failed to generate preview, asset will have no preview")
+        return
+
+
 def auto_fix(asset_type=""):
     # this applies various procedures to ensure coherency in the database.
     asset = utils.get_active_asset()
@@ -1070,6 +1244,9 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     # if previous check did find any problems then
     if props.report != "":
         return False, None, None
+
+    ensure_asset_metadata_on_datablock(asset_type, props)
+    apply_asset_preview(asset_type, props)
 
     if not reupload:
         props.asset_base_id = ""

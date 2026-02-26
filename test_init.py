@@ -68,6 +68,7 @@ class Test01Registration(unittest.TestCase):
             "global_dir": user_preferences.global_dir,
             "project_subdir": user_preferences.project_subdir,
             "unpack_files": user_preferences.unpack_files,
+            "write_asset_metadata": user_preferences.write_asset_metadata,
             # GUI
             "show_on_start": user_preferences.show_on_start,
             "thumb_size": user_preferences.thumb_size,
