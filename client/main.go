@@ -256,8 +256,8 @@ func handleChannels() {
 func main() {
 	Port = flag.String("port", "62485", "port to listen on")
 	Server = flag.String("server", server_default, "server to connect to")
-	ssl_context := flag.String("ssl_context", "DEFAULT", "SSL context to use") // possible values: "DEFAULT", "PRECONFIGURED", "DISABLED"
-	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use")        // possible values: "SYSTEM", "NONE", "CUSTOM"
+	ssl_context := flag.String("ssl_context", "", "SSL context to use") // possible values: "", "ENABLED", "DISABLED"
+	proxy_which := flag.String("proxy_which", "SYSTEM", "proxy to use") // possible values: "SYSTEM", "NONE", "CUSTOM"
 	proxy_address := flag.String("proxy_address", "", "proxy address")
 	trusted_ca_certs := flag.String("trusted_ca_certs", "", "trusted CA certificates")
 	StartingAddonVersion = flag.String("version", "", "version of the add-on which starts the Client")
@@ -2727,6 +2727,8 @@ type Software struct {
 	AddonVersion      string    `json:"addonVersion"` // Version of the add-on
 	AssetsPath        string    `json:"assetsPath"`   // Where to download assets, only for non-Blender add-ons
 	ProjectName       string    `json:"projectName"`  // Name of currently opened project, for better identification of the window.
+	ModelFormat       string    `json:"modelFormat"`  // "gltf_godot" or "blend"
+	Resolution        string    `json:"resolution"`   // "resolution_2K" etc.
 	lastTimeConnected time.Time // To handle unsubscribe in softwares which does not allow it
 }
 
@@ -2867,7 +2869,8 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 
 	// OTHER SOFTWARES - JUST GODOT NOW
 	sceneID := uuid.New().String()
-	canDownload, downloadURL, _, err := GetDownloadURL(sceneID, assetData.Files, resolution, apiKey, targetSoftware.AddonVersion, "")
+	selectedFile, _ := selectAssetFile(assetData.Files, assetData.AssetType, targetSoftware.ModelFormat, targetSoftware.Resolution)
+	canDownload, downloadURL, _, err := GetSignedURL(sceneID, selectedFile, apiKey, targetSoftware.AddonVersion, "")
 	if err != nil {
 		BKLog.Printf("%s GetDownloadURL error %v", EmoBKClientJS, err)
 		return
@@ -2884,13 +2887,25 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		return
 	}
 
-	downloadDir := filepath.Join(targetSoftware.AssetsPath, assetData.AssetType)
-	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
-		os.MkdirAll(downloadDir, os.ModePerm)
-	}
+	fileName = ServerToLocalFilename(fileName, assetData.Name)
+	assetDirName := GetAssetDirectoryName(assetData.Name, assetData.ID)
+	pluralType := PluralizeAssetType(assetData.AssetType)
+	downloadDir := filepath.Join(targetSoftware.AssetsPath, pluralType, assetDirName)
+	os.MkdirAll(downloadDir, os.ModePerm)
 
 	downloadPath := filepath.Join(downloadDir, fileName)
 	fmt.Println("download path:", downloadPath)
+
+	// Create download task so Godot plugin can track progress via /godot/report
+	taskID := uuid.New().String()
+	TasksMux.Lock()
+	if Tasks[appID] == nil {
+		SubscribeNewApp(MinimalTaskData{AppID: appID, AddonVersion: targetSoftware.AddonVersion})
+	}
+	dlTask := NewTask(nil, appID, taskID, "asset_download")
+	dlTask.Message = "Starting download"
+	Tasks[appID][taskID] = dlTask
+	TasksMux.Unlock()
 
 	exists, info, err := FileExists(downloadPath)
 	if err != nil {
@@ -2906,12 +2921,13 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	}
 	if exists {
 		fmt.Printf("file %s exists", downloadPath)
+		TaskFinishCh <- &TaskFinish{AppID: appID, TaskID: taskID, Message: "file already on disk", Result: map[string]string{"file_path": downloadPath}}
 		return
 	}
 
 	file, err := os.Create(downloadPath)
 	if err != nil {
-		fmt.Println("error creating file", err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("error creating file: %w", err)}
 		return
 	}
 	defer file.Close()
@@ -2929,32 +2945,30 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		e := DeleteFile(downloadPath)
 		if e != nil {
 			fmt.Printf("request failed: %v, failed to delete file: %v", err, e)
-			return
 		}
-		fmt.Printf("request failed: %v", err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("request failed: %w", err)}
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, respString, _ := ParseFailedHTTPResponse(resp)
-		err := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
+		httpErr := fmt.Errorf("server returned non-OK status (%d): %s", resp.StatusCode, respString)
 		e := DeleteFile(downloadPath)
 		if e != nil {
-			fmt.Printf("%v, failed to delete file: %v", err, e)
-			return
+			fmt.Printf("%v, failed to delete file: %v", httpErr, e)
 		}
-		fmt.Println(err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: httpErr}
+		return
 	}
 
 	totalLength := resp.Header.Get("Content-Length")
 	if totalLength == "" {
 		e := DeleteFile(downloadPath)
 		if e != nil {
-			fmt.Printf("request failed: %v, failed to delete file: %v", err, e)
-			return
+			fmt.Printf("failed to delete file: %v", e)
 		}
-		fmt.Println("Content-Length header is missing")
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("Content-Length header is missing")}
 		return
 	}
 
@@ -2963,9 +2977,8 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		e := DeleteFile(downloadPath)
 		if e != nil {
 			fmt.Printf("length conversion failed: %v, failed to delete file: %v", err, e)
-			return
 		}
-		fmt.Println(err)
+		TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: fmt.Errorf("length conversion failed: %w", err)}
 		return
 	}
 
@@ -2974,15 +2987,15 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	var downloaded int64 = 0
 	progress := make(chan int64)
 	go func() {
-		var downloadMessage string
 		for p := range progress {
-			progress := int(100 * p / fileSize)
+			pct := int(100 * p / fileSize)
+			var downloadMessage string
 			if sizeInMB < 1 { // If the size is less than 1MB, show in KB
-				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), progress)
+				downloadMessage = fmt.Sprintf("Downloading %dkB (%d%%)", int(sizeInMB*1024), pct)
 			} else { // If the size is not a whole number, show one decimal place
-				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, progress)
+				downloadMessage = fmt.Sprintf("Downloading %.1fMB (%d%%)", sizeInMB, pct)
 			}
-			fmt.Println(downloadMessage)
+			TaskProgressUpdateCh <- &TaskProgressUpdate{AppID: appID, TaskID: taskID, Progress: pct, Message: downloadMessage}
 		}
 	}()
 
@@ -2996,9 +3009,8 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 				err = DeleteFile(downloadPath) // Clean up; ignore error from DeleteFile to focus on writeErr
 				if err != nil {
 					fmt.Printf("%v, failed to delete file: %v", writeErr, err)
-					return
 				}
-				fmt.Print("writeErr", writeErr)
+				TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: writeErr}
 				return
 			}
 			downloaded += int64(n)
@@ -3007,15 +3019,14 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		if readErr != nil {
 			close(progress)
 			if readErr == io.EOF {
-				fmt.Println("Download completed successfully")
+				TaskFinishCh <- &TaskFinish{AppID: appID, TaskID: taskID, Message: "downloaded", Result: map[string]string{"file_path": downloadPath}}
 				return // Download completed successfully
 			}
 			err := DeleteFile(downloadPath) // Clean up; ignore error from DeleteFile to focus on readErr
 			if err != nil {
 				fmt.Printf("%v, failed to delete file: %v", readErr, err)
-				return
 			}
-			fmt.Println("readErr", readErr)
+			TaskErrorCh <- &TaskError{AppID: appID, TaskID: taskID, Error: readErr}
 			return
 		}
 	}
@@ -3074,27 +3085,38 @@ func GetAvailableSoftwares() []Software {
 // we shutdown the Client. We handle removal/unsubscription via checking lastTimeConnected because not all softwares are able
 // to send Request during unregistration/closing of the host software.
 func monitorAvailableSoftwares() {
-	pause := 250 * time.Millisecond
-	tolerance := 999 * time.Millisecond
+	pause := 1 * time.Second
 	for {
 		time.Sleep(pause)
 		AvailableSoftwaresMux.Lock()
 		now := time.Now()
 		for i := range AvailableSoftwares {
 			software := AvailableSoftwares[i]
-			if now.Sub(software.lastTimeConnected) < tolerance {
-				continue // Software is active
-			}
+			// Non-Blender SW (like Godot add-on) isn't always able to
+			// unsubscribe on shutdown, so we rely on missed heartbeats to detect
+			// disconnect.
+			//
+			// The time between heartbeats can be tens of seconds in extreme
+			// conditions. For example, Godot Timers can take up to 12 s to
+			// fire when the window is suspended on Wayland (not visible on a monitor).
+			//
+			// 60 s tolerance gives a 5x safety margin while still cleaning up
+			// within a reasonable time when the software truly exits.
+			// This could be aligned with Blender's 120 s tolerance, there is little to
+			// no harm in client exiting few minutes after being used.
+			tolerance := 60 * time.Second
+			// Blender add-on unsubscribes itself explicitly, so only remove it after longer time.
 			if software.Name == blender {
-				// Blender add-on unsubscribes itself, so we them remove only in extreme cases
-				if now.Sub(software.lastTimeConnected) < 120*time.Second {
-					continue
-				}
+				tolerance = 120 * time.Second
+			}
+			inactive := now.Sub(software.lastTimeConnected)
+			if inactive < tolerance {
+				continue // Software is active
 			}
 
 			// Software found to be inactive
+			BKLog.Printf("%s %s unsubscribed: %d (inactive for %.1fs)", EmoDisconnecting, software.Name, software.AppID, inactive.Seconds())
 			delete(AvailableSoftwares, software.AppID)
-			BKLog.Printf("%s %s unsubscribed: %d", EmoDisconnecting, software.Name, software.AppID)
 
 			// Software removed and nothing is left. We shutdown Client. We do not check outside for
 			// as it could shutdown Client right after start, as availableSoftware is filled on first reports request.
@@ -3112,6 +3134,12 @@ func monitorAvailableSoftwares() {
 // monitor active and inactive softwares in order to unsubscribe them. Also we want to update
 // the name of currently opened Project, so windows can be recognized by users.
 func updateAvailableSoftware(data Software) bool {
+	if data.ModelFormat == "" {
+		data.ModelFormat = "blend"
+	}
+	if data.Resolution == "" {
+		data.Resolution = "resolution_2K"
+	}
 	new := false
 	AvailableSoftwaresMux.Lock()
 	if _, ok := AvailableSoftwares[data.AppID]; !ok { // New add-on connected
@@ -3127,9 +3155,10 @@ func updateAvailableSoftware(data Software) bool {
 
 // General response data to non-Blender softwares.
 type SoftwareResponse struct {
-	ClientVersion string `json:"client_version"`
-	Message       string `json:"message"`       // What to show to user
-	MessageLevel  int    `json:"message_level"` // 0=Debug, 10=Info, 20=Warning, 30=Error, 40=Fatal
+	ClientVersion string  `json:"client_version"`
+	Message       string  `json:"message"`       // What to show to user
+	MessageLevel  int     `json:"message_level"` // 0=Debug, 10=Info, 20=Warning, 30=Error, 40=Fatal
+	Tasks         []*Task `json:"tasks"`         // Pending/finished/error tasks for this app
 }
 
 func godotReportHandler(w http.ResponseWriter, r *http.Request) {
@@ -3151,18 +3180,34 @@ func godotReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	new := updateAvailableSoftware(data)
+
+	TasksMux.Lock()
+	if Tasks[data.AppID] == nil {
+		SubscribeNewApp(MinimalTaskData{AppID: data.AppID, AddonVersion: data.AddonVersion})
+	}
+	toReport := make([]*Task, 0, len(Tasks[data.AppID]))
+	for _, task := range Tasks[data.AppID] {
+		toReport = append(toReport, task)
+		if task.Status == "finished" || task.Status == "error" {
+			delete(Tasks[data.AppID], task.TaskID)
+		}
+	}
+	TasksMux.Unlock()
+
 	var response SoftwareResponse
 	if new {
 		response = SoftwareResponse{
 			ClientVersion: ClientVersion,
 			Message:       "Connected to Client",
 			MessageLevel:  10,
+			Tasks:         toReport,
 		}
 	} else {
 		response = SoftwareResponse{
 			ClientVersion: ClientVersion,
 			Message:       "",
 			MessageLevel:  0,
+			Tasks:         toReport,
 		}
 	}
 
