@@ -3093,9 +3093,18 @@ func monitorAvailableSoftwares() {
 		for i := range AvailableSoftwares {
 			software := AvailableSoftwares[i]
 			// Non-Blender SW (like Godot add-on) isn't always able to
-			// unsubscribe on shutdown, so we unsubscribe after relatively short
-			// time of not receiving heartbeats.
-			tolerance := 5 * time.Second
+			// unsubscribe on shutdown, so we rely on missed heartbeats to detect
+			// disconnect.
+			//
+			// The time between heartbeats can be tens of seconds in extreme
+			// conditions. For example, Godot Timers can take up to 12 s to
+			// fire when the window is suspended on Wayland (not visible on a monitor).
+			//
+			// 60 s tolerance gives a 5x safety margin while still cleaning up
+			// within a reasonable time when the software truly exits.
+			// This could be aligned with Blender's 120 s tolerance, there is little to
+			// no harm in client exiting few minutes after being used.
+			tolerance := 60 * time.Second
 			// Blender add-on unsubscribes itself explicitly, so only remove it after longer time.
 			if software.Name == blender {
 				tolerance = 120 * time.Second
