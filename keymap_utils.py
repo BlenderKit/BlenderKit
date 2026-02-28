@@ -167,7 +167,6 @@ def register_keymaps(custom_keymaps: list[KeyMapDef] | None = None) -> None:
                 )
                 setattr(kmi.properties, prop_name, prop_value)
             _registered_keymaps.append((kc_addon, km, kmi))
-    wm.keyconfigs.update(keep_properties=True)
 
 
 def unregister_keymaps() -> None:
