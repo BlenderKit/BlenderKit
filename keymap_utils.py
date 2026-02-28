@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
 
 import bpy
 import rna_keymap_ui
@@ -41,7 +40,7 @@ class KeyMapItemDef:
     alt: bool = False
     oskey: bool = False
     key_modifier: str = "NONE"
-    properties: Dict[str, object] = field(default_factory=dict)
+    properties: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -51,11 +50,11 @@ class KeyMapDef:
     name: str
     space_type: str
     region_type: str = "WINDOW"
-    items: List[KeyMapItemDef] = field(default_factory=list)
+    items: list[KeyMapItemDef] = field(default_factory=list)
 
 
 # Default bindings we ship. Users can edit these in Preferences.
-DEFAULT_KEYMAP_ITEMS: List[KeyMapItemDef] = [
+DEFAULT_KEYMAP_ITEMS: list[KeyMapItemDef] = [
     KeyMapItemDef(
         idname="view3d.run_assetbar_fix_context",
         type="SEMI_COLON",
@@ -69,7 +68,7 @@ DEFAULT_KEYMAP_ITEMS: List[KeyMapItemDef] = [
     ),
 ]
 
-DEFAULT_KEYMAPS: List[KeyMapDef] = [
+DEFAULT_KEYMAPS: list[KeyMapDef] = [
     # Register into the standard "Window" keymap so Blender shows it in the main tree.
     KeyMapDef(
         name="Window",  # must be windows otherwise blender will not show it in the default keymap
@@ -80,14 +79,12 @@ DEFAULT_KEYMAPS: List[KeyMapDef] = [
 ]
 
 # Store only the keymap items we create so we can clean them up without touching user overrides.
-_registered_keymaps: List[
-    Tuple[bpy.types.KeyConfig, bpy.types.KeyMap, bpy.types.KeyMapItem]
+_registered_keymaps: list[
+    tuple[bpy.types.KeyConfig, bpy.types.KeyMap, bpy.types.KeyMapItem]
 ] = []
 
 
-def _keymap_has_item(
-    km: bpy.types.KeyMap, idname: str
-) -> Optional[bpy.types.KeyMapItem]:
+def _keymap_has_item(km: bpy.types.KeyMap, idname: str) -> bpy.types.KeyMapItem | None:
     for item in km.keymap_items:
         if item.idname == idname:
             return item
@@ -96,7 +93,7 @@ def _keymap_has_item(
 
 def _find_in_keyconfig(
     keyconfig: bpy.types.KeyConfig, idname: str
-) -> Optional[bpy.types.KeyMapItem]:
+) -> bpy.types.KeyMapItem | None:
     for km in keyconfig.keymaps:
         kmi = _keymap_has_item(km, idname)
         if kmi:
@@ -104,7 +101,7 @@ def _find_in_keyconfig(
     return None
 
 
-def register_keymaps(custom_keymaps: Optional[Iterable[KeyMapDef]] = None) -> None:
+def register_keymaps(custom_keymaps: list[KeyMapDef] | None = None) -> None:
     """Register keymaps for the add-on.
 
     Args:
@@ -186,7 +183,7 @@ def unregister_keymaps() -> None:
     _registered_keymaps.clear()
 
 
-def get_keymap_item(idname: str) -> Optional[bpy.types.KeyMapItem]:
+def get_keymap_item(idname: str) -> bpy.types.KeyMapItem | None:
     """Return the current keymap item for the given operator.
 
     Prefers the user's key configuration (where edits are stored) and falls back to the
@@ -234,7 +231,7 @@ def get_shortcut_label(idname: str, fallback: str = "") -> str:
 
 def _find_km_and_kmi(
     keyconfig: bpy.types.KeyConfig, idname: str
-) -> Optional[Tuple[bpy.types.KeyMap, bpy.types.KeyMapItem]]:
+) -> tuple[bpy.types.KeyMap, bpy.types.KeyMapItem] | None:
     if not keyconfig:
         return None
     for km in keyconfig.keymaps:
