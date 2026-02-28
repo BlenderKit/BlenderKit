@@ -1345,7 +1345,7 @@ class UploadOperator(Operator):
         options={"SKIP_SAVE"},
     )
 
-    metadata: BoolProperty(name="metadata", default=True, options={"SKIP_SAVE"})  # type: ignore[valid-type]
+    metadata: BoolProperty(name="metadata", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
     thumbnail: BoolProperty(name="thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
@@ -1390,6 +1390,14 @@ class UploadOperator(Operator):
             if self.main_file:
                 upload_set.append("MAINFILE")
 
+        if upload_set == []:
+            self.report(
+                {"ERROR"},
+                "No components selected for reupload. "
+                "Please select at least one from: metadata, main file, or thumbnail to reupload.",
+            )
+            return {"CANCELLED"}
+
         # this is accessed later in get_upload_data and needs to be written.
         # should pass upload_set all the way to it probably
         if "MAINFILE" in upload_set:
@@ -1416,10 +1424,11 @@ class UploadOperator(Operator):
         if self.reupload:
             utils.label_multiline(
                 layout,
-                text="To update only metadata of the model, keep checkboxes unchecked",
+                text = "Select the components of the asset you wish to update through reupload. "
+                       "For editing metadata and thumbnails, you can also use the web interface linked above.",
                 width=500,
             )
-            # layout.prop(self, 'metadata')
+            layout.prop(self, "metadata")
             layout.prop(self, "main_file")
             layout.prop(self, "thumbnail")
 
