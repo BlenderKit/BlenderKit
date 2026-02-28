@@ -38,6 +38,7 @@ from . import (
     download,
     global_vars,
     icons,
+    keymap_utils,
     paths,
     ratings,
     ratings_utils,
@@ -487,12 +488,17 @@ def draw_assetbar_show_hide(layout, props):
     s = bpy.context.scene
     ui_props = bpy.context.window_manager.blenderkitUI
 
+    shortcut = keymap_utils.get_shortcut_label(
+        "view3d.run_assetbar_fix_context", fallback=""
+    )
+    shortcut_hint = f"\nShortcut: {shortcut}" if shortcut else ""
+
     if ui_props.assetbar_on:
         icon = "HIDE_OFF"
-        ttip = "Click to Hide Asset Bar.\nShortcut: ;"
+        ttip = f"Click to Hide Asset Bar.{shortcut_hint}"
     else:
         icon = "HIDE_ON"
-        ttip = "Click to Show Asset Bar.\nShortcut: ;"
+        ttip = f"Click to Show Asset Bar.{shortcut_hint}"
 
     op = layout.operator("view3d.blenderkit_asset_bar_widget", text="", icon=icon)
     op.keep_running = False
