@@ -23,7 +23,7 @@ from typing import Any
 import bpy
 from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
 
-from . import colors, global_vars, paths, search, ui_bgl, utils
+from . import colors, global_vars, keymap_utils, paths, search, ui_bgl, utils
 
 
 draw_time = 0
@@ -494,9 +494,6 @@ classes = (
     ParticlesDropDialog,
 )
 
-# store keymap items here to access after registration
-addon_keymapitems = []
-
 
 # @persistent
 def pre_load(context):
@@ -512,32 +509,7 @@ def register_ui():
     for c in classes:
         bpy.utils.register_class(c)
 
-    wm = bpy.context.window_manager
-
-    # spaces solved by registering shortcut to Window. Couldn't register object mode before somehow.
-    if not wm.keyconfigs.addon:
-        return
-    km = wm.keyconfigs.addon.keymaps.new(name="Window", space_type="EMPTY")
-    # asset bar shortcut
-    kmi = km.keymap_items.new(
-        "view3d.run_assetbar_fix_context",
-        "SEMI_COLON",
-        "PRESS",
-        ctrl=False,
-        shift=False,
-    )
-    kmi.properties.keep_running = False
-    kmi.properties.do_search = False
-    addon_keymapitems.append(kmi)
-    # fast rating shortcut
-    wm = bpy.context.window_manager
-    km = wm.keyconfigs.addon.keymaps["Window"]
-    kmi = km.keymap_items.new(
-        "wm.blenderkit_menu_rating_upload", "R", "PRESS", ctrl=False, shift=False
-    )
-    addon_keymapitems.append(kmi)
-    # kmi = km.keymap_items.new(upload.FastMetadata.bl_idname, 'F', 'PRESS', ctrl=True, shift=False)
-    # addon_keymapitems.append(kmi)
+    keymap_utils.register_keymaps()
 
 
 def unregister_ui():
@@ -546,15 +518,4 @@ def unregister_ui():
     for c in classes:
         bpy.utils.unregister_class(c)
 
-    wm = bpy.context.window_manager
-    if not wm.keyconfigs.addon:
-        return
-
-    km = wm.keyconfigs.addon.keymaps.get("Window")
-    if km:
-        for kmi in addon_keymapitems:
-            try:
-                km.keymap_items.remove(kmi)
-            except:
-                pass
-    del addon_keymapitems[:]
+    keymap_utils.unregister_keymaps()
