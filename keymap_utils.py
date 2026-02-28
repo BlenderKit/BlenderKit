@@ -104,27 +104,6 @@ def _find_in_keyconfig(
     return None
 
 
-def _get_target_keyconfigs() -> List[bpy.types.KeyConfig]:
-    """Return keyconfigs to register into, ordered by preference.
-
-    We register into both the user keyconfig (shows in main tree/search) and the
-    add-on keyconfig (visible under Preferences → Keymap → Add-ons) when available.
-    """
-
-    wm = bpy.context.window_manager
-    if not wm:
-        return []
-
-    targets: List[bpy.types.KeyConfig] = []
-    if wm.keyconfigs.user:
-        targets.append(wm.keyconfigs.user)
-    if wm.keyconfigs.addon and wm.keyconfigs.addon not in targets:
-        targets.append(wm.keyconfigs.addon)
-    if not targets and wm.keyconfigs.active:
-        targets.append(wm.keyconfigs.active)
-    return targets
-
-
 def register_keymaps(custom_keymaps: Optional[Iterable[KeyMapDef]] = None) -> None:
     """Register keymaps for the add-on.
 
