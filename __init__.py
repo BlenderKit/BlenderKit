@@ -868,6 +868,21 @@ class BlenderKitCommonUploadProps(object):
         description="License. Please read our help for choosing the right licenses",
     )
 
+    # verification mainly to retrigger processing
+    verification_status: EnumProperty(
+        name="Verification status",
+        description="Verification status of the asset, set by moderators",
+        items=(
+            ("UPLOADING", "Uploading", "uploading"),
+            ("UPLOADED", "Uploaded", "uploaded"),
+            ("VALIDATED", "Validated", "validated"),
+            ("ON_HOLD", "On Hold", "on_hold"),
+            ("REJECTED", "Rejected", "rejected"),
+            ("DELETED", "Deleted", "deleted"),
+        ),
+        default="UPLOADING",
+    )
+
     is_private: EnumProperty(
         name="Thumbnail Style",
         items=(("PRIVATE", "Private", ""), ("PUBLIC", "Public", "")),

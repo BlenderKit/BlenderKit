@@ -185,6 +185,11 @@ def draw_upload_common(layout, props, asset_type, context):
         layout.prop(props, "license")
         layout.prop(props, "is_free", expand=True)
 
+    row = layout.row()
+    # Lock verification status editing in UI for all users; shown for info only.
+    row.enabled = False
+    row.prop(props, "verification_status", expand=True)
+
     prop_needed(layout, props, "name", props.name)
     if props.is_private == "PUBLIC":
         prop_needed(layout, props, "description", props.description)
