@@ -1018,6 +1018,36 @@ def update_asset_metadata(asset_main, asset_data):
     asset_main.blenderkit.id = asset_data["id"]
     asset_main.blenderkit.description = asset_data["description"]
     asset_main.blenderkit.tags = utils.list2string(asset_data["tags"])
+    asset_main.blenderkit.is_private = (
+        "PRIVATE" if asset_data["isPrivate"] else "PUBLIC"
+    )
+    asset_main.blenderkit.verification_status = asset_data.get(
+        "verificationStatus", "UPLOADING"
+    ).upper()
+
+    # manufacturer
+    if asset_data.get("dictParameters"):
+        dp = asset_data["dictParameters"]
+        if dp.get("manufacturer"):
+            asset_main.blenderkit.manufacturer = dp["manufacturer"]
+        else:
+            asset_main.blenderkit.manufacturer = ""
+        if dp.get("designer"):
+            asset_main.blenderkit.designer = dp["designer"]
+        else:
+            asset_main.blenderkit.designer = ""
+        if dp.get("designCollection"):
+            asset_main.blenderkit.design_collection = dp["designCollection"]
+        else:
+            asset_main.blenderkit.design_collection = ""
+        if dp.get("designVariant"):
+            asset_main.blenderkit.design_variant = dp["designVariant"]
+        else:
+            asset_main.blenderkit.design_variant = ""
+        if dp.get("designYear"):
+            asset_main.blenderkit.use_design_year = True
+            asset_main.blenderkit.design_year = int(float(dp["designYear"]))
+
     # BUG #554: categories needs update, but are not in asset_data
     sanitized = _sanitize_for_idprops(asset_data)
     # TODO consider reducing stored fields for filesize.
