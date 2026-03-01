@@ -20,12 +20,15 @@ import json
 import logging
 import os
 import re
+import sys
+import requests
 import tempfile
 from pathlib import Path
 from typing import Optional, Any
 
 import bpy
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
+    IntProperty,
     BoolProperty,
     EnumProperty,
     StringProperty,
@@ -333,7 +336,7 @@ def sub_to_camel(content):
 
 def get_upload_data(caller=None, context=None, asset_type=None):
     """
-    works though metadata from addom props and prepares it for upload to dicts.
+    works though metadata from addon props and prepares it for upload to dicts.
     Parameters
     ----------
     caller - upload operator or none
@@ -342,8 +345,8 @@ def get_upload_data(caller=None, context=None, asset_type=None):
 
     Returns
     -------
-    export_ddta- all extra data that the process needs to upload and communicate with UI from a thread.
-        - eval_path_computing - string path to UI prop that denots if upload is still running
+    export_data- all extra data that the process needs to upload and communicate with UI from a thread.
+        - eval_path_computing - string path to UI prop that denotes if upload is still running
         - eval_path_state - string path to UI prop that delivers messages about upload to ui
         - eval_path - path to object holding upload data to be able to access it with various further commands
         - models - in case of model upload, list of objects
@@ -889,6 +892,38 @@ class FastMetadata(bpy.types.Operator):
         update=update_free_full,
     )
 
+    # Design metadata
+    manufacturer: StringProperty(  # type: ignore[valid-type]
+        name="Manufacturer",
+        description="Manufacturer, company making a design piece or product.",
+        default="",
+    )
+    designer: StringProperty(  # type: ignore[valid-type]
+        name="Designer",
+        description="Author of the original design piece depicted.",
+        default="",
+    )
+    design_collection: StringProperty(  # type: ignore[valid-type]
+        name="Design Collection",
+        description="Name of the collection this design belongs to.",
+        default="",
+    )
+    design_variant: StringProperty(  # type: ignore[valid-type]
+        name="Design Variant",
+        description="Colour or material variant of the product.",
+        default="",
+    )
+    use_design_year: BoolProperty(  # type: ignore[valid-type]
+        name="Use Design Year",
+        description="Whether to include the design year in the metadata. If enabled, the design year will be included as a parameter in the asset metadata.",
+        default=False,
+    )
+    design_year: IntProperty(  # type: ignore[valid-type]
+        name="Design Year",
+        description="When this item was designed.",
+        default=1960,
+    )
+
     ####################
 
     @classmethod
@@ -911,6 +946,13 @@ class FastMetadata(bpy.types.Operator):
         layout.prop(self, "free_full", expand=True)
         if self.is_private == "PUBLIC":
             layout.prop(self, "license")
+        layout.prop(self, "manufacturer")
+        layout.prop(self, "designer")
+        layout.prop(self, "design_collection")
+        layout.prop(self, "design_variant")
+        layout.prop(self, "use_design_year")
+        if self.use_design_year:
+            layout.prop(self, "design_year")
         # layout.label(text="Content Flags:")
         content_flag_box = layout.box()
         content_flag_box.alignment = "EXPAND"
@@ -940,9 +982,38 @@ class FastMetadata(bpy.types.Operator):
                 },
             ],
         }
+
+        # Optional design-related parameters
+        extra_parameters = []
+        if self.designer:
+            extra_parameters.append(
+                {"parameterType": "designer", "value": self.designer}
+            )
+        if self.manufacturer:
+            extra_parameters.append(
+                {"parameterType": "manufacturer", "value": self.manufacturer}
+            )
+        if self.design_collection:
+            extra_parameters.append(
+                {
+                    "parameterType": "designCollection",
+                    "value": self.design_collection,
+                }
+            )
+        if self.design_variant:
+            extra_parameters.append(
+                {"parameterType": "designVariant", "value": self.design_variant}
+            )
+        if self.use_design_year:
+            extra_parameters.append(
+                {"parameterType": "designYear", "value": self.design_year}
+            )
+
+        if extra_parameters:
+            metadata["parameters"].extend(extra_parameters)
         url = f"{paths.BLENDERKIT_API}/assets/{self.asset_id}/"
         messages = {
-            "success": "Metadata upload succeded",
+            "success": "Metadata upload succeeded",
             "error": "Metadata upload failed",
         }
         client_lib.nonblocking_request(url, "PATCH", {}, metadata, messages)
@@ -990,6 +1061,13 @@ class FastMetadata(bpy.types.Operator):
             "sexualizedContent", False
         )
 
+        params = asset_data.get("dictParameters", {})
+        self.designer = params.get("designer", "")
+        self.manufacturer = params.get("manufacturer", "")
+        self.design_collection = params.get("designCollection", "")
+        self.design_variant = params.get("designVariant", "")
+        self.design_year = params.get("designYear", 1960)
+
         wm = context.window_manager
 
         return wm.invoke_props_dialog(self, width=600)
@@ -997,7 +1075,7 @@ class FastMetadata(bpy.types.Operator):
 
 def get_upload_location(props):
     """
-    not used by now, gets location of uploaded asset - potentially usefull if we draw a nice upload gizmo in viewport.
+    not used by now, gets location of uploaded asset - potentially useful if we draw a nice upload gizmo in viewport.
     Parameters
     ----------
     props
@@ -1408,6 +1486,16 @@ class UploadOperator(Operator):
         props.uploading = True
 
         client_lib.asset_upload(upload_data, export_data, upload_set)
+
+        # send hook for processing
+        send_webhooks(
+            asset_base_id=props.asset_base_id,
+            asset_type=self.asset_type,
+            verification_status=props.verification_status,
+            is_free=props.is_free,
+            is_private=props.is_private,
+        )
+
         return {"FINISHED"}
 
     def draw(self, context):
@@ -1630,7 +1718,7 @@ def handle_asset_upload(task: client_tasks.Task):
                 task.message, type="ERROR", details=task.message_detailed
             )
 
-        # crazy shit to parse stupid Django incosistent error messages
+        # crazy shit to parse stupid Django inconsistent error messages
         if "detail" in task.result:
             if type(task.result["detail"]) == dict:
                 for key in task.result["detail"]:
@@ -1663,7 +1751,7 @@ def handle_asset_upload(task: client_tasks.Task):
 
     if task.status == "finished":
         asset.uploading = False
-        return reports.add_report("Upload successfull")
+        return reports.add_report("Upload successful")
 
 
 def handle_asset_metadata_upload(task: client_tasks.Task):
@@ -1687,7 +1775,7 @@ def handle_asset_metadata_upload(task: client_tasks.Task):
         asset.id = task.data["export_data"]["id"]
         bk_logger.info("Assigned original asset.id: %s", asset.id)
 
-    return reports.add_report("Metadata upload successfull")
+    return reports.add_report("Metadata upload successful")
 
 
 def patch_individual_parameter(asset_id="", param_name="", param_value="", api_key=""):
@@ -1814,3 +1902,78 @@ def unregister_upload():
     bpy.utils.unregister_class(FastMetadata)
     bpy.utils.unregister_class(AssetDebugPrint)
     bpy.utils.unregister_class(AssetVerificationStatusChange)
+
+
+# region PROCESSING
+
+
+def get_user_id():
+    profile = global_vars.BKIT_PROFILE
+    if profile is not None:
+        return profile.id
+    return None
+
+
+def send_webhooks(
+    asset_base_id: str,
+    asset_type: str,
+    verification_status: str,
+    is_free: bool,
+    is_private: bool,
+):
+    """Send webhooks for asset processing after upload."""
+    bk_logger.debug("Not implemented yet - waiting for public token.")
+    return None
+    user_id = get_user_id()
+    if not user_id:
+        bk_logger.warning(
+            "User not logged in, skipping webhook dispatch for asset '%s'",
+            asset_base_id,
+        )
+        return
+    ble_ver = utils.get_blender_version()
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    bk_logger.info("Sending webhooks for asset '%s'", asset_base_id)
+    url = "https://api.github.com/repos/blenderkit/blenderkit_asset_tasks/dispatches"
+
+    headers = {
+        "Authorization": f"Bearer {preferences.api_key}", # change to "token <value>"
+        "Accept": "application/vnd.github.v3+json",
+    }
+
+    data = {
+        "event_type": (
+            "process-addon" if asset_type.lower() == "addon" else "process-asset"
+        ),
+        "client_payload": {
+            "asset_base_id": str(asset_base_id),
+            "asset_type": str(asset_type).lower(),
+            "verification_status": str(verification_status).lower(),
+            "is_free": is_free,
+            "is_private": is_private,
+            "user_id": user_id,  # Just to identify origin
+            "source_app_name": "blender",
+            "source_app_version": ble_ver,
+            "source_app_version_xy": ble_ver.split(".")[:2],
+            "addon_version": utils.get_addon_version(),
+        },
+    }
+
+    bk_logger.info("Sending webhooks with: %s", data)
+
+    response = requests.post(url, headers=headers, json=data, timeout=30)
+
+    # Check if the request was successful
+    if response.status_code in (200, 204):
+        bk_logger.info("Success: %s", response.content)
+        return response.json() if response.content else "Success"
+    # Handle error (you can raise an exception or log the error)
+    bk_logger.error("Error: %s", response.content)
+    try:
+        response.raise_for_status()
+    except requests.RequestException:
+        bk_logger.exception("Request failed:")
+    return None
+
+
+# endregion PROCESSING
