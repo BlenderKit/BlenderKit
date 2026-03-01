@@ -1937,7 +1937,7 @@ def send_webhooks(
     url = "https://api.github.com/repos/blenderkit/blenderkit_asset_tasks/dispatches"
 
     headers = {
-        "Authorization": f"Bearer {preferences.api_key}", # change to "token <value>"
+        "Authorization": f"Bearer {preferences.api_key}",  # change to "token <value>"
         "Accept": "application/vnd.github.v3+json",
     }
 
