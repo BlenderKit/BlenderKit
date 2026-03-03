@@ -7,6 +7,236 @@ import (
 	"testing"
 )
 
+func makeFile(fileType string) AssetFile {
+	return AssetFile{FileType: fileType, FileUploadSize: 100}
+}
+
+func TestSelectAssetFile(t *testing.T) {
+	blend := makeFile("blend")
+	gltf := makeFile("gltf")
+	gltfGodot := makeFile("gltf_godot")
+	res2K := makeFile("resolution_2K")
+
+	tests := []struct {
+		name        string
+		files       []AssetFile
+		assetType   string
+		modelFormat string
+		resolution  string
+		wantType    string
+	}{
+		// gltf_godot preference — exact match
+		{
+			name:        "gltf_godot pref: gltf_godot available",
+			files:       []AssetFile{blend, gltf, gltfGodot},
+			assetType:   "model",
+			modelFormat: "gltf_godot",
+			resolution:  "resolution_2K",
+			wantType:    "gltf_godot",
+		},
+		// gltf_godot preference — only gltf available
+		{
+			name:        "gltf_godot pref: only gltf available",
+			files:       []AssetFile{blend, gltf},
+			assetType:   "model",
+			modelFormat: "gltf_godot",
+			resolution:  "resolution_2K",
+			wantType:    "gltf",
+		},
+		// gltf_godot preference — no GLTF, falls back to resolution
+		{
+			name:        "gltf_godot pref: no gltf, fallback to resolution",
+			files:       []AssetFile{blend, res2K},
+			assetType:   "model",
+			modelFormat: "gltf_godot",
+			resolution:  "resolution_2K",
+			wantType:    "resolution_2K",
+		},
+		// gltf_godot preference — no GLTF and no resolution match, falls back to blend
+		{
+			name:        "gltf_godot pref: no gltf and no resolution, fallback to blend",
+			files:       []AssetFile{blend},
+			assetType:   "model",
+			modelFormat: "gltf_godot",
+			resolution:  "resolution_2K",
+			wantType:    "blend",
+		},
+		// gltf preference — exact match
+		{
+			name:        "gltf pref: gltf available",
+			files:       []AssetFile{blend, gltf, gltfGodot},
+			assetType:   "model",
+			modelFormat: "gltf",
+			resolution:  "resolution_2K",
+			wantType:    "gltf",
+		},
+		// gltf preference — only gltf_godot available
+		{
+			name:        "gltf pref: only gltf_godot available",
+			files:       []AssetFile{blend, gltfGodot},
+			assetType:   "model",
+			modelFormat: "gltf",
+			resolution:  "resolution_2K",
+			wantType:    "gltf_godot",
+		},
+		// non-model asset: GLTF never attempted, goes to resolution
+		{
+			name:        "non-model: ignores modelFormat, uses resolution",
+			files:       []AssetFile{blend, gltfGodot, res2K},
+			assetType:   "material",
+			modelFormat: "gltf_godot",
+			resolution:  "resolution_2K",
+			wantType:    "resolution_2K",
+		},
+		// non-model asset: no resolution match, falls back to blend
+		{
+			name:        "non-model: no resolution match, fallback to blend",
+			files:       []AssetFile{blend, gltfGodot},
+			assetType:   "hdri",
+			modelFormat: "gltf_godot",
+			resolution:  "resolution_2K",
+			wantType:    "blend",
+		},
+		// model with "blend" modelFormat: no candidates built, goes straight to resolution
+		{
+			name:        "model with blend format: no gltf attempted",
+			files:       []AssetFile{blend, gltfGodot, res2K},
+			assetType:   "model",
+			modelFormat: "blend",
+			resolution:  "resolution_2K",
+			wantType:    "resolution_2K",
+		},
+		// empty modelFormat (add-on didn't send it): no GLTF attempted, falls to resolution
+		{
+			name:        "empty modelFormat: no gltf attempted, uses resolution",
+			files:       []AssetFile{blend, gltfGodot, res2K},
+			assetType:   "model",
+			modelFormat: "",
+			resolution:  "resolution_2K",
+			wantType:    "resolution_2K",
+		},
+		// empty resolution (browser didn't specify, software didn't override):
+		// returns blend — same as old Blender add-on behaviour
+		{
+			name:        "empty resolution: returns blend",
+			files:       []AssetFile{blend, res2K},
+			assetType:   "model",
+			modelFormat: "",
+			resolution:  "",
+			wantType:    "blend",
+		},
+		// software resolution overrides browser resolution when set
+		{
+			name:        "software resolution overrides empty browser resolution",
+			files:       []AssetFile{blend, res2K},
+			assetType:   "model",
+			modelFormat: "",
+			resolution:  "resolution_2K", // callers passes targetSoftware.Resolution when non-empty
+			wantType:    "resolution_2K",
+		},
+		// both empty, non-model: returns blend
+		{
+			name:        "both empty, non-model: returns blend",
+			files:       []AssetFile{blend, res2K},
+			assetType:   "material",
+			modelFormat: "",
+			resolution:  "",
+			wantType:    "blend",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotType := selectAssetFile(tt.files, tt.assetType, tt.modelFormat, tt.resolution)
+			if gotType != tt.wantType {
+				t.Errorf("selectAssetFile() fileType = %q, want %q", gotType, tt.wantType)
+			}
+			if got.FileType != tt.wantType {
+				t.Errorf("selectAssetFile() returned AssetFile.FileType = %q, want %q", got.FileType, tt.wantType)
+			}
+		})
+	}
+}
+
+func TestGetResolutionFile(t *testing.T) {
+	blend := makeFile("blend")
+	thumbnail := makeFile("thumbnail")
+	res1K := makeFile("resolution_1K")
+	res2K := makeFile("resolution_2K")
+	res4K := makeFile("resolution_4K")
+	gltf := makeFile("gltf")
+	gltfGodot := makeFile("gltf_godot")
+	zipFile := makeFile("zip_file")
+
+	tests := []struct {
+		name      string
+		files     []AssetFile
+		targetRes string
+		wantType  string
+	}{
+		{
+			name:      "exact resolution match",
+			files:     []AssetFile{blend, res1K, res2K, res4K},
+			targetRes: "resolution_2K",
+			wantType:  "resolution_2K",
+		},
+		{
+			name:      "ORIGINAL returns blend",
+			files:     []AssetFile{blend, res2K},
+			targetRes: "ORIGINAL",
+			wantType:  "blend",
+		},
+		{
+			name:      "thumbnail files are skipped",
+			files:     []AssetFile{thumbnail, blend},
+			targetRes: "ORIGINAL",
+			wantType:  "blend",
+		},
+		{
+			name:      "gltf exact match",
+			files:     []AssetFile{blend, gltf, res2K},
+			targetRes: "gltf",
+			wantType:  "gltf",
+		},
+		{
+			name:      "gltf_godot exact match",
+			files:     []AssetFile{blend, gltfGodot, res2K},
+			targetRes: "gltf_godot",
+			wantType:  "gltf_godot",
+		},
+		{
+			name:      "closest resolution when exact missing",
+			files:     []AssetFile{blend, res1K, res4K},
+			targetRes: "resolution_2K",
+			wantType:  "resolution_1K", // 1K is closer to 2K (diff=1024) than 4K (diff=2048)
+		},
+		{
+			name:      "zip_file fallback when no resolution match",
+			files:     []AssetFile{blend, zipFile},
+			targetRes: "resolution_2K",
+			wantType:  "zip_file",
+		},
+		{
+			name:      "blend fallback when nothing matches",
+			files:     []AssetFile{blend},
+			targetRes: "resolution_2K",
+			wantType:  "blend",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotType := GetResolutionFile(tt.files, tt.targetRes)
+			if gotType != tt.wantType {
+				t.Errorf("GetResolutionFile() fileType = %q, want %q", gotType, tt.wantType)
+			}
+			if got.FileType != tt.wantType {
+				t.Errorf("GetResolutionFile() returned AssetFile.FileType = %q, want %q", got.FileType, tt.wantType)
+			}
+		})
+	}
+}
+
 func TestCopyFile(t *testing.T) {
 	tests := []struct {
 		name    string
