@@ -96,6 +96,7 @@ if "bpy" in locals():
     ui = reload(ui)
     ui_bgl = reload(ui_bgl)
     ui_panels = reload(ui_panels)
+    keymap_utils = reload(keymap_utils)
     upload = reload(upload)
     upload_bg = reload(upload_bg)
     utils = reload(utils)
@@ -152,6 +153,7 @@ else:
     from . import ui
     from . import ui_bgl
     from . import ui_panels
+    from . import keymap_utils
     from . import upload
     from . import upload_bg
     from . import utils
@@ -1959,6 +1961,14 @@ class BlenderKitHDRSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     )
 
 
+def our_keymap_draw(self, context):
+    try:
+        keymap_utils.draw_keymap(self, context)
+    except Exception:
+        bk_logger.exception("Failed to draw keymap in preferences")
+        return
+
+
 class BlenderKitSceneSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     search_style: EnumProperty(
         name="Style",
@@ -2629,6 +2639,9 @@ In this case you should also set path to your system CA bundle containing proxy'
             icon="FILE_FOLDER",
         )
         tempdir_op.directory = tempdir
+
+        # try to draw also custom keymaps
+        our_keymap_draw(self, context)
 
 
 # registration
