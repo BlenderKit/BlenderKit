@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
 
 import json
 import os
@@ -313,8 +314,10 @@ def _write_metadata(data_block, asset_data: dict) -> None:
 
     data_block.asset_data.author = author_name
     data_block.asset_data.description = description
-    data_block.asset_data.copyright = asset_data.get("copyright", "")
-    data_block.asset_data.license = asset_data.get("license", "")
+    if hasattr(data_block.asset_data, "copyright"):
+        data_block.asset_data.copyright = asset_data.get("copyright", "")
+    if hasattr(data_block.asset_data, "license"):
+        data_block.asset_data.license = asset_data.get("license", "")
 
 
 def _sanitize_catalog_segment(segment: str) -> str:
@@ -565,7 +568,8 @@ def unpack_asset(data):
         for ng in bpy.data.node_groups:
             if hasattr(ng, "asset_data") and ng.asset_data is not None:
                 if (
-                    ng.asset_data.copyright == "Blender Foundation"
+                    hasattr(ng.asset_data, "copyright")
+                    and ng.asset_data.copyright == "Blender Foundation"
                     or ng.asset_data.is_property_readonly("author")
                 ):
                     continue  # skip official node groups, they are not assets
