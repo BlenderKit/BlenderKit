@@ -368,6 +368,8 @@ func main() {
 	// OTHER SOFTWARES
 	mux.HandleFunc("/godot/report", godotReportHandler)
 	mux.HandleFunc("/"+vapi+"/godot/report", godotReportHandler)
+	mux.HandleFunc("/godot/unsubscribe_addon", godotUnsubscribeAddonHandler)
+	mux.HandleFunc("/"+vapi+"/godot/unsubscribe_addon", godotUnsubscribeAddonHandler)
 
 	StartClient(mux)
 }
@@ -577,6 +579,28 @@ func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
 	}
 }
 
+func unsubscribeAddon(appID int, name string) {
+	BKLog.Printf("%s %s add-on unsubscribed: %d", EmoDisconnecting, name, appID)
+
+	TasksMux.Lock()
+	if Tasks[appID] != nil {
+		for _, task := range Tasks[appID] {
+			task.Cancel()
+		}
+		delete(Tasks, appID)
+	}
+	TasksMux.Unlock()
+
+	// Remove from AvailableSoftwares so Client shuts down correctly
+	AvailableSoftwaresMux.Lock()
+	delete(AvailableSoftwares, appID)
+	if len(AvailableSoftwares) == 0 {
+		BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
+		go delayedExit(0.1)
+	}
+	AvailableSoftwaresMux.Unlock()
+}
+
 func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 	var data ReportData
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -584,26 +608,18 @@ func blenderUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	BKLog.Printf("%s Blender add-on unsubscribed: %d", EmoDisconnecting, data.AppID)
+	unsubscribeAddon(data.AppID, "Blender")
+	w.WriteHeader(http.StatusOK)
+}
 
-	TasksMux.Lock()
-	if Tasks[data.AppID] != nil {
-		for _, task := range Tasks[data.AppID] {
-			task.Cancel()
-		}
-		delete(Tasks, data.AppID)
+func godotUnsubscribeAddonHandler(w http.ResponseWriter, r *http.Request) {
+	var data ReportData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
 	}
-	TasksMux.Unlock()
-
-	// Remove from AvailableSoftwares so Client shutdowns correctly
-	AvailableSoftwaresMux.Lock()
-	delete(AvailableSoftwares, data.AppID)
-	if len(AvailableSoftwares) == 0 {
-		BKLog.Printf("%s No add-ons left, shutting down...", EmoWarning)
-		go delayedExit(0.1)
-	}
-	AvailableSoftwaresMux.Unlock()
-
+	unsubscribeAddon(data.AppID, "Godot")
 	w.WriteHeader(http.StatusOK)
 }
 
