@@ -1486,15 +1486,6 @@ class UploadOperator(Operator):
 
         client_lib.asset_upload(upload_data, export_data, upload_set)
 
-        # send hook for processing
-        send_webhooks(
-            asset_base_id=props.asset_base_id,
-            asset_type=self.asset_type,
-            verification_status=props.verification_status,
-            is_free=props.is_free,
-            is_private=props.is_private,
-        )
-
         return {"FINISHED"}
 
     def draw(self, context):
@@ -1901,78 +1892,3 @@ def unregister_upload():
     bpy.utils.unregister_class(FastMetadata)
     bpy.utils.unregister_class(AssetDebugPrint)
     bpy.utils.unregister_class(AssetVerificationStatusChange)
-
-
-# region PROCESSING
-
-
-def get_user_id():
-    profile = global_vars.BKIT_PROFILE
-    if profile is not None:
-        return profile.id
-    return None
-
-
-def send_webhooks(
-    asset_base_id: str,
-    asset_type: str,
-    verification_status: str,
-    is_free: bool,
-    is_private: bool,
-):
-    """Send webhooks for asset processing after upload."""
-    bk_logger.debug("Not implemented yet - waiting for public token.")
-    return None
-    user_id = get_user_id()
-    if not user_id:
-        bk_logger.warning(
-            "User not logged in, skipping webhook dispatch for asset '%s'",
-            asset_base_id,
-        )
-        return
-    ble_ver = utils.get_blender_version()
-    preferences = bpy.context.preferences.addons[__package__].preferences
-    bk_logger.info("Sending webhooks for asset '%s'", asset_base_id)
-    url = "https://api.github.com/repos/blenderkit/blenderkit_asset_tasks/dispatches"
-
-    headers = {
-        "Authorization": f"Bearer {preferences.api_key}",  # change to "token <value>"
-        "Accept": "application/vnd.github.v3+json",
-    }
-
-    data = {
-        "event_type": (
-            "process-addon" if asset_type.lower() == "addon" else "process-asset"
-        ),
-        "client_payload": {
-            "asset_base_id": str(asset_base_id),
-            "asset_type": str(asset_type).lower(),
-            "verification_status": str(verification_status).lower(),
-            "is_free": is_free,
-            "is_private": is_private,
-            "user_id": user_id,  # Just to identify origin
-            "source_app_name": "blender",
-            "source_app_version": ble_ver,
-            "source_app_version_xy": ble_ver.split(".")[:2],
-            "addon_version": utils.get_addon_version(),
-        },
-    }
-
-    bk_logger.info("Sending webhooks with: %s", data)
-
-    response = requests.post(url, headers=headers, json=data, timeout=30)
-
-    # Check if the request was successful
-    if response.status_code in (200, 204):
-        bk_logger.info("Success: %s", response.content)
-        return response.json() if response.content else "Success"
-    # Handle error (you can raise an exception or log the error)
-    bk_logger.error("Error: %s", response.content)
-    try:
-        response.raise_for_status()
-    except requests.RequestException:
-        bk_logger.exception("Request failed:")
-    return None
-
-
-# endregion PROCESSING
