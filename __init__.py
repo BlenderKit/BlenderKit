@@ -2751,6 +2751,7 @@ def register():
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
+        paths.ensure_asset_library_path(user_preferences.global_dir)
         client_lib.reorder_ports(user_preferences.client_port)
         timer.update_trusted_CA_certs(user_preferences.trusted_ca_certs)
 
