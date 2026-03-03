@@ -122,7 +122,9 @@ def queue_worker():
             task.wait -= time_step
             back_to_queue.append(task)
         else:
-            bk_logger.debug("task queue task: %s %s", task.command, task.arguments[10:])
+            bk_logger.log(
+                5, "task queue task: %s %s", task.command, task.arguments[10:]
+            )
             try:
                 if task.fake_context:
                     fc = utils.get_fake_context(

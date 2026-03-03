@@ -16,10 +16,13 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
+
 import logging
 import os
 import random
 import time
+import textwrap
 from webbrowser import open_new_tab
 from typing import Any
 
@@ -206,6 +209,74 @@ def prop_needed(layout, props, name, value: Any = "", is_not_filled: Any = ""):
         # row.label(text='', icon = 'FILE_TICK')
         icon = None
         row.prop(props, name)
+
+
+class BLENDERKIT_OT_show_validation_popup(bpy.types.Operator):
+    bl_idname = "wm.blenderkit_show_validation_popup"
+    bl_label = "Manufacturer Validation Result"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    message: StringProperty(name="Message", default="", options={"SKIP_SAVE"})
+
+    def invoke(self, context, event):
+        # Ensure we always have something to show so the dialog renders on older Blender versions.
+        if not self.message:
+            self.message = "No validation output available."
+        return context.window_manager.invoke_props_dialog(self, width=500)
+
+    def execute(self, context):
+        # The dialog is read-only; nothing to execute beyond closing it.
+        return {"FINISHED"}
+
+    def draw(self, context):
+        layout = self.layout
+        clean_text = self.message.replace("\r\n", "\n").replace("\r", "\n")
+        # Keep rendering even if the text is short or empty.
+        if not clean_text.strip():
+            layout.label(text="No validation output available.")
+            return
+
+        for paragraph in clean_text.split("\n"):
+            utils.label_multiline(layout, text=paragraph, width=480)
+
+
+def draw_validated_manufacturer(
+    layout: bpy.types.UILayout, asset: Any, props: Any = None
+) -> None:
+    """Show manufacturer validation output when present on an asset's dictParameters."""
+    if asset is None:
+        return
+
+    asset_data = None
+    try:
+        if hasattr(asset, "get"):
+            asset_data = asset.get("asset_data")
+    except Exception:
+        asset_data = None
+
+    if asset_data is None:
+        asset_data = getattr(asset, "asset_data", None)
+
+    if not asset_data:
+        return
+
+    validated_output = asset_data.get("dictParameters", {}).get(
+        "validatedManufacturerOutput"
+    )
+    if not validated_output:
+        return
+
+    box = layout.box()
+    row = box.row(align=True)
+    row.label(text="Manufacturer validation", icon="ERROR")
+    row.operator_context = "INVOKE_DEFAULT"
+    op = row.operator(
+        "wm.blenderkit_show_validation_popup",
+        text="Show result",
+        icon="VIEWZOOM",
+        emboss=True,
+    )
+    op.message = str(validated_output)
 
 
 def draw_panel_hdr_upload(self, context):
@@ -410,6 +481,9 @@ def draw_panel_model_upload(self, context):
     if props.use_design_year:
         design_box.prop(props, "design_year")
 
+    # Show manufacturer validation feedback when available on the asset.
+    draw_validated_manufacturer(design_box, ob)
+
     row = layout.row()
     row.prop(props, "work_hours")
 
@@ -479,6 +553,7 @@ def draw_panel_scene_upload(self, context):
     if props.use_design_year:
         layout.prop(props, "design_year")
     layout.prop(props, "condition")
+    draw_validated_manufacturer(layout, s)
     row = layout.row()
     row.prop(props, "work_hours")
 
@@ -1293,6 +1368,8 @@ def draw_panel_material_upload(self, context):
     layout.prop(props, "uv")
     layout.prop(props, "animated")
     layout.prop(props, "texture_size_meters")
+
+    draw_validated_manufacturer(layout, mat)
 
     # tname = "." + bpy.context.active_object.active_material.name + "_thumbnail"
     # if props.has_thumbnail and bpy.data.textures.get(tname) is not None:
@@ -4439,6 +4516,7 @@ class NodegroupDropDialog(bpy.types.Operator):
 
 
 classes = (
+    BLENDERKIT_OT_show_validation_popup,
     SetCategoryOperatorOrigin,
     SetCategoryOperator,
     SetCategoryOperatorInPopupCard,
