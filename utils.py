@@ -601,7 +601,15 @@ def save_prefs(user_preferences, context, **kwargs):
     if bpy.app.background is True or bpy.app.factory_startup is True:
         return
 
+    previous_global_dir = (
+        global_vars.PREFS.get("global_dir")
+        if isinstance(global_vars.PREFS, dict)
+        else None
+    )
     global_vars.PREFS = get_preferences_as_dict()
+    paths.ensure_asset_library_path(
+        global_vars.PREFS.get("global_dir"), previous_global_dir
+    )
     if user_preferences.preferences_lock is True:
         return
 
