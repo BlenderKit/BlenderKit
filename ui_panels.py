@@ -426,10 +426,10 @@ def draw_panel_model_upload(self, context):
     # DISABLED WIRE THUMBNAIL FOR NOW
     # TODO: re-enable later, when the shaders are fixed for it.
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-
-    # TODO: reenable in future
-    user_preferences.enable_wire_thumbnail_upload = False
-    if user_preferences.enable_wire_thumbnail_upload:
+    wire_upload_enabled = getattr(
+        user_preferences, "enable_wire_thumbnail_upload", False
+    )
+    if wire_upload_enabled:
         layout.prop(props, "wire_thumbnail_will_upload_on_website")
         if not props.wire_thumbnail_will_upload_on_website:
             draw_wire_thumbnail_upload_panel(layout, props)
@@ -454,7 +454,7 @@ def draw_panel_model_upload(self, context):
         utils.label_multiline(layout, text=props.thumbnail_generating_state)
 
     # must be experimental feature enabled
-    if user_preferences.enable_wire_thumbnail_upload:
+    if wire_upload_enabled:
         if getattr(props, "is_generating_wire_thumbnail", False):
             row = layout.row(align=True)
             row.label(text=props.wire_thumbnail_generating_state)

@@ -63,6 +63,15 @@ licenses = (
 )
 
 
+def wire_thumbnail_upload_enabled() -> bool:
+    """Feature gate for experimental wireframe thumbnail uploads."""
+    addon = bpy.context.preferences.addons.get(__package__)
+    if addon is None:
+        return False
+    preferences = addon.preferences
+    return getattr(preferences, "enable_wire_thumbnail_upload", False)
+
+
 def add_version(data):
     data["sourceAppName"] = "blender"
     data["sourceAppVersion"] = utils.get_blender_version()
@@ -233,7 +242,7 @@ def check_missing_data(asset_type, props, upload_set):
                     "   Please check the filepath and try again.",
                 )
 
-    if "WIRE_THUMBNAIL" in upload_set:
+    if wire_thumbnail_upload_enabled() and "WIRE_THUMBNAIL" in upload_set:
         if props.wire_thumbnail_will_upload_on_website:
             pass
         else:
@@ -379,7 +388,11 @@ def get_upload_data(caller=None, context=None, asset_type=None):
                 props.photo_thumbnail
             )
         # Add wire thumbnail path to export_data for models and printable assets
-        if asset_type in ("MODEL", "SCENE", "PRINTABLE") and props.wire_thumbnail:
+        if (
+            wire_thumbnail_upload_enabled()
+            and asset_type in ("MODEL", "SCENE", "PRINTABLE")
+            and props.wire_thumbnail
+        ):
             export_data["wire_thumbnail_path"] = bpy.path.abspath(props.wire_thumbnail)
 
         eval_path_computing = (
@@ -1279,7 +1292,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
                 return False, None, None
 
     # check if we have wire_thumbnail
-    if "wire_thumbnail" in upload_set:
+    if wire_thumbnail_upload_enabled() and "wire_thumbnail" in upload_set:
         if not os.path.exists(export_data.get("wire_thumbnail_path", "")):
             props.upload_state = "0% - wire thumbnail not found"
             props.uploading = False
@@ -1364,6 +1377,7 @@ class UploadOperator(Operator):
     def execute(self, context):
         bpy.ops.object.blenderkit_auto_tags()
         props = utils.get_upload_props()
+        wire_upload_enabled = wire_thumbnail_upload_enabled()
 
         upload_set = []
         if not self.reupload:
@@ -1374,7 +1388,8 @@ class UploadOperator(Operator):
 
             # add wire_thumbnail for models if it exists
             if (
-                self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
+                wire_upload_enabled
+                and self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
                 and props.wire_thumbnail
             ):
                 upload_set.append("wire_thumbnail")
@@ -1385,7 +1400,7 @@ class UploadOperator(Operator):
                 upload_set.append("THUMBNAIL")
             if self.photo_thumbnail:
                 upload_set.append("photo_thumbnail")
-            if self.wire_thumbnail:
+            if wire_upload_enabled and self.wire_thumbnail:
                 upload_set.append("wire_thumbnail")
             if self.main_file:
                 upload_set.append("MAINFILE")
@@ -1428,7 +1443,11 @@ class UploadOperator(Operator):
                 layout.prop(self, "photo_thumbnail")
 
             # Show wire_thumbnail option for models, scenes, and printable assets
-            if self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}:
+            if wire_thumbnail_upload_enabled() and self.asset_type in {
+                "MODEL",
+                "SCENE",
+                "PRINTABLE",
+            }:
                 layout.prop(self, "wire_thumbnail")
 
         if props.asset_base_id != "" and not self.reupload:
