@@ -344,7 +344,7 @@ def check_meshprops(props, obs):
     props.manifold = manifold
 
 
-def countObs(props, obs):
+def count_objects(props, obs):
     ob_types = {}
     count = len(obs)
     for ob in obs:
@@ -425,7 +425,21 @@ def get_autotags():
         check_anim(props, obs)
         check_meshprops(props, obs)
         check_modifiers(props, obs)
-        countObs(props, obs)
+        count_objects(props, obs)
+
+    elif ui.asset_type == "SCENE":
+        scene = bpy.context.scene
+        props = scene.blenderkit
+        if props.name == "":
+            props.name = scene.name
+        dim, bbox_min, bbox_max = utils.get_scene_dimensions(scene)
+        props.dimensions = dim
+        props.bbox_min = bbox_min
+        props.bbox_max = bbox_max
+        scene_objects = list(scene.objects)
+        check_meshprops(props, scene_objects)
+        count_objects(props, scene_objects)
+
     elif ui.asset_type == "MATERIAL":
         # reset some properties here, because they might not get re-filled at all when they aren't needed anymore.
 
@@ -434,6 +448,7 @@ def get_autotags():
         props.texture_resolution_max = 0
         props.texture_resolution_min = 0
         check_material(props, mat)
+
     elif ui.asset_type == "HDR":
         # reset some properties here, because they might not get re-filled at all when they aren't needed anymore.
 

@@ -1485,7 +1485,7 @@ def check_downloading(asset_data, **kwargs) -> bool:
         p_asset_data = task["asset_data"]
         if p_asset_data["id"] == asset_data["id"]:
             at = asset_data["assetType"]
-            if at in ("model", "material"):
+            if at in ("model", "material", "printable", "scene"):
                 downloader = {
                     "location": kwargs["model_location"],
                     "rotation": kwargs["model_rotation"],
@@ -1727,7 +1727,7 @@ def start_download(asset_data, **kwargs) -> bool:
         except Exception as e:
             bk_logger.info("Failed to append asset: %s, continuing with download", e)
 
-    if asset_data["assetType"] in ("model", "material"):
+    if asset_data["assetType"] in ("model", "material", "printable"):
         downloader = {
             "location": kwargs["model_location"],
             "rotation": kwargs["model_rotation"],
