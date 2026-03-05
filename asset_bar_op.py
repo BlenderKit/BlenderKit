@@ -3285,6 +3285,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def asset_menu(self, widget):
         """Open the asset menu for the asset linked to this button."""
         self.hide_tooltip()
+        target_index = getattr(widget, "button_index", None)
+        if target_index is None:
+            target_index = getattr(widget, "asset_index", None)
+        if target_index is not None:
+            search_index = target_index + self.scroll_offset
+            history_step = search.get_active_history_step()
+            sr = history_step.get("search_results") or []
+            if 0 <= search_index < len(sr):
+                self.active_index = search_index
+                ui_props = bpy.context.window_manager.blenderkitUI
+                ui_props.active_index = search_index
         bpy.ops.wm.blenderkit_asset_popup("INVOKE_DEFAULT")
         # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_asset_menu')
 
