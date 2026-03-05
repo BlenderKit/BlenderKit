@@ -517,9 +517,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "animated": props.animated,
             # "simulation": props.simulation,
             "purePbr": props.pbr,
-            "faceCount": 1,  # props.face_count,
-            "faceCountRender": 1,  # props.face_count_render,
-            "objectCount": 1,  # props.object_count,
+            "faceCount": max(0, props.face_count),
+            "faceCountRender": max(0, props.face_count_render),
+            "objectCount": max(0, props.object_count),
             # "scene": props.is_scene,
         }
         if props.use_design_year:
@@ -1375,6 +1375,7 @@ class UploadOperator(Operator):
             # add wire_thumbnail for models if it exists
             if (
                 self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
+                and hasattr(props, "wire_thumbnail")
                 and props.wire_thumbnail
             ):
                 upload_set.append("wire_thumbnail")

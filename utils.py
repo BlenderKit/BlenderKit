@@ -1030,6 +1030,58 @@ def get_dimensions(obs):
     return dim, bbmin, bbmax
 
 
+def get_scene_dimensions(scene: bpy.types.Scene) -> tuple[Vector, Vector, Vector]:
+    """Calculate world-space bounds for the entire scene."""
+
+    minx = miny = minz = float("inf")
+    maxx = maxy = maxz = float("-inf")
+    has_geometry = False
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    def accumulate(coord: Vector) -> None:
+        nonlocal minx, miny, minz, maxx, maxy, maxz, has_geometry
+        has_geometry = True
+        minx = min(minx, coord.x)
+        miny = min(miny, coord.y)
+        minz = min(minz, coord.z)
+        maxx = max(maxx, coord.x)
+        maxy = max(maxy, coord.y)
+        maxz = max(maxz, coord.z)
+
+    mesh_like_types = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
+
+    for ob in scene.objects:
+        object_eval = ob.evaluated_get(depsgraph)
+        mw = object_eval.matrix_world
+
+        if ob.type in mesh_like_types:
+            to_mesh = getattr(object_eval, "to_mesh", None)
+            mesh = to_mesh() if callable(to_mesh) else None
+            if mesh:
+                for vert in mesh.vertices:
+                    accumulate(mw @ vert.co)
+            to_mesh_clear = getattr(object_eval, "to_mesh_clear", None)
+            if callable(to_mesh_clear):
+                to_mesh_clear()
+        elif ob.type == "VOLUME":
+            for corner in object_eval.bound_box:
+                accumulate(mw @ Vector(corner))
+        elif hasattr(object_eval, "bound_box") and object_eval.bound_box:
+            for corner in object_eval.bound_box:
+                accumulate(mw @ Vector(corner))
+        else:
+            accumulate(mw @ Vector((0.0, 0.0, 0.0)))
+
+    if not has_geometry:
+        zero = Vector((0.0, 0.0, 0.0))
+        return zero.copy(), zero.copy(), zero.copy()
+
+    bbmin = Vector((minx, miny, minz))
+    bbmax = Vector((maxx, maxy, maxz))
+    dim = Vector((maxx - minx, maxy - miny, maxz - minz))
+    return dim, bbmin, bbmax
+
+
 def get_simple_headers() -> dict[str, str]:
     headers = {
         "accept": "application/json",
