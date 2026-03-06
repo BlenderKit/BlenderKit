@@ -870,6 +870,21 @@ class BlenderKitCommonUploadProps(object):
         description="License. Please read our help for choosing the right licenses",
     )
 
+    # verification mainly to retrigger processing
+    verification_status: EnumProperty(
+        name="Verification status",
+        description="Verification status of the asset, set by moderators",
+        items=(
+            ("UPLOADING", "Uploading", "uploading"),
+            ("UPLOADED", "Uploaded", "uploaded"),
+            ("VALIDATED", "Validated", "validated"),
+            ("ON_HOLD", "On Hold", "on_hold"),
+            ("REJECTED", "Rejected", "rejected"),
+            ("DELETED", "Deleted", "deleted"),
+        ),
+        default="UPLOADING",
+    )
+
     is_private: EnumProperty(
         name="Thumbnail Style",
         items=(("PRIVATE", "Private", ""), ("PUBLIC", "Public", "")),
@@ -2736,6 +2751,7 @@ def register():
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         global_vars.PREFS = utils.get_preferences_as_dict()
+        paths.ensure_asset_library_path(user_preferences.global_dir)
         client_lib.reorder_ports(user_preferences.client_port)
         timer.update_trusted_CA_certs(user_preferences.trusted_ca_certs)
 

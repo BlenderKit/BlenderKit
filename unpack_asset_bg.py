@@ -16,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
 
 import json
 import os
@@ -23,8 +24,22 @@ import sys
 import traceback
 import urllib.request
 import uuid
+import logging
 
 import bpy
+
+bk_logger = logging.getLogger(__name__)
+_ASSET_TYPE_DIRS = {
+    "models",
+    "materials",
+    "hdrs",
+    "scenes",
+    "brushes",
+    "textures",
+    "nodegroups",
+    "printables",
+    "addons",
+}
 
 
 def get_texture_filepath(tex_dir_path, image, resolution="blend"):
@@ -108,6 +123,26 @@ def _resolve_thumbnail_url(asset_data: dict) -> str:
                 return str(url)
 
     return ""
+
+
+def _library_dir_from_fpath(blend_path: str) -> str:
+    """Derive library root from a blend file path by stripping the asset_type folder.
+
+    Expected structure: <library>/<asset_type>/<asset_id>/<file>.blend
+    Returns the portion up to <library>. Falls back to two levels above the blend file directory.
+    """
+    if not blend_path:
+        return ""
+
+    norm_path = os.path.abspath(blend_path)
+    parts = norm_path.split(os.sep)
+    for idx, part in enumerate(parts):
+        if part.lower() in _ASSET_TYPE_DIRS and idx > 0:
+            return os.sep.join(parts[:idx])
+
+    # Fallback: go two levels up from the blend file directory
+    dir_path = os.path.dirname(norm_path)
+    return os.path.abspath(os.path.join(dir_path, os.pardir, os.pardir))
 
 
 def _download_thumbnail(url: str) -> str:
@@ -279,11 +314,30 @@ def _write_metadata(data_block, asset_data: dict) -> None:
 
     data_block.asset_data.author = author_name
     data_block.asset_data.description = description
-    data_block.asset_data.copyright = asset_data.get("copyright", "")
-    data_block.asset_data.license = asset_data.get("license", "")
+    if hasattr(data_block.asset_data, "copyright"):
+        data_block.asset_data.copyright = asset_data.get("copyright", "")
+    if hasattr(data_block.asset_data, "license"):
+        data_block.asset_data.license = asset_data.get("license", "")
 
 
-def _resolve_catalog_name(asset_data: dict) -> str:
+def _sanitize_catalog_segment(segment: str) -> str:
+    cleaned = (segment or "").strip()
+    cleaned = cleaned.replace(":", "-").replace("/", "-").replace("\\", "-")
+    return cleaned or "Uncategorized"
+
+
+def _resolve_category_segments(asset_data: dict) -> list[str]:
+    category_slug = asset_data.get("category") or asset_data.get(
+        "dictParameters", {}
+    ).get("category")
+    if not category_slug:
+        return []
+
+    parts = [p for p in str(category_slug).split("-") if p]
+    return [_sanitize_catalog_segment(part) for part in parts]
+
+
+def _resolve_catalog_path_parts(asset_data: dict) -> list[str]:
     asset_type = (asset_data.get("assetType") or "").lower()
     catalog_map = {
         "model": "Models",
@@ -297,11 +351,26 @@ def _resolve_catalog_name(asset_data: dict) -> str:
         "nodegroup": "Node Groups",
         "addon": "Add-ons",
     }
-    return catalog_map.get(asset_type, "")
+
+    parts = []
+    top_level = catalog_map.get(asset_type)
+    if top_level:
+        parts.append(top_level)
+
+    parts.extend(_resolve_category_segments(asset_data))
+    bk_logger.debug(
+        "Resolved catalog path parts: %s for asset type '%s' and category '%s'",
+        parts,
+        asset_type,
+        asset_data.get("category"),
+    )
+    return parts
 
 
-def _ensure_catalog_exists(library_path: str, catalog_name: str) -> str:
-    """Ensure that an asset catalog with the given name exists in the specified library.
+def _ensure_catalog_exists(
+    library_path: str, catalog_path: str, catalog_simple_name: str
+) -> str:
+    """Ensure that an asset catalog exists for the given path.
 
     Returns the catalog ID if it exists or was created successfully, otherwise returns an empty string.
     """
@@ -338,69 +407,73 @@ def _ensure_catalog_exists(library_path: str, catalog_name: str) -> str:
             parts = line.split(":")
             if len(parts) != 3:
                 continue
-            cat_uuid, _, cat_simple_name = parts
-            cats[cat_simple_name] = cat_uuid
+            cat_uuid, cat_path_entry, _ = parts
+            cats[cat_path_entry] = cat_uuid
 
     # use regex to found the library name
-    if catalog_name in cats:
-        return cats[catalog_name]
+    if catalog_path in cats:
+        return cats[catalog_path]
 
     # create new catalog entry
     new_uuid = str(uuid.uuid4())
-    cats[catalog_name] = new_uuid
+    cats[catalog_path] = new_uuid
 
     # write new catalog entry to file
     try:
         with open(cat_path, "a", encoding="utf-8") as f:
-            f.write(f"{new_uuid}:{catalog_name}:{catalog_name}\n")
+            f.write(f"{new_uuid}:{catalog_path}:{catalog_simple_name}\n")
         return new_uuid
     except Exception as e:
         traceback.print_exc()
         return ""
 
 
-def _assign_asset_catalog(data_block, asset_data: dict) -> None:
-    """Assign the asset to a catalog based on its type.
-
-    The catalog is determined by the asset type (e.g. "model" assets go to "Models" catalog).
-    The function ensures that the appropriate catalog exists in the library and assigns the asset to it.
-    """
+def _assign_asset_catalog(
+    data_block, asset_data: dict, blend_path: str | None = None
+) -> None:
+    """Assign the asset to a catalog based on its type and category hierarchy."""
     if data_block is None or data_block.asset_data is None:
         return
     print("📁  assigning asset to catalog")
-    # TODO get this somehow from the asset data, or pass it as argument, or use some convention to find it
-    library_dir = os.path.join(os.path.expanduser("~"), "blenderkit_data")
+
+    if not blend_path:
+        print("Asset catalog assignment skipped: blend path missing.")
+        return
+
+    library_dir = _library_dir_from_fpath(blend_path)
+    library_dir = os.path.abspath(bpy.path.abspath(library_dir))
+    print("Resolved library directory: '%s'" % library_dir)
     if not os.path.exists(library_dir):
-        # check also two folders up from current blend file,
-        # if user modified the default path to library in addon preferences,
-        # we can not find it in user home dir
-        this_blend_dir = os.path.dirname(bpy.data.filepath)
-        library_dir = os.path.abspath(
-            os.path.join(
-                this_blend_dir,
-                "..",
-                "..",
-            )
-        )
-        if not os.path.exists(library_dir):
-            print(
-                f"Asset catalog assignment skipped: library '{library_dir}' not found."
-            )
+        try:
+            os.makedirs(library_dir, exist_ok=True)
+        except Exception:
+            print(f"Asset catalog assignment skipped: cannot create '{library_dir}'.")
             return
-    print(f"Ensuring asset catalog exists in library '{library_dir}'")
-    # create sub-catalog name based on asset type
-    catalog_name = _resolve_catalog_name(asset_data)
-    if not catalog_name:
+
+    path_parts = _resolve_catalog_path_parts(asset_data)
+    print(f"Resolved catalog path parts: {path_parts}")
+    if not path_parts:
         print(
-            "Asset catalog assignment skipped: could not resolve catalog name from asset type."
+            "Asset catalog assignment skipped: could not resolve catalog path from asset data."
         )
         return
 
-    catalog_id = _ensure_catalog_exists(library_dir, catalog_name)
+    catalog_path = "/".join(path_parts)
+    catalog_simple_name = path_parts[-1]
+
+    print(
+        "Resolved catalog path: '%s' and simple name: '%s' for asset with type '%s'"
+        % (
+            catalog_path,
+            catalog_simple_name,
+            asset_data.get("assetType"),
+        )
+    )
+    catalog_id = _ensure_catalog_exists(library_dir, catalog_path, catalog_simple_name)
     if not catalog_id:
         print("Asset catalog assignment skipped: failed to create catalog entry.")
         return
-    print(f"Assigning asset to catalog '{catalog_name}' with ID {catalog_id}")
+    print(f"Assigning asset to catalog '{catalog_path}' with ID {catalog_id}")
     asset_meta = data_block.asset_data
     if hasattr(asset_meta, "catalog_id"):
         try:
@@ -413,7 +486,7 @@ def _assign_asset_catalog(data_block, asset_data: dict) -> None:
         )
     if hasattr(asset_meta, "catalog_simple_name"):
         try:
-            asset_meta.catalog_simple_name = catalog_name
+            asset_meta.catalog_simple_name = catalog_simple_name
         except AttributeError:
             print("Asset catalog assignment skipped: catalog_simple_name is read-only.")
 
@@ -495,7 +568,8 @@ def unpack_asset(data):
         for ng in bpy.data.node_groups:
             if hasattr(ng, "asset_data") and ng.asset_data is not None:
                 if (
-                    ng.asset_data.copyright == "Blender Foundation"
+                    hasattr(ng.asset_data, "copyright")
+                    and ng.asset_data.copyright == "Blender Foundation"
                     or ng.asset_data.is_property_readonly("author")
                 ):
                     continue  # skip official node groups, they are not assets
@@ -506,7 +580,11 @@ def unpack_asset(data):
     if bpy.app.version >= (3, 0, 0) and data_block is not None and write_metadata:
         _write_metadata(data_block, asset_data)
         _apply_asset_preview(data_block, asset_data)
-        _assign_asset_catalog(data_block, asset_data)
+        _assign_asset_catalog(
+            data_block,
+            asset_data,
+            blend_path=data.get("fpath"),
+        )
 
     # if this isn't here, blender crashes when saving file.
     if bpy.app.version >= (3, 0, 0):
@@ -564,6 +642,7 @@ if __name__ == "__main__":
 
     from . import paths
 
+    print(json_path)
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     unpack_asset(data)

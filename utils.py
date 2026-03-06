@@ -601,7 +601,15 @@ def save_prefs(user_preferences, context, **kwargs):
     if bpy.app.background is True or bpy.app.factory_startup is True:
         return
 
+    previous_global_dir = (
+        global_vars.PREFS.get("global_dir")
+        if isinstance(global_vars.PREFS, dict)
+        else None
+    )
     global_vars.PREFS = get_preferences_as_dict()
+    paths.ensure_asset_library_path(
+        global_vars.PREFS.get("global_dir"), previous_global_dir
+    )
     if user_preferences.preferences_lock is True:
         return
 
@@ -1024,6 +1032,58 @@ def is_linked_asset(ob):
 
 def get_dimensions(obs):
     minx, miny, minz, maxx, maxy, maxz = get_bounds_snappable(obs)
+    bbmin = Vector((minx, miny, minz))
+    bbmax = Vector((maxx, maxy, maxz))
+    dim = Vector((maxx - minx, maxy - miny, maxz - minz))
+    return dim, bbmin, bbmax
+
+
+def get_scene_dimensions(scene: bpy.types.Scene) -> tuple[Vector, Vector, Vector]:
+    """Calculate world-space bounds for the entire scene."""
+
+    minx = miny = minz = float("inf")
+    maxx = maxy = maxz = float("-inf")
+    has_geometry = False
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    def accumulate(coord: Vector) -> None:
+        nonlocal minx, miny, minz, maxx, maxy, maxz, has_geometry
+        has_geometry = True
+        minx = min(minx, coord.x)
+        miny = min(miny, coord.y)
+        minz = min(minz, coord.z)
+        maxx = max(maxx, coord.x)
+        maxy = max(maxy, coord.y)
+        maxz = max(maxz, coord.z)
+
+    mesh_like_types = {"MESH", "CURVE", "SURFACE", "META", "FONT", "GPENCIL"}
+
+    for ob in scene.objects:
+        object_eval = ob.evaluated_get(depsgraph)
+        mw = object_eval.matrix_world
+
+        if ob.type in mesh_like_types:
+            to_mesh = getattr(object_eval, "to_mesh", None)
+            mesh = to_mesh() if callable(to_mesh) else None
+            if mesh:
+                for vert in mesh.vertices:
+                    accumulate(mw @ vert.co)
+            to_mesh_clear = getattr(object_eval, "to_mesh_clear", None)
+            if callable(to_mesh_clear):
+                to_mesh_clear()
+        elif ob.type == "VOLUME":
+            for corner in object_eval.bound_box:
+                accumulate(mw @ Vector(corner))
+        elif hasattr(object_eval, "bound_box") and object_eval.bound_box:
+            for corner in object_eval.bound_box:
+                accumulate(mw @ Vector(corner))
+        else:
+            accumulate(mw @ Vector((0.0, 0.0, 0.0)))
+
+    if not has_geometry:
+        zero = Vector((0.0, 0.0, 0.0))
+        return zero.copy(), zero.copy(), zero.copy()
+
     bbmin = Vector((minx, miny, minz))
     bbmax = Vector((maxx, maxy, maxz))
     dim = Vector((maxx - minx, maxy - miny, maxz - minz))

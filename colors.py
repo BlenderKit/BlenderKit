@@ -55,6 +55,9 @@ ORANGE_FULL = (0.702, 0.349, 0.208, 1.0)
 GRAY = (0.7, 0.7, 0.7, 0.6)
 """Default color for debug reports."""
 
+YELLOW = (1.0, 1.0, 0.5, 0.8)
+"""Yellow color for warning reports."""
+
 # pure colors
 PURE_WHITE = (1, 1, 1, 1)
 PURE_BLACK = (0, 0, 0, 1)

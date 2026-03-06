@@ -16,6 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
+
 import getpass
 import logging
 import os
@@ -54,6 +56,18 @@ BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
 BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
 WINDOWS_PATH_LIMIT = 250
+ASSET_LIBRARY_NAME = "BlenderKit"
+
+
+def _normalize_path(path_value: str | None) -> str:
+    """Return an absolute, normalized path for comparisons; blank string if invalid."""
+    if not path_value:
+        return ""
+    try:
+        resolved = bpy.path.abspath(path_value)
+    except Exception:
+        resolved = path_value
+    return os.path.normpath(os.path.abspath(resolved))
 
 
 def cleanup_old_directories():
@@ -194,6 +208,64 @@ def get_download_dirs(asset_type):
         dirs.append(subdir)
 
     return dirs
+
+
+def ensure_asset_library_path(
+    global_dir: str | None = None, previous_global_dir: str | None = None
+):
+    """Ensure Blender's asset library list contains the BlenderKit library path.
+
+    - Creates the library entry when missing.
+    - Updates an existing entry if the global directory changes.
+    - Reuses a library that already points to the target path even if the name differs.
+    """
+    if bpy.app.background:
+        return
+
+    filepaths = getattr(bpy.context.preferences, "filepaths", None)
+    asset_libraries = getattr(filepaths, "asset_libraries", None) if filepaths else None
+    if asset_libraries is None:
+        return
+
+    target_path = _normalize_path(
+        global_dir
+        or bpy.context.preferences.addons[__package__].preferences.global_dir  # type: ignore
+    )
+    if not target_path:
+        return
+
+    os.makedirs(target_path, exist_ok=True)
+
+    previous_path = _normalize_path(previous_global_dir) if previous_global_dir else ""
+    if previous_path:
+        for lib in asset_libraries:
+            if _normalize_path(lib.path) == previous_path:
+                lib.path = target_path
+
+    existing = (
+        asset_libraries.get(ASSET_LIBRARY_NAME)
+        if hasattr(asset_libraries, "get")
+        else None
+    )
+    if existing is not None:
+        if _normalize_path(existing.path) != target_path:
+            existing.path = target_path
+        return existing
+
+    for lib in asset_libraries:
+        if _normalize_path(lib.path) == target_path:
+            try:
+                lib.name = ASSET_LIBRARY_NAME
+            except Exception:
+                pass
+            return lib
+
+    asset_libraries.new(name=ASSET_LIBRARY_NAME, path=target_path)
+    return (
+        asset_libraries.get(ASSET_LIBRARY_NAME)
+        if hasattr(asset_libraries, "get")
+        else None
+    )
 
 
 def slugify(input: str) -> str:

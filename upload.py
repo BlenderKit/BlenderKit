@@ -20,12 +20,15 @@ import json
 import logging
 import os
 import re
+import sys
+import requests
 import tempfile
 from pathlib import Path
 from typing import Optional, Any
 
 import bpy
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
+    IntProperty,
     BoolProperty,
     EnumProperty,
     StringProperty,
@@ -342,7 +345,7 @@ def sub_to_camel(content):
 
 def get_upload_data(caller=None, context=None, asset_type=None):
     """
-    works though metadata from addom props and prepares it for upload to dicts.
+    works though metadata from addon props and prepares it for upload to dicts.
     Parameters
     ----------
     caller - upload operator or none
@@ -351,8 +354,8 @@ def get_upload_data(caller=None, context=None, asset_type=None):
 
     Returns
     -------
-    export_ddta- all extra data that the process needs to upload and communicate with UI from a thread.
-        - eval_path_computing - string path to UI prop that denots if upload is still running
+    export_data- all extra data that the process needs to upload and communicate with UI from a thread.
+        - eval_path_computing - string path to UI prop that denotes if upload is still running
         - eval_path_state - string path to UI prop that delivers messages about upload to ui
         - eval_path - path to object holding upload data to be able to access it with various further commands
         - models - in case of model upload, list of objects
@@ -530,9 +533,9 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "animated": props.animated,
             # "simulation": props.simulation,
             "purePbr": props.pbr,
-            "faceCount": 1,  # props.face_count,
-            "faceCountRender": 1,  # props.face_count_render,
-            "objectCount": 1,  # props.object_count,
+            "faceCount": max(0, props.face_count),
+            "faceCountRender": max(0, props.face_count_render),
+            "objectCount": max(0, props.object_count),
             # "scene": props.is_scene,
         }
         if props.use_design_year:
@@ -902,6 +905,38 @@ class FastMetadata(bpy.types.Operator):
         update=update_free_full,
     )
 
+    # Design metadata
+    manufacturer: StringProperty(  # type: ignore[valid-type]
+        name="Manufacturer",
+        description="Manufacturer, company making a design piece or product.",
+        default="",
+    )
+    designer: StringProperty(  # type: ignore[valid-type]
+        name="Designer",
+        description="Author of the original design piece depicted.",
+        default="",
+    )
+    design_collection: StringProperty(  # type: ignore[valid-type]
+        name="Design Collection",
+        description="Name of the collection this design belongs to.",
+        default="",
+    )
+    design_variant: StringProperty(  # type: ignore[valid-type]
+        name="Design Variant",
+        description="Colour or material variant of the product.",
+        default="",
+    )
+    use_design_year: BoolProperty(  # type: ignore[valid-type]
+        name="Use Design Year",
+        description="Whether to include the design year in the metadata. If enabled, the design year will be included as a parameter in the asset metadata.",
+        default=False,
+    )
+    design_year: IntProperty(  # type: ignore[valid-type]
+        name="Design Year",
+        description="When this item was designed.",
+        default=1960,
+    )
+
     ####################
 
     @classmethod
@@ -924,6 +959,13 @@ class FastMetadata(bpy.types.Operator):
         layout.prop(self, "free_full", expand=True)
         if self.is_private == "PUBLIC":
             layout.prop(self, "license")
+        layout.prop(self, "manufacturer")
+        layout.prop(self, "designer")
+        layout.prop(self, "design_collection")
+        layout.prop(self, "design_variant")
+        layout.prop(self, "use_design_year")
+        if self.use_design_year:
+            layout.prop(self, "design_year")
         # layout.label(text="Content Flags:")
         content_flag_box = layout.box()
         content_flag_box.alignment = "EXPAND"
@@ -953,9 +995,38 @@ class FastMetadata(bpy.types.Operator):
                 },
             ],
         }
+
+        # Optional design-related parameters
+        extra_parameters = []
+        if self.designer:
+            extra_parameters.append(
+                {"parameterType": "designer", "value": self.designer}
+            )
+        if self.manufacturer:
+            extra_parameters.append(
+                {"parameterType": "manufacturer", "value": self.manufacturer}
+            )
+        if self.design_collection:
+            extra_parameters.append(
+                {
+                    "parameterType": "designCollection",
+                    "value": self.design_collection,
+                }
+            )
+        if self.design_variant:
+            extra_parameters.append(
+                {"parameterType": "designVariant", "value": self.design_variant}
+            )
+        if self.use_design_year:
+            extra_parameters.append(
+                {"parameterType": "designYear", "value": self.design_year}
+            )
+
+        if extra_parameters:
+            metadata["parameters"].extend(extra_parameters)
         url = f"{paths.BLENDERKIT_API}/assets/{self.asset_id}/"
         messages = {
-            "success": "Metadata upload succeded",
+            "success": "Metadata upload succeeded",
             "error": "Metadata upload failed",
         }
         client_lib.nonblocking_request(url, "PATCH", {}, metadata, messages)
@@ -1003,6 +1074,13 @@ class FastMetadata(bpy.types.Operator):
             "sexualizedContent", False
         )
 
+        params = asset_data.get("dictParameters", {})
+        self.designer = params.get("designer", "")
+        self.manufacturer = params.get("manufacturer", "")
+        self.design_collection = params.get("designCollection", "")
+        self.design_variant = params.get("designVariant", "")
+        self.design_year = params.get("designYear", 1960)
+
         wm = context.window_manager
 
         return wm.invoke_props_dialog(self, width=600)
@@ -1010,7 +1088,7 @@ class FastMetadata(bpy.types.Operator):
 
 def get_upload_location(props):
     """
-    not used by now, gets location of uploaded asset - potentially usefull if we draw a nice upload gizmo in viewport.
+    not used by now, gets location of uploaded asset - potentially useful if we draw a nice upload gizmo in viewport.
     Parameters
     ----------
     props
@@ -1422,6 +1500,7 @@ class UploadOperator(Operator):
         props.uploading = True
 
         client_lib.asset_upload(upload_data, export_data, upload_set)
+
         return {"FINISHED"}
 
     def draw(self, context):
@@ -1648,7 +1727,7 @@ def handle_asset_upload(task: client_tasks.Task):
                 task.message, type="ERROR", details=task.message_detailed
             )
 
-        # crazy shit to parse stupid Django incosistent error messages
+        # crazy shit to parse stupid Django inconsistent error messages
         if "detail" in task.result:
             if type(task.result["detail"]) == dict:
                 for key in task.result["detail"]:
@@ -1681,7 +1760,7 @@ def handle_asset_upload(task: client_tasks.Task):
 
     if task.status == "finished":
         asset.uploading = False
-        return reports.add_report("Upload successfull")
+        return reports.add_report("Upload successful")
 
 
 def handle_asset_metadata_upload(task: client_tasks.Task):
@@ -1705,7 +1784,7 @@ def handle_asset_metadata_upload(task: client_tasks.Task):
         asset.id = task.data["export_data"]["id"]
         bk_logger.info("Assigned original asset.id: %s", asset.id)
 
-    return reports.add_report("Metadata upload successfull")
+    return reports.add_report("Metadata upload successful")
 
 
 def patch_individual_parameter(asset_id="", param_name="", param_value="", api_key=""):
