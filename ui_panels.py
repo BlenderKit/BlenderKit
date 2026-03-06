@@ -422,7 +422,8 @@ def draw_panel_model_upload(self, context):
 
     prop_needed(col, props, "thumbnail", props.thumbnail)
     if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
-        col.operator(
+        col.operator_context = "INVOKE_DEFAULT"
+        op = col.operator(
             "object.blenderkit_generate_thumbnail",
             text="Generate thumbnail",
             icon="IMAGE",
