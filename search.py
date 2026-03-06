@@ -34,6 +34,7 @@ from bpy.types import Operator
 
 from . import (
     asset_bar_op,
+    categories,
     client_lib,
     client_tasks,
     comments_utils,
@@ -96,6 +97,7 @@ PANEL_FILTER_TERMS: set[str] = {
     "license",
     "blender_version",
     "order",
+    "category",
 }
 
 
@@ -122,7 +124,7 @@ def _collect_panel_filters() -> list[dict]:
             {
                 "term": "style",
                 "value": sprops.search_style,
-                "label": f"Style: {sprops.search_style}",
+                "label": sprops.search_style.capitalize(),
             }
         )
 
@@ -131,12 +133,12 @@ def _collect_panel_filters() -> list[dict]:
             {
                 "term": "condition",
                 "value": sprops.search_condition,
-                "label": f"Condition: {sprops.search_condition}",
+                "label": sprops.search_condition.capitalize(),
             }
         )
 
     if getattr(sprops, "search_design_year", False):
-        label = f"Year: {sprops.search_design_year_min}-{sprops.search_design_year_max}"
+        label = f"{sprops.search_design_year_min}-{sprops.search_design_year_max}"
         panel_filters.append(
             {
                 "term": "design_year",
@@ -146,7 +148,7 @@ def _collect_panel_filters() -> list[dict]:
         )
 
     if getattr(sprops, "search_polycount", False):
-        label = f"Poly: {sprops.search_polycount_min}-{sprops.search_polycount_max}"
+        label = f"Poly {sprops.search_polycount_min}-{sprops.search_polycount_max}"
         panel_filters.append(
             {
                 "term": "polycount",
@@ -156,7 +158,7 @@ def _collect_panel_filters() -> list[dict]:
         )
 
     if getattr(sprops, "search_texture_resolution", False):
-        label = f"TexRes: {sprops.search_texture_resolution_min}-{sprops.search_texture_resolution_max}"
+        label = f"TexRes {sprops.search_texture_resolution_min}-{sprops.search_texture_resolution_max}"
         panel_filters.append(
             {
                 "term": "texture_resolution",
@@ -166,7 +168,7 @@ def _collect_panel_filters() -> list[dict]:
         )
 
     if getattr(sprops, "search_file_size", False):
-        label = f"File: {sprops.search_file_size_min}-{sprops.search_file_size_max} MB"
+        label = f"File {sprops.search_file_size_min}-{sprops.search_file_size_max}MB"
         panel_filters.append(
             {
                 "term": "file_size",
@@ -183,7 +185,7 @@ def _collect_panel_filters() -> list[dict]:
             {
                 "term": "geometry_nodes",
                 "value": "true",
-                "label": "Geometry Nodes",
+                "label": "GeoNodes",
             }
         )
 
@@ -192,7 +194,7 @@ def _collect_panel_filters() -> list[dict]:
             {
                 "term": "quality_limit",
                 "value": str(ui_props.quality_limit),
-                "label": f"Quality ≥ {ui_props.quality_limit}",
+                "label": f"Q≥{ui_props.quality_limit}",
             }
         )
 
@@ -201,7 +203,7 @@ def _collect_panel_filters() -> list[dict]:
             {
                 "term": "license",
                 "value": ui_props.search_license,
-                "label": f"License: {ui_props.search_license}",
+                "label": ui_props.search_license,
             }
         )
 
@@ -220,11 +222,20 @@ def _collect_panel_filters() -> list[dict]:
             {
                 "term": "order",
                 "value": ui_props.search_order_by,
-                "label": f"Order: {ui_props.search_order_by}",
+                "label": ui_props.search_order_by,
             }
         )
 
     # NSFW is intentionally left out; it already changes server query and badge state.
+
+    category = getattr(sprops, "search_category", "")
+    if category and category != ui_props.asset_type.lower():
+        bkit_categories = global_vars.DATA.get("bkit_categories") or []
+        name_path = categories.get_category_name_path(bkit_categories, category)
+        label = name_path[-1] if name_path else category.split("/")[-1]
+        panel_filters.append(
+            {"term": "category", "value": category, "label": label}
+        )
 
     return panel_filters
 
@@ -305,6 +316,13 @@ def _clear_panel_filter(term: str):
         ui_props.search_blender_version = False
     elif term == "order":
         ui_props.search_order_by = "default"
+    elif term == "category" and hasattr(sprops, "search_category"):
+        sprops.search_category = ""
+        # Reset the category browse path back to the root for this asset type
+        asset_type = ui_props.asset_type
+        active_browse = global_vars.DATA.get("active_category_browse")
+        if active_browse is not None and asset_type in active_browse:
+            active_browse[asset_type] = [asset_type.lower()]
 
 
 def get_active_filter_keywords(tab: Optional[dict] = None) -> list[str]:

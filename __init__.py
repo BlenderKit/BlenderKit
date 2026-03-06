@@ -2160,7 +2160,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
     display_filter_bubbles: BoolProperty(
         name="Display filter bubbles",
         description="Display filter bubbles in the assetbar. Filter bubbles show you which filters are active and allow you to quickly change them.",
-        default=False,
+        default=True,
     )
 
     global_dir: StringProperty(
@@ -2596,6 +2596,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "announcements_on_start")
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
+        gui_settings.prop(self, "display_filter_bubbles")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
@@ -2620,7 +2621,6 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.alignment = "EXPAND"
             experimental_settings.label(text="Experimental settings")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
-            experimental_settings.prop(self, "display_filter_bubbles")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
         # RUNTIME INFO
