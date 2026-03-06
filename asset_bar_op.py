@@ -3019,45 +3019,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
         self.update_bookmark_icon(widget)
 
-    def _resolve_drag_start_bounds(self, widget) -> tuple[float, float, float, float]:
-        invalid_bounds = (-1.0, -1.0, -1.0, -1.0)
-        has_helpers = hasattr(widget, "get_image_region_bounds") and hasattr(
-            widget, "was_last_press_inside_image"
-        )
-        if not has_helpers or not widget.was_last_press_inside_image():
-            return invalid_bounds
-
-        region_bounds = widget.get_image_region_bounds()
-        if not region_bounds:
-            return invalid_bounds
-
-        context = getattr(widget, "context", None)
-        region = None
-        window = None
-        if context is None:
-            return invalid_bounds
-        if isinstance(context, dict):
-            region = context.get("region")
-            window = context.get("window")
-        else:
-            region = getattr(context, "region", None)
-            window = getattr(context, "window", None)
-
-        if region is None or window is None:
-            return invalid_bounds
-
-        scale = ui_bgl.get_ui_scale()
-        offset_x = window.x * scale + region.x
-        offset_y = window.y * scale + region.y
-
-        left, right, bottom, top = region_bounds
-        return (
-            float(offset_x + left),
-            float(offset_x + right),
-            float(offset_y + bottom),
-            float(offset_y + top),
-        )
-
     def drag_drop_asset(self, widget):
         """Start drag and drop operation for the asset linked to this button."""
         now = time.time()
@@ -3065,11 +3026,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if now - ui_panels.last_time_overlay_panel_active < 0.5:
             return
         # start drag drop
-        drag_bounds = self._resolve_drag_start_bounds(widget)
         bpy.ops.view3d.asset_drag_drop(
             "INVOKE_DEFAULT",
             asset_search_index=widget.search_index + self.scroll_offset,
-            drag_start_bounds=drag_bounds,
         )
 
     def cancel_press(self, widget):

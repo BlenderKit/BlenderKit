@@ -275,7 +275,7 @@ if bpy.app.version >= (4, 5, 0):
     EXTRA_PATH_OPTIONS = {"options": {"PATH_SUPPORTS_BLEND_RELATIVE"}}
 
 
-def udate_down_up(self, context):
+def update_down_up(self, context):
     """Perform a search if results are empty."""
     props = bpy.context.window_manager.blenderkitUI
     if search.get_search_results() is None and props.down_up == "SEARCH":
@@ -358,7 +358,7 @@ class BlenderKitUIProps(PropertyGroup):
         ),
         description="BlenderKit",
         default="SEARCH",
-        update=udate_down_up,
+        update=update_down_up,
     )
     asset_type: EnumProperty(
         name=" ",
