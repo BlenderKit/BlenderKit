@@ -57,8 +57,11 @@ handler_2d = None
 handler_3d = None
 
 
-DRAG_THRESHOLD = 10  # steps
-"""Number of steps we must hold to consider as a drag (vs click)."""
+DRAG_THRESHOLD = 15  # pixels
+"""Pointer travel in pixels needed before we start rendering full drag hints."""
+
+DEAD_ZONE = 30  # pixels
+"""Maximum pointer travel treated as a click before we consider it a true drag."""
 
 
 def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -> bool:
@@ -74,19 +77,32 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
     Returns:
         True if drawing callbacks can be added, False otherwise.
     """
+    # Accessing operator RNA after the modal finishes can raise ReferenceError, so guard everything.
     try:
-        if self is None:
-            return False
-        if self.active_region_pointer is None:
-            return False
+        operator = self
     except ReferenceError:
-        # The operator RNA is gone; skip drawing quietly
-        bk_logger.exception("Operator RNA is gone; skipping drawing callback.")
-        return False
-    except Exception:
         return False
 
-    if context.region.as_pointer() != self.active_region_pointer:
+    if operator is None:
+        return False
+
+    try:
+        active_region_pointer = getattr(operator, "active_region_pointer")
+    except ReferenceError:
+        bk_logger.debug("Operator RNA is gone; skipping drawing callback.")
+        return False
+    except AttributeError:
+        return False
+
+    if active_region_pointer is None:
+        return False
+
+    try:
+        region_pointer = context.region.as_pointer()
+    except ReferenceError:
+        return False
+
+    if region_pointer != active_region_pointer:
         return False
 
     return True
@@ -109,8 +125,9 @@ def draw_callback_dragging(
     if not is_draw_cb_available(self, context):
         return
 
+    current_distance = getattr(self, "_current_drag_distance", 0.0)
     # Skip drawing until the user moves enough to qualify as a drag
-    if not getattr(self, "drag", False) and getattr(self, "steps", 0) < DRAG_THRESHOLD:
+    if not getattr(self, "drag", False) and current_distance < DRAG_THRESHOLD:
         return
 
     try:
@@ -364,6 +381,10 @@ def draw_callback_3d_dragging(
 
     # Check if operator is still valid before accessing its attributes
     if not is_draw_cb_available(self, context):
+        return
+
+    current_distance = getattr(self, "_current_drag_distance", 0.0)
+    if not getattr(self, "drag", False) and current_distance < DRAG_THRESHOLD:
         return
 
     # Check if all required attributes are available
@@ -829,7 +850,10 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_y = 0
         self.mouse_screen_x = 0
         self.mouse_screen_y = 0
-        self.steps = 0
+        self.mouse_global_x = 0
+        self.mouse_global_y = 0
+        self._current_drag_distance = 0.0
+        self._max_drag_distance = 0.0
 
         # Store the initial active region pointer
         self.active_region_pointer = None
@@ -889,7 +913,7 @@ class AssetDragOperator(bpy.types.Operator):
         """Handle dropping assets in the 3D view."""
         scene = context.scene
         if self.asset_data["assetType"] in ["model", "printable"]:
-            if not self.drag:
+            if self._is_click_like_interaction():
                 self.snapped_location = scene.cursor.location
                 self.snapped_rotation = (0, 0, 0)
 
@@ -933,7 +957,7 @@ class AssetDragOperator(bpy.types.Operator):
             obj = None
             target_object = ""
             target_slot = ""
-            if not self.drag:
+            if self._is_click_like_interaction():
                 # click interaction
                 obj = context.active_object
                 if obj is None:
@@ -1020,7 +1044,7 @@ class AssetDragOperator(bpy.types.Operator):
                 target_location = self.snapped_location
                 target_rotation = self.snapped_rotation
 
-                if not self.drag:
+                if self._is_click_like_interaction():
                     # Click interaction - use active object like materials do
                     active_object = context.active_object
                     if active_object and active_object.type in ["MESH", "CURVE"]:
@@ -1761,13 +1785,26 @@ class AssetDragOperator(bpy.types.Operator):
             self.in_node_editor = False
             self.node_editor_type = None
 
+    def _update_drag_metrics(self) -> None:
+        """Keep track of the farthest cursor travel since the interaction started."""
+        if self.start_mouse_x < 0 or self.start_mouse_y < 0:
+            return
+
+        dx = self.mouse_global_x - self.start_mouse_x
+        dy = self.mouse_global_y - self.start_mouse_y
+        distance = math.hypot(dx, dy)
+        self._current_drag_distance = distance
+        if distance > self._max_drag_distance:
+            self._max_drag_distance = distance
+
+    def _is_click_like_interaction(self) -> bool:
+        """Return True when the pointer never left the dead zone."""
+        return self._max_drag_distance <= DEAD_ZONE
+
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
 
         self.resolution_factor = ui_bgl.get_ui_scale()
-        if self.start_mouse_x < 0:
-            self.start_mouse_x = event.mouse_region_x
-            self.start_mouse_y = event.mouse_region_y
 
         self.mouse_screen_x = int(
             context.window.x * self.resolution_factor + event.mouse_x
@@ -1775,6 +1812,21 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_screen_y = int(
             context.window.y * self.resolution_factor + event.mouse_y
         )
+        event_mouse_global_x = getattr(event, "mouse_x_global", None)
+        event_mouse_global_y = getattr(event, "mouse_y_global", None)
+
+        if event_mouse_global_x is None or event_mouse_global_y is None:
+            self.mouse_global_x = self.mouse_screen_x
+            self.mouse_global_y = self.mouse_screen_y
+        else:
+            self.mouse_global_x = int(event_mouse_global_x)
+            self.mouse_global_y = int(event_mouse_global_y)
+
+        if self.start_mouse_x < 0:
+            self.start_mouse_x = self.mouse_global_x
+            self.start_mouse_y = self.mouse_global_y
+            self._current_drag_distance = 0.0
+            self._max_drag_distance = 0.0
 
         # Find the active region under the mouse cursor using actual screen coordinates
         self.active_window, self.active_area, self.active_region = (
@@ -1800,6 +1852,8 @@ class AssetDragOperator(bpy.types.Operator):
             - self.active_window.y * self.resolution_factor
             - self.active_region.y
         )
+
+        self._update_drag_metrics()
 
         # redraw all windows to update cursor and other elements
         for window in bpy.context.window_manager.windows:
@@ -1855,10 +1909,7 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
-        if not self.drag and (
-            abs(self.start_mouse_x - self.mouse_x) > DRAG_THRESHOLD
-            or abs(self.start_mouse_y - self.mouse_y) > DRAG_THRESHOLD
-        ):
+        if not self.drag and self._max_drag_distance > DRAG_THRESHOLD:
             self.drag = True
 
         if self.drag and ui_props.assetbar_on and not self.closed_assetbar:
@@ -1869,7 +1920,7 @@ class AssetDragOperator(bpy.types.Operator):
         if (
             event.type == "ESC"
             or not ui.mouse_in_region(context.region, self.mouse_x, self.mouse_y)
-        ) and (not self.drag or self.steps < DRAG_THRESHOLD):
+        ) and (not self.drag or self._current_drag_distance < DRAG_THRESHOLD):
             # this case is for canceling from inside popup card when there's an escape attempt to close the window
             return {"PASS_THROUGH"}
 
@@ -1942,8 +1993,6 @@ class AssetDragOperator(bpy.types.Operator):
                 )
             ui_props.dragging = False
             return {"FINISHED"}
-
-        self.steps += 1
 
         # pass event to assetbar so it can close itself
         if ui_props.assetbar_on and ui_props.turn_off:
@@ -2061,7 +2110,10 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_y = 0
         self.mouse_screen_x = 0
         self.mouse_screen_y = 0
-        self.steps = 0
+        self.mouse_global_x = 0
+        self.mouse_global_y = 0
+        self._current_drag_distance = 0.0
+        self._max_drag_distance = 0.0
         # Store the initial active region pointer
         self.active_region_pointer = context.region.as_pointer()
 
