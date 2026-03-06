@@ -188,6 +188,12 @@ def modal_inside(self, context, event):
         if len(sr) - ui_props.scroll_offset < (ui_props.wcount * current_max_rows) + 15:
             self.search_more()
 
+    # Toggle overlay stats/text with animation playback
+    is_playing = getattr(bpy.context.screen, "is_animation_playing", False)
+    if is_playing != getattr(self, "_animation_playing", False):
+        self._animation_playing = is_playing
+        self._set_overlays(context, show=is_playing)
+
     time_diff = time.time() - self.update_timer_start
     if time_diff > self.update_timer_limit:
         self.update_timer_start = time.time()
@@ -2154,13 +2160,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return getattr(r3d, "view_perspective", "") in {"PERSP", "CAMERA"}
 
     def _filter_bubbles_enabled(self) -> bool:
-        """Return True when experimental filter bubbles are allowed to render."""
+        """Return True when filter bubbles are allowed to render."""
         addon = bpy.context.preferences.addons.get(__package__)
         prefs = getattr(addon, "preferences", None)
-        return (
-            bool(getattr(prefs, "display_filter_bubbles", False))
-            and utils.experimental_enabled()
-        )
+        return bool(getattr(prefs, "display_filter_bubbles", True))
 
     def set_element_images(self):
         """set ui elements images, has to be done after init of UI."""
@@ -2259,15 +2262,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self._manufacturer_counts = Counter()
             return
 
-        counts = Counter()
+        # Case-insensitive grouping: count by lowercase key, display first-seen casing
+        counts_lower: Counter = Counter()
+        display_names: dict = {}
         for asset_data in search_results:
             name = self._extract_manufacturer_name(asset_data)
             if name:
-                counts[name] += 1
+                key = name.lower()
+                counts_lower[key] += 1
+                if key not in display_names:
+                    display_names[key] = name
 
-        most_common = counts.most_common(self.max_manufacturer_filters)
-        self._manufacturer_names = [name for name, _ in most_common]
-        self._manufacturer_counts = counts
+        most_common = counts_lower.most_common(self.max_manufacturer_filters)
+        self._manufacturer_names = [display_names[key] for key, _ in most_common]
+        self._manufacturer_counts = Counter(
+            {display_names[k]: v for k, v in counts_lower.items()}
+        )
 
     def _estimate_manufacturer_button_width(self, label):
         char_width = max(6, int(self.other_button_size * 0.4))
@@ -2286,9 +2296,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return int(width)
 
     def _format_filter_label(self, term: str, label: str) -> str:
-        display_body = f"{term.capitalize()}: {label}" if term else label
-        # Active filter chips should show the full label without shortening
-        return f"{display_body} ×"
+        return f"{label} ×"
 
     def _refresh_active_filter_layout(self):
         if not self._filter_bubbles_enabled():
@@ -2384,7 +2392,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.manufacturer_section_height = 0
 
     def _update_manufacturer_data(self, search_results: Optional[list[dict]] = None):
-        if not self._filter_bubbles_enabled():
+        if not self._filter_bubbles_enabled() or not utils.experimental_enabled():
             self._manufacturer_names = []
             self._manufacturer_counts = Counter()
             self._manufacturer_button_layout = []
@@ -2431,26 +2439,26 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             + self.free_button_margin * 2
         )
 
-        current_left_offset = 0
+        current_left_offset = self.assetbar_margin
         for idx, button in enumerate(self.active_filter_buttons):
             if idx < len(layout):
                 data = layout[idx]
                 button.set_location(
-                    self.panel.x + current_left_offset,
+                    current_left_offset,
                     base_y,
                 )
                 #
                 width = (
                     ui_bgl.get_text_size(
                         font_id=1,
-                        text=data["label"].upper(),
+                        text=data["label"],
                         text_size=self.free_button_text_size,
                     )[0]
                     + self.free_button_margin * 4
                 )
                 button.width = width
                 button.height = self.filter_button_height
-                button.text = data["label"].upper()
+                button.text = data["label"]
                 button.text_size = self.free_button_text_size
                 button.visible = True
                 button.active_filter = {"term": data["term"], "value": data["value"]}
@@ -2611,7 +2619,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.manufacturer_section_height = 0
         self._last_search_results_id = None
         self._base_bar_height = 0
-        self.max_active_filter_chips = 8
+        self.max_active_filter_chips = 12
         self.active_filter_buttons = []
         self._active_filter_button_layout = []
         self._active_filter_rows = 0
@@ -2729,7 +2737,68 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.window = context.window
         self.area = context.area
         self.scene = bpy.context.scene
+
+        self._save_and_hide_overlays(context)
+
         return True
+
+    def _save_and_hide_overlays(self, context):
+        """Save and disable viewport overlay stats/text while the asset bar is open."""
+        self._saved_overlays = {}
+        screen = getattr(context.window, "screen", None) if context.window else None
+        if screen is None:
+            return
+        for area in screen.areas:
+            if area.type != "VIEW_3D":
+                continue
+            for space in area.spaces:
+                if space.type != "VIEW_3D":
+                    continue
+                try:
+                    ptr = space.as_pointer()
+                    self._saved_overlays[ptr] = {
+                        "show_stats": space.overlay.show_stats,
+                        "show_text": space.overlay.show_text,
+                    }
+                    space.overlay.show_stats = False
+                    space.overlay.show_text = False
+                except Exception:
+                    pass
+                break
+
+    def _set_overlays(self, context, show: bool):
+        """Set or restore viewport overlay stats/text.
+
+        When *show* is True, values are restored from the saved state.
+        When *show* is False, both flags are forced off (saved state unchanged).
+        """
+        saved = getattr(self, "_saved_overlays", {})
+        screen = getattr(context.window, "screen", None) if context.window else None
+        if screen is None:
+            return
+        for area in screen.areas:
+            if area.type != "VIEW_3D":
+                continue
+            for space in area.spaces:
+                if space.type != "VIEW_3D":
+                    continue
+                try:
+                    ptr = space.as_pointer()
+                    if show:
+                        state = saved.get(ptr)
+                        if state:
+                            space.overlay.show_stats = state["show_stats"]
+                            space.overlay.show_text = state["show_text"]
+                    else:
+                        space.overlay.show_stats = False
+                        space.overlay.show_text = False
+                except Exception:
+                    pass
+                break
+
+    def _restore_overlays(self, context):
+        """Restore viewport overlay stats/text to their saved state."""
+        self._set_overlays(context, show=True)
 
     def on_finish(self, context):
         # redraw all areas, since otherwise it stays to hang for some more time.
@@ -2743,6 +2812,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         ui_props.assetbar_on = False
         ui_props.scroll_offset = self.scroll_offset
+
+        self._restore_overlays(context)
 
         self._finished = True
         # to ensure the asset buttons are removed from screen
