@@ -24,7 +24,7 @@ import random
 
 import bpy
 import mathutils
-from bpy.props import IntProperty, StringProperty
+from bpy.props import FloatVectorProperty, IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
 
@@ -57,11 +57,8 @@ handler_2d = None
 handler_3d = None
 
 
-DRAG_THRESHOLD = 15  # pixels
+DEFAULT_DRAG_THRESHOLD = 30  # pixels
 """Pointer travel in pixels needed before we start rendering full drag hints."""
-
-DEAD_ZONE = 30  # pixels
-"""Maximum pointer travel treated as a click before we consider it a true drag."""
 
 
 def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -> bool:
@@ -126,8 +123,9 @@ def draw_callback_dragging(
         return
 
     current_distance = getattr(self, "_current_drag_distance", 0.0)
+    threshold = getattr(self, "drag_threshold", DEFAULT_DRAG_THRESHOLD)
     # Skip drawing until the user moves enough to qualify as a drag
-    if not getattr(self, "drag", False) and current_distance < DRAG_THRESHOLD:
+    if not getattr(self, "drag", False) and current_distance < threshold:
         return
 
     try:
@@ -384,7 +382,8 @@ def draw_callback_3d_dragging(
         return
 
     current_distance = getattr(self, "_current_drag_distance", 0.0)
-    if not getattr(self, "drag", False) and current_distance < DRAG_THRESHOLD:
+    threshold = getattr(self, "drag_threshold", DEFAULT_DRAG_THRESHOLD)
+    if not getattr(self, "drag", False) and current_distance < threshold:
         return
 
     # Check if all required attributes are available
@@ -821,6 +820,12 @@ class AssetDragOperator(bpy.types.Operator):
 
     asset_search_index: IntProperty(name="Active Index", default=0)  # type: ignore
     drag_length: IntProperty(name="Drag_length", default=0)  # type: ignore
+    drag_start_bounds: FloatVectorProperty(  # type: ignore
+        name="Drag Start Bounds",
+        size=4,
+        default=(-1.0, -1.0, -1.0, -1.0),
+        options={"HIDDEN"},
+    )
 
     object_name = None
 
@@ -885,6 +890,8 @@ class AssetDragOperator(bpy.types.Operator):
         self.iname = ""
         self.drag = False
         self.closed_assetbar = False
+        self._left_thumb_bounds = False
+        self.drag_threshold = DEFAULT_DRAG_THRESHOLD
 
     def handlers_remove(self) -> None:
         """Remove all draw handlers."""
@@ -1797,9 +1804,27 @@ class AssetDragOperator(bpy.types.Operator):
         if distance > self._max_drag_distance:
             self._max_drag_distance = distance
 
+    def _drag_bounds_valid(self) -> bool:
+        left, right, bottom, top = self.drag_start_bounds
+        return right > left and top > bottom
+
+    def _pointer_outside_drag_bounds(self) -> bool:
+        if not self._drag_bounds_valid():
+            return False
+
+        left, right, bottom, top = self.drag_start_bounds
+        x = self.mouse_screen_x
+        y = self.mouse_screen_y
+        outside = x < left or x > right or y < bottom or y > top
+        if outside:
+            self._left_thumb_bounds = True
+        return outside
+
     def _is_click_like_interaction(self) -> bool:
         """Return True when the pointer never left the dead zone."""
-        return self._max_drag_distance <= DEAD_ZONE
+        if self._left_thumb_bounds:
+            return False
+        return self._max_drag_distance <= self.drag_threshold
 
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -1854,6 +1879,7 @@ class AssetDragOperator(bpy.types.Operator):
         )
 
         self._update_drag_metrics()
+        pointer_left_bounds = self._pointer_outside_drag_bounds()
 
         # redraw all windows to update cursor and other elements
         for window in bpy.context.window_manager.windows:
@@ -1909,8 +1935,11 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
-        if not self.drag and self._max_drag_distance > DRAG_THRESHOLD:
-            self.drag = True
+        if not self.drag:
+            if pointer_left_bounds:
+                self.drag = True
+            elif self._max_drag_distance > self.drag_threshold:
+                self.drag = True
 
         if self.drag and ui_props.assetbar_on and not self.closed_assetbar:
             # turn off asset bar here; reopen after placement when we actually dragged
@@ -1920,7 +1949,7 @@ class AssetDragOperator(bpy.types.Operator):
         if (
             event.type == "ESC"
             or not ui.mouse_in_region(context.region, self.mouse_x, self.mouse_y)
-        ) and (not self.drag or self._current_drag_distance < DRAG_THRESHOLD):
+        ) and (not self.drag or self._current_drag_distance < self.drag_threshold):
             # this case is for canceling from inside popup card when there's an escape attempt to close the window
             return {"PASS_THROUGH"}
 
@@ -2031,6 +2060,9 @@ class AssetDragOperator(bpy.types.Operator):
             return {"CANCELLED"}
 
         prefs = bpy.context.preferences.addons[__package__].preferences
+        self.drag_threshold = getattr(
+            prefs, "drag_start_threshold", DEFAULT_DRAG_THRESHOLD
+        )
 
         dir_behaviour = prefs.directory_behaviour
 
