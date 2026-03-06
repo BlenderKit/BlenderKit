@@ -233,9 +233,7 @@ def _collect_panel_filters() -> list[dict]:
         bkit_categories = global_vars.DATA.get("bkit_categories") or []
         name_path = categories.get_category_name_path(bkit_categories, category)
         label = name_path[-1] if name_path else category.split("/")[-1]
-        panel_filters.append(
-            {"term": "category", "value": category, "label": label}
-        )
+        panel_filters.append({"term": "category", "value": category, "label": label})
 
     return panel_filters
 
