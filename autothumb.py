@@ -394,6 +394,8 @@ class GenerateThumbnailOperator(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        if not upload.wire_thumbnail_upload_enabled():
+            return False
         return bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):
@@ -535,6 +537,9 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
         # layout.prop(preferences, "thumbnail_disable_subdivision")
 
     def execute(self, context):
+        if not upload.wire_thumbnail_upload_enabled():
+            self.report({"ERROR"}, "Wireframe thumbnail uploads are disabled.")
+            return {"CANCELLED"}
         asset = utils.get_active_model()
         asset.blenderkit.is_generating_wire_thumbnail = True
         asset.blenderkit.wire_thumbnail_generating_state = "starting blender instance"
