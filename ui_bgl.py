@@ -740,6 +740,80 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
     return tex
 
 
+def draw_texture_at(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    texture: gpu.types.GPUTexture,
+    transparency: float = 1.0,
+    corner_radius: Optional[Union[tuple[Union[str, float], ...], str, float]] = None,
+    corner_segments: int = SEGMENTS_DEFAULT,
+    batch: Optional[gpu.types.GPUBatch] = None,
+) -> Optional[gpu.types.GPUBatch]:
+    """Draw a pre-loaded GPU texture at *x, y* with the given *width* and *height*.
+
+    Unlike :func:`draw_image_runtime` this function accepts a
+    ``gpu.types.GPUTexture`` directly, which is useful for video playback where
+    the same geometry batch is reused across many frames while only the texture
+    changes.
+
+    The caller may pass a previously returned batch to skip the (cheap) vertex
+    buffer rebuild when the geometry has not changed.  Pass ``None`` to always
+    rebuild.
+
+    Returns the batch object on success, or *None* on failure.
+    """
+    if width <= 0.0 or height <= 0.0 or texture is None:
+        return None
+
+    image_shader = create_image_shader()
+    crop = (0, 0, 1, 1)
+
+    if batch is None:
+        coords = None
+        uvs = None
+        indices = None
+
+        if corner_radius is not None:
+            mesh_data = _rounded_rect_mesh(
+                x, y, width, height, corner_radius, crop, max(1, int(corner_segments))
+            )
+            if mesh_data:
+                coords, uvs, indices = mesh_data
+
+        if coords is None:
+            coords = [
+                (x, y),
+                (x + width, y),
+                (x, y + height),
+                (x + width, y + height),
+            ]
+            uvs = [(0, 0), (1, 0), (0, 1), (1, 1)]
+            indices = [(0, 1, 2), (1, 2, 3)]
+
+        batch = batch_for_shader(
+            image_shader, "TRIS", {"pos": coords, "texCoord": uvs}, indices=indices
+        )
+
+    if batch is None:
+        return None
+
+    color_space_mode = _resolve_color_space_mode()
+    gpu.state.blend_set("ALPHA")
+
+    image_shader.bind()
+    image_shader.uniform_sampler("image", texture)
+    try:
+        image_shader.uniform_float("transparency", transparency)
+        image_shader.uniform_int("color_space_mode", color_space_mode)
+        batch.draw(image_shader)
+    except Exception:
+        pass
+
+    return batch
+
+
 def get_text_size(
     font_id: int = 0, text: str = "", text_size: float = 16, dpi: int = 72
 ):

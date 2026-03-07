@@ -48,6 +48,7 @@ from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
+from .bl_ui_widgets.video import BL_UI_Video
 
 
 bk_logger = logging.getLogger(__name__)
@@ -154,6 +155,7 @@ def modal_inside(self, context, event):
                     set_thumb_check(
                         self.tooltip_image, asset_data, thumb_type="thumbnail"
                     )
+                start_animated_thumbnail(self.tooltip_image, asset_data)
 
     if not context.area:
         self.finish()
@@ -569,6 +571,23 @@ def set_thumb_check(
         return
     element.set_image(tpath)
     element.set_image_colorspace("")
+
+
+def start_animated_thumbnail(
+    tooltip_image: BL_UI_Video, asset_data: dict
+) -> None:
+    """If *asset_data* has an animated thumbnail, start video playback on *tooltip_image*.
+
+    Safe to call on every hover update; the video decoder caches results so
+    repeated calls for the same URL are free.
+    """
+    asset_type = asset_data.get("assetType", "model")
+    result = ui.get_animated_thumbnail_url_and_path(asset_data, asset_type)
+    if result is None:
+        tooltip_image.clear_video()
+        return
+    url, directory, filename = result
+    tooltip_image.set_video_from_url(url, directory, filename)
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
@@ -1009,7 +1028,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.background_corner_radius = ROUNDING_RADIUS
         self.tooltip_panel.visible = False
 
-        tooltip_image = BL_UI_Image(0, 0, 1, 1)
+        tooltip_image = BL_UI_Video(0, 0, 1, 1)
         img_path = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
         tooltip_image.set_image(img_path)
         tooltip_image.set_image_size((self.tooltip_width, self.tooltip_image_height))
@@ -1193,6 +1212,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.visible = False
         for w in self.tooltip_widgets:
             w.visible = False
+        # Stop video playback timer when tooltip is hidden.
+        if hasattr(self, "tooltip_image") and isinstance(self.tooltip_image, BL_UI_Video):
+            self.tooltip_image._stop_timer()
         self._redraw_tracked_regions()
 
     def show_tooltip(self):
@@ -2881,6 +2903,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             if not thumbnail_found:
                 set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
+
+            # Start animated-thumbnail playback if the asset has a video preview.
+            # This runs after the static thumbnail is set so the static image is
+            # always available as a fallback while the video is downloading.
+            start_animated_thumbnail(self.tooltip_image, asset_data)
 
             get_tooltip_data(asset_data)
             an = asset_data["displayName"]

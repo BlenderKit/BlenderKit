@@ -160,6 +160,64 @@ def get_full_wire_thumbnail(asset_data):
     return thumb
 
 
+def get_animated_thumbnail_file(asset_data: dict) -> dict | None:
+    """Return the file record for an animated thumbnail if the asset has one.
+
+    The record is a dict from ``asset_data["files"]`` with
+    ``"fileType": "animated_thumbnail"``.  The video URL is looked up from
+    the most specific field available::
+
+        thumbnailMiddleUrl → filePath → (nothing found → None)
+
+    Returns *None* when no animated thumbnail entry exists or no usable URL
+    can be resolved from the record.
+    """
+    for file in asset_data.get("files", []):
+        if file.get("fileType") != "animated_thumbnail":
+            continue
+        # Resolve the best available URL.
+        url = (
+            file.get("thumbnailMiddleUrl")
+            or file.get("filePath")
+            or file.get("url")
+        )
+        if url:
+            return file
+    return None
+
+
+def get_animated_thumbnail_url_and_path(
+    asset_data: dict, asset_type: str
+) -> tuple[str, str, str] | None:
+    """Return *(url, directory, filename)* for the animated thumbnail, or *None*.
+
+    ``directory`` is the same search-cache directory used for regular
+    thumbnails so the file lands alongside them.
+    """
+    file_rec = get_animated_thumbnail_file(asset_data)
+    if file_rec is None:
+        return None
+
+    url = (
+        file_rec.get("thumbnailMiddleUrl")
+        or file_rec.get("filePath")
+        or file_rec.get("url")
+        or ""
+    )
+    if not url:
+        return None
+
+    directory = paths.get_temp_dir(f"{asset_type.lower()}_search")
+    if not directory:
+        return None
+
+    filename = os.path.basename(url.split("?")[0])  # strip query string
+    if not filename:
+        return None
+
+    return url, directory, filename
+
+
 def is_rating_possible() -> tuple[bool, bool, Any, Any]:
     # TODO remove this, but first check and reuse the code for new rating system...
     ao = bpy.context.active_object
