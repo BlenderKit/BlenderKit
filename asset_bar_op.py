@@ -2491,13 +2491,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         min_count = min(displayed_counts) if displayed_counts else 1
         max_count = max(displayed_counts) if displayed_counts else 1
 
-        current_left_offset = 0
+        current_left_offset = self.assetbar_margin
         for idx, button in enumerate(self.manufacturer_buttons):
             if idx < len(layout):
                 data = layout[idx]
                 button.set_location(
-                    self.panel.x + current_left_offset,
-                    self.panel.y + base_y,
+                    current_left_offset,
+                    base_y,
                 )
                 # shift to the right so we leave space for the clear bubble
                 # button.x += clear_slot
