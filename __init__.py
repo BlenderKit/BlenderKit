@@ -2163,6 +2163,20 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=True,
     )
 
+    video_scrubbing: BoolProperty(
+        name="Video scrubbing",
+        description="Hover over an animated thumbnail and move the mouse left/right to scrub through frames",
+        default=True,
+        update=utils.save_prefs,
+    )
+
+    video_small_thumbs: BoolProperty(
+        name="Animated asset bar thumbnails",
+        description="Show animated video previews in the small asset bar thumbnails (uses more GPU memory)",
+        default=False,
+        update=utils.save_prefs,
+    )
+
     global_dir: StringProperty(
         name="Global Directory",
         description="Global storage for your assets, will use subdirectories for the contents. Client will place its files in subdirectory 'client'",
@@ -2597,6 +2611,8 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
         gui_settings.prop(self, "display_filter_bubbles")
+        gui_settings.prop(self, "video_scrubbing")
+        gui_settings.prop(self, "video_small_thumbs")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()

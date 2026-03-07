@@ -805,6 +805,17 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
         return
 
 
+def handle_animated_thumbnail_download_task(task: client_tasks.Task) -> None:
+    if task.status == "error":
+        bk_logger.warning("Animated thumbnail download failed: %s", task.message)
+        return
+    if task.status != "finished":
+        return
+    if asset_bar_op.asset_bar_operator is None:
+        return
+    asset_bar_op.asset_bar_operator.update_animated_thumbnail(task.data["assetBaseId"])
+
+
 def load_preview(asset):
     # FIRST START SEARCH
     props = bpy.context.window_manager.blenderkitUI

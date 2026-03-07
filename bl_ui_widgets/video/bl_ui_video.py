@@ -29,10 +29,10 @@ from typing import Optional
 import bpy
 import gpu
 
-from .. import ui_bgl
-from ..image_utils import IMG
+from ... import ui_bgl
+from ...image_utils import IMG
 from ..bl_ui_widget import BL_UI_Widget
-from .video_decoder import VideoDecoder, get_video_decoder, request_video
+from .video_decoder import VideoDecoder, get_video_decoder
 
 bk_logger = logging.getLogger(__name__)
 
@@ -49,6 +49,12 @@ class BL_UI_Video(BL_UI_Widget):
         self._play_start: float = 0.0
         self._loop: bool = True
 
+        # GPU texture cache: frame_index → gpu.types.GPUTexture.
+        # Textures are created once from raw RGBA bytes on the main (draw)
+        # thread and reused on every subsequent draw and loop iteration.
+        self._texture_cache: dict = {}
+        self._texture_cache_decoder: Optional[VideoDecoder] = None
+
         # Static fallback image (same as BL_UI_Image)
         self._static_image: Optional[IMG] = None
 
@@ -62,6 +68,10 @@ class BL_UI_Video(BL_UI_Widget):
 
         # bpy.app.timers callback reference (stored to allow un-registration)
         self._timer_fn = None
+
+        # Scrubbing: _scrub_frame is set externally (by the asset bar operator) to
+        # override the playback position.  None means normal timed playback.
+        self._scrub_frame: Optional[int] = None
 
     # ------------------------------------------------------------------
     # BL_UI_Image-compatible API
@@ -117,27 +127,26 @@ class BL_UI_Video(BL_UI_Widget):
 
     def set_video(self, filepath: str) -> None:
         """Start decoding *filepath* and begin looped playback."""
+        import os
+        bk_logger.info(
+            "BK video: set_video(%s) exists=%s", filepath, os.path.exists(filepath)
+        )
         new_decoder = get_video_decoder(filepath)
         if new_decoder is not self._decoder:
             self._decoder = new_decoder
             self._play_start = time.time()
             self._batch = None
-        self._ensure_timer()
-
-    def set_video_from_url(
-        self, url: str, save_dir: str, filename: str
-    ) -> None:
-        """Download *url* → *save_dir/filename*, then start playback."""
-        new_decoder = request_video(url, save_dir, filename)
-        if new_decoder is not self._decoder:
-            self._decoder = new_decoder
-            self._play_start = time.time()
-            self._batch = None
+        bk_logger.info(
+            "BK video: decoder status=%s frames=%d",
+            new_decoder.status, len(new_decoder.frame_bytes),
+        )
         self._ensure_timer()
 
     def clear_video(self) -> None:
         """Stop video playback; the widget falls back to its static image."""
         self._decoder = None
+        self._texture_cache.clear()
+        self._texture_cache_decoder = None
         self._stop_timer()
 
     def reset_playback(self) -> None:
@@ -199,36 +208,93 @@ class BL_UI_Video(BL_UI_Widget):
             return self.background_corner_radius
         return None
 
-    def _current_frame_path(self) -> Optional[str]:
-        """Compute which frame file should be displayed right now."""
+    def _current_frame_index(self) -> Optional[int]:
+        """Return the frame index that should be displayed right now."""
         if self._decoder is None or not self._decoder.is_ready:
             return None
-        frames = self._decoder.frame_files
-        if not frames:
+        total = len(self._decoder.frame_bytes) or len(self._decoder.frame_files)
+        if not total:
             return None
+        if self._scrub_frame is not None:
+            return max(0, min(self._scrub_frame, total - 1))
         fps = max(self._decoder.fps, 1.0)
         elapsed = time.time() - self._play_start
-        frame_idx = int(elapsed * fps)
-        if self._loop:
-            frame_idx %= len(frames)
-        else:
-            frame_idx = min(frame_idx, len(frames) - 1)
-        return frames[frame_idx]
+        idx = int(elapsed * fps)
+        return idx % total if self._loop else min(idx, total - 1)
+
+    def _get_or_create_texture(self, frame_idx: int) -> Optional[gpu.types.GPUTexture]:
+        """Return the cached GPU texture for *frame_idx*, creating it if needed.
+
+        Must be called from the main (draw) thread.  The texture is built once
+        from the decoder's raw RGBA bytes and cached forever — zero GPU
+        allocation cost on subsequent draws and loop iterations.
+        """
+        # Clear the cache when the active decoder changes.
+        if self._texture_cache_decoder is not self._decoder:
+            self._texture_cache.clear()
+            self._texture_cache_decoder = self._decoder
+
+        if frame_idx in self._texture_cache:
+            return self._texture_cache[frame_idx]
+
+        dec = self._decoder
+        if dec is None or not dec.frame_bytes or frame_idx >= len(dec.frame_bytes):
+            return None
+
+        w, h = dec.frame_width, dec.frame_height
+        if w <= 0 or h <= 0:
+            bk_logger.warning("BK video: invalid frame dimensions %dx%d", w, h)
+            return None
+        raw = dec.frame_bytes[frame_idx]
+        try:
+            import numpy as np
+            # gpu.types.GPUTexture(data=) requires a FLOAT buffer; convert UBYTE→float32.
+            float_arr = np.frombuffer(raw, dtype=np.uint8).astype(np.float32) / 255.0
+            buf = gpu.types.Buffer("FLOAT", w * h * 4, float_arr)
+            tex = gpu.types.GPUTexture((w, h), format="RGBA32F", data=buf)
+            self._texture_cache[frame_idx] = tex
+            if len(self._texture_cache) == 1:
+                bk_logger.info("BK video: first GPU texture created ok (%dx%d)", w, h)
+            return tex
+        except Exception:
+            bk_logger.warning(
+                "BK video: GPU texture creation failed frame=%d (%dx%d)",
+                frame_idx, w, h,
+                exc_info=True,
+            )
+            return None
 
     def _draw_video(self) -> bool:
         """Draw the current video frame.  Returns *True* on success."""
-        frame_path = self._current_frame_path()
-        if frame_path is None:
+        frame_idx = self._current_frame_index()
+        if frame_idx is None:
+            if self._decoder is not None:
+                bk_logger.debug(
+                    "BK video: frame_idx None, decoder status=%s ready=%s",
+                    self._decoder.status, self._decoder.is_ready,
+                )
             return False
 
-        texture = ui_bgl.path_to_gpu_texture(frame_path)
+        dec = self._decoder
+        if dec is None:
+            return False
+
+        # In-memory path: create/reuse a GPU texture from raw RGBA bytes.
+        if dec.frame_bytes:
+            texture = self._get_or_create_texture(frame_idx)
+        else:
+            # Disk fallback: load JPEG and let ui_bgl cache the GPU texture.
+            if frame_idx >= len(dec.frame_files):
+                return False
+            texture = ui_bgl.path_to_gpu_texture(dec.frame_files[frame_idx])
+
         if texture is None:
             return False
 
         img_x, img_y, sx, sy = self._screen_coords()
         corner_radius = self._corner_radius()
 
-        # Reuse the batch as long as the geometry hasn't changed.
+        # Reuse the geometry batch as long as layout hasn't changed.
         geom_key = (img_x, img_y, sx, sy, repr(corner_radius))
         if geom_key != self._batch_geom_key:
             self._batch = None
@@ -287,11 +353,13 @@ class BL_UI_Video(BL_UI_Widget):
             if not w._is_visible or w._decoder is None:
                 w._timer_fn = None
                 return None  # unregister
-            # Tag the active region for redraw.
+            # Tag all 3D view areas for redraw.  bpy.context.area is None inside
+            # timer callbacks, so we iterate window_manager.windows instead.
             try:
-                area = bpy.context.area
-                if area is not None:
-                    area.tag_redraw()
+                for window in bpy.context.window_manager.windows:
+                    for area in window.screen.areas:
+                        if area.type == "VIEW_3D":
+                            area.tag_redraw()
             except Exception:
                 pass
             fps = getattr(w._decoder, "fps", 10.0) if w._decoder else 10.0
@@ -304,8 +372,9 @@ class BL_UI_Video(BL_UI_Widget):
                 1.0,
             )
             bpy.app.timers.register(self._timer_fn, first_interval=interval)
+            bk_logger.info("BK video: redraw timer registered (interval=%.3fs)", interval)
         except Exception:
-            bk_logger.debug("Could not register video redraw timer", exc_info=True)
+            bk_logger.warning("BK video: could not register redraw timer", exc_info=True)
             self._timer_fn = None
 
     def _stop_timer(self) -> None:
@@ -326,13 +395,16 @@ class BL_UI_Video(BL_UI_Widget):
         self._stop_timer()
 
     # ------------------------------------------------------------------
-    # Mouse handlers (passthrough – same as BL_UI_Image)
+    # Mouse handlers
     # ------------------------------------------------------------------
 
     def mouse_down(self, x, y):
         return False
 
     def mouse_move(self, x, y):
+        return
+
+    def mouse_exit(self, event, x, y):
         return
 
     def mouse_up(self, x, y):

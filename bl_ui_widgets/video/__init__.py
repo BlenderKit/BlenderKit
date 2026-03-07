@@ -15,6 +15,6 @@ Main entry points
 """
 
 from .bl_ui_video import BL_UI_Video
-from .video_decoder import get_video_decoder, request_video
+from .video_decoder import get_video_decoder
 
-__all__ = ["BL_UI_Video", "get_video_decoder", "request_video"]
+__all__ = ["BL_UI_Video", "get_video_decoder"]

@@ -242,6 +242,7 @@ class BL_UI_Button(BL_UI_Widget):
                 self.__state = 2
         else:
             self.__state = 0
+        self.call_mouse_move(x, y)
 
     def mouse_up(self, x, y):
         if self.is_in_rect(x, y):

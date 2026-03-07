@@ -286,6 +286,10 @@ def handle_task(task: client_tasks.Task):
     if task.task_type == "thumbnail_download":
         return search.handle_thumbnail_download_task(task)
 
+    # HANDLE ANIMATED THUMBNAIL DOWNLOAD
+    if task.task_type == "animated_thumbnail_download":
+        return search.handle_animated_thumbnail_download_task(task)
+
     # HANDLE LOGIN
     if task.task_type == "login":
         return bkit_oauth.handle_login_task(task)

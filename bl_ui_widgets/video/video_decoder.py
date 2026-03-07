@@ -2,24 +2,32 @@
 
 Architecture
 ------------
-* ``VideoDecoder`` runs entirely in a daemon thread so it never blocks
-  the Blender UI thread.
-* Frames are extracted to a per-video temporary directory as JPEG files
-  and sorted by frame number.  The draw side just picks the right filename
-  at render time based on wall-clock elapsed time.
-* ffmpeg is the only external dependency.  It is looked up in the system
-  PATH and in Blender's own ``bin/`` directory so it works on all three
-  platforms without bundling anything extra.
-* When no ffmpeg is found the decoder enters the ``STATUS_NO_FFMPEG``
-  state; the video widget gracefully falls back to a static thumbnail.
+Primary path (in-memory, no disk I/O):
+  ``imageio_ffmpeg.read_frames()`` decodes video frames into raw RGBA bytes
+  stored in ``VideoDecoder.frame_bytes``.  Each frame is center-cropped to a
+  square and scaled to ``FRAME_SIZE × FRAME_SIZE`` by ffmpeg during decode.
+  ``BL_UI_Video`` turns these bytes into ``gpu.types.GPUTexture`` objects on
+  the first draw and caches them for every subsequent frame/loop — no rebuild
+  cost at all after the first pass.
+
+Disk fallback:
+  If ``imageio_ffmpeg`` is unavailable (rare, since it auto-installs via pip)
+  the decoder falls back to extracting JPEG files into a temp directory.  The
+  draw side then uses ``ui_bgl.path_to_gpu_texture()`` which has its own cache.
+
+Binary discovery order (``find_ffmpeg``):
+  1. ``imageio_ffmpeg.get_ffmpeg_exe()`` — signed/notarized for all platforms.
+  2. System PATH.
+  3. Blender's own ``bin/`` (Windows bundled ffmpeg).
+  4. Homebrew prefixes (macOS).
 
 Thread safety
 -------------
-``VideoDecoder.frame_files`` and ``VideoDecoder.status`` are written once
-(by the worker thread) and read from the draw thread.  CPython's GIL makes
-single-attribute reads/writes atomic for these simple types, so no extra
-locking is needed.
+``frame_bytes``, ``frame_files``, and ``status`` are written once by the
+worker thread and read from the draw thread.  CPython's GIL makes these
+single-attribute assignments atomic.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,69 +36,87 @@ import shutil
 import subprocess
 import tempfile
 import threading
-import urllib.request
 from typing import Dict, List, Optional
 
 bk_logger = logging.getLogger(__name__)
 
-# Module-level cache: video path/url → VideoDecoder instance.
+# Module-level cache: video path → VideoDecoder instance.
 _decoders: Dict[str, "VideoDecoder"] = {}
 _decoders_lock = threading.Lock()
 
-# Maximum frames to extract (keeps memory and disk usage bounded).
-MAX_FRAMES = 200
-# Target playback FPS for extracted frames.  The source video may run
-# faster; we down-sample to keep extraction quick.
-TARGET_FPS = 10.0
+# Maximum frames to keep in memory / on disk.
+MAX_FRAMES = 300
+# Output FPS cap.  The source video is never up-sampled above this value.
+TARGET_FPS = 24.0
 
 
 # ---------------------------------------------------------------------------
 # Public helpers
 # ---------------------------------------------------------------------------
 
+
 def get_video_decoder(filepath: str) -> "VideoDecoder":
     """Return (and lazily start) a :class:`VideoDecoder` for a local file."""
     with _decoders_lock:
         if filepath not in _decoders:
+            bk_logger.info("BK video: starting decoder for %s", filepath)
             dec = VideoDecoder(filepath)
             dec.start()
             _decoders[filepath] = dec
         return _decoders[filepath]
 
 
-def request_video(url: str, save_dir: str, filename: str) -> "VideoDecoder":
-    """Download *url* to *save_dir/filename* and start decoding it.
-
-    If the file already exists on disk the download step is skipped.
-    The decoder is cached by URL so repeated calls return the same object.
-    """
-    filepath = os.path.join(save_dir, filename)
-    with _decoders_lock:
-        # Prefer lookup by URL so we don't start two downloads for the same
-        # file when the filepath decoder hasn't been registered yet.
-        if url in _decoders:
-            return _decoders[url]
-        if filepath in _decoders:
-            dec = _decoders[filepath]
-            _decoders[url] = dec
-            return dec
-        dec = VideoDecoder(filepath, download_url=url)
-        dec.start()
-        _decoders[url] = dec
-        _decoders[filepath] = dec
-        return dec
+def _ensure_imageio_ffmpeg() -> bool:
+    """Install imageio-ffmpeg via pip if not already available. Returns True on success."""
+    import importlib
+    if importlib.util.find_spec("imageio_ffmpeg") is not None:
+        return True
+    try:
+        import sys
+        import subprocess as _sp
+        bk_logger.info("imageio-ffmpeg not found – installing via pip …")
+        _sp.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "imageio-ffmpeg"],
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+        importlib.invalidate_caches()
+        bk_logger.info("imageio-ffmpeg installed successfully.")
+        return importlib.util.find_spec("imageio_ffmpeg") is not None
+    except Exception as exc:
+        bk_logger.warning("Could not install imageio-ffmpeg: %s", exc)
+        return False
 
 
 def find_ffmpeg() -> Optional[str]:
-    """Return the path to the ffmpeg binary or *None* if not found."""
+    """Return the path to the ffmpeg binary or *None* if not found.
+
+    Discovery order:
+    1. ``imageio_ffmpeg`` – ships signed/notarized binaries for every platform.
+       Auto-installed via pip if missing.
+    2. System PATH.
+    3. Next to the Blender/Python executable (Windows bundled ffmpeg).
+    4. Common macOS Homebrew prefixes.
+    """
     import sys
 
-    # 1. System PATH (covers Linux, most macOS/Windows setups).
+    # 1. imageio_ffmpeg bundles signed, notarized binaries – best option on macOS.
+    _ensure_imageio_ffmpeg()
+    try:
+        import imageio_ffmpeg  # type: ignore
+        ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        if ffmpeg and os.path.isfile(ffmpeg):
+            return ffmpeg
+    except Exception:
+        pass
+
+    # 2. System PATH.
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg:
         return ffmpeg
 
-    # 2. Next to the Python/Blender executable (Windows ships ffmpeg.exe
+    # 3. Next to the Python/Blender executable (Windows ships ffmpeg.exe
     #    alongside blender.exe inside the installation directory).
     blender_bin = os.path.dirname(sys.executable)
     for name in ("ffmpeg", "ffmpeg.exe"):
@@ -98,7 +124,7 @@ def find_ffmpeg() -> Optional[str]:
         if os.path.isfile(candidate):
             return candidate
 
-    # 3. Common macOS Homebrew locations.
+    # 4. Common macOS Homebrew locations.
     for path in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"):
         if os.path.isfile(path):
             return path
@@ -110,41 +136,39 @@ def find_ffmpeg() -> Optional[str]:
 # VideoDecoder
 # ---------------------------------------------------------------------------
 
-class VideoDecoder:
-    """Asynchronously download (optional) and extract frames from a video.
 
-    States
-    ------
-    ``STATUS_PENDING``
-        Thread not started yet.
-    ``STATUS_DOWNLOADING``
-        Fetching the video file from the network.
-    ``STATUS_EXTRACTING``
-        Running ffmpeg to extract JPEG frames.
-    ``STATUS_READY``
-        ``frame_files`` is populated; the widget can start animating.
-    ``STATUS_ERROR``
-        Something went wrong (download failed, ffmpeg crashed, …).
-    ``STATUS_NO_FFMPEG``
-        ffmpeg binary not found; video playback is unavailable.
+class VideoDecoder:
+    """Asynchronously extract frames from a local video file.
+
+    Attributes set once by the worker thread, read from the draw thread:
+
+    ``frame_bytes``  – list of raw RGBA bytes per frame (in-memory path).
+    ``frame_width``  – frame width in pixels (in-memory path).
+    ``frame_height`` – frame height in pixels (in-memory path).
+    ``frame_files``  – list of JPEG file paths (disk-fallback path).
+    ``fps``          – playback frame rate.
+    ``status``       – one of the STATUS_* constants.
     """
 
     STATUS_PENDING = "pending"
-    STATUS_DOWNLOADING = "downloading"
     STATUS_EXTRACTING = "extracting"
     STATUS_READY = "ready"
     STATUS_ERROR = "error"
     STATUS_NO_FFMPEG = "no_ffmpeg"
 
-    def __init__(self, filepath: str, download_url: Optional[str] = None):
+    def __init__(self, filepath: str):
         self.filepath = filepath
-        self.download_url = download_url
 
-        # Populated once extraction completes.
+        # In-memory path (primary).
+        self.frame_bytes: List[bytes] = []
+        self.frame_width: int = 0
+        self.frame_height: int = 0
+
+        # Disk fallback path.
         self.frames_dir: Optional[str] = None
         self.frame_files: List[str] = []
-        self.fps: float = TARGET_FPS
 
+        self.fps: float = TARGET_FPS
         self.status: str = self.STATUS_PENDING
         self._thread: Optional[threading.Thread] = None
 
@@ -154,7 +178,9 @@ class VideoDecoder:
 
     @property
     def is_ready(self) -> bool:
-        return self.status == self.STATUS_READY and bool(self.frame_files)
+        return self.status == self.STATUS_READY and bool(
+            self.frame_bytes or self.frame_files
+        )
 
     @property
     def has_error(self) -> bool:
@@ -162,7 +188,9 @@ class VideoDecoder:
 
     def start(self) -> None:
         """Kick off the background worker thread."""
-        self._thread = threading.Thread(target=self._run, daemon=True, name="bk_video_decoder")
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name="bk_video_decoder"
+        )
         self._thread.start()
 
     # ------------------------------------------------------------------
@@ -171,101 +199,168 @@ class VideoDecoder:
 
     def _run(self) -> None:
         try:
-            # --- optional download ---
-            if self.download_url and not os.path.isfile(self.filepath):
-                self.status = self.STATUS_DOWNLOADING
-                self._download()
-                if not os.path.isfile(self.filepath):
-                    self.status = self.STATUS_ERROR
-                    return
+            self.status = self.STATUS_EXTRACTING
+            bk_logger.info("BK video: extracting frames from %s", self.filepath)
 
-            # --- locate ffmpeg ---
+            # Primary: decode into memory via imageio_ffmpeg (fast, no disk I/O).
+            if _ensure_imageio_ffmpeg():
+                try:
+                    self._extract_frames_memory()
+                    return
+                except Exception as exc:
+                    bk_logger.warning(
+                        "BK video: in-memory extraction failed for %s (%s), falling back to disk.",
+                        self.filepath, exc,
+                    )
+
+            # Fallback: write JPEG files and keep file paths.
             ffmpeg = find_ffmpeg()
             if not ffmpeg:
                 bk_logger.warning(
-                    "BlenderKit video preview: ffmpeg not found. "
-                    "Install ffmpeg and make sure it is on PATH to enable animated thumbnails."
+                    "BK video: ffmpeg not found. "
+                    "Install imageio-ffmpeg (pip install imageio-ffmpeg) "
+                    "or system ffmpeg to enable animated thumbnails."
                 )
                 self.status = self.STATUS_NO_FFMPEG
                 return
-
-            # --- extract frames ---
-            self.status = self.STATUS_EXTRACTING
-            self._extract_frames(ffmpeg)
+            self._extract_frames_disk(ffmpeg)
 
         except Exception:
-            bk_logger.exception("VideoDecoder worker error for %s", self.filepath)
+            bk_logger.exception("BK video: worker error for %s", self.filepath)
             self.status = self.STATUS_ERROR
 
-    def _download(self) -> None:
-        """Download *self.download_url* to *self.filepath*."""
-        os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
-        bk_logger.debug("Downloading animated thumbnail: %s", self.download_url)
+    def _probe_source(self, ffmpeg: str) -> tuple:
+        """Return (width, height, fps) from ffmpeg -i stderr probe."""
+        import re
         try:
-            urllib.request.urlretrieve(self.download_url, self.filepath)
-        except Exception as exc:
-            bk_logger.warning(
-                "Failed to download animated thumbnail %s: %s",
-                self.download_url,
-                exc,
+            r = subprocess.run(
+                [ffmpeg, "-i", self.filepath],
+                capture_output=True, timeout=10,
             )
-            raise
+            text = r.stderr.decode("utf-8", errors="replace")
+            # Match e.g. "640x360" or "1920x1080"
+            m_size = re.search(r"(\d{2,5})x(\d{2,5})", text)
+            # Match e.g. "29.97 fps" or "24 tbr"
+            m_fps = re.search(r"([\d.]+)\s+(?:fps|tbr)", text)
+            w = int(m_size.group(1)) if m_size else 0
+            h = int(m_size.group(2)) if m_size else 0
+            fps = float(m_fps.group(1)) if m_fps else TARGET_FPS
+            return w, h, fps
+        except Exception:
+            return 0, 0, TARGET_FPS
 
-    def _probe_fps(self, ffprobe: str) -> float:
-        """Return the video frame rate using ffprobe, defaulting to TARGET_FPS."""
+    def _extract_frames_memory(self) -> None:
+        """Decode frames into raw RGBA bytes via rawvideo pipe (no disk I/O).
+
+        Uses ``imageio_ffmpeg.get_ffmpeg_exe()`` for the binary path, probes
+        source dimensions, center-crops to the natural square
+        (``min(w, h) × min(w, h)``), and streams raw RGBA frames through
+        stdout. No intermediate files are written.
+        """
+        import imageio_ffmpeg  # type: ignore
+
+        ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        if not ffmpeg or not os.path.isfile(ffmpeg):
+            raise RuntimeError("imageio_ffmpeg binary not found")
+
+        src_w, src_h, src_fps = self._probe_source(ffmpeg)
+        if src_w <= 0 or src_h <= 0:
+            raise RuntimeError(f"Could not probe dimensions of {self.filepath}")
+
+        sq = min(src_w, src_h)
+        self.frame_width = sq
+        self.frame_height = sq
+        self.fps = min(src_fps, TARGET_FPS)
+
+        # Center-crop to square, cap fps, flip for OpenGL's bottom-left origin.
+        # \\, is ffmpeg's escaped comma inside a filter expression.
+        vf = f"crop=min(iw\\,ih):min(iw\\,ih),fps={self.fps},vflip"
+        cmd = [
+            ffmpeg,
+            "-i", self.filepath,
+            "-vf", vf,
+            "-frames:v", str(MAX_FRAMES),
+            "-f", "rawvideo",
+            "-pix_fmt", "rgba",
+            "-loglevel", "error",
+            "pipe:1",
+        ]
+        bk_logger.debug("Extracting video frames (memory pipe): %s", " ".join(cmd))
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        frame_size = sq * sq * 4
+        frames: List[bytes] = []
         try:
-            result = subprocess.run(
-                [
-                    ffprobe,
-                    "-v", "error",
-                    "-select_streams", "v:0",
-                    "-show_entries", "stream=r_frame_rate",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
-                    self.filepath,
-                ],
-                capture_output=True,
-                timeout=5,
+            while len(frames) < MAX_FRAMES:
+                chunk = proc.stdout.read(frame_size)
+                if len(chunk) < frame_size:
+                    break
+                frames.append(bytes(chunk))
+        finally:
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            proc.wait(timeout=5)
+
+        if not frames:
+            stderr_text = b""
+            try:
+                stderr_text = proc.stderr.read(500)
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"No frames decoded from {self.filepath}: "
+                + stderr_text.decode("utf-8", errors="replace")
             )
-            output = result.stdout.decode("utf-8", errors="replace").strip()
-            if "/" in output:
-                num, den = output.split("/", 1)
-                fps = float(num) / max(float(den), 1e-6)
-                return max(1.0, fps)
+
+        self.frame_bytes = frames
+        self.status = self.STATUS_READY
+        bk_logger.info(
+            "BK video: ready – %d frames @ %.1f fps (%dx%d) from %s",
+            len(frames), self.fps, sq, sq, self.filepath,
+        )
+
+    def _extract_frames_disk(self, ffmpeg: str) -> None:
+        """Fallback: extract JPEG frames to a temp directory via subprocess."""
+        import re
+
+        # Probe source fps from ffmpeg -i stderr.
+        source_fps = TARGET_FPS
+        try:
+            r = subprocess.run(
+                [ffmpeg, "-i", self.filepath],
+                capture_output=True, timeout=5,
+            )
+            m = re.search(
+                r"(\d+(?:\.\d+)?)\s+(?:fps|tbr)",
+                r.stderr.decode("utf-8", errors="replace"),
+            )
+            if m:
+                source_fps = float(m.group(1))
         except Exception:
             pass
-        return TARGET_FPS
-
-    def _extract_frames(self, ffmpeg: str) -> None:
-        """Run ffmpeg to write JPEG frames into a temp directory."""
-        # ffprobe is usually shipped alongside ffmpeg.
-        ffprobe = shutil.which("ffprobe") or os.path.join(
-            os.path.dirname(ffmpeg),
-            "ffprobe" if os.name != "nt" else "ffprobe.exe",
-        )
-        source_fps = self._probe_fps(ffprobe) if os.path.isfile(ffprobe) else TARGET_FPS
         extract_fps = min(source_fps, TARGET_FPS)
 
         base = os.path.splitext(os.path.basename(self.filepath))[0]
-        # Include the PID so parallel Blender sessions don't collide.
         frames_dir = os.path.join(
             tempfile.gettempdir(),
             f"bk_video_{base}_{os.getpid()}",
         )
         os.makedirs(frames_dir, exist_ok=True)
-
         frame_pattern = os.path.join(frames_dir, "frame_%06d.jpg")
 
+        # Center-crop to square (natural square from source dimensions).
+        vf = f"crop=min(iw\\,ih):min(iw\\,ih),fps={extract_fps}"
         cmd = [
-            ffmpeg,
-            "-i", self.filepath,
-            "-vf", f"fps={extract_fps}",
+            ffmpeg, "-i", self.filepath,
+            "-vf", vf,
             "-frames:v", str(MAX_FRAMES),
-            "-q:v", "3",        # JPEG quality (2=best, 31=worst)
+            "-q:v", "2",
             "-loglevel", "error",
             frame_pattern,
         ]
-
-        bk_logger.debug("Extracting video frames: %s", " ".join(cmd))
+        bk_logger.debug("Extracting video frames (disk): %s", " ".join(cmd))
         try:
             result = subprocess.run(cmd, capture_output=True, timeout=60)
         except subprocess.TimeoutExpired:
@@ -276,8 +371,7 @@ class VideoDecoder:
         if result.returncode != 0:
             bk_logger.warning(
                 "ffmpeg failed (exit %d) for %s: %s",
-                result.returncode,
-                self.filepath,
+                result.returncode, self.filepath,
                 result.stderr.decode("utf-8", errors="replace")[:200],
             )
             self.status = self.STATUS_ERROR
@@ -288,7 +382,6 @@ class VideoDecoder:
             for f in os.listdir(frames_dir)
             if f.startswith("frame_") and f.endswith(".jpg")
         )
-
         if not frames:
             bk_logger.warning("No frames extracted from %s", self.filepath)
             self.status = self.STATUS_ERROR
@@ -299,8 +392,6 @@ class VideoDecoder:
         self.fps = extract_fps
         self.status = self.STATUS_READY
         bk_logger.debug(
-            "Extracted %d frames @ %.1f fps from %s",
-            len(frames),
-            extract_fps,
-            self.filepath,
+            "Extracted %d frames @ %.1f fps from %s (disk fallback)",
+            len(frames), extract_fps, self.filepath,
         )
