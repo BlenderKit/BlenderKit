@@ -260,7 +260,7 @@ def ensure_asset_library_path(
                 pass
             return lib
 
-    asset_libraries.new(name=ASSET_LIBRARY_NAME, path=target_path)
+    asset_libraries.new(name=ASSET_LIBRARY_NAME, directory=target_path)
     return (
         asset_libraries.get(ASSET_LIBRARY_NAME)
         if hasattr(asset_libraries, "get")
