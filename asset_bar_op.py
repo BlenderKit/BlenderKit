@@ -125,12 +125,7 @@ def modal_inside(self, context, event):
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     if self.context:
         context = self.context
-    # avoid double click to download assets under panels, mainly category panel
-    if (
-        time.time() - ui_panels.last_time_overlay_panel_active < 0.5
-        and event.type not in {"LEFTMOUSE", "RIGHTMOUSE"}
-    ):
-        return {"FINISHED"}
+
     # HANDLE PHOTO THUMBNAIL SWITCH
     if hasattr(self, "needs_tooltip_update") and self.needs_tooltip_update:
         self.needs_tooltip_update = False
@@ -1558,7 +1553,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         video_widget.set_image_size((self.thumb_size, self.thumb_size))
         video_widget.set_image_position((0, 0))
-        video_widget.scrubbing = False  # asset bar plays forward; no scrubbing
         video_widget.visible = False
         new_button.video_widget = video_widget
         self.button_video_widgets.append(video_widget)
@@ -3137,7 +3131,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not tooltip_video.video_is_ready():
             return
 
-        total = len(tooltip_video._decoder.frame_bytes) or len(tooltip_video._decoder.frame_files)
+        total = len(tooltip_video._decoder.frame_bytes) or len(
+            tooltip_video._decoder.frame_files
+        )
         if not total:
             return
 

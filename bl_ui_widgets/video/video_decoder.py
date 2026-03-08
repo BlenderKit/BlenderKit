@@ -3,17 +3,18 @@
 Architecture
 ------------
 Primary path (in-memory, no disk I/O):
-  ``imageio_ffmpeg.read_frames()`` decodes video frames into raw RGBA bytes
-  stored in ``VideoDecoder.frame_bytes``.  Each frame is center-cropped to a
-  square and scaled to ``FRAME_SIZE × FRAME_SIZE`` by ffmpeg during decode.
+  ffmpeg is invoked via ``subprocess.Popen`` with ``-f rawvideo -pix_fmt rgba
+  pipe:1``.  The source is first probed with ``ffmpeg -i`` to get the real
+  dimensions; frames are center-cropped to the natural square
+  (``min(w, h) × min(w, h)``) and streamed as raw RGBA bytes.
   ``BL_UI_Video`` turns these bytes into ``gpu.types.GPUTexture`` objects on
   the first draw and caches them for every subsequent frame/loop — no rebuild
   cost at all after the first pass.
 
 Disk fallback:
-  If ``imageio_ffmpeg`` is unavailable (rare, since it auto-installs via pip)
-  the decoder falls back to extracting JPEG files into a temp directory.  The
-  draw side then uses ``ui_bgl.path_to_gpu_texture()`` which has its own cache.
+  If ``imageio_ffmpeg`` cannot be installed the decoder falls back to
+  extracting JPEG files into a temp directory.  The draw side then uses
+  ``ui_bgl.path_to_gpu_texture()`` which has its own cache.
 
 Binary discovery order (``find_ffmpeg``):
   1. ``imageio_ffmpeg.get_ffmpeg_exe()`` — signed/notarized for all platforms.
@@ -323,23 +324,7 @@ class VideoDecoder:
 
     def _extract_frames_disk(self, ffmpeg: str) -> None:
         """Fallback: extract JPEG frames to a temp directory via subprocess."""
-        import re
-
-        # Probe source fps from ffmpeg -i stderr.
-        source_fps = TARGET_FPS
-        try:
-            r = subprocess.run(
-                [ffmpeg, "-i", self.filepath],
-                capture_output=True, timeout=5,
-            )
-            m = re.search(
-                r"(\d+(?:\.\d+)?)\s+(?:fps|tbr)",
-                r.stderr.decode("utf-8", errors="replace"),
-            )
-            if m:
-                source_fps = float(m.group(1))
-        except Exception:
-            pass
+        _, _, source_fps = self._probe_source(ffmpeg)
         extract_fps = min(source_fps, TARGET_FPS)
 
         base = os.path.splitext(os.path.basename(self.filepath))[0]
