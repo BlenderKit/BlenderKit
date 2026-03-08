@@ -20,6 +20,13 @@ import os
 import sys
 import unittest
 
+COLLECT_COVERAGE = os.getenv("COVERAGE") == "1"
+if COLLECT_COVERAGE:
+    import coverage as _coverage
+
+    _cov = _coverage.Coverage(source=[os.path.dirname(os.path.abspath(__file__))])
+    _cov.start()
+
 import addon_utils
 
 
@@ -45,6 +52,9 @@ print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
 result = runner.run(suite)
+if COLLECT_COVERAGE:
+    _cov.stop()
+    _cov.xml_report(outfile="coverage-python.xml")
 errors = len(result.errors)
 failures = len(result.failures)
 if errors + failures != 0:
