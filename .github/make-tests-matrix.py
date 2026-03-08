@@ -1,3 +1,4 @@
+import json
 import re
 from urllib import request
 
@@ -145,4 +146,4 @@ def get_daily_builds(jobs: list):
 
 get_daily_builds(jobs)
 matrix = {"include": jobs}
-print(f"matrix={matrix}")
+print(f"matrix={json.dumps(matrix)}")
