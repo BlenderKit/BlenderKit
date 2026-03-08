@@ -401,6 +401,9 @@ class BL_UI_Video(BL_UI_Widget):
     def mouse_down(self, x, y):
         return False
 
+    def mouse_down_right(self, x, y):
+        return False
+
     def mouse_move(self, x, y):
         return
 
