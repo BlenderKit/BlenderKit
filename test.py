@@ -22,16 +22,23 @@ import unittest
 
 COLLECT_COVERAGE = os.getenv("COVERAGE") == "1"
 if COLLECT_COVERAGE:
-    import coverage as _coverage
+    try:
+        import coverage as _coverage
 
-    _cov = _coverage.Coverage(source=[os.path.dirname(os.path.abspath(__file__))])
-    _cov.start()
+        _cov = _coverage.Coverage(source=[os.path.dirname(os.path.abspath(__file__))])
+        _cov.start()
+    except ImportError:
+        COLLECT_COVERAGE = False
+        print("WARNING: coverage module not available, skipping coverage collection")
 
 import addon_utils
 
 
 print(f"----- Tests preparation ----- (mode:{os.getenv('TESTS_TYPE', 'all')})")
-addon_utils.enable(sys.argv[-1], default_set=True)
+result = addon_utils.enable(sys.argv[-1], default_set=True)
+if result is None:
+    print(f"FATAL: addon '{sys.argv[-1]}' failed to load")
+    sys.exit(1)
 print(f"- addon enabled: {sys.argv[-1]}")
 
 runner = unittest.TextTestRunner(buffer=False)
@@ -49,6 +56,7 @@ suite.addTests(testLoader.discover(".", "test_search.py"))
 suite.addTests(testLoader.discover(".", "test_global_vars.py"))
 suite.addTests(testLoader.discover(".", "test_manifest_toml.py"))
 suite.addTests(testLoader.discover(".", "test_registration.py"))
+suite.addTests(testLoader.discover(".", "test_smoke.py"))
 print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
@@ -59,4 +67,4 @@ if COLLECT_COVERAGE:
 errors = len(result.errors)
 failures = len(result.failures)
 if errors + failures != 0:
-    exit(1)
+    sys.exit(1)

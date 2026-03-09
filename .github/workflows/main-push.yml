@@ -99,7 +99,8 @@ jobs:
       - name: Add Blender to PATH
         run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
       - name: Install coverage (Blender Python)
-        run: blender --background --python-expr "import subprocess, sys; subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'coverage'])"
+        run: blender --background --python-expr "import subprocess, sys; subprocess.check_call([sys.executable, '-m', 'ensurepip']); subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'coverage'])"
+        continue-on-error: true
       - name: TEST
         env:
           COVERAGE: "1"
