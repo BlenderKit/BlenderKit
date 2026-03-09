@@ -1496,7 +1496,9 @@ def get_environment_info() -> str:
     os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     proxy = user_preferences.proxy_which
-    python_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    python_ver = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
     return (
         f"- BlenderKit version: v{addon_ver}\n"
         f"- Blender version: v{blender_ver} (from: )\n"
@@ -1522,7 +1524,9 @@ class CopyEnvironmentInfo(bpy.types.Operator):
 def get_report_bug_url() -> str:
     """Build GitHub issue URL with pre-filled environment information."""
     env_info = get_environment_info()
-    description_body = f"When I...\n\n### Environment Information - Bug happens on:\n{env_info}"
+    description_body = (
+        f"When I...\n\n### Environment Information - Bug happens on:\n{env_info}"
+    )
     return (
         "https://github.com/BlenderKit/blenderkit/issues/new"
         f"?template=bug-report.yaml"

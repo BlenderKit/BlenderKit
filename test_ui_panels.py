@@ -52,7 +52,9 @@ class TestGetEnvironmentInfo(unittest.TestCase):
 class TestGetReportBugURL(unittest.TestCase):
     def test_points_to_github_issues(self):
         url = ui_panels.get_report_bug_url()
-        self.assertTrue(url.startswith("https://github.com/BlenderKit/blenderkit/issues/new"))
+        self.assertTrue(
+            url.startswith("https://github.com/BlenderKit/blenderkit/issues/new")
+        )
 
     def test_uses_bug_report_template(self):
         url = ui_panels.get_report_bug_url()
@@ -70,9 +72,13 @@ class TestGetReportBugURL(unittest.TestCase):
 
 
 class TestCopyEnvironmentInfo(unittest.TestCase):
-    def test_copies_to_clipboard(self):
+    def test_operator_finishes(self):
         result = bpy.ops.wm.blenderkit_copy_environment_info()
         self.assertEqual(result, {"FINISHED"})
+
+    @unittest.skipIf(bpy.app.background, "clipboard not available in background mode")
+    def test_clipboard_contains_env_info(self):
+        bpy.ops.wm.blenderkit_copy_environment_info()
         clipboard = bpy.context.window_manager.clipboard
         self.assertIn("BlenderKit version:", clipboard)
         self.assertIn("Blender version:", clipboard)
