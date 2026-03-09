@@ -2614,6 +2614,20 @@ In this case you should also set path to your system CA bundle containing proxy'
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
 
+        # VERSION & SUPPORT
+        ver = global_vars.VERSION
+        version_row = layout.row()
+        version_row.label(
+            text=f"BlenderKit v{ver[0]}.{ver[1]}.{ver[2]}.{ver[3]} · Blender {bpy.app.version_string}",
+            icon="INFO",
+        )
+        version_row.operator(
+            "wm.blenderkit_copy_environment_info", text="Copy Info", icon="COPYDOWN"
+        )
+        version_row.operator(
+            "wm.blenderkit_report_bug", text="Report Bug", icon="ERROR"
+        )
+
         # EXPERIMENTAL SETTINGS
         # only if experimental features enabled
         if self.experimental_features:
