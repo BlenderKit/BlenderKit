@@ -554,7 +554,6 @@ class BlenderKitUIProps(PropertyGroup):
         description="Click or drag into scene for download.\nUse mouse wheel during drag to rotate the asset. Cancel the drag by pressing 'Esc'.",
         update=run_drag_drop_update,
     )
-    drag_length: IntProperty(name="Drag length", default=0)
     draw_drag_image: BoolProperty(name="Draw Drag Image", default=False)
     draw_snapped_bounds: BoolProperty(name="Draw Snapped Bounds", default=False)
 
@@ -2428,15 +2427,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         description="Size of thumbnails of the assetbar in 3D view",
     )
 
-    drag_start_threshold: IntProperty(
-        name="Drag Activation Threshold",
-        description="Pixel distance the pointer must move before asset drags start",
-        default=30,
-        min=5,
-        max=200,
-        update=utils.save_prefs,
-    )
-
     search_field_width: IntProperty(
         name="Search Field Width",
         default=0,
@@ -2596,7 +2586,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.label(text="GUI settings")
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
-        gui_settings.prop(self, "drag_start_threshold")
         gui_settings.prop(self, "maximized_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
@@ -2623,15 +2612,6 @@ In this case you should also set path to your system CA bundle containing proxy'
 
         # UPDATER SETTINGS
         addon_updater_ops.update_settings_ui(self, context)
-
-        # EXPERIMENTAL SETTINGS
-        # only if experimental features enabled
-        if self.experimental_features:
-            experimental_settings = layout.box()
-            experimental_settings.alignment = "EXPAND"
-            experimental_settings.label(text="Experimental settings")
-            experimental_settings.prop(self, "ignore_env_for_thumbnails")
-            # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
         # RUNTIME INFO
         globdir_op = layout.operator(
@@ -2667,6 +2647,15 @@ In this case you should also set path to your system CA bundle containing proxy'
 
         # try to draw also custom keymaps
         our_keymap_draw(self, context)
+
+        # EXPERIMENTAL SETTINGS
+        # only if experimental features enabled
+        if self.experimental_features:
+            experimental_settings = layout.box()
+            experimental_settings.alignment = "EXPAND"
+            experimental_settings.label(text="Experimental settings")
+            experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
 # registration

@@ -1,6 +1,5 @@
 import os
 import logging
-from typing import Optional, Tuple
 
 import blf
 import bpy
@@ -8,7 +7,6 @@ import gpu
 
 from .. import image_utils, ui_bgl
 from .bl_ui_widget import BL_UI_Widget, region_redraw
-from .bl_ui_image import BL_UI_Image
 
 bk_logger = logging.getLogger(__name__)
 
@@ -32,7 +30,6 @@ class BL_UI_Button(BL_UI_Widget):
         self.__image = None
         self.__image_size = (24, 24)
         self.__image_position = (4, 2)
-        self._last_mouse_down: Optional[Tuple[float, float]] = None
 
     @property
     def text_color(self):
@@ -90,37 +87,13 @@ class BL_UI_Button(BL_UI_Widget):
     def set_image_position(self, image_position):
         self.__image_position = image_position
 
-    def get_image_region_bounds(self) -> Optional[Tuple[float, float, float, float]]:
-        if self.__image_size is None:
-            return None
-        area_height = self.get_area_height()
-        y_screen_flip = area_height - self.y_screen
-        widget_bottom = y_screen_flip - self.height
-        off_x, off_y = self.__image_position
-        width, height = self.__image_size
-        left = self.x_screen + off_x
-        right = left + width
-        bottom = widget_bottom + off_y
-        top = bottom + height
-        return (float(left), float(right), float(bottom), float(top))
-
-    def was_last_press_inside_image(self) -> bool:
-        if self._last_mouse_down is None:
-            return False
-        bounds = self.get_image_region_bounds()
-        if not bounds:
-            return False
-        left, right, bottom, top = bounds
-        x, y = self._last_mouse_down
-        return left <= x <= right and bottom <= y <= top
-
     def check_image_exists(self):
         # it's possible image was removed and doesn't exist.
         try:
             self.__image
             self.__image.filepath
             # self.__image.pixels
-        except Exception as e:
+        except Exception:
             self.__image = None
 
     def set_image_colorspace(self, colorspace: str = ""):
@@ -237,15 +210,11 @@ class BL_UI_Button(BL_UI_Widget):
     def mouse_down(self, x, y):
         if self.is_in_rect(x, y):
             self.__state = 1
-            self._last_mouse_down = (float(x), float(y))
             try:
                 self.mouse_down_func(self)
             except Exception:
                 bk_logger.exception("BL_UI_BUTTON mouse_down() error:")
-
             return True
-
-        self._last_mouse_down = None
         return False
 
     def set_mouse_down_right(self, mouse_down_right_func):
