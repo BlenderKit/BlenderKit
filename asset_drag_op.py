@@ -24,7 +24,7 @@ import random
 
 import bpy
 import mathutils
-from bpy.props import FloatVectorProperty, IntProperty, StringProperty
+from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
 
@@ -74,32 +74,19 @@ def is_draw_cb_available(self: bpy.types.Operator, context: bpy.types.Context) -
     Returns:
         True if drawing callbacks can be added, False otherwise.
     """
-    # Accessing operator RNA after the modal finishes can raise ReferenceError, so guard everything.
     try:
-        operator = self
+        if self is None:
+            return False
+        if self.active_region_pointer is None:
+            return False
     except ReferenceError:
+        # The operator RNA is gone; skip drawing quietly
+        bk_logger.exception("Operator RNA is gone; skipping drawing callback.")
+        return False
+    except Exception:
         return False
 
-    if operator is None:
-        return False
-
-    try:
-        active_region_pointer = getattr(operator, "active_region_pointer")
-    except ReferenceError:
-        bk_logger.debug("Operator RNA is gone; skipping drawing callback.")
-        return False
-    except AttributeError:
-        return False
-
-    if active_region_pointer is None:
-        return False
-
-    try:
-        region_pointer = context.region.as_pointer()
-    except ReferenceError:
-        return False
-
-    if region_pointer != active_region_pointer:
+    if context.region.as_pointer() != self.active_region_pointer:
         return False
 
     return True
@@ -120,12 +107,6 @@ def draw_callback_dragging(
 
     # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
     if not is_draw_cb_available(self, context):
-        return
-
-    current_distance = getattr(self, "_current_drag_distance", 0.0)
-    threshold = getattr(self, "drag_threshold", DEFAULT_DRAG_THRESHOLD)
-    # Skip drawing until the user moves enough to qualify as a drag
-    if not getattr(self, "drag", False) and current_distance < threshold:
         return
 
     try:
@@ -373,17 +354,16 @@ def draw_callback_3d_dragging(
     if not utils.guard_from_crash():
         return
 
+    # ignore unless we are dragging
+    if not self.drag:
+        return
+
     # Only draw 3D elements in VIEW_3D areas, not in outliner
     if context.area.type != "VIEW_3D":
         return
 
     # Check if operator is still valid before accessing its attributes
     if not is_draw_cb_available(self, context):
-        return
-
-    current_distance = getattr(self, "_current_drag_distance", 0.0)
-    threshold = getattr(self, "drag_threshold", DEFAULT_DRAG_THRESHOLD)
-    if not getattr(self, "drag", False) and current_distance < threshold:
         return
 
     # Check if all required attributes are available
@@ -542,19 +522,6 @@ def draw_progress(
 ):
     ui_bgl.draw_rect(x, y, percent, 5, color)
     ui_bgl.draw_text(text, x, y + 8, 16, color)
-
-
-def find_and_activate_instancers(
-    obj: bpy.types.Object,
-) -> Optional[bpy.types.Object]:
-    for ob in bpy.context.visible_objects:
-        if (
-            ob.instance_type == "COLLECTION"
-            and ob.instance_collection
-            and obj.name in ob.instance_collection.objects
-        ):
-            utils.activate(ob)
-            return ob
 
 
 def mouse_raycast(
@@ -763,11 +730,9 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
 def object_in_particle_collection(o: bpy.types.Object) -> bool:
     """checks if an object is in a particle system as instance, to not snap to it and not to try to attach material."""
     for p in bpy.data.particles:
-        if p.render_type == "COLLECTION":
-            if p.instance_collection:
-                for o1 in p.instance_collection.objects:
-                    if o1 == o:
-                        return True
+        if p.render_type == "COLLECTION" and p.instance_collection:
+            if o in p.instance_collection.objects:
+                return True
         if p.render_type == "COLLECTION":
             if p.instance_object == o:
                 return True
@@ -796,22 +761,6 @@ def get_node_tree(context: bpy.types.Context) -> bpy.types.NodeTree:
     return context.scene.compositing_node_group
 
 
-def assign_node_tree(
-    node_space: bpy.types.SpaceNodeEditor, node_tree: bpy.types.NodeTree
-) -> None:
-    """Blender version invariant way to assign a node tree to the current node editor."""
-    if bpy.app.version < (5, 0, 0):
-        node_space.node_tree = node_tree
-        return
-
-    # blender 5.0+
-    # recover the node_group from data and assign it
-    if hasattr(node_space, "node_group"):
-        node_space.node_group = bpy.data.node_groups[node_tree.name]
-    elif hasattr(node_space, "node_tree"):
-        node_space.node_tree = node_tree
-
-
 class AssetDragOperator(bpy.types.Operator):
     """Drag & drop assets into scene. Operator being drawn when dragging asset."""
 
@@ -819,7 +768,6 @@ class AssetDragOperator(bpy.types.Operator):
     bl_label = "BlenderKit asset drag drop"
 
     asset_search_index: IntProperty(name="Active Index", default=0)  # type: ignore
-    drag_length: IntProperty(name="Drag_length", default=0)  # type: ignore
 
     object_name = None
 
@@ -849,10 +797,6 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_y = 0
         self.mouse_screen_x = 0
         self.mouse_screen_y = 0
-        self.mouse_global_x = 0
-        self.mouse_global_y = 0
-        self._current_drag_distance = 0.0
-        self._max_drag_distance = 0.0
 
         # Store the initial active region pointer
         self.active_region_pointer = None
@@ -883,8 +827,8 @@ class AssetDragOperator(bpy.types.Operator):
 
         self.iname = ""
         self.drag = False
+        self.steps = 0
         self.closed_assetbar = False
-        self.drag_threshold = DEFAULT_DRAG_THRESHOLD
 
     def handlers_remove(self) -> None:
         """Remove all draw handlers."""
@@ -900,11 +844,8 @@ class AssetDragOperator(bpy.types.Operator):
         self, nodegroup_type: str, editor_type: Optional[str] = None
     ) -> bool:
         """Check if a nodegroup of a specific type is compatible with the given editor type."""
-        # Direct matches
-        if nodegroup_type == editor_type:
-            return True
-        # Generic nodegroups can work in any editor
-        elif nodegroup_type is None:
+        # Direct matches, or invalid editor
+        if not nodegroup_type or nodegroup_type == editor_type:
             return True
         # Otherwise, not compatible
         return False
@@ -913,7 +854,7 @@ class AssetDragOperator(bpy.types.Operator):
         """Handle dropping assets in the 3D view."""
         scene = context.scene
         if self.asset_data["assetType"] in ["model", "printable"]:
-            if self._is_click_like_interaction():
+            if not self.drag:
                 self.snapped_location = scene.cursor.location
                 self.snapped_rotation = (0, 0, 0)
 
@@ -957,7 +898,7 @@ class AssetDragOperator(bpy.types.Operator):
             obj = None
             target_object = ""
             target_slot = ""
-            if self._is_click_like_interaction():
+            if not self.drag:
                 # click interaction
                 obj = context.active_object
                 if obj is None:
@@ -985,7 +926,7 @@ class AssetDragOperator(bpy.types.Operator):
 
                     if obj.type == "MESH":
                         temp_mesh = object_eval.to_mesh()
-                        mapping = create_material_mapping(obj, temp_mesh)
+                        _mapping = create_material_mapping(obj, temp_mesh)
                         target_slot = temp_mesh.polygons[self.face_index].material_index
                         object_eval.to_mesh_clear()
                     else:
@@ -1044,7 +985,7 @@ class AssetDragOperator(bpy.types.Operator):
                 target_location = self.snapped_location
                 target_rotation = self.snapped_rotation
 
-                if self._is_click_like_interaction():
+                if not self.drag:
                     # Click interaction - use active object like materials do
                     active_object = context.active_object
                     if active_object and active_object.type in ["MESH", "CURVE"]:
@@ -1100,7 +1041,7 @@ class AssetDragOperator(bpy.types.Operator):
             target_collection = ""
 
             # Check what type of element we're dropping on
-            element_type = type(self.hovered_outliner_element).__name__
+            _element_type = type(self.hovered_outliner_element).__name__
 
             # If dropping on a collection, set target_collection parameter
             if isinstance(self.hovered_outliner_element, bpy.types.Collection):
@@ -1540,7 +1481,6 @@ class AssetDragOperator(bpy.types.Operator):
             return None
 
         context = bpy.context
-        scene = context.scene
         view_layer = context.view_layer
         selected_objects = context.selected_objects
         active_object = context.active_object
@@ -1785,22 +1725,6 @@ class AssetDragOperator(bpy.types.Operator):
             self.in_node_editor = False
             self.node_editor_type = None
 
-    def _update_drag_metrics(self) -> None:
-        """Keep track of the farthest cursor travel since the interaction started."""
-        if self.start_mouse_x < 0 or self.start_mouse_y < 0:
-            return
-
-        dx = self.mouse_global_x - self.start_mouse_x
-        dy = self.mouse_global_y - self.start_mouse_y
-        distance = math.hypot(dx, dy)
-        self._current_drag_distance = distance
-        if distance > self._max_drag_distance:
-            self._max_drag_distance = distance
-
-    def _is_click_like_interaction(self) -> bool:
-        """Return True when the pointer never left the dead zone."""
-        return self._max_drag_distance <= self.drag_threshold
-
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
         ui_props = bpy.context.window_manager.blenderkitUI
 
@@ -1812,21 +1736,14 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_screen_y = int(
             context.window.y * self.resolution_factor + event.mouse_y
         )
-        event_mouse_global_x = getattr(event, "mouse_x_global", None)
-        event_mouse_global_y = getattr(event, "mouse_y_global", None)
-
-        if event_mouse_global_x is None or event_mouse_global_y is None:
-            self.mouse_global_x = self.mouse_screen_x
-            self.mouse_global_y = self.mouse_screen_y
-        else:
-            self.mouse_global_x = int(event_mouse_global_x)
-            self.mouse_global_y = int(event_mouse_global_y)
 
         if self.start_mouse_x < 0:
-            self.start_mouse_x = self.mouse_global_x
-            self.start_mouse_y = self.mouse_global_y
-            self._current_drag_distance = 0.0
-            self._max_drag_distance = 0.0
+            self.start_mouse_x = (
+                context.window.x * self.resolution_factor + event.mouse_x
+            )
+            self.start_mouse_y = (
+                context.window.y * self.resolution_factor + event.mouse_y
+            )
 
         # Find the active region under the mouse cursor using actual screen coordinates
         self.active_window, self.active_area, self.active_region = (
@@ -1837,7 +1754,8 @@ class AssetDragOperator(bpy.types.Operator):
             # bpy.context.window.cursor_modal_set("STOP")
             bpy.context.window.cursor_modal_restore()
             return {"PASS_THROUGH"}
-        elif self.drag:
+
+        if self.drag:
             bpy.context.window.cursor_modal_set("NONE")
 
         # Convert screen coords (bottom-left) to region-local coords
@@ -1852,8 +1770,6 @@ class AssetDragOperator(bpy.types.Operator):
             - self.active_window.y * self.resolution_factor
             - self.active_region.y
         )
-
-        self._update_drag_metrics()
 
         # redraw all windows to update cursor and other elements
         for window in bpy.context.window_manager.windows:
@@ -1909,20 +1825,16 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
-        if not self.drag and self._max_drag_distance > self.drag_threshold:
+        if not self.drag and (
+            abs(self.start_mouse_x - self.mouse_screen_x) > DEFAULT_DRAG_THRESHOLD
+            or abs(self.start_mouse_y - self.mouse_screen_y) > DEFAULT_DRAG_THRESHOLD
+        ):
             self.drag = True
 
         if self.drag and ui_props.assetbar_on and not self.closed_assetbar:
             # turn off asset bar here; reopen after placement when we actually dragged
             ui_props.turn_off = True
             self.closed_assetbar = True
-
-        if (
-            event.type == "ESC"
-            or not ui.mouse_in_region(context.region, self.mouse_x, self.mouse_y)
-        ) and (not self.drag or self._current_drag_distance < self.drag_threshold):
-            # this case is for canceling from inside popup card when there's an escape attempt to close the window
-            return {"PASS_THROUGH"}
 
         if event.type in {"RIGHTMOUSE", "ESC"}:
             # Restore original selection if we changed it
@@ -1940,6 +1852,15 @@ class AssetDragOperator(bpy.types.Operator):
             )
 
             return {"CANCELLED"}
+
+        self.steps += 1
+
+        if (
+            event.type == "ESC"
+            or not ui.mouse_in_region(context.region, self.mouse_x, self.mouse_y)
+        ) and (not self.drag or self.steps < 5):
+            # this case is for canceling from inside popup card when there's an escape attempt to close the window
+            return {"PASS_THROUGH"}
 
         sprops = bpy.context.window_manager.blenderkit_models
         if event.type == "WHEELUPMOUSE":
@@ -2031,9 +1952,6 @@ class AssetDragOperator(bpy.types.Operator):
             return {"CANCELLED"}
 
         prefs = bpy.context.preferences.addons[__package__].preferences
-        self.drag_threshold = getattr(
-            prefs, "drag_start_threshold", DEFAULT_DRAG_THRESHOLD
-        )
 
         dir_behaviour = prefs.directory_behaviour
 
@@ -2046,24 +1964,25 @@ class AssetDragOperator(bpy.types.Operator):
             )
             return {"CANCELLED"}
 
-        if self.asset_data.get("assetType") == "brush":
-            if not (context.sculpt_object or context.image_paint_object):
-                # either switch to sculpt mode and layout automatically or show a popup message
-                if context.active_object and context.active_object.type == "MESH":
-                    bpy.ops.object.mode_set(mode="SCULPT")
-                    self.mouse_release(context)  # does the main job with assets
+        if self.asset_data.get("assetType") == "brush" and not (
+            context.sculpt_object or context.image_paint_object
+        ):
+            # either switch to sculpt mode and layout automatically or show a popup message
+            if context.active_object and context.active_object.type == "MESH":
+                bpy.ops.object.mode_set(mode="SCULPT")
+                self.mouse_release(context)  # does the main job with assets
 
-                    if bpy.data.workspaces.get("Sculpting") is not None:
-                        bpy.context.window.workspace = bpy.data.workspaces["Sculpting"]
-                    reports.add_report(
-                        "Automatically switched to sculpt mode to use brushes."
-                    )
-                else:
-                    message = "Select a mesh and switch to sculpt or image paint modes to use the brushes."
-                    bpy.ops.wm.blenderkit_popup_dialog(
-                        "INVOKE_REGION_WIN", message=message, width=500
-                    )
-                return {"CANCELLED"}
+                if bpy.data.workspaces.get("Sculpting") is not None:
+                    bpy.context.window.workspace = bpy.data.workspaces["Sculpting"]
+                reports.add_report(
+                    "Automatically switched to sculpt mode to use brushes."
+                )
+            else:
+                message = "Select a mesh and switch to sculpt or image paint modes to use the brushes."
+                bpy.ops.wm.blenderkit_popup_dialog(
+                    "INVOKE_REGION_WIN", message=message, width=500
+                )
+            return {"CANCELLED"}
 
         # the arguments we pass the the callback
         args = (self, context)
@@ -2113,10 +2032,6 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_y = 0
         self.mouse_screen_x = 0
         self.mouse_screen_y = 0
-        self.mouse_global_x = 0
-        self.mouse_global_y = 0
-        self._current_drag_distance = 0.0
-        self._max_drag_distance = 0.0
         # Store the initial active region pointer
         self.active_region_pointer = context.region.as_pointer()
 
@@ -2151,6 +2066,7 @@ class AssetDragOperator(bpy.types.Operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         ui_props.dragging = True
         self.drag = False
+        self.steps = 0
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
@@ -2310,7 +2226,7 @@ class DownloadGizmoOperator(BL_UI_OT_draw_operator):
         self.button_close.set_image_size((button_size, button_size))
         self.button_close.set_image_position((0, 0))
 
-        directory = paths.get_temp_dir("%s_search" % self.asset_data["assetType"])
+        directory = paths.get_temp_dir(f"{self.asset_data['assetType']}_search")
         thumbnail_path = os.path.join(directory, self.asset_data["thumbnail_small"])
 
         self.image.set_image(thumbnail_path)
@@ -2473,37 +2389,6 @@ def create_material_mapping(obj, temp_mesh):
     obj["material_mapping"] = mapping_data
 
     return mapping
-
-
-def add_set_material_node(tree):
-    """Add a Set Material node at the end of the node tree"""
-    # Find output node
-    output_node = None
-    for node in tree.nodes:
-        if node.type == "GROUP_OUTPUT":
-            output_node = node
-            break
-
-    if output_node:
-        # Create Set Material node
-        set_mat_node = tree.nodes.new("GeometryNodeSetMaterial")
-        # Position it before output
-        set_mat_node.location = (output_node.location.x - 200, output_node.location.y)
-
-        # Connect nodes
-        last_geometry_socket = None
-        for source in output_node.inputs:
-            if source.type == "GEOMETRY":
-                if source.is_linked:
-                    last_geometry_socket = source.links[0].from_socket
-                break
-
-        if last_geometry_socket:
-            tree.links.new(last_geometry_socket, set_mat_node.inputs["Geometry"])
-            tree.links.new(set_mat_node.outputs["Geometry"], output_node.inputs[0])
-
-        return set_mat_node
-    return None
 
 
 classes = (
