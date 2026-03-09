@@ -48,6 +48,7 @@ suite.addTests(testLoader.discover(".", "test_client_lib.py"))
 suite.addTests(testLoader.discover(".", "test_search.py"))
 suite.addTests(testLoader.discover(".", "test_global_vars.py"))
 suite.addTests(testLoader.discover(".", "test_manifest_toml.py"))
+suite.addTests(testLoader.discover(".", "test_registration.py"))
 print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
