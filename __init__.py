@@ -275,7 +275,7 @@ if bpy.app.version >= (4, 5, 0):
     EXTRA_PATH_OPTIONS = {"options": {"PATH_SUPPORTS_BLEND_RELATIVE"}}
 
 
-def udate_down_up(self, context):
+def update_down_up(self, context):
     """Perform a search if results are empty."""
     props = bpy.context.window_manager.blenderkitUI
     if search.get_search_results() is None and props.down_up == "SEARCH":
@@ -358,7 +358,7 @@ class BlenderKitUIProps(PropertyGroup):
         ),
         description="BlenderKit",
         default="SEARCH",
-        update=udate_down_up,
+        update=update_down_up,
     )
     asset_type: EnumProperty(
         name=" ",
@@ -2428,6 +2428,15 @@ In this case you should also set path to your system CA bundle containing proxy'
         description="Size of thumbnails of the assetbar in 3D view",
     )
 
+    drag_start_threshold: IntProperty(
+        name="Drag Activation Threshold",
+        description="Pixel distance the pointer must move before asset drags start",
+        default=30,
+        min=5,
+        max=200,
+        update=utils.save_prefs,
+    )
+
     search_field_width: IntProperty(
         name="Search Field Width",
         default=0,
@@ -2587,6 +2596,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.label(text="GUI settings")
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
+        gui_settings.prop(self, "drag_start_threshold")
         gui_settings.prop(self, "maximized_assetbar_rows")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
