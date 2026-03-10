@@ -29,7 +29,7 @@ import logging
 import bpy
 from bpy.app.handlers import persistent
 
-from . import client_lib
+from . import client_lib, utils
 
 bk_logger = logging.getLogger(__name__)
 
@@ -1134,6 +1134,15 @@ def update_settings_ui(self, context, element=None):
         row.label(text="Last update check: " + last_check)
     else:
         row.label(text="Last update check: Never")
+
+    version_row = box.row()
+    version_row.label(
+        text=f"BlenderKit v{utils.get_addon_version()} · Blender {bpy.app.version_string}",
+        icon="INFO",
+    )
+    version_row.operator(
+        "wm.blenderkit_copy_environment_info", text="Copy Info", icon="COPYDOWN"
+    )
 
 
 def update_settings_ui_condensed(self, context, element=None):
