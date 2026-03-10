@@ -16,11 +16,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import os
-import time
-from functools import lru_cache
 import logging
 from dataclasses import dataclass
+from functools import lru_cache
+import os
+import time
 
 import bpy
 
@@ -183,10 +183,94 @@ def analyze_image_is_true_hdr(image):
     image.blenderkit.true_hdr = numpy.amax(tempBuffer) > 1.05
 
 
-def generate_hdr_thumbnail():
+def _save_hdr_thumbnail_image(
+    hdr_image,
+    output_path: str,
+    max_thumbnail_size: int,
+    use_custom_tone: bool,
+    exposure: float,
+    gamma: float,
+):
     import numpy
 
-    scene = bpy.context.scene
+    image_width, image_height = hdr_image.size
+    ratio = image_width / image_height
+    thumbnail_width = min(image_width, max_thumbnail_size)
+    thumbnail_height = min(image_height, int(max_thumbnail_size / ratio))
+
+    # Read once so we can both detect HDR and safely create a scaled temp image.
+    pixel_count = image_width * image_height
+    pixel_buffer = numpy.empty(pixel_count * 4, dtype=numpy.float32)
+    hdr_image.pixels.foreach_get(pixel_buffer)
+    hdr_image.blenderkit.true_hdr = numpy.amax(pixel_buffer) > 1.05
+
+    source_image = hdr_image
+    temp_image = None
+
+    if thumbnail_width < image_width:
+        temp_name = f"{hdr_image.name}_thumb_tmp"
+        temp_image = bpy.data.images.new(
+            temp_name,
+            width=image_width,
+            height=image_height,
+            alpha=False,
+            float_buffer=True,
+        )
+        temp_image.pixels.foreach_set(pixel_buffer)
+        temp_image.scale(thumbnail_width, thumbnail_height)
+        source_image = temp_image
+
+    try:
+        scene = bpy.context.scene
+        view_settings = scene.view_settings
+        orig_exposure = view_settings.exposure
+        orig_gamma = view_settings.gamma
+
+        try:
+            if use_custom_tone:
+                view_settings.exposure = exposure
+                view_settings.gamma = gamma
+
+            img_save_as(
+                source_image,
+                filepath=output_path,
+                view_transform="Standard",
+            )
+        finally:
+            view_settings.exposure = orig_exposure
+            view_settings.gamma = orig_gamma
+    finally:
+        if temp_image is not None:
+            bpy.data.images.remove(temp_image)
+
+
+def generate_hdr_thumbnail_preview(
+    hdr_image,
+    use_custom_tone: bool,
+    exposure: float,
+    gamma: float,
+    max_preview_size: int = 256,
+) -> str:
+    from . import paths
+
+    safe_name = "".join(
+        c if c.isalnum() or c in ("-", "_", ".") else "_" for c in hdr_image.name
+    )
+    preview_dir = paths.get_temp_dir(subdir="hdr_thumbnail_preview")
+    preview_path = os.path.join(preview_dir, f"{safe_name}_preview.jpg")
+
+    _save_hdr_thumbnail_image(
+        hdr_image=hdr_image,
+        output_path=preview_path,
+        max_thumbnail_size=max_preview_size,
+        use_custom_tone=use_custom_tone,
+        exposure=exposure,
+        gamma=gamma,
+    )
+    return preview_path
+
+
+def generate_hdr_thumbnail():
     ui_props = bpy.context.window_manager.blenderkitUI
     hdr_image = (
         ui_props.hdr_upload_image
@@ -194,35 +278,14 @@ def generate_hdr_thumbnail():
 
     base, ext = os.path.splitext(hdr_image.filepath)
     thumb_path = base + ".jpg"
-    thumb_name = os.path.basename(thumb_path)
-
-    max_thumbnail_size = 2048
-    size = hdr_image.size
-    ratio = size[0] / size[1]
-
-    imageWidth = size[0]
-    imageHeight = size[1]
-    thumbnailWidth = min(size[0], max_thumbnail_size)
-    thumbnailHeight = min(size[1], int(max_thumbnail_size / ratio))
-
-    tempBuffer = numpy.empty(imageWidth * imageHeight * 4, dtype=numpy.float32)
-    inew = bpy.data.images.new(
-        thumb_name, imageWidth, imageHeight, alpha=False, float_buffer=False
+    _save_hdr_thumbnail_image(
+        hdr_image=hdr_image,
+        output_path=thumb_path,
+        max_thumbnail_size=2048,
+        use_custom_tone=ui_props.hdr_use_custom_thumbnail_tone,
+        exposure=ui_props.hdr_thumbnail_exposure,
+        gamma=ui_props.hdr_thumbnail_gamma,
     )
-
-    hdr_image.pixels.foreach_get(tempBuffer)
-
-    hdr_image.blenderkit.true_hdr = numpy.amax(tempBuffer) > 1.05
-
-    inew.filepath = thumb_path
-    set_colorspace(inew, "Linear")
-    inew.pixels.foreach_set(tempBuffer)
-
-    bpy.context.view_layer.update()
-    if thumbnailWidth < imageWidth:
-        inew.scale(thumbnailWidth, thumbnailHeight)
-
-    img_save_as(inew, filepath=inew.filepath)
 
 
 def find_color_mode(image):

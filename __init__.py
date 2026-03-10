@@ -623,6 +623,32 @@ class BlenderKitUIProps(PropertyGroup):
         name="Upload HDR", type=bpy.types.Image, description="Pick an image to upload"
     )
 
+    hdr_use_custom_thumbnail_tone: BoolProperty(
+        name="Use Custom Thumbnail Tone",
+        description="Use custom exposure and gamma for HDR thumbnail conversion",
+        default=False,
+    )
+
+    hdr_thumbnail_exposure: FloatProperty(
+        name="Thumbnail Exposure",
+        description="Exposure offset used only for HDR thumbnail conversion",
+        default=0.0,
+        min=-5.0,
+        max=5.0,
+        soft_min=-2.0,
+        soft_max=2.0,
+    )
+
+    hdr_thumbnail_gamma: FloatProperty(
+        name="Thumbnail Gamma",
+        description="Gamma used only for HDR thumbnail conversion",
+        default=1.0,
+        min=0.2,
+        max=3.0,
+        soft_min=0.7,
+        soft_max=1.6,
+    )
+
     nodegroup_upload: PointerProperty(
         name="Upload Tool",
         type=bpy.types.GeometryNodeTree,

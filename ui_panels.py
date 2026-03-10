@@ -44,6 +44,7 @@ from . import (
     download,
     global_vars,
     icons,
+    image_utils,
     keymap_utils,
     paths,
     ratings,
@@ -293,6 +294,10 @@ def draw_panel_hdr_upload(self, context):
     ui_props = bpy.context.window_manager.blenderkitUI
 
     layout.prop(ui_props, "hdr_upload_image")
+
+    tone_box = layout.box()
+    tone_box.label(text="Thumbnail Conversion", icon="IMAGE_RGB")
+    tone_box.prop(ui_props, "hdr_use_custom_thumbnail_tone")
 
     hdr = utils.get_active_HDR()
 
@@ -2282,6 +2287,166 @@ class OpenTempDirectory(OpenSystemDirectory):
 
     bl_idname = "wm.blenderkit_open_temp_directory"
     bl_label = "Open temp directory"
+
+
+class BLENDERKIT_OT_hdr_thumbnail_tune(bpy.types.Operator):
+    """Edit HDR thumbnail conversion settings with live preview."""
+
+    bl_idname = "wm.blenderkit_hdr_thumbnail_tune"
+    bl_label = "Edit Thumbnail Before Upload"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    use_custom_tone: bpy.props.BoolProperty(  # type: ignore[valid-type]
+        name="Use Custom Thumbnail Tone",
+        default=False,
+    )
+    exposure: bpy.props.FloatProperty(  # type: ignore[valid-type]
+        name="Exposure",
+        default=0.0,
+        min=-5.0,
+        max=5.0,
+        soft_min=-2.0,
+        soft_max=2.0,
+        precision=3,
+        step=1,
+    )
+    gamma: bpy.props.FloatProperty(  # type: ignore[valid-type]
+        name="Gamma",
+        default=1.0,
+        min=0.2,
+        max=3.0,
+        soft_min=0.7,
+        soft_max=1.6,
+        precision=3,
+        step=1,
+    )
+
+    _preview_image_prefix = "blenderkit_hdr_thumbnail_preview_"
+    _created_preview_names: set[str] = set()
+    preview_image_name: bpy.props.StringProperty(  # type: ignore[valid-type]
+        name="Preview Image Name",
+        default="",
+        options={"SKIP_SAVE", "HIDDEN"},
+    )
+    _preview_error = ""
+
+    trigger_upload: bpy.props.BoolProperty(  # type: ignore[valid-type]
+        name="Trigger Upload",
+        default=False,
+        options={"SKIP_SAVE"},
+    )
+    upload_reupload: bpy.props.BoolProperty(  # type: ignore[valid-type]
+        name="Reupload",
+        default=False,
+        options={"SKIP_SAVE"},
+    )
+
+    @classmethod
+    def poll(cls, context):
+        ui_props = context.window_manager.blenderkitUI
+        return ui_props.hdr_upload_image is not None
+
+    def _cleanup_preview_image(self):
+        # Cleanup only images created by this operator instance.
+        for name in list(self._created_preview_names):
+            img = bpy.data.images.get(name)
+            if img is None:
+                self._created_preview_names.discard(name)
+                continue
+            try:
+                bpy.data.images.remove(img)
+            except Exception:
+                pass
+            self._created_preview_names.discard(name)
+
+    def _refresh_preview(self, context):
+        ui_props = context.window_manager.blenderkitUI
+        hdr_image = ui_props.hdr_upload_image
+        if hdr_image is None:
+            return
+        self._preview_error = ""
+        try:
+            preview_path = image_utils.generate_hdr_thumbnail_preview(
+                hdr_image=hdr_image,
+                use_custom_tone=self.use_custom_tone,
+                exposure=self.exposure,
+                gamma=self.gamma,
+                max_preview_size=512,
+            )
+            preview_image = bpy.data.images.load(preview_path, check_existing=False)
+            preview_image.name = f"{self._preview_image_prefix}{time.time_ns()}"
+            preview_image.reload()
+            if hasattr(preview_image, "preview"):
+                preview_image.preview_ensure()
+            self.preview_image_name = preview_image.name
+            self._created_preview_names.add(preview_image.name)
+        except Exception as e:
+            self.preview_image_name = ""
+            self._preview_error = str(e)
+
+        # Force dialog refresh in Blender 3.x/4.x where icon updates can lag.
+        if context.area is not None:
+            context.area.tag_redraw()
+
+    def check(self, context):
+        self._refresh_preview(context)
+        return True
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "use_custom_tone")
+        col = layout.column(align=True)
+        col.enabled = self.use_custom_tone
+        col.prop(self, "exposure")
+        col.prop(self, "gamma")
+
+        preview_box = layout.box()
+        preview_box.label(text="Thumbnail Preview (live)", icon="IMAGE_DATA")
+
+        preview_image = bpy.data.images.get(self.preview_image_name)
+        if preview_image is not None:
+            # Use preview icon rendering for reliable display in popup dialogs.
+            if hasattr(preview_image, "preview"):
+                preview_image.preview_ensure()
+                preview_box.template_icon(
+                    icon_value=preview_image.preview.icon_id,
+                    scale=14,
+                )
+        elif self._preview_error:
+            preview_box.label(
+                text=f"Preview failed: {self._preview_error}", icon="ERROR"
+            )
+        else:
+            preview_box.label(text="Preparing preview...", icon="TIME")
+
+    def invoke(self, context, event):
+        ui_props = context.window_manager.blenderkitUI
+        self._cleanup_preview_image()
+        self.preview_image_name = ""
+        self.use_custom_tone = ui_props.hdr_use_custom_thumbnail_tone
+        self.exposure = ui_props.hdr_thumbnail_exposure
+        self.gamma = ui_props.hdr_thumbnail_gamma
+        self._refresh_preview(context)
+        return context.window_manager.invoke_props_dialog(self, width=560)
+
+    def execute(self, context):
+        ui_props = context.window_manager.blenderkitUI
+        ui_props.hdr_use_custom_thumbnail_tone = self.use_custom_tone
+        ui_props.hdr_thumbnail_exposure = self.exposure
+        ui_props.hdr_thumbnail_gamma = self.gamma
+        self._cleanup_preview_image()
+
+        if self.trigger_upload:
+            bpy.ops.object.blenderkit_upload(
+                "INVOKE_DEFAULT",
+                asset_type="HDR",
+                reupload=self.upload_reupload,
+                skip_hdr_tune_popup=True,
+            )
+        return {"FINISHED"}
+
+    def cancel(self, context):
+        self._cleanup_preview_image()
 
 
 def draw_asset_context_menu(
@@ -4589,6 +4754,7 @@ class NodegroupDropDialog(bpy.types.Operator):
 
 
 classes = (
+    BLENDERKIT_OT_hdr_thumbnail_tune,
     BLENDERKIT_OT_show_validation_popup,
     SetCategoryOperatorOrigin,
     SetCategoryOperator,
