@@ -1257,9 +1257,10 @@ def apply_asset_preview(data_block, props) -> None:
     If that fails, it falls back to generating a preview within Blender."""
     if data_block is None:
         return
-    if not props.thumbnail:
+    thumbnail = getattr(props, "thumbnail", "")
+    if not thumbnail:
         return
-    thmb_path = bpy.path.abspath(props.thumbnail)
+    thmb_path = bpy.path.abspath(thumbnail)
     if not os.path.exists(thmb_path):
         return
     if thmb_path:
@@ -1324,7 +1325,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
         return False, None, None
 
     ensure_asset_metadata_on_datablock(asset_type, props)
-    apply_asset_preview(asset_type, props)
+    apply_asset_preview(_get_upload_datablock(asset_type), props)
 
     if not reupload:
         props.asset_base_id = ""
@@ -1434,6 +1435,12 @@ class UploadOperator(Operator):
     wire_thumbnail: BoolProperty(name="wire thumbnail", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
 
     main_file: BoolProperty(name="main file", default=False, options={"SKIP_SAVE"})  # type: ignore[valid-type]
+
+    skip_hdr_tune_popup: BoolProperty(  # type: ignore[valid-type]
+        name="Skip HDR tune popup",
+        default=False,
+        options={"SKIP_SAVE", "HIDDEN"},
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1581,6 +1588,20 @@ class UploadOperator(Operator):
         if not utils.user_logged_in():
             ui_panels.draw_not_logged_in(
                 self, message="To upload assets you need to login/signup."
+            )
+            return {"CANCELLED"}
+
+        ui_props = bpy.context.window_manager.blenderkitUI
+
+        if (
+            self.asset_type == "HDR"
+            and ui_props.hdr_use_custom_thumbnail_tone
+            and not self.skip_hdr_tune_popup
+        ):
+            bpy.ops.wm.blenderkit_hdr_thumbnail_tune(
+                "INVOKE_DEFAULT",
+                trigger_upload=True,
+                upload_reupload=self.reupload,
             )
             return {"CANCELLED"}
 

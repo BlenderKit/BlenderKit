@@ -443,11 +443,13 @@ func UnpackAsset(
 	writeAssetMetadata bool,
 	//prefs PREFS,
 ) error {
-	if assetType == "hdr" && !writeAssetMetadata { // Skip unpacking for HDRi files unless metadata is requested
+	// Unpacking and metadata write require opening a .blend in background Blender.
+	// Skip safely for raw files (e.g. .hdr) to avoid startup/unpack errors.
+	if !strings.EqualFold(filepath.Ext(blendPath), ".blend") {
 		TaskMessageCh <- &TaskMessageUpdate{
 			AppID:   appID,
 			TaskID:  taskID,
-			Message: "HDRi file doesn't need unpacking",
+			Message: fmt.Sprintf("Skipping unpack: downloaded file is not a .blend (%s)", filepath.Ext(blendPath)),
 		}
 		return nil
 	}
