@@ -20,11 +20,14 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 import random
-import time
+import sys
 import textwrap
-from webbrowser import open_new_tab
+import time
 from typing import Any
+from urllib.parse import quote
+from webbrowser import open_new_tab
 
 import bpy
 from bpy.props import IntProperty, StringProperty, FloatVectorProperty, EnumProperty
@@ -1482,6 +1485,64 @@ class OpenBlenderKitDiscord(bpy.types.Operator):
 
     def execute(self, context):
         open_new_tab(global_vars.DISCORD_INVITE_URL)
+        return {"FINISHED"}
+
+
+def get_environment_info() -> str:
+    """Get formatted environment info for bug reports and clipboard."""
+    ver = global_vars.VERSION
+    addon_ver = f"{ver[0]}.{ver[1]}.{ver[2]}.{ver[3]}"
+    blender_ver = bpy.app.version_string
+    os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
+    user_preferences = bpy.context.preferences.addons[__package__].preferences
+    proxy = user_preferences.proxy_which
+    python_ver = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    return (
+        f"- BlenderKit version: v{addon_ver}\n"
+        f"- Blender version: v{blender_ver} (from: )\n"
+        f"- Python version: {python_ver}\n"
+        f"- Operating system & architecture: {os_info}\n"
+        f"- Proxy setting: {proxy}\n"
+        f"- Using VPN, proxy, or firewall? "
+    )
+
+
+class CopyEnvironmentInfo(bpy.types.Operator):
+    """Copy BlenderKit and Blender version information to clipboard"""
+
+    bl_idname = "wm.blenderkit_copy_environment_info"
+    bl_label = "Copy Environment Info"
+
+    def execute(self, context):
+        context.window_manager.clipboard = get_environment_info()
+        self.report({"INFO"}, "Environment info copied to clipboard")
+        return {"FINISHED"}
+
+
+def get_report_bug_url() -> str:
+    """Build GitHub issue URL with pre-filled environment information."""
+    env_info = get_environment_info()
+    description_body = (
+        f"When I...\n\n### Environment Information - Bug happens on:\n{env_info}"
+    )
+    return (
+        "https://github.com/BlenderKit/blenderkit/issues/new"
+        f"?template=bug-report.yaml"
+        f"&title={quote('BlenderKit bug: ')}"
+        f"&description={quote(description_body)}"
+    )
+
+
+class ReportBug(bpy.types.Operator):
+    """Open GitHub issue page with pre-filled environment information"""
+
+    bl_idname = "wm.blenderkit_report_bug"
+    bl_label = "Report a Bug"
+
+    def execute(self, context):
+        bpy.ops.wm.url_open(url=get_report_bug_url())
         return {"FINISHED"}
 
 
@@ -4553,6 +4614,8 @@ classes = (
     VIEW3D_MT_blenderkit_model_properties,
     NODE_PT_blenderkit_material_properties,
     OpenBlenderKitDiscord,
+    CopyEnvironmentInfo,
+    ReportBug,
     OpenSystemDirectory,
     OpenAssetDirectory,
     OpenAddonDirectory,

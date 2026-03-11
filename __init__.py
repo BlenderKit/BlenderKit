@@ -2554,20 +2554,35 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     def draw(self, context):
         layout = self.layout
+        login_box = layout.box()
+        login_box.label(text="Login Options")
         if self.api_key.strip() == "":
-            ui_panels.draw_login_buttons(layout)
-            layout.label(
+            ui_panels.draw_login_buttons(login_box)
+            login_box.label(
                 text="Sign up to bookmark your favorite assets. Get 200 MiB of private storage in Free Plan."
             )
         else:
-            layout.operator("wm.blenderkit_logout", text="Logout", icon="URL")
-        layout.prop(self, "api_key", text="Your API Key")
-        layout.prop(self, "keep_preferences")
-        community_row = layout.row()
+            login_box.operator("wm.blenderkit_logout", text="Logout", icon="URL")
+        login_box.prop(self, "api_key", text="Your API Key")
+        login_box.prop(self, "keep_preferences")
+        community_row = login_box.row()
         community_row.prop(self, "experimental_features")
         community_row.operator("wm.blenderkit_join_discord", icon="URL")
+
         if utils.profile_is_validator():
-            layout.prop(self, "categories_fix")
+            validator_box = layout.box()
+            validator_box.label(text="Validator Settings")
+            validator_box.prop(self, "categories_fix")
+
+        # REPORT PATHS
+        report_settings = layout.box()
+        report_settings.label(text="Report a Bug")
+        report_settings.label(
+            text="Create an issue report with version information to help us resolve the issue faster.",
+        )
+        report_settings.operator(
+            "wm.blenderkit_report_bug", text="Submit Full Bug Report", icon="ERROR"
+        )
 
         # FILE PATHS
         locations_settings = layout.box()
@@ -2614,7 +2629,10 @@ In this case you should also set path to your system CA bundle containing proxy'
         addon_updater_ops.update_settings_ui(self, context)
 
         # RUNTIME INFO
-        globdir_op = layout.operator(
+        directory_box = layout.box()
+        directory_box.label(text="Directories and Paths")
+
+        globdir_op = directory_box.operator(
             "wm.blenderkit_open_global_directory",
             text=f"Global directory: {self.global_dir}",
             icon="FILE_FOLDER",
@@ -2622,7 +2640,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         globdir_op.directory = self.global_dir
 
         clientlog_path = client_lib.get_client_log_path()
-        clientlog_op = layout.operator(
+        clientlog_op = directory_box.operator(
             "wm.blenderkit_open_client_log",
             text=f"Client log: {clientlog_path}",
             icon="FILE_FOLDER",
@@ -2630,7 +2648,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         clientlog_op.directory = clientlog_path
 
         addondir = path.dirname(__file__)
-        addondir_op = layout.operator(
+        addondir_op = directory_box.operator(
             "wm.blenderkit_open_addon_directory",
             text=f"Installed at: {addondir}",
             icon="FILE_FOLDER",
@@ -2638,7 +2656,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         addondir_op.directory = addondir
 
         tempdir = paths.get_temp_dir()
-        tempdir_op = layout.operator(
+        tempdir_op = directory_box.operator(
             "wm.blenderkit_open_temp_directory",
             text=f"Temp directory: {tempdir}",
             icon="FILE_FOLDER",
