@@ -635,7 +635,7 @@ def _sanitize_for_idprops(value):
     return value
 
 
-def udpate_asset_data_in_dicts(asset_data):
+def update_asset_data_in_dicts(asset_data):
     """
     updates asset data in all relevant dictionaries, after a threaded download task \
     - where the urls were retrieved, and now they can be reused
@@ -723,6 +723,8 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     user_preferences.download_counter += 1
 
+    asset_main = None
+
     if asset_data["assetType"] == "scene":
         sprops = wm.blenderkit_scene
 
@@ -776,7 +778,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                         # also, if it was successful, no other operations are needed , basically all asset data is already ready from the original asset
                         if new_obs:
                             # update here assets rated/used because there might be new download urls?
-                            udpate_asset_data_in_dicts(asset_data)
+                            update_asset_data_in_dicts(asset_data)
                             bpy.ops.ed.undo_push(
                                 "INVOKE_REGION_WIN",
                                 message="add %s to scene" % asset_data["name"],
@@ -790,7 +792,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
         if downloaders:
             for downloader in downloaders:
                 # this cares for adding particle systems directly to target mesh, but I had to block it now,
-                # because of the sluggishnes of it. Possibly re-enable when it's possible to do this faster?
+                # because of the sluggishness of it. Possibly re-enable when it's possible to do this faster?
                 if (
                     "particle_plants" in asset_data["tags"]
                     and kwargs["target_object"] != ""
@@ -872,6 +874,7 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
             lib["asset_data"] = asset_data
 
     elif asset_data["assetType"] == "brush":
+        brush = None
         inscene = False
         for b in bpy.data.brushes:
             if b.blenderkit.id == asset_data["id"]:
@@ -928,9 +931,11 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 )
         # TODO add grease pencil brushes!
         # bpy.context.tool_settings.image_paint.brush = brush
-        asset_main = brush
+        if brush is not None:
+            asset_main = brush
 
     elif asset_data["assetType"] == "material":
+        material = None
         inscene = False
         sprops = wm.blenderkit_mat
 
@@ -945,12 +950,14 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 file_names[-1], matname=asset_data["name"], link=link, fake_user=False
             )
 
-        target_object = bpy.data.objects[kwargs["target_object"]]
-        assign_material(target_object, material, kwargs["material_target_slot"])
+        if material is not None:
+            target_object = bpy.data.objects[kwargs["target_object"]]
+            assign_material(target_object, material, kwargs["material_target_slot"])
 
-        asset_main = material
+            asset_main = material
 
     elif asset_data["assetType"] == "nodegroup":
+        nodegroup = None
         inscene = False
         sprops = wm.blenderkit_nodegroup
         for g in bpy.data.node_groups:
@@ -997,11 +1004,12 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                 model_location=kwargs.get("model_location", (0, 0, 0)),
                 model_rotation=kwargs.get("model_rotation", (0, 0, 0)),
             )
-        bk_logger.info("appended nodegroup: %s", nodegroup)
-        asset_main = nodegroup
+        if nodegroup is not None:
+            bk_logger.info("appended nodegroup: %s", nodegroup)
+            asset_main = nodegroup
 
     asset_data["resolution"] = kwargs["resolution"]
-    udpate_asset_data_in_dicts(asset_data)
+    update_asset_data_in_dicts(asset_data)
     if asset_main is not None:
         update_asset_metadata(asset_main, asset_data)
 
@@ -1070,11 +1078,11 @@ def replace_resolution_linked(file_paths, asset_data):
         bk_logger.debug("try to re-link library")
 
         if not os.path.isfile(file_paths[-1]):
-            bk_logger.debug("library file doesnt exist")
+            bk_logger.debug("library file doesn't exist")
             break
         l.filepath = os.path.join(os.path.dirname(l.filepath), file_name)
         l.name = file_name
-        udpate_asset_data_in_dicts(asset_data)
+        update_asset_data_in_dicts(asset_data)
 
 
 def replace_resolution_appended(file_paths, asset_data, resolution):
@@ -1108,7 +1116,7 @@ def replace_resolution_appended(file_paths, asset_data, resolution):
                 for pf in i.packed_files:
                     pf.filepath = fp
                 i.reload()
-    udpate_asset_data_in_dicts(asset_data)
+    update_asset_data_in_dicts(asset_data)
 
 
 # TODO: keep this until we check resolution replacement and other features from this one are supported in daemon.
