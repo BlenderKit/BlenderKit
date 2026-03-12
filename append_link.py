@@ -621,14 +621,16 @@ def append_objects(
 
         return_obs = []
         to_hidden_collection = []
+        hidden_objects = []
         appended_collection = None
         main_object = None
-        # get first at least one parent for sure
+        # first get at least one parent for sure
         for ob in bpy.context.scene.objects:  # type: ignore[union-attr]
-            if ob.select_get():
-                if not ob.parent:
-                    main_object = ob
-                    ob.location = location
+            if ob.select_get() and not ob.parent:
+                main_object = ob
+                ob.location = location
+            if ob.hide_viewport or ob.hide_render: # saved assets only retain hide render state
+                hidden_objects.append(ob)
         # do once again to ensure hidden objects are hidden
         for ob in bpy.context.scene.objects:  # type: ignore[union-attr]
             if ob.select_get():
@@ -654,7 +656,7 @@ def append_objects(
             main_object.matrix_world.translation = location
 
         # move objects that should be hidden to a sub collection
-        if len(to_hidden_collection) > 0 and appended_collection is not None:
+        if to_hidden_collection and appended_collection is not None:
             hidden_collections = []
             scene_collection = bpy.context.scene.collection  # type: ignore[union-attr]
             for ob in to_hidden_collection:
@@ -707,6 +709,12 @@ def append_objects(
         if orig_active_collection:
             bpy.context.view_layer.active_layer_collection = orig_active_collection  # type: ignore[union-attr]
 
+        if hidden_objects:
+            # only unique objects
+            hidden_objects = list(set(hidden_objects))
+            for ob in hidden_objects:
+                ob.hide_set(True)
+
         utils.selection_set(sel)
         # let collection also store info that it was created by BlenderKit, for purging reasons
 
@@ -753,16 +761,18 @@ def append_objects(
             obj.select_set(True)
             # we need to unhide object so make_local op can use those too.
             if link == True:
-                if obj.hide_viewport:
+                if (
+                    obj.hide_viewport or obj.hide_render
+                ):  # saved assets only retain hide render state
                     hidden_objects.append(obj)
-                    obj.hide_viewport = False
+                    obj.hide_set(False)
             return_obs.append(obj)
 
     # Only after all objects are in scene! Otherwise gets broken relationships
     if link == True:
         bpy.ops.object.make_local(type="SELECT_OBJECT")
         for ob in hidden_objects:
-            ob.hide_viewport = True
+            ob.hide_set(True)
 
     if kwargs.get("rotation") is not None:
         main_object.rotation_euler = kwargs["rotation"]  # type: ignore[union-attr]
