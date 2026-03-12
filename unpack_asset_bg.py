@@ -484,11 +484,6 @@ def _assign_asset_catalog(
         print(
             "Asset catalog assignment skipped: asset_data does not have catalog_id attribute."
         )
-    if hasattr(asset_meta, "catalog_simple_name"):
-        try:
-            asset_meta.catalog_simple_name = catalog_simple_name
-        except AttributeError:
-            print("Asset catalog assignment skipped: catalog_simple_name is read-only.")
 
 
 def unpack_asset(data):
