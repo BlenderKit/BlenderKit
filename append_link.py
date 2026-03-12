@@ -629,7 +629,9 @@ def append_objects(
             if ob.select_get() and not ob.parent:
                 main_object = ob
                 ob.location = location
-            if ob.hide_viewport or ob.hide_render: # saved assets only retain hide render state
+            if (
+                ob.hide_viewport or ob.hide_render
+            ):  # saved assets only retain hide render state
                 hidden_objects.append(ob)
         # do once again to ensure hidden objects are hidden
         for ob in bpy.context.scene.objects:  # type: ignore[union-attr]
