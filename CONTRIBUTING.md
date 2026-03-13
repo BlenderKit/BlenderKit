@@ -42,8 +42,8 @@ bk_logger = logging.getLogger(__name__)
 
 Then instead of `print()` use the `bk_logger`:
 ```python
-bk_logger.debug("Some minor stuff happened") 
-bk_logger.info("Something expected has happened") 
+bk_logger.debug("Some minor stuff happened")
+bk_logger.info("Something expected has happened")
 bk_logger.warning("Something unexpected has happened")
 bk_logger.error("Something went very wrong")
 ```
@@ -140,7 +140,7 @@ BlenderKit add-on uses tests implemented through `unittest` module.
 As the add-on and its submodules require `bpy` module and interaction with Blender, the tests needs to be executed in the Python inside of the Blender.
 This makes the tests to be on the edge between unit tests and integration tests.
 
-The tests are defined in files `test_<name-of-tested-file>.py` and their starting point is in file `test.py` which is executed from `dev.py` script.
+The tests are defined in `tests/test_<name-of-tested-file>.py` files and their starting point is `tests/test.py` which is executed from `dev.py` script.
 
 ### Install dependencies
 

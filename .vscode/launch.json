@@ -61,6 +61,53 @@
             ],
         },
 
+        {
+            "name": "Run Blender 5.0.1 Tests",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "runtimeExecutable": "D:/blenders/5.0.1/blender.exe",
+                "args": [
+                    "--background",
+                    "-noaudio",
+                    "--python-exit-code",
+                    "1",
+                    "--python",
+                    "tests/test.py",
+                    "--",
+                    "blenderkit"
+                ]
+            },
+            "linux": {
+                "runtimeExecutable": "blender",
+                "args": [
+                    "--background",
+                    "-noaudio",
+                    "--python-exit-code",
+                    "1",
+                    "--python",
+                    "tests/test.py",
+                    "--",
+                    "blenderkit"
+                ]
+            },
+            "osx": {
+                "runtimeExecutable": "blender",
+                "args": [
+                    "--background",
+                    "-noaudio",
+                    "--python-exit-code",
+                    "1",
+                    "--python",
+                    "tests/test.py",
+                    "--",
+                    "blenderkit"
+                ]
+            }
+        },
+
 
         {
             "name": "Run dev.py test install",

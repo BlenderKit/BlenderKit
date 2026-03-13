@@ -25,7 +25,8 @@ if COLLECT_COVERAGE:
     try:
         import coverage as _coverage
 
-        _cov = _coverage.Coverage(source=[os.path.dirname(os.path.abspath(__file__))])
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        _cov = _coverage.Coverage(source=[project_root])
         _cov.start()
     except ImportError:
         COLLECT_COVERAGE = False

@@ -251,13 +251,17 @@ def do_build(
         f"{addon_build_dir}/thumbnails",
         ignore=shutil.ignore_patterns(".DS_Store"),
     )
+    if include_tests:
+        shutil.copytree(
+            "tests",
+            f"{addon_build_dir}/tests",
+            ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
+        )
 
     for item in os.listdir():
         if os.path.isdir(item):
             continue  # we copied directories above
         if item in ignore_files:
-            continue
-        if include_tests is False and item == "test.py":
             continue
         if include_tests is False and item.startswith("test_"):
             continue  # we do not include test files
@@ -315,7 +319,7 @@ def run_python_tests(extension_format: bool, fast: bool):
             "--python-exit-code",
             "1",
             "--python",
-            "test.py",
+            "tests/test.py",
             "--",
             addon_package_name,
         ],
