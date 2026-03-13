@@ -42,13 +42,16 @@ _ASSET_TYPE_DIRS = {
 }
 
 
-def get_texture_filepath(tex_dir_path, image, resolution="blend"):
-    if len(image.packed_files) > 0:
+def get_texture_filepath(tex_dir_path, image, resolution="blend", source_path=""):
+    if source_path:
+        path = source_path
+    elif len(image.packed_files) > 0:
         path = image.packed_files[0].filepath
     else:
         path = image.filepath
     # backslashes needs to be replaced because bpy.path.basename(path)
     # does not work on Mac for Windows paths
+    path = path or ""
     path = path.replace("\\", "/")
     image_file_name = bpy.path.basename(path)
     if image_file_name == "":
@@ -522,18 +525,42 @@ def unpack_asset(data):
             if image.name == "Render Result":
                 continue  # skip rendered images
 
-            # suffix = paths.resolution_suffix(data['suffix'])
-            fp = get_texture_filepath(tex_dir_path, image, resolution=resolution)
-            print(f"🖼️  unpacking file: {image.name} - {image.filepath}, {fp}")
-
-            for pf in image.packed_files:
-                pf.filepath = fp  # bpy.path.abspath(fp)
-            image.filepath = fp  # bpy.path.abspath(fp)
-            image.filepath_raw = fp  # bpy.path.abspath(fp)
-            # image.save()
+            # Keep per-packed-file paths (UDIM/sequence) so image.unpack writes all frames/tiles.
             if len(image.packed_files) > 0:
-                # image.unpack(method='REMOVE')
+                unpack_paths = []
+                for pf in image.packed_files:
+                    pf_path = get_texture_filepath(
+                        tex_dir_path,
+                        image,
+                        resolution=resolution,
+                        source_path=pf.filepath,
+                    )
+                    unpack_paths.append(pf_path)
+                    pf.filepath = pf_path  # bpy.path.abspath(pf_path)
+
+                image_path = get_texture_filepath(
+                    tex_dir_path,
+                    image,
+                    resolution=resolution,
+                    source_path=image.filepath,
+                )
+                image.filepath = image_path  # bpy.path.abspath(image_path)
+                image.filepath_raw = image_path  # bpy.path.abspath(image_path)
+                print(
+                    f"🖼️  unpacking file: {image.name} - {image.filepath}, "
+                    f"{len(unpack_paths)} packed file(s)"
+                )
                 image.unpack(method="WRITE_ORIGINAL")
+            else:
+                fp = get_texture_filepath(
+                    tex_dir_path,
+                    image,
+                    resolution=resolution,
+                    source_path=image.filepath,
+                )
+                print(f"🖼️  unpacking file: {image.name} - {image.filepath}, {fp}")
+                image.filepath = fp  # bpy.path.abspath(fp)
+                image.filepath_raw = fp  # bpy.path.abspath(fp)
 
     # mark asset browser asset
     print("🏷️  marking asset")
