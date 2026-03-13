@@ -6,7 +6,7 @@ version = "3.19.0-260310" # X.Y.Z-YYYYMMDD, must have a dash instead of a dot
 
 name = "BlenderKit Online Asset Library"
 tagline = "Drag & drop of assets from the community driven library"
-maintainer = "Vilém Duha <admin@blenderkit.com>"
+maintainer = "Vilem Duha <admin@blenderkit.com>, Petr Dlouhy, A. Gajdosik, Michal Hons"
 website = "https://blenderkit.com/"
 
 tags = ["3D View"]
