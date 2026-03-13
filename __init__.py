@@ -19,7 +19,7 @@
 
 bl_info = {
     "name": "BlenderKit Online Asset Library",
-    "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik",
+    "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik, Michal Hons",
     "version": (3, 19, 0, 260310),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
