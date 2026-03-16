@@ -614,6 +614,17 @@ type DownloadThumbnailData struct {
 	Index           int    `json:"index"`
 }
 
+type AnimatedThumbnailDownloadData struct {
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	APIKey          string `json:"api_key"`
+	SceneID         string `json:"scene_id"`
+	DownloadURL     string `json:"download_url"`
+	ImagePath       string `json:"image_path"`
+	AssetBaseID     string `json:"assetBaseId"`
+	Index           int    `json:"index"`
+}
+
 type SearchTaskData struct {
 	PREFS           `json:"PREFS"`
 	AddonVersion    string `json:"addon_version"`

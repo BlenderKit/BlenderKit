@@ -48,6 +48,7 @@ from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
+from .bl_ui_widgets.video import BL_UI_Video
 
 
 bk_logger = logging.getLogger(__name__)
@@ -154,6 +155,7 @@ def modal_inside(self, context, event):
                     set_thumb_check(
                         self.tooltip_image, asset_data, thumb_type="thumbnail"
                     )
+                start_animated_thumbnail(self.tooltip_image, asset_data)
 
     if not context.area:
         self.finish()
@@ -569,6 +571,24 @@ def set_thumb_check(
         return
     element.set_image(tpath)
     element.set_image_colorspace("")
+
+
+def start_animated_thumbnail(tooltip_image: BL_UI_Video, asset_data: dict) -> None:
+    """If *asset_data* has an animated thumbnail and the file is on disk, start playback.
+
+    The Go client downloads the video automatically after search results arrive.
+    If the file is not yet on disk we clear the video (static fallback shows);
+    the timer handler calls ``update_animated_thumbnail`` once the download finishes.
+    """
+    asset_type = asset_data.get("assetType", "model")
+    local_path = ui.get_animated_thumbnail_local_path(asset_data, asset_type)
+    if local_path is None:
+        tooltip_image.clear_video()
+        return
+    if os.path.exists(local_path):
+        tooltip_image.set_video(local_path)
+    else:
+        tooltip_image.clear_video()
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
@@ -1009,7 +1029,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.background_corner_radius = ROUNDING_RADIUS
         self.tooltip_panel.visible = False
 
-        tooltip_image = BL_UI_Image(0, 0, 1, 1)
+        tooltip_image = BL_UI_Video(0, 0, 1, 1)
         img_path = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
         tooltip_image.set_image(img_path)
         tooltip_image.set_image_size((self.tooltip_width, self.tooltip_image_height))
@@ -1193,6 +1213,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_panel.visible = False
         for w in self.tooltip_widgets:
             w.visible = False
+        # Stop video playback timer when tooltip is hidden.
+        if hasattr(self, "tooltip_image") and isinstance(
+            self.tooltip_image, BL_UI_Video
+        ):
+            self.tooltip_image._stop_timer()
         self._redraw_tracked_regions()
 
     def show_tooltip(self):
@@ -1391,6 +1416,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if asset_data["assetBaseId"] == asset_id:
             set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
 
+    def update_animated_thumbnail(self, asset_base_id: str) -> None:
+        """Start video playback once the animated thumbnail download finishes."""
+        search_results = search.get_search_results()
+        if search_results is None or self.active_index < 0:
+            return
+        if self.active_index >= len(search_results):
+            return
+        asset_data = search_results[self.active_index]
+        if asset_data["assetBaseId"] == asset_base_id:
+            start_animated_thumbnail(self.tooltip_image, asset_data)
+
     def update_comments_for_validators(self, asset_data):
         """Update the comments section in the tooltip for validator profiles."""
         if not utils.profile_is_validator():
@@ -1439,6 +1475,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         new_button.set_mouse_down_right(self.asset_menu)
         new_button.set_mouse_enter(self.enter_button)
         new_button.set_mouse_exit(self.exit_button)
+        new_button.set_mouse_move(self.button_mouse_move)
         new_button.text_input = self.handle_key_input
 
         # add validation icon to button
@@ -1507,6 +1544,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             new_button.red_alert = red_alert
             self.red_alerts.append(red_alert)
 
+        # Animated thumbnail overlay (drawn on top of the static image).
+        video_widget = BL_UI_Video(
+            asset_x + self.button_margin,
+            asset_y + self.button_margin,
+            self.thumb_size,
+            self.thumb_size,
+        )
+        video_widget.set_image_size((self.thumb_size, self.thumb_size))
+        video_widget.set_image_position((0, 0))
+        video_widget.visible = False
+        new_button.video_widget = video_widget
+        self.button_video_widgets.append(video_widget)
+
         return new_button
 
     def init_ui(self):
@@ -1522,6 +1572,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.bookmark_buttons = []
         self.progress_bars = []
         self.red_alerts = []
+        self.button_video_widgets = []
         self.widgets_panel = []
         self.tab_buttons = []
         self.close_tab_buttons = []
@@ -2565,6 +2616,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 button.progress_bar.set_location(
                     asset_x, asset_y + self.button_size - 6
                 )
+                button.video_widget.set_location(
+                    asset_x + self.button_margin,
+                    asset_y + self.button_margin,
+                )
                 if asset_idx < len(sr):
                     button.visible = True
                     button.validation_icon.visible = True
@@ -2661,6 +2716,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         widgets_panel.extend(self.buttons)
 
         widgets_panel.extend(self.asset_buttons)
+        widgets_panel.extend(self.button_video_widgets)
         widgets_panel.extend(self.red_alerts)
         # we try to put bookmark_buttons before others, because they're on top
         widgets_panel.extend(self.bookmark_buttons)
@@ -2882,6 +2938,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if not thumbnail_found:
                 set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
 
+            # Start animated-thumbnail playback if the asset has a video preview.
+            # This runs after the static thumbnail is set so the static image is
+            # always available as a fallback while the video is downloading.
+            start_animated_thumbnail(self.tooltip_image, asset_data)
+
             get_tooltip_data(asset_data)
             an = asset_data["displayName"]
             max_name_length = 30
@@ -3057,8 +3118,41 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
 
+    def button_mouse_move(self, widget, x, y):
+        """Drive tooltip (and small thumb) scrubbing from mouse X over an asset button."""
+        if not hasattr(self, "tooltip_image"):
+            return
+        tooltip_video = self.tooltip_image
+
+        # Only act when the mouse is actually over this button.
+        if not widget.is_in_rect(x, y):
+            return
+
+        if not tooltip_video.video_is_ready():
+            return
+
+        total = len(tooltip_video._decoder.frame_bytes) or len(
+            tooltip_video._decoder.frame_files
+        )
+        if not total:
+            return
+
+        # Map mouse X within the thumbnail image area → scrub frame.
+        img_x = widget.x_screen + self.button_margin
+        rel = (x - img_x) / max(self.thumb_size, 1)
+        scrub = int(max(0.0, min(1.0, rel)) * (total - 1))
+
+        tooltip_video._scrub_frame = scrub
+        if hasattr(widget, "video_widget") and widget.video_widget.video_is_ready():
+            widget.video_widget._scrub_frame = scrub
+
     def exit_button(self, widget):
         """Handle mouse exit from an asset button."""
+        # Clear any scrub frame on the tooltip when leaving the button.
+        if hasattr(self, "tooltip_image"):
+            self.tooltip_image._scrub_frame = None
+        if hasattr(widget, "video_widget"):
+            widget.video_widget._scrub_frame = None
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
         if self.active_index == widget.button_index + self.scroll_offset:
             ui_props = bpy.context.window_manager.blenderkitUI
@@ -3435,6 +3529,32 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self._safe_tag_redraw(bpy.context.region)
 
+    def _update_button_video(self, asset_button, asset_data: dict) -> None:
+        """Show an animated video overlay on *asset_button* if a decoder is ready and the pref is on."""
+        vw = asset_button.video_widget
+        try:
+            user_prefs = bpy.context.preferences.addons[__package__].preferences
+            small_thumbs_on = getattr(user_prefs, "video_small_thumbs", False)
+        except Exception:
+            small_thumbs_on = False
+
+        if not small_thumbs_on:
+            if vw.has_video():
+                vw.clear_video()
+            vw.visible = False
+            return
+
+        local_path = ui.get_animated_thumbnail_local_path(
+            asset_data, asset_data.get("assetType", "model")
+        )
+        if local_path and os.path.exists(local_path):
+            vw.set_video(local_path)
+            vw.visible = True
+        else:
+            if vw.has_video():
+                vw.clear_video()
+            vw.visible = False
+
     def update_validation_icon(self, asset_button, asset_data: dict):
         """Update the validation icon for each button in asset bar."""
         if utils.profile_is_validator():
@@ -3501,6 +3621,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
+                    self._update_button_video(asset_button, asset_data)
                     # asset_button.set_image(img_filepath)
                     self.update_validation_icon(asset_button, asset_data)
 
@@ -3530,6 +3651,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.validation_icon.visible = False
                 asset_button.bookmark_button.visible = False
                 asset_button.progress_bar.visible = False
+                asset_button.video_widget.visible = False
                 if utils.profile_is_validator():
                     asset_button.red_alert.visible = False
 

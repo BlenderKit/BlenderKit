@@ -445,5 +445,15 @@ class BL_UI_Widget:
     def mouse_exit(self, event, x, y):
         self.call_mouse_exit()
 
+    def mouse_move_func(self, widget, x, y):
+        pass
+
+    def set_mouse_move(self, mouse_move_func):
+        self.mouse_move_func = mouse_move_func
+
+    def call_mouse_move(self, x, y):
+        if self.mouse_move_func:
+            self.mouse_move_func(self, x, y)
+
     def mouse_move(self, x, y):
         pass

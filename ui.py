@@ -160,6 +160,29 @@ def get_full_wire_thumbnail(asset_data):
     return thumb
 
 
+def get_animated_thumbnail_local_path(asset_data: dict, asset_type: str) -> str | None:
+    """Return the local path where the animated thumbnail video is (or will be) saved.
+
+    The Go client downloads the video automatically after a search and saves it
+    to the search-cache TempDir using the basename of the ``filename`` field.
+    Returns *None* if the asset has no animated thumbnail file record.
+    """
+    for file in asset_data.get("files", []):
+        if file.get("fileType") != "animated_thumbnail":
+            continue
+        filename = file.get("filename", "")
+        if not filename:
+            continue
+        basename = os.path.basename(filename)
+        if not basename:
+            continue
+        directory = paths.get_temp_dir(f"{asset_type.lower()}_search")
+        if not directory:
+            return None
+        return os.path.join(directory, basename)
+    return None
+
+
 def is_rating_possible() -> tuple[bool, bool, Any, Any]:
     # TODO remove this, but first check and reuse the code for new rating system...
     ao = bpy.context.active_object

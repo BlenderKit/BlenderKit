@@ -717,7 +717,7 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 }
 
 func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
-	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks, fullWireThumbsTasks []*Task
+	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks, fullWireThumbsTasks, animThumbsTasks []*Task
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
 	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avoid nesting
@@ -793,6 +793,32 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 			case "wire_thumbnail":
 				thumbTasks = &fullWireThumbsTasks
 				thumbnailType = "wire_full"
+			case "animated_thumbnail":
+				if file.DownloadURL == "" {
+					BKLog.Printf("parseThumbnails: missing DownloadURL for animated_thumbnail, asset: %s", result.DisplayName)
+					continue
+				}
+				animFilename := filepath.Base(file.Filename)
+				if animFilename == "" || animFilename == "." {
+					BKLog.Printf("parseThumbnails: missing Filename for animated_thumbnail, asset: %s", result.DisplayName)
+					continue
+				}
+				animPath := filepath.Join(data.TempDir, animFilename)
+				animTaskData := AnimatedThumbnailDownloadData{
+					AddonVersion:    data.AddonVersion,
+					PlatformVersion: data.PlatformVersion,
+					APIKey:          data.APIKey,
+					SceneID:         data.SceneUUID,
+					DownloadURL:     file.DownloadURL,
+					ImagePath:       animPath,
+					AssetBaseID:     result.AssetBaseID,
+					Index:           i,
+				}
+				animTaskUUID := uuid.New().String()
+				animTask := NewTask(animTaskData, data.AppID, animTaskUUID, "animated_thumbnail_download")
+				BKLog.Printf("parseThumbnails: queued animated_thumbnail for %s -> %s", result.DisplayName, animPath)
+				animThumbsTasks = append(animThumbsTasks, animTask)
+				continue
 			default:
 				BKLog.Printf("parseThumbnails: skipping fileType=%s for %s", file.FileType, result.DisplayName)
 				continue
@@ -829,6 +855,102 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	go downloadImageBatch(fullThumbsTasks, true)
 	go downloadImageBatch(fullPhotoThumbsTasks, true)
 	go downloadImageBatch(fullWireThumbsTasks, true)
+	go downloadAnimatedThumbnailBatch(animThumbsTasks)
+}
+
+func downloadAnimatedThumbnailBatch(tasks []*Task) {
+	if len(tasks) == 0 {
+		return
+	}
+	wg := new(sync.WaitGroup)
+	for _, task := range tasks {
+		wg.Add(1)
+		go DownloadAnimatedThumbnail(task, wg)
+	}
+	wg.Wait()
+}
+
+func DownloadAnimatedThumbnail(t *Task, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	data, ok := t.Data.(AnimatedThumbnailDownloadData)
+	if !ok {
+		t.Status = "error"
+		t.Error = fmt.Errorf("invalid data type for animated_thumbnail_download")
+		AddTaskCh <- t
+		return
+	}
+
+	// Already on disk – skip download.
+	if _, err := os.Stat(data.ImagePath); err == nil {
+		t.Status = "finished"
+		t.Message = "animated thumbnail on disk"
+		AddTaskCh <- t
+		return
+	}
+
+	// Step 1: get a signed CDN URL via the API (requires auth).
+	assetFile := AssetFile{DownloadURL: data.DownloadURL}
+	canDownload, signedURL, _, err := GetSignedURL(data.SceneID, assetFile, data.APIKey, data.AddonVersion, data.PlatformVersion)
+	if err != nil {
+		t.Status = "error"
+		t.Error = fmt.Errorf("animated_thumbnail GetSignedURL: %w", err)
+		AddTaskCh <- t
+		return
+	}
+	if !canDownload || signedURL == "" {
+		t.Status = "error"
+		t.Error = fmt.Errorf("animated_thumbnail: canDownload=false or empty signed URL")
+		AddTaskCh <- t
+		return
+	}
+
+	// Step 2: download the video from the CDN.
+	req, err := http.NewRequest("GET", signedURL, nil)
+	if err != nil {
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
+		return
+	}
+	req.Header = getHeaders("", *SystemID, data.AddonVersion, data.PlatformVersion)
+
+	resp, err := ClientBigThumbs.Do(req)
+	if err != nil {
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		t.Message = fmt.Sprintf("animated thumbnail download failed (status %s): %s", resp.Status, respString)
+		t.Status = "error"
+		AddTaskCh <- t
+		return
+	}
+
+	videoFile, err := os.Create(data.ImagePath)
+	if err != nil {
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
+		return
+	}
+	defer videoFile.Close()
+
+	if _, err := io.Copy(videoFile, resp.Body); err != nil {
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
+		return
+	}
+
+	t.Status = "finished"
+	t.Message = "animated thumbnail downloaded"
+	AddTaskCh <- t
 }
 
 func downloadImageBatch(tasks []*Task, block bool) {
