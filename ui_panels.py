@@ -2693,6 +2693,19 @@ def draw_asset_context_menu(
 
     if utils.profile_is_validator():
         layout.label(text="Dev Tools:")
+        # edit asset online < currently here for testing,
+        # this will soon be the main method to edit asset,
+        # locally we will only generate scene metadata
+        op = layout.operator(
+                "wm.blenderkit_url",
+                text="Edit Asset Online",
+                icon="GREASEPENCIL",
+        )
+        op.url = (
+            f'{paths.BLENDERKIT_ASSETS_EDIT_URL}/{asset_data["assetBaseId"]}/'
+        )
+
+        # output asset debug info to console, for easier diagnostics
         op = layout.operator(
             "object.blenderkit_print_asset_debug", text="Print asset debug"
         )

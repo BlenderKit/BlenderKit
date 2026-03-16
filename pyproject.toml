@@ -9,15 +9,18 @@ dependencies = [
 # these will not be included in build distributions
 [dependency-groups]
 dev = [
+    ## optional  dependencies
+    "pywebview>=6.1", # for the web interface
+
     ## dev dependencies
-    "black==25.9.0",
+    "black==26.3.1",
     "isort==7.0.0",
     "mypy==1.13.0",
 
     ## I would like to enable these in the future
-    "bandit>=1.8.2", # code is currently invalid for bandit
-    "ruff>=0.14.1", # code is currently invalid for ruff
-    "pydoclint>=0.7.3", # code is currently invalid for pydoclint
+    "bandit>=1.9.4", # code is currently invalid for bandit
+    "ruff>=0.15.6", # code is currently invalid for ruff
+    "pydoclint>=0.8.3", # code is currently invalid for pydoclint
 ]
 
 [tool.isort]
