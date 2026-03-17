@@ -3531,21 +3531,34 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results", [])
         asset_data = sr[asset_index]
-        a = asset_data["author"]["id"]
-        if a is not None:
-            sprops = utils.get_search_props()
-            ui_props = bpy.context.window_manager.blenderkitUI
-            # if there is already an author id in the search keywords, remove it first, the author_id can be any so
-            # use regex to find it
-            # for validators, set verification status to ALL
-            if utils.profile_is_validator():
-                sprops.search_verification_status = "ALL"
-            ui_props.search_keywords = re.sub(
-                r"\+author_id:\d+", "", ui_props.search_keywords
-            )
-            ui_props.search_keywords += f"+author_id:{a}"
+        author_id = asset_data["author"]["id"]
+        if author_id is None:
+            return True
 
-            search.search()
+        # Resolve author name for the filter chip label
+        author_name = str(author_id)
+        author = global_vars.BKIT_AUTHORS.get(int(author_id))
+        if author:
+            full = f"{author.firstName} {author.lastName}".strip()
+            if full:
+                author_name = full
+
+        sprops = utils.get_search_props()
+        if utils.profile_is_validator():
+            sprops.search_verification_status = "ALL"
+
+        # Use filter system instead of embedding in keywords
+        search.set_active_filter(
+            term="author_id",
+            value=str(author_id),
+            label=author_name,
+            origin="data",
+        )
+        search.update_filters()
+        search.create_history_step(search.get_active_tab())
+        search.search()
+        self.update_ui_size(bpy.context)
+        self.scroll_update(always=True)
         return True
 
     def search_similar(self, asset_index):
