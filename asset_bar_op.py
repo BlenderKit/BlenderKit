@@ -2110,10 +2110,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
         )
-        self.button_expand.set_location(
-            self.bar_width - self.other_button_size, self.bar_height
-        )
-
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
@@ -2539,6 +2535,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.progress_bar.visible = False
 
         self.position_active_filter_buttons()
+
+        # Position expand button and hide it when all results fit in a single row
+        self.button_expand.set_location(
+            self.bar_width - self.other_button_size, self.bar_height
+        )
+        self.button_expand.visible = len(sr) > self.wcount
 
         self.button_scroll_down.height = self.bar_height
         self.button_scroll_down.set_image_position(
