@@ -9,11 +9,8 @@ dependencies = [
 # these will not be included in build distributions
 [dependency-groups]
 dev = [
-    ## optional  dependencies
-    "pywebview>=6.1", # for the web interface
-
     ## dev dependencies
-    "black==26.3.1",
+    "black==25.9.0",
     "isort==7.0.0",
     "mypy==1.13.0",
 

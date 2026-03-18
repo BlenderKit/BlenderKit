@@ -339,6 +339,10 @@ def run_drag_drop_update(self, context):
     if self.drag_init_button:
         ui_props = bpy.context.window_manager.blenderkitUI
 
+        if ui_props.dragging:
+            self.drag_init_button = False
+            return
+
         bpy.ops.view3d.close_popup_button("INVOKE_DEFAULT")
         bpy.ops.view3d.asset_drag_drop(
             "INVOKE_DEFAULT",

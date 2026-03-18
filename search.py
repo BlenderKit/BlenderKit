@@ -595,7 +595,9 @@ def parse_author_result(r) -> dict:
     if adata and isinstance(adata, dict) and len(adata) > 1:
         # Full author data available — parse it like regular assets do
         adata = dict(adata)  # copy so pop() doesn't mutate the original
-        social_networks = datas.parse_social_networks(adata.pop("socialNetworks", None) or [])
+        social_networks = datas.parse_social_networks(
+            adata.pop("socialNetworks", None) or []
+        )
         author = datas.UserProfile(**adata, socialNetworks=social_networks)
         generate_author_profile(author)
         r["author"]["id"] = str(r["author"]["id"])
@@ -861,8 +863,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
             result_field = [
                 asset
                 for asset in result_field
-                if asset.get("assetType") == "author"
-                or asset.get("downloaded", 0) > 0
+                if asset.get("assetType") == "author" or asset.get("downloaded", 0) > 0
             ]
 
         # TODO: if ever needed, implement for other future types

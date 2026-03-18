@@ -292,6 +292,12 @@ def modal_inside(self, context, event):
             return {"RUNNING_MODAL"}
 
     # ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
+    # While asset drag operator is active, do not consume pointer events here.
+    # Otherwise the assetbar can starve the drag operator from MOUSEMOVE events,
+    # especially with multiple windows/monitors.
+    if ui_props.dragging:
+        return {"PASS_THROUGH"}
+
     if self.handle_widget_events(event):
         return {"RUNNING_MODAL"}
 
@@ -2243,10 +2249,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
         )
-        self.button_expand.set_location(
-            self.bar_width - self.other_button_size, self.bar_height
-        )
-
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
@@ -2672,6 +2674,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.progress_bar.visible = False
 
         self.position_active_filter_buttons()
+
+        # Position expand button and hide it when all results fit in a single row
+        self.button_expand.set_location(
+            self.bar_width - self.other_button_size, self.bar_height
+        )
+        self.button_expand.visible = len(sr) > self.wcount
 
         self.button_scroll_down.height = self.bar_height
         self.button_scroll_down.set_image_position(
@@ -3266,6 +3274,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         now = time.time()
         # avoid double click to download assets under panels, mainly category panel
         if now - ui_panels.last_time_overlay_panel_active < 0.5:
+            return
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if ui_props.dragging:
             return
 
         # Author assets: clicking/dragging triggers search-by-author instead
