@@ -237,7 +237,7 @@ def do_build(
         "pdm.lock",
         "_bandit.yaml",
         "codecov.yml",
-        "test.py"
+        "test.py",
     ]
 
     shutil.copytree(
