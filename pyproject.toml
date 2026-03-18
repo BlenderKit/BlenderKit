@@ -80,7 +80,7 @@ convention = "google"
 
 
 [tool.mypy]
-exclude = ['test_*', 'out', 'lib']
+exclude = ['test_*', 'tests', 'out', 'lib']
 disallow_untyped_globals = false # remove this in the future
 
 [[tool.mypy.overrides]]
