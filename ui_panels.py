@@ -30,7 +30,7 @@ from urllib.parse import quote
 from webbrowser import open_new_tab
 
 import bpy
-from bpy.props import IntProperty, StringProperty, FloatVectorProperty, EnumProperty
+from bpy.props import EnumProperty, FloatVectorProperty, IntProperty, StringProperty
 from bpy.types import Context, Menu, Panel, UILayout
 
 from . import (
