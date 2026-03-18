@@ -1929,6 +1929,9 @@ class AssetDragOperator(bpy.types.Operator):
         # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
         # This is critical for multi-window support where active_index is shared across windows
         self.asset_data = dict(sr[self.asset_search_index])
+        # Author assets should not be dragged, cancel immediately
+        if self.asset_data.get("assetType") == "author":
+            return {"CANCELLED"}
         # add-ons
         if self.asset_data.get("assetType") == "addon" and not self.asset_data.get(
             "canDownload"
