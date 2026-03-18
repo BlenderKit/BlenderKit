@@ -37,6 +37,10 @@ class Test01Registration(unittest.TestCase):
             import blenderkit  # relative import .. would go outside the package, so we need to import oldschool here
 
             version = blenderkit.bl_info["version"]
+        elif __package__ == "blenderkit_dev_hl":
+            import blenderkit_dev_hl  # relative import .. would go outside the package, so we need to import oldschool here
+
+            version = blenderkit_dev_hl.bl_info["version"]
         else:
             from .. import blenderkit
 

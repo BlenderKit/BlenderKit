@@ -721,6 +721,10 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
 	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avoid nesting
+		// Author results have no thumbnails, skip them
+		if result.AssetType == "author" {
+			continue
+		}
 		useWebp := false
 		if result.WebpGeneratedTimestamp > 0 {
 			useWebp = true
@@ -2910,7 +2914,7 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 	}
 
 	fileName = ServerToLocalFilename(fileName, assetData.Name)
-	assetDirName := GetAssetDirectoryName(assetData.Name, assetData.ID)
+	assetDirName := GetAssetDirectoryName(assetData.Name, string(assetData.ID))
 	pluralType := PluralizeAssetType(assetData.AssetType)
 	downloadDir := filepath.Join(targetSoftware.AssetsPath, pluralType, assetDirName)
 	os.MkdirAll(downloadDir, os.ModePerm)

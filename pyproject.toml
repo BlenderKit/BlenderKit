@@ -15,9 +15,9 @@ dev = [
     "mypy==1.13.0",
 
     ## I would like to enable these in the future
-    "bandit>=1.8.2", # code is currently invalid for bandit
-    "ruff>=0.14.1", # code is currently invalid for ruff
-    "pydoclint>=0.7.3", # code is currently invalid for pydoclint
+    "bandit>=1.9.4", # code is currently invalid for bandit
+    "ruff>=0.15.6", # code is currently invalid for ruff
+    "pydoclint>=0.8.3", # code is currently invalid for pydoclint
 ]
 
 [tool.isort]
