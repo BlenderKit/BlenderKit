@@ -314,21 +314,21 @@
                     "-NoLogo",
                     "-NoProfile",
                     "-Command",
-                    "D:\\blenders\\5.1.0\\blender.exe --background -noaudio --python-exit-code 1 --python test.py -- blenderkit_dev_hl"
+                    "D:\\blenders\\5.1.0\\blender.exe --background -noaudio --python-exit-code 1 --python tests/test.py -- blenderkit_dev_hl"
                 ]
             },
             "linux": {
                 "runtimeExecutable": "/bin/bash",
                 "args": [
                     "-c",
-                    "blender --background -noaudio --python-exit-code 1 --python test.py -- blenderkit"
+                    "blender --background -noaudio --python-exit-code 1 --python tests/test.py -- blenderkit"
                 ]
             },
             "osx": {
                 "runtimeExecutable": "/bin/bash",
                 "args": [
                     "-c",
-                    "blender --background -noaudio --python-exit-code 1 --python test.py -- blenderkit"
+                    "blender --background -noaudio --python-exit-code 1 --python tests/test.py -- blenderkit"
                 ]
             }
         },
