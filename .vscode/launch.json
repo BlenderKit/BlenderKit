@@ -149,6 +149,50 @@
         },
 
         {
+            "name": "[ISORT] Check All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "isort",
+            "args": [
+                ".",
+                "--check-only",
+                "--diff"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[ISORT] Fix All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "isort",
+            "args": [
+                "."
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
             "name": "[GOFMT] Check client",
             "type": "node",
             "request": "launch",

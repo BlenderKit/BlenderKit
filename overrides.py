@@ -17,9 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
+
 import bpy
 import mathutils
 from bpy.types import Operator
+
 from . import reports
 
 

@@ -30,12 +30,12 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     FloatProperty,
-    IntProperty,
     FloatVectorProperty,
+    IntProperty,
     StringProperty,
 )
 
-from . import bg_blender, global_vars, paths, tasks_queue, utils, upload, search
+from . import bg_blender, global_vars, paths, search, tasks_queue, upload, utils
 
 
 bk_logger = logging.getLogger(__name__)

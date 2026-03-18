@@ -27,9 +27,9 @@ __version__ = "1.1.1"
 import errno
 import fnmatch
 import json
+import logging
 import os
 import platform
-import logging
 import shutil
 import ssl
 import threading

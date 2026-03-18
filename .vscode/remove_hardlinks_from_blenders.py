@@ -10,6 +10,7 @@ import os
 import shutil
 import sys
 
+
 if sys.platform != "win32":
     raise RuntimeError("This script only works on Windows currently.")
 

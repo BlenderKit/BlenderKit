@@ -17,10 +17,10 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
-from dataclasses import dataclass
-from functools import lru_cache
 import os
 import time
+from dataclasses import dataclass
+from functools import lru_cache
 
 import bpy
 

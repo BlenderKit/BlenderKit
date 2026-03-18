@@ -24,10 +24,9 @@ import os
 import platform
 import shutil
 import subprocess
+from http.client import responses as http_responses
 from os import path
 from typing import Optional, Union
-from http.client import responses as http_responses
-
 
 import bpy
 import requests

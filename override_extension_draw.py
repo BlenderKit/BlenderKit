@@ -7,18 +7,18 @@ The original method is then called from the new method, with the same arguments,
 """
 
 import json
-import os
-import time
-import re
 import logging
+import os
+import re
+import time
 
-from . import icons, version_compare
-
+import bl_pkg.bl_extension_ui as exui
 import blf
 import bpy
-import bl_pkg.bl_extension_ui as exui
 from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
+
+from . import icons, version_compare
 
 
 EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"

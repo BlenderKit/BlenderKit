@@ -14,7 +14,7 @@ dev = [
 
     ## dev dependencies
     "black==26.3.1",
-    "isort==7.0.0",
+    "isort==8.0.1",
     "mypy==1.13.0",
 
     ## I would like to enable these in the future

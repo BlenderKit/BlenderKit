@@ -23,7 +23,7 @@ from typing import Optional
 
 import bpy
 
-from . import utils, reports
+from . import reports, utils
 
 
 bk_logger = logging.getLogger(__name__)

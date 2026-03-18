@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import addon_utils
 import copy
 import json
 import logging
@@ -26,6 +25,9 @@ import os
 import shutil
 import time
 from typing import Optional
+
+import addon_utils
+import bpy
 
 from . import (
     append_link,
@@ -40,19 +42,20 @@ from . import (
     utils,
 )
 
-import bpy
 
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
+
 from bpy.app.handlers import persistent
 from bpy.props import (
     BoolProperty,
     EnumProperty,
-    FloatVectorProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     StringProperty,
 )
+
 
 bk_logger = logging.getLogger(__name__)
 

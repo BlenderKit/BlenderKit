@@ -20,6 +20,7 @@ import os
 import sys
 import unittest
 
+
 COLLECT_COVERAGE = os.getenv("COVERAGE") == "1"
 if COLLECT_COVERAGE:
     try:

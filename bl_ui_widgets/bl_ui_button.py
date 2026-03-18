@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 import blf
 import bpy
@@ -7,6 +7,7 @@ import gpu
 
 from .. import image_utils, ui_bgl
 from .bl_ui_widget import BL_UI_Widget, region_redraw
+
 
 bk_logger = logging.getLogger(__name__)
 

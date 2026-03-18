@@ -21,8 +21,8 @@ import math
 import os
 import re
 import time
-from functools import partial
 from collections import Counter
+from functools import partial
 from types import SimpleNamespace
 from typing import Any, Dict, Optional, Union
 
@@ -46,7 +46,7 @@ from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
-from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
+from .bl_ui_widgets.bl_ui_label import BL_UI_DuoLabel, BL_UI_Label
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 

@@ -44,11 +44,12 @@ from . import (
     image_utils,
     paths,
     reports,
-    search_price,
     resolutions,
+    search_price,
     tasks_queue,
     utils,
 )
+
 
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
