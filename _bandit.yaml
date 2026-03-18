@@ -2,7 +2,6 @@ include:
   - "**/*.py"
 
 exclude_dirs:
-  - "tests"
   - ".venv"
   - "__pycache__"
 

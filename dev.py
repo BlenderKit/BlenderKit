@@ -231,6 +231,13 @@ def do_build(
         "CONTRIBUTING.md",
         "setup.cfg",
         ".DS_Store",
+        "pyproject.toml",
+        ".pdm-python",
+        ".env",
+        "pdm.lock",
+        "_bandit.yaml",
+        "codecov.yml",
+        "test.py"
     ]
 
     shutil.copytree(
