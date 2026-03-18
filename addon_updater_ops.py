@@ -22,14 +22,15 @@
 Implements draw calls, popups, and operators that use the addon_updater.
 """
 
+import logging
 import os
 import traceback
-import logging
 
 import bpy
 from bpy.app.handlers import persistent
 
 from . import client_lib, utils
+
 
 bk_logger = logging.getLogger(__name__)
 

@@ -16,17 +16,16 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import os
 import logging
+import math
+import os
 from collections.abc import Mapping
 from typing import Optional, Tuple, Union
-import math
 
 import blf
 import bpy
-from bpy import app
-
 import gpu
+from bpy import app
 from gpu_extras.batch import batch_for_shader
 
 from .image_utils import IMG

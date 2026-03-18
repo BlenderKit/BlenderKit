@@ -122,24 +122,26 @@ else:
 
     log.configure_loggers()
 
-    from . import addon_updater_ops
-    from . import timer
-    from . import append_link
-    from . import asset_bar_op
-    from . import asset_drag_op
-    from . import asset_inspector
-    from . import autothumb
-    from . import bg_blender
-    from . import bkit_oauth
-    from . import categories
-    from . import colors
-    from . import client_lib
-    from . import client_tasks
-    from . import disclaimer_op
-    from . import download
-    from . import icons
-    from . import image_utils
-    from . import overrides
+    from . import (
+        addon_updater_ops,
+        append_link,
+        asset_bar_op,
+        asset_drag_op,
+        asset_inspector,
+        autothumb,
+        bg_blender,
+        bkit_oauth,
+        categories,
+        client_lib,
+        client_tasks,
+        colors,
+        disclaimer_op,
+        download,
+        icons,
+        image_utils,
+        overrides,
+        timer,
+    )
 
     if bpy.app.version >= (4, 2, 0):
         from . import override_extension_draw
@@ -338,6 +340,10 @@ def asset_type_callback(self, context):
 def run_drag_drop_update(self, context):
     if self.drag_init_button:
         ui_props = bpy.context.window_manager.blenderkitUI
+
+        if ui_props.dragging:
+            self.drag_init_button = False
+            return
 
         bpy.ops.view3d.close_popup_button("INVOKE_DEFAULT")
         bpy.ops.view3d.asset_drag_drop(

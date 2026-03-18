@@ -20,9 +20,9 @@ import logging
 import os
 import queue
 import time
-import requests
 
 import bpy
+import requests
 
 from . import (
     addon_updater_ops,

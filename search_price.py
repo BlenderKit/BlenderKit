@@ -3,6 +3,7 @@ from typing import Iterable, List, Optional, Tuple
 
 from . import client_lib, paths, utils
 
+
 # Simple in-memory cache to avoid repeated price lookups per version UUID.
 # TTL keeps cache fresh-ish while drastically reducing chatter on paged searches.
 _PRICE_CACHE: dict[str, tuple[float, dict]] = {}

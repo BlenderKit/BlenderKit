@@ -31,39 +31,27 @@ def blenderkit_client_build(abs_build_dir: str):
     builds = [
         {
             "env": {"GOOS": "windows", "GOARCH": "amd64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", "blenderkit-client-windows-x86_64.exe"
-            ),
+            "output": os.path.join(f"v{client_version}", "blenderkit-client-windows-x86_64.exe"),
         },
         {
             "env": {"GOOS": "windows", "GOARCH": "arm64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-windows-arm64.exe"
-            ),
+            "output": os.path.join(f"v{client_version}", f"blenderkit-client-windows-arm64.exe"),
         },
         {
             "env": {"GOOS": "darwin", "GOARCH": "amd64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-macos-x86_64"
-            ),
+            "output": os.path.join(f"v{client_version}", f"blenderkit-client-macos-x86_64"),
         },
         {
             "env": {"GOOS": "darwin", "GOARCH": "arm64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-macos-arm64"
-            ),
+            "output": os.path.join(f"v{client_version}", f"blenderkit-client-macos-arm64"),
         },
         {
             "env": {"GOOS": "linux", "GOARCH": "amd64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-linux-x86_64"
-            ),
+            "output": os.path.join(f"v{client_version}", f"blenderkit-client-linux-x86_64"),
         },
         {
             "env": {"GOOS": "linux", "GOARCH": "arm64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-linux-arm64"
-            ),
+            "output": os.path.join(f"v{client_version}", f"blenderkit-client-linux-arm64"),
         },
     ]
     ldflags = f"-X main.ClientVersion={client_version}"
@@ -77,9 +65,7 @@ def blenderkit_client_build(abs_build_dir: str):
         )
         build["process"] = process
 
-    print(
-        f"BlenderKit-Client v{client_version} build started for {len(builds)} platforms."
-    )
+    print(f"BlenderKit-Client v{client_version} build started for {len(builds)} platforms.")
     builds_ok = True
     for build in builds:
         build["process"].wait()
@@ -205,9 +191,7 @@ def copy_client_binaries(binaries_path: str, addon_build_dir: str):
     print(f"BlenderKit-Client binaries copied from {binaries_path} to {target_dir}")
 
 
-def do_build(
-    install_at=None, include_tests=False, clean_dir=None, client_binaries_path=None
-):
+def do_build(install_at=None, include_tests=False, clean_dir=None, client_binaries_path=None):
     """Build addon by copying relevant addon directories and files to ./out/blenderkit directory.
     Create zip in ./out/blenderkit.zip.
     - install_at: string or list of paths where to install the addon, e.g. ["/path1/addons", "/path2/addons"]
@@ -243,9 +227,7 @@ def do_build(
         f"{addon_build_dir}/blendfiles",
         ignore=shutil.ignore_patterns(".DS_Store"),
     )
-    shutil.copytree(
-        "data", f"{addon_build_dir}/data", ignore=shutil.ignore_patterns(".DS_Store")
-    )
+    shutil.copytree("data", f"{addon_build_dir}/data", ignore=shutil.ignore_patterns(".DS_Store"))
     shutil.copytree(
         "thumbnails",
         f"{addon_build_dir}/thumbnails",
@@ -269,7 +251,6 @@ def do_build(
 
     # Handle multiple install locations
     if install_at is not None:
-
         for location in install_at:
             print(f"Copying to {location}/blenderkit")
             shutil.rmtree(f"{location}/blenderkit", ignore_errors=True)
@@ -337,12 +318,12 @@ def run_go_tests():
 
 
 def format_code():
-    """Sort, format and lint the code."""
-    print("***** SORTING IMPORTS on ALL files *****")
-    subprocess.call(["isort", "."])
+    """Format and lint the code with Ruff."""
+    print("***** LINTING/FIXING CODE on ALL files (ruff check --fix) *****")
+    subprocess.call(["ruff", "check", ".", "--fix"])
 
-    print("\n***** FORMATTING CODE on ALL files *****")
-    subprocess.call(["black", "."])
+    print("\n***** FORMATTING CODE on ALL files (ruff format) *****")
+    subprocess.call(["ruff", "format", "."])
 
 
 ### COMMAND LINE INTERFACE
@@ -353,7 +334,7 @@ parser.add_argument(
     default="build",
     choices=["format", "build", "test", "release"],
     help="""
-  FORMAT = isort imports, format code with Black and lint it with Ruff.
+    FORMAT = lint/fix and format code with Ruff.
   TEST = build with test files and run tests
   BUILD = copy relevant files into ./out/blenderkit.
   RELEASE = build the add-on .zip with already built client binaries.
@@ -394,9 +375,7 @@ if args.command == "build":
     )
 elif args.command == "release":
     if args.client_build is None:
-        print(
-            "Error: Client binaries path (containing signed binaries) is required for release"
-        )
+        print("Error: Client binaries path (containing signed binaries) is required for release")
         exit(1)
     verify_client_binaries(args.client_build)
     do_build(

@@ -18,8 +18,8 @@
 
 import json
 import os
-import sys
 import shutil
+import sys
 import zipfile
 
 import addon_utils  # type: ignore[import-not-found]

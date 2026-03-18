@@ -42,8 +42,8 @@ bk_logger = logging.getLogger(__name__)
 
 Then instead of `print()` use the `bk_logger`:
 ```python
-bk_logger.debug("Some minor stuff happened") 
-bk_logger.info("Something expected has happened") 
+bk_logger.debug("Some minor stuff happened")
+bk_logger.info("Something expected has happened")
 bk_logger.warning("Something unexpected has happened")
 bk_logger.error("Something went very wrong")
 ```
@@ -56,11 +56,9 @@ except Exception as e:
 
 ### Codestyle
 
-We use `isort` for imports sorting.
-We use `black` for codestyle.
+We use `ruff` for imports sorting, linting and codestyle formatting.
 We try to type statically with `mypy.`.
 We use `go fmt` for formatting Go code in `./client`.
-We will use `ruff` for linting.
 
 We define versions in `devs/requirements.txt` so the local development environment is consistent with CI/CD (Github Actions).
 To install them in correct versions run: `pip3 install -U --user --r devs/requirements.py`.
@@ -68,25 +66,21 @@ To install them in correct versions run: `pip3 install -U --user --r devs/requir
 Before committing your changes, please run:
 ```
 pdm run mypy .
-pdm run isort .
-pdm run black .
+pdm run ruff check .
+pdm run ruff format .
 ```
 
 or if installed locally:
 ```
 mypy .
-isort .
-black .
+ruff check .
+ruff format .
 ```
 
 or just run `python3 dev.py format` to run all of them automatically.
 
-Right now `isort` and `black` are required.
-Pull requests will fail in CI/CD if they are not formatted properly and isort or black throws an error.
-
-We are migrating towards `ruff` as well, but it is not required yet.
-Please run `ruff` on files you have edited and try to fix all the errors.
-Slowly we will add the ruff as a required check in CI/CD.
+`ruff` is required.
+Pull requests will fail in CI/CD if Ruff finds issues.
 
 ### Building the add-on
 
@@ -148,8 +142,7 @@ The tests are defined in files `test_<name-of-tested-file>.py` and their startin
 2. install developers dependencies `pdm install`
 3. Verify installation:
 ```
-pdm run black --version
-pdm run isort --version
+pdm run ruff --version
 pdm run mypy --version
 ```
 
@@ -184,8 +177,7 @@ PR will be reviewed by the team and if it passes the automated tests and checks,
 We run automated tests on: Pull Requests.
 The tests and checks which must pass for PR to be accepted are:
 - unit/integration tests on several versions of Blender 3.x.,
-- `isort` check for validity of import sorting,
-- `black` check for codestyle,
+- `ruff` check for validity of import sorting and codestyle,
 - `go fmt` check for formatting Go code in `./client`,
 - automated build of the add-on.
 

@@ -21,8 +21,8 @@ import math
 import os
 import re
 import time
-from functools import partial
 from collections import Counter
+from functools import partial
 from types import SimpleNamespace
 from typing import Any, Dict, Optional, Union
 
@@ -46,7 +46,7 @@ from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
-from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
+from .bl_ui_widgets.bl_ui_label import BL_UI_DuoLabel, BL_UI_Label
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 
@@ -292,6 +292,12 @@ def modal_inside(self, context, event):
             return {"RUNNING_MODAL"}
 
     # ANY EVENT ACTIVATED = DON'T LET EVENTS THROUGH
+    # While asset drag operator is active, do not consume pointer events here.
+    # Otherwise the assetbar can starve the drag operator from MOUSEMOVE events,
+    # especially with multiple windows/monitors.
+    if ui_props.dragging:
+        return {"PASS_THROUGH"}
+
     if self.handle_widget_events(event):
         return {"RUNNING_MODAL"}
 
@@ -3043,6 +3049,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         now = time.time()
         # avoid double click to download assets under panels, mainly category panel
         if now - ui_panels.last_time_overlay_panel_active < 0.5:
+            return
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if ui_props.dragging:
             return
         # start drag drop
         bpy.ops.view3d.asset_drag_drop(

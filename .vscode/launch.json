@@ -47,10 +47,31 @@
         },
 
         {
-            "name": "Run Blender 5.0.1",
+            "name": "Remove Addon Hardlinks",
+            "type": "debugpy",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/.vscode/remove_hardlinks_from_blenders.py",
+            "args": [
+                "build",
+            ],
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "Run Blender 5.1.0",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "D:/blenders/5.0.1/blender.exe",
+            "program": "D:/blenders/5.1.0/blender.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -87,16 +108,16 @@
 
 
         {
-            "name": "[BLACK] Run black on all",
+            "name": "[RUFF] Check All",
             "type": "debugpy",
             "request": "launch",
-            "module": "black",
+            "module": "ruff",
             "args": [
-                "${workspaceFolder}/*.py",
-                "--check", "--diff",
-
+                "check",
+                "."
             ],
             "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
             "windows": {
                 "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             },
@@ -109,10 +130,55 @@
         },
 
         {
-            "name": "[BLACK] Run black on git changed files",
+            "name": "[RUFF] Fix All",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/.vscode/black_git_changed.py",
+            "module": "ruff",
+            "args": [
+                "check",
+                ".",
+                "--fix"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[RUFF] Format All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "ruff",
+            "args": [
+                "format",
+                "."
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[RUFF] Check Git Changed Files",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/.vscode/ruff_git_changed.py",
             "args": [],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
@@ -186,28 +252,6 @@
                     "-c",
                     "fmt_out=\"$(gofmt -w ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; echo ''; echo 'gofmt diff:'; gofmt -d ./client; exit 1; else echo 'Go files are formatted.'; fi"
                 ]
-            }
-        },
-
-        {
-            "name": "[FUTURE][RUFF] Check All",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "ruff",
-            "args": [
-                "check",
-                "."
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "windows": {
-                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            },
-            "linux": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            },
-            "osx": {
-                "python": "${workspaceFolder}/.venv/bin/python",
             }
         },
 

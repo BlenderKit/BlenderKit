@@ -21,16 +21,16 @@ import logging
 import os
 import re
 import sys
-import requests
 import tempfile
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 import bpy
+import requests
 from bpy.props import (  # TODO only keep the ones actually used when cleaning
-    IntProperty,
     BoolProperty,
     EnumProperty,
+    IntProperty,
     StringProperty,
 )
 from bpy.types import Operator
@@ -47,10 +47,11 @@ from . import (
     overrides,
     paths,
     reports,
+    search,
     ui_panels,
     utils,
-    search,
 )
+
 
 NAME_MINIMUM = 3
 NAME_MAXIMUM = 40

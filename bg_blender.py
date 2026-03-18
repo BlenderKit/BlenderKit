@@ -25,7 +25,7 @@ import threading
 import bpy
 from bpy.props import EnumProperty
 
-from . import utils, reports
+from . import reports, utils
 
 
 def _safe_eval_target(eval_path: str, name: str):

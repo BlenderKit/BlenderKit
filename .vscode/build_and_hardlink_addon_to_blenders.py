@@ -8,17 +8,19 @@ Notes:
 """
 
 import os
-import sys
+import re
 import shutil
 import subprocess
-import re
+import sys
+
 
 # for windows only currently --- sorry linux / mac users.
 if sys.platform != "win32":
     raise RuntimeError("This script only works on Windows currently.")
 
-import re
 import glob
+import re
+
 
 THIS_REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")).replace(
     "\\", "/"
