@@ -770,6 +770,7 @@ class AssetDragOperator(bpy.types.Operator):
     asset_search_index: IntProperty(name="Active Index", default=0)  # type: ignore
 
     object_name = None
+    active_operator_id = None
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -783,6 +784,9 @@ class AssetDragOperator(bpy.types.Operator):
         self.hovered_outliner_element: Union[bpy.types.Object, bpy.types.Collection] = (
             None
         )
+        self.active_window = None
+        self.active_area = None
+        self.active_region = None
 
         self.orig_active_object = None
         self.orig_selected_objects = None
@@ -792,6 +796,8 @@ class AssetDragOperator(bpy.types.Operator):
         # Mouse tracking variables
         self.start_mouse_x = -1
         self.start_mouse_y = -1
+        self.press_mouse_x = None
+        self.press_mouse_y = None
 
         self.mouse_x = 0
         self.mouse_y = 0
@@ -1448,10 +1454,10 @@ class AssetDragOperator(bpy.types.Operator):
 
         for window in wins:
             # first let's test if it's in this window, so we know we shall continue
-            window_x = window.x * self.resolution_factor
-            window_y = window.y * self.resolution_factor
-            window_width = window.width * self.resolution_factor
-            window_height = window.height * self.resolution_factor
+            window_x = window.x
+            window_y = window.y
+            window_width = window.width
+            window_height = window.height
             if (
                 x < window_x
                 or x > window_x + window_width
@@ -1730,25 +1736,29 @@ class AssetDragOperator(bpy.types.Operator):
 
         self.resolution_factor = ui_bgl.get_ui_scale()
 
-        self.mouse_screen_x = int(
-            context.window.x * self.resolution_factor + event.mouse_x
-        )
-        self.mouse_screen_y = int(
-            context.window.y * self.resolution_factor + event.mouse_y
-        )
+        self.mouse_screen_x = int(context.window.x + event.mouse_x)
+        self.mouse_screen_y = int(context.window.y + event.mouse_y)
 
-        if self.start_mouse_x < 0:
-            self.start_mouse_x = (
-                context.window.x * self.resolution_factor + event.mouse_x
-            )
-            self.start_mouse_y = (
-                context.window.y * self.resolution_factor + event.mouse_y
-            )
+        if self.press_mouse_x is None or self.press_mouse_y is None:
+            self.press_mouse_x = self.mouse_screen_x
+            self.press_mouse_y = self.mouse_screen_y
 
         # Find the active region under the mouse cursor using actual screen coordinates
-        self.active_window, self.active_area, self.active_region = (
-            self.find_active_region(self.mouse_screen_x, self.mouse_screen_y)
+        found_window, found_area, found_region = self.find_active_region(
+            self.mouse_screen_x, self.mouse_screen_y
         )
+        if found_region is not None and found_area is not None and found_window is not None:
+            self.active_window, self.active_area, self.active_region = (
+                found_window,
+                found_area,
+                found_region,
+            )
+        elif self.active_window is None or self.active_area is None or self.active_region is None:
+            self.active_window, self.active_area, self.active_region = (
+                found_window,
+                found_area,
+                found_region,
+            )
         # --- CURSOR VISIBILITY FIX ---
         if self.active_region is None or self.active_area is None:
             # bpy.context.window.cursor_modal_set("STOP")
@@ -1762,12 +1772,12 @@ class AssetDragOperator(bpy.types.Operator):
         # window.x/y and region.x/y are also in bottom-left coordinate system
         self.mouse_x = int(
             self.mouse_screen_x
-            - self.active_window.x * self.resolution_factor
+            - self.active_window.x
             - self.active_region.x
         )
         self.mouse_y = int(
             self.mouse_screen_y
-            - self.active_window.y * self.resolution_factor
+            - self.active_window.y
             - self.active_region.y
         )
 
@@ -1825,9 +1835,12 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
+        start_x = self.press_mouse_x if self.press_mouse_x is not None else self.mouse_screen_x
+        start_y = self.press_mouse_y if self.press_mouse_y is not None else self.mouse_screen_y
+        delta_x = abs(start_x - self.mouse_screen_x)
+        delta_y = abs(start_y - self.mouse_screen_y)
         if not self.drag and (
-            abs(self.start_mouse_x - self.mouse_screen_x) > DEFAULT_DRAG_THRESHOLD
-            or abs(self.start_mouse_y - self.mouse_screen_y) > DEFAULT_DRAG_THRESHOLD
+            delta_x > DEFAULT_DRAG_THRESHOLD or delta_y > DEFAULT_DRAG_THRESHOLD
         ):
             self.drag = True
 
@@ -1850,6 +1863,7 @@ class AssetDragOperator(bpy.types.Operator):
             bpy.ops.view3d.blenderkit_asset_bar_widget(
                 "INVOKE_REGION_WIN", do_search=False
             )
+            type(self).active_operator_id = None
 
             return {"CANCELLED"}
 
@@ -1870,6 +1884,7 @@ class AssetDragOperator(bpy.types.Operator):
 
         if (
             event.type == "MOUSEMOVE"
+            or event.type == "INBETWEEN_MOUSEMOVE"
             or event.type == "WHEELUPMOUSE"
             or event.type == "WHEELDOWNMOUSE"
         ):
@@ -1913,6 +1928,7 @@ class AssetDragOperator(bpy.types.Operator):
                     keep_running=True, do_search=False
                 )
             ui_props.dragging = False
+            type(self).active_operator_id = None
             return {"FINISHED"}
 
         # pass event to assetbar so it can close itself
@@ -1925,10 +1941,30 @@ class AssetDragOperator(bpy.types.Operator):
         # Before registering callbacks, check for canceling situations: login and localdir popups, sculpt popup/switch
         sr = search.get_search_results()
         ui_props = bpy.context.window_manager.blenderkitUI
+        if ui_props.dragging:
+            return {"CANCELLED"}
+        if (
+            type(self).active_operator_id is not None
+            and type(self).active_operator_id != id(self)
+        ):
+            return {"CANCELLED"}
+        # Acquire drag lock immediately so concurrent invoke paths cannot race while this invoke initializes.
+        ui_props.dragging = True
+        type(self).active_operator_id = id(self)
         self.closed_assetbar = False
         # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
         # This is critical for multi-window support where active_index is shared across windows
         self.asset_data = dict(sr[self.asset_search_index])
+
+        # Initialize drag-start coordinates immediately in invoke. If mouse-move
+        # events are sparse (or arrive late), we still compute threshold against
+        # the true click/press origin instead of first modal tick.
+        self.mouse_screen_x = int(context.window.x + event.mouse_x)
+        self.mouse_screen_y = int(context.window.y + event.mouse_y)
+        self.start_mouse_x = self.mouse_screen_x
+        self.start_mouse_y = self.mouse_screen_y
+        self.press_mouse_x = self.mouse_screen_x
+        self.press_mouse_y = self.mouse_screen_y
         # add-ons
         if self.asset_data.get("assetType") == "addon" and not self.asset_data.get(
             "canDownload"
@@ -1939,6 +1975,8 @@ class AssetDragOperator(bpy.types.Operator):
             bpy.ops.wm.blenderkit_url_dialog(
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
+            ui_props.dragging = False
+            type(self).active_operator_id = None
             return {"CANCELLED"}
 
         if not self.asset_data.get("canDownload"):
@@ -1949,6 +1987,8 @@ class AssetDragOperator(bpy.types.Operator):
             bpy.ops.wm.blenderkit_url_dialog(
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
+            ui_props.dragging = False
+            type(self).active_operator_id = None
             return {"CANCELLED"}
 
         prefs = bpy.context.preferences.addons[__package__].preferences
@@ -1962,6 +2002,8 @@ class AssetDragOperator(bpy.types.Operator):
             bpy.ops.wm.blenderkit_url_dialog(
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
+            ui_props.dragging = False
+            type(self).active_operator_id = None
             return {"CANCELLED"}
 
         if self.asset_data.get("assetType") == "brush" and not (
@@ -1982,6 +2024,8 @@ class AssetDragOperator(bpy.types.Operator):
                 bpy.ops.wm.blenderkit_popup_dialog(
                     "INVOKE_REGION_WIN", message=message, width=500
                 )
+            ui_props.dragging = False
+            type(self).active_operator_id = None
             return {"CANCELLED"}
 
         # the arguments we pass the the callback
@@ -2030,8 +2074,8 @@ class AssetDragOperator(bpy.types.Operator):
 
         self.mouse_x = 0
         self.mouse_y = 0
-        self.mouse_screen_x = 0
-        self.mouse_screen_y = 0
+        self.mouse_screen_x = self.start_mouse_x
+        self.mouse_screen_y = self.start_mouse_y
         # Store the initial active region pointer
         self.active_region_pointer = context.region.as_pointer()
 
@@ -2064,7 +2108,6 @@ class AssetDragOperator(bpy.types.Operator):
 
         bpy.context.window.cursor_modal_restore()
         ui_props = bpy.context.window_manager.blenderkitUI
-        ui_props.dragging = True
         self.drag = False
         self.steps = 0
         context.window_manager.modal_handler_add(self)
