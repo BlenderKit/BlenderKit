@@ -789,30 +789,22 @@ class AssetDragOperator(bpy.types.Operator):
 
         self.orig_active_object = None
         self.orig_selected_objects = None
+        self.orig_active_collection = None
 
         self.downloader = None
 
         # Mouse tracking variables
-        self.start_mouse_x = -1
-        self.start_mouse_y = -1
-        self.press_mouse_x = None
-        self.press_mouse_y = None
+        self.start_mouse_x = 0
+        self.start_mouse_y = 0
 
         self.mouse_x = 0
         self.mouse_y = 0
         self.mouse_screen_x = 0
         self.mouse_screen_y = 0
 
-        # Store the initial active region pointer
-        self.active_region_pointer = None
-
         # Initialize outliner tracking variables
-        self.hovered_outliner_element = None
         self.outliner_area = None
         self.outliner_region = None
-        self.orig_selected_objects = None
-        self.orig_active_object = None
-        self.orig_active_collection = None
         self.prev_area_type = None
 
         # Initialize node editor tracking
@@ -1730,17 +1722,25 @@ class AssetDragOperator(bpy.types.Operator):
             self.in_node_editor = False
             self.node_editor_type = None
 
-    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
-        ui_props = bpy.context.window_manager.blenderkitUI
+    def _cleanup_drag(self, ui_props, cls, *, reopen_assetbar: bool = False) -> None:
+        """Shared teardown: remove handlers, restore cursor, reset drag state."""
+        self.handlers_remove()
+        bpy.context.window.cursor_modal_restore()
+        ui_props.dragging = False
+        if self.closed_assetbar:
+            bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
+        if reopen_assetbar:
+            bpy.ops.view3d.blenderkit_asset_bar_widget(
+                "INVOKE_REGION_WIN", do_search=False
+            )
+        cls.active_operator_id = None
 
-        self.resolution_factor = ui_bgl.get_ui_scale()
+    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        cls = type(self)
+        ui_props = bpy.context.window_manager.blenderkitUI
 
         self.mouse_screen_x = int(context.window.x + event.mouse_x)
         self.mouse_screen_y = int(context.window.y + event.mouse_y)
-
-        if self.press_mouse_x is None or self.press_mouse_y is None:
-            self.press_mouse_x = self.mouse_screen_x
-            self.press_mouse_y = self.mouse_screen_y
 
         # Find the active region under the mouse cursor using actual screen coordinates
         found_window, found_area, found_region = self.find_active_region(
@@ -1750,16 +1750,6 @@ class AssetDragOperator(bpy.types.Operator):
             found_region is not None
             and found_area is not None
             and found_window is not None
-        ):
-            self.active_window, self.active_area, self.active_region = (
-                found_window,
-                found_area,
-                found_region,
-            )
-        elif (
-            self.active_window is None
-            or self.active_area is None
-            or self.active_region is None
         ):
             self.active_window, self.active_area, self.active_region = (
                 found_window,
@@ -1789,22 +1779,13 @@ class AssetDragOperator(bpy.types.Operator):
             for area in window.screen.areas:
                 area.tag_redraw()
 
-        current_area_type = self.active_area.type if self.active_area else None
+        current_area_type = self.active_area.type
 
         # Check if we're transitioning out of the outliner
-        if (
-            self.prev_area_type
-            and self.prev_area_type == "OUTLINER"
-            and current_area_type != "OUTLINER"
-        ):
-            # If we're leaving the outliner, restore the original selection
+        if self.prev_area_type == "OUTLINER" and current_area_type != "OUTLINER":
             self.restore_original_selection()
 
-        # shift pressed
-        if event.shift:
-            self.shift_pressed = True
-        else:
-            self.shift_pressed = False
+        self.shift_pressed = event.shift
 
         # Track if we're in a node editor
         self._handle_node_editor_type(current_area_type, self.active_area)
@@ -1817,12 +1798,8 @@ class AssetDragOperator(bpy.types.Operator):
             # Store the active region pointer for drawing 2D elements only in this region
             self.active_region_pointer = self.active_region.as_pointer()
 
-            # Make sure all 3D views get redrawn
-            for area in context.screen.areas:
-                area.tag_redraw()
-
             # Handle outliner interaction
-            if self.active_area.type == "OUTLINER":
+            if current_area_type == "OUTLINER":
                 self.hovered_outliner_element = self.find_outliner_element_under_mouse()
                 self.outliner_window = self.active_window
                 self.outliner_area = self.active_area
@@ -1838,18 +1815,8 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
-        start_x = (
-            self.press_mouse_x
-            if self.press_mouse_x is not None
-            else self.mouse_screen_x
-        )
-        start_y = (
-            self.press_mouse_y
-            if self.press_mouse_y is not None
-            else self.mouse_screen_y
-        )
-        delta_x = abs(start_x - self.mouse_screen_x)
-        delta_y = abs(start_y - self.mouse_screen_y)
+        delta_x = abs(self.start_mouse_x - self.mouse_screen_x)
+        delta_y = abs(self.start_mouse_y - self.mouse_screen_y)
         if not self.drag and (
             delta_x > DEFAULT_DRAG_THRESHOLD or delta_y > DEFAULT_DRAG_THRESHOLD
         ):
@@ -1864,18 +1831,7 @@ class AssetDragOperator(bpy.types.Operator):
             # Restore original selection if we changed it
             self.restore_original_selection()
 
-            self.handlers_remove()
-            bpy.context.window.cursor_modal_restore()
-            ui_props.dragging = False
-            if self.closed_assetbar:
-                bpy.ops.view3d.run_assetbar_fix_context(
-                    keep_running=True, do_search=False
-                )
-            bpy.ops.view3d.blenderkit_asset_bar_widget(
-                "INVOKE_REGION_WIN", do_search=False
-            )
-            type(self).active_operator_id = None
-
+            self._cleanup_drag(ui_props, cls, reopen_assetbar=True)
             return {"CANCELLED"}
 
         self.steps += 1
@@ -1893,12 +1849,12 @@ class AssetDragOperator(bpy.types.Operator):
         elif event.type == "WHEELDOWNMOUSE":
             sprops.offset_rotation_amount -= sprops.offset_rotation_step
 
-        if (
-            event.type == "MOUSEMOVE"
-            or event.type == "INBETWEEN_MOUSEMOVE"
-            or event.type == "WHEELUPMOUSE"
-            or event.type == "WHEELDOWNMOUSE"
-        ):
+        if event.type in {
+            "MOUSEMOVE",
+            "INBETWEEN_MOUSEMOVE",
+            "WHEELUPMOUSE",
+            "WHEELDOWNMOUSE",
+        }:
             # sometimes active area or region can be None, so we need to check for that
             if self.active_area is None or self.active_region is None:
                 return {"RUNNING_MODAL"}
@@ -1908,11 +1864,7 @@ class AssetDragOperator(bpy.types.Operator):
             self.has_hit = False
 
             # Only perform raycasting in 3D view areas
-            if (
-                self.active_region
-                and self.active_area
-                and self.active_area.type == "VIEW_3D"
-            ):
+            if current_area_type == "VIEW_3D":
                 # prefetch the drag active object info
                 self.drag_raycast_3d_view(
                     context,
@@ -1925,21 +1877,13 @@ class AssetDragOperator(bpy.types.Operator):
             if self.asset_data["assetType"] in ["model", "printable"]:
                 self.snapped_bbox_min = Vector(self.asset_data["bbox_min"])
                 self.snapped_bbox_max = Vector(self.asset_data["bbox_max"])
-            elif self.active_area.type != "VIEW_3D":
+            elif current_area_type != "VIEW_3D":
                 # In outliner, don't do raycasting, but keep has_hit to avoid errors
                 self.has_hit = False
 
         if event.type == "LEFTMOUSE" and event.value == "RELEASE":
-            self.mouse_release(context)  # Pass context here
-            self.handlers_remove()
-            bpy.context.window.cursor_modal_restore()
-
-            if self.closed_assetbar:
-                bpy.ops.view3d.run_assetbar_fix_context(
-                    keep_running=True, do_search=False
-                )
-            ui_props.dragging = False
-            type(self).active_operator_id = None
+            self.mouse_release(context)
+            self._cleanup_drag(ui_props, cls)
             return {"FINISHED"}
 
         # pass event to assetbar so it can close itself
@@ -1954,13 +1898,12 @@ class AssetDragOperator(bpy.types.Operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         if ui_props.dragging:
             return {"CANCELLED"}
-        if type(self).active_operator_id is not None and type(
-            self
-        ).active_operator_id != id(self):
+        cls = type(self)
+        if cls.active_operator_id is not None and cls.active_operator_id != id(self):
             return {"CANCELLED"}
         # Acquire drag lock immediately so concurrent invoke paths cannot race while this invoke initializes.
         ui_props.dragging = True
-        type(self).active_operator_id = id(self)
+        cls.active_operator_id = id(self)
         self.closed_assetbar = False
         # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
         # This is critical for multi-window support where active_index is shared across windows
@@ -1973,8 +1916,6 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_screen_y = int(context.window.y + event.mouse_y)
         self.start_mouse_x = self.mouse_screen_x
         self.start_mouse_y = self.mouse_screen_y
-        self.press_mouse_x = self.mouse_screen_x
-        self.press_mouse_y = self.mouse_screen_y
         # add-ons
         if self.asset_data.get("assetType") == "addon" and not self.asset_data.get(
             "canDownload"
@@ -1986,7 +1927,7 @@ class AssetDragOperator(bpy.types.Operator):
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
             ui_props.dragging = False
-            type(self).active_operator_id = None
+            cls.active_operator_id = None
             return {"CANCELLED"}
 
         if not self.asset_data.get("canDownload"):
@@ -1998,7 +1939,7 @@ class AssetDragOperator(bpy.types.Operator):
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
             ui_props.dragging = False
-            type(self).active_operator_id = None
+            cls.active_operator_id = None
             return {"CANCELLED"}
 
         prefs = bpy.context.preferences.addons[__package__].preferences
@@ -2013,7 +1954,7 @@ class AssetDragOperator(bpy.types.Operator):
                 "INVOKE_REGION_WIN", url=url, message=message, link_text=link_text
             )
             ui_props.dragging = False
-            type(self).active_operator_id = None
+            cls.active_operator_id = None
             return {"CANCELLED"}
 
         if self.asset_data.get("assetType") == "brush" and not (
@@ -2035,7 +1976,7 @@ class AssetDragOperator(bpy.types.Operator):
                     "INVOKE_REGION_WIN", message=message, width=500
                 )
             ui_props.dragging = False
-            type(self).active_operator_id = None
+            cls.active_operator_id = None
             return {"CANCELLED"}
 
         # the arguments we pass the the callback
@@ -2089,29 +2030,7 @@ class AssetDragOperator(bpy.types.Operator):
         # Store the initial active region pointer
         self.active_region_pointer = context.region.as_pointer()
 
-        # Initialize outliner tracking variables
-        self.hovered_outliner_element = None
-        self.outliner_area = None
-        self.outliner_region = None
-        self.orig_selected_objects = None
-        self.orig_active_object = None
-        self.orig_active_collection = None
         self.prev_area_type = context.area.type  # Track previous area type
-
-        # Initialize node editor tracking
-        self.in_node_editor = False
-        self.node_editor_type = None
-
-        self.shift_pressed = False
-
-        # Initialize has_hit to False, and set other 3D properties
-        # We'll only use these in 3D views, not in outliner
-        self.has_hit = False
-        self.snapped_location = (0, 0, 0)
-        self.snapped_normal = (0, 0, 1)
-        self.snapped_rotation = (0, 0, 0)
-        self.face_index = 0
-        self.matrix = None
 
         self.iname = f".{self.asset_data['thumbnail_small']}"
         self.iname = (self.iname[:63]) if len(self.iname) > 63 else self.iname
