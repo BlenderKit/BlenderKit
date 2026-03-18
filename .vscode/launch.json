@@ -108,77 +108,78 @@
 
 
         {
-            "name": "[BLACK] Run black on all",
+            "name": "[RUFF] Check All",
             "type": "debugpy",
             "request": "launch",
-            "module": "black",
+            "module": "ruff",
             "args": [
-                "${workspaceFolder}/*.py",
-                "--check", "--diff",
-
-            ],
-            "console": "integratedTerminal",
-            "windows": {
-                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            },
-            "linux": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            },
-            "osx": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            }
-        },
-
-        {
-            "name": "[BLACK] Run black on git changed files",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/.vscode/black_git_changed.py",
-            "args": [],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "windows": {
-                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            },
-            "linux": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            },
-            "osx": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            }
-        },
-
-        {
-            "name": "[ISORT] Check All",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "isort",
-            "args": [
-                ".",
-                "--check-only",
-                "--diff"
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "windows": {
-                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            },
-            "linux": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            },
-            "osx": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            }
-        },
-
-        {
-            "name": "[ISORT] Fix All",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "isort",
-            "args": [
+                "check",
                 "."
             ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[RUFF] Fix All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "ruff",
+            "args": [
+                "check",
+                ".",
+                "--fix"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[RUFF] Format All",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "ruff",
+            "args": [
+                "format",
+                "."
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "[RUFF] Check Git Changed Files",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/.vscode/ruff_git_changed.py",
+            "args": [],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "windows": {
@@ -251,28 +252,6 @@
                     "-c",
                     "fmt_out=\"$(gofmt -w ./client)\"; if [ -n \"$fmt_out\" ]; then echo 'Go files need formatting:'; echo \"$fmt_out\"; echo ''; echo 'gofmt diff:'; gofmt -d ./client; exit 1; else echo 'Go files are formatted.'; fi"
                 ]
-            }
-        },
-
-        {
-            "name": "[FUTURE][RUFF] Check All",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "ruff",
-            "args": [
-                "check",
-                "."
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "windows": {
-                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            },
-            "linux": {
-                "python": "${workspaceFolder}/.venv/bin/python",
-            },
-            "osx": {
-                "python": "${workspaceFolder}/.venv/bin/python",
             }
         },
 

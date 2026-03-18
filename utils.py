@@ -15,6 +15,7 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
+from __future__ import annotations
 
 import datetime
 import json
@@ -26,7 +27,6 @@ import shutil
 import sys
 import tempfile
 import uuid
-from typing import Optional
 
 import bpy
 from mathutils import Vector
@@ -35,6 +35,7 @@ from . import (
     client_lib,
     client_tasks,
     datas,
+    exceptions,
     global_vars,
     image_utils,
     paths,
@@ -42,7 +43,6 @@ from . import (
     reports,
     search,
 )
-
 
 bk_logger = logging.getLogger(__name__)
 
@@ -73,9 +73,6 @@ supported_material_drag = (
 )
 
 
-# supported_material_drag = ('MESH')
-
-
 def experimental_enabled() -> bool:
     """Check if experimental features are enabled. Experimental features are always be enabled for staff and validators."""
     preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
@@ -83,42 +80,53 @@ def experimental_enabled() -> bool:
 
 
 def get_process_flags():
+    """Get priority flags for subprocesses.
+
+    On Windows, use BELOW_NORMAL_PRIORITY_CLASS to avoid freezing Blender during heavy tasks.
+    On other platforms, return 0 as priority flags are handled differently.
+    """
     flags = BELOW_NORMAL_PRIORITY_CLASS
-    if sys.platform != "win32":  # TODO test this on windows
+    if sys.platform != "win32":
         flags = 0
     return flags
 
 
 def activate(ob):
+    """Activate the given object, deselecting all others.
+
+    This is used when we need to ensure an object is active before performing operations on it.
+    """
     try:
         bpy.ops.object.select_all(action="DESELECT")
     except Exception as e:
         reports.add_report(
-            f"utils.activate: {str(e)}",
+            f"utils.activate: {e}",
             3,
             type="ERROR",
         )
-        raise e
-    ob.select_set(True)
+        raise exceptions.ActivationError("Activation Error:") from e
+    ob.select_set(True)  # noqa: FBT003
     bpy.context.view_layer.objects.active = ob
 
 
 def selection_get():
+    """Get the currently active object and selected objects."""
     aob = bpy.context.view_layer.objects.active
     selobs = bpy.context.view_layer.objects.selected[:]
     return (aob, selobs)
 
 
 def selection_set(sel):
+    """Set the active object and selected objects based on the given selection tuple (active_object, [selected_objects])."""
     try:
         bpy.ops.object.select_all(action="DESELECT")
     except Exception as e:
         reports.add_report(
-            f"utils.selection_set: {str(e)}",
+            f"utils.selection_set: {e}",
             3,
             type="ERROR",
         )
-        raise e
+        raise exceptions.ActivationError("Selection Error:") from e
     try:
         bpy.context.view_layer.objects.active = sel[0]
         for ob in sel[1]:
@@ -127,7 +135,7 @@ def selection_set(sel):
         bk_logger.exception("Failed to select objects:")
 
 
-def get_active_model() -> Optional[bpy.types.Object]:
+def get_active_model() -> bpy.types.Object | None:
     if bpy.context.view_layer.objects.active is not None:
         ob = bpy.context.view_layer.objects.active
         while ob.parent is not None:
@@ -323,10 +331,7 @@ def get_active_asset_by_type(asset_type="model"):
     if asset_type == "hdr":
         return get_active_HDR()
     if asset_type == "material":
-        if (
-            bpy.context.view_layer.objects.active is not None
-            and bpy.context.active_object.active_material is not None
-        ):
+        if bpy.context.view_layer.objects.active is not None and bpy.context.active_object.active_material is not None:
             return bpy.context.active_object.active_material
     if asset_type == "texture":
         return None
@@ -370,10 +375,7 @@ def get_active_asset():
     if ui_props.asset_type == "HDR":
         return get_active_HDR()
     elif ui_props.asset_type == "MATERIAL":
-        if (
-            bpy.context.view_layer.objects.active is not None
-            and bpy.context.active_object.active_material is not None
-        ):
+        if bpy.context.view_layer.objects.active is not None and bpy.context.active_object.active_material is not None:
             return bpy.context.active_object.active_material
     elif ui_props.asset_type == "TEXTURE":
         return None
@@ -398,17 +400,12 @@ def get_upload_props():
         s = bpy.context.scene
         return s.blenderkit
     if ui_props.asset_type == "HDR":
-        hdr = (
-            ui_props.hdr_upload_image
-        )  # bpy.data.images.get(ui_props.hdr_upload_image)
+        hdr = ui_props.hdr_upload_image  # bpy.data.images.get(ui_props.hdr_upload_image)
         if not hdr:
             return None
         return hdr.blenderkit
     elif ui_props.asset_type == "MATERIAL":
-        if (
-            bpy.context.view_layer.objects.active is not None
-            and bpy.context.active_object.active_material is not None
-        ):
+        if bpy.context.view_layer.objects.active is not None and bpy.context.active_object.active_material is not None:
             return bpy.context.active_object.active_material.blenderkit
     elif ui_props.asset_type == "TEXTURE":
         return None
@@ -437,9 +434,7 @@ def get_active_brush():
     brush = None
     if context.sculpt_object:
         brush = context.tool_settings.sculpt.brush
-    elif (
-        context.image_paint_object
-    ):  # could be just else, but for future possible more types...
+    elif context.image_paint_object:  # could be just else, but for future possible more types...
         brush = context.tool_settings.image_paint.brush
     return brush
 
@@ -460,9 +455,7 @@ def get_brush_icon_path(brush) -> str:
     if width == 0 or height == 0:
         return ""
 
-    filepath = os.path.join(
-        tempfile.gettempdir(), f"blenderkit_brush_{brush.name}_icon.png"
-    )
+    filepath = os.path.join(tempfile.gettempdir(), f"blenderkit_brush_{brush.name}_icon.png")
     img = bpy.data.images.new(
         name=f".bk_brush_preview_{brush.name}",
         width=width,
@@ -601,24 +594,16 @@ def save_prefs(user_preferences, context, **kwargs):
     if bpy.app.background is True or bpy.app.factory_startup is True:
         return
 
-    previous_global_dir = (
-        global_vars.PREFS.get("global_dir")
-        if isinstance(global_vars.PREFS, dict)
-        else None
-    )
+    previous_global_dir = global_vars.PREFS.get("global_dir") if isinstance(global_vars.PREFS, dict) else None
     global_vars.PREFS = get_preferences_as_dict()
-    paths.ensure_asset_library_path(
-        global_vars.PREFS.get("global_dir"), previous_global_dir
-    )
+    paths.ensure_asset_library_path(global_vars.PREFS.get("global_dir"), previous_global_dir)
     if user_preferences.preferences_lock is True:
         return
 
     if kwargs.get("save_userprefs", True):
         bpy.ops.wm.save_userpref()
 
-    if (
-        user_preferences.keep_preferences is True
-    ):  # TODO: write statistics even if keep_preferences is False
+    if user_preferences.keep_preferences is True:  # TODO: write statistics even if keep_preferences is False
         persistent_preferences.write_preferences_to_JSON(global_vars.PREFS)
 
 
@@ -650,8 +635,7 @@ def uploadable_asset_poll():
         return bpy.context.view_layer.objects.active is not None
     if ui_props.asset_type == "MATERIAL":
         return (
-            bpy.context.view_layer.objects.active is not None
-            and bpy.context.active_object.active_material is not None
+            bpy.context.view_layer.objects.active is not None and bpy.context.active_object.active_material is not None
         )
     if ui_props.asset_type == "HDR":
         return ui_props.hdr_upload_image is not None
@@ -687,9 +671,7 @@ def img_to_preview(img, copy_original=False):
     import numpy as np
 
     # Only process if image has alpha channel and needs filling
-    if img.channels == 4 and (
-        img.alpha_mode == "STRAIGHT" or img.alpha_mode == "PREMUL"
-    ):
+    if img.channels == 4 and (img.alpha_mode == "STRAIGHT" or img.alpha_mode == "PREMUL"):
         # Get theme color (default Blender background)
         theme = bpy.context.preferences.themes[0]
         bg_color = theme.user_interface.wcol_box.inner[:]
@@ -721,9 +703,7 @@ def img_to_preview(img, copy_original=False):
             img.preview.image_pixels_float = img.pixels[:]
 
 
-def get_hidden_image(
-    tpath, bdata_name, force_reload: bool = False, colorspace: str = ""
-):
+def get_hidden_image(tpath, bdata_name, force_reload: bool = False, colorspace: str = ""):
     """Get hidden image by name. If not found, load it from tpath."""
     if bdata_name[0] == ".":
         hidden_name = bdata_name
@@ -938,9 +918,7 @@ def get_bounds_snappable(obs, use_modifiers=False):
                 for c in mesh.vertices:
                     coord = c.co
                     parent_coord = (
-                        matrix_parent.inverted()
-                        @ mw
-                        @ Vector((coord[0], coord[1], coord[2]))
+                        matrix_parent.inverted() @ mw @ Vector((coord[0], coord[1], coord[2]))
                     )  # copy this when it works below.
                     minx = min(minx, parent_coord.x)
                     miny = min(miny, parent_coord.y)
@@ -958,11 +936,7 @@ def get_bounds_snappable(obs, use_modifiers=False):
             obcount += 1
             for c in bb:
                 coord = c
-                parent_coord = (
-                    matrix_parent.inverted()
-                    @ mw
-                    @ Vector((coord[0], coord[1], coord[2]))
-                )
+                parent_coord = matrix_parent.inverted() @ mw @ Vector((coord[0], coord[1], coord[2]))
                 minx = min(minx, parent_coord.x)
                 miny = min(miny, parent_coord.y)
                 minz = min(minz, parent_coord.z)
@@ -972,9 +946,7 @@ def get_bounds_snappable(obs, use_modifiers=False):
         elif ob.type in ["LIGHT", "CAMERA"]:
             # From these we only need center point for bounds
             coord = ob.location
-            parent_coord = (
-                matrix_parent.inverted() @ mw @ Vector((coord[0], coord[1], coord[2]))
-            )
+            parent_coord = matrix_parent.inverted() @ mw @ Vector((coord[0], coord[1], coord[2]))
             minx = min(minx, parent_coord.x)
             miny = min(miny, parent_coord.y)
             minz = min(minz, parent_coord.z)
@@ -1196,9 +1168,7 @@ def automap(
 
     scale = (scale.x + scale.y + scale.z) / 3.0
 
-    if (
-        tex_size == 0
-    ):  # prevent division by zero, it's possible to have 0 in tex size by unskilled uploaders
+    if tex_size == 0:  # prevent division by zero, it's possible to have 0 in tex size by unskilled uploaders
         tex_size = 1
 
     if not just_scale:
@@ -1206,9 +1176,7 @@ def automap(
         if bpy.app.version >= (3, 2, 0):
             cube_size = (tex_size) / scale
         else:
-            cube_size = (
-                scale * 2.0 / (tex_size)
-            )  # it's * 2.0 because blender can't tell size of a unit cube :)
+            cube_size = scale * 2.0 / (tex_size)  # it's * 2.0 because blender can't tell size of a unit cube :)
 
         bpy.ops.uv.cube_project(cube_size=cube_size, correct_aspect=False)
 
@@ -1239,9 +1207,7 @@ def name_update(props, context=None):
             nname = nname.lower()
         if nname != "":
             nname = nname[0].upper() + nname[1:]
-        props.name = (
-            nname  # this recursively triggers the name_update() again, so we return
-        )
+        props.name = nname  # this recursively triggers the name_update() again, so we return
         return
         # here we need to fix the name for blender data = ' or " give problems in path evaluation down the road.
     fname = props.name
@@ -1281,7 +1247,7 @@ def fmt_dimensions(p):
     else:
         unit = "mm"
         unitscale = 1000
-    s = f"{fmt_length(dims[0]*unitscale)}×{fmt_length(dims[1]*unitscale)}×{fmt_length(dims[2]*unitscale)} {unit}"
+    s = f"{fmt_length(dims[0] * unitscale)}×{fmt_length(dims[1] * unitscale)}×{fmt_length(dims[2] * unitscale)} {unit}"
     return s
 
 
@@ -1353,7 +1319,7 @@ def profile_is_validator() -> bool:
     return profile.canEditAllAssets
 
 
-def user_is_owner(asset_data: Optional[dict] = None) -> bool:
+def user_is_owner(asset_data: dict | None = None) -> bool:
     """Checks if the current logged in user is owner of the asset"""
     user_preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
     api_key = user_preferences.api_key  # type: ignore
@@ -1464,9 +1430,7 @@ def check_context(context, area_type="VIEW_3D"):
 
 
 def get_fake_context(context=None, area_type="VIEW_3D"):
-    C_dict = (
-        {}
-    )  # context.copy() #context.copy was a source of problems - incompatibility with addons that also define context
+    C_dict = {}  # context.copy() #context.copy was a source of problems - incompatibility with addons that also define context
     C_dict.update(region="WINDOW")
 
     # if hasattr(context,'window') and hasattr(context,'screen') and hasattr(context,'area') and hasattr(context,'region'):
@@ -1529,24 +1493,20 @@ def line_with_urls(row, text, urls, icon="NONE", use_urls=False):
     row.label(text=text, icon=icon)
 
 
-def label_multiline(
-    layout, text="", icon="NONE", width=-1, max_lines=10, split_last=0, use_urls=False
-):
-    """
-     draw a ui label, but try to split it in multiple lines.
+def label_multiline(layout, text="", icon="NONE", width=-1, max_lines=10, split_last=0, use_urls=False) -> list:
+    """Draw a ui label, but try to split it in multiple lines.
 
-    Parameters
-    ----------
-    layout
-    text
-    icon
-    width width to split by in character count
-    max_lines maximum lines to draw
-    split_last - split last row to enable a button after it on the right side. The parameter is a ratio where to split.
-    use_urls - automatically parse urls to buttons
-    Returns
-    -------
-    rows of the text(to add extra elements)
+    Args:
+        layout: layout to draw on
+        text: text to draw
+        icon: icon to draw on the first line
+        width: width to split by in character count
+        max_lines: maximum lines to draw
+        split_last: split last row to enable a button after it on the right side. The parameter is a ratio where to split.
+        use_urls: automatically parse urls to buttons
+
+    Returns:
+        list: Rows of the text (to add extra elements)
     """
     rows = []
     if text.strip() == "":
@@ -1576,7 +1536,7 @@ def label_multiline(
             line_with_urls(row, l1, urls, icon=icon, use_urls=use_urls)
             rows.append(row)
             icon = "NONE"
-            line = line[i:].lstrip()
+            line = line[i:].lstrip()  # noqa: PLW2901
             line_index += 1
             if line_index > max_lines:
                 break
@@ -1592,9 +1552,9 @@ def label_multiline(
     return rows
 
 
-def is_upload_old(last_blend_upload: Optional[str]) -> int:
-    """
-    Estimates if the asset is far too long in the 'uploaded' state.
+def is_upload_old(last_blend_upload: str | None) -> int:
+    """Estimates if the asset is far too long in the 'uploaded' state.
+
     This returns the number of days the validation is over the limit.
     """
     if not last_blend_upload:
@@ -1711,21 +1671,3 @@ def get_project_name() -> str:
     if filename == "":
         filename = "Untitled.blend"
     return filename
-
-
-class BlenderkitException(Exception):
-    """Base class for all BlenderKit exceptions."""
-
-    pass
-
-
-class BlenderkitDownloadException(BlenderkitException):
-    """Exception raised when a download fails."""
-
-    pass
-
-
-class BlenderkitAppendException(BlenderkitException):
-    """Exception raised when an append or link of the asset fails."""
-
-    pass

@@ -22,11 +22,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install
         run: pip install -r devs/requirements.txt
-      - name: ISORT
-        run: python -m isort . --check-only --diff
-        continue-on-error: true
-      - name: BLACK
-        run: python -m black . --check --diff
+      - name: RUFF
+        run: python -m ruff check .
       - name: Server set to production
         run: python3 -c 'from global_vars import SERVER; assert SERVER == "https://www.blenderkit.com"'
       - name: Add-on Version set to ${{inputs.version}}

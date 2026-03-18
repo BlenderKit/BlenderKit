@@ -56,19 +56,17 @@
 
     "files.insertFinalNewline": true,
 
-    "ruff.enable": false,
+    "ruff.enable": true,
 
     "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        //// flip if we go with ruff
-        // "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.defaultFormatter": "charliermarsh.ruff",
 
         "editor.formatOnSave": true,
         "editor.formatOnPaste": true,
         "editor.formatOnType": true,
         "editor.renderFinalNewline": "on"
     },
-    
+
     "[go]": {
         "editor.defaultFormatter": "golang.go",
         "editor.formatOnSave": true
@@ -114,6 +112,7 @@
         "printables",
         "questionmark",
         "RIGHTMOUSE",
+        "selectability",
         "sprops",
         "thumbnailer",
         "trackpad",

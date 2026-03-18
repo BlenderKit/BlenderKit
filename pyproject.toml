@@ -1,40 +1,22 @@
 [project]
 requires-python = ">=3.10,<3.13" # in order to support numpy<2.0.0
 dependencies = [
-    "requests>=2.18.4",
-    "types-requests>=2.31.0.5",
-    "numpy>=1.21.0,<2.0.0",
+
 ]
 
 # these will not be included in build distributions
 [dependency-groups]
 dev = [
-    ## optional  dependencies
+    ## these  are included in blender, for IDE we need them here
+    "numpy>=1.21.0,<2.0.0",
+    "requests>=2.18.4",
+    "types-requests>=2.31.0.5",
     "pywebview>=6.1", # for the web interface
-
-    ## dev dependencies
-    "black==26.3.1",
-    "isort==8.0.1",
     "mypy==1.13.0",
-
-    ## I would like to enable these in the future
     "bandit>=1.9.4", # code is currently invalid for bandit
-    "ruff>=0.15.6", # code is currently invalid for ruff
+    "ruff>=0.15.6",
     "pydoclint>=0.8.3", # code is currently invalid for pydoclint
 ]
-
-[tool.isort]
-multi_line_output = 3
-lines_after_imports = 2
-skip = ["lib", "out", ".venv"]
-profile = "black"
-
-[tool.black]
-target-version = ['py310']
-include = '\.pyi?$'
-exclude = '''
-/(\.git|lib|out)/
-'''
 
 [tool.ruff]
 target-version = "py310"
@@ -46,8 +28,6 @@ include = ["pyproject.toml",
 exclude = [
   "lib",
   "out",
-  "addon_updater.py",
-  "addon_updater_ops.py",
   "_debug/**",
   "_bck/**",
   "*.tmp",
@@ -56,9 +36,7 @@ exclude = [
   "*.pyi",
   "sentry_sdk",
 ]
-ignore = [
-    "E501", # Line too long
-]
+
 
 [tool.ruff.format]
 line-ending = "auto"
@@ -72,6 +50,17 @@ select = ["F", "E", "W", "C90", "I", "N", "D", "UP", "S1", "S2", "S3", "S5", "BL
 ]
 
 ignore = [
+    "RUF012", # mutable value as calss default
+    "C901", # function is too complex
+    "PLR0912", # definition is too complex
+    "ERA001", # use of commented out code
+    "FIX002", # use of 'TODO' in comments
+    "FBT002", # use of boolean values in if statements
+    "FBT003", # use of boolean values in if calls
+    "UP045", # use | instead of 'Optional' << we need this for ble3.0
+    "E501", # Line too long
+    "TRY003", # Logging message too long outside of class
+    "BLE001", # Use of bare except
     "D105", # https://docs.astral.sh/ruff/rules/undocumented-magic-method/
     "D107", # https://docs.astral.sh/ruff/rules/undocumented-public-init/
     "PLC0415", # https://docs.astral.sh/ruff/rules/import-outside-top-level/
