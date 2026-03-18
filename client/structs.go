@@ -18,7 +18,34 @@
 
 package main
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
+
+// StringOrInt is a string type that can be unmarshaled from both JSON strings
+// and JSON numbers. Author-type search results return numeric IDs while regular
+// assets return string UUIDs. This type handles both transparently.
+type StringOrInt string
+
+func (s *StringOrInt) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = StringOrInt(str)
+		return nil
+	}
+	var num json.Number
+	if err := json.Unmarshal(data, &num); err == nil {
+		*s = StringOrInt(num.String())
+		return nil
+	}
+	return fmt.Errorf("StringOrInt: cannot unmarshal %s", string(data))
+}
+
+func (s StringOrInt) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(s))
+}
 
 // MinimalTaskData is minimal data needed from Blender add-on to schedule a task.
 // This is used only for communication with Blender add-on. Other add-on will not schedule a tasks.
@@ -144,7 +171,7 @@ type Asset struct {
 	DisplayName                      string                 `json:"displayName"`
 	Files                            []AssetFile            `json:"files"`
 	FilesSize                        float64                `json:"filesSize"`
-	ID                               string                 `json:"id"`
+	ID                               StringOrInt            `json:"id"`
 	IsFree                           bool                   `json:"isFree"`
 	IsForSale                        bool                   `json:"isForSale"`
 	IsPrivate                        bool                   `json:"isPrivate"`

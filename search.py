@@ -281,6 +281,51 @@ def set_active_filters_for_tab(tab: dict, filters: list[dict]):
     tab["active_filters"] = copy.deepcopy(filters) if filters else []
 
 
+def search_by_author_id(author_id: str, author_name: str = ""):
+    """Set author filter, clean keywords of author name parts, and run search.
+
+    This is the single entry point for all "search by author" actions:
+    asset bar click, keyboard shortcut, popup card button, etc.
+    """
+    author_id = str(author_id)
+    if not author_name or author_name == author_id:
+        author = global_vars.BKIT_AUTHORS.get(int(author_id))
+        if author:
+            full = f"{author.firstName} {author.lastName}".strip()
+            if full:
+                author_name = full
+    if not author_name:
+        author_name = author_id
+
+    ui_props = bpy.context.window_manager.blenderkitUI
+    keywords = ui_props.search_keywords
+    if keywords and author_name:
+        kw_parts = keywords.split()
+        if len(kw_parts) <= 1:
+            # Single word — user was clearly searching for this author, clear it
+            keywords = ""
+        else:
+            name_parts = author_name.lower().split()
+            keywords = " ".join(w for w in kw_parts if w.lower() not in name_parts)
+    # Strip any legacy +author_id: from keywords
+    keywords = re.sub(r"\+author_id:\d+", "", keywords).strip()
+    ui_props.search_keywords = keywords
+
+    sprops = utils.get_search_props()
+    if utils.profile_is_validator():
+        sprops.search_verification_status = "ALL"
+
+    set_active_filter(
+        term="author_id",
+        value=author_id,
+        label=author_name,
+        origin="data",
+    )
+    update_filters()
+    create_history_step(get_active_tab())
+    search()
+
+
 def _clear_panel_filter(term: str):
     """Reset underlying filter props when a panel-derived chip is removed."""
     ui_props = bpy.context.window_manager.blenderkitUI
@@ -513,6 +558,73 @@ def check_clipboard():
     ui_props.search_keywords = current_clipboard[:asset_type_index].rstrip()
 
 
+def parse_author_result(r) -> dict:
+    """Parse an author-type search result into asset_data with safe defaults.
+
+    Author results have full author data in the ``author`` sub-object (same
+    structure as regular assets).  We use it to populate ``BKIT_AUTHORS`` and
+    fetch the gravatar, then synthesize the remaining fields that downstream
+    code expects but the server doesn't provide for authors.
+    """
+    author_id = r.get("id", r.get("author", {}).get("id", 0))
+    display_name = r.get("displayName", r.get("name", ""))
+
+    asset_data = {
+        "thumbnail": "",
+        "thumbnail_small": "",
+        "downloaded": 0,
+        "available_resolutions": [],
+        "max_resolution": 0,
+        "filesSize": 0,
+        "dictParameters": {},
+        "files": [],
+        "verificationStatus": "validated",
+        "canDownload": False,
+        "isFree": True,
+        "score": 0,
+        "ratingsCount": {},
+        "ratingsAverage": {},
+        "assetBaseId": str(author_id),
+        "displayName": display_name,
+    }
+
+    # Process full author profile data (fetches gravatar, populates BKIT_AUTHORS)
+    # NOTE: generate_author_profile sends id to the GO client which expects int,
+    # so we must NOT convert id to string before calling it (same as parse_result).
+    adata = r.get("author")
+    if adata and isinstance(adata, dict) and len(adata) > 1:
+        # Full author data available — parse it like regular assets do
+        adata = dict(adata)  # copy so pop() doesn't mutate the original
+        social_networks = datas.parse_social_networks(
+            adata.pop("socialNetworks", None) or []
+        )
+        author = datas.UserProfile(**adata, socialNetworks=social_networks)
+        generate_author_profile(author)
+        r["author"]["id"] = str(r["author"]["id"])
+    else:
+        # Minimal author data — just ensure id is a string
+        if "author" not in r:
+            r["author"] = {"id": str(author_id)}
+        else:
+            r["author"]["id"] = str(r["author"]["id"])
+
+    # Apply server data, then re-apply safe defaults for any fields that ended
+    # up as None or empty (Go serializes nil maps/slices as null → Python None,
+    # and some string fields come back as "" instead of a valid value).
+    safe_defaults = {
+        "dictParameters": {},
+        "files": [],
+        "ratingsCount": {},
+        "ratingsAverage": {},
+        "verificationStatus": "validated",
+    }
+    asset_data.update(r)
+    for key, default in safe_defaults.items():
+        if not asset_data.get(key):
+            asset_data[key] = default
+    return asset_data
+
+
 # TODO: type annotate and check this crazy function!
 # Are we sure it behaves correctly on network issues, malfunctioning search etc?
 def parse_result(r) -> dict:
@@ -532,6 +644,9 @@ def parse_result(r) -> dict:
         utils.p("asset with no files-size")
 
     asset_type = r["assetType"]
+    if asset_type == "author":
+        return parse_author_result(r)
+
     adata = r["author"]
     social_networks = datas.parse_social_networks(adata.pop("socialNetworks", []))
     author = datas.UserProfile(**adata, socialNetworks=social_networks)
@@ -725,6 +840,16 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         if comments is None:
             client_lib.get_comments(asset_data["assetBaseId"])
 
+    # Separate author results from regular assets, put authors first
+    author_results = [r for r in result_field if r.get("assetType") == "author"]
+    asset_results = [r for r in result_field if r.get("assetType") != "author"]
+    result_field = author_results + asset_results
+
+    # If searching by specific author, don't show author cards in results
+    active_filters = get_active_filters()
+    if any(f.get("term") == "author_id" for f in active_filters):
+        result_field = [r for r in result_field if r.get("assetType") != "author"]
+
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
         # Always process addon search results to store installation status
@@ -734,9 +859,11 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 
         addon_props = bpy.context.window_manager.blenderkit_addon
         if addon_props.search_installed:
-            # Filter to only show installed addons
+            # Filter to only show installed addons, but preserve author results
             result_field = [
-                asset for asset in result_field if asset.get("downloaded", 0) > 0
+                asset
+                for asset in result_field
+                if asset.get("assetType") == "author" or asset.get("downloaded", 0) > 0
             ]
 
         # TODO: if ever needed, implement for other future types
@@ -979,6 +1106,9 @@ def handle_fetch_gravatar_task(task: client_tasks.Task):
         author_id = int(task.data["id"])
         gravatar_path = task.result["gravatar_path"]
         global_vars.BKIT_AUTHORS[author_id].gravatarImg = gravatar_path
+        # Notify asset bar to refresh author thumbnails
+        if asset_bar_op.asset_bar_operator is not None:
+            asset_bar_op.asset_bar_operator.update_image(str(author_id))
 
 
 def generate_author_profile(author_data: datas.UserProfile):
@@ -1074,7 +1204,10 @@ def query_to_url(
     for q in query:
         if q in ["query", "free_first", "search_order_by"]:
             continue
-        requeststring += f"+{q}:{urllib.parse.quote_plus(str(query[q]))}"
+        value = str(query[q])
+        if q == "asset_type":
+            value += ",author"
+        requeststring += f"+{q}:{urllib.parse.quote_plus(value)}"
 
     # add dict_parameters to make results smaller
 
@@ -1958,11 +2091,9 @@ class SearchOperator(Operator):
             search_keywords = self.keywords
 
         if self.author_id != "":
-            bk_logger.info("Author ID: %s", self.author_id)
-            # if there is already an author id in the search keywords, remove it first, the author_id can be any so
-            # use regex to find it
-            search_keywords = re.sub(r"\+author_id:\d+", "", search_keywords)
-            search_keywords += f"+author_id:{self.author_id}"
+            ui_props.search_keywords = search_keywords
+            search_by_author_id(self.author_id)
+            return {"FINISHED"}
 
         ui_props.search_keywords = search_keywords
 

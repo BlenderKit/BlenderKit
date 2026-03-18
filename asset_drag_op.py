@@ -1916,6 +1916,9 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_screen_y = int(context.window.y + event.mouse_y)
         self.start_mouse_x = self.mouse_screen_x
         self.start_mouse_y = self.mouse_screen_y
+        # Author assets should not be dragged, cancel immediately
+        if self.asset_data.get("assetType") == "author":
+            return {"CANCELLED"}
         # add-ons
         if self.asset_data.get("assetType") == "addon" and not self.asset_data.get(
             "canDownload"
