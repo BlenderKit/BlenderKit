@@ -256,6 +256,37 @@
         },
 
         {
+            "name": "Run test.py in Blender",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "runtimeExecutable": "powershell",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "D:\\blenders\\5.1.0\\blender.exe --background -noaudio --python-exit-code 1 --python test.py -- blenderkit_dev_hl"
+                ]
+            },
+            "linux": {
+                "runtimeExecutable": "/bin/bash",
+                "args": [
+                    "-c",
+                    "blender --background -noaudio --python-exit-code 1 --python test.py -- blenderkit"
+                ]
+            },
+            "osx": {
+                "runtimeExecutable": "/bin/bash",
+                "args": [
+                    "-c",
+                    "blender --background -noaudio --python-exit-code 1 --python test.py -- blenderkit"
+                ]
+            }
+        },
+
+        {
             "name": "[FUTURE][PYDOCS] Check All",
             "type": "node",
             "request": "launch",

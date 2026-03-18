@@ -222,10 +222,11 @@ class BL_UI_Button(BL_UI_Widget):
 
     def mouse_down_right(self, x, y):
         if self.is_in_rect(x, y):
-            try:
-                self.mouse_down_right_func(self)
-            except Exception:
-                bk_logger.exception("BL_UI_BUTTON mouse_down_right() error:")
+            if hasattr(self, "mouse_down_right_func"):
+                try:
+                    self.mouse_down_right_func(self)
+                except Exception:
+                    bk_logger.exception("BL_UI_BUTTON mouse_down_right() error:")
 
             return True
 
