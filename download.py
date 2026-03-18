@@ -25,7 +25,6 @@ import logging
 import os
 import shutil
 import time
-from typing import Optional
 
 import addon_utils
 import bpy
@@ -1174,7 +1173,7 @@ def cancel_running_downloads(reason: str = ""):
     _reset_progress_for_asset_ids(asset_ids)
 
 
-def prune_stalled_downloads(max_idle_seconds: float = STALE_DOWNLOAD_TIMEOUT, now: Optional[float] = None) -> None:
+def prune_stalled_downloads(max_idle_seconds: float = STALE_DOWNLOAD_TIMEOUT, now: float | None = None) -> None:
     """Cancel downloads that have not reported progress for too long."""
     if not download_tasks:
         return
