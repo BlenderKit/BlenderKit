@@ -47,10 +47,31 @@
         },
 
         {
-            "name": "Run Blender 5.0.1",
+            "name": "Remove Addon Hardlinks",
+            "type": "debugpy",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/.vscode/remove_hardlinks_from_blenders.py",
+            "args": [
+                "build",
+            ],
+            "windows": {
+                "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            },
+            "linux": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            },
+            "osx": {
+                "python": "${workspaceFolder}/.venv/bin/python",
+            }
+        },
+
+        {
+            "name": "Run Blender 5.1.0",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "D:/blenders/5.0.1/blender.exe",
+            "program": "D:/blenders/5.1.0/blender.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
