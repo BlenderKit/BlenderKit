@@ -21,14 +21,13 @@ import logging
 import math
 import os
 import random
+from typing import Any, Optional, Set, Tuple, Union
 
 import bpy
 import mathutils
 from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
-
-from typing import Any, Optional, Tuple, Set, Union
 
 from . import (
     bg_blender,
@@ -38,12 +37,12 @@ from . import (
     image_utils,
     paths,
     reports,
+    search,
     ui,
     ui_bgl,
     ui_panels,
     utils,
     viewport_utils,
-    search,
 )
 from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
@@ -1747,13 +1746,21 @@ class AssetDragOperator(bpy.types.Operator):
         found_window, found_area, found_region = self.find_active_region(
             self.mouse_screen_x, self.mouse_screen_y
         )
-        if found_region is not None and found_area is not None and found_window is not None:
+        if (
+            found_region is not None
+            and found_area is not None
+            and found_window is not None
+        ):
             self.active_window, self.active_area, self.active_region = (
                 found_window,
                 found_area,
                 found_region,
             )
-        elif self.active_window is None or self.active_area is None or self.active_region is None:
+        elif (
+            self.active_window is None
+            or self.active_area is None
+            or self.active_region is None
+        ):
             self.active_window, self.active_area, self.active_region = (
                 found_window,
                 found_area,
@@ -1771,14 +1778,10 @@ class AssetDragOperator(bpy.types.Operator):
         # Convert screen coords (bottom-left) to region-local coords
         # window.x/y and region.x/y are also in bottom-left coordinate system
         self.mouse_x = int(
-            self.mouse_screen_x
-            - self.active_window.x
-            - self.active_region.x
+            self.mouse_screen_x - self.active_window.x - self.active_region.x
         )
         self.mouse_y = int(
-            self.mouse_screen_y
-            - self.active_window.y
-            - self.active_region.y
+            self.mouse_screen_y - self.active_window.y - self.active_region.y
         )
 
         # redraw all windows to update cursor and other elements
@@ -1835,8 +1838,16 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
-        start_x = self.press_mouse_x if self.press_mouse_x is not None else self.mouse_screen_x
-        start_y = self.press_mouse_y if self.press_mouse_y is not None else self.mouse_screen_y
+        start_x = (
+            self.press_mouse_x
+            if self.press_mouse_x is not None
+            else self.mouse_screen_x
+        )
+        start_y = (
+            self.press_mouse_y
+            if self.press_mouse_y is not None
+            else self.mouse_screen_y
+        )
         delta_x = abs(start_x - self.mouse_screen_x)
         delta_y = abs(start_y - self.mouse_screen_y)
         if not self.drag and (
@@ -1943,10 +1954,9 @@ class AssetDragOperator(bpy.types.Operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         if ui_props.dragging:
             return {"CANCELLED"}
-        if (
-            type(self).active_operator_id is not None
-            and type(self).active_operator_id != id(self)
-        ):
+        if type(self).active_operator_id is not None and type(
+            self
+        ).active_operator_id != id(self):
             return {"CANCELLED"}
         # Acquire drag lock immediately so concurrent invoke paths cannot race while this invoke initializes.
         ui_props.dragging = True
