@@ -20,6 +20,7 @@ import os
 import sys
 import unittest
 
+
 COLLECT_COVERAGE = os.getenv("COVERAGE") == "1"
 if COLLECT_COVERAGE:
     try:
@@ -53,7 +54,7 @@ suite.addTests(testLoader.discover("tests", "test_utils.py"))
 suite.addTests(testLoader.discover("tests", "test_version_compare.py"))
 suite.addTests(testLoader.discover("tests", "test_client_lib.py"))
 suite.addTests(testLoader.discover("tests", "test_search.py"))
-suite.addTests(testLoader.discover(".", "test_asset_bar_op.py"))
+suite.addTests(testLoader.discover("tests", "test_asset_bar_op.py"))
 suite.addTests(testLoader.discover("tests", "test_global_vars.py"))
 suite.addTests(testLoader.discover("tests", "test_manifest_toml.py"))
 suite.addTests(testLoader.discover("tests", "test_ui_panels.py"))

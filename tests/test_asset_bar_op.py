@@ -480,6 +480,18 @@ class TestPersistentPreferencesCompatibility(unittest.TestCase):
 
 
 class TestAssetBarResizeHandle(unittest.TestCase):
+    @staticmethod
+    def _fake_button_init(widget, x, y, width, height):
+        widget.x = x
+        widget.y = y
+        widget.x_screen = x
+        widget.y_screen = y
+        widget.width = width
+        widget.height = height
+        widget.context = None
+        widget._text = ""
+        widget._BL_UI_Button__state = 0
+
     def create_handle(self):
         operator = SimpleNamespace(
             get_requested_assetbar_rows=Mock(return_value=4),
@@ -493,10 +505,15 @@ class TestAssetBarResizeHandle(unittest.TestCase):
             set_resize_hover_cursor=Mock(),
             restore_resize_cursor=Mock(),
         )
-        handle = asset_bar_op.AssetBarResizeHandle(10, 20, 30, 40, operator)
+        with patch.object(
+            asset_bar_op.BL_UI_Button,
+            "__init__",
+            new=self._fake_button_init,
+        ):
+            handle = asset_bar_op.AssetBarResizeHandle(10, 20, 30, 40, operator)
         handle.context = SimpleNamespace(
             area=SimpleNamespace(height=200),
-            region=SimpleNamespace(x=0, y=0),
+            region=SimpleNamespace(x=0, y=0, height=200),
         )
         return handle, operator
 
