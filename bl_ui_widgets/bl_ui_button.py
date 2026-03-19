@@ -102,6 +102,9 @@ class BL_UI_Button(BL_UI_Widget):
         image_utils.set_colorspace(self.__image, colorspace)
 
     def set_image(self, rel_filepath):
+        if rel_filepath is None:
+            self.__image = None
+            return
         # first try to access the image, for cases where it can get removed
         self.check_image_exists()
         try:
@@ -189,9 +192,19 @@ class BL_UI_Button(BL_UI_Widget):
 
         size = blf.dimensions(font_id, self._text)
 
+        # When an image is present, center text in the remaining space after the image
+        image_offset = 0
+        if self.__image is not None:
+            image_offset = self.__image_position[0] + self.__image_size[0]
+
         textpos_y = area_height - self._textpos[1] - (self.height + size[1]) / 2.0
         blf.position(
-            font_id, self._textpos[0] + (self.width - size[0]) / 2.0, textpos_y + 1, 0
+            font_id,
+            self._textpos[0]
+            + image_offset
+            + (self.width - image_offset - size[0]) / 2.0,
+            textpos_y + 1,
+            0,
         )
 
         r, g, b, a = self._text_color
