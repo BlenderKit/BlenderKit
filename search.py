@@ -850,57 +850,65 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     author_results = [r for r in result_field if r.get("assetType") == "author"]
     asset_results = [r for r in result_field if r.get("assetType") != "author"]
 
-    # If author_id filter is active but no author card came back from API,
-    # inject a synthetic author card from the cached BKIT_AUTHORS data.
-    if not author_results:
-        active_filters = get_active_filters()
-        for flt in active_filters:
-            if flt.get("term") != "author_id":
-                continue
-            try:
-                aid = int(flt["value"])
-            except (ValueError, TypeError):
-                continue
-            author_profile = global_vars.BKIT_AUTHORS.get(aid)
-            if author_profile is None:
-                continue
-            author_card = {
-                "assetType": "author",
-                "id": str(aid),
-                "displayName": f"{author_profile.firstName} {author_profile.lastName}".strip()
-                or str(aid),
-                "name": f"{author_profile.firstName} {author_profile.lastName}".strip()
-                or str(aid),
-                "author": {
-                    "id": str(aid),
-                    "firstName": author_profile.firstName,
-                    "lastName": author_profile.lastName,
-                    "fullName": author_profile.fullName,
-                    "aboutMe": author_profile.aboutMe,
-                    "aboutMeUrl": author_profile.aboutMeUrl,
-                    "avatar128": author_profile.avatar128,
-                    "gravatarHash": author_profile.gravatarHash,
-                },
-                "thumbnail": "",
-                "thumbnail_small": "",
-                "downloaded": 0,
-                "available_resolutions": [],
-                "max_resolution": 0,
-                "filesSize": 0,
-                "dictParameters": {},
-                "files": [],
-                "verificationStatus": "validated",
-                "canDownload": False,
-                "isFree": True,
-                "score": 0,
-                "ratingsCount": {},
-                "ratingsAverage": {},
-                "assetBaseId": str(aid),
-            }
-            author_results = [author_card]
-            break
+    # Check if we are already filtering by author_id
+    active_filters = get_active_filters()
+    has_author_id_filter = any(flt.get("term") == "author_id" for flt in active_filters)
 
-    result_field = author_results + asset_results
+    # If author_id filter is active, skip author cards — the chip already
+    # shows which author we are filtering by.
+    if has_author_id_filter:
+        result_field = asset_results
+    else:
+        # If no author card came back from API but we have keywords,
+        # inject a synthetic author card from the cached BKIT_AUTHORS data.
+        if not author_results:
+            for flt in active_filters:
+                if flt.get("term") != "author_id":
+                    continue
+                try:
+                    aid = int(flt["value"])
+                except (ValueError, TypeError):
+                    continue
+                author_profile = global_vars.BKIT_AUTHORS.get(aid)
+                if author_profile is None:
+                    continue
+                author_card = {
+                    "assetType": "author",
+                    "id": str(aid),
+                    "displayName": f"{author_profile.firstName} {author_profile.lastName}".strip()
+                    or str(aid),
+                    "name": f"{author_profile.firstName} {author_profile.lastName}".strip()
+                    or str(aid),
+                    "author": {
+                        "id": str(aid),
+                        "firstName": author_profile.firstName,
+                        "lastName": author_profile.lastName,
+                        "fullName": author_profile.fullName,
+                        "aboutMe": author_profile.aboutMe,
+                        "aboutMeUrl": author_profile.aboutMeUrl,
+                        "avatar128": author_profile.avatar128,
+                        "gravatarHash": author_profile.gravatarHash,
+                    },
+                    "thumbnail": "",
+                    "thumbnail_small": "",
+                    "downloaded": 0,
+                    "available_resolutions": [],
+                    "max_resolution": 0,
+                    "filesSize": 0,
+                    "dictParameters": {},
+                    "files": [],
+                    "verificationStatus": "validated",
+                    "canDownload": False,
+                    "isFree": True,
+                    "score": 0,
+                    "ratingsCount": {},
+                    "ratingsAverage": {},
+                    "assetBaseId": str(aid),
+                }
+                author_results = [author_card]
+                break
+
+        result_field = author_results + asset_results
 
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
@@ -1260,7 +1268,7 @@ def query_to_url(
         if q == "asset_type" and value != "author":
             has_keywords = query.get("query") not in ("", None)
             has_author_filter = query.get("author_id") not in ("", None)
-            if utils.experimental_enabled() and (has_keywords or has_author_filter):
+            if utils.experimental_enabled() and has_keywords and not has_author_filter:
                 value += ",author"
         requeststring += f"+{q}:{urllib.parse.quote_plus(value)}"
 

@@ -2436,6 +2436,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 + self.free_button_margin * 4
             )
 
+            # Pre-calculate icon space for author chips
+            if term == "author_id":
+                icon_size = int(self.filter_button_height * 0.7)
+                icon_pad = int((self.filter_button_height - icon_size) / 2)
+                icon_space = icon_size + icon_pad * 2
+                width += icon_space
+
+                img_fp = paths.get_addon_thumbnail_path("asset_type_author.png")
+                button.set_image(img_fp)
+                button.set_image_size((icon_size, icon_size))
+                button.set_image_position((icon_pad, icon_pad))
+            else:
+                button.set_image(None)
+                button.set_image_size((0, 0))
+
             if current_left_offset + width > max_x:
                 current_row += 1
                 current_left_offset = (
