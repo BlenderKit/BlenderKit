@@ -58,7 +58,7 @@ icons_read = {
     "logo_x.png": "logo_twitter",
     "logo_youtube.png": "logo_youtube",
     "asset_type_printable.png": "asset_type_printable",
-    "asset_type_artist.png": "asset_type_artist",
+    "asset_type_author.png": "asset_type_author",
 }
 
 # fill the icon_collections["previews"] with icons of numbers for complexity rating

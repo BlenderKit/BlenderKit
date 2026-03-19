@@ -311,13 +311,13 @@ def asset_type_callback(self, context):
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-ons", "Find add-ons", "PLUGIN", 7))
         preferences = bpy.context.preferences.addons[__package__].preferences
-        if preferences.experimental_features:
+        if preferences.experimental_features and preferences.author_tab:
             items.append(
                 (
-                    "ARTIST",
-                    "Artists",
-                    "Find artists",
-                    pcoll["asset_type_artist"].icon_id,
+                    "AUTHOR",
+                    "Authors",
+                    "Find authors",
+                    pcoll["asset_type_author"].icon_id,
                     8,
                 ),
             )
@@ -343,7 +343,7 @@ def asset_type_callback(self, context):
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-on", "Upload an addon", "PLUGIN", 7))
 
-        # Artist is search-only, no upload entry needed
+        # Author is search-only, no upload entry needed
 
     return items
 
@@ -829,7 +829,7 @@ def update_free(self, context):
             message="Any material uploaded to BlenderKit is free."
             " However, it can still earn money for the author,"
             " based on our fair share system. "
-            "Part of subscription is sent to artists based on usage by paying users.\n",
+            "Part of subscription is sent to authors based on usage by paying users.\n",
         )
 
 
@@ -1253,7 +1253,7 @@ class BlenderKitAddonSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     )
 
 
-class BlenderKitArtistSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
+class BlenderKitAuthorSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     pass
 
 
@@ -2485,7 +2485,21 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="Enable experimental features of BlenderKit, such as the Artists tab",
+        description="Enable experimental features of BlenderKit, such as the Authors tab",
+        default=False,
+        update=utils.save_prefs,
+    )
+
+    author_tab: BoolProperty(
+        name="Show Authors tab",
+        description="Show Authors tab in the assetbar. This tab allows you to see all assets of a specific author and is also used for showing your profile and assets",
+        default=False,
+        update=utils.save_prefs,
+    )
+
+    author_asset_type_picker: BoolProperty(
+        name="Author asset type picker",
+        description="Enable the Authors tab in the asset type picker. When disabled, clicking an author searches in the current tab",
         default=False,
         update=utils.save_prefs,
     )
@@ -2719,6 +2733,8 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings = layout.box()
             experimental_settings.alignment = "EXPAND"
             experimental_settings.label(text="Experimental settings")
+            experimental_settings.prop(self, "author_tab")
+            experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
@@ -2740,7 +2756,7 @@ classes = (
     BlenderKitGeoToolSearchProps,
     BlenderKitNodeGroupUploadProps,
     BlenderKitAddonSearchProps,
-    BlenderKitArtistSearchProps,
+    BlenderKitAuthorSearchProps,
 )
 
 
@@ -2813,8 +2829,8 @@ def register():
     bpy.types.WindowManager.blenderkit_addon = PointerProperty(
         type=BlenderKitAddonSearchProps
     )
-    bpy.types.WindowManager.blenderkit_artist = PointerProperty(
-        type=BlenderKitArtistSearchProps
+    bpy.types.WindowManager.blenderkit_author = PointerProperty(
+        type=BlenderKitAuthorSearchProps
     )
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
@@ -2903,7 +2919,7 @@ def unregister():
     del bpy.types.WindowManager.blenderkit_mat
     del bpy.types.WindowManager.blenderkit_nodegroup
     del bpy.types.WindowManager.blenderkit_addon
-    del bpy.types.WindowManager.blenderkit_artist
+    del bpy.types.WindowManager.blenderkit_author
 
     del bpy.types.Scene.blenderkit
     del bpy.types.Object.blenderkit

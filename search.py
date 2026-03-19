@@ -549,7 +549,7 @@ def check_clipboard():
     elif asset_type_string.find("addon") > -1 or asset_type_string.find("add-on") > -1:
         target_asset_type = "ADDON"
     elif asset_type_string.find("artist") > -1 or asset_type_string.find("author") > -1:
-        target_asset_type = "ARTIST"
+        target_asset_type = "AUTHOR"
     else:
         bk_logger.debug("Clipboard does not contain valid asset type.")
         return
@@ -1495,8 +1495,8 @@ def build_query_addon(props, ui_props) -> dict:
     return build_query_common(query, props, ui_props)
 
 
-def build_query_artist(props, ui_props) -> dict:
-    """Pure function to construct search query dict for artists."""
+def build_query_author(props, ui_props) -> dict:
+    """Pure function to construct search query dict for authors."""
     query = {"asset_type": "author"}
     query = build_query_common(query, props, ui_props)
     # +author_id:XXX doesn't match author profile documents in elasticsearch
@@ -1755,9 +1755,9 @@ def search(get_next=False, query=None, author_id=""):
                 ui_props=bpy.context.window_manager.blenderkitUI,
             )
 
-        if ui_props.asset_type == "ARTIST":
-            query = build_query_artist(
-                props=bpy.context.window_manager.blenderkit_artist,
+        if ui_props.asset_type == "AUTHOR":
+            query = build_query_author(
+                props=bpy.context.window_manager.blenderkit_author,
                 ui_props=bpy.context.window_manager.blenderkitUI,
             )
 
@@ -1895,7 +1895,7 @@ def update_filters():
         sprops.use_filters = fcommon
     elif ui_props.asset_type == "ADDON":
         sprops.use_filters = fcommon
-    elif ui_props.asset_type == "ARTIST":
+    elif ui_props.asset_type == "AUTHOR":
         sprops.use_filters = fcommon
     return True
 
@@ -1948,8 +1948,8 @@ def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
         "addon": "ADDON",
         "add-on": "ADDON",
         "extension": "ADDON",
-        "artist": "ARTIST",
-        "author": "ARTIST",
+        "artist": "AUTHOR",
+        "author": "AUTHOR",
     }
 
     # Convert to lowercase for matching
@@ -2047,7 +2047,7 @@ def search_update(self, context):
                 asset_type_string.find("artist") > -1
                 or asset_type_string.find("author") > -1
             ):
-                target_asset_type = "ARTIST"
+                target_asset_type = "AUTHOR"
 
             if ui_props.asset_type != target_asset_type:
                 ui_props.search_keywords = ""
@@ -2472,8 +2472,8 @@ def get_ui_state():
         store_props = store_model_props
     elif asset_type == "ADDON":
         store_props = []  # Addons don't need to store specific props
-    elif asset_type == "ARTIST":
-        store_props = []  # Artists don't need to store specific props
+    elif asset_type == "AUTHOR":
+        store_props = []  # Authors don't need to store specific props
 
     search_props = utils.get_search_props()
 

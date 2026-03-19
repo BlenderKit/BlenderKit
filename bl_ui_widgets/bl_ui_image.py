@@ -24,6 +24,15 @@ class BL_UI_Image(BL_UI_Widget):
         self.__image = None
         self.__image_size = (24, 24)
         self.__image_position = (4, 2)
+        self.__image_padding: float = 0.0
+
+    @property
+    def image_padding(self):
+        return self.__image_padding
+
+    @image_padding.setter
+    def image_padding(self, value: float):
+        self.__image_padding = value
 
     def set_image_size(self, image_size):
         self.__image_size = image_size
@@ -95,16 +104,19 @@ class BL_UI_Image(BL_UI_Widget):
             y_screen_flip = self.get_area_height() - self.y_screen
             off_x, off_y = self.__image_position
             sx, sy = self.__image_size
-            img_x = self.x_screen + off_x
-            img_y = y_screen_flip - off_y - sy
+            pad = self.image_padding
+            img_x = self.x_screen + off_x + pad
+            img_y = y_screen_flip - off_y - sy + pad
+            img_w = sx - 2 * pad
+            img_h = sy - 2 * pad
 
             if self.use_rounded_background:
                 fill_color = self.bg_color or (1.0, 1.0, 1.0, 1.0)
                 self.draw_background_rect(
                     img_x,
                     img_y,
-                    sx,
-                    sy,
+                    img_w,
+                    img_h,
                     fill_color,
                     force=True,
                     fill_color_override=fill_color,
@@ -119,8 +131,8 @@ class BL_UI_Image(BL_UI_Widget):
             ui_bgl.draw_image_runtime(
                 img_x,
                 img_y,
-                sx,
-                sy,
+                img_w,
+                img_h,
                 self.__image,
                 1.0,
                 crop=(0, 0, 1, 1),

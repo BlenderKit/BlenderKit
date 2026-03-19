@@ -310,10 +310,10 @@ def get_search_props():
             return
         props = wm.blenderkit_addon
 
-    if uiprops.asset_type == "ARTIST":
-        if not hasattr(wm, "blenderkit_artist"):
+    if uiprops.asset_type == "AUTHOR":
+        if not hasattr(wm, "blenderkit_author"):
             return
-        props = wm.blenderkit_artist
+        props = wm.blenderkit_author
     return props
 
 
@@ -388,8 +388,8 @@ def get_active_asset():
         return get_active_nodegroup()
     elif ui_props.asset_type == "ADDON":
         return None  # Addons don't have an active asset concept
-    elif ui_props.asset_type == "ARTIST":
-        return None  # Artists don't have an active asset concept
+    elif ui_props.asset_type == "AUTHOR":
+        return None  # Authors don't have an active asset concept
 
     return None
 
@@ -429,8 +429,8 @@ def get_upload_props():
             return b.blenderkit
     elif ui_props.asset_type == "ADDON":
         return None  # Addons don't have upload props
-    elif ui_props.asset_type == "ARTIST":
-        return None  # Artists don't have upload props
+    elif ui_props.asset_type == "AUTHOR":
+        return None  # Authors don't have upload props
     return None
 
 

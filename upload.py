@@ -771,7 +771,7 @@ def update_free_full(self, context):
                 message="Any material uploaded to BlenderKit is free."
                 " However, it can still earn money for the author,"
                 " based on our fair share system. "
-                "Part of subscription is sent to artists based on usage by paying users.",
+                "Part of subscription is sent to authors based on usage by paying users.",
             )
 
 
