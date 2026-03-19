@@ -2203,10 +2203,16 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=False,
     )
 
+    display_filter_chips: BoolProperty(
+        name="Display filter chips",
+        description="Display filter chips in the assetbar. Filter chips show you which filters are active and allow you to quickly change them.",
+        default=True,
+    )
+
     display_filter_bubbles: BoolProperty(
         name="Display filter bubbles",
-        description="Display filter bubbles in the assetbar. Filter bubbles show you which filters are active and allow you to quickly change them.",
-        default=True,
+        description="Display filter bubbles in the assetbar. Filter bubbles show you which filters can be activated and allow you to quickly change them.",
+        default=False,
     )
 
     global_dir: StringProperty(
@@ -2671,7 +2677,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "announcements_on_start")
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
-        gui_settings.prop(self, "display_filter_bubbles")
+        gui_settings.prop(self, "display_filter_chips")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
@@ -2733,6 +2739,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings = layout.box()
             experimental_settings.alignment = "EXPAND"
             experimental_settings.label(text="Experimental settings")
+            experimental_settings.prop(self, "display_filter_bubbles")
             experimental_settings.prop(self, "author_tab")
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
