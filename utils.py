@@ -309,6 +309,11 @@ def get_search_props():
         if not hasattr(wm, "blenderkit_addon"):
             return
         props = wm.blenderkit_addon
+
+    if uiprops.asset_type == "ARTIST":
+        if not hasattr(wm, "blenderkit_artist"):
+            return
+        props = wm.blenderkit_artist
     return props
 
 
@@ -383,6 +388,8 @@ def get_active_asset():
         return get_active_nodegroup()
     elif ui_props.asset_type == "ADDON":
         return None  # Addons don't have an active asset concept
+    elif ui_props.asset_type == "ARTIST":
+        return None  # Artists don't have an active asset concept
 
     return None
 
@@ -422,6 +429,8 @@ def get_upload_props():
             return b.blenderkit
     elif ui_props.asset_type == "ADDON":
         return None  # Addons don't have upload props
+    elif ui_props.asset_type == "ARTIST":
+        return None  # Artists don't have upload props
     return None
 
 
@@ -1373,6 +1382,8 @@ def asset_from_newer_blender_version(asset_data, blender_version=None):
     """Check if asset is from a newer blender version, to avoid incompatibility. Give info if difference is in major, minor or patch version."""
     # addons don't have a blender version, so we return False
     if asset_data["assetType"] == "addon":
+        return False, ""
+    if asset_data["assetType"] == "author":
         return False, ""
     asset_ver = asset_data["sourceAppVersion"].split(".")
     if blender_version is None:

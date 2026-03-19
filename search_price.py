@@ -1,7 +1,14 @@
+"""Search price lookup helper."""
+
+from __future__ import annotations
+
 import time
+import logging
 from typing import Iterable, List, Optional, Tuple
 
 from . import client_lib, paths, utils
+
+bk_logger = logging.getLogger(__name__)
 
 # Simple in-memory cache to avoid repeated price lookups per version UUID.
 # TTL keeps cache fresh-ish while drastically reducing chatter on paged searches.
@@ -82,7 +89,6 @@ def query_user_price(
 
         headers = utils.get_simple_headers()
         headers.setdefault("Content-Type", "application/json")
-
         response = client_lib.blocking_request(
             url,
             "POST",
@@ -91,8 +97,10 @@ def query_user_price(
             timeout=timeout,
         )
         fetched_results = response.json() or []
+        bk_logger.debug("Fetched price for %d version UUIDs", len(fetched_results))
+
         for entry in fetched_results:
-            version_uuid = entry.get("versionUuid") or entry.get("version_uuid")
+            version_uuid = entry.get("versionUuid")
             if not version_uuid:
                 continue
             _cache_put(str(version_uuid), entry)

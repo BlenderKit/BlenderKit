@@ -116,7 +116,7 @@ class BL_UI_Label(BL_UI_Widget):
             min_y,
             content_width,
             content_height,
-            self._text_color,
+            self._bg_color,
         )
 
         r, g, b, a = self._text_color

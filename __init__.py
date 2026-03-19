@@ -310,6 +310,17 @@ def asset_type_callback(self, context):
 
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-ons", "Find add-ons", "PLUGIN", 7))
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        if preferences.experimental_features:
+            items.append(
+                (
+                    "ARTIST",
+                    "Artists",
+                    "Find artists",
+                    pcoll["asset_type_artist"].icon_id,
+                    8,
+                ),
+            )
     else:
         items = [
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
@@ -331,6 +342,8 @@ def asset_type_callback(self, context):
 
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-on", "Upload an addon", "PLUGIN", 7))
+
+        # Artist is search-only, no upload entry needed
 
     return items
 
@@ -1238,6 +1251,10 @@ class BlenderKitAddonSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
             else None
         ),
     )
+
+
+class BlenderKitArtistSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
+    pass
 
 
 class BlenderKitHDRUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
@@ -2468,7 +2485,7 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="Enable experimental features of BlenderKit. Note: There are no experimental features in this version.",
+        description="Enable experimental features of BlenderKit, such as the Artists tab",
         default=False,
         update=utils.save_prefs,
     )
@@ -2723,6 +2740,7 @@ classes = (
     BlenderKitGeoToolSearchProps,
     BlenderKitNodeGroupUploadProps,
     BlenderKitAddonSearchProps,
+    BlenderKitArtistSearchProps,
 )
 
 
@@ -2794,6 +2812,9 @@ def register():
     )
     bpy.types.WindowManager.blenderkit_addon = PointerProperty(
         type=BlenderKitAddonSearchProps
+    )
+    bpy.types.WindowManager.blenderkit_artist = PointerProperty(
+        type=BlenderKitArtistSearchProps
     )
     if bpy.app.factory_startup is False:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
@@ -2881,6 +2902,8 @@ def unregister():
     del bpy.types.WindowManager.blenderkit_brush
     del bpy.types.WindowManager.blenderkit_mat
     del bpy.types.WindowManager.blenderkit_nodegroup
+    del bpy.types.WindowManager.blenderkit_addon
+    del bpy.types.WindowManager.blenderkit_artist
 
     del bpy.types.Scene.blenderkit
     del bpy.types.Object.blenderkit

@@ -41,6 +41,7 @@ from . import (
     datas,
     download,
     global_vars,
+    icons,
     image_utils,
     paths,
     reports,
@@ -396,6 +397,7 @@ def _inject_user_price_data(assets: list[dict]) -> None:
         return
 
     try:
+        # returns entry per versionUuid
         price_response = search_price.query_user_price(
             version_uuids=version_uuids,
             page_size=len(version_uuids),
@@ -413,17 +415,17 @@ def _inject_user_price_data(assets: list[dict]) -> None:
 
     price_by_uuid: dict[str, dict] = {}
     for entry in price_response:
-        version_uuid = entry.get("versionUuid")  # maybe assetUuid ?
-        if not version_uuid:
+        base_uuid = entry.get("versionUuid")
+        if not base_uuid:
             continue
-        price_by_uuid[version_uuid] = entry
+        price_by_uuid[base_uuid] = entry
 
     if not price_by_uuid:
         return
 
     for asset in assets:
-        version_uuid = asset["id"]
-        price_info = price_by_uuid.get(version_uuid)
+        base_uuid = asset["id"]
+        price_info = price_by_uuid.get(base_uuid)
         if not price_info:
             continue
         asset["userPrice"] = price_info["discountedPrice"]
@@ -546,6 +548,8 @@ def check_clipboard():
         target_asset_type = "NODEGROUP"
     elif asset_type_string.find("addon") > -1 or asset_type_string.find("add-on") > -1:
         target_asset_type = "ADDON"
+    elif asset_type_string.find("artist") > -1 or asset_type_string.find("author") > -1:
+        target_asset_type = "ARTIST"
     else:
         bk_logger.debug("Clipboard does not contain valid asset type.")
         return
@@ -833,6 +837,8 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         result_field.append(asset_data)
         if not utils.profile_is_validator():
             continue
+        if asset_data.get("assetType") == "author":
+            continue
         # VALIDATORS
         # fetch all comments if user is validator to preview them faster
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
@@ -843,12 +849,58 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     # Separate author results from regular assets, put authors first
     author_results = [r for r in result_field if r.get("assetType") == "author"]
     asset_results = [r for r in result_field if r.get("assetType") != "author"]
-    result_field = author_results + asset_results
 
-    # If searching by specific author, don't show author cards in results
-    active_filters = get_active_filters()
-    if any(f.get("term") == "author_id" for f in active_filters):
-        result_field = [r for r in result_field if r.get("assetType") != "author"]
+    # If author_id filter is active but no author card came back from API,
+    # inject a synthetic author card from the cached BKIT_AUTHORS data.
+    if not author_results:
+        active_filters = get_active_filters()
+        for flt in active_filters:
+            if flt.get("term") != "author_id":
+                continue
+            try:
+                aid = int(flt["value"])
+            except (ValueError, TypeError):
+                continue
+            author_profile = global_vars.BKIT_AUTHORS.get(aid)
+            if author_profile is None:
+                continue
+            author_card = {
+                "assetType": "author",
+                "id": str(aid),
+                "displayName": f"{author_profile.firstName} {author_profile.lastName}".strip()
+                or str(aid),
+                "name": f"{author_profile.firstName} {author_profile.lastName}".strip()
+                or str(aid),
+                "author": {
+                    "id": str(aid),
+                    "firstName": author_profile.firstName,
+                    "lastName": author_profile.lastName,
+                    "fullName": author_profile.fullName,
+                    "aboutMe": author_profile.aboutMe,
+                    "aboutMeUrl": author_profile.aboutMeUrl,
+                    "avatar128": author_profile.avatar128,
+                    "gravatarHash": author_profile.gravatarHash,
+                },
+                "thumbnail": "",
+                "thumbnail_small": "",
+                "downloaded": 0,
+                "available_resolutions": [],
+                "max_resolution": 0,
+                "filesSize": 0,
+                "dictParameters": {},
+                "files": [],
+                "verificationStatus": "validated",
+                "canDownload": False,
+                "isFree": True,
+                "score": 0,
+                "ratingsCount": {},
+                "ratingsAverage": {},
+                "assetBaseId": str(aid),
+            }
+            author_results = [author_card]
+            break
+
+    result_field = author_results + asset_results
 
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
@@ -1101,7 +1153,7 @@ def generate_author_textblock(first_name: str, last_name: str, about_me: str):
 
 
 def handle_fetch_gravatar_task(task: client_tasks.Task):
-    """Handle incomming fetch_gravatar_task which contains path to author's image on the disk."""
+    """Handle incoming fetch_gravatar_task which contains path to author's image on the disk."""
     if task.status == "finished":
         author_id = int(task.data["id"])
         gravatar_path = task.result["gravatar_path"]
@@ -1205,8 +1257,11 @@ def query_to_url(
         if q in ["query", "free_first", "search_order_by"]:
             continue
         value = str(query[q])
-        if q == "asset_type":
-            value += ",author"
+        if q == "asset_type" and value != "author":
+            has_keywords = query.get("query") not in ("", None)
+            has_author_filter = query.get("author_id") not in ("", None)
+            if utils.experimental_enabled() and (has_keywords or has_author_filter):
+                value += ",author"
         requeststring += f"+{q}:{urllib.parse.quote_plus(value)}"
 
     # add dict_parameters to make results smaller
@@ -1438,6 +1493,26 @@ def build_query_addon(props, ui_props) -> dict:
     """Pure function to construct search query dict for addons."""
     query = {"asset_type": "addon"}
     return build_query_common(query, props, ui_props)
+
+
+def build_query_artist(props, ui_props) -> dict:
+    """Pure function to construct search query dict for artists."""
+    query = {"asset_type": "author"}
+    query = build_query_common(query, props, ui_props)
+    # +author_id:XXX doesn't match author profile documents in elasticsearch
+    # (that field only exists on asset documents). Replace it with the
+    # author's name so the API can do a text-search for the profile instead.
+    q = query.get("query", "")
+    match = re.search(r"\+author_id:(\d+)", q)
+    if match:
+        aid = int(match.group(1))
+        author = global_vars.BKIT_AUTHORS.get(aid)
+        name = author.fullName if author else ""
+        q = re.sub(r"\+author_id:\d+\s*", "", q).strip()
+        if name:
+            q = f"{name} {q}".strip() if q else name
+        query["query"] = q or None
+    return query
 
 
 def filter_addon_search_results(search_results, filter_installed_only=False):
@@ -1680,6 +1755,12 @@ def search(get_next=False, query=None, author_id=""):
                 ui_props=bpy.context.window_manager.blenderkitUI,
             )
 
+        if ui_props.asset_type == "ARTIST":
+            query = build_query_artist(
+                props=bpy.context.window_manager.blenderkit_artist,
+                ui_props=bpy.context.window_manager.blenderkitUI,
+            )
+
         # crop long searches
         if query.get("query"):
             if len(query["query"]) > 50:
@@ -1814,6 +1895,8 @@ def update_filters():
         sprops.use_filters = fcommon
     elif ui_props.asset_type == "ADDON":
         sprops.use_filters = fcommon
+    elif ui_props.asset_type == "ARTIST":
+        sprops.use_filters = fcommon
     return True
 
 
@@ -1865,6 +1948,8 @@ def detect_asset_type_from_keywords(keywords: str) -> tuple[str, str]:
         "addon": "ADDON",
         "add-on": "ADDON",
         "extension": "ADDON",
+        "artist": "ARTIST",
+        "author": "ARTIST",
     }
 
     # Convert to lowercase for matching
@@ -1958,6 +2043,11 @@ def search_update(self, context):
                 target_asset_type = "PRINTABLE"
             elif asset_type_string.find("addon") > -1:
                 target_asset_type = "ADDON"
+            elif (
+                asset_type_string.find("artist") > -1
+                or asset_type_string.find("author") > -1
+            ):
+                target_asset_type = "ARTIST"
 
             if ui_props.asset_type != target_asset_type:
                 ui_props.search_keywords = ""
@@ -2153,7 +2243,115 @@ def get_search_similar_keywords(asset_data: dict) -> str:
     return keywords
 
 
-classes = [SearchOperator, UrlOperator, TooltipLabelOperator]
+class AuthorAssetTypeSearch(Operator):
+    """Switch to a specific asset type tab and search by author"""
+
+    bl_idname = "view3d.blenderkit_author_asset_type_search"
+    bl_label = "Search Author Assets"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})
+    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})
+    asset_type: StringProperty(
+        name="Asset Type", default="MODEL", options={"SKIP_SAVE"}
+    )
+
+    def execute(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        ui_props.search_lock = True
+        ui_props.asset_type = self.asset_type
+        ui_props.search_keywords = ""
+        ui_props.search_lock = False
+        search_by_author_id(self.author_id, self.author_name)
+        return {"FINISHED"}
+
+
+class AuthorAssetTypePopup(Operator):
+    """Choose which asset type to browse for this author"""
+
+    bl_idname = "view3d.blenderkit_author_asset_type_popup"
+    bl_label = "Find Author's Assets"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})
+    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})
+
+    # Set by caller before invoke — per-type asset counts from the author result
+    _asset_type_counts: dict = {}
+
+    def execute(self, context):
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_popup(self, width=200)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text=self.author_name or "Author")
+        layout.separator()
+
+        counts = self._asset_type_counts
+        pcoll = icons.icon_collections["main"]
+        asset_types = [
+            ("MODEL", "Models", "OBJECT_DATAMODE", "model"),
+            ("MATERIAL", "Materials", "MATERIAL", "material"),
+            ("SCENE", "Scenes", "SCENE_DATA", "scene"),
+            ("HDR", "HDRs", "WORLD", "hdr"),
+            ("BRUSH", "Brushes", "BRUSH_DATA", "brush"),
+            ("NODEGROUP", "Node Groups", "NODETREE", "nodegroup"),
+        ]
+
+        for at_id, at_label, at_icon, at_key in asset_types:
+            count = counts.get(at_key, 0)
+            if counts and count == 0:
+                continue
+            label = f"{at_label} ({count})" if count else at_label
+            op = layout.operator(
+                "view3d.blenderkit_author_asset_type_search",
+                text=label,
+                icon=at_icon,
+            )
+            op.author_id = self.author_id
+            op.author_name = self.author_name
+            op.asset_type = at_id
+
+        # Printable
+        printable_count = counts.get("printable", 0)
+        if not counts or printable_count > 0:
+            label = (
+                f"Printables ({printable_count})" if printable_count else "Printables"
+            )
+            op = layout.operator(
+                "view3d.blenderkit_author_asset_type_search",
+                text=label,
+                icon_value=pcoll["asset_type_printable"].icon_id,
+            )
+            op.author_id = self.author_id
+            op.author_name = self.author_name
+            op.asset_type = "PRINTABLE"
+
+        # Add-ons (Blender 4.2+)
+        addon_count = counts.get("addon", 0)
+        if bpy.app.version >= (4, 2, 0) and (not counts or addon_count > 0):
+            label = f"Add-ons ({addon_count})" if addon_count else "Add-ons"
+            op = layout.operator(
+                "view3d.blenderkit_author_asset_type_search",
+                text=label,
+                icon="PLUGIN",
+            )
+            op.author_id = self.author_id
+            op.author_name = self.author_name
+            op.asset_type = "ADDON"
+
+
+classes = [
+    SearchOperator,
+    UrlOperator,
+    TooltipLabelOperator,
+    AuthorAssetTypeSearch,
+    AuthorAssetTypePopup,
+]
 
 
 def register_search():
@@ -2274,6 +2472,8 @@ def get_ui_state():
         store_props = store_model_props
     elif asset_type == "ADDON":
         store_props = []  # Addons don't need to store specific props
+    elif asset_type == "ARTIST":
+        store_props = []  # Artists don't need to store specific props
 
     search_props = utils.get_search_props()
 

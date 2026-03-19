@@ -129,6 +129,8 @@ class BL_UI_Button(BL_UI_Widget):
         gpu.state.blend_set("ALPHA")
         fill_color = self._resolve_panel_color()
 
+        self.draw_image()
+
         if self.use_rounded_background:
             rect_y = area_height - self.y_screen - self.height
             self.draw_background_rect(
@@ -144,8 +146,6 @@ class BL_UI_Button(BL_UI_Widget):
             self.shader.bind()
             self.shader.uniform_float("color", fill_color)
             self.batch_panel.draw(self.shader)
-
-        self.draw_image()
 
         # Draw text
         self.draw_text(area_height)
@@ -191,6 +191,11 @@ class BL_UI_Button(BL_UI_Widget):
             y_screen_flip = self.get_area_height() - self.y_screen
             off_x, off_y = self.__image_position
             sx, sy = self.__image_size
+            corner_radius = (
+                self.background_corner_radius
+                if self.has_background_corner_radius_override()
+                else None
+            )
             ui_bgl.draw_image_runtime(
                 self.x_screen + off_x,
                 y_screen_flip - off_y - sy,
@@ -200,6 +205,7 @@ class BL_UI_Button(BL_UI_Widget):
                 1.0,
                 crop=(0, 0, 1, 1),
                 batch=None,
+                corner_radius=corner_radius,
             )
             return True
         return False
