@@ -30,6 +30,8 @@ class BL_UI_Button(BL_UI_Widget):
         self.__image = None
         self.__image_size = (24, 24)
         self.__image_position = (4, 2)
+        self.__image_padding = 0.0
+        self.image_corner_radius = None
 
     @property
     def text_color(self):
@@ -117,6 +119,17 @@ class BL_UI_Button(BL_UI_Widget):
             return None
         return self.__image.filepath
 
+    @property
+    def image_padding(self):
+        return self.__image_padding
+
+    @image_padding.setter
+    def image_padding(self, padding: float):
+        self.__image_padding = padding
+
+    def get_image_padding(self):
+        return self.__image_padding
+
     def update(self, x, y):
         super().update(x, y)
         self._textpos = [x, y]
@@ -128,8 +141,6 @@ class BL_UI_Button(BL_UI_Widget):
 
         gpu.state.blend_set("ALPHA")
         fill_color = self._resolve_panel_color()
-
-        self.draw_image()
 
         if self.use_rounded_background:
             rect_y = area_height - self.y_screen - self.height
@@ -146,6 +157,8 @@ class BL_UI_Button(BL_UI_Widget):
             self.shader.bind()
             self.shader.uniform_float("color", fill_color)
             self.batch_panel.draw(self.shader)
+
+        self.draw_image()
 
         # Draw text
         self.draw_text(area_height)
@@ -191,21 +204,17 @@ class BL_UI_Button(BL_UI_Widget):
             y_screen_flip = self.get_area_height() - self.y_screen
             off_x, off_y = self.__image_position
             sx, sy = self.__image_size
-            corner_radius = (
-                self.background_corner_radius
-                if self.has_background_corner_radius_override()
-                else None
-            )
+            pad = self.__image_padding
             ui_bgl.draw_image_runtime(
-                self.x_screen + off_x,
-                y_screen_flip - off_y - sy,
-                sx,
-                sy,
+                self.x_screen + off_x + pad,
+                y_screen_flip - off_y - sy + pad,
+                sx - 2 * pad,
+                sy - 2 * pad,
                 self.__image,
                 1.0,
                 crop=(0, 0, 1, 1),
                 batch=None,
-                corner_radius=corner_radius,
+                corner_radius=self.image_corner_radius,
             )
             return True
         return False

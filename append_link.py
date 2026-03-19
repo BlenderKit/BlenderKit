@@ -532,7 +532,7 @@ def append_particle_system(
             total_max_threshold = 2000000
             # emitting too many parent particles just kills blender now.
 
-            # this part tuned child count, we'll leave children to artists only.
+            # this part tuned child count, we'll leave children to authors only.
             # if count > total_max_threshold:
             #     ratio = round(count / total_max_threshold)
             #

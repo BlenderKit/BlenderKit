@@ -125,7 +125,7 @@ def handle_categories_task(task: client_tasks.Task):
         "NODEGROUP": ["nodegroup"],
         "PRINTABLE": ["printable"],
         "ADDON": ["addon"],
-        "ARTIST": ["author"],
+        "AUTHOR": ["author"],
     }
 
     if task.status == "finished":

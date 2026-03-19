@@ -226,7 +226,7 @@ class BLENDERKIT_OT_show_validation_popup(bpy.types.Operator):
     bl_label = "Manufacturer Validation Result"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    message: StringProperty(name="Message", default="", options={"SKIP_SAVE"})
+    message: StringProperty(name="Message", default="", options={"SKIP_SAVE"})  # type: ignore
 
     def invoke(self, context, event):
         # Ensure we always have something to show so the dialog renders on older Blender versions.
@@ -336,17 +336,17 @@ def draw_panel_addon_search(self, context):
     utils.label_multiline(layout, text=addon_props.report)
 
 
-def draw_panel_artist_search(self, context):
+def draw_panel_author_search(self, context):
     wm = context.window_manager
     ui_props = wm.blenderkitUI
-    artist_props = wm.blenderkit_artist
+    author_props = wm.blenderkit_author
 
     layout = self.layout
     row = layout.row()
     row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
-    draw_assetbar_show_hide(row, artist_props)
+    draw_assetbar_show_hide(row, author_props)
 
-    utils.label_multiline(layout, text=artist_props.report)
+    utils.label_multiline(layout, text=author_props.report)
 
 
 def draw_panel_nodegroup_upload(self, context):
@@ -1843,9 +1843,9 @@ class VIEW3D_PT_blenderkit_advanced_addon_search(Panel):
         row.prop(addon_props, "search_installed", text="Installed Only")
 
 
-class VIEW3D_PT_blenderkit_advanced_artist_search(Panel):
+class VIEW3D_PT_blenderkit_advanced_author_search(Panel):
     bl_category = "BlenderKit"
-    bl_idname = "VIEW3D_PT_blenderkit_advanced_artist_search"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_author_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -1857,7 +1857,7 @@ class VIEW3D_PT_blenderkit_advanced_artist_search(Panel):
         ui_props = bpy.context.window_manager.blenderkitUI
         if not global_vars.CLIENT_RUNNING:
             return False
-        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "ARTIST"
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "AUTHOR"
 
     def draw(self, context):
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -2138,8 +2138,8 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         if ui_props.asset_type == "ADDON":
             return draw_panel_addon_search(self, context)
 
-        if ui_props.asset_type == "ARTIST":
-            return draw_panel_artist_search(self, context)
+        if ui_props.asset_type == "AUTHOR":
+            return draw_panel_author_search(self, context)
 
     def draw_upload(self, context, layout, ui_props):
         obj = utils.get_active_asset()
@@ -2192,8 +2192,8 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             op.url = paths.BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
             return
 
-        if ui_props.asset_type == "ARTIST":
-            layout.label(text="Artist profiles are search-only.")
+        if ui_props.asset_type == "AUTHOR":
+            layout.label(text="Author profiles are search-only.")
             return
 
 
@@ -4432,7 +4432,7 @@ def header_search_draw(self, context):
         "SCENE": wm.blenderkit_scene,
         "NODEGROUP": wm.blenderkit_nodegroup,
         "ADDON": wm.blenderkit_addon,
-        "ARTIST": wm.blenderkit_artist,
+        "AUTHOR": wm.blenderkit_author,
     }
     props = props_dict[ui_props.asset_type]
     pcoll = icons.icon_collections["main"]
@@ -4447,7 +4447,7 @@ def header_search_draw(self, context):
         "SCENE": "SCENE_DATA",
         "NODEGROUP": "NODETREE",
         "ADDON": "PLUGIN",
-        "ARTIST": pcoll["asset_type_artist"].icon_id,
+        "AUTHOR": pcoll["asset_type_author"].icon_id,
     }
 
     asset_type_icon = icons_dict[ui_props.asset_type]
@@ -4591,9 +4591,9 @@ def header_search_draw(self, context):
             text="",
             icon_value=icon_id,
         )
-    elif ui_props.asset_type == "ARTIST":
+    elif ui_props.asset_type == "AUTHOR":
         layout.popover(
-            panel="VIEW3D_PT_blenderkit_advanced_artist_search",
+            panel="VIEW3D_PT_blenderkit_advanced_author_search",
             text="",
             icon_value=icon_id,
         )
@@ -4835,7 +4835,7 @@ classes = (
     VIEW3D_PT_blenderkit_advanced_brush_search,
     VIEW3D_PT_blenderkit_advanced_nodegroup_search,
     VIEW3D_PT_blenderkit_advanced_addon_search,
-    VIEW3D_PT_blenderkit_advanced_artist_search,
+    VIEW3D_PT_blenderkit_advanced_author_search,
     VIEW3D_PT_blenderkit_advanced_printable_search,
     VIEW3D_PT_blenderkit_categories,
     VIEW3D_PT_blenderkit_import_settings,
