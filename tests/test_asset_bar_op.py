@@ -27,7 +27,7 @@ for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module
         break
-from . import asset_bar_op
+from . import asset_bar_op, persistent_preferences
 
 
 class TestAssetBarScrollUpdate(unittest.TestCase):
@@ -433,6 +433,50 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         self.assertTrue(dummy.draw_tooltip)
         self.assertEqual(dummy.active_index, 2)
         dummy.hide_tooltip.assert_not_called()
+
+
+class TestPersistentPreferencesCompatibility(unittest.TestCase):
+    def test_uses_json_assetbar_expanded_when_present(self):
+        user_preferences = SimpleNamespace(
+            assetbar_expanded=True,
+            maximized_assetbar_rows=4,
+            is_property_set=Mock(return_value=True),
+        )
+
+        expanded = persistent_preferences.get_legacy_assetbar_expanded_preference(
+            {"assetbar_expanded": False, "maximized_assetbar_rows": 4},
+            user_preferences,
+        )
+
+        self.assertFalse(expanded)
+
+    def test_uses_blender_property_when_json_key_is_missing(self):
+        user_preferences = SimpleNamespace(
+            assetbar_expanded=False,
+            maximized_assetbar_rows=4,
+            is_property_set=Mock(return_value=True),
+        )
+
+        expanded = persistent_preferences.get_legacy_assetbar_expanded_preference(
+            {"maximized_assetbar_rows": 4},
+            user_preferences,
+        )
+
+        self.assertFalse(expanded)
+
+    def test_falls_back_to_saved_row_count_when_property_was_not_persisted(self):
+        user_preferences = SimpleNamespace(
+            assetbar_expanded=True,
+            maximized_assetbar_rows=4,
+            is_property_set=Mock(return_value=False),
+        )
+
+        expanded = persistent_preferences.get_legacy_assetbar_expanded_preference(
+            {"maximized_assetbar_rows": 1},
+            user_preferences,
+        )
+
+        self.assertFalse(expanded)
 
 
 class TestAssetBarResizeHandle(unittest.TestCase):
