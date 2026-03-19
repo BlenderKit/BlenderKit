@@ -211,6 +211,226 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         window.cursor_set.assert_called_once_with("SCROLL_Y")
         self.assertFalse(dummy._resize_cursor_modal_active)
 
+    def test_begin_resize_drag_tracks_active_handle_and_hides_tooltip(self):
+        handle = object()
+        dummy = SimpleNamespace(
+            _active_resize_handle=None,
+            _resize_dragging=False,
+            hide_tooltip=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.begin_resize_drag(
+            dummy, active_handle=handle
+        )
+
+        self.assertIs(dummy._active_resize_handle, handle)
+        self.assertTrue(dummy._resize_dragging)
+        dummy.hide_tooltip.assert_called_once_with()
+
+    def test_end_resize_drag_clears_active_handle_and_restores_cursor(self):
+        dummy = SimpleNamespace(
+            _active_resize_handle=object(),
+            _resize_dragging=True,
+            restore_resize_cursor=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.end_resize_drag(dummy, hovering=False)
+
+        self.assertIsNone(dummy._active_resize_handle)
+        self.assertFalse(dummy._resize_dragging)
+        dummy.restore_resize_cursor.assert_called_once_with(hovering=False)
+
+    def test_preview_assetbar_rows_refreshes_layout_for_changed_rows(self):
+        context = object()
+        dummy = SimpleNamespace(
+            _requested_rows_override=None,
+            clamp_assetbar_rows=Mock(return_value=6),
+            get_requested_assetbar_rows=Mock(return_value=4),
+            _current_layout_context=Mock(return_value=context),
+            _refresh_layout=Mock(),
+            update_resize_handle_labels=Mock(),
+            _redraw_tracked_regions=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.preview_assetbar_rows(dummy, 9)
+
+        self.assertEqual(dummy._requested_rows_override, 6)
+        dummy._refresh_layout.assert_called_once_with(context)
+        dummy.update_resize_handle_labels.assert_called_once_with()
+        dummy._redraw_tracked_regions.assert_called_once_with()
+
+    def test_preview_assetbar_rows_skips_refresh_for_same_rows(self):
+        dummy = SimpleNamespace(
+            _requested_rows_override=None,
+            clamp_assetbar_rows=Mock(return_value=4),
+            get_requested_assetbar_rows=Mock(return_value=4),
+            _current_layout_context=Mock(),
+            _refresh_layout=Mock(),
+            update_resize_handle_labels=Mock(),
+            _redraw_tracked_regions=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.preview_assetbar_rows(dummy, 4)
+
+        self.assertIsNone(dummy._requested_rows_override)
+        dummy._refresh_layout.assert_not_called()
+        dummy.update_resize_handle_labels.assert_not_called()
+        dummy._redraw_tracked_regions.assert_not_called()
+
+    def test_apply_assetbar_rows_updates_preferences_and_refreshes_layout(self):
+        preferences = SimpleNamespace(maximized_assetbar_rows=2)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        context = object()
+        dummy = SimpleNamespace(
+            _requested_rows_override=9,
+            clamp_assetbar_rows=Mock(return_value=5),
+            _current_layout_context=Mock(return_value=context),
+            _refresh_layout=Mock(),
+            update_resize_handle_labels=Mock(),
+            _redraw_tracked_regions=Mock(),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.apply_assetbar_rows(dummy, 7)
+
+        self.assertIsNone(dummy._requested_rows_override)
+        self.assertEqual(preferences.maximized_assetbar_rows, 5)
+        dummy._refresh_layout.assert_called_once_with(context)
+        dummy.update_resize_handle_labels.assert_called_once_with()
+        dummy._redraw_tracked_regions.assert_called_once_with()
+
+    def test_enter_button_ignores_tooltip_updates_while_resizing(self):
+        widget = SimpleNamespace(button_index=0)
+        dummy = SimpleNamespace(
+            _resize_dragging=True,
+            scroll_offset=0,
+            search_results_count=10,
+            active_index=-1,
+            show_tooltip=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.enter_button(dummy, widget)
+
+        self.assertEqual(dummy.active_index, -1)
+        dummy.show_tooltip.assert_not_called()
+
+    def test_exit_button_ignores_tooltip_cleanup_while_resizing(self):
+        widget = SimpleNamespace(button_index=2)
+        dummy = SimpleNamespace(
+            _resize_dragging=True,
+            scroll_offset=0,
+            active_index=2,
+            draw_tooltip=True,
+            hide_tooltip=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.exit_button(dummy, widget)
+
+        self.assertTrue(dummy.draw_tooltip)
+        self.assertEqual(dummy.active_index, 2)
+        dummy.hide_tooltip.assert_not_called()
+
+
+class TestAssetBarResizeHandle(unittest.TestCase):
+    def create_handle(self):
+        operator = SimpleNamespace(
+            get_requested_assetbar_rows=Mock(return_value=4),
+            begin_resize_drag=Mock(),
+            set_resize_drag_cursor=Mock(),
+            preview_assetbar_rows=Mock(),
+            apply_assetbar_rows=Mock(),
+            end_resize_drag=Mock(),
+            get_assetbar_rows_from_drag=Mock(return_value=7),
+            set_resize_hover_cursor=Mock(),
+            restore_resize_cursor=Mock(),
+        )
+        handle = asset_bar_op.AssetBarResizeHandle(10, 20, 30, 40, operator)
+        handle.context = SimpleNamespace(
+            area=SimpleNamespace(height=200),
+            region=SimpleNamespace(x=0, y=0),
+        )
+        return handle, operator
+
+    def test_mouse_down_starts_drag_and_sets_initial_state(self):
+        handle, operator = self.create_handle()
+
+        result = handle.mouse_down(20, 160)
+
+        self.assertTrue(result)
+        self.assertTrue(handle._drag_active)
+        self.assertEqual(handle._drag_start_y, 160)
+        self.assertEqual(handle._drag_start_rows, 4)
+        operator.begin_resize_drag.assert_called_once_with(active_handle=handle)
+        operator.set_resize_drag_cursor.assert_called_once_with()
+
+    def test_mouse_move_previews_rows_while_dragging(self):
+        handle, operator = self.create_handle()
+        handle._drag_active = True
+        handle._drag_start_y = 160
+        handle._drag_start_rows = 4
+        operator.get_assetbar_rows_from_drag.return_value = 6
+
+        handle.mouse_move(20, 120)
+
+        operator.get_assetbar_rows_from_drag.assert_called_once_with(4, 160, 120)
+        operator.preview_assetbar_rows.assert_called_once_with(6)
+
+    def test_mouse_up_inside_applies_rows_and_keeps_hover_cursor(self):
+        handle, operator = self.create_handle()
+        handle._drag_active = True
+        handle._drag_start_y = 160
+        handle._drag_start_rows = 4
+        operator.get_assetbar_rows_from_drag.return_value = 5
+
+        handle.mouse_up(20, 160)
+
+        self.assertFalse(handle._drag_active)
+        operator.apply_assetbar_rows.assert_called_once_with(5)
+        operator.end_resize_drag.assert_called_once_with(hovering=True)
+
+    def test_mouse_up_outside_applies_rows_and_restores_default_cursor(self):
+        handle, operator = self.create_handle()
+        handle._drag_active = True
+        handle._drag_start_y = 160
+        handle._drag_start_rows = 4
+        operator.get_assetbar_rows_from_drag.return_value = 3
+
+        handle.mouse_up(0, 0)
+
+        self.assertFalse(handle._drag_active)
+        operator.apply_assetbar_rows.assert_called_once_with(3)
+        operator.end_resize_drag.assert_called_once_with(hovering=False)
+
+    def test_handle_event_routes_drag_mousemove(self):
+        handle, _operator = self.create_handle()
+        handle._drag_active = True
+        handle._to_widget_region_coords = Mock(return_value=(20, 120))
+        handle.mouse_move = Mock()
+        event = SimpleNamespace(type="MOUSEMOVE")
+
+        result = handle.handle_event(event)
+
+        self.assertTrue(result)
+        handle.mouse_move.assert_called_once_with(20, 120)
+
+    def test_handle_event_routes_drag_release(self):
+        handle, _operator = self.create_handle()
+        handle._drag_active = True
+        handle._to_widget_region_coords = Mock(return_value=(20, 120))
+        handle.mouse_up = Mock()
+        event = SimpleNamespace(type="LEFTMOUSE", value="RELEASE")
+
+        result = handle.handle_event(event)
+
+        self.assertTrue(result)
+        handle.mouse_up.assert_called_once_with(20, 120)
+
 
 class TestAssetBarRowCount(unittest.TestCase):
     def test_keeps_saved_rows_with_no_results_while_search_is_running(self):
