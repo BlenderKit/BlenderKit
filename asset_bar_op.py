@@ -67,6 +67,7 @@ active_area_pointer = 0
 
 ROUNDING_RADIUS = 20
 ASSETBAR_RESIZE_MAX_ROWS = 20
+ASSETBAR_RESIZE_CLICK_THRESHOLD_PX = 5
 
 TOOLTIP_SIZE_PX = 512
 
@@ -118,6 +119,8 @@ class AssetBarResizeHandle(BL_UI_Button):
     ):
         super().__init__(x, y, width, height)
         self.asset_bar_operator = asset_bar_operator
+        self._press_active = False
+        self._press_start_x = 0
         self._drag_active = False
         self._drag_start_y = 0
         self._drag_start_rows = 1
@@ -133,10 +136,31 @@ class AssetBarResizeHandle(BL_UI_Button):
             self._drag_start_rows, self._drag_start_y, mouse_y
         )
 
+    def _start_drag(self):
+        if self._drag_active:
+            return
+        self._drag_active = True
+        self.asset_bar_operator.begin_resize_drag(active_handle=self)
+        self.asset_bar_operator.set_resize_drag_cursor()
+
+    def _drag_threshold_reached(self, x: int, y: int) -> bool:
+        return (
+            abs(x - self._press_start_x) >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+            or abs(y - self._drag_start_y) >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+        )
+
     def handle_event(self, event):
-        if self._drag_active and event.type in {"MOUSEMOVE", "LEFTMOUSE"}:
+        if (self._press_active or self._drag_active) and event.type in {
+            "MOUSEMOVE",
+            "LEFTMOUSE",
+        }:
             x, y = self._to_widget_region_coords(event)
             if event.type == "MOUSEMOVE":
+                if self._press_active and not self._drag_active:
+                    if self._drag_threshold_reached(x, y):
+                        self._start_drag()
+                        self.mouse_move(x, y)
+                    return True
                 self.mouse_move(x, y)
                 return True
             if event.value != "PRESS":
@@ -158,12 +182,11 @@ class AssetBarResizeHandle(BL_UI_Button):
     def mouse_down(self, x, y):
         if not self.is_in_rect(x, y):
             return False
-        self._drag_active = True
+        self._press_active = True
+        self._press_start_x = x
         self._drag_start_y = y
         self._drag_start_rows = self.asset_bar_operator.get_requested_assetbar_rows()
         self._set_button_state(1)
-        self.asset_bar_operator.begin_resize_drag(active_handle=self)
-        self.asset_bar_operator.set_resize_drag_cursor()
         self.text = self._default_text()
         return True
 
@@ -175,15 +198,23 @@ class AssetBarResizeHandle(BL_UI_Button):
         super().mouse_move(x, y)
 
     def mouse_up(self, x, y):
-        if not self._drag_active:
+        if not self._press_active:
             super().mouse_up(x, y)
             return
 
-        target_rows = self._drag_target_rows(y)
-        self._drag_active = False
-        self._set_button_state(2 if self.is_in_rect(x, y) else 0)
-        self.asset_bar_operator.apply_assetbar_rows(target_rows)
-        self.asset_bar_operator.end_resize_drag(hovering=self.is_in_rect(x, y))
+        hovering = self.is_in_rect(x, y)
+        self._press_active = False
+        self._set_button_state(2 if hovering else 0)
+        if self._drag_active:
+            target_rows = self._drag_target_rows(y)
+            self._drag_active = False
+            self.asset_bar_operator.apply_assetbar_rows(target_rows)
+            self.asset_bar_operator.end_resize_drag(hovering=hovering)
+        elif hovering:
+            self.asset_bar_operator.toggle_assetbar_rows()
+            self.asset_bar_operator.restore_resize_cursor(hovering=True)
+        else:
+            self.asset_bar_operator.restore_resize_cursor()
         self.text = self._default_text()
 
 
@@ -851,12 +882,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def clamp_assetbar_rows(self, rows: int, context=None) -> int:
         return max(1, min(rows, self._get_height_limited_rows(context)))
 
+    def get_expanded_assetbar_rows(self) -> int:
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        return self.clamp_assetbar_rows(
+            max(2, int(user_preferences.maximized_assetbar_rows))
+        )
+
     def get_requested_assetbar_rows(self) -> int:
         override_rows = getattr(self, "_requested_rows_override", None)
         if override_rows is not None:
             return self.clamp_assetbar_rows(int(override_rows))
         user_preferences = bpy.context.preferences.addons[__package__].preferences
-        return self.clamp_assetbar_rows(int(user_preferences.maximized_assetbar_rows))
+        if not user_preferences.assetbar_expanded:
+            return 1
+        return self.get_expanded_assetbar_rows()
 
     def get_assetbar_rows_from_drag(
         self, start_rows: int, start_mouse_y: int, current_mouse_y: int
@@ -956,11 +995,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         rows = self.clamp_assetbar_rows(rows)
         self._requested_rows_override = None
         user_preferences = bpy.context.preferences.addons[__package__].preferences
-        if user_preferences.maximized_assetbar_rows != rows:
+        if rows > 1 and user_preferences.maximized_assetbar_rows != rows:
             user_preferences.maximized_assetbar_rows = rows
+        if rows <= 1 and user_preferences.maximized_assetbar_rows < 2:
+            user_preferences.maximized_assetbar_rows = 2
+        user_preferences.assetbar_expanded = rows > 1
         self._refresh_layout(self._current_layout_context())
         self.update_resize_handle_labels()
         self._redraw_tracked_regions()
+
+    def toggle_assetbar_rows(self):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        if user_preferences.assetbar_expanded:
+            self.apply_assetbar_rows(1)
+            return
+        self.apply_assetbar_rows(self.get_expanded_assetbar_rows())
 
     def _reset_resize_state(self):
         self._requested_rows_override = None

@@ -2461,6 +2461,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    assetbar_expanded: BoolProperty(
+        name="Assetbar Expanded",
+        description="Remember whether the assetbar is expanded in the 3D view",
+        default=True,
+        update=utils.save_prefs,
+    )
+
     thumb_size: IntProperty(
         name="Assetbar Thumbnail Size",
         default=96,

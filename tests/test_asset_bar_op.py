@@ -278,7 +278,10 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         dummy._redraw_tracked_regions.assert_not_called()
 
     def test_apply_assetbar_rows_updates_preferences_and_refreshes_layout(self):
-        preferences = SimpleNamespace(maximized_assetbar_rows=2)
+        preferences = SimpleNamespace(
+            maximized_assetbar_rows=2,
+            assetbar_expanded=False,
+        )
         fake_bpy = SimpleNamespace(
             context=SimpleNamespace(
                 preferences=SimpleNamespace(
@@ -301,9 +304,104 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         self.assertIsNone(dummy._requested_rows_override)
         self.assertEqual(preferences.maximized_assetbar_rows, 5)
+        self.assertTrue(preferences.assetbar_expanded)
         dummy._refresh_layout.assert_called_once_with(context)
         dummy.update_resize_handle_labels.assert_called_once_with()
         dummy._redraw_tracked_regions.assert_called_once_with()
+
+    def test_apply_assetbar_rows_keeps_expanded_rows_when_collapsing(self):
+        preferences = SimpleNamespace(
+            maximized_assetbar_rows=5,
+            assetbar_expanded=True,
+        )
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        context = object()
+        dummy = SimpleNamespace(
+            _requested_rows_override=3,
+            clamp_assetbar_rows=Mock(return_value=1),
+            _current_layout_context=Mock(return_value=context),
+            _refresh_layout=Mock(),
+            update_resize_handle_labels=Mock(),
+            _redraw_tracked_regions=Mock(),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.apply_assetbar_rows(dummy, 1)
+
+        self.assertIsNone(dummy._requested_rows_override)
+        self.assertEqual(preferences.maximized_assetbar_rows, 5)
+        self.assertFalse(preferences.assetbar_expanded)
+        dummy._refresh_layout.assert_called_once_with(context)
+
+    def test_get_requested_assetbar_rows_returns_one_when_collapsed(self):
+        preferences = SimpleNamespace(
+            maximized_assetbar_rows=6,
+            assetbar_expanded=False,
+        )
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(
+            _requested_rows_override=None,
+            clamp_assetbar_rows=Mock(side_effect=lambda rows: rows),
+            get_expanded_assetbar_rows=Mock(return_value=6),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            rows = asset_bar_op.BlenderKitAssetBarOperator.get_requested_assetbar_rows(
+                dummy
+            )
+
+        self.assertEqual(rows, 1)
+        dummy.get_expanded_assetbar_rows.assert_not_called()
+
+    def test_toggle_assetbar_rows_collapses_when_expanded(self):
+        preferences = SimpleNamespace(assetbar_expanded=True)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(
+            apply_assetbar_rows=Mock(),
+            get_expanded_assetbar_rows=Mock(return_value=4),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.toggle_assetbar_rows(dummy)
+
+        dummy.apply_assetbar_rows.assert_called_once_with(1)
+
+    def test_toggle_assetbar_rows_expands_to_saved_rows_when_collapsed(self):
+        preferences = SimpleNamespace(assetbar_expanded=False)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(
+            apply_assetbar_rows=Mock(),
+            get_expanded_assetbar_rows=Mock(return_value=4),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.toggle_assetbar_rows(dummy)
+
+        dummy.apply_assetbar_rows.assert_called_once_with(4)
 
     def test_enter_button_ignores_tooltip_updates_while_resizing(self):
         widget = SimpleNamespace(button_index=0)
@@ -345,6 +443,7 @@ class TestAssetBarResizeHandle(unittest.TestCase):
             set_resize_drag_cursor=Mock(),
             preview_assetbar_rows=Mock(),
             apply_assetbar_rows=Mock(),
+            toggle_assetbar_rows=Mock(),
             end_resize_drag=Mock(),
             get_assetbar_rows_from_drag=Mock(return_value=7),
             set_resize_hover_cursor=Mock(),
@@ -357,20 +456,37 @@ class TestAssetBarResizeHandle(unittest.TestCase):
         )
         return handle, operator
 
-    def test_mouse_down_starts_drag_and_sets_initial_state(self):
+    def test_mouse_down_starts_press_and_sets_initial_state(self):
         handle, operator = self.create_handle()
 
         result = handle.mouse_down(20, 160)
 
         self.assertTrue(result)
-        self.assertTrue(handle._drag_active)
+        self.assertTrue(handle._press_active)
+        self.assertFalse(handle._drag_active)
         self.assertEqual(handle._drag_start_y, 160)
         self.assertEqual(handle._drag_start_rows, 4)
+        operator.begin_resize_drag.assert_not_called()
+        operator.set_resize_drag_cursor.assert_not_called()
+
+    def test_handle_event_starts_drag_after_move_threshold(self):
+        handle, operator = self.create_handle()
+        handle.mouse_down(20, 160)
+        handle._to_widget_region_coords = Mock(return_value=(20, 150))
+        operator.get_assetbar_rows_from_drag.return_value = 6
+        event = SimpleNamespace(type="MOUSEMOVE")
+
+        result = handle.handle_event(event)
+
+        self.assertTrue(result)
+        self.assertTrue(handle._drag_active)
         operator.begin_resize_drag.assert_called_once_with(active_handle=handle)
         operator.set_resize_drag_cursor.assert_called_once_with()
+        operator.preview_assetbar_rows.assert_called_once_with(6)
 
     def test_mouse_move_previews_rows_while_dragging(self):
         handle, operator = self.create_handle()
+        handle._press_active = True
         handle._drag_active = True
         handle._drag_start_y = 160
         handle._drag_start_rows = 4
@@ -381,8 +497,21 @@ class TestAssetBarResizeHandle(unittest.TestCase):
         operator.get_assetbar_rows_from_drag.assert_called_once_with(4, 160, 120)
         operator.preview_assetbar_rows.assert_called_once_with(6)
 
+    def test_mouse_up_click_inside_toggles_rows_without_dragging(self):
+        handle, operator = self.create_handle()
+        handle.mouse_down(20, 160)
+
+        handle.mouse_up(20, 160)
+
+        self.assertFalse(handle._press_active)
+        self.assertFalse(handle._drag_active)
+        operator.toggle_assetbar_rows.assert_called_once_with()
+        operator.restore_resize_cursor.assert_called_once_with(hovering=True)
+        operator.apply_assetbar_rows.assert_not_called()
+
     def test_mouse_up_inside_applies_rows_and_keeps_hover_cursor(self):
         handle, operator = self.create_handle()
+        handle._press_active = True
         handle._drag_active = True
         handle._drag_start_y = 160
         handle._drag_start_rows = 4
@@ -396,6 +525,7 @@ class TestAssetBarResizeHandle(unittest.TestCase):
 
     def test_mouse_up_outside_applies_rows_and_restores_default_cursor(self):
         handle, operator = self.create_handle()
+        handle._press_active = True
         handle._drag_active = True
         handle._drag_start_y = 160
         handle._drag_start_rows = 4
@@ -409,6 +539,7 @@ class TestAssetBarResizeHandle(unittest.TestCase):
 
     def test_handle_event_routes_drag_mousemove(self):
         handle, _operator = self.create_handle()
+        handle._press_active = True
         handle._drag_active = True
         handle._to_widget_region_coords = Mock(return_value=(20, 120))
         handle.mouse_move = Mock()
@@ -421,6 +552,7 @@ class TestAssetBarResizeHandle(unittest.TestCase):
 
     def test_handle_event_routes_drag_release(self):
         handle, _operator = self.create_handle()
+        handle._press_active = True
         handle._drag_active = True
         handle._to_widget_region_coords = Mock(return_value=(20, 120))
         handle.mouse_up = Mock()

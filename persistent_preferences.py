@@ -112,6 +112,9 @@ def load_preferences_from_JSON():
     user_preferences.maximized_assetbar_rows = prefs.get(
         "maximized_assetbar_rows", user_preferences.maximized_assetbar_rows
     )
+    user_preferences.assetbar_expanded = prefs.get(
+        "assetbar_expanded", user_preferences.assetbar_expanded
+    )
     user_preferences.search_field_width = prefs.get(
         "search_field_width", user_preferences.search_field_width
     )
