@@ -173,6 +173,7 @@ def get_download_dirs(asset_type):
         "nodegroup": "nodegroups",
         "printable": "printables",
         "addon": "addons",
+        "author": "authors",
     }
 
     dirs = []

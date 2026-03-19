@@ -184,8 +184,9 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         self.img = ui.get_large_thumbnail_image(self.asset_data)
         utils.img_to_preview(self.img, copy_original=True)
 
-        ratings_utils.ensure_rating(self.asset_id)
-        self.prefill_ratings()
+        if self.asset_type != "author":
+            ratings_utils.ensure_rating(self.asset_id)
+            self.prefill_ratings()
 
         # Update last popup activity time to prevent shortcut interference
         from . import ui_panels
@@ -223,6 +224,12 @@ class SetBookmark(bpy.types.Operator):
         return True
 
     def execute(self, context):
+        # Authors cannot be bookmarked
+        sr = search.get_search_results()
+        for r in sr:
+            if r.get("id") == self.asset_id and r.get("assetType") == "author":
+                return {"CANCELLED"}
+
         rating = ratings_utils.get_rating_local(self.asset_id)
         if rating is None:
             rating = datas.AssetRating()

@@ -1358,8 +1358,11 @@ func GetRatings(searchResults SearchResults, data SearchTaskData) {
 	taskUUID := uuid.New().String()
 	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "ratings/get_ratings") // just to send errors effectively, but we do not use any data from this
 	query := ""
-	for i, result := range searchResults.Results {
-		if i == 0 {
+	for _, result := range searchResults.Results {
+		if result.AssetType == "author" {
+			continue
+		}
+		if query == "" {
 			query = fmt.Sprintf("?asset_uuid=%s", result.AssetBaseID)
 		} else {
 			query += fmt.Sprintf("&asset_uuid=%s", result.AssetBaseID)

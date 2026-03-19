@@ -1534,6 +1534,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not utils.profile_is_validator():
             return
 
+        if asset_data.get("assetType") == "author":
+            self.comments.text = ""
+            return
+
         comments = global_vars.DATA.get("asset comments", {})
         comments = comments.get(asset_data["assetBaseId"], [])
         comment_text = "No comments yet."
@@ -1625,6 +1629,48 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         bookmark_button.visible = False
         new_button.bookmark_button = bookmark_button
         self.bookmark_buttons.append(bookmark_button)
+
+        # Artist type icon (top-left corner)
+        artist_button = BL_UI_Button(
+            asset_x + self.button_margin + self.validation_icon_margin,
+            asset_y + self.button_margin + self.validation_icon_margin,
+            self.icon_size,
+            self.icon_size,
+        )
+        artist_button.set_image_size((self.icon_size, self.icon_size))
+        artist_button.set_image_position((0, 0))
+        img_fp = paths.get_addon_thumbnail_path("asset_type_artist.png")
+        artist_button.set_image(img_fp)
+        artist_button.bg_color = fully_transparent_color
+        artist_button.hover_bg_color = self.button_bg_color
+        artist_button.select_bg_color = fully_transparent_color
+        artist_button.visible = False
+        artist_button.button_index = button_idx
+        artist_button.search_index = button_idx
+        artist_button.text = ""
+        artist_button.set_mouse_down(self.show_artist_profile)
+        new_button.artist_button = artist_button
+        self.artist_buttons.append(artist_button)
+
+        # Price label (bottom-left corner, for addons)
+        price_label = BL_UI_Label(
+            asset_x + self.validation_icon_margin,
+            asset_y + self.button_size - self.icon_size - self.validation_icon_margin,
+            self.button_size,
+            self.icon_size,
+        )
+        price_label.text = ""
+        price_label.text_size = max(10, int(self.icon_size * 0.55))
+        price_label.text_color = (1.0, 1.0, 1.0, 1.0)
+        price_label.background = True
+        price_label.use_rounded_background = True
+        price_label.background_corner_radius = (4.0,)
+        price_label.background_padding = (3, 1)
+        price_label.bg_color = colors.PURPLE_PRICE
+        price_label.visible = False
+        new_button.price_label = price_label
+        self.price_labels.append(price_label)
+
         progress_bar = BL_UI_Widget(
             asset_x, asset_y + self.button_size - 6, self.button_size, 6
         )
@@ -1658,6 +1704,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.asset_buttons = []
         self.validation_icons = []
         self.bookmark_buttons = []
+        self.artist_buttons = []
+        self.price_labels = []
         self.progress_bars = []
         self.red_alerts = []
         self.widgets_panel = []
@@ -2649,15 +2697,30 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 button.progress_bar.set_location(
                     asset_x, asset_y + self.button_size - 6
                 )
+                button.artist_button.set_location(
+                    asset_x + self.button_margin + self.validation_icon_margin,
+                    asset_y + self.button_margin + self.validation_icon_margin,
+                )
+                button.price_label.set_location(
+                    asset_x + self.validation_icon_margin,
+                    asset_y
+                    + self.button_size
+                    - self.icon_size
+                    - self.validation_icon_margin,
+                )
                 if asset_idx < len(sr):
                     button.visible = True
                     button.validation_icon.visible = True
                     button.bookmark_button.visible = False
+                    button.artist_button.visible = False
+                    button.price_label.visible = False
                     # button.progress_bar.visible = True
                 else:
                     button.visible = False
                     button.validation_icon.visible = False
                     button.bookmark_button.visible = False
+                    button.artist_button.visible = False
+                    button.price_label.visible = False
                     button.progress_bar.visible = False
                 if utils.profile_is_validator():
                     button.red_alert.set_location(
@@ -2671,6 +2734,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.visible = False
             button.validation_icon.visible = False
             button.bookmark_button.visible = False
+            button.artist_button.visible = False
+            button.price_label.visible = False
             button.progress_bar.visible = False
 
         self.position_active_filter_buttons()
@@ -2754,6 +2819,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # we try to put bookmark_buttons before others, because they're on top
         widgets_panel.extend(self.bookmark_buttons)
         widgets_panel.extend(self.validation_icons)
+        widgets_panel.extend(self.artist_buttons)
+        widgets_panel.extend(self.price_labels)
         widgets_panel.extend(self.progress_bars)
 
         widgets = [self.panel]
@@ -3251,6 +3318,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # hide bookmark button - only when Not bookmarked
         # make sure to transfer some data, to prevent missing attribute
         widget.bookmark_button.asset_index = widget.button_index
+        widget.artist_button.asset_index = widget.button_index
         self.update_bookmark_icon(widget.bookmark_button)
 
     def bookmark_asset(self, widget):
@@ -3265,9 +3333,31 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         sr = search.get_search_results()
         asset_data = sr[widget.asset_index]  # + self.scroll_offset]
+        if asset_data.get("assetType") == "author":
+            return
 
         bpy.ops.wm.blenderkit_bookmark_asset(asset_id=asset_data["id"])
         self.update_bookmark_icon(widget)
+
+    def show_artist_profile(self, widget):
+        """Show the artist profile linked to this button."""
+        sr = search.get_search_results()
+        asset_data = sr[widget.asset_index]  # + self.scroll_offset]
+        author_id = asset_data["id"]
+        int_id = int(author_id)
+        author = global_vars.BKIT_AUTHORS.get(int_id)
+        if author is None:
+            bk_logger.warning("author is none")
+            return
+        # personal site >>
+        # url = author.aboutMeUrl
+
+        # blenderkit site profile >>
+        url = paths.get_author_gallery_url(author_id)
+        if url is None:
+            bk_logger.warning("url is none")
+            return
+        bpy.ops.wm.url_open(url=url)
 
     def drag_drop_asset(self, widget):
         """Start drag and drop operation for the asset linked to this button."""
@@ -3604,6 +3694,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if asset_index >= len(sr):
             return
         asset_data = sr[asset_index]
+        if asset_data.get("assetType") == "author":
+            bookmark_button.visible = False
+            return
         rating = ratings_utils.get_rating_local(asset_data["id"])
         if rating is not None and rating.bookmarks == 1:
             icon = "bookmark_full.png"
@@ -3644,6 +3737,42 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         self._safe_tag_redraw(bpy.context.region)
+
+    def update_price_label(self, asset_button, asset_data: dict):
+        """Update the price label overlay for addon thumbnails."""
+        label = asset_button.price_label
+        if asset_data.get("assetType") != "addon":
+            label.visible = False
+            return
+        # check if we are  in experimental state, if so, show price for all assets, otherwise only for non free ones
+        prefs = bpy.context.preferences.addons[__package__].preferences
+        if not prefs.experimental_features:
+            label.visible = False
+            return
+
+        is_free = asset_data.get("isFree", True)
+        can_download = asset_data.get("canDownload", True)
+        is_for_sale = asset_data.get("isForSale", False)
+        user_price = asset_data.get("userPrice")
+        base_price = asset_data.get("basePrice")
+
+        if is_for_sale and not can_download and user_price:
+            label.text = f" ${user_price} "
+            label.bg_color = colors.GREEN_PRICE
+        elif is_for_sale and not can_download and base_price:
+            label.text = f" ${base_price} "
+            label.bg_color = colors.PURPLE_PRICE
+        elif is_for_sale and can_download:
+            label.text = " Purchased "
+            label.bg_color = colors.PURPLE_PRICE
+        elif not is_free and not is_for_sale:
+            label.text = " Full Plan "
+            label.bg_color = colors.ORANGE_FULL
+        else:
+            label.visible = False
+            return
+
+        label.visible = True
 
     def update_validation_icon(self, asset_button, asset_data: dict):
         """Update the validation icon for each button in asset bar."""
@@ -3710,24 +3839,36 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         continue
                     # update bookmark buttons
                     asset_button.bookmark_button.asset_index = asset_button.asset_index
+                    # update artist profile buttons
+                    asset_button.artist_button.asset_index = asset_button.asset_index
 
                     set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
-                    # Distinguish author cards with a blue border
+                    # Distinguish author cards with a blue border and artist icon
                     if asset_data.get("assetType") == "author":
+                        asset_button.background_border_thickness = 2.0
+                        asset_button.artist_button.visible = True
+                        asset_button.background_corner_radius = 8.0
+                        asset_button.background_padding = [0.0, 0.0]
                         asset_button.background_border = True
                         asset_button.background_border_color = colors.ACTIVE_BLUE
-                        asset_button.background_border_thickness = 5.0
+                        asset_button.use_rounded_background = True
                     else:
                         asset_button.background_border = False
                         asset_button.background_border_color = None
+                        asset_button.artist_button.visible = False
+                        asset_button.use_rounded_background = False
+                        asset_button.background_corner_radius = 0.0
+                        asset_button.background_padding = [0.0, 0.0]
 
                     self.update_validation_icon(asset_button, asset_data)
 
                     self.update_bookmark_icon(asset_button.bookmark_button)
 
                     self.update_progress_bar(asset_button, asset_data)
+
+                    self.update_price_label(asset_button, asset_data)
 
                     if (
                         utils.profile_is_validator()
@@ -3750,6 +3891,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.visible = False
                 asset_button.validation_icon.visible = False
                 asset_button.bookmark_button.visible = False
+                asset_button.artist_button.visible = False
+                asset_button.price_label.visible = False
                 asset_button.progress_bar.visible = False
                 if utils.profile_is_validator():
                     asset_button.red_alert.visible = False
@@ -3812,6 +3955,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         author_name = ""
         if asset_data.get("assetType") == "author":
             author_name = asset_data.get("displayName", "")
+
+        # For author-type cards, show asset type chooser popup
+        if asset_data.get("assetType") == "author":
+            ui_props = bpy.context.window_manager.blenderkitUI
+            # Extract per-type asset counts from author data (assetTypeCounts or ratingsCount)
+            asset_type_counts = asset_data.get("assetTypeCounts", {})
+            if not asset_type_counts:
+                asset_type_counts = asset_data.get("ratingsCount", {})
+            search.AuthorAssetTypePopup._asset_type_counts = asset_type_counts or {}
+            bpy.ops.view3d.blenderkit_author_asset_type_popup(
+                "INVOKE_DEFAULT",
+                author_id=str(author_id),
+                author_name=author_name,
+            )
+            return True
 
         search.search_by_author_id(author_id, author_name)
         self.update_ui_size(bpy.context)

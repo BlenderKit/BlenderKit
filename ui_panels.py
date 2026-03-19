@@ -336,6 +336,19 @@ def draw_panel_addon_search(self, context):
     utils.label_multiline(layout, text=addon_props.report)
 
 
+def draw_panel_artist_search(self, context):
+    wm = context.window_manager
+    ui_props = wm.blenderkitUI
+    artist_props = wm.blenderkit_artist
+
+    layout = self.layout
+    row = layout.row()
+    row.prop(ui_props, "search_keywords", text="", icon="VIEWZOOM")
+    draw_assetbar_show_hide(row, artist_props)
+
+    utils.label_multiline(layout, text=artist_props.report)
+
+
 def draw_panel_nodegroup_upload(self, context):
     layout = self.layout
     ui_props = bpy.context.window_manager.blenderkitUI
@@ -1830,6 +1843,27 @@ class VIEW3D_PT_blenderkit_advanced_addon_search(Panel):
         row.prop(addon_props, "search_installed", text="Installed Only")
 
 
+class VIEW3D_PT_blenderkit_advanced_artist_search(Panel):
+    bl_category = "BlenderKit"
+    bl_idname = "VIEW3D_PT_blenderkit_advanced_artist_search"
+    bl_parent_id = "VIEW3D_PT_blenderkit_unified"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_label = "Search filters"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if not global_vars.CLIENT_RUNNING:
+            return False
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "ARTIST"
+
+    def draw(self, context):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        draw_common_filters(self.layout, ui_props)
+
+
 class VIEW3D_PT_blenderkit_advanced_printable_search(Panel):
     bl_category = "BlenderKit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_printable_search"
@@ -2104,6 +2138,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
         if ui_props.asset_type == "ADDON":
             return draw_panel_addon_search(self, context)
 
+        if ui_props.asset_type == "ARTIST":
+            return draw_panel_artist_search(self, context)
+
     def draw_upload(self, context, layout, ui_props):
         obj = utils.get_active_asset()
         props = getattr(obj, "blenderkit", None)
@@ -2153,6 +2190,10 @@ class VIEW3D_PT_blenderkit_unified(Panel):
                 "wm.url_open", text="Go to BlenderKit Website", icon="URL"
             )
             op.url = paths.BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
+            return
+
+        if ui_props.asset_type == "ARTIST":
+            layout.label(text="Artist profiles are search-only.")
             return
 
 
@@ -2456,7 +2497,7 @@ def draw_asset_context_menu(
     author_id = int(asset_data["author"].get("id"))
     layout.operator_context = "INVOKE_DEFAULT"
 
-    if utils.user_logged_in():
+    if utils.user_logged_in() and asset_data.get("assetType") != "author":
         rating = ratings_utils.get_rating_local(asset_data["id"])
         if rating is None:
             rating = datas.AssetRating()
@@ -2473,7 +2514,7 @@ def draw_asset_context_menu(
         )
         op.asset_id = asset_data["id"]
 
-    if from_panel:
+    if from_panel and asset_data.get("assetType") != "author":
         op = layout.operator(
             "wm.blenderkit_menu_rating_upload", text="Add Rating", icon="SOLO_ON"
         )
@@ -3904,12 +3945,11 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         self.draw_thumbnail_box(left_column, width=int(self.width * split_ratio))
 
-        if (
-            not utils.user_is_owner(asset_data=self.asset_data)
-            and self.asset_data.get("assetType") != "addon"
-        ):
+        if not utils.user_is_owner(asset_data=self.asset_data) and self.asset_data.get(
+            "assetType"
+        ) not in ("addon", "author"):
             # Draw ratings, but not for owners of assets - doesn't make sense.
-            # also addons are now disabled until we figure out how to handle them.
+            # also addons and authors are excluded.
             ratings_box = left_column.box()
             self.prefill_ratings()
             ratings.draw_ratings_menu(self, context, ratings_box)
@@ -3976,7 +4016,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         self.tip = f"Tip: {random.choice(global_vars.TIPS)[0]}"
 
-        if utils.user_logged_in():
+        if utils.user_logged_in() and asset_data.get("assetType") != "author":
             ratings_utils.ensure_rating(self.asset_id)
             # pre-fill ratings
             self.prefill_ratings()
@@ -3989,13 +4029,16 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             user_preferences.asset_popup_counter += 1
         # get comments
         api_key = user_preferences.api_key
-        comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
-        # if comments is None:
-        client_lib.get_comments(asset_data["assetBaseId"], api_key)
+        if asset_data.get("assetType") != "author":
+            comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
+            # if comments is None:
+            client_lib.get_comments(asset_data["assetBaseId"], api_key)
 
-        # TODO: SHOULD BE DONE ONCE COMMENTS TASK IS RETURNED - HOW TO INVOKE REFRESH FROM HANDLE_GET_COMMENTS_TASK
-        comments = global_vars.DATA.get("asset comments", {})
-        self.comments = comments.get(asset_data["assetBaseId"], [])
+            # TODO: SHOULD BE DONE ONCE COMMENTS TASK IS RETURNED - HOW TO INVOKE REFRESH FROM HANDLE_GET_COMMENTS_TASK
+            comments = global_vars.DATA.get("asset comments", {})
+            self.comments = comments.get(asset_data["assetBaseId"], [])
+        else:
+            self.comments = []
 
         return wm.invoke_popup(self, width=self.width)
 
@@ -4389,6 +4432,7 @@ def header_search_draw(self, context):
         "SCENE": wm.blenderkit_scene,
         "NODEGROUP": wm.blenderkit_nodegroup,
         "ADDON": wm.blenderkit_addon,
+        "ARTIST": wm.blenderkit_artist,
     }
     props = props_dict[ui_props.asset_type]
     pcoll = icons.icon_collections["main"]
@@ -4403,6 +4447,7 @@ def header_search_draw(self, context):
         "SCENE": "SCENE_DATA",
         "NODEGROUP": "NODETREE",
         "ADDON": "PLUGIN",
+        "ARTIST": pcoll["asset_type_artist"].icon_id,
     }
 
     asset_type_icon = icons_dict[ui_props.asset_type]
@@ -4543,6 +4588,12 @@ def header_search_draw(self, context):
     elif ui_props.asset_type == "ADDON":
         layout.popover(
             panel="VIEW3D_PT_blenderkit_advanced_addon_search",
+            text="",
+            icon_value=icon_id,
+        )
+    elif ui_props.asset_type == "ARTIST":
+        layout.popover(
+            panel="VIEW3D_PT_blenderkit_advanced_artist_search",
             text="",
             icon_value=icon_id,
         )
@@ -4784,6 +4835,7 @@ classes = (
     VIEW3D_PT_blenderkit_advanced_brush_search,
     VIEW3D_PT_blenderkit_advanced_nodegroup_search,
     VIEW3D_PT_blenderkit_advanced_addon_search,
+    VIEW3D_PT_blenderkit_advanced_artist_search,
     VIEW3D_PT_blenderkit_advanced_printable_search,
     VIEW3D_PT_blenderkit_categories,
     VIEW3D_PT_blenderkit_import_settings,

@@ -17,15 +17,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-import json
 import logging
 import os
-import sys
 import time
 
 import bpy
-
-from . import paths, utils
 
 
 bk_logger = logging.getLogger(__name__)
