@@ -2456,7 +2456,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         name="Assetbar Rows",
         description="Saved row count of the assetbar in the 3D view",
         default=4,
-        min=1,
+        min=2,
         max=asset_bar_op.ASSETBAR_RESIZE_MAX_ROWS,
         update=utils.save_prefs,
     )
@@ -2464,7 +2464,7 @@ In this case you should also set path to your system CA bundle containing proxy'
     assetbar_expanded: BoolProperty(
         name="Assetbar Expanded",
         description="Remember whether the assetbar is expanded in the 3D view",
-        default=True,
+        default=False,
         update=utils.save_prefs,
     )
 

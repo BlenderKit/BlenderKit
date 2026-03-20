@@ -109,6 +109,8 @@ BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 
 
 class AssetBarResizeHandle(BL_UI_Button):
+    """Click to toggle between 1-row and expanded; drag to set the row count."""
+
     def __init__(
         self,
         x,
@@ -900,6 +902,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def get_assetbar_rows_from_drag(
         self, start_rows: int, start_mouse_y: int, current_mouse_y: int
     ) -> int:
+        """Translate vertical mouse drag distance into a target row count."""
         if getattr(self, "button_size", 0) <= 0:
             return self.clamp_assetbar_rows(start_rows)
         row_delta = int(
@@ -915,6 +918,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         is_searching: bool,
         context,
     ) -> int:
+        """Decide how many rows to display based on results, preferences, and screen height."""
         max_rows = min(
             self.get_requested_assetbar_rows(),
             self._get_height_limited_rows(context),
@@ -3192,8 +3196,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # to pass the operator to validation icons
         global asset_bar_operator
         asset_bar_operator = None
-        self._active_resize_handle = None
         self.restore_resize_cursor()
+        self._reset_resize_state()
 
         context.window_manager.event_timer_remove(self._timer)
 
