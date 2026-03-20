@@ -543,6 +543,7 @@ class BlenderKitUIProps(PropertyGroup):
     )
     bar_x_offset: IntProperty(name="Bar X Offset", default=40, min=0, max=5000)
     bar_y_offset: IntProperty(name="Bar Y Offset", default=120, min=0, max=5000)
+    bar_end_offset: IntProperty(name="Bar End Offset", default=0, min=-5000, max=5000)
 
     bar_x: IntProperty(name="Bar X", default=100, min=0, max=5000)
     bar_y: IntProperty(name="Bar Y", default=100, min=50, max=5000)

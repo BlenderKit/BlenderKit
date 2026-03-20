@@ -234,6 +234,238 @@ class AssetBarResizeHandle(BL_UI_Button):
         self.text = self._default_text()
 
 
+class AssetBarWidthHandle(BL_UI_Button):
+    """Invisible edge strip for horizontal width resizing."""
+
+    LEFT = "left"
+    RIGHT = "right"
+
+    def __init__(self, x, y, width, height, asset_bar_operator, side):
+        super().__init__(x, y, width, height)
+        self.asset_bar_operator = asset_bar_operator
+        self.side = side
+        self._press_active = False
+        self._drag_active = False
+        self._drag_start_x = 0
+        self._drag_start_offset = 0
+        self.text = ""
+
+    def _set_button_state(self, state: int):
+        self._BL_UI_Button__state = state
+
+    def handle_event(self, event):
+        if (self._press_active or self._drag_active) and event.type in {
+            "MOUSEMOVE",
+            "LEFTMOUSE",
+        }:
+            mx = event.mouse_region_x
+            if event.type == "MOUSEMOVE":
+                if not self._drag_active:
+                    if (
+                        abs(mx - self._drag_start_x)
+                        >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+                    ):
+                        self._start_drag()
+                if self._drag_active:
+                    self._apply_drag(mx)
+                return True
+            if event.value != "PRESS":
+                x, y = self._to_widget_region_coords(event)
+                self.mouse_up(x, y)
+                return True
+            return True
+        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+            x, y = self._to_widget_region_coords(event)
+            if self.mouse_down_with_event(event, x, y):
+                return True
+        return super().handle_event(event)
+
+    def _start_drag(self):
+        if self._drag_active:
+            return
+        self._drag_active = True
+        self.asset_bar_operator._width_dragging = True
+        self.asset_bar_operator.hide_tooltip()
+        window = self.asset_bar_operator._cursor_window()
+        if window is not None:
+            window.cursor_modal_set("MOVE_X")
+
+    def _apply_drag(self, mx):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        scale = bpy.context.preferences.view.ui_scale
+        dx = (mx - self._drag_start_x) / scale
+        if self.side == self.LEFT:
+            ui_props.bar_x_offset = max(0, int(self._drag_start_offset + dx))
+        else:
+            ui_props.bar_end_offset = int(self._drag_start_offset - dx)
+        context = bpy.context
+        self.asset_bar_operator._refresh_layout(context)
+        self.asset_bar_operator.update_assetbar_layout(context)
+
+    def mouse_enter(self, event, x, y):
+        super().mouse_enter(event, x, y)
+        if not self._drag_active:
+            window = self.asset_bar_operator._cursor_window()
+            if window is not None:
+                window.cursor_set("MOVE_X")
+
+    def mouse_exit(self, event, x, y):
+        super().mouse_exit(event, x, y)
+        if not self._drag_active:
+            window = self.asset_bar_operator._cursor_window()
+            if window is not None:
+                window.cursor_set("DEFAULT")
+
+    def mouse_down_with_event(self, event, x, y):
+        if not self.is_in_rect(x, y):
+            return False
+        self._press_active = True
+        self._drag_start_x = event.mouse_region_x
+        ui_props = bpy.context.window_manager.blenderkitUI
+        if self.side == self.LEFT:
+            self._drag_start_offset = ui_props.bar_x_offset
+        else:
+            self._drag_start_offset = ui_props.bar_end_offset
+        self._set_button_state(1)
+        return True
+
+    def mouse_down(self, x, y):
+        return False
+
+    def mouse_up(self, x, y):
+        if not self._press_active:
+            super().mouse_up(x, y)
+            return
+        hovering = self.is_in_rect(x, y)
+        self._press_active = False
+        self._drag_active = False
+        self.asset_bar_operator._width_dragging = False
+        self._set_button_state(2 if hovering else 0)
+        window = self.asset_bar_operator._cursor_window()
+        if window is not None:
+            window.cursor_modal_restore()
+            window.cursor_set("MOVE_X" if hovering else "DEFAULT")
+
+
+class AssetBarMoveHandle(BL_UI_Button):
+    """Draggable button that moves the asset bar by updating offset properties."""
+
+    def __init__(self, x, y, width, height, asset_bar_operator):
+        super().__init__(x, y, width, height)
+        self.asset_bar_operator = asset_bar_operator
+        self._press_active = False
+        self._drag_active = False
+        self._drag_start_mouse_x = 0
+        self._drag_start_mouse_y = 0
+        self._drag_start_offset_x = 0
+        self._drag_start_offset_y = 0
+        self.text = "✥"
+
+    def _set_button_state(self, state: int):
+        self._BL_UI_Button__state = state
+
+    def handle_event(self, event):
+        if (self._press_active or self._drag_active) and event.type in {
+            "MOUSEMOVE",
+            "LEFTMOUSE",
+        }:
+            mx = event.mouse_region_x
+            my = event.mouse_region_y
+            if event.type == "MOUSEMOVE":
+                if self._press_active and not self._drag_active:
+                    if self._drag_threshold_reached(mx, my):
+                        self._start_drag()
+                self._apply_drag(mx, my)
+                return True
+            if event.value != "PRESS":
+                x, y = self._to_widget_region_coords(event)
+                self.mouse_up(x, y)
+                return True
+            return True
+        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+            x, y = self._to_widget_region_coords(event)
+            if self.mouse_down_with_event(event, x, y):
+                return True
+        return super().handle_event(event)
+
+    def _drag_threshold_reached(self, mx, my):
+        return (
+            abs(mx - self._drag_start_mouse_x) >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+            or abs(my - self._drag_start_mouse_y) >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+        )
+
+    def _start_drag(self):
+        if self._drag_active:
+            return
+        self._drag_active = True
+        self.asset_bar_operator._move_dragging = True
+        self.asset_bar_operator.hide_tooltip()
+        window = self.asset_bar_operator._cursor_window()
+        if window is not None:
+            window.cursor_modal_set("SCROLL_XY")
+
+    def _apply_drag(self, mx, my):
+        if not self._drag_active:
+            return
+        ui_props = bpy.context.window_manager.blenderkitUI
+        scale = bpy.context.preferences.view.ui_scale
+        dx = mx - self._drag_start_mouse_x
+        dy = my - self._drag_start_mouse_y
+        dx_scaled = dx / scale
+        ui_props.bar_x_offset = max(0, int(self._drag_start_offset_x + dx_scaled))
+        ui_props.bar_end_offset = int(self._drag_start_end_offset - dx_scaled)
+        ui_props.bar_y_offset = max(0, int(self._drag_start_offset_y - dy / scale))
+        context = bpy.context
+        self.asset_bar_operator._refresh_layout(context)
+        self.asset_bar_operator.update_assetbar_layout(context)
+
+    def mouse_enter(self, event, x, y):
+        super().mouse_enter(event, x, y)
+        if not self._drag_active:
+            window = self.asset_bar_operator._cursor_window()
+            if window is not None:
+                window.cursor_set("SCROLL_XY")
+
+    def mouse_exit(self, event, x, y):
+        super().mouse_exit(event, x, y)
+        if not self._drag_active:
+            window = self.asset_bar_operator._cursor_window()
+            if window is not None:
+                window.cursor_set("DEFAULT")
+
+    def mouse_down_with_event(self, event, x, y):
+        """Capture raw event coordinates at press time for 1:1 drag tracking."""
+        if not self.is_in_rect(x, y):
+            return False
+        self._press_active = True
+        self._drag_start_mouse_x = event.mouse_region_x
+        self._drag_start_mouse_y = event.mouse_region_y
+        ui_props = bpy.context.window_manager.blenderkitUI
+        self._drag_start_offset_x = ui_props.bar_x_offset
+        self._drag_start_offset_y = ui_props.bar_y_offset
+        self._drag_start_end_offset = ui_props.bar_end_offset
+        self._set_button_state(1)
+        return True
+
+    def mouse_down(self, x, y):
+        return False
+
+    def mouse_up(self, x, y):
+        if not self._press_active:
+            super().mouse_up(x, y)
+            return
+        hovering = self.is_in_rect(x, y)
+        self._press_active = False
+        self._set_button_state(2 if hovering else 0)
+        if self._drag_active:
+            self._drag_active = False
+            self.asset_bar_operator._move_dragging = False
+            window = self.asset_bar_operator._cursor_window()
+            if window is not None:
+                window.cursor_modal_restore()
+                window.cursor_set("SCROLL_XY" if hovering else "DEFAULT")
+
+
 def modal_inside(self, context, event):
     ui_props = bpy.context.window_manager.blenderkitUI
 
@@ -316,6 +548,23 @@ def modal_inside(self, context, event):
     if is_playing != getattr(self, "_animation_playing", False):
         self._animation_playing = is_playing
         self._set_overlays(context, show=is_playing)
+
+    if (
+        self._move_dragging
+        and hasattr(self, "button_move")
+        and event.type in {"MOUSEMOVE", "LEFTMOUSE"}
+    ):
+        if self.button_move.handle_event(event):
+            return {"RUNNING_MODAL"}
+
+    if self._width_dragging and event.type in {"MOUSEMOVE", "LEFTMOUSE"}:
+        for handle in (
+            getattr(self, "edge_left", None),
+            getattr(self, "edge_right", None),
+        ):
+            if handle is not None and (handle._press_active or handle._drag_active):
+                if handle.handle_event(event):
+                    return {"RUNNING_MODAL"}
 
     active_resize_handle = self._active_resize_handle
     if (
@@ -1039,6 +1288,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._resize_dragging = False
         self._resize_cursor_modal_active = False
         self._active_resize_handle = None
+        self._move_dragging = False
+        self._width_dragging = False
 
     def _event_window_coords(self, event):
         if not hasattr(event, "mouse_x") or not hasattr(event, "mouse_y"):
@@ -2066,6 +2317,70 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.widgets_panel.append(self.button_close)
 
+        # Move handle — drag to reposition the asset bar
+        self.button_move = AssetBarMoveHandle(
+            self.bar_width - 2 * self.other_button_size,
+            -self.other_button_size,
+            self.other_button_size,
+            self.other_button_size,
+            self,
+        )
+        self.button_move.bg_color = self.button_bg_color
+        self.button_move.hover_bg_color = self.button_hover_color
+        self.button_move.use_rounded_background = True
+        self.button_move.background_corner_radius = (0, 0, 0, 0)
+        self.button_move.text_size = self.other_button_size * 0.6
+
+        self.widgets_panel.append(self.button_move)
+
+        # Reset button — restore default bar position
+        self.button_reset_position = BL_UI_Button(
+            self.bar_width - 3 * self.other_button_size,
+            -self.other_button_size,
+            self.other_button_size,
+            self.other_button_size,
+        )
+        self.button_reset_position.bg_color = self.button_bg_color
+        self.button_reset_position.hover_bg_color = self.button_hover_color
+        self.button_reset_position.use_rounded_background = True
+        self.button_reset_position.background_corner_radius = (0, 0, 0, 0)
+        self.button_reset_position.text = "⊙"
+        self.button_reset_position.text_size = self.other_button_size * 0.6
+        self.button_reset_position.set_mouse_down(self.reset_bar_position)
+
+        self.widgets_panel.append(self.button_reset_position)
+
+        # Invisible edge strips for width resizing (outside scroll buttons)
+        self.scroll_width = 30
+        edge_width = max(6, self.other_button_size // 4)
+        self.edge_left = AssetBarWidthHandle(
+            -(self.scroll_width + edge_width),
+            0,
+            edge_width,
+            self.bar_height,
+            self,
+            AssetBarWidthHandle.LEFT,
+        )
+        self.edge_left.bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.edge_left.hover_bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.edge_left.select_bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.edge_left.active = True
+        self.widgets_panel.append(self.edge_left)
+
+        self.edge_right = AssetBarWidthHandle(
+            self.bar_width + self.scroll_width,
+            0,
+            edge_width,
+            self.bar_height,
+            self,
+            AssetBarWidthHandle.RIGHT,
+        )
+        self.edge_right.bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.edge_right.hover_bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.edge_right.select_bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.edge_right.active = True
+        self.widgets_panel.append(self.edge_right)
+
         self.resize_handle_width = self.other_button_size
         self.resize_edge_height = max(6, self.other_button_size // 4)
 
@@ -2515,7 +2830,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         base_bar_y = int(self.button_margin + ui_props.bar_y_offset * scale)
         self.bar_y = base_bar_y
 
-        self.bar_end = int(ui_width + 180 + self.other_button_size)
+        self.bar_end = int(
+            ui_width + 180 + self.other_button_size + ui_props.bar_end_offset * scale
+        )
         self.bar_width = int(region.width - self.bar_x - self.bar_end)
         # Quad view and very small regions can shrink the available width below a single
         # thumbnail. Keep the bar wide enough to host at least one column and keep the
@@ -2552,6 +2869,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             context=context,
         )
 
+        if self.hcount > 0 and self.wcount * self.hcount > ASSETBAR_MAX_VISIBLE_ASSETS:
+            self.wcount = max(1, ASSETBAR_MAX_VISIBLE_ASSETS // self.hcount)
+            self.bar_width = min(self.bar_width, self.wcount * self.button_size)
+
         self.base_bar_height = self.button_size * self.hcount + 2 * self.assetbar_margin
         self._update_manufacturer_data(search_results)
         self.bar_height = self.base_bar_height + self.manufacturer_section_height
@@ -2585,8 +2906,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
         )
+        self.button_move.set_location(
+            self.bar_width - 2 * self.other_button_size, -self.other_button_size
+        )
+        self.button_reset_position.set_location(
+            self.bar_width - 3 * self.other_button_size, -self.other_button_size
+        )
         self.button_resize_edge.width = self.bar_width
         self.button_resize_edge.set_location(0, self.bar_height)
+        edge_width = max(6, self.other_button_size // 4)
+        scroll_left_visible = getattr(self.button_scroll_down, "visible", False)
+        scroll_right_visible = getattr(self.button_scroll_up, "visible", False)
+        left_offset = self.scroll_width if scroll_left_visible else 0
+        right_offset = self.scroll_width if scroll_right_visible else 0
+        self.edge_left.height = self.bar_height
+        self.edge_left.set_location(-(left_offset + edge_width), 0)
+        self.edge_right.height = self.bar_height
+        self.edge_right.set_location(self.bar_width + right_offset, 0)
         self.button_expand.set_location(
             self.bar_width - self.other_button_size,
             self.bar_height,
@@ -2603,9 +2939,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Update tab area background position
         self.tab_area_bg.width = self.bar_width
 
-        self.panel.set_location(self.bar_x, self.bar_y)
-
         self.position_manufacturer_buttons()
+
+        # panel.set_location calls layout_widgets which translates all
+        # panel-relative widget.x/y into absolute x_screen/y_screen
+        self.panel.set_location(self.bar_x, self.bar_y)
 
     def update_layout(self, context, event):
         """update UI sizes after their recalculation"""
@@ -2708,9 +3046,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         max_x = self.bar_width - self.assetbar_margin
-        current_left_offset = (
-            self.bar_x + self.assetbar_margin + self.free_button_margin
-        )
+        current_left_offset = self.assetbar_margin + self.free_button_margin
 
         current_row = 0
 
@@ -2759,20 +3095,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             if current_left_offset + width > max_x:
                 current_row += 1
-                current_left_offset = (
-                    self.bar_x + self.assetbar_margin + self.free_button_margin
-                )
+                current_left_offset = self.assetbar_margin + self.free_button_margin
 
-            button.set_location(
-                current_left_offset,
-                (
-                    base_y
-                    - (
-                        current_row
-                        * (self.filter_button_height + self.free_button_margin)
-                    )
-                ),  # offset up from bar
-            )
+            button.x = current_left_offset
+            button.y = base_y - (
+                current_row * (self.filter_button_height + self.free_button_margin)
+            )  # offset up from bar
 
             button.width = width
             button.height = self.filter_button_height
@@ -2786,6 +3114,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.active_filter_height = (current_row + 1) * (
             self.filter_button_height + self.free_button_margin
         )
+        if hasattr(self, "panel"):
+            self.panel.layout_widgets()
 
     # endregion active filters
 
@@ -2899,21 +3229,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         counts = self.manufacturer_counts
 
-        base_y = (
-            self.active_filter_height
-            + self.bar_height
-            + self.other_button_size
-            + self.filter_button_height
-            + (self.free_button_margin * 2)
-        )
         displayed_counts = [counts.get(name, 0) for name in self.manufacturer_names]
 
         min_count = min(displayed_counts) if displayed_counts else 1
         max_count = max(displayed_counts) if displayed_counts else 1
 
-        current_left_offset = (
-            self.bar_x + self.assetbar_margin + self.free_button_margin
-        )
+        current_left_offset = self.assetbar_margin + self.free_button_margin
         for idx, button in enumerate(self.manufacturer_buttons):
             if idx >= len(names):
                 button.visible = False
@@ -2936,10 +3257,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 button.visible = False
                 continue
 
-            button.set_location(
-                current_left_offset,
-                self.filter_button_height + base_y,
-            )
+            button.x = current_left_offset
+            button.y = self.base_bar_height + self.free_button_margin
             button.width = width
             button.height = self.filter_button_height
             button.text = label.upper()
@@ -2953,6 +3272,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.hover_bg_color = (hover_gray, hover_gray, hover_gray, 1.0)
 
             current_left_offset += width + (self.free_button_margin * 2)
+
+        if hasattr(self, "panel"):
+            self.panel.layout_widgets()
 
     # endregion manufacturer
 
@@ -3260,7 +3582,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     # handlers
     def enter_button(self, widget):
         """Handle mouse enter on an asset button."""
-        if self._resize_dragging:
+        if self._resize_dragging or self._move_dragging or self._width_dragging:
             return
         if not hasattr(widget, "button_index") or widget.button_index < 0:
             return  # click on left/right arrow button gave no attr button_index
@@ -3589,7 +3911,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def exit_button(self, widget):
         """Handle mouse exit from an asset button."""
-        if self._resize_dragging:
+        if self._resize_dragging or self._move_dragging or self._width_dragging:
             return
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
         if self.active_index == widget.button_index + self.scroll_offset:
@@ -3672,6 +3994,31 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def cancel_press(self, widget):
         """Handle cancel/close button press."""
         self.finish()
+
+    def reset_bar_position(self, widget):
+        ui_props = bpy.context.window_manager.blenderkitUI
+        current = (
+            ui_props.bar_x_offset,
+            ui_props.bar_y_offset,
+            ui_props.bar_end_offset,
+        )
+        default = (40, 120, 0)
+        saved = getattr(self, "_saved_bar_position", None)
+
+        if current == default and saved is not None:
+            ui_props.bar_x_offset, ui_props.bar_y_offset, ui_props.bar_end_offset = (
+                saved
+            )
+            self._saved_bar_position = None
+        else:
+            self._saved_bar_position = current
+            ui_props.bar_x_offset, ui_props.bar_y_offset, ui_props.bar_end_offset = (
+                default
+            )
+
+        context = bpy.context
+        self._refresh_layout(context)
+        self.update_assetbar_layout(context)
 
     def toggle_expand(self, widget):
         """Toggle the expanded state of the asset bar from the visible button."""
