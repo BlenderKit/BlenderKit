@@ -215,7 +215,39 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         window.cursor_set.assert_called_once_with(asset_bar_op.ASSETBAR_RESIZE_CURSOR)
         self.assertFalse(dummy._resize_cursor_modal_active)
 
-    def test_update_assetbar_layout_positions_resize_edge_strip(self):
+    def test_update_expand_button_icon_uses_up_arrow_when_expanded(self):
+        preferences = SimpleNamespace(assetbar_expanded=True)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(button_expand=SimpleNamespace(text=""))
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.update_expand_button_icon(dummy)
+
+        self.assertEqual(dummy.button_expand.text, "▲")
+
+    def test_update_expand_button_icon_uses_down_arrow_when_collapsed(self):
+        preferences = SimpleNamespace(assetbar_expanded=False)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(button_expand=SimpleNamespace(text=""))
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.update_expand_button_icon(dummy)
+
+        self.assertEqual(dummy.button_expand.text, "▼")
+
+    def test_update_assetbar_layout_positions_resize_edge_strip_and_toggle_button(self):
         dummy = SimpleNamespace(
             scroll_update=Mock(),
             position_and_hide_buttons=Mock(),
@@ -223,10 +255,12 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             button_close=SimpleNamespace(set_location=Mock()),
             other_button_size=40,
             bar_width=320,
-            button_resize_edge=SimpleNamespace(width=0, set_location=Mock()),
+            wcount=1,
+            button_resize_edge=SimpleNamespace(
+                width=0, set_location=Mock(), visible=False
+            ),
             bar_height=180,
-            button_resize=SimpleNamespace(set_location=Mock()),
-            resize_handle_width=40,
+            button_expand=SimpleNamespace(set_location=Mock(), visible=False),
             button_scroll_up=SimpleNamespace(set_location=Mock()),
             panel=SimpleNamespace(width=0, height=0, set_location=Mock()),
             tab_area_bg=SimpleNamespace(width=0),
@@ -235,9 +269,14 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             position_manufacturer_buttons=Mock(),
         )
 
-        asset_bar_op.BlenderKitAssetBarOperator.update_assetbar_layout(
-            dummy, context=object()
-        )
+        with patch.object(
+            asset_bar_op.search,
+            "get_active_history_step",
+            return_value={"search_results": [{"id": 1}, {"id": 2}]},
+        ):
+            asset_bar_op.BlenderKitAssetBarOperator.update_assetbar_layout(
+                dummy, context=object()
+            )
 
         dummy.scroll_update.assert_called_once_with(
             always=True,
@@ -245,7 +284,16 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         )
         self.assertEqual(dummy.button_resize_edge.width, 320)
         dummy.button_resize_edge.set_location.assert_called_once_with(0, 180)
-        dummy.button_resize.set_location.assert_called_once_with(280, 180)
+        dummy.button_expand.set_location.assert_called_once_with(280, 180)
+        self.assertTrue(dummy.button_expand.visible)
+        self.assertTrue(dummy.button_resize_edge.visible)
+
+    def test_toggle_expand_delegates_to_toggle_assetbar_rows(self):
+        dummy = SimpleNamespace(toggle_assetbar_rows=Mock())
+
+        asset_bar_op.BlenderKitAssetBarOperator.toggle_expand(dummy, widget=object())
+
+        dummy.toggle_assetbar_rows.assert_called_once_with()
 
     def test_begin_resize_drag_tracks_active_handle_and_hides_tooltip(self):
         handle = object()
@@ -284,7 +332,6 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             get_requested_assetbar_rows=Mock(return_value=4),
             _current_layout_context=Mock(return_value=context),
             _refresh_layout=Mock(),
-            update_resize_handle_labels=Mock(),
             _redraw_tracked_regions=Mock(),
         )
 
@@ -292,7 +339,6 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         self.assertEqual(dummy._requested_rows_override, 6)
         dummy._refresh_layout.assert_called_once_with(context)
-        dummy.update_resize_handle_labels.assert_called_once_with()
         dummy._redraw_tracked_regions.assert_called_once_with()
 
     def test_preview_assetbar_rows_skips_refresh_for_same_rows(self):
@@ -302,7 +348,6 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             get_requested_assetbar_rows=Mock(return_value=4),
             _current_layout_context=Mock(),
             _refresh_layout=Mock(),
-            update_resize_handle_labels=Mock(),
             _redraw_tracked_regions=Mock(),
         )
 
@@ -310,7 +355,6 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         self.assertIsNone(dummy._requested_rows_override)
         dummy._refresh_layout.assert_not_called()
-        dummy.update_resize_handle_labels.assert_not_called()
         dummy._redraw_tracked_regions.assert_not_called()
 
     def test_apply_assetbar_rows_updates_preferences_and_refreshes_layout(self):
@@ -331,7 +375,7 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             clamp_assetbar_rows=Mock(return_value=5),
             _current_layout_context=Mock(return_value=context),
             _refresh_layout=Mock(),
-            update_resize_handle_labels=Mock(),
+            update_expand_button_icon=Mock(),
             _redraw_tracked_regions=Mock(),
         )
 
@@ -342,7 +386,7 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         self.assertEqual(preferences.maximized_assetbar_rows, 5)
         self.assertTrue(preferences.assetbar_expanded)
         dummy._refresh_layout.assert_called_once_with(context)
-        dummy.update_resize_handle_labels.assert_called_once_with()
+        dummy.update_expand_button_icon.assert_called_once_with()
         dummy._redraw_tracked_regions.assert_called_once_with()
 
     def test_apply_assetbar_rows_keeps_expanded_rows_when_collapsing(self):
@@ -363,7 +407,7 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             clamp_assetbar_rows=Mock(return_value=1),
             _current_layout_context=Mock(return_value=context),
             _refresh_layout=Mock(),
-            update_resize_handle_labels=Mock(),
+            update_expand_button_icon=Mock(),
             _redraw_tracked_regions=Mock(),
         )
 
@@ -374,6 +418,7 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         self.assertEqual(preferences.maximized_assetbar_rows, 5)
         self.assertFalse(preferences.assetbar_expanded)
         dummy._refresh_layout.assert_called_once_with(context)
+        dummy.update_expand_button_icon.assert_called_once_with()
 
     def test_get_requested_assetbar_rows_returns_one_when_collapsed(self):
         preferences = SimpleNamespace(
@@ -634,16 +679,13 @@ class TestAssetBarResizeHandle(unittest.TestCase):
         operator.restore_resize_cursor.assert_called_once_with(hovering=True)
         operator.apply_assetbar_rows.assert_not_called()
 
-    def test_mouse_up_click_inside_on_edge_handle_does_not_toggle_rows(self):
-        handle, operator = self.create_handle(
-            show_label=False,
-            click_to_toggle=False,
-        )
+    def test_mouse_up_click_inside_on_edge_handle_toggles_rows(self):
+        handle, operator = self.create_handle(show_label=False)
         handle.mouse_down(20, 160)
 
         handle.mouse_up(20, 160)
 
-        operator.toggle_assetbar_rows.assert_not_called()
+        operator.toggle_assetbar_rows.assert_called_once_with()
         operator.restore_resize_cursor.assert_called_once_with(hovering=True)
         operator.apply_assetbar_rows.assert_not_called()
 

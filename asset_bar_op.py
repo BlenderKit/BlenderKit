@@ -110,7 +110,7 @@ BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 
 
 class AssetBarResizeHandle(BL_UI_Button):
-    """Click to toggle between 1-row and expanded; drag to set the row count."""
+    """Thin edge strip that toggles on click and resizes on drag."""
 
     def __init__(
         self,
@@ -954,8 +954,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return max(1, min(max_rows, row_count))
         return 1
 
-    def update_resize_handle_labels(self):
-        self.button_resize.text = self.button_resize._default_text()
+    def update_expand_button_icon(self):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        self.button_expand.text = "▲" if user_preferences.assetbar_expanded else "▼"
 
     def _cursor_window(self):
         context_window = getattr(bpy.context, "window", None)
@@ -1011,7 +1012,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
         self._requested_rows_override = rows
         self._refresh_layout(self._current_layout_context())
-        self.update_resize_handle_labels()
         self._redraw_tracked_regions()
 
     def apply_assetbar_rows(self, rows: int):
@@ -1024,7 +1024,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             user_preferences.maximized_assetbar_rows = 2
         user_preferences.assetbar_expanded = rows > 1
         self._refresh_layout(self._current_layout_context())
-        self.update_resize_handle_labels()
+        self.update_expand_button_icon()
         self._redraw_tracked_regions()
 
     def toggle_assetbar_rows(self):
@@ -2076,7 +2076,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.resize_edge_height,
             self,
             show_label=False,
-            click_to_toggle=False,
         )
         self.button_resize_edge.bg_color = (0.0, 0.0, 0.0, 0.0)
         self.button_resize_edge.hover_bg_color = (0.0, 0.0, 0.0, 0.0)
@@ -2084,24 +2083,29 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_resize_edge.active = True
         self.widgets_panel.append(self.button_resize_edge)
 
-        self.button_resize = AssetBarResizeHandle(
-            self.bar_width - self.resize_handle_width,
+        self.button_expand = BL_UI_Button(
+            self.bar_width - self.other_button_size,
             self.bar_height,
-            self.resize_handle_width,
             self.other_button_size,
-            self,
+            self.other_button_size,
         )
-        self.button_resize.bg_color = self.button_bg_color
-        self.button_resize.hover_bg_color = self.button_hover_color
-        self.button_resize.text_size = self.other_button_size * 0.6
-        self.button_resize.use_rounded_background = True
-        self.button_resize.background_corner_radius = (
+        self.button_expand.bg_color = self.button_bg_color
+        self.button_expand.hover_bg_color = self.button_hover_color
+        self.button_expand.text = ""
+        self.button_expand.text_size = self.other_button_size * 0.8
+        self.button_expand.use_rounded_background = True
+        self.button_expand.background_corner_radius = (
             0,
             0,
             ROUNDING_RADIUS,
             ROUNDING_RADIUS,
         )
-        self.widgets_panel.append(self.button_resize)
+        self.button_expand.set_image_position((0, 0))
+        self.button_expand.set_image_size(
+            (self.other_button_size, self.other_button_size)
+        )
+        self.button_expand.set_mouse_down(self.toggle_expand)
+        self.widgets_panel.append(self.button_expand)
 
         self.scroll_width = 30
         self.button_scroll_down = BL_UI_Button(
@@ -2583,10 +2587,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         self.button_resize_edge.width = self.bar_width
         self.button_resize_edge.set_location(0, self.bar_height)
-        self.button_resize.set_location(
-            self.bar_width - self.resize_handle_width,
+        self.button_expand.set_location(
+            self.bar_width - self.other_button_size,
             self.bar_height,
         )
+        history_step = search.get_active_history_step()
+        search_results = history_step.get("search_results") or []
+        edge_visible = len(search_results) > self.wcount
+        self.button_expand.visible = edge_visible
+        self.button_resize_edge.visible = edge_visible
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
@@ -2646,7 +2655,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Update tab icons
         self.update_tab_icons()
 
-        self.update_resize_handle_labels()
+        self.update_expand_button_icon()
 
     def update_tab_icons(self):
         """Update tab icons based on the active history step's asset type"""
@@ -3663,6 +3672,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def cancel_press(self, widget):
         """Handle cancel/close button press."""
         self.finish()
+
+    def toggle_expand(self, widget):
+        """Toggle the expanded state of the asset bar from the visible button."""
+        self.toggle_assetbar_rows()
 
     def handle_key_input(self, event):
         """Handle keyboard shortcuts for asset bar operations."""
