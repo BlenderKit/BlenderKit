@@ -1,7 +1,11 @@
 coverage:
   status:
-    project: off
-    patch: off
-comment: false
+    project:
+      default:
+        target: auto
+    patch:
+      default:
+        target: auto
+comment: true
 fixes:
   - "/home/runner/.config/blender/*/scripts/addons/::"
