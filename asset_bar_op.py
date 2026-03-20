@@ -2004,6 +2004,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.bar_width,
             self.bar_height,  # Use total height including tabs
         )
+        self.panel.drag_enabled = False
         self.panel.bg_color = (0.0, 0.0, 0.0, 0.9)
 
         # Create tab area background

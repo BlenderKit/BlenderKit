@@ -51,6 +51,34 @@ class TestAssetBarScrollUpdate(unittest.TestCase):
 
 
 class TestAssetBarPositioning(unittest.TestCase):
+    def test_drag_panel_mouse_down_ignored_when_drag_disabled(self):
+        panel = SimpleNamespace(
+            drag_enabled=False,
+            is_drag=False,
+            child_widget_focused=Mock(return_value=False),
+            is_in_rect=Mock(return_value=True),
+            get_area_height=Mock(return_value=100),
+        )
+
+        handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 10, 10)
+
+        self.assertFalse(handled)
+        self.assertFalse(panel.is_drag)
+
+    def test_drag_panel_mouse_move_ignored_when_drag_disabled(self):
+        panel = SimpleNamespace(
+            drag_enabled=False,
+            is_drag=True,
+            get_area_height=Mock(return_value=100),
+            update=Mock(),
+            layout_widgets=Mock(),
+        )
+
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 10, 10)
+
+        panel.update.assert_not_called()
+        panel.layout_widgets.assert_not_called()
+
     def test_positioning_clears_stale_validation_icons(self):
         validation_icon = SimpleNamespace(visible=True, set_location=Mock())
         bookmark_button = SimpleNamespace(visible=True, set_location=Mock())
