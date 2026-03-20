@@ -625,6 +625,23 @@ class TestAssetBarResizeHandle(unittest.TestCase):
         handle.mouse_up.assert_called_once_with(20, 120)
 
 
+class TestAssetBarRowLimit(unittest.TestCase):
+    def test_row_limit_is_based_on_visible_asset_cap(self):
+        dummy = SimpleNamespace(wcount=10)
+        limit = asset_bar_op.BlenderKitAssetBarOperator._get_row_limit(dummy)
+        self.assertEqual(limit, 20)
+
+    def test_row_limit_scales_with_narrow_layout(self):
+        dummy = SimpleNamespace(wcount=4)
+        limit = asset_bar_op.BlenderKitAssetBarOperator._get_row_limit(dummy)
+        self.assertEqual(limit, 50)
+
+    def test_row_limit_falls_back_when_wcount_is_zero(self):
+        dummy = SimpleNamespace(wcount=0)
+        limit = asset_bar_op.BlenderKitAssetBarOperator._get_row_limit(dummy)
+        self.assertEqual(limit, asset_bar_op.ASSETBAR_MAX_VISIBLE_ASSETS)
+
+
 class TestAssetBarRowCount(unittest.TestCase):
     def test_keeps_saved_rows_with_no_results_while_search_is_running(self):
         dummy = SimpleNamespace(

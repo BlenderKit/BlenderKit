@@ -2457,7 +2457,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         description="Saved row count of the assetbar in the 3D view",
         default=4,
         min=2,
-        max=asset_bar_op.ASSETBAR_RESIZE_MAX_ROWS,
+        max=asset_bar_op.ASSETBAR_MAX_VISIBLE_ASSETS,
         update=utils.save_prefs,
     )
 

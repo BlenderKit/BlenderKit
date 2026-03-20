@@ -66,7 +66,7 @@ THUMBNAIL_TYPES = [
 active_area_pointer = 0
 
 ROUNDING_RADIUS = 20
-ASSETBAR_RESIZE_MAX_ROWS = 20
+ASSETBAR_MAX_VISIBLE_ASSETS = 200
 ASSETBAR_RESIZE_CLICK_THRESHOLD_PX = 5
 
 TOOLTIP_SIZE_PX = 512
@@ -861,7 +861,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return self._build_context_snapshot(bpy.context, area, region)
 
     def _get_row_limit(self) -> int:
-        return ASSETBAR_RESIZE_MAX_ROWS
+        wcount = getattr(self, "wcount", 0)
+        if wcount > 0:
+            return math.ceil(ASSETBAR_MAX_VISIBLE_ASSETS / wcount)
+        return ASSETBAR_MAX_VISIBLE_ASSETS
 
     def _get_height_limited_rows(self, context=None) -> int:
         context = (
