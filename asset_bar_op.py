@@ -67,6 +67,7 @@ active_area_pointer = 0
 
 ROUNDING_RADIUS = 20
 ASSETBAR_MAX_VISIBLE_ASSETS = 200
+ASSETBAR_RESIZE_CURSOR = "MOVE_Y"
 ASSETBAR_RESIZE_CLICK_THRESHOLD_PX = 5
 
 TOOLTIP_SIZE_PX = 512
@@ -118,20 +119,33 @@ class AssetBarResizeHandle(BL_UI_Button):
         width,
         height,
         asset_bar_operator,
+        *,
+        show_label=True,
+        click_to_toggle=True,
     ):
         super().__init__(x, y, width, height)
         self.asset_bar_operator = asset_bar_operator
+        self.show_label = show_label
+        self.click_to_toggle = click_to_toggle
         self._press_active = False
         self._press_start_x = 0
         self._drag_active = False
         self._drag_start_y = 0
         self._drag_start_rows = 1
+        self.text = self._default_text()
 
     def _set_button_state(self, state: int):
         self._BL_UI_Button__state = state
 
     def _default_text(self) -> str:
+        if not self.show_label:
+            return ""
         return "↕"
+
+    def draw_text(self, area_height):
+        if not self.show_label:
+            return
+        super().draw_text(area_height)
 
     def _drag_target_rows(self, mouse_y: int) -> int:
         return self.asset_bar_operator.get_assetbar_rows_from_drag(
@@ -212,11 +226,11 @@ class AssetBarResizeHandle(BL_UI_Button):
             self._drag_active = False
             self.asset_bar_operator.apply_assetbar_rows(target_rows)
             self.asset_bar_operator.end_resize_drag(hovering=hovering)
-        elif hovering:
+        elif hovering and self.click_to_toggle:
             self.asset_bar_operator.toggle_assetbar_rows()
             self.asset_bar_operator.restore_resize_cursor(hovering=True)
         else:
-            self.asset_bar_operator.restore_resize_cursor()
+            self.asset_bar_operator.restore_resize_cursor(hovering=hovering)
         self.text = self._default_text()
 
 
@@ -753,7 +767,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     bl_label = "BlenderKit asset bar refresh"
     bl_description = "BlenderKit asset bar refresh"
     bl_options = {"REGISTER"}
-    instances = []
+    instances: list["BlenderKitAssetBarOperator"] = []
     _requested_rows_override: Optional[int]
 
     do_search: BoolProperty(  # type: ignore[valid-type]
@@ -958,13 +972,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         window = self._cursor_window()
         if window is None:
             return
-        window.cursor_set("SCROLL_Y")
+        window.cursor_set(ASSETBAR_RESIZE_CURSOR)
 
     def set_resize_drag_cursor(self):
         window = self._cursor_window()
         if window is None:
             return
-        window.cursor_modal_set("SCROLL_Y")
+        window.cursor_modal_set(ASSETBAR_RESIZE_CURSOR)
         self._resize_cursor_modal_active = True
 
     def restore_resize_cursor(self, *, hovering=False):
@@ -975,7 +989,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             window.cursor_modal_restore()
             self._resize_cursor_modal_active = False
         cursor_name = (
-            "SCROLL_Y" if hovering and not self._resize_dragging else "DEFAULT"
+            ASSETBAR_RESIZE_CURSOR
+            if hovering and not self._resize_dragging
+            else "DEFAULT"
         )
         window.cursor_set(cursor_name)
 
@@ -2051,6 +2067,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel.append(self.button_close)
 
         self.resize_handle_width = self.other_button_size
+        self.resize_edge_height = max(6, self.other_button_size // 4)
+
+        self.button_resize_edge = AssetBarResizeHandle(
+            0,
+            self.bar_height,
+            self.bar_width,
+            self.resize_edge_height,
+            self,
+            show_label=False,
+            click_to_toggle=False,
+        )
+        self.button_resize_edge.bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.button_resize_edge.hover_bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.button_resize_edge.select_bg_color = (0.0, 0.0, 0.0, 0.0)
+        self.button_resize_edge.active = True
+        self.widgets_panel.append(self.button_resize_edge)
 
         self.button_resize = AssetBarResizeHandle(
             self.bar_width - self.resize_handle_width,
@@ -2549,6 +2581,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
         )
+        self.button_resize_edge.width = self.bar_width
+        self.button_resize_edge.set_location(0, self.bar_height)
         self.button_resize.set_location(
             self.bar_width - self.resize_handle_width,
             self.bar_height,

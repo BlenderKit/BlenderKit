@@ -55,12 +55,14 @@ class TestAssetBarPositioning(unittest.TestCase):
         validation_icon = SimpleNamespace(visible=True, set_location=Mock())
         bookmark_button = SimpleNamespace(visible=True, set_location=Mock())
         progress_bar = SimpleNamespace(visible=True, set_location=Mock())
+        author_button = SimpleNamespace(visible=True, set_location=Mock())
         asset_button = SimpleNamespace(
             visible=False,
             button_index=0,
             validation_icon=validation_icon,
             bookmark_button=bookmark_button,
             progress_bar=progress_bar,
+            author_button=author_button,
             red_alert=SimpleNamespace(visible=True, set_location=Mock()),
             set_location=Mock(),
         )
@@ -170,7 +172,7 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         asset_bar_op.BlenderKitAssetBarOperator.set_resize_hover_cursor(dummy)
 
-        window.cursor_set.assert_called_once_with("SCROLL_Y")
+        window.cursor_set.assert_called_once_with(asset_bar_op.ASSETBAR_RESIZE_CURSOR)
 
     def test_set_resize_hover_cursor_ignores_dragging(self):
         window = Mock()
@@ -192,7 +194,9 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         asset_bar_op.BlenderKitAssetBarOperator.set_resize_drag_cursor(dummy)
 
-        window.cursor_modal_set.assert_called_once_with("SCROLL_Y")
+        window.cursor_modal_set.assert_called_once_with(
+            asset_bar_op.ASSETBAR_RESIZE_CURSOR
+        )
         self.assertTrue(dummy._resize_cursor_modal_active)
 
     def test_restore_resize_cursor_restores_modal_cursor(self):
@@ -208,8 +212,40 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         )
 
         window.cursor_modal_restore.assert_called_once_with()
-        window.cursor_set.assert_called_once_with("SCROLL_Y")
+        window.cursor_set.assert_called_once_with(asset_bar_op.ASSETBAR_RESIZE_CURSOR)
         self.assertFalse(dummy._resize_cursor_modal_active)
+
+    def test_update_assetbar_layout_positions_resize_edge_strip(self):
+        dummy = SimpleNamespace(
+            scroll_update=Mock(),
+            position_and_hide_buttons=Mock(),
+            update_buttons=Mock(),
+            button_close=SimpleNamespace(set_location=Mock()),
+            other_button_size=40,
+            bar_width=320,
+            button_resize_edge=SimpleNamespace(width=0, set_location=Mock()),
+            bar_height=180,
+            button_resize=SimpleNamespace(set_location=Mock()),
+            resize_handle_width=40,
+            button_scroll_up=SimpleNamespace(set_location=Mock()),
+            panel=SimpleNamespace(width=0, height=0, set_location=Mock()),
+            tab_area_bg=SimpleNamespace(width=0),
+            bar_x=12,
+            bar_y=34,
+            position_manufacturer_buttons=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.update_assetbar_layout(
+            dummy, context=object()
+        )
+
+        dummy.scroll_update.assert_called_once_with(
+            always=True,
+            update_visible_buttons=False,
+        )
+        self.assertEqual(dummy.button_resize_edge.width, 320)
+        dummy.button_resize_edge.set_location.assert_called_once_with(0, 180)
+        dummy.button_resize.set_location.assert_called_once_with(280, 180)
 
     def test_begin_resize_drag_tracks_active_handle_and_hides_tooltip(self):
         handle = object()
@@ -492,7 +528,7 @@ class TestAssetBarResizeHandle(unittest.TestCase):
         widget._text = ""
         widget._BL_UI_Button__state = 0
 
-    def create_handle(self):
+    def create_handle(self, **kwargs):
         operator = SimpleNamespace(
             get_requested_assetbar_rows=Mock(return_value=4),
             begin_resize_drag=Mock(),
@@ -510,12 +546,40 @@ class TestAssetBarResizeHandle(unittest.TestCase):
             "__init__",
             new=self._fake_button_init,
         ):
-            handle = asset_bar_op.AssetBarResizeHandle(10, 20, 30, 40, operator)
+            handle = asset_bar_op.AssetBarResizeHandle(
+                10,
+                20,
+                30,
+                40,
+                operator,
+                **kwargs,
+            )
         handle.context = SimpleNamespace(
             area=SimpleNamespace(height=200),
             region=SimpleNamespace(x=0, y=0, height=200),
         )
         return handle, operator
+
+    def test_default_text_is_hidden_for_edge_handle(self):
+        handle, _operator = self.create_handle(show_label=False)
+
+        self.assertEqual(handle._default_text(), "")
+
+    def test_draw_text_skips_hidden_edge_handle_label(self):
+        handle, _operator = self.create_handle(show_label=False)
+
+        with patch.object(asset_bar_op.BL_UI_Button, "draw_text") as draw_text:
+            handle.draw_text(area_height=200)
+
+        draw_text.assert_not_called()
+
+    def test_draw_text_uses_button_label_when_visible(self):
+        handle, _operator = self.create_handle()
+
+        with patch.object(asset_bar_op.BL_UI_Button, "draw_text") as draw_text:
+            handle.draw_text(area_height=200)
+
+        draw_text.assert_called_once_with(200)
 
     def test_mouse_down_starts_press_and_sets_initial_state(self):
         handle, operator = self.create_handle()
@@ -567,6 +631,19 @@ class TestAssetBarResizeHandle(unittest.TestCase):
         self.assertFalse(handle._press_active)
         self.assertFalse(handle._drag_active)
         operator.toggle_assetbar_rows.assert_called_once_with()
+        operator.restore_resize_cursor.assert_called_once_with(hovering=True)
+        operator.apply_assetbar_rows.assert_not_called()
+
+    def test_mouse_up_click_inside_on_edge_handle_does_not_toggle_rows(self):
+        handle, operator = self.create_handle(
+            show_label=False,
+            click_to_toggle=False,
+        )
+        handle.mouse_down(20, 160)
+
+        handle.mouse_up(20, 160)
+
+        operator.toggle_assetbar_rows.assert_not_called()
         operator.restore_resize_cursor.assert_called_once_with(hovering=True)
         operator.apply_assetbar_rows.assert_not_called()
 
