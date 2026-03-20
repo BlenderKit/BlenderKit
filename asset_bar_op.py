@@ -4007,6 +4007,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_button_overlays(self, asset_button, asset_data):
         if asset_data.get("assetType") == "author":
+            # Distinguish author cards with a blue border and author icon.
             asset_button.background_border_thickness = 3.0
             asset_button.author_button.visible = True
             asset_button.background_corner_radius = 12.0
