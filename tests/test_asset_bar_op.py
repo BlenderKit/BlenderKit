@@ -51,14 +51,49 @@ class TestAssetBarScrollUpdate(unittest.TestCase):
 
 
 class TestAssetBarPositioning(unittest.TestCase):
-    def test_drag_panel_mouse_down_ignored_when_drag_disabled(self):
+    def create_drag_panel(self, *, drag_enabled=False, is_drag=False):
         panel = SimpleNamespace(
-            drag_enabled=False,
-            is_drag=False,
+            drag_enabled=drag_enabled,
+            is_drag=is_drag,
+            resize_enabled=False,
+            resize_edges=set(),
+            resize_handle_size=0,
+            resize_threshold_px=0,
+            is_resize=False,
+            resize_press_active=False,
+            resize_hover_edge=None,
+            active_resize_edge=None,
+            resize_start_x=0,
+            resize_start_y=0,
+            x_screen=0,
+            y_screen=0,
+            width=100,
+            height=50,
+            widgets=[],
             child_widget_focused=Mock(return_value=False),
-            is_in_rect=Mock(return_value=True),
             get_area_height=Mock(return_value=100),
+            is_in_rect=Mock(return_value=True),
+            update=Mock(),
+            layout_widgets=Mock(),
         )
+        panel._call_resize_callback = lambda callback_name, *args: (
+            asset_bar_op.BL_UI_Drag_Panel._call_resize_callback(
+                panel, callback_name, *args
+            )
+        )
+        panel._resize_threshold_reached = lambda x, y: (
+            asset_bar_op.BL_UI_Drag_Panel._resize_threshold_reached(panel, x, y)
+        )
+        panel._edge_hit_test = (
+            lambda x, y: asset_bar_op.BL_UI_Drag_Panel._edge_hit_test(panel, x, y)
+        )
+        panel._update_resize_hover = lambda x, y: (
+            asset_bar_op.BL_UI_Drag_Panel._update_resize_hover(panel, x, y)
+        )
+        return panel
+
+    def test_drag_panel_mouse_down_ignored_when_drag_disabled(self):
+        panel = self.create_drag_panel(drag_enabled=False)
 
         handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 10, 10)
 
@@ -66,13 +101,7 @@ class TestAssetBarPositioning(unittest.TestCase):
         self.assertFalse(panel.is_drag)
 
     def test_drag_panel_mouse_move_ignored_when_drag_disabled(self):
-        panel = SimpleNamespace(
-            drag_enabled=False,
-            is_drag=True,
-            get_area_height=Mock(return_value=100),
-            update=Mock(),
-            layout_widgets=Mock(),
-        )
+        panel = self.create_drag_panel(drag_enabled=False, is_drag=True)
 
         asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 10, 10)
 
@@ -181,7 +210,8 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             _requested_rows_override=4,
             _resize_dragging=True,
             _resize_cursor_modal_active=True,
-            _active_resize_handle=object(),
+            _resize_drag_start_rows=7,
+            _resize_drag_start_y=55,
         )
 
         asset_bar_op.BlenderKitAssetBarOperator._reset_resize_state(dummy)
@@ -189,7 +219,8 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         self.assertIsNone(dummy._requested_rows_override)
         self.assertFalse(dummy._resize_dragging)
         self.assertFalse(dummy._resize_cursor_modal_active)
-        self.assertIsNone(dummy._active_resize_handle)
+        self.assertEqual(dummy._resize_drag_start_rows, 1)
+        self.assertEqual(dummy._resize_drag_start_y, 0)
 
     def test_set_resize_hover_cursor_updates_cursor_when_not_dragging(self):
         window = Mock()
@@ -275,7 +306,9 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         self.assertEqual(dummy.button_expand.text, "▼")
 
-    def test_update_assetbar_layout_positions_resize_edge_strip_and_toggle_button(self):
+    def test_update_assetbar_layout_positions_toggle_button_and_enables_resize_edge(
+        self,
+    ):
         dummy = SimpleNamespace(
             scroll_update=Mock(),
             position_and_hide_buttons=Mock(),
@@ -284,13 +317,17 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             other_button_size=40,
             bar_width=320,
             wcount=1,
-            button_resize_edge=SimpleNamespace(
-                width=0, set_location=Mock(), visible=False
-            ),
+            resize_edge_height=10,
             bar_height=180,
             button_expand=SimpleNamespace(set_location=Mock(), visible=False),
             button_scroll_up=SimpleNamespace(set_location=Mock()),
-            panel=SimpleNamespace(width=0, height=0, set_location=Mock()),
+            panel=SimpleNamespace(
+                width=0,
+                height=0,
+                resize_enabled=False,
+                resize_handle_size=0,
+                set_location=Mock(),
+            ),
             tab_area_bg=SimpleNamespace(width=0),
             bar_x=12,
             bar_y=34,
@@ -310,11 +347,10 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
             always=True,
             update_visible_buttons=False,
         )
-        self.assertEqual(dummy.button_resize_edge.width, 320)
-        dummy.button_resize_edge.set_location.assert_called_once_with(0, 180)
         dummy.button_expand.set_location.assert_called_once_with(280, 180)
         self.assertTrue(dummy.button_expand.visible)
-        self.assertTrue(dummy.button_resize_edge.visible)
+        self.assertTrue(dummy.panel.resize_enabled)
+        self.assertEqual(dummy.panel.resize_handle_size, 10)
 
     def test_toggle_expand_delegates_to_toggle_assetbar_rows(self):
         dummy = SimpleNamespace(toggle_assetbar_rows=Mock())
@@ -323,34 +359,103 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
 
         dummy.toggle_assetbar_rows.assert_called_once_with()
 
-    def test_begin_resize_drag_tracks_active_handle_and_hides_tooltip(self):
-        handle = object()
+    def test_begin_resize_drag_hides_tooltip_and_marks_dragging(self):
         dummy = SimpleNamespace(
-            _active_resize_handle=None,
             _resize_dragging=False,
             hide_tooltip=Mock(),
         )
 
-        asset_bar_op.BlenderKitAssetBarOperator.begin_resize_drag(
-            dummy, active_handle=handle
-        )
+        asset_bar_op.BlenderKitAssetBarOperator.begin_resize_drag(dummy)
 
-        self.assertIs(dummy._active_resize_handle, handle)
         self.assertTrue(dummy._resize_dragging)
         dummy.hide_tooltip.assert_called_once_with()
 
-    def test_end_resize_drag_clears_active_handle_and_restores_cursor(self):
+    def test_end_resize_drag_restores_cursor(self):
         dummy = SimpleNamespace(
-            _active_resize_handle=object(),
             _resize_dragging=True,
             restore_resize_cursor=Mock(),
         )
 
         asset_bar_op.BlenderKitAssetBarOperator.end_resize_drag(dummy, hovering=False)
 
-        self.assertIsNone(dummy._active_resize_handle)
         self.assertFalse(dummy._resize_dragging)
         dummy.restore_resize_cursor.assert_called_once_with(hovering=False)
+
+    def test_on_panel_resize_begin_captures_row_state_and_starts_drag(self):
+        dummy = SimpleNamespace(
+            _resize_drag_start_rows=1,
+            _resize_drag_start_y=0,
+            get_requested_assetbar_rows=Mock(return_value=4),
+            begin_resize_drag=Mock(),
+            set_resize_drag_cursor=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_begin(
+            dummy,
+            panel=object(),
+            edge="bottom",
+            start_x=20,
+            start_y=140,
+        )
+
+        self.assertEqual(dummy._resize_drag_start_rows, 4)
+        self.assertEqual(dummy._resize_drag_start_y, 140)
+        dummy.begin_resize_drag.assert_called_once_with()
+        dummy.set_resize_drag_cursor.assert_called_once_with()
+
+    def test_on_panel_resize_update_previews_rows_from_panel_drag(self):
+        dummy = SimpleNamespace(
+            _get_resize_rows_from_mouse_y=Mock(return_value=6),
+            preview_assetbar_rows=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_update(
+            dummy,
+            panel=object(),
+            edge="bottom",
+            x=20,
+            y=110,
+        )
+
+        dummy._get_resize_rows_from_mouse_y.assert_called_once_with(110)
+        dummy.preview_assetbar_rows.assert_called_once_with(6)
+
+    def test_on_panel_resize_end_applies_rows_and_restores_cursor_state(self):
+        dummy = SimpleNamespace(
+            _get_resize_rows_from_mouse_y=Mock(return_value=5),
+            apply_assetbar_rows=Mock(),
+            end_resize_drag=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_end(
+            dummy,
+            panel=object(),
+            edge="bottom",
+            x=20,
+            y=100,
+            hovering=True,
+        )
+
+        dummy._get_resize_rows_from_mouse_y.assert_called_once_with(100)
+        dummy.apply_assetbar_rows.assert_called_once_with(5)
+        dummy.end_resize_drag.assert_called_once_with(hovering=True)
+
+    def test_on_panel_resize_click_toggles_rows(self):
+        dummy = SimpleNamespace(
+            toggle_assetbar_rows=Mock(),
+            restore_resize_cursor=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_click(
+            dummy,
+            panel=object(),
+            edge="bottom",
+            x=20,
+            y=110,
+        )
+
+        dummy.toggle_assetbar_rows.assert_called_once_with()
+        dummy.restore_resize_cursor.assert_called_once_with(hovering=True)
 
     def test_preview_assetbar_rows_refreshes_layout_for_changed_rows(self):
         context = object()
@@ -528,13 +633,18 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         dummy.show_tooltip.assert_not_called()
 
     def test_exit_button_ignores_tooltip_cleanup_while_resizing(self):
-        widget = SimpleNamespace(button_index=2)
+        widget = SimpleNamespace(
+            button_index=2,
+            bookmark_button=SimpleNamespace(asset_index=None),
+            author_button=SimpleNamespace(asset_index=None),
+        )
         dummy = SimpleNamespace(
             _resize_dragging=True,
             scroll_offset=0,
             active_index=2,
             draw_tooltip=True,
             hide_tooltip=Mock(),
+            update_bookmark_icon=Mock(),
         )
 
         asset_bar_op.BlenderKitAssetBarOperator.exit_button(dummy, widget)
@@ -588,188 +698,109 @@ class TestPersistentPreferencesCompatibility(unittest.TestCase):
         self.assertFalse(expanded)
 
 
-class TestAssetBarResizeHandle(unittest.TestCase):
-    @staticmethod
-    def _fake_button_init(widget, x, y, width, height):
-        widget.x = x
-        widget.y = y
-        widget.x_screen = x
-        widget.y_screen = y
-        widget.width = width
-        widget.height = height
-        widget.context = None
-        widget._text = ""
-        widget._BL_UI_Button__state = 0
-
-    def create_handle(self, **kwargs):
-        operator = SimpleNamespace(
-            get_requested_assetbar_rows=Mock(return_value=4),
-            begin_resize_drag=Mock(),
-            set_resize_drag_cursor=Mock(),
-            preview_assetbar_rows=Mock(),
-            apply_assetbar_rows=Mock(),
-            toggle_assetbar_rows=Mock(),
-            end_resize_drag=Mock(),
-            get_assetbar_rows_from_drag=Mock(return_value=7),
-            set_resize_hover_cursor=Mock(),
-            restore_resize_cursor=Mock(),
+class TestDragPanelResize(unittest.TestCase):
+    def create_panel(self):
+        panel = SimpleNamespace(
+            drag_enabled=False,
+            is_drag=False,
+            resize_enabled=True,
+            resize_edges={"bottom"},
+            resize_handle_size=6,
+            resize_threshold_px=5,
+            is_resize=False,
+            resize_press_active=False,
+            resize_hover_edge=None,
+            active_resize_edge=None,
+            resize_start_x=0,
+            resize_start_y=0,
+            x_screen=10,
+            y_screen=40,
+            width=100,
+            height=50,
+            widgets=[],
+            child_widget_focused=Mock(return_value=False),
+            get_area_height=Mock(return_value=200),
+            is_in_rect=Mock(return_value=False),
+            update=Mock(),
+            layout_widgets=Mock(),
+            on_resize_begin=Mock(),
+            on_resize_update=Mock(),
+            on_resize_end=Mock(),
+            on_resize_click=Mock(),
+            on_resize_hover=Mock(),
         )
-        with patch.object(
-            asset_bar_op.BL_UI_Button,
-            "__init__",
-            new=self._fake_button_init,
-        ):
-            handle = asset_bar_op.AssetBarResizeHandle(
-                10,
-                20,
-                30,
-                40,
-                operator,
-                **kwargs,
+        panel._call_resize_callback = lambda callback_name, *args: (
+            asset_bar_op.BL_UI_Drag_Panel._call_resize_callback(
+                panel, callback_name, *args
             )
-        handle.context = SimpleNamespace(
-            area=SimpleNamespace(height=200),
-            region=SimpleNamespace(x=0, y=0, height=200),
         )
-        return handle, operator
+        panel._resize_threshold_reached = lambda x, y: (
+            asset_bar_op.BL_UI_Drag_Panel._resize_threshold_reached(panel, x, y)
+        )
+        panel._edge_hit_test = (
+            lambda x, y: asset_bar_op.BL_UI_Drag_Panel._edge_hit_test(panel, x, y)
+        )
+        panel._update_resize_hover = lambda x, y: (
+            asset_bar_op.BL_UI_Drag_Panel._update_resize_hover(panel, x, y)
+        )
+        return panel
 
-    def test_default_text_is_hidden_for_edge_handle(self):
-        handle, _operator = self.create_handle(show_label=False)
+    def test_edge_hit_test_detects_bottom_resize_strip(self):
+        panel = self.create_panel()
 
-        self.assertEqual(handle._default_text(), "")
+        edge = panel._edge_hit_test(40, 108)
 
-    def test_draw_text_skips_hidden_edge_handle_label(self):
-        handle, _operator = self.create_handle(show_label=False)
+        self.assertEqual(edge, "bottom")
 
-        with patch.object(asset_bar_op.BL_UI_Button, "draw_text") as draw_text:
-            handle.draw_text(area_height=200)
+    def test_mouse_move_updates_resize_hover_state(self):
+        panel = self.create_panel()
 
-        draw_text.assert_not_called()
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 40, 108)
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 40, 90)
 
-    def test_draw_text_uses_button_label_when_visible(self):
-        handle, _operator = self.create_handle()
+        panel.on_resize_hover.assert_any_call(panel, "bottom", True)
+        panel.on_resize_hover.assert_any_call(panel, "bottom", False)
 
-        with patch.object(asset_bar_op.BL_UI_Button, "draw_text") as draw_text:
-            handle.draw_text(area_height=200)
+    def test_mouse_down_starts_resize_press_on_bottom_edge(self):
+        panel = self.create_panel()
 
-        draw_text.assert_called_once_with(200)
+        handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 40, 108)
 
-    def test_mouse_down_starts_press_and_sets_initial_state(self):
-        handle, operator = self.create_handle()
+        self.assertTrue(handled)
+        self.assertTrue(panel.resize_press_active)
+        self.assertEqual(panel.active_resize_edge, "bottom")
+        self.assertEqual(panel.resize_start_y, 108)
 
-        result = handle.mouse_down(20, 160)
+    def test_mouse_move_starts_resize_after_threshold(self):
+        panel = self.create_panel()
+        asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 40, 108)
 
-        self.assertTrue(result)
-        self.assertTrue(handle._press_active)
-        self.assertFalse(handle._drag_active)
-        self.assertEqual(handle._drag_start_y, 160)
-        self.assertEqual(handle._drag_start_rows, 4)
-        operator.begin_resize_drag.assert_not_called()
-        operator.set_resize_drag_cursor.assert_not_called()
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 40, 100)
 
-    def test_handle_event_starts_drag_after_move_threshold(self):
-        handle, operator = self.create_handle()
-        handle.mouse_down(20, 160)
-        handle._to_widget_region_coords = Mock(return_value=(20, 150))
-        operator.get_assetbar_rows_from_drag.return_value = 6
-        event = SimpleNamespace(type="MOUSEMOVE")
+        self.assertTrue(panel.is_resize)
+        panel.on_resize_begin.assert_called_once_with(panel, "bottom", 40, 108)
+        panel.on_resize_update.assert_called_once_with(panel, "bottom", 40, 100)
 
-        result = handle.handle_event(event)
+    def test_mouse_up_click_on_resize_edge_triggers_click_callback(self):
+        panel = self.create_panel()
+        asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 40, 108)
 
-        self.assertTrue(result)
-        self.assertTrue(handle._drag_active)
-        operator.begin_resize_drag.assert_called_once_with(active_handle=handle)
-        operator.set_resize_drag_cursor.assert_called_once_with()
-        operator.preview_assetbar_rows.assert_called_once_with(6)
+        asset_bar_op.BL_UI_Drag_Panel.mouse_up(panel, 40, 108)
 
-    def test_mouse_move_previews_rows_while_dragging(self):
-        handle, operator = self.create_handle()
-        handle._press_active = True
-        handle._drag_active = True
-        handle._drag_start_y = 160
-        handle._drag_start_rows = 4
-        operator.get_assetbar_rows_from_drag.return_value = 6
+        panel.on_resize_click.assert_called_once_with(panel, "bottom", 40, 108)
+        panel.on_resize_end.assert_not_called()
+        self.assertFalse(panel.resize_press_active)
 
-        handle.mouse_move(20, 120)
+    def test_mouse_up_after_resize_triggers_commit_callback(self):
+        panel = self.create_panel()
+        asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 40, 108)
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 40, 100)
 
-        operator.get_assetbar_rows_from_drag.assert_called_once_with(4, 160, 120)
-        operator.preview_assetbar_rows.assert_called_once_with(6)
+        asset_bar_op.BL_UI_Drag_Panel.mouse_up(panel, 40, 108)
 
-    def test_mouse_up_click_inside_toggles_rows_without_dragging(self):
-        handle, operator = self.create_handle()
-        handle.mouse_down(20, 160)
-
-        handle.mouse_up(20, 160)
-
-        self.assertFalse(handle._press_active)
-        self.assertFalse(handle._drag_active)
-        operator.toggle_assetbar_rows.assert_called_once_with()
-        operator.restore_resize_cursor.assert_called_once_with(hovering=True)
-        operator.apply_assetbar_rows.assert_not_called()
-
-    def test_mouse_up_click_inside_on_edge_handle_toggles_rows(self):
-        handle, operator = self.create_handle(show_label=False)
-        handle.mouse_down(20, 160)
-
-        handle.mouse_up(20, 160)
-
-        operator.toggle_assetbar_rows.assert_called_once_with()
-        operator.restore_resize_cursor.assert_called_once_with(hovering=True)
-        operator.apply_assetbar_rows.assert_not_called()
-
-    def test_mouse_up_inside_applies_rows_and_keeps_hover_cursor(self):
-        handle, operator = self.create_handle()
-        handle._press_active = True
-        handle._drag_active = True
-        handle._drag_start_y = 160
-        handle._drag_start_rows = 4
-        operator.get_assetbar_rows_from_drag.return_value = 5
-
-        handle.mouse_up(20, 160)
-
-        self.assertFalse(handle._drag_active)
-        operator.apply_assetbar_rows.assert_called_once_with(5)
-        operator.end_resize_drag.assert_called_once_with(hovering=True)
-
-    def test_mouse_up_outside_applies_rows_and_restores_default_cursor(self):
-        handle, operator = self.create_handle()
-        handle._press_active = True
-        handle._drag_active = True
-        handle._drag_start_y = 160
-        handle._drag_start_rows = 4
-        operator.get_assetbar_rows_from_drag.return_value = 3
-
-        handle.mouse_up(0, 0)
-
-        self.assertFalse(handle._drag_active)
-        operator.apply_assetbar_rows.assert_called_once_with(3)
-        operator.end_resize_drag.assert_called_once_with(hovering=False)
-
-    def test_handle_event_routes_drag_mousemove(self):
-        handle, _operator = self.create_handle()
-        handle._press_active = True
-        handle._drag_active = True
-        handle._to_widget_region_coords = Mock(return_value=(20, 120))
-        handle.mouse_move = Mock()
-        event = SimpleNamespace(type="MOUSEMOVE")
-
-        result = handle.handle_event(event)
-
-        self.assertTrue(result)
-        handle.mouse_move.assert_called_once_with(20, 120)
-
-    def test_handle_event_routes_drag_release(self):
-        handle, _operator = self.create_handle()
-        handle._press_active = True
-        handle._drag_active = True
-        handle._to_widget_region_coords = Mock(return_value=(20, 120))
-        handle.mouse_up = Mock()
-        event = SimpleNamespace(type="LEFTMOUSE", value="RELEASE")
-
-        result = handle.handle_event(event)
-
-        self.assertTrue(result)
-        handle.mouse_up.assert_called_once_with(20, 120)
+        panel.on_resize_end.assert_called_once_with(panel, "bottom", 40, 108, True)
+        panel.on_resize_click.assert_not_called()
+        self.assertFalse(panel.is_resize)
 
 
 class TestAssetBarRowLimit(unittest.TestCase):

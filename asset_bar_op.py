@@ -109,131 +109,6 @@ def get_area_height(self):
 BL_UI_Widget.get_area_height = get_area_height  # type: ignore[method-assign]
 
 
-class AssetBarResizeHandle(BL_UI_Button):
-    """Thin edge strip that toggles on click and resizes on drag."""
-
-    def __init__(
-        self,
-        x,
-        y,
-        width,
-        height,
-        asset_bar_operator,
-        *,
-        show_label=True,
-        click_to_toggle=True,
-    ):
-        super().__init__(x, y, width, height)
-        self.asset_bar_operator = asset_bar_operator
-        self.show_label = show_label
-        self.click_to_toggle = click_to_toggle
-        self._press_active = False
-        self._press_start_x = 0
-        self._drag_active = False
-        self._drag_start_y = 0
-        self._drag_start_rows = 1
-        self.text = self._default_text()
-
-    def _set_button_state(self, state: int):
-        self._BL_UI_Button__state = state
-
-    def _default_text(self) -> str:
-        if not self.show_label:
-            return ""
-        return "↕"
-
-    def draw_text(self, area_height):
-        if not self.show_label:
-            return
-        super().draw_text(area_height)
-
-    def _drag_target_rows(self, mouse_y: int) -> int:
-        return self.asset_bar_operator.get_assetbar_rows_from_drag(
-            self._drag_start_rows, self._drag_start_y, mouse_y
-        )
-
-    def _start_drag(self):
-        if self._drag_active:
-            return
-        self._drag_active = True
-        self.asset_bar_operator.begin_resize_drag(active_handle=self)
-        self.asset_bar_operator.set_resize_drag_cursor()
-
-    def _drag_threshold_reached(self, x: int, y: int) -> bool:
-        return (
-            abs(x - self._press_start_x) >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
-            or abs(y - self._drag_start_y) >= ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
-        )
-
-    def handle_event(self, event):
-        if (self._press_active or self._drag_active) and event.type in {
-            "MOUSEMOVE",
-            "LEFTMOUSE",
-        }:
-            x, y = self._to_widget_region_coords(event)
-            if event.type == "MOUSEMOVE":
-                if self._press_active and not self._drag_active:
-                    if self._drag_threshold_reached(x, y):
-                        self._start_drag()
-                        self.mouse_move(x, y)
-                    return True
-                self.mouse_move(x, y)
-                return True
-            if event.value != "PRESS":
-                self.mouse_up(x, y)
-                return True
-            return True
-        return super().handle_event(event)
-
-    def mouse_enter(self, event, x, y):
-        super().mouse_enter(event, x, y)
-        if not self._drag_active:
-            self.asset_bar_operator.set_resize_hover_cursor()
-
-    def mouse_exit(self, event, x, y):
-        super().mouse_exit(event, x, y)
-        if not self._drag_active:
-            self.asset_bar_operator.restore_resize_cursor()
-
-    def mouse_down(self, x, y):
-        if not self.is_in_rect(x, y):
-            return False
-        self._press_active = True
-        self._press_start_x = x
-        self._drag_start_y = y
-        self._drag_start_rows = self.asset_bar_operator.get_requested_assetbar_rows()
-        self._set_button_state(1)
-        self.text = self._default_text()
-        return True
-
-    def mouse_move(self, x, y):
-        if self._drag_active:
-            target_rows = self._drag_target_rows(y)
-            self.asset_bar_operator.preview_assetbar_rows(target_rows)
-            return
-        super().mouse_move(x, y)
-
-    def mouse_up(self, x, y):
-        if not self._press_active:
-            super().mouse_up(x, y)
-            return
-
-        hovering = self.is_in_rect(x, y)
-        self._press_active = False
-        self._set_button_state(2 if hovering else 0)
-        if self._drag_active:
-            target_rows = self._drag_target_rows(y)
-            self._drag_active = False
-            self.asset_bar_operator.apply_assetbar_rows(target_rows)
-            self.asset_bar_operator.end_resize_drag(hovering=hovering)
-        elif hovering and self.click_to_toggle:
-            self.asset_bar_operator.toggle_assetbar_rows()
-            self.asset_bar_operator.restore_resize_cursor(hovering=True)
-        else:
-            self.asset_bar_operator.restore_resize_cursor(hovering=hovering)
-        self.text = self._default_text()
-
-
 def modal_inside(self, context, event):
     ui_props = bpy.context.window_manager.blenderkitUI
 
@@ -316,15 +191,6 @@ def modal_inside(self, context, event):
     if is_playing != getattr(self, "_animation_playing", False):
         self._animation_playing = is_playing
         self._set_overlays(context, show=is_playing)
-
-    active_resize_handle = self._active_resize_handle
-    if (
-        self._resize_dragging
-        and active_resize_handle is not None
-        and event.type in {"MOUSEMOVE", "LEFTMOUSE"}
-    ):
-        if active_resize_handle.handle_event(event):
-            return {"RUNNING_MODAL"}
 
     time_diff = time.time() - self.update_timer_start
     if time_diff > self.update_timer_limit:
@@ -996,13 +862,49 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         window.cursor_set(cursor_name)
 
-    def begin_resize_drag(self, *, active_handle):
-        self._active_resize_handle = active_handle
+    def _get_resize_rows_from_mouse_y(self, mouse_y: int) -> int:
+        return self.get_assetbar_rows_from_drag(
+            self._resize_drag_start_rows, self._resize_drag_start_y, mouse_y
+        )
+
+    def on_panel_resize_hover(self, panel, edge: str, hovering: bool):
+        if edge != "bottom" or self._resize_dragging:
+            return
+        if hovering:
+            self.set_resize_hover_cursor()
+            return
+        self.restore_resize_cursor()
+
+    def on_panel_resize_begin(self, panel, edge: str, start_x: int, start_y: int):
+        if edge != "bottom":
+            return
+        self._resize_drag_start_rows = self.get_requested_assetbar_rows()
+        self._resize_drag_start_y = start_y
+        self.begin_resize_drag()
+        self.set_resize_drag_cursor()
+
+    def on_panel_resize_update(self, panel, edge: str, x: int, y: int):
+        if edge != "bottom":
+            return
+        self.preview_assetbar_rows(self._get_resize_rows_from_mouse_y(y))
+
+    def on_panel_resize_end(self, panel, edge: str, x: int, y: int, hovering: bool):
+        if edge != "bottom":
+            return
+        self.apply_assetbar_rows(self._get_resize_rows_from_mouse_y(y))
+        self.end_resize_drag(hovering=hovering)
+
+    def on_panel_resize_click(self, panel, edge: str, x: int, y: int):
+        if edge != "bottom":
+            return
+        self.toggle_assetbar_rows()
+        self.restore_resize_cursor(hovering=True)
+
+    def begin_resize_drag(self):
         self._resize_dragging = True
         self.hide_tooltip()
 
     def end_resize_drag(self, *, hovering: bool):
-        self._active_resize_handle = None
         self._resize_dragging = False
         self.restore_resize_cursor(hovering=hovering)
 
@@ -1038,7 +940,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._requested_rows_override = None
         self._resize_dragging = False
         self._resize_cursor_modal_active = False
-        self._active_resize_handle = None
+        self._resize_drag_start_rows = 1
+        self._resize_drag_start_y = 0
 
     def _event_window_coords(self, event):
         if not hasattr(event, "mouse_x") or not hasattr(event, "mouse_y"):
@@ -2067,22 +1970,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.widgets_panel.append(self.button_close)
 
-        self.resize_handle_width = self.other_button_size
         self.resize_edge_height = max(6, self.other_button_size // 4)
-
-        self.button_resize_edge = AssetBarResizeHandle(
-            0,
-            self.bar_height,
-            self.bar_width,
-            self.resize_edge_height,
-            self,
-            show_label=False,
-        )
-        self.button_resize_edge.bg_color = (0.0, 0.0, 0.0, 0.0)
-        self.button_resize_edge.hover_bg_color = (0.0, 0.0, 0.0, 0.0)
-        self.button_resize_edge.select_bg_color = (0.0, 0.0, 0.0, 0.0)
-        self.button_resize_edge.active = True
-        self.widgets_panel.append(self.button_resize_edge)
+        self.panel.resize_edges = {"bottom"}
+        self.panel.resize_handle_size = self.resize_edge_height
+        self.panel.resize_threshold_px = ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+        self.panel.on_resize_hover = self.on_panel_resize_hover
+        self.panel.on_resize_begin = self.on_panel_resize_begin
+        self.panel.on_resize_update = self.on_panel_resize_update
+        self.panel.on_resize_end = self.on_panel_resize_end
+        self.panel.on_resize_click = self.on_panel_resize_click
 
         self.button_expand = BL_UI_Button(
             self.bar_width - self.other_button_size,
@@ -2586,8 +2482,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
         )
-        self.button_resize_edge.width = self.bar_width
-        self.button_resize_edge.set_location(0, self.bar_height)
         self.button_expand.set_location(
             self.bar_width - self.other_button_size,
             self.bar_height,
@@ -2596,7 +2490,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search_results = history_step.get("search_results") or []
         edge_visible = len(search_results) > self.wcount
         self.button_expand.visible = edge_visible
-        self.button_resize_edge.visible = edge_visible
+        self.panel.resize_enabled = edge_visible
+        self.panel.resize_handle_size = self.resize_edge_height
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
