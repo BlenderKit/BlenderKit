@@ -23,6 +23,7 @@ import random
 import secrets
 import string
 import time
+import uuid
 from urllib.parse import quote as urlquote
 from webbrowser import open_new_tab
 
@@ -39,6 +40,7 @@ from . import (
     tasks_queue,
     utils,
 )
+
 
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
@@ -138,7 +140,12 @@ def login(signup: bool) -> None:
     code_verifier, code_challenge = generate_pkce_pair()
     state = secrets.token_urlsafe()
     client_lib.send_oauth_verification_data(code_verifier, state)
-    authorize_url = f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state={state}&redirect_uri={redirect_URI}&code_challenge={code_challenge}&code_challenge_method=S256"
+    system_id = get_system_id()
+    authorize_url = (
+        f"/o/authorize?client_id={CLIENT_ID}&response_type=code&state={state}"
+        f"&redirect_uri={redirect_URI}&code_challenge={code_challenge}"
+        f"&code_challenge_method=S256&system_id={system_id}"
+    )
     if signup:
         authorize_url = urlquote(authorize_url)
         authorize_url = f"{global_vars.SERVER}/accounts/register/?next={authorize_url}"
@@ -159,6 +166,10 @@ def generate_pkce_pair() -> tuple[str, str]:
     b64 = base64.urlsafe_b64encode(code_sha_256)
     code_challenge = b64.decode("utf-8").replace("=", "")
     return code_verifier, code_challenge
+
+
+def get_system_id() -> str:
+    return f"{uuid.getnode():015d}"
 
 
 def write_tokens(auth_token, refresh_token, oauth_response):
