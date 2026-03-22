@@ -25,9 +25,28 @@ EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
 
 bk_logger = logging.getLogger(__name__)
 
+# Per-draw-cycle caching for ensure_repo_cache() to avoid repeated
+# filesystem stat calls when drawing hundreds of extension items.
+_repo_cache_last_check: float = 0.0
+_repo_cache_last_result: bool = False
+_REPO_CACHE_CHECK_INTERVAL: float = 3.0  # seconds between filesystem checks
+
+# Cached repository reference to avoid iterating repos per item.
+_cached_repository = None
+_cached_repository_time: float = 0.0
+_REPO_LOOKUP_INTERVAL: float = 5.0  # seconds between repo lookups
+
+# Cache for price padding strings to avoid repeated blf.dimensions() calls.
+_price_padding_cache: dict = {}
+
 
 def get_perfect_price_padding(price_str: str, target_length: int = 70) -> str:
     """Generate a padding string to align price text nicely in the UI."""
+    cache_key = (price_str, target_length)
+    cached = _price_padding_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     spaces = [
         (19, "\u2003"),  # em space = U+2003 > 19 units
         (2, "\u200a"),  # hair space = U+200A > 2 units
@@ -40,6 +59,7 @@ def get_perfect_price_padding(price_str: str, target_length: int = 70) -> str:
     w_size = size[0]
     final_size = target_length - w_size
     if final_size <= 0:
+        _price_padding_cache[cache_key] = out
         return out
     while w_size < target_length:
         for spc_len, spc_char in spaces:
@@ -51,7 +71,9 @@ def get_perfect_price_padding(price_str: str, target_length: int = 70) -> str:
             break  # No suitable space found, exit loop
     # double check if we are exporting only white spaces to prevent issues
     if re.fullmatch(r"\s*", out) is None:
+        _price_padding_cache[cache_key] = ""
         return ""
+    _price_padding_cache[cache_key] = out
     return out
 
 
@@ -590,12 +612,35 @@ def get_repository_by_url(url: str):
     return None
 
 
+def get_blenderkit_repository_cached():
+    """Get BlenderKit repository with time-based caching to avoid iterating repos per item."""
+    global _cached_repository, _cached_repository_time
+    now = time.time()
+    if (
+        now - _cached_repository_time < _REPO_LOOKUP_INTERVAL
+        and _cached_repository is not None
+    ):
+        # Verify the cached reference is still valid
+        try:
+            _ = _cached_repository.remote_url
+            return _cached_repository
+        except ReferenceError:
+            pass
+    _cached_repository = get_repository_by_url(EXTENSIONS_API_URL)
+    _cached_repository_time = now
+    return _cached_repository
+
+
 def clear_repo_cache():
     """Clear the repository cache."""
+    global _repo_cache_last_check, _repo_cache_last_result
     wm = bpy.context.window_manager
     cache_key = "blenderkit_extensions_repo_cache"
     if cache_key in wm:
         del wm[cache_key]
+    # Reset throttle so next ensure_repo_cache() does a fresh check
+    _repo_cache_last_check = 0.0
+    _repo_cache_last_result = False
 
 
 def _sanitize_pkg_for_cache(pkg):
@@ -614,13 +659,28 @@ def ensure_repo_cache():
     Reads the .json file blender stores in \extensions\www_blenderkit_com\.blender_ext
     and parses it to a dict from json, we can use it then for drawing purposes and have the extra data BlenderKit api provides.
     Checks the modification time of the cache file and reloads it if necessary.
+
+    Uses a time-based throttle so filesystem checks happen at most once per
+    _REPO_CACHE_CHECK_INTERVAL seconds, avoiding repeated stat calls when this
+    function is called per-item during extension list drawing.
     """
+    global _repo_cache_last_check, _repo_cache_last_result
+
+    now = time.time()
+    if now - _repo_cache_last_check < _REPO_CACHE_CHECK_INTERVAL:
+        # Consume the reload signal so only the first caller in the throttle window
+        # sees True — prevents the redraw timer from being registered on every draw tick.
+        result = _repo_cache_last_result
+        _repo_cache_last_result = False
+        return result
+    _repo_cache_last_check = now
+
     reloaded_flag = False  # Track if we actually reloaded
     wm = bpy.context.window_manager
     cache_key = "blenderkit_extensions_repo_cache"
     mtime_key = "blenderkit_extensions_repo_cache_mtime"
 
-    blenderkit_repository = get_repository_by_url(EXTENSIONS_API_URL)
+    blenderkit_repository = get_blenderkit_repository_cached()
     if blenderkit_repository is None:
         # If repo doesn't exist, clear cache if it exists in window manager
         if cache_key in wm:
@@ -639,7 +699,9 @@ def ensure_repo_cache():
     current_mtime = None
     try:
         if os.path.exists(cache_file):
-            current_mtime = os.path.getmtime(cache_file)
+            # Use int to avoid float precision loss when stored in Blender IDProperty
+            # (IDProperties use single-precision floats, os.path.getmtime() returns double)
+            current_mtime = int(os.path.getmtime(cache_file))
     except OSError as e:  # Handle potential race condition or permission issue
         bk_logger.exception("Could not get modification time for %s.", cache_file)
         # Clear cache if we can't verify its freshness? Safer approach.
@@ -700,7 +762,7 @@ def ensure_repo_cache():
             new_cache[pkg["id"][:32]] = _sanitize_pkg_for_cache(pkg)
 
         wm[cache_key] = new_cache
-        wm[mtime_key] = current_mtime  # Update mtime only on successful load
+        wm[mtime_key] = current_mtime  # Stored as int to survive IDProperty round-trip
 
         reloaded_flag = True  # Mark that we reloaded successfully
 
@@ -723,6 +785,7 @@ def ensure_repo_cache():
         if mtime_key in wm:
             del wm[mtime_key]
 
+    _repo_cache_last_result = reloaded_flag
     return reloaded_flag  # Return whether cache was actually reloaded
 
 
