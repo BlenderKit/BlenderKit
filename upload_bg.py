@@ -227,6 +227,28 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Exception {type(e)} during pack_all(): {e}")
 
+        # Blender 5.0+ does not pack all tiles of UDIM (source='TILED') images via
+        # pack_all(). Iterate and explicitly pack any tiled images whose tiles are not
+        # yet fully packed so that every UDIM tile file is included in the upload.
+        for image in bpy.data.images:
+            if getattr(image, "source", "") != "TILED":
+                continue
+            n_tiles = len(image.tiles) if hasattr(image, "tiles") else 0
+            n_packed = len(image.packed_files)
+            print(
+                f"UDIM image '{image.name}': {n_tiles} tile(s), "
+                f"{n_packed} packed file(s), filepath='{image.filepath}'"
+            )
+            if n_packed < n_tiles:
+                try:
+                    image.pack()
+                    print(
+                        f"  Explicitly packed UDIM image '{image.name}': "
+                        f"{len(image.packed_files)} packed file(s)"
+                    )
+                except Exception as e:
+                    print(f"  Could not pack UDIM image '{image.name}': {e}")
+
         main_source.blenderkit.uploading = False
         # write ID here.
         main_source.blenderkit.asset_base_id = export_data["assetBaseId"]
