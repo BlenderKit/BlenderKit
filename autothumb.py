@@ -394,8 +394,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not upload.wire_thumbnail_upload_enabled():
-            return False
         return bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):

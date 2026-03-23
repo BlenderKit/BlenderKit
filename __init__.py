@@ -310,17 +310,19 @@ def asset_type_callback(self, context):
 
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-ons", "Find add-ons", "PLUGIN", 7))
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        if preferences.experimental_features and preferences.author_tab:
-            items.append(
-                (
-                    "AUTHOR",
-                    "Authors",
-                    "Find authors",
-                    pcoll["asset_type_author"].icon_id,
-                    8,
-                ),
-            )
+        addon = bpy.context.preferences.addons.get(__package__)
+        if addon is not None:
+            preferences = addon.preferences
+            if preferences.experimental_features and preferences.author_tab:
+                items.append(
+                    (
+                        "AUTHOR",
+                        "Authors",
+                        "Find authors",
+                        pcoll["asset_type_author"].icon_id,
+                        8,
+                    ),
+                )
     else:
         items = [
             ("MODEL", "Model", "Upload a model", "OBJECT_DATAMODE", 0),
