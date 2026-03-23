@@ -36,8 +36,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Version set to ${{inputs.version}}
-        run: python3 -c "import re; f = open('__init__.py'); version_init = re.search(r'\"version\":\s*\((.*?)\)', f.read()).group(1); f.close(); assert tuple(map(int, version_init.split(', '))) == tuple(map(int, '${{inputs.version}}'.split('.'))), f'Version mismatch of {version_init} and ${{inputs.version}}'"
+      - name: blender_manifest.toml Version set to ${{inputs.version}}
+        run: python3 -c "
+import re
+with open('blender_manifest.toml') as f:
+    content = f.read()
+manifest_ver = re.search(r'version = \"(.+?)\"', content).group(1)
+parts = '${{inputs.version}}'.rsplit('.', 1)
+expected = parts[0] + '-' + parts[1]
+assert manifest_ver == expected, f'blender_manifest.toml version {manifest_ver!r} does not match expected {expected!r}'
+"
 
   Release:
     needs: [Checks, Release_checks, TESTS]
@@ -57,11 +65,11 @@ jobs:
       #- name: Generate Changelog
       #  run: echo "# Good things have arrived" > ${{ github.workspace }}-CHANGELOG.txt
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: true # always draft, we want to check the release notes
           name: BlenderKit v${{inputs.version}}${{ inputs.release_stage == 'gold' && '' || format('-{0}', inputs.release_stage) }}
-          prerelease: ${{ inputs.release_stage != 'gold' && 'true' || 'false' }}
+          prerelease: ${{ inputs.release_stage != 'gold' }}
           tag_name: v${{inputs.version}}
           #body_path: ${{ github.workspace }}-CHANGELOG.txt
           files: out/blenderkit-v${{inputs.version}}.zip
@@ -105,5 +113,17 @@ jobs:
         run: tar -xf /home/runner/blender.tar.xz -C /home/runner/blender --strip-components=1
       - name: Add Blender to PATH
         run: ln -s /home/runner/blender/blender /home/runner/.local/bin/blender
+      - name: Install coverage (Blender Python)
+        run: blender --background --python-expr "import subprocess, sys; subprocess.check_call([sys.executable, '-m', 'ensurepip']); subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'coverage'])"
+        continue-on-error: true
       - name: TEST
+        env:
+          COVERAGE: "1"
         run: python dev.py test --install-at /home/runner/.config/blender/${{matrix.version_x_y}}/scripts/addons
+      - name: Upload Python coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage-python.xml
+          flags: python
+          fail_ci_if_error: false
