@@ -1210,7 +1210,7 @@ def query_to_url(
         if q == "asset_type" and value != "author":
             has_keywords = query.get("query") not in ("", None)
             has_author_filter = query.get("author_id") not in ("", None)
-            if utils.experimental_enabled() and has_keywords and not has_author_filter:
+            if has_keywords and not has_author_filter:
                 value += ",author"
         requeststring += f"+{q}:{urllib.parse.quote_plus(value)}"
 

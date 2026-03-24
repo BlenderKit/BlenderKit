@@ -2218,7 +2218,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.position_active_filter_buttons()
 
         bubble_offset = 0
-        if self._filter_bubbles_enabled() and self.active_filter_height:
+        if self.active_filter_height:
             bubble_offset = self.active_filter_height
 
         self.bar_y = base_bar_y + bubble_offset
@@ -2313,12 +2313,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return False
         return getattr(r3d, "view_perspective", "") in {"PERSP", "CAMERA"}
 
-    def _filter_bubbles_enabled(self) -> bool:
-        """Return True when filter bubbles are allowed to render."""
-        addon = bpy.context.preferences.addons.get(__package__)
-        prefs = getattr(addon, "preferences", None)
-        return bool(getattr(prefs, "display_filter_bubbles", True))
-
     def set_element_images(self):
         """set ui elements images, has to be done after init of UI."""
         # img_fp = paths.get_addon_thumbnail_path("vs_rejected.png")
@@ -2383,12 +2377,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def position_active_filter_buttons(self):
         self.active_filter_height = 0
         if not self.active_filter_buttons:
-            return
-
-        if not self._filter_bubbles_enabled():
-            for button in self.active_filter_buttons:
-                button.visible = False
-                button.active_filter = None
             return
 
         active_filters = search.get_active_filters()
@@ -2541,7 +2529,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
     def _update_manufacturer_data(self, search_results: Optional[list[dict]] = None):
-        if not self._filter_bubbles_enabled():
+        if not utils.experimental_enabled():
             self.manufacturer_names = []
             self.manufacturer_counts = Counter()
             self.manufacturer_section_height = 0
@@ -2576,7 +2564,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         names = self.manufacturer_names[: self.max_manufacturer_filters]
         content_width = max(0, self.bar_width - 2 * self.assetbar_margin)
 
-        if not self._filter_bubbles_enabled() or not names or content_width <= 0:
+        if not utils.experimental_enabled() or not names or content_width <= 0:
             for button in self.manufacturer_buttons:
                 button.visible = False
             return
