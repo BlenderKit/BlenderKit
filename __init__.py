@@ -2205,12 +2205,6 @@ class BlenderKitAddonPreferences(AddonPreferences):
         default=False,
     )
 
-    display_filter_bubbles: BoolProperty(
-        name="Display filter bubbles",
-        description="Display filter bubbles in the assetbar. Filter bubbles show you which filters are active and allow you to quickly change them.",
-        default=True,
-    )
-
     global_dir: StringProperty(
         name="Global Directory",
         description="Global storage for your assets, will use subdirectories for the contents. Client will place its files in subdirectory 'client'",
@@ -2673,7 +2667,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "announcements_on_start")
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
-        gui_settings.prop(self, "display_filter_bubbles")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
