@@ -29,6 +29,26 @@ import logging
 import bpy
 
 bk_logger = logging.getLogger(__name__)
+
+_INT32_MIN = -2_147_483_648
+_INT32_MAX = 2_147_483_647
+
+
+def _sanitize_for_idprops(value):
+    """Recursively sanitize a value so it can be stored as a Blender IDProperty.
+    Large integers that would overflow int32 are converted to strings.
+    """
+    if isinstance(value, int):
+        if value < _INT32_MIN or value > _INT32_MAX:
+            return str(value)
+        return value
+    if isinstance(value, dict):
+        return {k: _sanitize_for_idprops(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_sanitize_for_idprops(v) for v in value]
+    return value
+
+
 _ASSET_TYPE_DIRS = {
     "models",
     "materials",
@@ -566,11 +586,49 @@ def unpack_asset(data):
     print("🏷️  marking asset")
     data_block = None
     if asset_data["assetType"] in ("model", "printable"):
+        # Mark the main collection as the asset instead of the root object.
+        # When upload_bg.py prepares a model for upload it places ALL objects
+        # (including children) as direct members of a single named collection that
+        # is a direct child of the scene collection.  If we mark only the root
+        # object, Blender's asset browser will import just that one object and
+        # its children are left behind, resulting in an empty appearing in the
+        # scene.  Marking the collection lets Blender create a proper collection
+        # instance that shows every object in the hierarchy.
+        #
+        # upload_bg.py calls asset_mark() on the root object before uploading, so
+        # every downloaded .blend arrives with the root object already marked as an
+        # asset.  Clear those object-level marks first so only the collection entry
+        # appears in the asset browser (no duplicates).
         for ob in bpy.data.objects:
-            if ob.parent is None and ob in bpy.context.visible_objects:
-                if bpy.app.version >= (3, 0, 0):
-                    ob.asset_mark()
-                data_block = ob
+            if ob.asset_data is not None:
+                ob.asset_clear()
+
+        scene_collection = bpy.context.scene.collection
+        main_collection = None
+        for col in scene_collection.children:
+            has_root_objects = any(
+                ob.parent is None and ob in bpy.context.visible_objects
+                for ob in col.objects
+            )
+            if has_root_objects:
+                main_collection = col
+                break
+
+        if main_collection is not None:
+            if bpy.app.version >= (3, 0, 0):
+                main_collection.asset_mark()
+            # Store asset_data on the collection so that collection-instance
+            # EMPTYs added via Blender's native asset browser can be identified
+            # as BlenderKit assets (rating, bookmarking, etc.).
+            main_collection["asset_data"] = _sanitize_for_idprops(asset_data)
+            data_block = main_collection
+        else:
+            # Fallback: no suitable collection found – mark root visible objects.
+            for ob in bpy.data.objects:
+                if ob.parent is None and ob in bpy.context.visible_objects:
+                    if bpy.app.version >= (3, 0, 0):
+                        ob.asset_mark()
+                    data_block = ob
     elif asset_data["assetType"] == "material":
         for m in bpy.data.materials:
             if bpy.app.version >= (3, 0, 0):

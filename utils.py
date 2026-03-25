@@ -43,7 +43,6 @@ from . import (
     search,
 )
 
-
 bk_logger = logging.getLogger(__name__)
 
 ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000
@@ -125,6 +124,24 @@ def selection_set(sel):
             ob.select_set(True)
     except Exception:
         bk_logger.exception("Failed to select objects:")
+
+
+def get_asset_data_from_ob(ob) -> Optional[dict]:
+    """Return the BlenderKit asset_data dict for an object.
+
+    Checks the object's own IDProperty first. When the object is a
+    collection-instance EMPTY (imported from a local asset library) it falls
+    back to the asset_data stored on the instanced collection, which
+    unpack_asset_bg.py writes there during local-library processing.
+    """
+    if ob is None:
+        return None
+    ad = ob.get("asset_data")
+    if ad is not None:
+        return ad
+    if ob.instance_collection is not None:
+        return ob.instance_collection.get("asset_data")
+    return None
 
 
 def get_active_model() -> Optional[bpy.types.Object]:

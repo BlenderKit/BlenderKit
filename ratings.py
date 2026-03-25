@@ -36,7 +36,6 @@ from . import (
     utils,
 )
 
-
 bk_logger = logging.getLogger(__name__)
 
 
@@ -170,7 +169,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         else:
             if bpy.context.view_layer.objects.active is not None:
                 ob = utils.get_active_model()
-                ad = ob.get("asset_data")
+                ad = utils.get_asset_data_from_ob(ob)
                 if ad:
                     self.asset_data = ad
                     self.asset_id = self.asset_data["id"]
@@ -330,7 +329,7 @@ class RatingStarWidget(Gizmo):
 
 
 def should_be_rated(ob) -> bool:
-    ad = ob.get("asset_data")
+    ad = utils.get_asset_data_from_ob(ob)
     if ad is None:
         return False
     rating = ratings_utils.get_rating_local(ad["id"])
@@ -361,7 +360,8 @@ class RatingStarWidgetGroup(GizmoGroup):
         ob = utils.get_active_model()
         gz = self.gizmos.new(RatingStarWidget.bl_idname)
         props = gz.target_set_operator("wm.blenderkit_menu_rating_upload")
-        props.asset_id = ob["asset_data"]["assetBaseId"]
+        ad = utils.get_asset_data_from_ob(ob)
+        props.asset_id = ad["assetBaseId"] if ad else ""
         gz.color = 0.5, 0.5, 0.0
         gz.alpha = 0.5
 

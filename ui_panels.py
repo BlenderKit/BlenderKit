@@ -55,7 +55,6 @@ from . import (
     utils,
 )
 
-
 ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 
 bk_logger = logging.getLogger(__name__)
@@ -648,15 +647,14 @@ def draw_model_context_menu(self, context):
     o = utils.get_active_model()
     if not o:
         return
-    if o.get("asset_data") is None:
+    ad = utils.get_asset_data_from_ob(o)
+    if ad is None:
         utils.label_multiline(
             layout,
             text="To upload this asset to BlenderKit, go to the Find and Upload Assets panel.",
         )
         layout.prop(o, "name")
-
-    if o.get("asset_data") is not None:
-        ad = o["asset_data"]
+    else:
         layout.label(text=str(ad["name"]))
         if o.instance_type == "COLLECTION" and o.instance_collection is not None:
             layout.operator("object.blenderkit_bring_to_scene", text="Bring to scene")
