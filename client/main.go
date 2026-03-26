@@ -1368,6 +1368,16 @@ func GetRatings(searchResults SearchResults, data SearchTaskData) {
 			query += fmt.Sprintf("&asset_uuid=%s", result.AssetBaseID)
 		}
 	}
+	if query == "" {
+		// No non-author assets in search results - nothing to fetch.
+		TaskFinishCh <- &TaskFinish{
+			AppID:   data.AppID,
+			TaskID:  taskUUID,
+			Message: "Ratings data obtained",
+			Result:  nil,
+		}
+		return
+	}
 	url := fmt.Sprintf("%s/api/v1/ratings/%s", *Server, query)
 	err := FetchRatings(url, data)
 	if err != nil {
@@ -1431,9 +1441,16 @@ func FetchRatings(url string, data SearchTaskData) error {
 	}
 
 	if respData.Next != "" {
-		err = FetchRatings(respData.Next, data)
-		if err != nil {
-			return fmt.Errorf("fetch ratings page (%s): %w", url, err)
+		// Guard against the API returning a next URL that lost the asset_uuid filter context.
+		// Without this check, a paginated response could cause FetchRatings to iterate over
+		// ALL user ratings instead of only the requested assets (which can be thousands of pages).
+		if strings.Contains(url, "asset_uuid=") && !strings.Contains(respData.Next, "asset_uuid=") {
+			BKLog.Printf("%s FetchRatings: next URL lost asset_uuid filter, stopping pagination to avoid fetching all user ratings (next=%s)", EmoWarning, respData.Next)
+		} else {
+			err = FetchRatings(respData.Next, data)
+			if err != nil {
+				return fmt.Errorf("fetch ratings page (%s): %w", url, err)
+			}
 		}
 	}
 
