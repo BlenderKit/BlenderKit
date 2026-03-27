@@ -134,7 +134,7 @@ def ensure_rating(asset_id: str):
     if rating is None:
         client_lib.get_rating(asset_id)
         return
-    if not rating.quality_fetched or rating.working_hours_fetched:
+    if not rating.quality_fetched or not rating.working_hours_fetched:
         client_lib.get_rating(asset_id)
 
 
