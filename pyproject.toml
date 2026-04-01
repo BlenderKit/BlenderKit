@@ -10,8 +10,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     ## dev dependencies
-    "black==25.9.0",
-    "isort==7.0.0",
+    "black~=25.9",
+    "isort~=7.0",
     "mypy==1.13.0",
 
     ## I would like to enable these in the future
