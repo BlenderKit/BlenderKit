@@ -262,7 +262,24 @@ def ensure_asset_library_path(
                 pass
             return lib
 
-    asset_libraries.new(name=ASSET_LIBRARY_NAME, directory=target_path)
+    if hasattr(asset_libraries, "new"):
+        asset_libraries.new(name=ASSET_LIBRARY_NAME, directory=target_path)
+    else:
+        try:
+            bpy.ops.preferences.asset_library_add(directory=target_path)
+            # Operator names the library after the directory basename, rename it.
+            for lib in asset_libraries:
+                if _normalize_path(lib.path) == target_path and lib.name != ASSET_LIBRARY_NAME:
+                    lib.name = ASSET_LIBRARY_NAME
+                    break
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Failed to add asset library: %s. "
+                "Please add it manually in Preferences > File Paths",
+                e,
+            )
+            return None
+
     return (
         asset_libraries.get(ASSET_LIBRARY_NAME)
         if hasattr(asset_libraries, "get")
