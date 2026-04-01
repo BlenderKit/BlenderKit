@@ -44,7 +44,7 @@ ACTIVE_BLUE = (0.7, 0.8, 1.0, 1.0)
 """ACTIVE_BLUE Color for active elements in the UI, mainly filters."""
 
 GREEN_PRICE = (0.42, 0.49, 0.19, 1.0)
-"""Emerald Green to be used on "discounted" add-ons."""
+"""Emerald Green to be used on "free" add-ons."""
 
 PURPLE_PRICE = (0.59, 0.05, 0.82, 1.0)
 """Lavender Purple to be used on "for sale" add-ons."""
