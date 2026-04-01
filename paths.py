@@ -269,7 +269,10 @@ def ensure_asset_library_path(
             bpy.ops.preferences.asset_library_add(directory=target_path)
             # Operator names the library after the directory basename, rename it.
             for lib in asset_libraries:
-                if _normalize_path(lib.path) == target_path and lib.name != ASSET_LIBRARY_NAME:
+                if (
+                    _normalize_path(lib.path) == target_path
+                    and lib.name != ASSET_LIBRARY_NAME
+                ):
                     lib.name = ASSET_LIBRARY_NAME
                     break
         except Exception as e:
