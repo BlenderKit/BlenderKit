@@ -19,8 +19,11 @@
 import os
 import logging
 from collections.abc import Mapping
+from contextlib import contextmanager
 from typing import Optional, Tuple, Union
 import math
+
+from mathutils import Matrix
 
 import blf
 import bpy
@@ -31,7 +34,6 @@ from gpu_extras.batch import batch_for_shader
 
 from .image_utils import IMG
 
-
 bk_logger = logging.getLogger(__name__)
 
 cached_images = {}
@@ -41,6 +43,82 @@ cached_gpu_textures = {}
 _cached_image_shader: Optional[gpu.types.GPUShader] = None
 
 SEGMENTS_DEFAULT = 4
+
+
+def _resolve_region_dimensions(region) -> Tuple[float, float]:
+    width = getattr(region, "width", None) if region else None
+    height = getattr(region, "height", None) if region else None
+
+    if width is None or width <= 0 or height is None or height <= 0:
+        ctx_region = getattr(bpy.context, "region", None)
+        if ctx_region is not None:
+            width = width or getattr(ctx_region, "width", None)
+            height = height or getattr(ctx_region, "height", None)
+
+    width = float(width or 1.0)
+    height = float(height or 1.0)
+    return width, height
+
+
+@contextmanager
+def overlay_matrix_guard(region=None, *args, **kwargs):
+    """Ensure viewport overlays draw in screen space regardless of other handlers."""
+
+    pushed = False
+    try:
+        try:
+            gpu.matrix.push()
+            pushed = True
+            gpu.matrix.load_identity()
+            width, height = _resolve_region_dimensions(region)
+            _set_overlay_projection(width, height)
+        except Exception:  # noqa: BLE001
+            bk_logger.exception("Failed to prepare overlay matrix state")
+        yield
+    finally:
+        if pushed:
+            try:
+                gpu.matrix.pop()
+            except Exception:  # noqa: BLE001
+                bk_logger.exception("Failed to restore overlay matrix state")
+
+
+def _ortho_projection_matrix(width: float, height: float, *, near=-100.0, far=100.0):
+    """Return a pixel-aligned orthographic projection matrix."""
+
+    if width <= 0.0:
+        width = 1.0
+    if height <= 0.0:
+        height = 1.0
+    if far == near:
+        far = near + 0.001
+
+    sx = 2.0 / width
+    sy = 2.0 / height
+    sz = -2.0 / (far - near)
+    tx = -1.0
+    ty = -1.0
+    tz = -(far + near) / (far - near)
+
+    return Matrix(
+        (
+            (sx, 0.0, 0.0, tx),
+            (0.0, sy, 0.0, ty),
+            (0.0, 0.0, sz, tz),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+    )
+
+
+def _set_overlay_projection(width: float, height: float):
+    """Set the 2D projection matrix used by BlenderKit overlays."""
+
+    try:
+        projection = _ortho_projection_matrix(width, height)
+        gpu.matrix.load_projection_matrix(projection)
+    except Exception:  # noqa: BLE001
+        bk_logger.exception("overlay_matrix_guard: Failed to load projection matrix")
+
 
 VERTEX_SHADER_LEGACY = """
 uniform mat4 ModelViewProjectionMatrix;
@@ -99,17 +177,14 @@ def create_image_shader_info():
     shader_info.sampler(0, "FLOAT_2D", "image")
 
     shader_info.fragment_out(0, "VEC4", "fragColor")
-    shader_info.vertex_source(
-        """
+    shader_info.vertex_source("""
         void main()
         {
             uv = texCoord;
             gl_Position = ModelViewProjectionMatrix * vec4(pos.xy, 0.0, 1.0);
         }
-    """
-    )
-    shader_info.fragment_source(
-        """
+    """)
+    shader_info.fragment_source("""
         void main()
         {
             vec4 color = texture(image, uv);
@@ -122,8 +197,7 @@ def create_image_shader_info():
             color.a *= transparency;
             fragColor = color;
         }
-    """
-    )
+    """)
     return shader_info
 
 
@@ -542,20 +616,16 @@ def create_shader_info():
     shader_info.push_constant("MAT4", "ModelViewProjectionMatrix")
     shader_info.push_constant("VEC4", "color")
     shader_info.fragment_out(0, "VEC4", "fragColor")
-    shader_info.vertex_source(
-        """
+    shader_info.vertex_source("""
         void main() {
             gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
         }
-    """
-    )
-    shader_info.fragment_source(
-        """
+    """)
+    shader_info.fragment_source("""
         void main() {
             fragColor = color;
         }
-    """
-    )
+    """)
     return shader_info
 
 

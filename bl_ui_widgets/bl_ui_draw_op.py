@@ -4,6 +4,7 @@ from typing import Optional
 import bpy
 from bpy.types import Operator
 
+from .. import ui_bgl
 from .bl_ui_widget import region_redraw
 
 bk_logger = logging.getLogger(__name__)
@@ -155,7 +156,9 @@ def draw_callback_px_separated(self, op, context):
             if region_pointer is None or region_pointer != active_region_pointer:
                 return
 
-        for widget in self.widgets:
-            widget.draw()
+        region = getattr(context, "region", None)
+        with ui_bgl.overlay_matrix_guard(region):
+            for widget in self.widgets:
+                widget.draw()
     except Exception:
         bk_logger.exception("Error in draw_callback_px_separated: ")

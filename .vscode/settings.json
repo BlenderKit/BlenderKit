@@ -68,7 +68,7 @@
         "editor.formatOnType": true,
         "editor.renderFinalNewline": "on"
     },
-    
+
     "[go]": {
         "editor.defaultFormatter": "golang.go",
         "editor.formatOnSave": true
