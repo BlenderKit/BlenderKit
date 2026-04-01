@@ -1,10 +1,11 @@
 {
-    "python.experiments.optInto": ["pythonTerminalEnvVarActivation"],
+    "python.experiments.optInto": [],
     "python.envFile": "${workspaceFolder}/.env",
     // Don't hardcode interpreter path; let the Python extension discover the venv on each OS
     // If you really need to force it, prefer per-OS launch configs instead of settings.json
 
-    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvironment": false,
+    "python.terminal.shellIntegration.enabled": false,
 
     "terminal.integrated.env.windows": {
         // Keep PATH and PYTHONPATH usable on Windows (.venv\Scripts)
@@ -57,6 +58,11 @@
     "files.insertFinalNewline": true,
 
     "ruff.enable": false,
+
+    // Pin the Black formatter extension to use the venv's black, not its bundled version.
+    // This ensures format-on-save matches CI (black ~=25.9 from devs/requirements.txt).
+    "black-formatter.path": ["${workspaceFolder}/.venv/Scripts/black"],
+    "black-formatter.args": [],
 
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
