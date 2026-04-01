@@ -3235,15 +3235,29 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             if self.asset_data["isPrivate"]:
                 text = "Private"
                 self.draw_property(box, "Access", text, icon="LOCKED")
+            elif utils.profile_is_validator() and user_price and base_price:
+                text = f"${user_price} (was ${base_price})"
+                icon = pcoll["for_sale"]
+                self.draw_property(
+                    box,
+                    "Pricing (Validator)",
+                    text,
+                    icon_value=icon.icon_id,
+                )
+
             elif is_for_sale and not can_download and user_price and base_price:
-                text = f"${user_price} (Not purchased)"
+                if str(user_price) != str(base_price):
+                    text = f"${user_price} (was ${base_price})"
+                else:
+                    text = f"${base_price}"
+                text += " (Not purchased)"
                 icon = pcoll["for_sale"]
                 self.draw_property(
                     box,
                     "Price",
                     text,
                     icon_value=icon.icon_id,
-                    tooltip="This addon is for sale but you haven't purchased it yet.\nPrice shown is your price / base price",
+                    tooltip="This addon is for sale but you haven't purchased it yet.\nPrice shown is your discounted price / original price",
                 )
             elif is_for_sale and not can_download and base_price:
                 text = f"${base_price} (Not purchased)"

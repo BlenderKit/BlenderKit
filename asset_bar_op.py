@@ -49,7 +49,6 @@ from .bl_ui_widgets.bl_ui_image import BL_UI_Image
 from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
-
 bk_logger = logging.getLogger(__name__)
 
 # Maximum label length for manufacturer chips (e.g. "Ford motor company")
@@ -526,23 +525,39 @@ def get_tooltip_data(asset_data):
 
         # for debug show both prices always
         if utils.profile_is_validator():
-            if user_price_text:
+            if (
+                user_price_text
+                and base_price_text
+                and str(user_price_text) != str(base_price_text)
+            ):
+                # Sale: show discounted price + strikethrough original
                 user_price_text = f" ${user_price_text} "
+                user_price_color = colors.WHITE
+                user_price_bg_color = colors.PURPLE_PRICE
+
+                base_price_text = f" ${base_price_text} "
+                base_price_color = colors.TEXT_DIM
+                base_price_bg_color = colors.PURPLE_PRICE
+            elif base_price_text:
+                # No sale or only base price available
+                base_price_text = f" ${base_price_text} "
+                base_price_color = colors.WHITE
+                base_price_bg_color = colors.PURPLE_PRICE
+
+                user_price_text = ""
+            elif user_price_text:
+                user_price_text = f" ${user_price_text} "
+                user_price_color = colors.WHITE
+                user_price_bg_color = colors.PURPLE_PRICE
+
+                base_price_text = ""
             else:
                 user_price_text = ""
-            user_price_color = colors.WHITE
-            user_price_bg_color = colors.GREEN_PRICE
-
-            if base_price_text:
-                base_price_text = f" ${base_price_text} "
-            else:
                 base_price_text = ""
-            base_price_color = colors.TEXT_DIM
-            base_price_bg_color = colors.PURPLE_PRICE
         else:
             if is_for_sale and not can_download and user_price_text and base_price_text:
                 user_price_text = f" ${user_price_text} "
-                user_price_bg_color = colors.GREEN_PRICE
+                user_price_bg_color = colors.PURPLE_PRICE
                 user_price_color = colors.WHITE
 
                 base_price_text = f" (${base_price_text}) "
@@ -1196,18 +1211,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
         multi_price_label.use_rounded_background = True
         multi_price_label.background_corner_radius = "50%"
-        multi_price_label.text_a_color = (
-            1.0,
-            0.8,
-            0.2,
-            1.0,
-        )  # Golden color for current price
-        multi_price_label.text_b_color = (
-            0.8,
-            0.4,
-            0.4,
-            1.0,
-        )  # Reddish color for base price
+        multi_price_label.text_a_color = colors.WHITE
+        multi_price_label.text_b_color = colors.TEXT_DIM
         self.multi_price_label = multi_price_label
         self.tooltip_widgets.append(self.multi_price_label)
 
