@@ -42,6 +42,8 @@ cached_gpu_textures = {}
 
 _cached_image_shader: Optional[gpu.types.GPUShader] = None
 
+_LINEAR_THUMBNAIL_AREA_TYPES = ("NODE_EDITOR", "VIEW_3D")
+
 SEGMENTS_DEFAULT = 4
 
 
@@ -677,10 +679,15 @@ def _resolve_color_space_mode() -> int:
     if area is None:
         return 0
 
-    # Blender 5.0+ node editors already expect linear data, so avoid extra conversion there
-    node_editor_types = {"NODE_EDITOR", "VIEW_3D"}
+    # Blender 5.0+ node editors already expect linear data, so avoid extra conversion there.
+    # Keep this check first to avoid preference lookups in common linear-data areas.
+    if area.type in _LINEAR_THUMBNAIL_AREA_TYPES:
+        return 0
 
-    if area.type in node_editor_types:
+    addon = bpy.context.preferences.addons.get(__package__)
+    if addon is not None and getattr(
+        addon.preferences, "disable_thumbnail_srgb_conversion", False
+    ):
         return 0
 
     return 1

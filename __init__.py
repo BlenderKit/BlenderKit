@@ -2601,6 +2601,14 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
+    disable_thumbnail_srgb_conversion: BoolProperty(
+        name="Disable thumbnail sRGB conversion",
+        description="If enabled, BlenderKit will skip thumbnail linear-to-sRGB conversion in UI drawing.",
+        default=False,
+        # do not save prefs here, it's experimental
+        options={"SKIP_SAVE"},
+    )
+
     enable_wire_thumbnail_upload: BoolProperty(
         name="Enable wire thumbnail upload",
         description="If enabled, wireframe thumbnails will be uploaded.",
@@ -2731,6 +2739,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_tab")
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            experimental_settings.prop(self, "disable_thumbnail_srgb_conversion")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
