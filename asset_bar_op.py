@@ -21,8 +21,8 @@ import math
 import os
 import re
 import time
-from functools import partial
 from collections import Counter
+from functools import partial
 from types import SimpleNamespace
 from typing import Any, Dict, Optional, Union
 
@@ -46,7 +46,7 @@ from .bl_ui_widgets.bl_ui_button import BL_UI_Button
 from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from .bl_ui_widgets.bl_ui_image import BL_UI_Image
-from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
+from .bl_ui_widgets.bl_ui_label import BL_UI_DuoLabel, BL_UI_Label
 from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 bk_logger = logging.getLogger(__name__)
@@ -65,6 +65,9 @@ THUMBNAIL_TYPES = [
 active_area_pointer = 0
 
 ROUNDING_RADIUS = 20
+ASSETBAR_MAX_VISIBLE_ASSETS = 200
+ASSETBAR_RESIZE_CURSOR = "MOVE_Y"
+ASSETBAR_RESIZE_CLICK_THRESHOLD_PX = 5
 
 TOOLTIP_SIZE_PX = 512
 
@@ -178,12 +181,7 @@ def modal_inside(self, context, event):
     if sr is not None:
         # this check runs more search, useful especially for first search. Could be moved to a better place where the check
         # doesn't run that often.
-        # Calculate current max rows based on expanded state
-        if user_preferences.assetbar_expanded:
-            current_max_rows = user_preferences.maximized_assetbar_rows
-        else:
-            current_max_rows = 1
-
+        current_max_rows = self.get_requested_assetbar_rows()
         if len(sr) - ui_props.scroll_offset < (ui_props.wcount * current_max_rows) + 15:
             self.search_more()
 
@@ -650,7 +648,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     bl_label = "BlenderKit asset bar refresh"
     bl_description = "BlenderKit asset bar refresh"
     bl_options = {"REGISTER"}
-    instances = []
+    instances: list["BlenderKitAssetBarOperator"] = []
+    _requested_rows_override: Optional[int]
 
     do_search: BoolProperty(  # type: ignore[valid-type]
         name="Run Search", description="", default=True, options={"SKIP_SAVE"}
@@ -751,6 +750,213 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             region = self._validated_region(getattr(bpy.context, "region", None))
 
         return area, region
+
+    def _current_layout_context(self):
+        area, region = self._current_area_region()
+        return self._build_context_snapshot(bpy.context, area, region)
+
+    def _get_row_limit(self) -> int:
+        wcount = getattr(self, "wcount", 0)
+        if wcount > 0:
+            return math.ceil(ASSETBAR_MAX_VISIBLE_ASSETS / wcount)
+        return ASSETBAR_MAX_VISIBLE_ASSETS
+
+    def _get_height_limited_rows(self, context=None) -> int:
+        context = (
+            context
+            or getattr(self, "_override_context", None)
+            or self._current_layout_context()
+        )
+        region = getattr(context, "region", None)
+        if region is None or getattr(self, "button_size", 0) <= 0:
+            return self._get_row_limit()
+        available_height = (
+            region.height
+            - self.bar_y
+            - 2 * self.assetbar_margin
+            - self.other_button_size
+        )
+        max_rows_by_height = math.floor(available_height / self.button_size)
+        return max(1, min(self._get_row_limit(), max_rows_by_height))
+
+    def clamp_assetbar_rows(self, rows: int, context=None) -> int:
+        return max(1, min(rows, self._get_height_limited_rows(context)))
+
+    def get_expanded_assetbar_rows(self) -> int:
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        return self.clamp_assetbar_rows(
+            max(2, int(user_preferences.maximized_assetbar_rows))
+        )
+
+    def get_requested_assetbar_rows(self) -> int:
+        override_rows = getattr(self, "_requested_rows_override", None)
+        if override_rows is not None:
+            return self.clamp_assetbar_rows(int(override_rows))
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        if not user_preferences.assetbar_expanded:
+            return 1
+        return self.get_expanded_assetbar_rows()
+
+    def get_assetbar_rows_from_drag(
+        self, start_rows: int, start_mouse_y: int, current_mouse_y: int
+    ) -> int:
+        """Translate vertical mouse drag distance into a target row count."""
+        if getattr(self, "button_size", 0) <= 0:
+            return self.clamp_assetbar_rows(start_rows)
+        row_delta = int(
+            round((start_mouse_y - current_mouse_y) / max(float(self.button_size), 1.0))
+        )
+        return self.clamp_assetbar_rows(start_rows + row_delta)
+
+    def get_target_row_count(
+        self,
+        search_results,
+        *,
+        total_result_count: Optional[int] = None,
+        is_searching: bool,
+        context,
+    ) -> int:
+        """Decide how many rows to display based on results, preferences, and screen height."""
+        max_rows = min(
+            self.get_requested_assetbar_rows(),
+            self._get_height_limited_rows(context),
+        )
+        if is_searching:
+            return max_rows
+        if self.wcount > 0:
+            visible_result_count = total_result_count
+            if visible_result_count is None and search_results is not None:
+                visible_result_count = len(search_results)
+            if visible_result_count is not None:
+                row_count = math.ceil(visible_result_count / self.wcount)
+                return max(1, min(max_rows, row_count))
+        if search_results is not None:
+            row_count = math.ceil(len(search_results) / self.wcount)
+            return max(1, min(max_rows, row_count))
+        return 1
+
+    def update_expand_button_icon(self):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        self.button_expand.text = "▲" if user_preferences.assetbar_expanded else "▼"
+
+    def _cursor_window(self):
+        context_window = getattr(bpy.context, "window", None)
+        if context_window is not None:
+            return context_window
+        try:
+            return self.window
+        except ReferenceError:
+            return None
+
+    def set_resize_hover_cursor(self):
+        if self._resize_dragging:
+            return
+        window = self._cursor_window()
+        if window is None:
+            return
+        window.cursor_set(ASSETBAR_RESIZE_CURSOR)
+
+    def set_resize_drag_cursor(self):
+        window = self._cursor_window()
+        if window is None:
+            return
+        window.cursor_modal_set(ASSETBAR_RESIZE_CURSOR)
+        self._resize_cursor_modal_active = True
+
+    def restore_resize_cursor(self, *, hovering=False):
+        window = self._cursor_window()
+        if window is None:
+            return
+        if self._resize_cursor_modal_active:
+            window.cursor_modal_restore()
+            self._resize_cursor_modal_active = False
+        cursor_name = (
+            ASSETBAR_RESIZE_CURSOR
+            if hovering and not self._resize_dragging
+            else "DEFAULT"
+        )
+        window.cursor_set(cursor_name)
+
+    def _get_resize_rows_from_mouse_y(self, mouse_y: int) -> int:
+        return self.get_assetbar_rows_from_drag(
+            self._resize_drag_start_rows, self._resize_drag_start_y, mouse_y
+        )
+
+    def on_panel_resize_hover(self, panel, edge: str, hovering: bool):
+        if edge != "bottom" or self._resize_dragging:
+            return
+        if hovering:
+            self.set_resize_hover_cursor()
+            return
+        self.restore_resize_cursor()
+
+    def on_panel_resize_begin(self, panel, edge: str, start_x: int, start_y: int):
+        if edge != "bottom":
+            return
+        self._resize_drag_start_rows = self.get_requested_assetbar_rows()
+        self._resize_drag_start_y = start_y
+        self.begin_resize_drag()
+        self.set_resize_drag_cursor()
+
+    def on_panel_resize_update(self, panel, edge: str, x: int, y: int):
+        if edge != "bottom":
+            return
+        self.preview_assetbar_rows(self._get_resize_rows_from_mouse_y(y))
+
+    def on_panel_resize_end(self, panel, edge: str, x: int, y: int, hovering: bool):
+        if edge != "bottom":
+            return
+        self.apply_assetbar_rows(self._get_resize_rows_from_mouse_y(y))
+        self.end_resize_drag(hovering=hovering)
+
+    def on_panel_resize_click(self, panel, edge: str, x: int, y: int):
+        if edge != "bottom":
+            return
+        self.toggle_assetbar_rows()
+        self.restore_resize_cursor(hovering=True)
+
+    def begin_resize_drag(self):
+        self._resize_dragging = True
+        self.hide_tooltip()
+
+    def end_resize_drag(self, *, hovering: bool):
+        self._resize_dragging = False
+        self.restore_resize_cursor(hovering=hovering)
+
+    def preview_assetbar_rows(self, rows: int):
+        rows = self.clamp_assetbar_rows(rows)
+        if rows == self.get_requested_assetbar_rows():
+            return
+        self._requested_rows_override = rows
+        self._refresh_layout(self._current_layout_context())
+        self._redraw_tracked_regions()
+
+    def apply_assetbar_rows(self, rows: int):
+        rows = self.clamp_assetbar_rows(rows)
+        self._requested_rows_override = None
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        if rows > 1 and user_preferences.maximized_assetbar_rows != rows:
+            user_preferences.maximized_assetbar_rows = rows
+        if rows <= 1 and user_preferences.maximized_assetbar_rows < 2:
+            user_preferences.maximized_assetbar_rows = 2
+        user_preferences.assetbar_expanded = rows > 1
+        self._refresh_layout(self._current_layout_context())
+        self.update_expand_button_icon()
+        self._redraw_tracked_regions()
+
+    def toggle_assetbar_rows(self):
+        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        if user_preferences.assetbar_expanded:
+            self.apply_assetbar_rows(1)
+            return
+        self.apply_assetbar_rows(self.get_expanded_assetbar_rows())
+
+    def _reset_resize_state(self):
+        self._requested_rows_override = None
+        self._resize_dragging = False
+        self._resize_cursor_modal_active = False
+        self._resize_drag_start_rows = 1
+        self._resize_drag_start_y = 0
 
     def _event_window_coords(self, event):
         if not hasattr(event, "mouse_x") or not hasattr(event, "mouse_y"):
@@ -1706,6 +1912,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.bar_width,
             self.bar_height,  # Use total height including tabs
         )
+        self.panel.drag_enabled = False
         self.panel.bg_color = (0.0, 0.0, 0.0, 0.9)
 
         # Create tab area background
@@ -1768,7 +1975,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.widgets_panel.append(self.button_close)
 
-        # Expand/collapse button (positioned at bottom of assetbar)
+        self.resize_edge_height = max(6, self.other_button_size // 4)
+        self.panel.resize_edges = {"bottom"}
+        self.panel.resize_handle_size = self.resize_edge_height
+        self.panel.resize_threshold_px = ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+        self.panel.on_resize_hover = self.on_panel_resize_hover
+        self.panel.on_resize_begin = self.on_panel_resize_begin
+        self.panel.on_resize_update = self.on_panel_resize_update
+        self.panel.on_resize_end = self.on_panel_resize_end
+        self.panel.on_resize_click = self.on_panel_resize_click
+
         self.button_expand = BL_UI_Button(
             self.bar_width - self.other_button_size,
             self.bar_height,
@@ -1791,7 +2007,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (self.other_button_size, self.other_button_size)
         )
         self.button_expand.set_mouse_down(self.toggle_expand)
-
         self.widgets_panel.append(self.button_expand)
 
         self.scroll_width = 30
@@ -2215,10 +2430,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.max_hcount = math.floor(
             max(region.width, context.window.width) / self.button_size
         )
-        self.max_wcount = user_preferences.maximized_assetbar_rows
+        self.max_wcount = self._get_row_limit()
 
         history_step = search.get_active_history_step()
         search_results = history_step.get("search_results")
+        is_searching = bool(history_step.get("is_searching"))
+        search_results_orig = history_step.get("search_results_orig") or {}
+        total_result_count = search_results_orig.get("count")
 
         self.position_active_filter_buttons()
 
@@ -2228,30 +2446,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.bar_y = base_bar_y + bubble_offset
 
-        # we need to init all possible thumb previews in advance/
-        # Calculate hcount based on expanded state
-        if search_results is not None and self.wcount > 0:
-            if user_preferences.assetbar_expanded:
-                max_rows = user_preferences.maximized_assetbar_rows
-                available_height = (
-                    region.height
-                    - self.bar_y
-                    - 2 * self.assetbar_margin
-                    - self.other_button_size
-                )
-                max_rows_by_height = math.floor(available_height / self.button_size)
-                max_rows = (
-                    min(max_rows, max_rows_by_height) if max_rows_by_height > 0 else 1
-                )
-            else:
-                max_rows = 1
-            self.hcount = min(
-                max_rows,
-                math.ceil(len(search_results) / self.wcount),
-            )
-            self.hcount = max(self.hcount, 1)
-        else:
-            self.hcount = 1
+        # Keep the saved height while results are still streaming in.
+        self.hcount = self.get_target_row_count(
+            search_results,
+            total_result_count=total_result_count,
+            is_searching=is_searching,
+            context=context,
+        )
 
         self.base_bar_height = self.button_size * self.hcount + 2 * self.assetbar_margin
         self._update_manufacturer_data(search_results)
@@ -2275,13 +2476,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_assetbar_layout(self, context):
         """Update the layout of the asset bar"""
-        self.scroll_update(always=True)
+        self.scroll_update(
+            always=True,
+            update_visible_buttons=False,
+        )
 
         self.position_and_hide_buttons()
+        self.update_buttons()
 
         self.button_close.set_location(
             self.bar_width - self.other_button_size, -self.other_button_size
         )
+        self.button_expand.set_location(
+            self.bar_width - self.other_button_size,
+            self.bar_height,
+        )
+        history_step = search.get_active_history_step()
+        search_results = history_step.get("search_results") or []
+        edge_visible = len(search_results) > self.wcount
+        self.button_expand.visible = edge_visible
+        self.panel.resize_enabled = edge_visible
+        self.panel.resize_handle_size = self.resize_edge_height
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
@@ -2335,7 +2550,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Update tab icons
         self.update_tab_icons()
 
-        # Update expand button icon
         self.update_expand_button_icon()
 
     def update_tab_icons(self):
@@ -2366,18 +2580,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
                     tab_button.set_image(icon_path)
                     tab_button.set_image_colorspace("")
-
-    def update_expand_button_icon(self):
-        """Update expand button icon based on current expanded state."""
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
-        if user_preferences.assetbar_expanded:
-            # Show up arrow when expanded (to collapse)
-            self.button_expand.text = "▲"
-        else:
-            # Show down arrow when collapsed (to expand)
-            self.button_expand.text = "▼"
-
-    # region active filters
 
     def position_active_filter_buttons(self):
         self.active_filter_height = 0
@@ -2477,7 +2679,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     # endregion active filters
 
     # region manufacturer
-
     def _extract_manufacturer_name(self, asset_data):
         manufacturer = asset_data.get("dictParameters", {}).get("manufacturer")
         if not manufacturer:
@@ -2692,16 +2893,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
                 if asset_idx < len(sr):
                     button.visible = True
-                    button.validation_icon.visible = True
-                    button.bookmark_button.visible = False
-                    button.author_button.visible = False
-                    # button.progress_bar.visible = True
+                    self.clear_button_overlays(button)
                 else:
                     button.visible = False
-                    button.validation_icon.visible = False
-                    button.bookmark_button.visible = False
-                    button.author_button.visible = False
-                    button.progress_bar.visible = False
+                    self.clear_button_overlays(button)
                 if utils.profile_is_validator():
                     button.red_alert.set_location(
                         asset_x - self.validation_icon_margin,
@@ -2712,18 +2907,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         for a in range(i, len(self.asset_buttons)):
             button = self.asset_buttons[a]
             button.visible = False
-            button.validation_icon.visible = False
-            button.bookmark_button.visible = False
-            button.author_button.visible = False
-            button.progress_bar.visible = False
+            self.clear_button_overlays(button)
 
         self.position_active_filter_buttons()
-
-        # Position expand button and hide it when all results fit in a single row
-        self.button_expand.set_location(
-            self.bar_width - self.other_button_size, self.bar_height
-        )
-        self.button_expand.visible = len(sr) > self.wcount
 
         self.button_scroll_down.height = self.bar_height
         self.button_scroll_down.set_image_position(
@@ -2742,6 +2928,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         super().__init__(*args, **kwargs)
         self._quad_view_state = None
         self._restart_pending = False
+        self._reset_resize_state()
         self.scroll_offset = 0
         self._tooltip_available_height = None
 
@@ -2765,6 +2952,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.tooltip_scale = 1.0
         self.bottom_panel_fraction = 0.18
         self.needs_tooltip_update = False
+        self._reset_resize_state()
         self.update_ui_size(context)
         self._quad_view_state = self._is_quad_view(context)
 
@@ -2833,12 +3021,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return False
 
         ui_props = context.window_manager.blenderkitUI
+        needs_initial_search = not search.get_search_results()
+        if needs_initial_search:
+            search.get_active_history_step()["is_searching"] = True
 
         self.on_init(context)
         self.context = context
 
         # start search if there isn't a search result yet
-        if not search.get_search_results():
+        if needs_initial_search:
             search.search()
 
         if ui_props.assetbar_on:
@@ -2940,6 +3131,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # to pass the operator to validation icons
         global asset_bar_operator
         asset_bar_operator = None
+        self.restore_resize_cursor()
+        self._reset_resize_state()
 
         context.window_manager.event_timer_remove(self._timer)
 
@@ -2956,6 +3149,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     # handlers
     def enter_button(self, widget):
         """Handle mouse enter on an asset button."""
+        if self._resize_dragging:
+            return
         if not hasattr(widget, "button_index") or widget.button_index < 0:
             return  # click on left/right arrow button gave no attr button_index
             # we should detect on which button_index scroll/left/right happened to refresh shown thumbnail
@@ -3283,6 +3478,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def exit_button(self, widget):
         """Handle mouse exit from an asset button."""
+        if self._resize_dragging:
+            return
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
         if self.active_index == widget.button_index + self.scroll_offset:
             ui_props = bpy.context.window_manager.blenderkitUI
@@ -3366,15 +3563,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.finish()
 
     def toggle_expand(self, widget):
-        """Toggle the expanded state of the assetbar."""
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
-        user_preferences.assetbar_expanded = not user_preferences.assetbar_expanded
-
-        # Update the button icon
-        self.update_expand_button_icon()
-
-        # Restart the asset bar to apply the new layout
-        self.restart_asset_bar()
+        """Toggle the expanded state of the asset bar from the visible button."""
+        self.toggle_assetbar_rows()
 
     def handle_key_input(self, event):
         """Handle keyboard shortcuts for asset bar operations."""
@@ -3758,6 +3948,62 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
 
+    def update_button_overlays(self, asset_button, asset_data):
+        if asset_data.get("assetType") == "author":
+            # Distinguish author cards with a blue border and author icon.
+            asset_button.background_border_thickness = 3.0
+            asset_button.author_button.visible = True
+            asset_button.background_corner_radius = 12.0
+            asset_button.image_corner_radius = 12.0
+            asset_button.background_padding = [-1.0, -1.0]
+            asset_button.background_border = True
+            asset_button.background_border_color = colors.ACTIVE_BLUE
+            asset_button.use_rounded_background = True
+            asset_button.image_padding = asset_button.background_border_thickness
+        else:
+            asset_button.background_border = False
+            asset_button.background_border_color = None
+            asset_button.author_button.visible = False
+            asset_button.use_rounded_background = False
+            asset_button.background_corner_radius = 0.0
+            asset_button.image_corner_radius = None
+            asset_button.background_padding = [0.0, 0.0]
+            asset_button.image_padding = 0.0
+        asset_button.bookmark_button.asset_index = asset_button.asset_index
+        asset_button.author_button.asset_index = asset_button.asset_index
+        self.update_validation_icon(asset_button, asset_data)
+        self.update_bookmark_icon(asset_button.bookmark_button)
+        self.update_progress_bar(asset_button, asset_data)
+
+        if (
+            utils.profile_is_validator()
+            and asset_data["verificationStatus"] == "uploaded"
+        ):
+            over_limit = utils.is_upload_old(asset_data.get("lastBlendUpload"))
+            if over_limit:
+                redness = min(over_limit * 0.05, 0.7)
+                asset_button.red_alert.bg_color = (1, 0, 0, redness)
+                asset_button.red_alert.visible = True
+            else:
+                asset_button.red_alert.visible = False
+        elif utils.profile_is_validator():
+            asset_button.red_alert.visible = False
+
+    def clear_button_overlays(self, asset_button):
+        asset_button.background_border = False
+        asset_button.background_border_color = None
+        asset_button.author_button.visible = False
+        asset_button.use_rounded_background = False
+        asset_button.background_corner_radius = 0.0
+        asset_button.image_corner_radius = None
+        asset_button.background_padding = [0.0, 0.0]
+        asset_button.image_padding = 0.0
+        asset_button.validation_icon.visible = False
+        asset_button.bookmark_button.visible = False
+        asset_button.progress_bar.visible = False
+        if utils.profile_is_validator():
+            asset_button.red_alert.visible = False
+
     def update_buttons(self):
         """Update asset buttons in the asset bar based on current search results and scroll offset."""
         history_step = search.get_active_history_step()
@@ -3779,73 +4025,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_data = sr[asset_button.asset_index]
                     if asset_data is None:
                         continue
-                    # update bookmark buttons
-                    asset_button.bookmark_button.asset_index = asset_button.asset_index
-                    # update author profile buttons
-                    asset_button.author_button.asset_index = asset_button.asset_index
 
                     set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
-                    # Distinguish author cards with a blue border and author icon
-                    if asset_data.get("assetType") == "author":
-                        asset_button.background_border_thickness = 3.0
-                        asset_button.author_button.visible = True
-                        asset_button.background_corner_radius = 12.0
-                        asset_button.image_corner_radius = 12.0
-                        asset_button.background_padding = [-1.0, -1.0]
-                        asset_button.background_border = True
-                        asset_button.background_border_color = colors.ACTIVE_BLUE
-                        asset_button.use_rounded_background = True
-                        asset_button.image_padding = (
-                            asset_button.background_border_thickness
-                        )
-                    else:
-                        asset_button.background_border = False
-                        asset_button.background_border_color = None
-                        asset_button.author_button.visible = False
-                        asset_button.use_rounded_background = False
-                        asset_button.background_corner_radius = 0.0
-                        asset_button.image_corner_radius = None
-                        asset_button.background_padding = [0.0, 0.0]
-                        asset_button.image_padding = 0.0
-
-                    self.update_validation_icon(asset_button, asset_data)
-
-                    self.update_bookmark_icon(asset_button.bookmark_button)
-
-                    self.update_progress_bar(asset_button, asset_data)
-
-                    if (
-                        utils.profile_is_validator()
-                        and asset_data["verificationStatus"] == "uploaded"
-                    ):
-                        over_limit = utils.is_upload_old(
-                            asset_data.get("lastBlendUpload")
-                        )
-                        if over_limit:
-                            redness = min(over_limit * 0.05, 0.7)
-                            asset_button.red_alert.bg_color = (1, 0, 0, redness)
-                            asset_button.red_alert.visible = True
-                        else:
-                            asset_button.red_alert.visible = False
-                    elif utils.profile_is_validator():
-                        asset_button.red_alert.visible = False
+                    self.update_button_overlays(asset_button, asset_data)
                     visible_results.append(asset_data)
 
             else:
                 asset_button.visible = False
-                asset_button.validation_icon.visible = False
-                asset_button.bookmark_button.visible = False
-                asset_button.author_button.visible = False
-                asset_button.progress_bar.visible = False
-                if utils.profile_is_validator():
-                    asset_button.red_alert.visible = False
+                self.clear_button_overlays(asset_button)
 
         # Refresh manufacturer chips to match currently visible assets
         self._update_manufacturer_data(visible_results)
 
-    def scroll_update(self, always=False):
+    def scroll_update(self, always=False, *, update_visible_buttons=True):
         """Update scroll position and visibility of scroll buttons."""
         self.hide_tooltip()
         history_step = search.get_active_history_step()
@@ -3857,6 +4051,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_scroll_down.visible = False
             self.button_scroll_up.visible = False
             return
+        sro_count = sro["count"] if sro is not None else len(sr)
 
         self.scroll_offset = min(
             self.scroll_offset, len(sr) - (self.wcount * self.hcount)
@@ -3865,7 +4060,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # only update if scroll offset actually changed, otherwise this is unnecessary
 
         if (
-            sro["count"] > len(sr)
+            sro is not None
+            and sro_count > len(sr)
             and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15
         ):
             self.search_more()
@@ -3875,7 +4071,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             self.button_scroll_down.visible = True
 
-        if self.scroll_offset >= sro["count"] - (self.wcount * self.hcount):
+        if self.scroll_offset >= sro_count - (self.wcount * self.hcount):
             self.button_scroll_up.visible = False
         else:
             self.button_scroll_up.visible = True
@@ -3884,6 +4080,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if self.last_scroll_offset == self.scroll_offset and not always:
             return
         self.last_scroll_offset = self.scroll_offset
+
+        if not update_visible_buttons:
+            return
 
         self.update_buttons()
 
