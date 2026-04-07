@@ -137,8 +137,9 @@ def get_full_thumbnail_variant(asset_data, variant: str):
     # Load the image into Blender
     if os.path.exists(tpath):
         img = utils.get_hidden_image(tpath, file_name, colorspace="")
-        bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
-        return img
+        if img is not None:
+            bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
+            return img
 
     bk_logger.info("Thumbnail file not found at path: %s", tpath)
     return None
