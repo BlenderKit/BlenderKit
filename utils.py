@@ -16,6 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from __future__ import annotations
+
 import datetime
 import json
 import logging
@@ -767,8 +769,11 @@ def img_to_preview(img, copy_original=False):
 
 def get_hidden_image(
     tpath, bdata_name, force_reload: bool = False, colorspace: str = ""
-):
+) -> Optional[bpy.types.Image]:
     """Get hidden image by name. If not found, load it from tpath."""
+    if not bdata_name:
+        # image parameter exists but is empty
+        return None
     if bdata_name[0] == ".":
         hidden_name = bdata_name
     else:
