@@ -3390,12 +3390,16 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 self.asset_data.get("dictParameters", {}).get("sexualizedContent"),
             )
 
-        from_newer, difference = utils.asset_from_newer_blender_version(self.asset_data)
-        if from_newer:
-            if difference == "major":
+        has_warning, difference = utils.asset_from_newer_blender_version(
+            self.asset_data
+        )
+        if has_warning:
+            if difference == "major_newer":
                 warning = (
                     f"{self.asset_data['sourceAppVersion']} - newer major version!"
                 )
+            elif difference == "major_older":
+                warning = f"{self.asset_data['sourceAppVersion']} - older major version, may be incompatible!"
             elif difference == "minor":
                 warning = (
                     f"{self.asset_data['sourceAppVersion']} - newer minor version!"

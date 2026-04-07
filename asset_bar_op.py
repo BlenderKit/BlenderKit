@@ -2778,7 +2778,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = ui_props.scroll_offset
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
-        self.warning_color = (0.9, 0.5, 0.5, 1.0)
+        self.info_color = (0.6, 0.6, 0.6, 1.0)
+        self.caution_color = (0.7, 0.7, 0.5, 1.0)
+        self.warning_color = (0.9, 0.3, 0.3, 1.0)
 
         self.init_ui()
         self.init_tooltip()
@@ -3181,16 +3183,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 # preview comments for validators
                 self.update_comments_for_validators(asset_data)
 
-                from_newer, difference = utils.asset_from_newer_blender_version(
+                has_warning, difference = utils.asset_from_newer_blender_version(
                     asset_data
                 )
-                if from_newer:
-                    if difference == "major":
+                if has_warning:
+                    if difference in {"major_newer", "major_older"}:
                         self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Use at your own risk."
+                        self.version_warning.text_color = self.warning_color
                     elif difference == "minor":
-                        self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Caution advised."
+                        self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}. Caution advised."
+                        self.version_warning.text_color = self.caution_color
                     else:
-                        self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}! Some features may not work."
+                        self.version_warning.text = f"Made in Blender {asset_data['sourceAppVersion']}. Some features may not work."
+                        self.version_warning.text_color = self.info_color
                 else:
                     self.version_warning.text = ""
 

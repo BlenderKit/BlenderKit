@@ -103,43 +103,55 @@ class TestUtilsRemoveUrlProtocol(unittest.TestCase):
 
 
 class TestAssetFromNewerBlenderVersion(unittest.TestCase):
-    def test_older_asset(self):
+    def test_older_major_asset(self):
         asset = {"assetType": "model", "sourceAppVersion": "3.6.0"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
-        self.assertFalse(is_newer)
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
+        self.assertTrue(has_warning)
+        self.assertEqual(level, "major_older")
+
+    def test_older_minor_asset(self):
+        asset = {"assetType": "model", "sourceAppVersion": "4.0.0"}
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 1, 0))
+        self.assertFalse(has_warning)
 
     def test_newer_major(self):
         asset = {"assetType": "model", "sourceAppVersion": "5.0.0"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
-        self.assertTrue(is_newer)
-        self.assertEqual(level, "major")
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
+        self.assertTrue(has_warning)
+        self.assertEqual(level, "major_newer")
 
     def test_newer_minor(self):
         asset = {"assetType": "model", "sourceAppVersion": "4.2.0"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 1, 0))
-        self.assertTrue(is_newer)
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 1, 0))
+        self.assertTrue(has_warning)
         self.assertEqual(level, "minor")
 
     def test_newer_patch(self):
         asset = {"assetType": "model", "sourceAppVersion": "4.0.3"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 0, 2))
-        self.assertTrue(is_newer)
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 0, 2))
+        self.assertTrue(has_warning)
         self.assertEqual(level, "patch")
 
     def test_same_version(self):
         asset = {"assetType": "model", "sourceAppVersion": "4.0.0"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
-        self.assertFalse(is_newer)
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
+        self.assertFalse(has_warning)
 
     def test_addon_type_always_false(self):
         asset = {"assetType": "addon", "sourceAppVersion": "99.0.0"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
-        self.assertFalse(is_newer)
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
+        self.assertFalse(has_warning)
 
     def test_short_version_string(self):
         asset = {"assetType": "model", "sourceAppVersion": "4"}
-        is_newer, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
-        self.assertFalse(is_newer)
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 0, 0))
+        self.assertFalse(has_warning)
+
+    def test_two_major_versions_older(self):
+        asset = {"assetType": "model", "sourceAppVersion": "2.93.0"}
+        has_warning, level = utils.asset_from_newer_blender_version(asset, (4, 2, 0))
+        self.assertTrue(has_warning)
+        self.assertEqual(level, "major_older")
 
 
 class TestAssetVersionAsTuple(unittest.TestCase):
