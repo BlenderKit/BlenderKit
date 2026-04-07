@@ -1396,7 +1396,16 @@ def user_is_owner(asset_data: Optional[dict] = None) -> bool:
 
 
 def asset_from_newer_blender_version(asset_data, blender_version=None):
-    """Check if asset is from a newer blender version, to avoid incompatibility. Give info if difference is in major, minor or patch version."""
+    """Check asset vs Blender version compatibility. Warn on any major version
+    difference (per Blender compatibility docs) and on newer minor/patch versions.
+
+    Returns (needs_warning: bool, difference: str) where difference is one of:
+    - "major_newer": asset from a newer major version (high risk)
+    - "major_older": asset from an older major version (possible incompatibility)
+    - "minor": asset from a newer minor version within same major
+    - "patch": asset from a newer patch version within same major.minor
+    - "": no compatibility concern
+    """
     # addons don't have a blender version, so we return False
     if asset_data["assetType"] == "addon":
         return False, ""
@@ -1410,9 +1419,9 @@ def asset_from_newer_blender_version(asset_data, blender_version=None):
         asset_ver.append("0")
 
     if blender_version[0] < int(asset_ver[0]):
-        return True, "major"
+        return True, "major_newer"
     elif blender_version[0] > int(asset_ver[0]):
-        return False, ""
+        return True, "major_older"
 
     if blender_version[1] < int(asset_ver[1]):
         return True, "minor"
