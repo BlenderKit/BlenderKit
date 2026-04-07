@@ -730,9 +730,9 @@ def object_in_particle_collection(o: bpy.types.Object) -> bool:
     """checks if an object is in a particle system as instance, to not snap to it and not to try to attach material."""
     for p in bpy.data.particles:
         if p.render_type == "COLLECTION" and p.instance_collection:
-            if o in p.instance_collection.objects:
+            if o.name in p.instance_collection.objects:
                 return True
-        if p.render_type == "COLLECTION":
+        if p.render_type == "OBJECT":
             if p.instance_object == o:
                 return True
     return False
