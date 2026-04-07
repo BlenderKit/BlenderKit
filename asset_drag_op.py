@@ -796,6 +796,8 @@ class AssetDragOperator(bpy.types.Operator):
         # Mouse tracking variables
         self.start_mouse_x = 0
         self.start_mouse_y = 0
+        self.start_mouse_win_x = 0
+        self.start_mouse_win_y = 0
 
         self.mouse_x = 0
         self.mouse_y = 0
@@ -1385,26 +1387,33 @@ class AssetDragOperator(bpy.types.Operator):
                 use_resolution_operator=True,
                 max_resolution=self.asset_data.get("max_resolution", 0),
             )
+            # no additional handling required
+            return
 
-        if self.asset_data["assetType"] == "scene":
+        elif self.asset_data["assetType"] == "scene":
             bpy.ops.scene.blenderkit_download(
                 "INVOKE_DEFAULT",
                 asset_index=self.asset_search_index,
                 invoke_resolution=False,
                 invoke_scene_settings=True,
             )
+            # no additional handling required
+            return
 
-        if self.asset_data["assetType"] == "brush":
+        elif self.asset_data["assetType"] == "brush":
             bpy.ops.scene.blenderkit_download(
                 asset_index=self.asset_search_index,
             )
+            # no additional handling required
+            return
 
         if self.asset_data["assetType"] == "addon":
             # Show addon management popup instead of direct installation
-
             bpy.ops.scene.blenderkit_addon_choice(
                 "INVOKE_DEFAULT", asset_data=json.dumps(self.asset_data)
             )
+            # no additional handling required
+            return
 
         # In any other area than 3D view and outliner, we just cancel the drag&drop
         if self.prev_area_type not in ["VIEW_3D", "OUTLINER", "NODE_EDITOR"]:
@@ -1428,10 +1437,10 @@ class AssetDragOperator(bpy.types.Operator):
         x: float,
         y: float,
     ) -> Union[
-        Tuple[bpy.types.Window, bpy.types.Region, bpy.types.Area],
+        Tuple[bpy.types.Window, bpy.types.Area, bpy.types.Region],
         Tuple[None, None, None],
     ]:
-        """Find the window, region and area under the mouse cursor."""
+        """Find the window, area and region under the mouse cursor."""
 
         wins = bpy.context.window_manager.windows[:]
         # reverse the list, seemed to work well at least on windows.
@@ -1815,8 +1824,10 @@ class AssetDragOperator(bpy.types.Operator):
             self.active_region_pointer = context.region.as_pointer()
 
         # are we dragging already?
-        delta_x = abs(self.start_mouse_x - self.mouse_screen_x)
-        delta_y = abs(self.start_mouse_y - self.mouse_screen_y)
+        # Compare window-relative coordinates to avoid false drags from
+        # window.x/y shifts between invoke and modal (macOS #1994).
+        delta_x = abs(event.mouse_x - self.start_mouse_win_x)
+        delta_y = abs(event.mouse_y - self.start_mouse_win_y)
         if not self.drag and (
             delta_x > DEFAULT_DRAG_THRESHOLD or delta_y > DEFAULT_DRAG_THRESHOLD
         ):
@@ -1916,6 +1927,12 @@ class AssetDragOperator(bpy.types.Operator):
         self.mouse_screen_y = int(context.window.y + event.mouse_y)
         self.start_mouse_x = self.mouse_screen_x
         self.start_mouse_y = self.mouse_screen_y
+        # Store window-relative coords for drag threshold comparison.
+        # Using event.mouse_x/y (window-relative) instead of screen coords
+        # avoids false-positive drags when window.x/y shifts between invoke
+        # and modal (observed on macOS with Cocoa/trackpad, see #1994).
+        self.start_mouse_win_x = event.mouse_x
+        self.start_mouse_win_y = event.mouse_y
         # Author assets should not be dragged, cancel immediately
         if self.asset_data.get("assetType") == "author":
             return {"CANCELLED"}
@@ -2050,17 +2067,14 @@ class AssetDragOperator(bpy.types.Operator):
     ) -> Tuple[float, float]:
         """Get the cursor position in the node editor space."""
 
-        # Get view2d from region
-        ui_scale = bpy.context.preferences.system.ui_scale
-
-        # Convert region coordinates to view coordinates using view2d
+        # Convert region coordinates to view coordinates using view2d.
+        # region_to_view already maps from region pixels to the node-tree
+        # coordinate system regardless of DPI / ui_scale, so no extra
+        # scaling is needed.
         x, y = self.active_region.view2d.region_to_view(
             float(self.mouse_x), float(self.mouse_y)
         )
 
-        # Scale by UI scale - this ensures proper positioning
-        x = x / ui_scale
-        y = y / ui_scale
         return (x, y)
 
 
