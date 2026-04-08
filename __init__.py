@@ -282,11 +282,26 @@ def update_down_up(self, context):
         search.search()
 
 
+_asset_type_enum_items = []
+_asset_type_enum_cache_key = None
+
+
 def asset_type_callback(self, context):
     """
     Returns
     items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
     """
+    global _asset_type_enum_items, _asset_type_enum_cache_key
+    addon = bpy.context.preferences.addons.get(__package__)
+    prefs = addon.preferences if addon is not None else None
+    key = (
+        self.down_up,
+        getattr(prefs, "experimental_features", False),
+        getattr(prefs, "author_tab", False),
+    )
+    if key == _asset_type_enum_cache_key and _asset_type_enum_items:
+        return _asset_type_enum_items
+    _asset_type_enum_cache_key = key
     pcoll = icons.icon_collections["main"]
 
     if self.down_up == "SEARCH":
@@ -310,10 +325,8 @@ def asset_type_callback(self, context):
 
         if bpy.app.version >= (4, 2, 0):
             items.append(("ADDON", "Add-ons", "Find add-ons", "PLUGIN", 7))
-        addon = bpy.context.preferences.addons.get(__package__)
-        if addon is not None:
-            preferences = addon.preferences
-            if preferences.experimental_features and preferences.author_tab:
+        if prefs is not None:
+            if prefs.experimental_features and prefs.author_tab:
                 items.append(
                     (
                         "AUTHOR",
@@ -347,7 +360,8 @@ def asset_type_callback(self, context):
 
         # Author is search-only, no upload entry needed
 
-    return items
+    _asset_type_enum_items = items
+    return _asset_type_enum_items
 
 
 def run_drag_drop_update(self, context):
