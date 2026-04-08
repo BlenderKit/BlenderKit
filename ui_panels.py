@@ -59,6 +59,10 @@ ACCEPTABLE_ENGINES = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 
 bk_logger = logging.getLogger(__name__)
 
+# Images currently being drawn by AssetPopupCard (protected from timer_image_cleanup).
+# Populated during draw(), cleared each timer_image_cleanup() cycle.
+_protected_images: set[str] = set()
+
 # Maximum length for manufacturer labels before truncation (e.g. "Ford motor company")
 MAX_MANUFACTURER_LABEL_LEN = 17
 
@@ -3609,6 +3613,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         author_box.scale_y = 0.6  # get text lines closer to each other
         author_box.label(text="Author")  # just one extra line to give spacing
         if hasattr(self, "gimg"):
+            _protected_images.add(self.gimg.name)
             author_left = author_box.split(factor=image_split)
             author_left.template_icon(icon_value=self.gimg.preview.icon_id, scale=7)
             self.gimg.gl_touch()
@@ -3707,6 +3712,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         box_thumbnail = layout.box()
 
         thumb_image = self._get_active_thumbnail()
+        _protected_images.add(thumb_image.name)
         box_thumbnail.scale_y = 0.4
         box_thumbnail.template_icon(
             icon_value=thumb_image.preview.icon_id, scale=width * 0.12
