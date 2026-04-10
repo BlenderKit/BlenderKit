@@ -104,6 +104,9 @@ def draw_callback_dragging(
         None
     """
 
+    if not self.drag:
+        return
+
     # Only draw 2D elements in the active region where the mouse is. Guard against destroyed operator.
     if not is_draw_cb_available(self, context):
         return
@@ -1739,10 +1742,7 @@ class AssetDragOperator(bpy.types.Operator):
         cls = type(self)
         ui_props = bpy.context.window_manager.blenderkitUI
 
-        self.resolution_factor = (
-            bpy.context.preferences.system.pixel_size
-            / bpy.context.preferences.view.ui_scale
-        )
+        
         self.mouse_screen_x = int(
             context.window.x * self.resolution_factor + event.mouse_x
         )
@@ -1924,8 +1924,12 @@ class AssetDragOperator(bpy.types.Operator):
         # Initialize drag-start coordinates immediately in invoke. If mouse-move
         # events are sparse (or arrive late), we still compute threshold against
         # the true click/press origin instead of first modal tick.
-        self.mouse_screen_x = int(context.window.x + event.mouse_x)
-        self.mouse_screen_y = int(context.window.y + event.mouse_y)
+        self.resolution_factor = (
+            bpy.context.preferences.system.pixel_size
+            / bpy.context.preferences.view.ui_scale
+        )
+        self.mouse_screen_x = int(context.window.x * self.resolution_factor + event.mouse_x)
+        self.mouse_screen_y = int(context.window.y * self.resolution_factor + event.mouse_y)
         self.start_mouse_x = self.mouse_screen_x
         self.start_mouse_y = self.mouse_screen_y
         # Author assets should not be dragged, cancel immediately
