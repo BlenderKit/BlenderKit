@@ -1921,9 +1921,8 @@ class AssetDragOperator(bpy.types.Operator):
         # This is critical for multi-window support where active_index is shared across windows
         self.asset_data = dict(sr[self.asset_search_index])
 
-        # Initialize drag-start coordinates immediately in invoke. If mouse-move
-        # events are sparse (or arrive late), we still compute threshold against
-        # the true click/press origin instead of first modal tick.
+        # Initialize drag-start coordinates immediately in invoke. 
+        # resolution factor is essential on Mac OS. don't touch it if you don't know what you are doing.
         self.resolution_factor = (
             bpy.context.preferences.system.pixel_size
             / bpy.context.preferences.view.ui_scale
