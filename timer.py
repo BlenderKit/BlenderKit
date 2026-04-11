@@ -180,14 +180,19 @@ def client_communication_timer():
 
 @bpy.app.handlers.persistent
 def timer_image_cleanup():
+    from . import ui_panels
+
+    protected = ui_panels._protected_images
     imgs = bpy.data.images[:]
     for i in imgs:
         if (
             (i.name[:11] == ".thumbnail_" or i.filepath.find("bkit_g") > -1)
             and not i.has_data
             and i.users == 0
+            and i.name not in protected
         ):
             bpy.data.images.remove(i)
+    protected.clear()
     return 60
 
 
