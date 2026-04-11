@@ -68,6 +68,10 @@ ROUNDING_RADIUS = 20
 
 TOOLTIP_SIZE_PX = 512
 
+# How many assets ahead of the current scroll position to trigger fetching the next page.
+# Higher values start the fetch earlier, reducing visible pauses when scrolling fast.
+SEARCH_PREFETCH_LOOKAHEAD = 20
+
 
 def get_area_height(self):
     ctx = getattr(self, "context", None)
@@ -184,7 +188,10 @@ def modal_inside(self, context, event):
         else:
             current_max_rows = 1
 
-        if len(sr) - ui_props.scroll_offset < (ui_props.wcount * current_max_rows) + 15:
+        if (
+            len(sr) - ui_props.scroll_offset
+            < (ui_props.wcount * current_max_rows) + SEARCH_PREFETCH_LOOKAHEAD
+        ):
             self.search_more()
 
     # Toggle overlay stats/text with animation playback
@@ -206,6 +213,8 @@ def modal_inside(self, context, event):
                 continue
             if sr is not None and len(sr) > asset_button.asset_index:
                 asset_data = sr[asset_button.asset_index]
+                if asset_data.get("placeholder"):
+                    continue
                 self.update_progress_bar(asset_button, asset_data)
         if change:
             context.region.tag_redraw()
@@ -610,6 +619,14 @@ def set_thumb_check(
     - if image download failed, it will be set to 'thumbnail_not_available.jpg'
     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
     """
+    # Placeholder entries from prefetch get the "not ready" thumbnail
+    if asset.get("placeholder"):
+        tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+        if element.get_image_path() != tpath:
+            element.set_image(tpath)
+            element.set_image_colorspace("")
+        return
+
     # Author assets have no server thumbnails, use gravatar from BKIT_AUTHORS
     if asset.get("assetType") == "author":
         author_id = int(asset.get("id", asset.get("author", {}).get("id", 0)))
@@ -1531,7 +1548,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         asset_data = search_results[self.active_index]
-        if asset_data["assetBaseId"] == asset_id:
+        if asset_data.get("assetBaseId") == asset_id:
             set_thumb_check(self.tooltip_image, asset_data, thumb_type="thumbnail")
 
     def update_comments_for_validators(self, asset_data):
@@ -2973,6 +2990,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 return  # issue #1481 - index can be sometimes over the length of search results
             asset_data = sr[search_index]
 
+            # Skip tooltip for placeholder entries (results not yet loaded)
+            if asset_data.get("placeholder"):
+                self.draw_tooltip = False
+                self.hide_tooltip()
+                return
+
             self.draw_tooltip = True
             # self.tooltip = asset_data['tooltip']
             ui_props = bpy.context.window_manager.blenderkitUI
@@ -3356,7 +3379,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search_index = widget.search_index + self.scroll_offset
         sr = search.get_search_results()
         if sr and 0 <= search_index < len(sr):
-            if sr[search_index].get("assetType") == "author":
+            asset_data = sr[search_index]
+            if asset_data.get("placeholder"):
+                return
+            if asset_data.get("assetType") == "author":
                 self.search_by_author(search_index)
                 return
 
@@ -3644,7 +3670,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             history_step = search.get_active_history_step()
             sr = history_step.get("search_results") or []
             if 0 <= search_index < len(sr):
-                # No context menu for author results
+                # No context menu for placeholder or author results
+                if sr[search_index].get("placeholder"):
+                    return
                 if sr[search_index].get("assetType") == "author":
                     return
                 self.active_index = search_index
@@ -3667,6 +3695,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
 
         search.search(get_next=True)
+
+        # Append placeholder entries so the user can keep scrolling while results load.
+        sr = history_step.get("search_results")
+        if sr is not None:
+            total_count = sro.get("count", len(sr))
+            placeholders_needed = min(total_count - len(sr), search.MAX_PAGE_SIZE)
+            ui_props = bpy.context.window_manager.blenderkitUI
+            asset_type = ui_props.asset_type.lower()
+            for _ in range(placeholders_needed):
+                sr.append(
+                    {
+                        "placeholder": True,
+                        "assetType": asset_type,
+                        "thumbnail_small": "",
+                        "verificationStatus": "validated",
+                    }
+                )
 
     def update_bookmark_icon(self, bookmark_button: BL_UI_Button):
         """Update the bookmark icon for a given bookmark button."""
@@ -3758,7 +3803,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         for asset_button in self.asset_buttons:
             if asset_button.asset_index < len(sr):
                 asset_data = sr[asset_button.asset_index]
-                if asset_data["assetBaseId"] == asset_id:
+                if asset_data.get("placeholder"):
+                    continue
+                if asset_data.get("assetBaseId") == asset_id:
                     set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
@@ -3784,14 +3831,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_data = sr[asset_button.asset_index]
                     if asset_data is None:
                         continue
+
+                    set_thumb_check(
+                        asset_button, asset_data, thumb_type="thumbnail_small"
+                    )
+
+                    # Placeholder entries only need the thumbnail, skip all other UI updates
+                    if asset_data.get("placeholder"):
+                        asset_button.bookmark_button.visible = False
+                        asset_button.author_button.visible = False
+                        asset_button.validation_icon.visible = False
+                        asset_button.progress_bar.visible = False
+                        asset_button.background_border = False
+                        if utils.profile_is_validator():
+                            asset_button.red_alert.visible = False
+                        continue
+
                     # update bookmark buttons
                     asset_button.bookmark_button.asset_index = asset_button.asset_index
                     # update author profile buttons
                     asset_button.author_button.asset_index = asset_button.asset_index
 
-                    set_thumb_check(
-                        asset_button, asset_data, thumb_type="thumbnail_small"
-                    )
                     # Distinguish author cards with a blue border and author icon
                     if asset_data.get("assetType") == "author":
                         asset_button.background_border_thickness = 3.0
@@ -3871,7 +3931,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         if (
             sro["count"] > len(sr)
-            and len(sr) - self.scroll_offset < (self.wcount * self.hcount) + 15
+            and len(sr) - self.scroll_offset
+            < (self.wcount * self.hcount) + SEARCH_PREFETCH_LOOKAHEAD
         ):
             self.search_more()
 
