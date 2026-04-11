@@ -41,6 +41,7 @@ from . import (
     reports,
     search,
     tasks_queue,
+    ui_bgl,
     upload,
     utils,
 )
@@ -387,6 +388,7 @@ def on_startup_timer():
     persistent_preferences.load_preferences_from_JSON()
     addon_updater_ops.check_for_update_background()
     utils.check_globaldir_permissions()
+    ui_bgl.create_image_shader()
 
     return None
 
