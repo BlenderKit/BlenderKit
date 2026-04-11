@@ -68,6 +68,10 @@ ROUNDING_RADIUS = 20
 
 TOOLTIP_SIZE_PX = 512
 
+# Scroll animation: how fast the animated offset decays toward zero.
+# Higher = snappier, lower = more floaty.  Value is the exponential decay rate (per second).
+SCROLL_ANIM_SPEED = 14.0
+
 
 def get_area_height(self):
     ctx = getattr(self, "context", None)
@@ -210,6 +214,22 @@ def modal_inside(self, context, event):
         if change:
             context.region.tag_redraw()
 
+    # Tick the smooth scroll animation
+    if abs(self._scroll_anim_offset) > 0.5:
+        now = time.time()
+        dt = min(now - self._scroll_anim_time, 0.1)  # cap to avoid jumps after stalls
+        self._scroll_anim_time = now
+        # Adaptive speed: larger offsets decay faster so fast scrolling feels fluid
+        speed = SCROLL_ANIM_SPEED + abs(self._scroll_anim_offset) / self.button_size * 6.0
+        self._scroll_anim_offset *= math.exp(-speed * dt)
+        if abs(self._scroll_anim_offset) < 0.5:
+            self._scroll_anim_offset = 0.0
+            # Snap widgets to their final positions
+            self.panel.layout_widgets()
+        else:
+            self._apply_scroll_anim_offset()
+        context.region.tag_redraw()
+
     # Check for tab shortcut keys directly in the modal function
     if (
         event.ctrl
@@ -332,6 +352,7 @@ def modal_inside(self, context, event):
             if step != 0:
                 self.trackpad_x_accum = 0
         if step != 0:
+            self._start_scroll_anim(step)
             self.scroll_offset += step
             self.scroll_update()
         return {"RUNNING_MODAL"}
@@ -341,9 +362,11 @@ def modal_inside(self, context, event):
         self.mouse_x, self.mouse_y
     ):
         if self.hcount > 1:
-            self.scroll_offset -= self.wcount
+            step = -self.wcount
         else:
-            self.scroll_offset -= 2
+            step = -2
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
         self.scroll_update()
         return {"RUNNING_MODAL"}
 
@@ -351,9 +374,11 @@ def modal_inside(self, context, event):
         self.mouse_x, self.mouse_y
     ):
         if self.hcount > 1:
-            self.scroll_offset += self.wcount
+            step = self.wcount
         else:
-            self.scroll_offset += 2
+            step = 2
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
 
         self.scroll_update()
         return {"RUNNING_MODAL"}
@@ -2745,6 +2770,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = 0
         self._tooltip_available_height = None
 
+        # Smooth scroll animation state
+        self._scroll_anim_offset = 0.0  # current pixel offset (decays to 0)
+        self._scroll_anim_time = 0.0  # timestamp of last animation tick
+
         self.base_bar_height = 0
 
         self._last_search_results_id = None
@@ -2776,6 +2805,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.last_scroll_offset = -10  # set to -10 so it updates on first run
         self.scroll_offset = ui_props.scroll_offset
+        self._scroll_anim_offset = 0.0
+        self._scroll_anim_time = time.time()
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
         self.info_color = (0.6, 0.6, 0.6, 1.0)
@@ -3571,13 +3602,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def scroll_up(self, widget):
         """Scroll up in the asset bar."""
-        self.scroll_offset += self.wcount * self.hcount
+        step = self.wcount * self.hcount
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
         self.scroll_update()
         self.enter_button(widget)
 
     def scroll_down(self, widget):
         """Scroll down in the asset bar."""
-        self.scroll_offset -= self.wcount * self.hcount
+        step = -(self.wcount * self.hcount)
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
         self.scroll_update()
         self.enter_button(widget)
 
@@ -3891,6 +3926,69 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.last_scroll_offset = self.scroll_offset
 
         self.update_buttons()
+        # Re-apply animation offset after buttons were repositioned to their target
+        if abs(self._scroll_anim_offset) > 0.5:
+            self._apply_scroll_anim_offset()
+
+    def _start_scroll_anim(self, step: int):
+        """Kick off a smooth scroll animation.
+
+        ``step`` is the number of *asset slots* the scroll just moved.
+        We convert that to a pixel delta so buttons appear to slide from
+        their old position.  The animation decays in ``modal_inside``.
+        """
+        if self.hcount > 1:
+            # Multi-row: scrolling moves whole rows \u2192 animate vertically.
+            rows = step / self.wcount
+            pixel_delta = rows * self.button_size
+        else:
+            # Single row: scrolling moves horizontally.
+            pixel_delta = step * self.button_size
+        # Positive so buttons start *ahead* of where they are going (off-screen)
+        # and slide into the visible area.
+        self._scroll_anim_offset += pixel_delta
+        # Clamp so fast repeated scrolls never push thumbnails beyond one step
+        max_offset = abs(pixel_delta) if pixel_delta != 0 else self.button_size
+        self._scroll_anim_offset = max(-max_offset, min(max_offset, self._scroll_anim_offset))
+        self._scroll_anim_time = time.time()
+
+    def _apply_scroll_anim_offset(self):
+        """Shift all visible asset buttons (and their sub-widgets) by the animation offset.
+
+        Only asset-grid widgets are moved; static UI elements like scroll arrows,
+        close button, tabs, and filters stay in place.  Buttons that would overflow
+        the asset bar area are left at their final position (not animated).
+        """
+        offset = self._scroll_anim_offset
+        px = self.panel.x_screen
+        py = self.panel.y_screen
+        for btn in self.asset_buttons:
+            if not btn.visible:
+                continue
+            if self.hcount > 1:
+                animated_y = btn.y + offset
+                # Skip buttons that would overflow the bar vertically
+                if animated_y + self.button_size <= 0 or animated_y >= self.bar_height:
+                    continue
+                btn.update(px + btn.x, py + animated_y)
+                btn.validation_icon.update(px + btn.validation_icon.x, py + btn.validation_icon.y + offset)
+                btn.bookmark_button.update(px + btn.bookmark_button.x, py + btn.bookmark_button.y + offset)
+                btn.progress_bar.update(px + btn.progress_bar.x, py + btn.progress_bar.y + offset)
+                btn.author_button.update(px + btn.author_button.x, py + btn.author_button.y + offset)
+                if hasattr(btn, "red_alert"):
+                    btn.red_alert.update(px + btn.red_alert.x, py + btn.red_alert.y + offset)
+            else:
+                animated_x = btn.x + offset
+                # Skip buttons that would overflow the bar horizontally
+                if animated_x + self.button_size <= 0 or animated_x >= self.bar_width:
+                    continue
+                btn.update(px + animated_x, py + btn.y)
+                btn.validation_icon.update(px + btn.validation_icon.x + offset, py + btn.validation_icon.y)
+                btn.bookmark_button.update(px + btn.bookmark_button.x + offset, py + btn.bookmark_button.y)
+                btn.progress_bar.update(px + btn.progress_bar.x + offset, py + btn.progress_bar.y)
+                btn.author_button.update(px + btn.author_button.x + offset, py + btn.author_button.y)
+                if hasattr(btn, "red_alert"):
+                    btn.red_alert.update(px + btn.red_alert.x + offset, py + btn.red_alert.y)
 
     def search_by_author(self, asset_index):
         """Search for assets by the author of the selected asset."""
