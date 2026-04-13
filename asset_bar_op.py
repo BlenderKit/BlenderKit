@@ -220,7 +220,9 @@ def modal_inside(self, context, event):
         dt = min(now - self._scroll_anim_time, 0.1)  # cap to avoid jumps after stalls
         self._scroll_anim_time = now
         # Adaptive speed: larger offsets decay faster so fast scrolling feels fluid
-        speed = SCROLL_ANIM_SPEED + abs(self._scroll_anim_offset) / self.button_size * 6.0
+        speed = (
+            SCROLL_ANIM_SPEED + abs(self._scroll_anim_offset) / self.button_size * 6.0
+        )
         self._scroll_anim_offset *= math.exp(-speed * dt)
         if abs(self._scroll_anim_offset) < 0.5:
             self._scroll_anim_offset = 0.0
@@ -3944,7 +3946,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._scroll_anim_offset += pixel_delta
         # Clamp so fast repeated scrolls never push thumbnails beyond one step
         max_offset = abs(pixel_delta) if pixel_delta != 0 else self.button_size
-        self._scroll_anim_offset = max(-max_offset, min(max_offset, self._scroll_anim_offset))
+        self._scroll_anim_offset = max(
+            -max_offset, min(max_offset, self._scroll_anim_offset)
+        )
         self._scroll_anim_time = time.time()
 
     def _apply_scroll_anim_offset(self):
@@ -3966,24 +3970,44 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 if animated_y + self.button_size <= 0 or animated_y >= self.bar_height:
                     continue
                 btn.update(px + btn.x, py + animated_y)
-                btn.validation_icon.update(px + btn.validation_icon.x, py + btn.validation_icon.y + offset)
-                btn.bookmark_button.update(px + btn.bookmark_button.x, py + btn.bookmark_button.y + offset)
-                btn.progress_bar.update(px + btn.progress_bar.x, py + btn.progress_bar.y + offset)
-                btn.author_button.update(px + btn.author_button.x, py + btn.author_button.y + offset)
+                btn.validation_icon.update(
+                    px + btn.validation_icon.x, py + btn.validation_icon.y + offset
+                )
+                btn.bookmark_button.update(
+                    px + btn.bookmark_button.x, py + btn.bookmark_button.y + offset
+                )
+                btn.progress_bar.update(
+                    px + btn.progress_bar.x, py + btn.progress_bar.y + offset
+                )
+                btn.author_button.update(
+                    px + btn.author_button.x, py + btn.author_button.y + offset
+                )
                 if hasattr(btn, "red_alert"):
-                    btn.red_alert.update(px + btn.red_alert.x, py + btn.red_alert.y + offset)
+                    btn.red_alert.update(
+                        px + btn.red_alert.x, py + btn.red_alert.y + offset
+                    )
             else:
                 animated_x = btn.x + offset
                 # Skip buttons that would overflow the bar horizontally
                 if animated_x + self.button_size <= 0 or animated_x >= self.bar_width:
                     continue
                 btn.update(px + animated_x, py + btn.y)
-                btn.validation_icon.update(px + btn.validation_icon.x + offset, py + btn.validation_icon.y)
-                btn.bookmark_button.update(px + btn.bookmark_button.x + offset, py + btn.bookmark_button.y)
-                btn.progress_bar.update(px + btn.progress_bar.x + offset, py + btn.progress_bar.y)
-                btn.author_button.update(px + btn.author_button.x + offset, py + btn.author_button.y)
+                btn.validation_icon.update(
+                    px + btn.validation_icon.x + offset, py + btn.validation_icon.y
+                )
+                btn.bookmark_button.update(
+                    px + btn.bookmark_button.x + offset, py + btn.bookmark_button.y
+                )
+                btn.progress_bar.update(
+                    px + btn.progress_bar.x + offset, py + btn.progress_bar.y
+                )
+                btn.author_button.update(
+                    px + btn.author_button.x + offset, py + btn.author_button.y
+                )
                 if hasattr(btn, "red_alert"):
-                    btn.red_alert.update(px + btn.red_alert.x + offset, py + btn.red_alert.y)
+                    btn.red_alert.update(
+                        px + btn.red_alert.x + offset, py + btn.red_alert.y
+                    )
 
     def search_by_author(self, asset_index):
         """Search for assets by the author of the selected asset."""
