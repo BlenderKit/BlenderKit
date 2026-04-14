@@ -161,6 +161,22 @@ def get_temp_dir(subdir=None):
     return tempdir
 
 
+def _try_makedirs(dirpath, label="download"):
+    """Try to create directory, report error on failure. Returns True on success."""
+    if os.path.exists(dirpath):
+        return True
+    try:
+        os.makedirs(dirpath)
+        return True
+    except OSError as e:
+        bk_logger.error("Cannot create download directory: %s - %s", dirpath, e)
+        reports.add_report(
+            f"Cannot create {label} folder: {dirpath}\n{e}",
+            type="ERROR",
+        )
+        return False
+
+
 def get_download_dirs(asset_type):
     """get directories where assets will be downloaded"""
     plurals_mapping = {
@@ -185,10 +201,9 @@ def get_download_dirs(asset_type):
         if ddir.startswith("//"):
             ddir = bpy.path.abspath(ddir)
 
-        subd = plurals_mapping[asset_type]
-        subdir = os.path.join(ddir, subd)
-        if not os.path.exists(subdir):
-            os.makedirs(subdir)
+        subdir = os.path.join(ddir, plurals_mapping[asset_type])
+        if not _try_makedirs(subdir, "download"):
+            return dirs
         dirs.append(subdir)
 
     if (
@@ -205,8 +220,8 @@ def get_download_dirs(asset_type):
             return (
                 dirs  # project subdir is over 250, no space for adding filenames later
             )
-        if not os.path.exists(subdir):
-            os.makedirs(subdir)  # this would fail if path was over 260
+        if not _try_makedirs(subdir, "project download"):
+            return dirs
         dirs.append(subdir)
 
     return dirs

@@ -249,6 +249,127 @@ class BLENDERKIT_OT_show_validation_popup(bpy.types.Operator):
             utils.label_multiline(layout, text=paragraph, width=480)
 
 
+class BLENDERKIT_OT_permissions_error_popup(bpy.types.Operator):
+    """Show a large centered dialog when BlenderKit cannot write to the asset directory.
+    Dynamically updates to show success when the path is fixed.
+    """
+
+    bl_idname = "wm.blenderkit_permissions_error_popup"
+    bl_label = "BlenderKit - Directory Permission Error"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    error_message: StringProperty(name="Error", default="", options={"SKIP_SAVE"})  # type: ignore
+    directory_path: StringProperty(name="Path", default="", options={"SKIP_SAVE"})  # type: ignore
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        try:
+            return wm.invoke_props_dialog(
+                self, width=600, confirm_text="Open Preferences"
+            )
+        except TypeError:
+            return wm.invoke_props_dialog(self, width=600)
+
+    def execute(self, context):
+        # Check if path is already fixed (e.g. user clicked Set Default Folder)
+        current_dir = context.preferences.addons[__package__].preferences.global_dir
+        current_dir = os.path.normpath(bpy.path.abspath(current_dir))
+        current_ok, _ = utils._check_dir_permissions(current_dir, "Global directory")
+        if not current_ok:
+            bpy.ops.preferences.addon_show(module=__package__)
+        return {"FINISHED"}
+
+    def draw(self, context):
+        layout = self.layout
+
+        # Light check for live UI — draw() runs on each redraw, avoid file I/O here
+        current_dir = context.preferences.addons[__package__].preferences.global_dir
+        current_dir = os.path.normpath(bpy.path.abspath(current_dir))
+        current_ok = os.path.isdir(current_dir)
+
+        if current_ok:
+            # === PATH IS NOW FIXED — show success ===
+            layout.separator()
+            row = layout.row()
+            row.scale_y = 2.0
+            row.alert = False
+            row.label(text="  Directory is now accessible!", icon="CHECKMARK")
+            layout.separator()
+            layout.label(text=f"Path: {current_dir}")
+            layout.separator()
+            layout.label(text="You can close this dialog now.")
+            return
+
+        # === PATH IS BROKEN — show big red warning ===
+        # Large red alert header
+        box_header = layout.box()
+        box_header.alert = True
+        row = box_header.row()
+        row.scale_y = 2.0
+        row.alignment = "CENTER"
+        row.label(text="  CANNOT ACCESS DOWNLOAD FOLDER  ", icon="ERROR")
+
+        layout.separator()
+
+        # Error details
+        clean_text = self.error_message.replace("\r\n", "\n").replace("\r", "\n")
+        for paragraph in clean_text.split("\n"):
+            if paragraph.strip():
+                utils.label_multiline(layout, text=paragraph, width=560)
+
+        layout.separator()
+
+        # === Fix options ===
+        box = layout.box()
+        box.label(text="How to fix this:", icon="TOOL_SETTINGS")
+        box.separator(factor=0.5)
+
+        # Option 1: Set default folder (show if parent dir exists)
+        default_dir = paths.default_global_dict()
+        default_parent = os.path.dirname(default_dir)
+        if os.path.isdir(default_dir) or os.path.isdir(default_parent):
+            row = box.row()
+            row.scale_y = 1.5
+            row.operator(
+                "wm.blenderkit_set_default_directory",
+                text=f"  Set Default Folder:  {default_dir}  ",
+                icon="CHECKMARK",
+            )
+            box.separator(factor=0.5)
+
+        # Option 2: Open preferences
+        col = box.column(align=True)
+        col.label(text="Or click 'Open Preferences' below to choose a folder manually.")
+
+        layout.separator()
+
+        # Current broken path
+        row = layout.row()
+        row.alert = True
+        row.label(text=f"Current folder: {self.directory_path}", icon="INFO")
+
+
+class BLENDERKIT_OT_set_default_directory(bpy.types.Operator):
+    """Set the Global Directory to the default blenderkit_data folder"""
+
+    bl_idname = "wm.blenderkit_set_default_directory"
+    bl_label = "Set Default Folder"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context):
+        default_dir = paths.default_global_dict()
+        ok, message = utils._check_dir_permissions(default_dir, "Default directory")
+        if not ok:
+            self.report({"ERROR"}, f"Default folder is not writable: {message}")
+            return {"CANCELLED"}
+
+        preferences = context.preferences.addons[__package__].preferences
+        preferences.global_dir = default_dir
+        self.report({"INFO"}, f"Global directory set to: {default_dir}")
+        utils.restart_client_after_path_fix()
+        return {"FINISHED"}
+
+
 def draw_validated_manufacturer(
     layout: bpy.types.UILayout, asset: Any, props: Any = None
 ) -> None:
@@ -4834,6 +4955,8 @@ class NodegroupDropDialog(bpy.types.Operator):
 classes = (
     BLENDERKIT_OT_hdr_thumbnail_tune,
     BLENDERKIT_OT_show_validation_popup,
+    BLENDERKIT_OT_permissions_error_popup,
+    BLENDERKIT_OT_set_default_directory,
     SetCategoryOperatorOrigin,
     SetCategoryOperator,
     SetCategoryOperatorInPopupCard,
