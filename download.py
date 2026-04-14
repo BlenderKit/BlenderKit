@@ -2187,10 +2187,19 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
         return {"FINISHED"}
 
 
+_available_resolutions_items = []
+_available_resolutions_cache_key = None
+
+
 def available_resolutions_callback(self, context):
     """Checks active asset for available resolutions and offers only those available
     TODO: this currently returns always the same list of resolutions, make it actually work
     """
+    global _available_resolutions_items, _available_resolutions_cache_key
+    key = self.max_resolution
+    if key == _available_resolutions_cache_key and _available_resolutions_items:
+        return _available_resolutions_items
+    _available_resolutions_cache_key = key
 
     pat_items = (
         ("512", "512", "", 1),
@@ -2204,7 +2213,8 @@ def available_resolutions_callback(self, context):
         if int(self.max_resolution) >= int(item[0]):
             items.append(item)
     items.append(("ORIGINAL", "Original", "", 6))
-    return items
+    _available_resolutions_items = items
+    return _available_resolutions_items
 
 
 def has_asset_files(asset_data):
