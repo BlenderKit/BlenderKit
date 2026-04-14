@@ -4024,9 +4024,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         author_id = int(asset_data["author"]["id"])
         author = global_vars.BKIT_AUTHORS.get(author_id)
         if author and author.gravatarImg and author.gravatarHash:
-            gimg = utils.get_hidden_image(author.gravatarImg, author.gravatarHash)
-            if gimg:
-                self.gimg = gimg
+            self.gimg = utils.get_hidden_image(author.gravatarImg, author.gravatarHash)
 
         self.tip = f"Tip: {random.choice(global_vars.TIPS)[0]}"
 

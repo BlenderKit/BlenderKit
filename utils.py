@@ -751,11 +751,13 @@ def img_to_preview(img, copy_original=False):
 
 def get_hidden_image(
     tpath, bdata_name, force_reload: bool = False, colorspace: str = ""
-) -> Optional[bpy.types.Image]:
-    """Get hidden image by name. If not found, load it from tpath."""
+) -> bpy.types.Image:
+    """Get hidden image by name. If not found, load it from tpath.
+    Always returns a valid image - a placeholder if the real one is not available yet.
+    """
     if not bdata_name:
-        # image parameter exists but is empty
-        return None
+        tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+        bdata_name = "thumbnail_notready.jpg"
     if bdata_name[0] == ".":
         hidden_name = bdata_name
     else:
