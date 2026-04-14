@@ -636,6 +636,24 @@ def save_prefs(user_preferences, context, **kwargs):
     paths.ensure_asset_library_path(
         global_vars.PREFS.get("global_dir"), previous_global_dir
     )
+
+    # Validate permissions when global_dir changes — reject invalid paths
+    current_global_dir = global_vars.PREFS.get("global_dir")
+    if previous_global_dir is not None and current_global_dir != previous_global_dir:
+        ok, message = check_globaldir_permissions()
+        if not ok:
+            reports.add_report(
+                "Cannot write to selected folder. Path reverted to previous value.",
+                type="ERROR",
+            )
+            bk_logger.warning(
+                "Reverting global_dir from %s back to %s",
+                current_global_dir,
+                previous_global_dir,
+            )
+            user_preferences.global_dir = previous_global_dir
+            return  # don't save the invalid path — the revert triggers save_prefs again with the valid path
+
     if user_preferences.preferences_lock is True:
         return
 
@@ -1672,39 +1690,144 @@ def list2string(lst: list) -> str:
 
 
 def check_globaldir_permissions():
-    """Check if the user has the required permissions to upload assets."""
-    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
-    if os.path.isfile(global_dir):
-        reports.add_report(
-            "Global dir is a file. Please remove it or change global dir path in preferences.",
-            type="ERROR",
-        )
-        return False
-    if not os.path.isdir(global_dir):
-        bk_logger.info("Global dir does not exist. Creating it at %s", global_dir)
-        try:
-            os.mkdir(global_dir)
-        except Exception as e:
-            reports.add_report(
-                f"Cannot create Global dir. Check global dir path in preferences. {e}",
-                type="ERROR",
-            )
-            return False
+    """Check if the user has the required permissions for the global directory.
+    Verifies the directory can be created, written to, and files can be deleted.
 
-    exists = os.access(global_dir, os.F_OK)
-    can_write = os.access(global_dir, os.W_OK)
-    can_execute = os.access(global_dir, os.X_OK)
-    if exists and can_write and can_execute:
-        bk_logger.info("Global dir permissions are OK.")
-        return True
-    reports.add_report(
-        f"Change path or give permissions to Global dir, wrong permissions now: exists={exists}, write={can_write}, execute={can_execute}.",
-        type="ERROR",
+    Returns:
+        tuple: (ok: bool, message: str) - True if permissions are OK, False otherwise.
+    """
+    global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
+    global_dir = os.path.normpath(bpy.path.abspath(global_dir))
+    ok, message = _check_dir_permissions(global_dir, "Global directory")
+    if ok:
+        bk_logger.info("Global dir permissions are OK: %s", global_dir)
+    else:
+        bk_logger.error(message)
+    return ok, message
+
+
+def _check_dir_permissions(dir_path, dir_label="Directory"):
+    """Check if a directory path is valid, writable and usable for storing assets.
+
+    Returns:
+        tuple: (ok: bool, message: str)
+    """
+    if os.path.isfile(dir_path):
+        return False, (
+            f"{dir_label} path points to a file, not a folder.\n"
+            f"Please remove the file or change the path in BlenderKit preferences.\n"
+            f"Path: {dir_path}"
+        )
+
+    if not os.path.isdir(dir_path):
+        bk_logger.info("%s does not exist. Creating it at %s", dir_label, dir_path)
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+        except PermissionError:
+            return False, (
+                f"No permission to create {dir_label}.\n"
+                f"Please choose a different folder or run Blender as administrator.\n"
+                f"Path: {dir_path}"
+            )
+        except OSError as e:
+            return False, (
+                f"Cannot create {dir_label}: {e}\n"
+                f"Please check the path in BlenderKit preferences.\n"
+                f"Path: {dir_path}"
+            )
+
+    # os.access() can be unreliable on Windows (NTFS ACLs), so we do a real write test
+    test_file = os.path.join(
+        dir_path, f".blenderkit_permission_test_{uuid.uuid4().hex[:8]}"
     )
+    try:
+        with open(test_file, "w") as f:
+            f.write("permission test")
+        os.remove(test_file)
+    except PermissionError:
+        return False, (
+            f"No write permission to {dir_label}.\n"
+            f"BlenderKit needs to save downloaded assets into this folder.\n"
+            f"Please choose a folder where you have write access, or fix the permissions.\n"
+            f"Path: {dir_path}"
+        )
+    except OSError as e:
+        return False, (
+            f"Cannot write to {dir_label}: {e}\n"
+            f"Please check the path in BlenderKit preferences.\n"
+            f"Path: {dir_path}"
+        )
+
+    return True, ""
+
+
+def try_recover_global_dir():
+    """Attempt to auto-recover by resetting global_dir to the default path.
+    This is called when the current global_dir is not writable (e.g. C:\\Windows).
+    Returns True if the default path is usable and global_dir was reset, False otherwise.
+    """
+    default_dir = paths.default_global_dict()
+    current_dir = bpy.context.preferences.addons[__package__].preferences.global_dir
+    current_dir = os.path.normpath(bpy.path.abspath(current_dir))
+    default_dir_norm = os.path.normpath(default_dir)
+
+    if current_dir == default_dir_norm:
+        return False  # already at default and it's still broken
+
+    ok, message = _check_dir_permissions(default_dir, "Default directory")
+    if not ok:
+        bk_logger.error("Default directory also not writable: %s", message)
+        return False
+
+    bk_logger.warning(
+        "Auto-recovering: resetting global_dir from %s to default: %s",
+        current_dir,
+        default_dir,
+    )
+    prefs = bpy.context.preferences.addons[__package__].preferences
+    prefs.global_dir = default_dir
+    reports.add_report(
+        f"BlenderKit download folder was not accessible. Reset to default: {default_dir}",
+        type="INFO",
+    )
+    restart_client_after_path_fix()
+    return True
+
+
+def restart_client_after_path_fix():
+    """Reset client failure counter and re-register the timer so the client starts immediately.
+    Called after global_dir is changed to a valid, writable path.
+    """
+    from . import timer
+
+    global_vars.CLIENT_FAILED_REPORTS = 0
+    try:
+        if bpy.app.timers.is_registered(timer.client_communication_timer):
+            bpy.app.timers.unregister(timer.client_communication_timer)
+        bpy.app.timers.register(timer.client_communication_timer, persistent=True)
+        bk_logger.info("Client communication timer restarted after path fix")
+    except Exception as e:
+        bk_logger.warning("Could not restart client timer: %s", e)
+
+
+def _show_permission_popup(dir_path, message):
+    """Show a large centered dialog about permission issues.
+    Uses invoke_props_dialog for a prominent, hard-to-miss warning.
+    The dialog dynamically updates to show success when the path is fixed.
+    """
+    try:
+        bpy.ops.wm.blenderkit_permissions_error_popup(
+            "INVOKE_DEFAULT",
+            error_message=message,
+            directory_path=dir_path,
+        )
+    except Exception as e:
+        bk_logger.warning("Could not show permission popup: %s", e)
+        reports.add_report(message, type="ERROR")
 
 
 def shorten_text(text: str, max_len: int = -1) -> str:
-    """Shorten text to max_len characters and end it with '…' (horizontal elipsis) if the text was shortened
+    """Shorten text to max_len characters and end it with '…' (horizontal ellipsis) if the text was shortened
     (max_len-1 characters will be used, last one will be '…').
     If max_len is -1, then no shortening is done."""
     if max_len == -1:

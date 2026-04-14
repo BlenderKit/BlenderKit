@@ -639,6 +639,7 @@ def start_blenderkit_client():
     1. Check if binary is available at global_dir/client/vX.Y.Z/blenderkit-client-<os>-<arch>(.exe)
     2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z/
     3. Start the BlenderKit-Client process which serves as bridge between BlenderKit add-on and BlenderKit server.
+    Raises PermissionError if ensure_client_binary_installed fails due to write permissions.
     """
     ensure_client_binary_installed()
     log_path = get_client_log_path()
@@ -761,6 +762,7 @@ def ensure_client_binary_installed():
     """Ensure that the BlenderKit-Client binary is installed in global_dir/client/bin/vX.Y.Z.
     If not, copy the binary from the add-on directory blenderkit/client.
     As side effect, this function also creates the global_dir/client/bin/vX.Y.Z directory.
+    Raises PermissionError if the target directory is not writable.
     """
     client_binary_path, _ = get_client_binary_path()
     if path.exists(client_binary_path):
@@ -768,9 +770,19 @@ def ensure_client_binary_installed():
 
     preinstalled_client_path = get_preinstalled_client_path()
     bk_logger.info("Copying BlenderKit-Client binary %s", preinstalled_client_path)
-    os.makedirs(path.dirname(client_binary_path), exist_ok=True)
-    shutil.copy(preinstalled_client_path, client_binary_path)
-    os.chmod(client_binary_path, 0o711)
+    try:
+        os.makedirs(path.dirname(client_binary_path), exist_ok=True)
+        shutil.copy(preinstalled_client_path, client_binary_path)
+        os.chmod(client_binary_path, 0o711)
+    except (PermissionError, OSError) as e:
+        bk_logger.error(
+            "Cannot install BlenderKit-Client to %s: %s",
+            path.dirname(client_binary_path),
+            e,
+        )
+        raise PermissionError(
+            f"Cannot install BlenderKit-Client to {path.dirname(client_binary_path)}: {e}"
+        ) from e
     bk_logger.info("BlenderKit-Client binary copied to %s", client_binary_path)
 
 
