@@ -3725,6 +3725,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if asset_data.get("assetType") == "author":
             bookmark_button.visible = False
             return
+        if asset_data.get("placeholder") or "id" not in asset_data:
+            bookmark_button.visible = False
+            return
         rating = ratings_utils.get_rating_local(asset_data["id"])
         if rating is not None and rating.bookmarks == 1:
             icon = "bookmark_full.png"

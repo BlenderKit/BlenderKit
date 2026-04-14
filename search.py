@@ -1154,53 +1154,20 @@ def generate_author_profile(author_data: datas.UserProfile):
 
 
 def _flush_pending_gravatars():
-    """Download gravatar images for all pending authors in a background thread.
-    Uses a single requests.Session to avoid per-call TCP and session overhead.
-    Prepares request data on the main thread (bpy.context access) before spawning.
+    """Send gravatar download requests for all pending authors to the Go client.
+    The Go client handles each download asynchronously (goroutine), so each call
+    returns immediately and we don't need a background thread.
     """
     global _pending_gravatar_authors
     authors = _pending_gravatar_authors
     _pending_gravatar_authors = []
-    if not authors:
-        return
-    # Build all request payloads on the main thread (ensure_minimal_data uses bpy.context)
-    base_url = client_lib.get_base_url()
-    url = f"{base_url}/profiles/download_gravatar_image"
-    payloads = []
     for author_data in authors:
-        data = {
-            "id": author_data.id,
-            "avatar128": author_data.avatar128,
-            "gravatarHash": author_data.gravatarHash,
-        }
-        data = client_lib.ensure_minimal_data(data)
-        payloads.append(data)
-    thread = threading.Thread(
-        target=_download_gravatars_batch, args=(url, payloads), daemon=True
-    )
-    thread.start()
-
-
-def _download_gravatars_batch(url: str, payloads: list):
-    """Background worker: download gravatar images using a shared session."""
-    import requests
-
-    try:
-        with requests.Session() as session:
-            for data in payloads:
-                try:
-                    resp = session.get(
-                        url,
-                        json=data,
-                        timeout=client_lib.TIMEOUT,
-                        proxies=client_lib.NO_PROXIES,
-                    )
-                    if resp.status_code != 200:
-                        bk_logger.warning(resp.text)
-                except Exception as e:
-                    bk_logger.warning("Gravatar download request failed: %s", e)
-    except Exception as e:
-        bk_logger.warning("Gravatar batch download failed: %s", e)
+        try:
+            resp = client_lib.download_gravatar_image(author_data)
+            if resp.status_code != 200:
+                bk_logger.warning(resp.text)
+        except Exception as e:
+            bk_logger.warning("Gravatar download request failed: %s", e)
 
 
 def _fetch_comments_batch(url: str, payloads: list):
