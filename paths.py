@@ -251,7 +251,11 @@ def ensure_asset_library_path(
     if not target_path:
         return
 
-    os.makedirs(target_path, exist_ok=True)
+    try:
+        os.makedirs(target_path, exist_ok=True)
+    except OSError as e:
+        bk_logger.warning("Cannot create asset library directory %s: %s", target_path, e)
+        return
 
     previous_path = _normalize_path(previous_global_dir) if previous_global_dir else ""
     if previous_path:
