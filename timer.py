@@ -81,7 +81,11 @@ def handle_failed_reports(exception: Exception) -> float:
             bk_logger.warning(
                 f"First request for BKClient reports failed unexpectedly: {str(exception).strip()} {type(exception)}"
             )
-        client_lib.start_blenderkit_client()
+        try:
+            client_lib.start_blenderkit_client()
+        except PermissionError as pe:
+            bk_logger.error("Cannot start client due to permission error: %s", pe)
+            return 5.0  # retry after 5s, user needs to fix permissions first
     else:
         bk_logger.warning(
             f"Request for BKClient reports failed: {str(exception).strip()} {type(exception)}"
@@ -108,7 +112,11 @@ def handle_failed_reports(exception: Exception) -> float:
         # The catch is that the error message printed to user is outdated now.
         # But there is not a better solution.
         client_lib.reorder_ports()
-        client_lib.start_blenderkit_client()
+        try:
+            client_lib.start_blenderkit_client()
+        except PermissionError as pe:
+            bk_logger.error("Cannot start client due to permission error: %s", pe)
+            return 5.0  # retry after 5s, user needs to fix permissions first
     else:  # On FAILED_REPORTS == 12..20,22..30,32..40 we just log into terminal
         bk_logger.warning(log_msg)
 
@@ -387,8 +395,15 @@ def on_startup_timer():
     """Run once on the startup of add-on (Blender start with enabled add-on, add-on enabled)."""
     persistent_preferences.load_preferences_from_JSON()
     addon_updater_ops.check_for_update_background()
-    utils.check_globaldir_permissions()
     ui_bgl.create_image_shader()
+    ok, message = utils.check_globaldir_permissions()
+    if not ok:
+        recovered = utils.try_recover_global_dir()
+        if not recovered:
+            global_dir = bpy.context.preferences.addons[
+                __package__
+            ].preferences.global_dir
+            utils._show_permission_popup(global_dir, message)
 
     return None
 
