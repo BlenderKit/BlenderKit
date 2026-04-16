@@ -68,6 +68,14 @@ ROUNDING_RADIUS = 20
 
 TOOLTIP_SIZE_PX = 512
 
+# Scroll animation: how fast the animated offset decays toward zero.
+# Higher = snappier, lower = more floaty.  Value is the exponential decay rate (per second).
+SCROLL_ANIM_SPEED = 14.0
+
+# Edge deceleration: how much scrolling slows down near the start/end.
+# 0.0 = no resistance (hard stop), 1.0 = full resistance (no overscroll).
+SCROLL_EDGE_RESISTANCE = 0.85
+
 
 def get_area_height(self):
     ctx = getattr(self, "context", None)
@@ -210,6 +218,28 @@ def modal_inside(self, context, event):
         if change:
             context.region.tag_redraw()
 
+    # Tick the smooth scroll animation
+    if abs(self._scroll_anim_offset) > 0.5:
+        now = time.time()
+        dt = min(now - self._scroll_anim_time, 0.1)  # cap to avoid jumps after stalls
+        self._scroll_anim_time = now
+        # Adaptive speed: larger offsets decay faster so fast scrolling feels fluid
+        speed = (
+            SCROLL_ANIM_SPEED + abs(self._scroll_anim_offset) / self.button_size * 6.0
+        )
+        self._scroll_anim_offset *= math.exp(-speed * dt)
+        if abs(self._scroll_anim_offset) < 0.5:
+            self._scroll_anim_offset = 0.0
+            # Snap widgets to their final positions
+            self.panel.layout_widgets()
+            # Flush deferred manufacturer update now that animation settled
+            if self._manufacturer_update_pending:
+                self._manufacturer_update_pending = False
+                self.update_buttons()
+        else:
+            self._apply_scroll_anim_offset()
+        context.region.tag_redraw()
+
     # Check for tab shortcut keys directly in the modal function
     if (
         event.ctrl
@@ -319,21 +349,25 @@ def modal_inside(self, context, event):
 
         step = 0
         multiplier = 30
-        if abs(self.trackpad_x_accum) > abs(self.trackpad_y_accum) or self.hcount < 2:
-            step = math.floor(self.trackpad_x_accum / multiplier)
+        if self.hcount < 2:
+            # Single row: horizontal scrolling by individual slots
+            step = int(self.trackpad_x_accum / multiplier)
             self.trackpad_x_accum -= step * multiplier
-            # reset the other axis not to accidentally scroll it
-            if step != 0:
-                self.trackpad_y_accum = 0
-        if abs(self.trackpad_y_accum) > 0 and self.hcount > 1:
-            step = self.wcount * math.floor(self.trackpad_x_accum / multiplier)
-            self.trackpad_y_accum -= step * multiplier
-            # reset the other axis not to accidentally scroll it
+        else:
+            # Multi-row: vertical scrolling by whole rows only,
+            # ignore horizontal trackpad axis to prevent slot-level sliding
+            row_step = int(self.trackpad_y_accum / multiplier)
+            step = self.wcount * row_step
+            self.trackpad_y_accum -= row_step * multiplier
             if step != 0:
                 self.trackpad_x_accum = 0
         if step != 0:
-            self.scroll_offset += step
-            self.scroll_update()
+            # Apply edge resistance: reduce step near boundaries
+            step = self._apply_edge_resistance(step)
+            if step != 0:
+                self._start_scroll_anim(step)
+                self.scroll_offset += step
+                self.scroll_update()
         return {"RUNNING_MODAL"}
 
     # MOUSEWHEEL SCROLL
@@ -341,9 +375,14 @@ def modal_inside(self, context, event):
         self.mouse_x, self.mouse_y
     ):
         if self.hcount > 1:
-            self.scroll_offset -= self.wcount
+            step = -self.wcount
         else:
-            self.scroll_offset -= 2
+            step = -2
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return {"RUNNING_MODAL"}
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
         self.scroll_update()
         return {"RUNNING_MODAL"}
 
@@ -351,9 +390,14 @@ def modal_inside(self, context, event):
         self.mouse_x, self.mouse_y
     ):
         if self.hcount > 1:
-            self.scroll_offset += self.wcount
+            step = self.wcount
         else:
-            self.scroll_offset += 2
+            step = 2
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return {"RUNNING_MODAL"}
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
 
         self.scroll_update()
         return {"RUNNING_MODAL"}
@@ -1674,8 +1718,16 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             red_alert.bg_color = (1.0, 0.0, 0.0, 0.0)
             red_alert.visible = False
             red_alert.active = False
+            red_alert._is_grid_widget = True
             new_button.red_alert = red_alert
             self.red_alerts.append(red_alert)
+
+        # Tag all grid sub-widgets so the draw callback can apply scissor clipping
+        new_button._is_grid_widget = True
+        validation_icon._is_grid_widget = True
+        bookmark_button._is_grid_widget = True
+        author_button._is_grid_widget = True
+        progress_bar._is_grid_widget = True
 
         return new_button
 
@@ -1729,8 +1781,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel.append(self.tab_area_bg)
 
         # we init max possible buttons.
+        # Add 2 extra rows for scroll animation buffer (1 above + 1 below
+        # the visible grid).  In single-row mode the buffer uses extra
+        # columns instead, but max_hcount already has room for those.
         button_idx = 0
-        for x in range(0, self.max_wcount):
+        for x in range(0, self.max_wcount + 2):
             for y in range(0, self.max_hcount):
                 # asset_x = self.assetbar_margin + a * (self.button_size)
                 # asset_y = self.assetbar_margin + b * (self.button_size)
@@ -2644,73 +2699,97 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     # endregion manufacturer
 
+    def _position_single_button(self, button, asset_x, asset_y, asset_idx, sr_len):
+        """Position a single asset button and its sub-widgets."""
+        button.set_location(asset_x, asset_y)
+        button.validation_icon.set_location(
+            asset_x
+            + self.button_size
+            - self.icon_size
+            - self.button_margin
+            - self.validation_icon_margin,
+            asset_y
+            + self.button_size
+            - self.icon_size
+            - self.button_margin
+            - self.validation_icon_margin,
+        )
+        button.bookmark_button.set_location(
+            asset_x
+            + self.button_size
+            - self.icon_size
+            - self.button_margin
+            - self.validation_icon_margin,
+            asset_y + self.button_margin + self.validation_icon_margin,
+        )
+        button.progress_bar.set_location(asset_x, asset_y + self.button_size - 6)
+        button.author_button.set_location(
+            asset_x + self.button_margin + self.validation_icon_margin,
+            asset_y + self.button_margin + self.validation_icon_margin,
+        )
+
+        if 0 <= asset_idx < sr_len:
+            button.visible = True
+            button.validation_icon.visible = True
+            button.bookmark_button.visible = False
+            button.author_button.visible = False
+        else:
+            button.visible = False
+            button.validation_icon.visible = False
+            button.bookmark_button.visible = False
+            button.author_button.visible = False
+            button.progress_bar.visible = False
+        if utils.profile_is_validator():
+            button.red_alert.set_location(
+                asset_x - self.validation_icon_margin,
+                asset_y - self.validation_icon_margin,
+            )
+
     def position_and_hide_buttons(self):
-        """Position asset buttons in the asset bar and hide unused buttons."""
-        # position and layout buttons
+        """Position asset buttons in the asset bar and hide unused buttons.
+
+        Includes one buffer row above and below (multi-row) or two buffer
+        columns on each side (single-row) so that scroll animation has
+        content to slide in from off-screen.  The draw callback clips
+        everything to the visible bar area with a GPU scissor rect.
+        """
         sr = search.get_search_results()
         if sr is None:
             sr = []
 
+        sr_len = len(sr)
         i = 0
-        for y in range(0, self.hcount):
-            for x in range(0, self.wcount):
-                asset_x = self.assetbar_margin + x * (self.button_size)
-                asset_y = self.assetbar_margin + y * (self.button_size)
-                button_idx = x + y * self.wcount
-                asset_idx = button_idx + self.scroll_offset
-                if len(self.asset_buttons) <= button_idx:
-                    break
-                button = self.asset_buttons[button_idx]
-                button.set_location(asset_x, asset_y)
-                button.validation_icon.set_location(
-                    asset_x
-                    + self.button_size
-                    - self.icon_size
-                    - self.button_margin
-                    - self.validation_icon_margin,
-                    asset_y
-                    + self.button_size
-                    - self.icon_size
-                    - self.button_margin
-                    - self.validation_icon_margin,
-                )
-                button.bookmark_button.set_location(
-                    asset_x
-                    + self.button_size
-                    - self.icon_size
-                    - self.button_margin
-                    - self.validation_icon_margin,
-                    asset_y + self.button_margin + self.validation_icon_margin,
-                )
-                button.progress_bar.set_location(
-                    asset_x, asset_y + self.button_size - 6
-                )
-                button.author_button.set_location(
-                    asset_x + self.button_margin + self.validation_icon_margin,
-                    asset_y + self.button_margin + self.validation_icon_margin,
-                )
 
-                if asset_idx < len(sr):
-                    button.visible = True
-                    button.validation_icon.visible = True
-                    button.bookmark_button.visible = False
-                    button.author_button.visible = False
-                    # button.progress_bar.visible = True
-                else:
-                    button.visible = False
-                    button.validation_icon.visible = False
-                    button.bookmark_button.visible = False
-                    button.author_button.visible = False
-                    button.progress_bar.visible = False
-                if utils.profile_is_validator():
-                    button.red_alert.set_location(
-                        asset_x - self.validation_icon_margin,
-                        asset_y - self.validation_icon_margin,
-                    )
+        # Grid range including one buffer row/col on each side for scroll animation.
+        if self.hcount > 1:
+            y_start, y_end = -1, self.hcount + 1
+            x_start, x_end = 0, self.wcount
+        else:
+            y_start, y_end = 0, 1
+            x_start, x_end = -2, self.wcount + 2
+
+        for y in range(y_start, y_end):
+            for x in range(x_start, x_end):
+                if i >= len(self.asset_buttons):
+                    break
+                asset_x = self.assetbar_margin + x * self.button_size
+                asset_y = self.assetbar_margin + y * self.button_size
+                logical_idx = x + y * self.wcount
+
+                button = self.asset_buttons[i]
+                button.button_index = logical_idx
+                button._grid_positioned = True
+                self._position_single_button(
+                    button, asset_x, asset_y, logical_idx + self.scroll_offset, sr_len
+                )
                 i += 1
+            else:
+                continue
+            break
 
         for a in range(i, len(self.asset_buttons)):
             button = self.asset_buttons[a]
+            button._grid_positioned = False
             button.visible = False
             button.validation_icon.visible = False
             button.bookmark_button.visible = False
@@ -2745,6 +2824,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = 0
         self._tooltip_available_height = None
 
+        # Smooth scroll animation state
+        self._scroll_anim_offset = 0.0  # current pixel offset (decays to 0)
+        self._scroll_anim_time = 0.0  # timestamp of last animation tick
+        self._manufacturer_update_pending = False  # deferred until animation ends
+
         self.base_bar_height = 0
 
         self._last_search_results_id = None
@@ -2776,6 +2860,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.last_scroll_offset = -10  # set to -10 so it updates on first run
         self.scroll_offset = ui_props.scroll_offset
+        self._scroll_anim_offset = 0.0
+        self._scroll_anim_time = time.time()
+        self._manufacturer_update_pending = False
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
         self.info_color = (0.6, 0.6, 0.6, 1.0)
@@ -3571,13 +3658,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def scroll_up(self, widget):
         """Scroll up in the asset bar."""
-        self.scroll_offset += self.wcount * self.hcount
+        step = self.wcount * self.hcount
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
         self.scroll_update()
         self.enter_button(widget)
 
     def scroll_down(self, widget):
         """Scroll down in the asset bar."""
-        self.scroll_offset -= self.wcount * self.hcount
+        step = -(self.wcount * self.hcount)
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return
+        self._start_scroll_anim(step)
+        self.scroll_offset += step
         self.scroll_update()
         self.enter_button(widget)
 
@@ -3771,74 +3868,70 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
         visible_results = []
 
-        # remember also position for manufacturer buttons
-
         for asset_button in self.asset_buttons:
-            if asset_button.visible:
-                asset_button.asset_index = (
-                    asset_button.button_index + self.scroll_offset
-                )
-                if asset_button.asset_index < len(sr):
-                    asset_button.visible = True
+            # Only re-evaluate buttons that have a grid position.
+            # Leftover (unused) buttons stay hidden.
+            if not getattr(asset_button, "_grid_positioned", False):
+                continue
 
-                    asset_data = sr[asset_button.asset_index]
-                    if asset_data is None:
-                        continue
-                    # update bookmark buttons
-                    asset_button.bookmark_button.asset_index = asset_button.asset_index
-                    # update author profile buttons
-                    asset_button.author_button.asset_index = asset_button.asset_index
+            asset_button.asset_index = asset_button.button_index + self.scroll_offset
+            if 0 <= asset_button.asset_index < len(sr):
+                asset_button.visible = True
 
-                    set_thumb_check(
-                        asset_button, asset_data, thumb_type="thumbnail_small"
+                asset_data = sr[asset_button.asset_index]
+                if asset_data is None:
+                    continue
+                # update bookmark buttons
+                asset_button.bookmark_button.asset_index = asset_button.asset_index
+                # update author profile buttons
+                asset_button.author_button.asset_index = asset_button.asset_index
+
+                set_thumb_check(asset_button, asset_data, thumb_type="thumbnail_small")
+                # Distinguish author cards with a blue border and author icon
+                if asset_data.get("assetType") == "author":
+                    asset_button.background_border_thickness = 3.0
+                    asset_button.author_button.visible = True
+                    asset_button.background_corner_radius = 12.0
+                    asset_button.image_corner_radius = 12.0
+                    asset_button.background_padding = [-1.0, -1.0]
+                    asset_button.background_border = True
+                    asset_button.background_border_color = colors.ACTIVE_BLUE
+                    asset_button.use_rounded_background = True
+                    asset_button.image_padding = (
+                        asset_button.background_border_thickness
                     )
-                    # Distinguish author cards with a blue border and author icon
-                    if asset_data.get("assetType") == "author":
-                        asset_button.background_border_thickness = 3.0
-                        asset_button.author_button.visible = True
-                        asset_button.background_corner_radius = 12.0
-                        asset_button.image_corner_radius = 12.0
-                        asset_button.background_padding = [-1.0, -1.0]
-                        asset_button.background_border = True
-                        asset_button.background_border_color = colors.ACTIVE_BLUE
-                        asset_button.use_rounded_background = True
-                        asset_button.image_padding = (
-                            asset_button.background_border_thickness
-                        )
+                else:
+                    asset_button.background_border = False
+                    asset_button.background_border_color = None
+                    asset_button.author_button.visible = False
+                    asset_button.use_rounded_background = False
+                    asset_button.background_corner_radius = 0.0
+                    asset_button.image_corner_radius = None
+                    asset_button.background_padding = [0.0, 0.0]
+                    asset_button.image_padding = 0.0
+
+                self.update_validation_icon(asset_button, asset_data)
+
+                self.update_bookmark_icon(asset_button.bookmark_button)
+
+                self.update_progress_bar(asset_button, asset_data)
+
+                if (
+                    utils.profile_is_validator()
+                    and asset_data["verificationStatus"] == "uploaded"
+                ):
+                    over_limit = utils.is_upload_old(asset_data.get("lastBlendUpload"))
+                    if over_limit:
+                        redness = min(over_limit * 0.05, 0.7)
+                        asset_button.red_alert.bg_color = (1, 0, 0, redness)
+                        asset_button.red_alert.visible = True
                     else:
-                        asset_button.background_border = False
-                        asset_button.background_border_color = None
-                        asset_button.author_button.visible = False
-                        asset_button.use_rounded_background = False
-                        asset_button.background_corner_radius = 0.0
-                        asset_button.image_corner_radius = None
-                        asset_button.background_padding = [0.0, 0.0]
-                        asset_button.image_padding = 0.0
-
-                    self.update_validation_icon(asset_button, asset_data)
-
-                    self.update_bookmark_icon(asset_button.bookmark_button)
-
-                    self.update_progress_bar(asset_button, asset_data)
-
-                    if (
-                        utils.profile_is_validator()
-                        and asset_data["verificationStatus"] == "uploaded"
-                    ):
-                        over_limit = utils.is_upload_old(
-                            asset_data.get("lastBlendUpload")
-                        )
-                        if over_limit:
-                            redness = min(over_limit * 0.05, 0.7)
-                            asset_button.red_alert.bg_color = (1, 0, 0, redness)
-                            asset_button.red_alert.visible = True
-                        else:
-                            asset_button.red_alert.visible = False
-                    elif utils.profile_is_validator():
                         asset_button.red_alert.visible = False
-                    visible_results.append(asset_data)
-
+                elif utils.profile_is_validator():
+                    asset_button.red_alert.visible = False
+                visible_results.append(asset_data)
             else:
+                # Buffer button with out-of-range index – hide it
                 asset_button.visible = False
                 asset_button.validation_icon.visible = False
                 asset_button.bookmark_button.visible = False
@@ -3847,8 +3940,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 if utils.profile_is_validator():
                     asset_button.red_alert.visible = False
 
-        # Refresh manufacturer chips to match currently visible assets
-        self._update_manufacturer_data(visible_results)
+        # Refresh manufacturer chips to match currently visible assets.
+        # Skip during scroll animation to avoid layout jumps; flag for
+        # deferred update when the animation settles.
+        if abs(self._scroll_anim_offset) > 0.5:
+            self._manufacturer_update_pending = True
+        else:
+            self._update_manufacturer_data(visible_results)
+            self._manufacturer_update_pending = False
 
     def scroll_update(self, always=False):
         """Update scroll position and visibility of scroll buttons."""
@@ -3891,6 +3990,112 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.last_scroll_offset = self.scroll_offset
 
         self.update_buttons()
+        # Re-apply animation offset after buttons were repositioned to their target
+        if abs(self._scroll_anim_offset) > 0.5:
+            self._apply_scroll_anim_offset()
+
+    def _apply_edge_resistance(self, step: int) -> int:
+        """Reduce scroll step when near the start or end of results.
+
+        Instead of bouncing, we progressively reduce the step size so
+        scrolling decelerates smoothly at the edges.
+        """
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results")
+        if sr is None:
+            return step
+
+        max_offset = max(0, len(sr) - (self.wcount * self.hcount))
+
+        if step < 0 and self.scroll_offset <= 0:
+            # Already at the start, absorb the step entirely
+            return 0
+        if step > 0 and self.scroll_offset >= max_offset:
+            # Already at the end, absorb the step entirely
+            return 0
+
+        # When approaching the edge, reduce the step
+        if step < 0:
+            # Scrolling toward start
+            effective = self.scroll_offset + step
+            if effective < 0:
+                step = -self.scroll_offset  # clamp to exactly reach 0
+        elif step > 0:
+            # Scrolling toward end
+            effective = self.scroll_offset + step
+            if effective > max_offset:
+                step = max_offset - self.scroll_offset  # clamp to exactly reach end
+
+        return step
+
+    def _start_scroll_anim(self, step: int):
+        """Kick off a smooth scroll animation.
+
+        ``step`` is the number of *asset slots* the scroll just moved.
+        We convert that to a pixel delta so buttons appear to slide from
+        their old position.  The animation decays in ``modal_inside``.
+        """
+        if self.hcount > 1:
+            # Multi-row: scrolling moves whole rows \u2192 animate vertically.
+            rows = step / self.wcount
+            pixel_delta = rows * self.button_size
+        else:
+            # Single row: scrolling moves horizontally.
+            pixel_delta = step * self.button_size
+        # Positive so buttons start *ahead* of where they are going (off-screen)
+        # and slide into the visible area.
+        self._scroll_anim_offset += pixel_delta
+        # Clamp to one step so offset stays within the buffer rows/cols.
+        max_offset = abs(pixel_delta) if pixel_delta != 0 else self.button_size
+        self._scroll_anim_offset = max(
+            -max_offset, min(max_offset, self._scroll_anim_offset)
+        )
+        self._scroll_anim_time = time.time()
+
+    def _apply_scroll_anim_offset(self):
+        """Shift visible asset buttons by the current animation offset."""
+        offset = self._scroll_anim_offset
+        px = self.panel.x_screen
+        py = self.panel.y_screen
+        for btn in self.asset_buttons:
+            if not btn.visible:
+                continue
+            if self.hcount > 1:
+                btn.update(px + btn.x, py + btn.y + offset)
+                btn.validation_icon.update(
+                    px + btn.validation_icon.x, py + btn.validation_icon.y + offset
+                )
+                btn.bookmark_button.update(
+                    px + btn.bookmark_button.x, py + btn.bookmark_button.y + offset
+                )
+                btn.progress_bar.update(
+                    px + btn.progress_bar.x, py + btn.progress_bar.y + offset
+                )
+                btn.author_button.update(
+                    px + btn.author_button.x, py + btn.author_button.y + offset
+                )
+                if hasattr(btn, "red_alert"):
+                    btn.red_alert.update(
+                        px + btn.red_alert.x, py + btn.red_alert.y + offset
+                    )
+            else:
+                btn.update(px + btn.x + offset, py + btn.y)
+                btn.validation_icon.update(
+                    px + btn.validation_icon.x + offset, py + btn.validation_icon.y
+                )
+                btn.bookmark_button.update(
+                    px + btn.bookmark_button.x + offset, py + btn.bookmark_button.y
+                )
+                btn.progress_bar.update(
+                    px + btn.progress_bar.x + offset, py + btn.progress_bar.y
+                )
+                btn.author_button.update(
+                    px + btn.author_button.x + offset, py + btn.author_button.y
+                )
+                if hasattr(btn, "red_alert"):
+                    btn.red_alert.update(
+                        px + btn.red_alert.x + offset, py + btn.red_alert.y
+                    )
 
     def search_by_author(self, asset_index):
         """Search for assets by the author of the selected asset."""
