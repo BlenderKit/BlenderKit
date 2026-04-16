@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Optional
 
 import bpy
@@ -198,8 +199,8 @@ def draw_callback_px_separated(self, op, context):
             rh = max(region.height, 1)
             sx = int(vp[0] + gl * vp[2] / rw)
             sy = int(vp[1] + (region.height - gb) * vp[3] / rh)
-            sw = int((gr - gl) * vp[2] / rw)
-            sh = int((gb - gt) * vp[3] / rh)
+            sw = math.ceil((gr - gl) * vp[2] / rw)
+            sh = math.ceil((gb - gt) * vp[3] / rh)
             if sw > 0 and sh > 0:
                 grid_scissor = (sx, sy, sw, sh)
 

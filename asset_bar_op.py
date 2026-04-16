@@ -72,6 +72,10 @@ TOOLTIP_SIZE_PX = 512
 # Higher = snappier, lower = more floaty.  Value is the exponential decay rate (per second).
 SCROLL_ANIM_SPEED = 14.0
 
+# Edge deceleration: how much scrolling slows down near the start/end.
+# 0.0 = no resistance (hard stop), 1.0 = full resistance (no overscroll).
+SCROLL_EDGE_RESISTANCE = 0.85
+
 
 def get_area_height(self):
     ctx = getattr(self, "context", None)
@@ -345,22 +349,25 @@ def modal_inside(self, context, event):
 
         step = 0
         multiplier = 30
-        if abs(self.trackpad_x_accum) > abs(self.trackpad_y_accum) or self.hcount < 2:
-            step = math.floor(self.trackpad_x_accum / multiplier)
+        if self.hcount < 2:
+            # Single row: horizontal scrolling by individual slots
+            step = int(self.trackpad_x_accum / multiplier)
             self.trackpad_x_accum -= step * multiplier
-            # reset the other axis not to accidentally scroll it
-            if step != 0:
-                self.trackpad_y_accum = 0
-        if abs(self.trackpad_y_accum) > 0 and self.hcount > 1:
-            step = self.wcount * math.floor(self.trackpad_x_accum / multiplier)
-            self.trackpad_y_accum -= step * multiplier
-            # reset the other axis not to accidentally scroll it
+        else:
+            # Multi-row: vertical scrolling by whole rows only,
+            # ignore horizontal trackpad axis to prevent slot-level sliding
+            row_step = int(self.trackpad_y_accum / multiplier)
+            step = self.wcount * row_step
+            self.trackpad_y_accum -= row_step * multiplier
             if step != 0:
                 self.trackpad_x_accum = 0
         if step != 0:
-            self._start_scroll_anim(step)
-            self.scroll_offset += step
-            self.scroll_update()
+            # Apply edge resistance: reduce step near boundaries
+            step = self._apply_edge_resistance(step)
+            if step != 0:
+                self._start_scroll_anim(step)
+                self.scroll_offset += step
+                self.scroll_update()
         return {"RUNNING_MODAL"}
 
     # MOUSEWHEEL SCROLL
@@ -371,6 +378,9 @@ def modal_inside(self, context, event):
             step = -self.wcount
         else:
             step = -2
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return {"RUNNING_MODAL"}
         self._start_scroll_anim(step)
         self.scroll_offset += step
         self.scroll_update()
@@ -383,6 +393,9 @@ def modal_inside(self, context, event):
             step = self.wcount
         else:
             step = 2
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return {"RUNNING_MODAL"}
         self._start_scroll_anim(step)
         self.scroll_offset += step
 
@@ -1768,8 +1781,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel.append(self.tab_area_bg)
 
         # we init max possible buttons.
+        # Add 2 extra rows for scroll animation buffer (1 above + 1 below
+        # the visible grid).  In single-row mode the buffer uses extra
+        # columns instead, but max_hcount already has room for those.
         button_idx = 0
-        for x in range(0, self.max_wcount):
+        for x in range(0, self.max_wcount + 2):
             for y in range(0, self.max_hcount):
                 # asset_x = self.assetbar_margin + a * (self.button_size)
                 # asset_y = self.assetbar_margin + b * (self.button_size)
@@ -3643,6 +3659,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_up(self, widget):
         """Scroll up in the asset bar."""
         step = self.wcount * self.hcount
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return
         self._start_scroll_anim(step)
         self.scroll_offset += step
         self.scroll_update()
@@ -3651,6 +3670,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_down(self, widget):
         """Scroll down in the asset bar."""
         step = -(self.wcount * self.hcount)
+        step = self._apply_edge_resistance(step)
+        if step == 0:
+            return
         self._start_scroll_anim(step)
         self.scroll_offset += step
         self.scroll_update()
@@ -3971,6 +3993,40 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Re-apply animation offset after buttons were repositioned to their target
         if abs(self._scroll_anim_offset) > 0.5:
             self._apply_scroll_anim_offset()
+
+    def _apply_edge_resistance(self, step: int) -> int:
+        """Reduce scroll step when near the start or end of results.
+
+        Instead of bouncing, we progressively reduce the step size so
+        scrolling decelerates smoothly at the edges.
+        """
+        history_step = search.get_active_history_step()
+        sr = history_step.get("search_results")
+        if sr is None:
+            return step
+
+        max_offset = max(0, len(sr) - (self.wcount * self.hcount))
+
+        if step < 0 and self.scroll_offset <= 0:
+            # Already at the start, absorb the step entirely
+            return 0
+        if step > 0 and self.scroll_offset >= max_offset:
+            # Already at the end, absorb the step entirely
+            return 0
+
+        # When approaching the edge, reduce the step
+        if step < 0:
+            # Scrolling toward start
+            effective = self.scroll_offset + step
+            if effective < 0:
+                step = -self.scroll_offset  # clamp to exactly reach 0
+        elif step > 0:
+            # Scrolling toward end
+            effective = self.scroll_offset + step
+            if effective > max_offset:
+                step = max_offset - self.scroll_offset  # clamp to exactly reach end
+
+        return step
 
     def _start_scroll_anim(self, step: int):
         """Kick off a smooth scroll animation.
