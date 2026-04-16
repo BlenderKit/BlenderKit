@@ -1,41 +1,64 @@
-"""Small utility script to link this addon repo into Blender's addons folder for easier dev on Windows.
+"""Small utility script to link this addon repo into Blender's addons folder for easier dev.
 
-What it does per detected Blender version under the user's AppData scripts/addons:
-- Try creating an NTFS directory junction.
+What it does per detected Blender version under the user's addons directory:
+- On Windows: Try creating an NTFS directory junction.
+- On macOS/Linux: Create a symlink.
 
 Notes:
 - Junctions typically work without Developer Mode, but can still be restricted by policy.
+- On macOS, Blender stores user data in ~/Library/Application Support/Blender/
+- On Linux, Blender stores user data in ~/.config/blender/
 """
 
+import glob
 import os
-import sys
+import re
 import shutil
 import subprocess
-import re
-
-# for windows only currently --- sorry linux / mac users.
-if sys.platform != "win32":
-    raise RuntimeError("This script only works on Windows currently.")
-
-import re
-import glob
+import sys
 
 THIS_REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")).replace(
     "\\", "/"
 )
 
-BLENDER_VERSIONS_PATH = os.path.expanduser(
-    "~/AppData/Roaming/Blender Foundation/Blender"
-).replace("\\", "/")
-
 RESULTING_ADDON_NAME = "blenderkit_dev_hl"
 
-# \scripts\addons
+if sys.platform == "win32":
+    BLENDER_VERSIONS_PATH = os.path.expanduser(
+        "~/AppData/Roaming/Blender Foundation/Blender"
+    ).replace("\\", "/")
+elif sys.platform == "darwin":
+    BLENDER_VERSIONS_PATH = os.path.expanduser("~/Library/Application Support/Blender")
+else:
+    BLENDER_VERSIONS_PATH = os.path.expanduser("~/.config/blender")
 
-all_versions = [
-    p.replace("\\", "/") for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/scripts/addons")
-]
-pattern = re.compile(r".*\/(\d+\.\d+)\/scripts\/addons")
+# Discover addon directories for each Blender version.
+# Blender 4.2+ uses extensions/user_default/, older uses scripts/addons/
+all_versions = []
+for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/scripts/addons"):
+    all_versions.append(p.replace("\\", "/"))
+for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/extensions/user_default"):
+    all_versions.append(p.replace("\\", "/"))
+
+# Also scan for version directories that don't have the target dir yet
+for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/"):
+    p = p.replace("\\", "/").rstrip("/")
+    version_dir = os.path.basename(p)
+    if not re.match(r"\d+\.\d+", version_dir):
+        continue
+    # Parse version to decide: 4.2+ uses extensions/user_default, older uses scripts/addons
+    major, minor = map(int, version_dir.split("."))
+    if major > 4 or (major == 4 and minor >= 2):
+        addon_dir = os.path.join(p, "extensions", "user_default")
+    else:
+        addon_dir = os.path.join(p, "scripts", "addons")
+    addon_dir = addon_dir.replace("\\", "/")
+    if addon_dir not in all_versions:
+        all_versions.append(addon_dir)
+
+pattern = re.compile(
+    r".*[/\\](\d+\.\d+)[/\\](?:scripts[/\\]addons|extensions[/\\]user_default)"
+)
 
 
 def _remove_existing(path: str) -> None:
@@ -58,18 +81,26 @@ def _remove_existing(path: str) -> None:
     os.remove(path)
 
 
-def _try_junction(src: str, dst: str) -> bool:
-    # Use mklink /J to create directory junctions (works on NTFS)
-    try:
-        cmd = f'cmd /c mklink /J "{dst}" "{src}"'
-        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if proc.returncode == 0:
+def _try_link(src: str, dst: str) -> bool:
+    """Create a directory junction (Windows) or symlink (macOS/Linux)."""
+    if sys.platform == "win32":
+        try:
+            cmd = f'cmd /c mklink /J "{dst}" "{src}"'
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if proc.returncode == 0:
+                return True
+            print(f"  Junction failed: {proc.stderr.strip() or proc.stdout.strip()}")
+            return False
+        except Exception as e:
+            print(f"  Junction failed: {e}")
+            return False
+    else:
+        try:
+            os.symlink(src, dst)
             return True
-        print(f"  Junction failed: {proc.stderr.strip() or proc.stdout.strip()}")
-        return False
-    except Exception as e:
-        print(f"  Junction failed: {e}")
-        return False
+        except Exception as e:
+            print(f"  Symlink failed: {e}")
+            return False
 
 
 was_linked = False
@@ -82,14 +113,14 @@ for version_path in all_versions:
     target_addon_path = os.path.join(version_path, RESULTING_ADDON_NAME).replace(
         "\\", "/"
     )
+    # Create parent directories if they don't exist (e.g. scripts/addons)
+    os.makedirs(version_path, exist_ok=True)
     print(f"Setting up link for Blender {version} -> {target_addon_path}")
     try:
         _remove_existing(target_addon_path)
 
-        if _try_junction(THIS_REPO, target_addon_path):
-            print(
-                f"Linked (junction) blenderkit addon to Blender {version} addons folder."
-            )
+        if _try_link(THIS_REPO, target_addon_path):
+            print(f"Linked blenderkit addon to Blender {version} addons folder.")
             was_linked = True
             continue
 
