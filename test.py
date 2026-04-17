@@ -58,6 +58,7 @@ suite.addTests(testLoader.discover("tests", "test_manifest_toml.py"))
 suite.addTests(testLoader.discover("tests", "test_ui_panels.py"))
 suite.addTests(testLoader.discover("tests", "test_registration.py"))
 suite.addTests(testLoader.discover("tests", "test_smoke.py"))
+suite.addTests(testLoader.discover("tests", "test_asset_bar_op.py"))
 print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
