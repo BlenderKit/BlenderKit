@@ -540,6 +540,7 @@ def get_preferences_as_dict():
         "show_on_start": user_preferences.show_on_start,
         "thumb_size": user_preferences.thumb_size,
         "maximized_assetbar_rows": user_preferences.maximized_assetbar_rows,
+        "assetbar_expanded": user_preferences.assetbar_expanded,
         "search_field_width": user_preferences.search_field_width,
         "search_in_header": user_preferences.search_in_header,
         "tips_on_start": user_preferences.tips_on_start,
@@ -593,6 +594,7 @@ def get_preferences() -> datas.Prefs:
         show_on_start=user_preferences.show_on_start,  # type: ignore[union-attr]
         thumb_size=user_preferences.thumb_size,  # type: ignore[union-attr]
         maximized_assetbar_rows=user_preferences.maximized_assetbar_rows,  # type: ignore[union-attr]
+        assetbar_expanded=user_preferences.assetbar_expanded,  # type: ignore[union-attr]
         search_field_width=user_preferences.search_field_width,  # type: ignore[union-attr]
         search_in_header=user_preferences.search_in_header,  # type: ignore[union-attr]
         tips_on_start=user_preferences.tips_on_start,  # type: ignore[union-attr]
