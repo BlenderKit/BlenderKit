@@ -7,6 +7,7 @@ import gzip
 import logging
 import random
 from collections.abc import Sequence
+from typing import Optional
 
 LOG = logging.getLogger(__name__)
 
@@ -65,16 +66,22 @@ def _denormalize_points(
     for point in points:
         if len(point) < VECTOR_SIZE:
             continue
-        denormalized.append([
-            bbox[0] + point[0] * spans[0],
-            bbox[2] + point[1] * spans[1],
-            bbox[4] + point[2] * spans[2],
-        ])
+        denormalized.append(
+            [
+                bbox[0] + point[0] * spans[0],
+                bbox[2] + point[1] * spans[1],
+                bbox[4] + point[2] * spans[2],
+            ]
+        )
     return denormalized
 
 
 def _denormalize_normals(normals: Sequence[Sequence[float]]) -> list[list[float]]:
-    return [[(c * 2.0) - 1.0 for c in n[:VECTOR_SIZE]] for n in normals if len(n) >= VECTOR_SIZE]
+    return [
+        [(c * 2.0) - 1.0 for c in n[:VECTOR_SIZE]]
+        for n in normals
+        if len(n) >= VECTOR_SIZE
+    ]
 
 
 def _normalize_points(
@@ -86,19 +93,27 @@ def _normalize_points(
     for point in points:
         if len(point) < VECTOR_SIZE:
             continue
-        normalized.append([
-            (point[0] - bbox[0]) / spans[0],
-            (point[1] - bbox[2]) / spans[1],
-            (point[2] - bbox[4]) / spans[2],
-        ])
+        normalized.append(
+            [
+                (point[0] - bbox[0]) / spans[0],
+                (point[1] - bbox[2]) / spans[1],
+                (point[2] - bbox[4]) / spans[2],
+            ]
+        )
     return normalized
 
 
 def _normalize_normals(normals: Sequence[Sequence[float]]) -> list[list[float]]:
-    return [[(c * 0.5) + 0.5 for c in n[:VECTOR_SIZE]] for n in normals if len(n) >= VECTOR_SIZE]
+    return [
+        [(c * 0.5) + 0.5 for c in n[:VECTOR_SIZE]]
+        for n in normals
+        if len(n) >= VECTOR_SIZE
+    ]
 
 
-def _limit_components(values: Sequence[Sequence[float]], *, count: int) -> list[list[float]]:
+def _limit_components(
+    values: Sequence[Sequence[float]], *, count: int
+) -> list[list[float]]:
     limited: list[list[float]] = []
     for item in values:
         if not item:
@@ -110,7 +125,9 @@ def _limit_components(values: Sequence[Sequence[float]], *, count: int) -> list[
     return limited
 
 
-def _flatten_sections(sections: Sequence[Sequence[Sequence[float]]]) -> list[Sequence[float]]:
+def _flatten_sections(
+    sections: Sequence[Sequence[Sequence[float]]],
+) -> list[Sequence[float]]:
     flattened: list[Sequence[float]] = []
     for section in sections or []:
         flattened.extend(section)
@@ -132,14 +149,14 @@ def _load_prx_lines(file_path: str) -> list[str]:
         return [line for line in handle if line.strip()]
 
 
-def _parse_prx_lines(lines: Sequence[str]) -> tuple[list[dict], str | None]:
+def _parse_prx_lines(lines: Sequence[str]) -> tuple[list[dict], Optional[str]]:
     known_blocks = {"F", "FC", "FN", "P", "PC", "L", "LC", "BB", "O", "C"}
     block_headers = {"F", "FC", "FN", "P", "PC", "L", "LC"}
 
     objects: list[dict] = []
-    current: dict | None = None
-    current_block: str | None = None
-    file_version: str | None = None
+    current: Optional[dict] = None
+    current_block: Optional[str] = None
+    file_version: Optional[str] = None
 
     for raw_line in lines:
         line = raw_line.strip()
@@ -220,9 +237,13 @@ def _build_output_data(
         blocks = obj.get("blocks", {})
 
         # Mesh faces
-        face_pts = _denormalize_points(_flatten_sections(blocks.get("F", [])), bbox, spans)
+        face_pts = _denormalize_points(
+            _flatten_sections(blocks.get("F", [])), bbox, spans
+        )
         face_nrm = _denormalize_normals(_flatten_sections(blocks.get("FN", [])))
-        face_col = _limit_components(_flatten_sections(blocks.get("FC", [])), count=RGB_SIZE)
+        face_col = _limit_components(
+            _flatten_sections(blocks.get("FC", [])), count=RGB_SIZE
+        )
         if face_pts:
             mesh_positions.extend(face_pts)
             if len(face_col) != len(face_pts):
@@ -240,7 +261,9 @@ def _build_output_data(
             pts = _denormalize_points(_flatten_sections(point_secs), bbox, spans)
             if pts:
                 point_positions.extend(pts)
-                pc = _limit_components(_flatten_sections(blocks.get("PC", []) or []), count=RGBA_SIZE)
+                pc = _limit_components(
+                    _flatten_sections(blocks.get("PC", []) or []), count=RGBA_SIZE
+                )
                 if not pc:
                     base = obj.get("color") or list(default_color)
                     if len(base) < RGBA_SIZE:
@@ -261,7 +284,11 @@ def _build_output_data(
             for seg in range(len(den) - 1):
                 line_positions.extend([den[seg], den[seg + 1]])
                 if lc_sec and seg < len(lc_sec):
-                    col = list(lc_sec[seg][:RGB_SIZE]) if len(lc_sec[seg]) >= RGB_SIZE else list(default_color)
+                    col = (
+                        list(lc_sec[seg][:RGB_SIZE])
+                        if len(lc_sec[seg]) >= RGB_SIZE
+                        else list(default_color)
+                    )
                 else:
                     col = list(default_color)
                 line_colors.extend([col, col])
@@ -349,7 +376,9 @@ def write_prx(
         mesh_col = mesh.get("col", [])
         if include_colors and mesh_col:
             lines.append("FC")
-            lines.extend(" ".join(_fmt(v, precision) for v in col[:RGB_SIZE]) for col in mesh_col)
+            lines.extend(
+                " ".join(_fmt(v, precision) for v in col[:RGB_SIZE]) for col in mesh_col
+            )
         mesh_nrm = mesh.get("nrm", [])
         if mesh_nrm:
             norm_nrm = _normalize_normals(mesh_nrm)
@@ -366,7 +395,9 @@ def write_prx(
         pts_col = pts_sec.get("col", [])
         if include_colors and pts_col:
             lines.append("PC")
-            lines.extend(" ".join(_fmt(v, precision) for v in col[:RGBA_SIZE]) for col in pts_col)
+            lines.extend(
+                " ".join(_fmt(v, precision) for v in col[:RGBA_SIZE]) for col in pts_col
+            )
 
     # Lines — write each segment pair as a separate L block so
     # the reader does not chain unrelated endpoints into a polyline.

@@ -10,6 +10,7 @@ import contextlib
 import copy
 from array import array
 from types import SimpleNamespace
+from typing import Optional
 
 import bpy
 import gpu
@@ -52,7 +53,7 @@ _shader_cache: dict[str, gpu.types.GPUShader] = {}
 def ensure_shaders() -> None:
     """Pre-compile and cache all GPU shaders used by the proxor draw pipeline.
 
-    Safe to call repeatedly \u2013 already-compiled shaders are skipped.
+    Safe to call repeatedly - already-compiled shaders are skipped.
     Must be called from the main thread with a valid GL context (e.g. during
     addon ``register()``).  No-op in background mode (no GPU context).
     """
@@ -66,13 +67,13 @@ def ensure_shaders() -> None:
         _get_cached_shader("blinn")
 
 
-def _get_cached_shader(name: str) -> gpu.types.GPUShader | None:
+def _get_cached_shader(name: str) -> Optional[gpu.types.GPUShader]:
     """Return a cached shader by *name*, compiling it on first access."""
     cached = _shader_cache.get(name)
     if cached is not None:
         return cached
 
-    shader: gpu.types.GPUShader | None = None
+    shader: Optional[gpu.types.GPUShader] = None
     if name == "smooth_color":
         builtin = "3D_SMOOTH_COLOR" if bpy.app.version < (4, 0, 0) else "SMOOTH_COLOR"
         shader = gpu.shader.from_builtin(builtin)
@@ -276,7 +277,7 @@ def _create_mesh_blinn_shader_info():
 
 def _resolve_uniform_color(
     color_mode: str, ctx
-) -> tuple[float, float, float, float] | None:
+) -> Optional[tuple[float, float, float, float]]:
     """Return an override RGBA if *color_mode* requires one, else ``None``."""
     if color_mode == COLOR_MODE_ORIGINAL:
         return None
@@ -304,7 +305,7 @@ def _uniform_color_array(color: tuple, count: int, color_type: str) -> np.ndarra
     )
 
 
-def _prepare_mesh_colors(raw: list | None, color_type: str) -> np.ndarray | None:
+def _prepare_mesh_colors(raw: Optional[list], color_type: str) -> Optional[np.ndarray]:
     if not raw:
         return None
     arr = np.array(raw, dtype="f")
@@ -319,8 +320,8 @@ def _prepare_mesh_colors(raw: list | None, color_type: str) -> np.ndarray | None
 
 
 def _prepare_point_colors(
-    raw: list | None, color_type: str
-) -> tuple[list | None, bool]:
+    raw: Optional[list], color_type: str
+) -> tuple[Optional[list], bool]:
     if not raw:
         return None, False
     arr = np.array(raw, dtype="f")
@@ -342,7 +343,7 @@ def _prepare_point_colors(
 
 def _prepare_point_normals_for_shader(
     normals_raw, expected: int
-) -> list[list[float]] | None:
+) -> Optional[list[list[float]]]:
     if not normals_raw or expected <= 0:
         return None
     nrm = np.array(normals_raw, dtype="f")
@@ -683,7 +684,7 @@ class ProxorLiteDrawBuilder:
 
     # -- public API --
 
-    def build_draw_data(self, raw_data: dict, ctx) -> dict | None:
+    def build_draw_data(self, raw_data: dict, ctx) -> Optional[dict]:
         """Convert a parsed PRX legacy payload to GPU-ready draw data.
 
         Args:
@@ -760,8 +761,8 @@ class ProxorLiteDrawHandler:
 
     def __init__(self) -> None:
         self._handle = None
-        self._draw_data: dict | None = None
-        self._raw_data: dict | None = None
+        self._draw_data: Optional[dict] = None
+        self._raw_data: Optional[dict] = None
         self._matrix: Matrix = Matrix.Identity(4)
         self._builder = ProxorLiteDrawBuilder()
         self.draw_ctx: SimpleNamespace = default_draw_context()
@@ -770,8 +771,8 @@ class ProxorLiteDrawHandler:
 
     def set_payload(
         self,
-        legacy_data: dict | None,
-        matrix: Matrix | None = None,
+        legacy_data: Optional[dict],
+        matrix: Optional[Matrix] = None,
     ) -> None:
         """Rebuild GPU batches from *legacy_data*.
 

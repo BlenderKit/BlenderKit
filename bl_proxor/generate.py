@@ -13,6 +13,7 @@ import contextlib
 import math
 import random
 from bisect import bisect_left
+from typing import Optional
 
 import bpy
 import numpy as np
@@ -322,8 +323,8 @@ def _allocate_samples_by_area(
 
 
 def _find_tex_image_upstream(
-    node, visited: set | None = None
-) -> "bpy.types.Image | None":
+    node, visited: Optional[set] = None
+) -> "Optional[bpy.types.Image]":
     """Recursively walk upstream from *node* to find the first TEX_IMAGE."""
     if visited is None:
         visited = set()
@@ -341,7 +342,7 @@ def _find_tex_image_upstream(
     return None
 
 
-def _find_diffuse_image(obj) -> "bpy.types.Image | None":
+def _find_diffuse_image(obj) -> "Optional[bpy.types.Image]":
     """Walk material slots to find the first Base Color texture image."""
     for slot in getattr(obj, "material_slots", []):
         mat = slot.material
@@ -448,7 +449,7 @@ def _sample_uniform_surface_points(
         cumulative: list[float] = []
         triangles_local: list[tuple[Vector, Vector, Vector]] = []
         triangle_normals: list[Vector] = []
-        triangle_uvs: list[tuple | None] = []
+        triangle_uvs: list[Optional[tuple]] = []
         total_area = 0.0
 
         # Prepare UV and texture data for colour sampling
@@ -561,7 +562,7 @@ def _sample_uniform_surface_points(
 
 
 def _apply_transform_to_vectors(
-    vectors: list[list[float]] | None, matrix: Matrix | None
+    vectors: Optional[list[list[float]]], matrix: Optional[Matrix]
 ) -> None:
     if not vectors or matrix is None:
         return
@@ -577,7 +578,9 @@ def _apply_transform_to_vectors(
         ]
 
 
-def _apply_transform_to_payload(payload: dict | None, matrix: Matrix | None) -> None:
+def _apply_transform_to_payload(
+    payload: Optional[dict], matrix: Optional[Matrix]
+) -> None:
     if not payload or matrix is None:
         return
     legacy = payload.get("legacy") if isinstance(payload, dict) else None
@@ -590,7 +593,7 @@ def _apply_transform_to_payload(payload: dict | None, matrix: Matrix | None) -> 
         _apply_transform_to_vectors(section.get("pos"), matrix)
 
 
-def _convert_normals_to_prx(normals: list[list[float]] | None) -> None:
+def _convert_normals_to_prx(normals: Optional[list[list[float]]]) -> None:
     """Swap Y/Z in normals to convert from Blender to PRX coordinate space."""
     if not normals:
         return
@@ -604,7 +607,7 @@ def _convert_normals_to_prx(normals: list[list[float]] | None) -> None:
 def _transform_point_list(
     points: list[list[float]],
     normals: list[list[float]],
-    matrix: Matrix | None,
+    matrix: Optional[Matrix],
 ) -> tuple[list[list[float]], list[list[float]]]:
     if matrix is None:
         return points, normals
@@ -652,7 +655,7 @@ def _resolve_object_color(obj) -> tuple[float, float, float, float]:
 
 def _build_payload_point_colors(
     point_count: int,
-    point_colors: list[list[float]] | None,
+    point_colors: Optional[list[list[float]]],
     default_rgba: tuple[float, float, float, float],
 ) -> list[list[float]]:
     if point_count <= 0:
@@ -679,7 +682,7 @@ def _build_payload_point_colors(
 
 def _build_payload_point_normals(
     point_count: int,
-    point_normals: list[list[float]] | None,
+    point_normals: Optional[list[list[float]]],
 ) -> list[list[float]]:
     if point_count <= 0 or not point_normals:
         return []
@@ -1374,7 +1377,7 @@ def _build_cpu_marching_cubes_mesh(
     reproject_factor: float = _REPROJECT_MAX_DIST_FACTOR,
     smooth_iterations: int = _SMOOTH_ITERATIONS_DEFAULT,
     decimation_ratio: float = _DECIMATION_RATIO_DEFAULT,
-    point_colors: list[list[float]] | None = None,
+    point_colors: Optional[list[list[float]]] = None,
 ) -> dict[str, list[list[float]]]:
     """Build a mesh from a point cloud via marching cubes reconstruction.
 
@@ -1503,7 +1506,7 @@ def _build_cpu_marching_cubes_mesh(
 
     # Build per-vertex color via closest-point transfer from sampled points
     use_point_colors = point_colors is not None and len(point_colors) == len(points)
-    vertex_colors: list[list[float]] | None = None
+    vertex_colors: Optional[list[list[float]]] = None
     if use_point_colors:
         from mathutils.kdtree import KDTree  # noqa: PLC0415
 
@@ -1576,7 +1579,7 @@ def generate_proxor(
     smooth_iterations: int = _SMOOTH_ITERATIONS_DEFAULT,
     decimation_ratio: float = _DECIMATION_RATIO_DEFAULT,
     context=None,
-) -> dict | None:
+) -> Optional[dict]:
     """Generate a PRX payload dict from a Blender object.
 
     Point count is derived automatically from the source vertex count
@@ -1714,7 +1717,7 @@ def generate_proxor_multi(
     smooth_iterations: int = _SMOOTH_ITERATIONS_DEFAULT,
     decimation_ratio: float = _DECIMATION_RATIO_DEFAULT,
     context=None,
-) -> dict | None:
+) -> Optional[dict]:
     """Generate a single PRX payload from multiple Blender objects.
 
     Collects mesh sources from all provided objects (without recursing
@@ -1855,7 +1858,7 @@ def _resolve_loop_color(
     loop_idx: int,
     vertex_idx: int,
     uv_layer=None,
-    texture_cache: tuple | None = None,
+    texture_cache: Optional[tuple] = None,
 ) -> list[float]:
     """Return per-loop RGBA from texture, vertex colors, color attributes, or fake AO."""
     # Try diffuse texture sampling via UV
@@ -1976,7 +1979,7 @@ def generate_proxor_direct(
     include_normals: bool = True,
     include_colors: bool = True,
     context=None,
-) -> dict | None:
+) -> Optional[dict]:
     """Generate a PRX payload by reading mesh geometry directly.
 
     Unlike :func:`generate_proxor` this does **not** sample random surface

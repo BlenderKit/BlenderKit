@@ -57,7 +57,7 @@ handler_3d = None
 
 # Cached proxor legacy data for download progress drawing (raw Python dicts, no GPU).
 # Keyed by assetBaseId → legacy dict or None if unavailable.
-_download_proxor_cache: dict[str, dict | None] = {}
+_download_proxor_cache: dict[str, Optional[dict]] = {}
 
 
 DEFAULT_DRAG_THRESHOLD = 30  # pixels
@@ -406,7 +406,7 @@ def draw_callback_3d_dragging(
             )
 
 
-def _load_proxor_for_download(asset_base_id: str) -> dict | None:
+def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
     """Load and cache proxor legacy data for download progress drawing.
 
     Returns the raw ``legacy`` dict from the .prxc file, or ``None`` if
@@ -446,87 +446,9 @@ def draw_proxor_download(
 ) -> None:
     """Draw full proxor (mesh, lines, points) during download.
 
-    Uses ``visibility_input`` to Z-clip the proxor based on *progress*.
-    GPU batches are created and discarded each frame (same pattern as
-    ``draw_bbox`` / ``ui_bgl.draw_lines``).
+    .. deprecated:: Use :func:`ui_bgl.draw_proxor_download` instead.
     """
-    import contextlib
-
-    import gpu
-    from .bl_proxor.draw import ProxorLiteDrawBuilder, default_draw_context
-
-    vis = progress if progress is not None else 100
-    ctx = default_draw_context(
-        mesh_color_mode="CUSTOM",
-        line_color_mode="CUSTOM",
-        point_color_mode="CUSTOM",
-        custom_color=color,
-        mesh_shading_mode="FLAT",
-        use_gradient=True,
-        visibility_input=vis,
-    )
-
-    builder = ProxorLiteDrawBuilder()
-    draw_data = builder.build_draw_data(legacy_data, ctx)
-    if not draw_data:
-        return
-
-    # Build world-space transform matrix
-    rot_euler = mathutils.Euler(rotation)
-    mat = (
-        mathutils.Matrix.Translation(Vector(location)) @ rot_euler.to_matrix().to_4x4()
-    )
-
-    multiply_fn = getattr(gpu.matrix, "multiply_matrix", None) or getattr(
-        gpu.matrix, "multiply", None
-    )
-
-    gpu.matrix.push()
-    try:
-        if multiply_fn is not None:
-            multiply_fn(mat)
-
-        # Draw mesh
-        mesh = draw_data.get("mesh")
-        if mesh:
-            gpu.state.depth_test_set("LESS_EQUAL")
-            gpu.state.depth_mask_set(True)
-            gpu.state.blend_set("ALPHA")
-            shader = mesh["shader"]
-            for batch in mesh.get("batches") or []:
-                if batch is not None:
-                    batch.draw(shader)
-            gpu.state.depth_mask_set(False)
-            gpu.state.blend_set("NONE")
-
-        # Draw lines
-        line = draw_data.get("line")
-        if line:
-            gpu.state.depth_test_set("LESS_EQUAL")
-            gpu.state.depth_mask_set(True)
-            shader = line["shader"]
-            shader.uniform_float("lineWidth", 1.0)
-            line["batch"].draw(shader)
-            gpu.state.depth_mask_set(False)
-
-        # Draw points
-        pts = draw_data.get("points")
-        if pts:
-            gpu.state.depth_test_set("LESS_EQUAL")
-            gpu.state.depth_mask_set(True)
-            gpu.state.blend_set("ALPHA")
-            shader = pts["shader"]
-            gpu.state.point_size_set(3.0)
-            shader.bind()
-            with contextlib.suppress(Exception):
-                shader.uniform_float("pointSize", 3.0)
-            if not pts["has_colors"] and pts["color"] is not None:
-                shader.uniform_float("color", pts["color"])
-            pts["batch"].draw(shader)
-            gpu.state.depth_mask_set(False)
-            gpu.state.blend_set("NONE")
-    finally:
-        gpu.matrix.pop()
+    ui_bgl.draw_proxor_download(location, rotation, legacy_data, progress, color)
 
 
 def draw_bbox(
@@ -537,61 +459,11 @@ def draw_bbox(
     progress: Optional[float] = None,
     color: Tuple[float, float, float, float] = colors.PURE_GREEN,
 ) -> None:
-    rot_euler = mathutils.Euler(rotation)
+    """Draw a 3D wireframe bounding box.
 
-    side_min = Vector(bbox_min)
-    side_max = Vector(bbox_max)
-    v0 = Vector(side_min)
-    v1 = Vector((side_max.x, side_min.y, side_min.z))
-    v2 = Vector((side_max.x, side_max.y, side_min.z))
-    v3 = Vector((side_min.x, side_max.y, side_min.z))
-    v4 = Vector((side_min.x, side_min.y, side_max.z))
-    v5 = Vector((side_max.x, side_min.y, side_max.z))
-    v6 = Vector((side_max.x, side_max.y, side_max.z))
-    v7 = Vector((side_min.x, side_max.y, side_max.z))
-
-    arrow_x = side_min.x + (side_max.x - side_min.x) / 2
-    arrow_y = side_min.y - (side_max.x - side_min.x) / 2
-    v8 = Vector((arrow_x, arrow_y, side_min.z))
-
-    vertices = [v0, v1, v2, v3, v4, v5, v6, v7, v8]
-    for v in vertices:
-        v.rotate(rot_euler)
-        v += Vector(location)
-
-    lines = [
-        [0, 1],
-        [1, 2],
-        [2, 3],
-        [3, 0],
-        [4, 5],
-        [5, 6],
-        [6, 7],
-        [7, 4],
-        [0, 4],
-        [1, 5],
-        [2, 6],
-        [3, 7],
-        [0, 8],
-        [1, 8],
-    ]
-    ui_bgl.draw_lines(vertices, lines, color)
-    if progress is not None:
-        # Draw side fill quads based on progress along +Z of the local bbox
-        color = (color[0], color[1], color[2], 0.2)
-        progress = progress * 0.01
-        vz0 = (v4 - v0) * progress + v0
-        vz1 = (v5 - v1) * progress + v1
-        vz2 = (v6 - v2) * progress + v2
-        vz3 = (v7 - v3) * progress + v3
-        rects = (
-            (v0, v1, vz1, vz0),
-            (v1, v2, vz2, vz1),
-            (v2, v3, vz3, vz2),
-            (v3, v0, vz0, vz3),
-        )
-        for r in rects:
-            ui_bgl.draw_rect_3d(r, color)
+    .. deprecated:: Use :func:`ui_bgl.draw_bbox` instead.
+    """
+    ui_bgl.draw_bbox(location, rotation, bbox_min, bbox_max, progress, color)
 
 
 def draw_callback_2d_progress(
