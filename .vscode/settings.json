@@ -61,7 +61,7 @@
 
     // Pin the Black formatter extension to use the venv's black, not its bundled version.
     // This ensures format-on-save matches CI (black ~=25.9 from devs/requirements.txt).
-    "black-formatter.path": ["${workspaceFolder}/.venv/Scripts/black"],
+    "black-formatter.importStrategy": "fromEnvironment",
     "black-formatter.args": [],
 
     "[python]": {

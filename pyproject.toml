@@ -30,7 +30,7 @@ profile = "black"
 target-version = ['py310']
 include = '\.pyi?$'
 exclude = '''
-/(\.git|lib|out)/
+/(\.git|\.venv|lib|out)/
 '''
 
 [tool.ruff]
