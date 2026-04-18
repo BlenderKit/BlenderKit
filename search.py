@@ -22,7 +22,6 @@ import logging
 import math
 import os
 import re
-import threading
 import unicodedata
 import urllib.parse
 import uuid
@@ -846,22 +845,12 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         if comments is None:
             pending_comment_ids.append(asset_data["assetBaseId"])
 
-    # Flush batched gravatar downloads (runs in background thread)
+    # Flush batched gravatar downloads via Go client
     _flush_pending_gravatars()
 
-    # Batch-fetch comments for validators in a background thread
-    if pending_comment_ids:
-        comment_url = f"{client_lib.get_base_url()}/comments/get_comments"
-        comment_payloads = [
-            client_lib.ensure_minimal_data({"asset_id": aid})
-            for aid in pending_comment_ids
-        ]
-        thread = threading.Thread(
-            target=_fetch_comments_batch,
-            args=(comment_url, comment_payloads),
-            daemon=True,
-        )
-        thread.start()
+    # Fetch comments for validators via Go client (async via goroutines)
+    for aid in pending_comment_ids:
+        client_lib.get_comments(aid)
 
     # Separate author results from regular assets, put authors first
     author_results = [r for r in result_field if r.get("assetType") == "author"]
@@ -1168,26 +1157,6 @@ def _flush_pending_gravatars():
                 bk_logger.warning(resp.text)
         except Exception as e:
             bk_logger.warning("Gravatar download request failed: %s", e)
-
-
-def _fetch_comments_batch(url: str, payloads: list):
-    """Background worker: fetch comments for validator assets using a shared session."""
-    import requests
-
-    try:
-        with requests.Session() as session:
-            for data in payloads:
-                try:
-                    session.post(
-                        url,
-                        json=data,
-                        timeout=client_lib.TIMEOUT,
-                        proxies=client_lib.NO_PROXIES,
-                    )
-                except Exception as e:
-                    bk_logger.warning("Comment fetch failed: %s", e)
-    except Exception as e:
-        bk_logger.warning("Comment batch fetch failed: %s", e)
 
 
 def handle_get_user_profile(task: client_tasks.Task):
