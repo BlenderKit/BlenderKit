@@ -321,7 +321,9 @@ def _allocate_samples_by_area(
 # ===========================================================================
 
 
-def _find_tex_image_upstream(node, visited: set | None = None) -> "bpy.types.Image | None":
+def _find_tex_image_upstream(
+    node, visited: set | None = None
+) -> "bpy.types.Image | None":
     """Recursively walk upstream from *node* to find the first TEX_IMAGE."""
     if visited is None:
         visited = set()
@@ -387,8 +389,12 @@ def _sample_texture_at_uv(
     y = int((v % 1.0) * height) % height
     rgba = px_cache[y, x]
     # Store at half intensity to match PRX convention (draw code multiplies by 2)
-    return [_clamp01(float(rgba[0]) * 0.5), _clamp01(float(rgba[1]) * 0.5),
-            _clamp01(float(rgba[2]) * 0.5), _clamp01(float(rgba[3]))]
+    return [
+        _clamp01(float(rgba[0]) * 0.5),
+        _clamp01(float(rgba[1]) * 0.5),
+        _clamp01(float(rgba[2]) * 0.5),
+        _clamp01(float(rgba[3])),
+    ]
 
 
 def _interpolate_uv(
@@ -483,18 +489,22 @@ def _sample_uniform_surface_points(
 
             total_area += area
             cumulative.append(total_area)
-            triangles_local.append((corners_local[0], corners_local[1], corners_local[2]))
+            triangles_local.append(
+                (corners_local[0], corners_local[1], corners_local[2])
+            )
             triangle_normals.append(normal_local)
 
             # Store per-triangle UVs for interpolation
             if uv_layer is not None and px_cache is not None:
                 loops = getattr(tri, "loops", ())
                 if len(loops) == TRIANGLE_VERTEX_COUNT:
-                    triangle_uvs.append((
-                        uv_layer.data[loops[0]].uv.copy(),
-                        uv_layer.data[loops[1]].uv.copy(),
-                        uv_layer.data[loops[2]].uv.copy(),
-                    ))
+                    triangle_uvs.append(
+                        (
+                            uv_layer.data[loops[0]].uv.copy(),
+                            uv_layer.data[loops[1]].uv.copy(),
+                            uv_layer.data[loops[2]].uv.copy(),
+                        )
+                    )
                 else:
                     triangle_uvs.append(None)
 
@@ -521,12 +531,22 @@ def _sample_uniform_surface_points(
             samples.append([float(point.x), float(point.y), float(point.z)])
             if include_normals and triangle_normals:
                 normal_vec = triangle_normals[tri_index]
-                normals_out.append([float(normal_vec.x), float(normal_vec.y), float(normal_vec.z)])
-            if include_colors and px_cache is not None and tri_index < len(triangle_uvs):
+                normals_out.append(
+                    [float(normal_vec.x), float(normal_vec.y), float(normal_vec.z)]
+                )
+            if (
+                include_colors
+                and px_cache is not None
+                and tri_index < len(triangle_uvs)
+            ):
                 tri_uv = triangle_uvs[tri_index]
                 if tri_uv is not None:
-                    u, v = _interpolate_uv(tri_uv[0], tri_uv[1], tri_uv[2], bary_u, bary_v, bary_w)
-                    colors_out.append(_sample_texture_at_uv(px_cache, tex_w, tex_h, u, v))
+                    u, v = _interpolate_uv(
+                        tri_uv[0], tri_uv[1], tri_uv[2], bary_u, bary_v, bary_w
+                    )
+                    colors_out.append(
+                        _sample_texture_at_uv(px_cache, tex_w, tex_h, u, v)
+                    )
                 else:
                     colors_out.append([0.8, 0.8, 0.8, 1.0])
         return samples, normals_out, colors_out
@@ -1843,7 +1863,9 @@ def _resolve_loop_color(
         px_cache, tex_w, tex_h = texture_cache
         if tex_w > 0 and tex_h > 0:
             uv = uv_layer.data[loop_idx].uv
-            return _sample_texture_at_uv(px_cache, tex_w, tex_h, float(uv[0]), float(uv[1]))
+            return _sample_texture_at_uv(
+                px_cache, tex_w, tex_h, float(uv[0]), float(uv[1])
+            )
     # Try legacy vertex_colors
     layer = getattr(getattr(mesh, "vertex_colors", None), "active", None)
     if layer and layer.data:
@@ -1914,7 +1936,11 @@ def _collect_direct_mesh_data(
                 normals.append(list(transformed_normal))
 
             if include_colors:
-                colors.append(_resolve_loop_color(mesh, loop_idx, vertex_idx, uv_layer, texture_cache))
+                colors.append(
+                    _resolve_loop_color(
+                        mesh, loop_idx, vertex_idx, uv_layer, texture_cache
+                    )
+                )
 
     return positions, normals, colors
 
