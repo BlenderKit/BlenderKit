@@ -813,9 +813,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 
     ###################
 
-    asset_type = task.data["asset_type"]
     props = utils.get_search_props()
-    search_name = f"bkit {asset_type} search"
 
     # Get current history step
     history_step = get_history_step(orig_task.history_id)
@@ -823,11 +821,12 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     if not task.data.get("get_next"):
         result_field = []  # type: ignore
     else:
-        result_field = []
-        for r in history_step.get("search_results", []):  # type: ignore
-            result_field.append(r)
+        # Strip trailing placeholder entries before appending real results
+        previous = history_step.get("search_results", [])
+        result_field = [r for r in previous if not r.get("placeholder")]  # type: ignore
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
+    pending_comment_ids = []
     for result in task.result["results"]:
         asset_data = parse_result(result)
         if not asset_data:
@@ -844,7 +843,14 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         if comments is None:
-            client_lib.get_comments(asset_data["assetBaseId"])
+            pending_comment_ids.append(asset_data["assetBaseId"])
+
+    # Flush batched gravatar downloads via Go client
+    _flush_pending_gravatars()
+
+    # Fetch comments for validators via Go client (async via goroutines)
+    for aid in pending_comment_ids:
+        client_lib.get_comments(aid)
 
     # Separate author results from regular assets, put authors first
     author_results = [r for r in result_field if r.get("assetType") == "author"]
@@ -915,7 +921,11 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
     elif task.status == "error":
         global_vars.DATA["images available"][task.data["image_path"]] = False
         if task.message != "":
-            reports.add_report(task.message, timeout=5, type="ERROR")
+            bk_logger.warning(
+                "Thumbnail download failed (%s): %s",
+                task.data.get("thumbnail_type", "unknown"),
+                task.message,
+            )
     else:
         return
     if asset_bar_op.asset_bar_operator is None:
@@ -1113,22 +1123,40 @@ def handle_fetch_gravatar_task(task: client_tasks.Task):
             asset_bar_op.asset_bar_operator.update_image(str(author_id))
 
 
+_pending_gravatar_authors: list = []
+
+
 def generate_author_profile(author_data: datas.UserProfile):
-    """Generate author profile by creating author textblock and fetching gravatar image if needed.
-    Gravatar download is started in BlenderKit-Client and handled later."""
+    """Register author profile immediately and queue gravatar download for later.
+    The actual gravatar HTTP request is batched in _flush_pending_gravatars()
+    so that handle_search_task() does not block on N individual HTTP calls.
+    """
     author_id = int(author_data.id)
     if author_id in global_vars.BKIT_AUTHORS:
         return
-    resp = client_lib.download_gravatar_image(author_data)
-    if resp.status_code != 200:
-        bk_logger.warning(resp.text)
 
-    # TODO: tooltip generation could be part of the __init__, right?
     author_data.tooltip = generate_author_textblock(
         author_data.firstName, author_data.lastName, author_data.aboutMe
     )
     global_vars.BKIT_AUTHORS[author_id] = author_data
-    return
+    _pending_gravatar_authors.append(author_data)
+
+
+def _flush_pending_gravatars():
+    """Send gravatar download requests for all pending authors to the Go client.
+    The Go client handles each download asynchronously (goroutine), so each call
+    returns immediately and we don't need a background thread.
+    """
+    global _pending_gravatar_authors
+    authors = _pending_gravatar_authors
+    _pending_gravatar_authors = []
+    for author_data in authors:
+        try:
+            resp = client_lib.download_gravatar_image(author_data)
+            if resp.status_code != 200:
+                bk_logger.warning(resp.text)
+        except Exception as e:
+            bk_logger.warning("Gravatar download request failed: %s", e)
 
 
 def handle_get_user_profile(task: client_tasks.Task):
