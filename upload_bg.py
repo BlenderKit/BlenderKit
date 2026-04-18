@@ -270,6 +270,17 @@ if __name__ == "__main__":
             bpy.ops.wm.save_as_mainfile(filepath=fpath, compress=True, copy=False)
         except Exception as e:
             print(f"Exception {type(e)} during save_as_mainfile(): {e}")
+
+        # Rename .prxc to use the server-assigned assetBaseId (it may have been
+        # generated with a fallback name when assetBaseId was not yet known).
+        prxc_target = os.path.join(
+            export_data["temp_dir"], upload_data["assetBaseId"] + ".prxc"
+        )
+        if not os.path.exists(prxc_target):
+            old_prxc = os.path.join(export_data["temp_dir"], "proxor.prxc")
+            if os.path.exists(old_prxc):
+                os.rename(old_prxc, prxc_target)
+
         # Remove temp source copy
         try:
             os.remove(export_data["source_filepath"])

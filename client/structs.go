@@ -359,6 +359,12 @@ type AssetUploadExportData struct {
 	BinaryPath         string `json:"binary_path"`
 	DebugValue         int    `json:"debug_value"`
 	HDRFilepath        string `json:"hdr_filepath,omitempty"`
+	// Proxor export settings (experimental)
+	ProxorGizmo         bool `json:"proxor_gizmo,omitempty"`
+	ProxorIncludeMesh   bool `json:"proxor_include_mesh,omitempty"`
+	ProxorIncludeLines  bool `json:"proxor_include_lines,omitempty"`
+	ProxorIncludePoints bool `json:"proxor_include_points,omitempty"`
+	ProxorIncludeColors bool `json:"proxor_include_colors,omitempty"`
 }
 
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
@@ -638,6 +644,18 @@ type DownloadThumbnailData struct {
 	ImagePath       string `json:"image_path"`
 	ImageURL        string `json:"image_url"`
 	AssetBaseID     string `json:"assetBaseId"`
+	Index           int    `json:"index"`
+}
+
+// DownloadPrxcData holds info needed to download a .prxc proxy mesh file.
+type DownloadPrxcData struct {
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	FilePath        string `json:"file_path"`
+	DownloadURL     string `json:"download_url"` // API URL to get signed CDN URL
+	AssetBaseID     string `json:"assetBaseId"`
+	APIKey          string `json:"api_key"`
+	SceneUUID       string `json:"scene_uuid"`
 	Index           int    `json:"index"`
 }
 

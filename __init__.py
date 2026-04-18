@@ -104,6 +104,17 @@ if "bpy" in locals():
     reports = reload(reports)
     rereports = reload(reports)
 
+    from .bl_proxor import draw as bl_proxor_draw
+    from .bl_proxor import generate as bl_proxor_generate
+    from .bl_proxor import prx_format as bl_proxor_prx_format
+
+    bl_proxor_draw = reload(bl_proxor_draw)
+    bl_proxor_generate = reload(bl_proxor_generate)
+    bl_proxor_prx_format = reload(bl_proxor_prx_format)
+    from . import bl_proxor
+
+    bl_proxor = reload(bl_proxor)
+
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
     bl_ui_button = reload(bl_ui_button)
@@ -172,6 +183,8 @@ else:
     from .bl_ui_widgets import bl_ui_drag_panel
 
     # from .bl_ui_widgets import bl_ui_textbox
+
+    from . import bl_proxor
 
 from math import pi
 
@@ -1647,6 +1660,28 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         default="Please add wireframe thumbnail (jpg or png, at least 1024x1024)",
     )
 
+    # -- Proxor export options (only used when proxor_gizmo experimental feature is enabled) --
+    proxor_include_mesh: BoolProperty(
+        name="Proxor Faces",
+        description="Include mesh faces in the .prxc proxy file",
+        default=True,
+    )
+    proxor_include_lines: BoolProperty(
+        name="Proxor Wireframe",
+        description="Include wireframe lines in the .prxc proxy file",
+        default=True,
+    )
+    proxor_include_points: BoolProperty(
+        name="Proxor Points",
+        description="Include point cloud data in the .prxc proxy file",
+        default=True,
+    )
+    proxor_include_colors: BoolProperty(
+        name="Proxor Colors",
+        description="Include color data in the .prxc proxy file",
+        default=True,
+    )
+
 
 class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     style: EnumProperty(
@@ -2609,6 +2644,14 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
+    proxor_gizmo: BoolProperty(
+        name="Proxor preview gizmo",
+        description="Generate and upload .prxc proxy meshes during model publishing. Use them as drag-and-drop preview instead of the green bounding box",
+        default=False,
+        # do not save prefs here, it's experimental
+        options={"SKIP_SAVE"},
+    )
+
     def draw(self, context):
         layout = self.layout
         login_box = layout.box()
@@ -2731,6 +2774,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_tab")
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            experimental_settings.prop(self, "proxor_gizmo")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
@@ -2850,6 +2894,7 @@ def register():
     asset_bar_op.register()
     asset_drag_op.register()
     disclaimer_op.register()
+    bl_proxor.register()
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
@@ -2898,6 +2943,7 @@ def unregister():
     asset_bar_op.unregister()
     asset_drag_op.unregister()
     disclaimer_op.unregister()
+    bl_proxor.unregister()
 
     if bpy.app.background is False:
         try:

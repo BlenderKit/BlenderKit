@@ -55,6 +55,10 @@ bk_logger = logging.getLogger(__name__)
 handler_2d = None
 handler_3d = None
 
+# Cached proxor legacy data for download progress drawing (raw Python dicts, no GPU).
+# Keyed by assetBaseId → legacy dict or None if unavailable.
+_download_proxor_cache: dict[str, dict | None] = {}
+
 
 DEFAULT_DRAG_THRESHOLD = 30  # pixels
 """Pointer travel in pixels needed before we start rendering full drag hints."""
@@ -387,12 +391,142 @@ def draw_callback_3d_dragging(
         return
 
     if self.asset_data["assetType"] in ["model", "printable"]:
-        draw_bbox(
-            self.snapped_location,
-            self.snapped_rotation,
-            self.snapped_bbox_min,
-            self.snapped_bbox_max,
-        )
+        if self._proxor_handler is not None:
+            # Update proxor transform to match snapped placement
+            rot_euler = mathutils.Euler(self.snapped_rotation)
+            loc = Vector(self.snapped_location)
+            mat = mathutils.Matrix.Translation(loc) @ rot_euler.to_matrix().to_4x4()
+            self._proxor_handler._matrix = mat
+        else:
+            draw_bbox(
+                self.snapped_location,
+                self.snapped_rotation,
+                self.snapped_bbox_min,
+                self.snapped_bbox_max,
+            )
+
+
+def _load_proxor_for_download(asset_base_id: str) -> dict | None:
+    """Load and cache proxor legacy data for download progress drawing.
+
+    Returns the raw ``legacy`` dict from the .prxc file, or ``None`` if
+    unavailable.  Results are cached in ``_download_proxor_cache``.
+    """
+    if asset_base_id in _download_proxor_cache:
+        return _download_proxor_cache[asset_base_id]
+
+    prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
+    if not prxc_path or not os.path.exists(prxc_path):
+        _download_proxor_cache[asset_base_id] = None
+        return None
+
+    try:
+        from .bl_proxor import prx_format as proxor_prx_format
+
+        payload = proxor_prx_format.read_prx(prxc_path)
+        legacy = payload.get("legacy")
+        if not legacy:
+            _download_proxor_cache[asset_base_id] = None
+            return None
+
+        _download_proxor_cache[asset_base_id] = legacy
+        return legacy
+    except Exception:
+        bk_logger.debug(f"Failed to load proxor for download: {asset_base_id}")
+        _download_proxor_cache[asset_base_id] = None
+        return None
+
+
+def draw_proxor_download(
+    location: Vector,
+    rotation: Vector,
+    legacy_data: dict,
+    progress: Optional[float] = None,
+    color: Tuple[float, float, float, float] = colors.PURE_GREEN,
+) -> None:
+    """Draw full proxor (mesh, lines, points) during download.
+
+    Uses ``visibility_input`` to Z-clip the proxor based on *progress*.
+    GPU batches are created and discarded each frame (same pattern as
+    ``draw_bbox`` / ``ui_bgl.draw_lines``).
+    """
+    import contextlib
+
+    import gpu
+    from .bl_proxor.draw import ProxorLiteDrawBuilder, default_draw_context
+
+    vis = progress if progress is not None else 100
+    ctx = default_draw_context(
+        mesh_color_mode="CUSTOM",
+        line_color_mode="CUSTOM",
+        point_color_mode="CUSTOM",
+        custom_color=color,
+        mesh_shading_mode="FLAT",
+        use_gradient=True,
+        visibility_input=vis,
+    )
+
+    builder = ProxorLiteDrawBuilder()
+    draw_data = builder.build_draw_data(legacy_data, ctx)
+    if not draw_data:
+        return
+
+    # Build world-space transform matrix
+    rot_euler = mathutils.Euler(rotation)
+    mat = (
+        mathutils.Matrix.Translation(Vector(location)) @ rot_euler.to_matrix().to_4x4()
+    )
+
+    multiply_fn = getattr(gpu.matrix, "multiply_matrix", None) or getattr(
+        gpu.matrix, "multiply", None
+    )
+
+    gpu.matrix.push()
+    try:
+        if multiply_fn is not None:
+            multiply_fn(mat)
+
+        # Draw mesh
+        mesh = draw_data.get("mesh")
+        if mesh:
+            gpu.state.depth_test_set("LESS_EQUAL")
+            gpu.state.depth_mask_set(True)
+            gpu.state.blend_set("ALPHA")
+            shader = mesh["shader"]
+            for batch in mesh.get("batches") or []:
+                if batch is not None:
+                    batch.draw(shader)
+            gpu.state.depth_mask_set(False)
+            gpu.state.blend_set("NONE")
+
+        # Draw lines
+        line = draw_data.get("line")
+        if line:
+            gpu.state.depth_test_set("LESS_EQUAL")
+            gpu.state.depth_mask_set(True)
+            shader = line["shader"]
+            shader.uniform_float("lineWidth", 1.0)
+            line["batch"].draw(shader)
+            gpu.state.depth_mask_set(False)
+
+        # Draw points
+        pts = draw_data.get("points")
+        if pts:
+            gpu.state.depth_test_set("LESS_EQUAL")
+            gpu.state.depth_mask_set(True)
+            gpu.state.blend_set("ALPHA")
+            shader = pts["shader"]
+            gpu.state.point_size_set(3.0)
+            shader.bind()
+            with contextlib.suppress(Exception):
+                shader.uniform_float("pointSize", 3.0)
+            if not pts["has_colors"] and pts["color"] is not None:
+                shader.uniform_float("color", pts["color"])
+            pts["batch"].draw(shader)
+            gpu.state.depth_mask_set(False)
+            gpu.state.blend_set("NONE")
+    finally:
+        gpu.matrix.pop()
 
 
 def draw_bbox(
@@ -506,13 +640,23 @@ def draw_callback_3d_progress(
         if task.get("downloaders"):
             for d in task["downloaders"]:
                 if asset_data["assetType"] in ["model", "printable"]:
-                    draw_bbox(
-                        d["location"],
-                        d["rotation"],
-                        asset_data["bbox_min"],
-                        asset_data["bbox_max"],
-                        progress=task["progress"],
-                    )
+                    asset_base_id = asset_data.get("assetBaseId", "")
+                    proxor_data = _load_proxor_for_download(asset_base_id)
+                    if proxor_data is not None:
+                        draw_proxor_download(
+                            d["location"],
+                            d["rotation"],
+                            proxor_data,
+                            progress=task["progress"],
+                        )
+                    else:
+                        draw_bbox(
+                            d["location"],
+                            d["rotation"],
+                            asset_data["bbox_min"],
+                            asset_data["bbox_max"],
+                            progress=task["progress"],
+                        )
 
 
 def draw_progress(
@@ -830,8 +974,14 @@ class AssetDragOperator(bpy.types.Operator):
         self.steps = 0
         self.closed_assetbar = False
 
+        # Proxor draw handler for proxy mesh preview during drag
+        self._proxor_handler = None
+
     def handlers_remove(self) -> None:
         """Remove all draw handlers."""
+        if self._proxor_handler is not None:
+            self._proxor_handler.remove()
+            self._proxor_handler = None
         # Remove specific handlers for VIEW_3D and Outliner
         bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, "WINDOW")
 
@@ -1919,6 +2069,36 @@ class AssetDragOperator(bpy.types.Operator):
         # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
         # This is critical for multi-window support where active_index is shared across windows
         self.asset_data = dict(sr[self.asset_search_index])
+
+        # Try to load proxor preview for model/printable assets
+        if self.asset_data.get("assetType") in ("model", "printable"):
+            asset_base_id = self.asset_data.get("assetBaseId", "")
+            prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
+            if prxc_path and os.path.exists(prxc_path):
+                try:
+                    from .bl_proxor import prx_format as proxor_prx_format
+                    from .bl_proxor.draw import ProxorLiteDrawHandler
+
+                    payload = proxor_prx_format.read_prx(prxc_path)
+                    legacy = payload.get("legacy")
+                    if legacy:
+                        from .bl_proxor.draw import default_draw_context
+
+                        self._proxor_handler = ProxorLiteDrawHandler()
+                        self._proxor_handler.draw_ctx = default_draw_context(
+                            mesh_color_mode="CUSTOM",
+                            custom_color=colors.PURE_GREEN,
+                            mesh_shading_mode="FLAT",
+                            use_gradient=True,
+                            point_visibility=0.0,
+                            line_thickness=0.0,
+                        )
+                        self._proxor_handler.set_payload(legacy)
+                        self._proxor_handler.install()
+                        bk_logger.debug(f"Proxor preview loaded for {asset_base_id}")
+                except Exception as e:
+                    bk_logger.warning(f"Failed to load proxor preview: {e}")
+                    self._proxor_handler = None
 
         # Initialize drag-start coordinates immediately in invoke.
         # resolution factor is essential on Mac OS. don't touch it if you don't know what you are doing.

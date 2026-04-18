@@ -934,6 +934,17 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
         return
 
 
+def handle_prxc_download_task(task: client_tasks.Task) -> None:
+    """Handle completed .prxc proxy mesh download."""
+    asset_base_id = task.data.get("assetBaseId", "")
+    file_path = task.data.get("file_path", "")
+    if task.status == "finished" and file_path:
+        global_vars.DATA.setdefault("prxc available", {})[asset_base_id] = file_path
+        bk_logger.debug(f"prxc available for {asset_base_id}: {file_path}")
+    elif task.status == "error":
+        bk_logger.debug(f"prxc download failed for {asset_base_id}: {task.message}")
+
+
 def load_preview(asset):
     # FIRST START SEARCH
     props = bpy.context.window_manager.blenderkitUI
@@ -1528,7 +1539,7 @@ def add_search_process(
     global search_tasks
     addon_version = utils.get_addon_version()
     blender_version = utils.get_blender_version()
-    scene_uuid = bpy.context.scene.get("uuid", "")  # type: ignore[attr-defined]
+    scene_uuid = utils.get_scene_id()
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
     if get_next and next_url:
