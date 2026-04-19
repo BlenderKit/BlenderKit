@@ -718,6 +718,7 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 
 func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks, fullWireThumbsTasks []*Task
+	var prxcTasks []*Task
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
 	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avoid nesting
@@ -785,6 +786,25 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		fullThumbsTasks = append(fullThumbsTasks, fullTask)
 
 		for _, file := range result.Files {
+			// Handle prxc proxy mesh files (only when proxor preview is enabled)
+			if file.FileType == "prxc" && file.DownloadURL != "" && data.ProxorGizmo {
+				prxcPath := filepath.Join(data.TempDir, result.AssetBaseID+".prxc")
+				prxcTaskData := DownloadPrxcData{
+					AddonVersion:    data.AddonVersion,
+					PlatformVersion: data.PlatformVersion,
+					FilePath:        prxcPath,
+					DownloadURL:     file.DownloadURL,
+					AssetBaseID:     result.AssetBaseID,
+					APIKey:          data.APIKey,
+					SceneUUID:       data.SceneUUID,
+					Index:           i,
+				}
+				prxcTaskUUID := uuid.New().String()
+				prxcTask := NewTask(prxcTaskData, data.AppID, prxcTaskUUID, "prxc_download")
+				prxcTasks = append(prxcTasks, prxcTask)
+				continue
+			}
+
 			var (
 				thumbTasks    *[]*Task
 				thumbnailType string
@@ -833,6 +853,7 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	go downloadImageBatch(fullThumbsTasks, true)
 	go downloadImageBatch(fullPhotoThumbsTasks, true)
 	go downloadImageBatch(fullWireThumbsTasks, true)
+	go downloadPrxcBatch(prxcTasks)
 }
 
 func downloadImageBatch(tasks []*Task, block bool) {
@@ -922,6 +943,95 @@ func DownloadThumbnail(t *Task, wg *sync.WaitGroup) {
 
 	t.Status = "finished"
 	t.Message = "thumbnail downloaded"
+	AddTaskCh <- t
+}
+
+// downloadPrxcBatch downloads .prxc proxy mesh files concurrently.
+func downloadPrxcBatch(tasks []*Task) {
+	if len(tasks) == 0 {
+		return
+	}
+	wg := new(sync.WaitGroup)
+	for _, task := range tasks {
+		wg.Add(1)
+		go DownloadPrxc(task, wg)
+	}
+	wg.Wait()
+}
+
+// DownloadPrxc downloads a .prxc file via signed URL.
+func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
+	defer wg.Done()
+	data, ok := t.Data.(DownloadPrxcData)
+	if !ok {
+		t.Status = "error"
+		t.Error = fmt.Errorf("invalid data type for prxc download")
+		AddTaskCh <- t
+		return
+	}
+
+	// Skip if already on disk
+	if _, err := os.Stat(data.FilePath); err == nil {
+		t.Status = "finished"
+		t.Message = "prxc on disk"
+		AddTaskCh <- t
+		return
+	}
+
+	// Get signed URL
+	file := AssetFile{DownloadURL: data.DownloadURL}
+	_, signedURL, _, err := GetSignedURL(data.SceneUUID, file, data.APIKey, data.AddonVersion, data.PlatformVersion)
+	if err != nil {
+		t.Status = "error"
+		t.Error = fmt.Errorf("failed to get signed URL for prxc: %w", err)
+		AddTaskCh <- t
+		return
+	}
+
+	// Download the file
+	req, err := http.NewRequest("GET", signedURL, nil)
+	if err != nil {
+		t.Status = "error"
+		t.Error = err
+		AddTaskCh <- t
+		return
+	}
+
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		t.Status = "error"
+		t.Error = fmt.Errorf("error downloading prxc: %w", err)
+		AddTaskCh <- t
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Status = "error"
+		t.Error = fmt.Errorf("prxc download returned status %d", resp.StatusCode)
+		AddTaskCh <- t
+		return
+	}
+
+	outFile, err := os.Create(data.FilePath)
+	if err != nil {
+		t.Status = "error"
+		t.Error = fmt.Errorf("error creating prxc file: %w", err)
+		AddTaskCh <- t
+		return
+	}
+	defer outFile.Close()
+
+	if _, err := io.Copy(outFile, resp.Body); err != nil {
+		t.Status = "error"
+		t.Error = fmt.Errorf("error writing prxc file: %w", err)
+		AddTaskCh <- t
+		return
+	}
+
+	BKLog.Printf("%s Downloaded prxc for %s", EmoOK, data.AssetBaseID)
+	t.Status = "finished"
+	t.Message = "prxc downloaded"
 	AddTaskCh <- t
 }
 
@@ -2215,11 +2325,19 @@ func UploadAssetData(files []UploadFile, data AssetUploadRequestData, metadataRe
 		}
 		upload_info_json, err := get_S3_upload_JSON(file, minimalTaskData, metadataResp.ID)
 		if err != nil {
+			if file.Type == "prxc" {
+				BKLog.Printf("%s Proxor upload skipped (server may not support prxc fileType yet): %v", EmoWarning, err)
+				continue
+			}
 			return nil, err
 		}
 
 		err = uploadFileToS3(file, upload_info_json, data.AppID, taskID, data.Preferences.APIKey, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
 		if err != nil {
+			if file.Type == "prxc" {
+				BKLog.Printf("%s Proxor S3 upload failed (non-fatal): %v", EmoWarning, err)
+				continue
+			}
 			return nil, err
 		}
 	}
@@ -2551,6 +2669,16 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 				files = append(files, UploadFile{Type: "zip_file", Index: 0, FilePath: zipPath})
 			} else {
 				files = append(files, UploadFile{Type: "blend", Index: 0, FilePath: fpath})
+			}
+			continue
+		}
+
+		if filetype == "PRXC" {
+			prxcPath := filepath.Join(export_data.TempDir, upload_data.AssetBaseID+".prxc")
+			if exists, _, _ := FileExists(prxcPath); exists {
+				files = append(files, UploadFile{Type: "prxc", Index: 0, FilePath: prxcPath})
+			} else {
+				BKLog.Printf("%s No .prxc file found at %s, skipping proxor upload", EmoWarning, prxcPath)
 			}
 			continue
 		}

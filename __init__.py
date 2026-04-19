@@ -104,6 +104,14 @@ if "bpy" in locals():
     reports = reload(reports)
     rereports = reload(reports)
 
+    from .bl_proxor import draw as bl_proxor_draw
+    from .bl_proxor import generate as bl_proxor_generate
+    from .bl_proxor import prx_format as bl_proxor_prx_format
+
+    bl_proxor_draw = reload(bl_proxor_draw)
+    bl_proxor_generate = reload(bl_proxor_generate)
+    bl_proxor_prx_format = reload(bl_proxor_prx_format)
+
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
     bl_ui_button = reload(bl_ui_button)
@@ -2609,6 +2617,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
+    proxor_gizmo: BoolProperty(
+        name="Proxor preview gizmo",
+        description="Use .prxc proxy meshes as drag-and-drop preview instead of the green bounding box. Requires a new search to take effect",
+        default=False,
+        update=utils.save_prefs,
+    )
+
     def draw(self, context):
         layout = self.layout
         login_box = layout.box()
@@ -2731,6 +2746,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_tab")
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            experimental_settings.prop(self, "proxor_gizmo")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 

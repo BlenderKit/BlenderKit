@@ -55,6 +55,22 @@ bk_logger = logging.getLogger(__name__)
 handler_2d = None
 handler_3d = None
 
+# Cached proxor data for download progress drawing (raw Python dicts, no GPU).
+# Keyed by assetBaseId → proxor dict or None if unavailable.
+_download_proxor_cache: dict[str, Optional[dict]] = {}
+
+
+def _is_proxor_enabled() -> bool:
+    """Return True when proxor preview is enabled in experimental settings."""
+    try:
+        prefs = bpy.context.preferences.addons[__package__].preferences
+        return bool(
+            getattr(prefs, "experimental_features", False)
+            and getattr(prefs, "proxor_gizmo", False)
+        )
+    except Exception:
+        return False
+
 
 DEFAULT_DRAG_THRESHOLD = 30  # pixels
 """Pointer travel in pixels needed before we start rendering full drag hints."""
@@ -387,12 +403,64 @@ def draw_callback_3d_dragging(
         return
 
     if self.asset_data["assetType"] in ["model", "printable"]:
-        draw_bbox(
-            self.snapped_location,
-            self.snapped_rotation,
-            self.snapped_bbox_min,
-            self.snapped_bbox_max,
-        )
+        if self._proxor_handler is not None:
+            # Update proxor transform to match snapped placement
+            rot_euler = mathutils.Euler(self.snapped_rotation)
+            loc = Vector(self.snapped_location)
+            mat = mathutils.Matrix.Translation(loc) @ rot_euler.to_matrix().to_4x4()
+            self._proxor_handler._matrix = mat
+        else:
+            draw_bbox(
+                self.snapped_location,
+                self.snapped_rotation,
+                self.snapped_bbox_min,
+                self.snapped_bbox_max,
+            )
+
+
+def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
+    """Load and cache proxor data for download progress drawing.
+
+    Returns the raw ``data`` dict from the .prxc file, or ``None`` if
+    unavailable.  Results are cached in ``_download_proxor_cache``.
+    """
+    if asset_base_id in _download_proxor_cache:
+        return _download_proxor_cache[asset_base_id]
+
+    prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
+    if not prxc_path or not os.path.exists(prxc_path):
+        _download_proxor_cache[asset_base_id] = None
+        return None
+
+    try:
+        from .bl_proxor import prx_format as proxor_prx_format
+
+        payload = proxor_prx_format.read_prx(prxc_path)
+        proxor_data = payload.get("data")
+        if not proxor_data:
+            _download_proxor_cache[asset_base_id] = None
+            return None
+
+        _download_proxor_cache[asset_base_id] = proxor_data
+        return proxor_data
+    except Exception:
+        bk_logger.debug(f"Failed to load proxor for download: {asset_base_id}")
+        _download_proxor_cache[asset_base_id] = None
+        return None
+
+
+def draw_proxor_download(
+    location: Vector,
+    rotation: Vector,
+    proxor_data: dict,
+    progress: Optional[float] = None,
+    color: Tuple[float, float, float, float] = colors.PURE_GREEN,
+) -> None:
+    """Draw full proxor (mesh, lines, points) during download.
+
+    .. deprecated:: Use :func:`ui_bgl.draw_proxor_download` instead.
+    """
+    ui_bgl.draw_proxor_download(location, rotation, proxor_data, progress, color)
 
 
 def draw_bbox(
@@ -403,61 +471,11 @@ def draw_bbox(
     progress: Optional[float] = None,
     color: Tuple[float, float, float, float] = colors.PURE_GREEN,
 ) -> None:
-    rot_euler = mathutils.Euler(rotation)
+    """Draw a 3D wireframe bounding box.
 
-    side_min = Vector(bbox_min)
-    side_max = Vector(bbox_max)
-    v0 = Vector(side_min)
-    v1 = Vector((side_max.x, side_min.y, side_min.z))
-    v2 = Vector((side_max.x, side_max.y, side_min.z))
-    v3 = Vector((side_min.x, side_max.y, side_min.z))
-    v4 = Vector((side_min.x, side_min.y, side_max.z))
-    v5 = Vector((side_max.x, side_min.y, side_max.z))
-    v6 = Vector((side_max.x, side_max.y, side_max.z))
-    v7 = Vector((side_min.x, side_max.y, side_max.z))
-
-    arrow_x = side_min.x + (side_max.x - side_min.x) / 2
-    arrow_y = side_min.y - (side_max.x - side_min.x) / 2
-    v8 = Vector((arrow_x, arrow_y, side_min.z))
-
-    vertices = [v0, v1, v2, v3, v4, v5, v6, v7, v8]
-    for v in vertices:
-        v.rotate(rot_euler)
-        v += Vector(location)
-
-    lines = [
-        [0, 1],
-        [1, 2],
-        [2, 3],
-        [3, 0],
-        [4, 5],
-        [5, 6],
-        [6, 7],
-        [7, 4],
-        [0, 4],
-        [1, 5],
-        [2, 6],
-        [3, 7],
-        [0, 8],
-        [1, 8],
-    ]
-    ui_bgl.draw_lines(vertices, lines, color)
-    if progress is not None:
-        # Draw side fill quads based on progress along +Z of the local bbox
-        color = (color[0], color[1], color[2], 0.2)
-        progress = progress * 0.01
-        vz0 = (v4 - v0) * progress + v0
-        vz1 = (v5 - v1) * progress + v1
-        vz2 = (v6 - v2) * progress + v2
-        vz3 = (v7 - v3) * progress + v3
-        rects = (
-            (v0, v1, vz1, vz0),
-            (v1, v2, vz2, vz1),
-            (v2, v3, vz3, vz2),
-            (v3, v0, vz0, vz3),
-        )
-        for r in rects:
-            ui_bgl.draw_rect_3d(r, color)
+    .. deprecated:: Use :func:`ui_bgl.draw_bbox` instead.
+    """
+    ui_bgl.draw_bbox(location, rotation, bbox_min, bbox_max, progress, color)
 
 
 def draw_callback_2d_progress(
@@ -506,13 +524,27 @@ def draw_callback_3d_progress(
         if task.get("downloaders"):
             for d in task["downloaders"]:
                 if asset_data["assetType"] in ["model", "printable"]:
-                    draw_bbox(
-                        d["location"],
-                        d["rotation"],
-                        asset_data["bbox_min"],
-                        asset_data["bbox_max"],
-                        progress=task["progress"],
+                    asset_base_id = asset_data.get("assetBaseId", "")
+                    proxor_data = (
+                        _load_proxor_for_download(asset_base_id)
+                        if _is_proxor_enabled()
+                        else None
                     )
+                    if proxor_data is not None:
+                        draw_proxor_download(
+                            d["location"],
+                            d["rotation"],
+                            proxor_data,
+                            progress=task["progress"],
+                        )
+                    else:
+                        draw_bbox(
+                            d["location"],
+                            d["rotation"],
+                            asset_data["bbox_min"],
+                            asset_data["bbox_max"],
+                            progress=task["progress"],
+                        )
 
 
 def draw_progress(
@@ -830,8 +862,14 @@ class AssetDragOperator(bpy.types.Operator):
         self.steps = 0
         self.closed_assetbar = False
 
+        # Proxor draw handler for proxy mesh preview during drag
+        self._proxor_handler = None
+
     def handlers_remove(self) -> None:
         """Remove all draw handlers."""
+        if self._proxor_handler is not None:
+            self._proxor_handler.remove()
+            self._proxor_handler = None
         # Remove specific handlers for VIEW_3D and Outliner
         bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, "WINDOW")
 
@@ -1919,6 +1957,39 @@ class AssetDragOperator(bpy.types.Operator):
         # Use the asset_search_index parameter passed to the operator, not the global ui_props.active_index
         # This is critical for multi-window support where active_index is shared across windows
         self.asset_data = dict(sr[self.asset_search_index])
+
+        # Try to load proxor preview for model/printable assets
+        if _is_proxor_enabled() and self.asset_data.get("assetType") in (
+            "model",
+            "printable",
+        ):
+            asset_base_id = self.asset_data.get("assetBaseId", "")
+            prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
+            if prxc_path and os.path.exists(prxc_path):
+                try:
+                    from .bl_proxor import prx_format as proxor_prx_format
+                    from .bl_proxor.draw import ProxorLiteDrawHandler
+
+                    payload = proxor_prx_format.read_prx(prxc_path)
+                    proxor_data = payload.get("data")
+                    if proxor_data:
+                        from .bl_proxor.draw import default_draw_context
+
+                        self._proxor_handler = ProxorLiteDrawHandler()
+                        self._proxor_handler.draw_ctx = default_draw_context(
+                            mesh_color_mode="CUSTOM",
+                            custom_color=colors.PURE_GREEN,
+                            mesh_shading_mode="FLAT",
+                            use_gradient=True,
+                            point_visibility=0.0,
+                            line_thickness=0.0,
+                        )
+                        self._proxor_handler.set_payload(proxor_data)
+                        self._proxor_handler.install()
+                        bk_logger.debug(f"Proxor preview loaded for {asset_base_id}")
+                except Exception as e:
+                    bk_logger.warning(f"Failed to load proxor preview: {e}")
+                    self._proxor_handler = None
 
         # Initialize drag-start coordinates immediately in invoke.
         # resolution factor is essential on Mac OS. don't touch it if you don't know what you are doing.

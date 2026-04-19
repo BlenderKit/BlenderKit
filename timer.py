@@ -294,6 +294,10 @@ def handle_task(task: client_tasks.Task):
     if task.task_type == "thumbnail_download":
         return search.handle_thumbnail_download_task(task)
 
+    # HANDLE PRXC DOWNLOAD
+    if task.task_type == "prxc_download":
+        return search.handle_prxc_download_task(task)
+
     # HANDLE LOGIN
     if task.task_type == "login":
         return bkit_oauth.handle_login_task(task)

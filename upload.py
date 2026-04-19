@@ -1397,6 +1397,49 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     export_data["binary_path"] = bpy.app.binary_path
     export_data["debug_value"] = bpy.app.debug_value
 
+    # Always generate proxor .prxc for model/printable assets
+    if asset_type in ("MODEL", "PRINTABLE"):
+        try:
+            from .bl_proxor import generate as proxor_generate
+            from .bl_proxor import prx_format as proxor_prx_format
+
+            obnames = export_data.get("models", [])
+            proxor_objects = [
+                bpy.data.objects[name] for name in obnames if name in bpy.data.objects
+            ]
+            if proxor_objects:
+                bk_logger.info(
+                    f"Generating proxor for {len(proxor_objects)} objects: "
+                    f"{[o.name for o in proxor_objects]}..."
+                )
+                payload = proxor_generate.generate_proxor_multi(
+                    proxor_objects,
+                    include_normals=True,
+                )
+                if payload is not None:
+                    prxc_name = export_data["assetBaseId"] or "proxor"
+                    prxc_path = os.path.join(
+                        export_data["temp_dir"],
+                        prxc_name + ".prxc",
+                    )
+                    proxor_prx_format.write_prx(
+                        prxc_path,
+                        payload,
+                        name=proxor_objects[0].name,
+                        compress=True,
+                        include_mesh=proxor_generate.EXPORT_INCLUDE_MESH,
+                        include_lines=proxor_generate.EXPORT_INCLUDE_LINES,
+                        include_points=proxor_generate.EXPORT_INCLUDE_POINTS,
+                        include_colors=proxor_generate.EXPORT_INCLUDE_COLORS,
+                    )
+                    bk_logger.info(f"Proxor saved to {prxc_path}")
+                else:
+                    bk_logger.warning("Proxor generation returned no data")
+            else:
+                bk_logger.warning("Proxor: no objects found in export list")
+        except Exception as e:
+            bk_logger.warning(f"Proxor generation failed: {e}")
+
     return True, upload_data, export_data
 
 
@@ -1489,6 +1532,10 @@ class UploadOperator(Operator):
                 upload_set.append("wire_thumbnail")
             if self.main_file:
                 upload_set.append("MAINFILE")
+
+        # Always include proxor .prxc file for model/printable assets
+        if self.asset_type in {"MODEL", "PRINTABLE"}:
+            upload_set.append("PRXC")
 
         # this is accessed later in get_upload_data and needs to be written.
         # should pass upload_set all the way to it probably
