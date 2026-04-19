@@ -363,7 +363,10 @@ func doAssetDownload(
 
 	// UNPACKING / METADATA WRITE
 	// Trigger unpack when either unpacking is enabled or metadata should be written.
-	shouldUnpack := unpackFiles || writeAssetMetadata
+	// Skip when just placing an already-existing file: it was already unpacked on first
+	// download. Re-running unpack with a different Blender version would re-save the
+	// .blend, upgrading its format and making it unreadable by older Blender versions.
+	shouldUnpack := (unpackFiles || writeAssetMetadata) && action != "place"
 	if shouldUnpack {
 		// If there was no download, there's risk that the file to be unpacked
 		// is only in local, but not in global directory
@@ -386,13 +389,12 @@ func doAssetDownload(
 			writeAssetMetadata,
 		)
 		if err != nil {
-			e := fmt.Errorf("error unpacking asset: %w", err)
-			TaskErrorCh <- &TaskError{
-				AppID:  appID,
-				TaskID: taskID,
-				Error:  e,
+			BKLog.Printf("%s error unpacking asset (non-fatal, asset will still be placed): %v", EmoWarning, err)
+			TaskMessageCh <- &TaskMessageUpdate{
+				AppID:   appID,
+				TaskID:  taskID,
+				Message: fmt.Sprintf("Unpacking failed (asset will still be placed): %v", err),
 			}
-			return
 		}
 	}
 
@@ -505,6 +507,12 @@ func UnpackAsset(
 		color.FgGray.Printf("   %s\n", line)
 	}
 	if err != nil {
+		// Include Blender's output in the error so callers can see why it failed
+		// (e.g. "not a blend file" when old Blender can't read a newer .blend format).
+		output := strings.TrimSpace(combinedOutput.String())
+		if output != "" {
+			return fmt.Errorf("%w, Blender output: %s", err, output)
+		}
 		return err
 	}
 
