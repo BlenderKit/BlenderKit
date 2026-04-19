@@ -48,6 +48,7 @@ from . import (
     search_price,
     resolutions,
     tasks_queue,
+    ui_bgl,
     utils,
 )
 
@@ -828,6 +829,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
             result_field.append(r)
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
+    validator_comment_ids = []
     for result in task.result["results"]:
         asset_data = parse_result(result)
         if not asset_data:
@@ -844,7 +846,11 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         if comments is None:
-            client_lib.get_comments(asset_data["assetBaseId"])
+            validator_comment_ids.append(asset_data["assetBaseId"])
+
+    # Defer validator comment fetching to avoid blocking UI during search
+    for aid in validator_comment_ids:
+        tasks_queue.add_task((client_lib.get_comments, (aid,)))
 
     # Separate author results from regular assets, put authors first
     author_results = [r for r in result_field if r.get("assetType") == "author"]
@@ -912,6 +918,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
     if task.status == "finished":
         global_vars.DATA["images available"][task.data["image_path"]] = True
+        ui_bgl.path_to_gpu_texture(task.data["image_path"])
     elif task.status == "error":
         global_vars.DATA["images available"][task.data["image_path"]] = False
         if task.message != "":
