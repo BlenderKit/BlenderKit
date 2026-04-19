@@ -1397,20 +1397,8 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
     export_data["binary_path"] = bpy.app.binary_path
     export_data["debug_value"] = bpy.app.debug_value
 
-    # Pass proxor export settings if experimental feature is enabled
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    if (
-        asset_type in ("MODEL", "PRINTABLE")
-        and getattr(user_preferences, "experimental_features", False)
-        and getattr(user_preferences, "proxor_gizmo", False)
-    ):
-        export_data["proxor_gizmo"] = True
-        export_data["proxor_include_mesh"] = props.proxor_include_mesh
-        export_data["proxor_include_lines"] = props.proxor_include_lines
-        export_data["proxor_include_points"] = props.proxor_include_points
-        export_data["proxor_include_colors"] = props.proxor_include_colors
-
-        # Generate .prxc now in the foreground process where mesh data is available
+    # Always generate proxor .prxc for model/printable assets
+    if asset_type in ("MODEL", "PRINTABLE"):
         try:
             from .bl_proxor import generate as proxor_generate
             from .bl_proxor import prx_format as proxor_prx_format
@@ -1439,10 +1427,10 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
                         payload,
                         name=proxor_objects[0].name,
                         compress=True,
-                        include_mesh=props.proxor_include_mesh,
-                        include_lines=props.proxor_include_lines,
-                        include_points=props.proxor_include_points,
-                        include_colors=props.proxor_include_colors,
+                        include_mesh=proxor_generate.EXPORT_INCLUDE_MESH,
+                        include_lines=proxor_generate.EXPORT_INCLUDE_LINES,
+                        include_points=proxor_generate.EXPORT_INCLUDE_POINTS,
+                        include_colors=proxor_generate.EXPORT_INCLUDE_COLORS,
                     )
                     bk_logger.info(f"Proxor saved to {prxc_path}")
                 else:
@@ -1545,13 +1533,9 @@ class UploadOperator(Operator):
             if self.main_file:
                 upload_set.append("MAINFILE")
 
-        # add prxc proxor file for models if proxor_gizmo is enabled (always, independent of MAINFILE)
+        # Always include proxor .prxc file for model/printable assets
         if self.asset_type in {"MODEL", "PRINTABLE"}:
-            user_prefs = bpy.context.preferences.addons[__package__].preferences
-            if getattr(user_prefs, "experimental_features", False) and getattr(
-                user_prefs, "proxor_gizmo", False
-            ):
-                upload_set.append("PRXC")
+            upload_set.append("PRXC")
 
         # this is accessed later in get_upload_data and needs to be written.
         # should pass upload_set all the way to it probably

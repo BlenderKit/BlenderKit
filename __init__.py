@@ -1660,28 +1660,6 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         default="Please add wireframe thumbnail (jpg or png, at least 1024x1024)",
     )
 
-    # -- Proxor export options (only used when proxor_gizmo experimental feature is enabled) --
-    proxor_include_mesh: BoolProperty(
-        name="Proxor Faces",
-        description="Include mesh faces in the .prxc proxy file",
-        default=True,
-    )
-    proxor_include_lines: BoolProperty(
-        name="Proxor Wireframe",
-        description="Include wireframe lines in the .prxc proxy file",
-        default=True,
-    )
-    proxor_include_points: BoolProperty(
-        name="Proxor Points",
-        description="Include point cloud data in the .prxc proxy file",
-        default=True,
-    )
-    proxor_include_colors: BoolProperty(
-        name="Proxor Colors",
-        description="Include color data in the .prxc proxy file",
-        default=True,
-    )
-
 
 class BlenderKitSceneUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     style: EnumProperty(
@@ -2646,10 +2624,9 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     proxor_gizmo: BoolProperty(
         name="Proxor preview gizmo",
-        description="Generate and upload .prxc proxy meshes during model publishing. Use them as drag-and-drop preview instead of the green bounding box",
+        description="Use .prxc proxy meshes as drag-and-drop preview instead of the green bounding box. Requires a new search to take effect",
         default=False,
-        # do not save prefs here, it's experimental
-        options={"SKIP_SAVE"},
+        update=utils.save_prefs,
     )
 
     def draw(self, context):

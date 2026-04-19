@@ -26,7 +26,7 @@ TRIANGLE_VERTEX_COUNT = 3
 VECTOR_SIZE = 3
 RGBA_CHANNELS = 4
 RGB_CHANNELS = 3
-LEGACY_TRIANGLE_BATCH_LIMIT = 21840
+TRIANGLE_BATCH_LIMIT = 21840
 SRGB_LINEAR_THRESHOLD = 0.0031308
 SRGB_GAMMA_THRESHOLD = 0.04045
 
@@ -78,7 +78,12 @@ def _get_cached_shader(name: str) -> Optional[gpu.types.GPUShader]:
         builtin = "3D_SMOOTH_COLOR" if bpy.app.version < (4, 0, 0) else "SMOOTH_COLOR"
         shader = gpu.shader.from_builtin(builtin)
     elif name == "polyline_smooth_color":
-        shader = gpu.shader.from_builtin("POLYLINE_SMOOTH_COLOR")
+        builtin = (
+            "3D_POLYLINE_SMOOTH_COLOR"
+            if bpy.app.version < (4, 0, 0)
+            else "POLYLINE_SMOOTH_COLOR"
+        )
+        shader = gpu.shader.from_builtin(builtin)
     elif name == "uniform_color":
         if bpy.app.version < (4, 0, 0):
             shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
@@ -372,7 +377,7 @@ def _prepare_point_normals_for_shader(
 
 
 class ProxorLiteDrawBuilder:
-    """Build GPU-ready draw data from a PRX legacy payload dict."""
+    """Build GPU-ready draw data from a PRX payload dict."""
 
     # -- mesh --
 
@@ -685,10 +690,10 @@ class ProxorLiteDrawBuilder:
     # -- public API --
 
     def build_draw_data(self, raw_data: dict, ctx) -> Optional[dict]:
-        """Convert a parsed PRX legacy payload to GPU-ready draw data.
+        """Convert a parsed PRX payload to GPU-ready draw data.
 
         Args:
-            raw_data: The ``legacy`` section of a PRX payload.
+            raw_data: The ``data`` section of a PRX payload.
             ctx: A namespace carrying scale, visibility, and colour settings.
 
         Returns:
@@ -754,7 +759,7 @@ class ProxorLiteDrawHandler:
     Usage::
 
         handler = ProxorLiteDrawHandler()
-        handler.set_payload(prx_legacy_data, matrix_world)
+        handler.set_payload(prx_data, matrix_world)
         handler.install()       # registers the viewport draw callback
         handler.remove()        # unregisters
     """
@@ -771,20 +776,20 @@ class ProxorLiteDrawHandler:
 
     def set_payload(
         self,
-        legacy_data: Optional[dict],
+        proxor_data: Optional[dict],
         matrix: Optional[Matrix] = None,
     ) -> None:
-        """Rebuild GPU batches from *legacy_data*.
+        """Rebuild GPU batches from *proxor_data*.
 
         Args:
-            legacy_data: The ``legacy`` section of a PRX payload.
+            proxor_data: The ``data`` section of a PRX payload.
             matrix: World-space transform to apply while drawing.
         """
-        self._raw_data = legacy_data
+        self._raw_data = proxor_data
         self._matrix = matrix or Matrix.Identity(4)
         self._draw_data = (
-            self._builder.build_draw_data(legacy_data, self.draw_ctx)
-            if legacy_data
+            self._builder.build_draw_data(proxor_data, self.draw_ctx)
+            if proxor_data
             else None
         )
 

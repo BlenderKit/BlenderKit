@@ -55,9 +55,21 @@ bk_logger = logging.getLogger(__name__)
 handler_2d = None
 handler_3d = None
 
-# Cached proxor legacy data for download progress drawing (raw Python dicts, no GPU).
-# Keyed by assetBaseId → legacy dict or None if unavailable.
+# Cached proxor data for download progress drawing (raw Python dicts, no GPU).
+# Keyed by assetBaseId → proxor dict or None if unavailable.
 _download_proxor_cache: dict[str, Optional[dict]] = {}
+
+
+def _is_proxor_enabled() -> bool:
+    """Return True when proxor preview is enabled in experimental settings."""
+    try:
+        prefs = bpy.context.preferences.addons[__package__].preferences
+        return bool(
+            getattr(prefs, "experimental_features", False)
+            and getattr(prefs, "proxor_gizmo", False)
+        )
+    except Exception:
+        return False
 
 
 DEFAULT_DRAG_THRESHOLD = 30  # pixels
@@ -407,9 +419,9 @@ def draw_callback_3d_dragging(
 
 
 def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
-    """Load and cache proxor legacy data for download progress drawing.
+    """Load and cache proxor data for download progress drawing.
 
-    Returns the raw ``legacy`` dict from the .prxc file, or ``None`` if
+    Returns the raw ``data`` dict from the .prxc file, or ``None`` if
     unavailable.  Results are cached in ``_download_proxor_cache``.
     """
     if asset_base_id in _download_proxor_cache:
@@ -424,13 +436,13 @@ def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
         from .bl_proxor import prx_format as proxor_prx_format
 
         payload = proxor_prx_format.read_prx(prxc_path)
-        legacy = payload.get("legacy")
-        if not legacy:
+        proxor_data = payload.get("data")
+        if not proxor_data:
             _download_proxor_cache[asset_base_id] = None
             return None
 
-        _download_proxor_cache[asset_base_id] = legacy
-        return legacy
+        _download_proxor_cache[asset_base_id] = proxor_data
+        return proxor_data
     except Exception:
         bk_logger.debug(f"Failed to load proxor for download: {asset_base_id}")
         _download_proxor_cache[asset_base_id] = None
@@ -440,7 +452,7 @@ def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
 def draw_proxor_download(
     location: Vector,
     rotation: Vector,
-    legacy_data: dict,
+    proxor_data: dict,
     progress: Optional[float] = None,
     color: Tuple[float, float, float, float] = colors.PURE_GREEN,
 ) -> None:
@@ -448,7 +460,7 @@ def draw_proxor_download(
 
     .. deprecated:: Use :func:`ui_bgl.draw_proxor_download` instead.
     """
-    ui_bgl.draw_proxor_download(location, rotation, legacy_data, progress, color)
+    ui_bgl.draw_proxor_download(location, rotation, proxor_data, progress, color)
 
 
 def draw_bbox(
@@ -513,7 +525,11 @@ def draw_callback_3d_progress(
             for d in task["downloaders"]:
                 if asset_data["assetType"] in ["model", "printable"]:
                     asset_base_id = asset_data.get("assetBaseId", "")
-                    proxor_data = _load_proxor_for_download(asset_base_id)
+                    proxor_data = (
+                        _load_proxor_for_download(asset_base_id)
+                        if _is_proxor_enabled()
+                        else None
+                    )
                     if proxor_data is not None:
                         draw_proxor_download(
                             d["location"],
@@ -1943,7 +1959,10 @@ class AssetDragOperator(bpy.types.Operator):
         self.asset_data = dict(sr[self.asset_search_index])
 
         # Try to load proxor preview for model/printable assets
-        if self.asset_data.get("assetType") in ("model", "printable"):
+        if _is_proxor_enabled() and self.asset_data.get("assetType") in (
+            "model",
+            "printable",
+        ):
             asset_base_id = self.asset_data.get("assetBaseId", "")
             prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
             if prxc_path and os.path.exists(prxc_path):
@@ -1952,8 +1971,8 @@ class AssetDragOperator(bpy.types.Operator):
                     from .bl_proxor.draw import ProxorLiteDrawHandler
 
                     payload = proxor_prx_format.read_prx(prxc_path)
-                    legacy = payload.get("legacy")
-                    if legacy:
+                    proxor_data = payload.get("data")
+                    if proxor_data:
                         from .bl_proxor.draw import default_draw_context
 
                         self._proxor_handler = ProxorLiteDrawHandler()
@@ -1965,7 +1984,7 @@ class AssetDragOperator(bpy.types.Operator):
                             point_visibility=0.0,
                             line_thickness=0.0,
                         )
-                        self._proxor_handler.set_payload(legacy)
+                        self._proxor_handler.set_payload(proxor_data)
                         self._proxor_handler.install()
                         bk_logger.debug(f"Proxor preview loaded for {asset_base_id}")
                 except Exception as e:

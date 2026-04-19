@@ -922,7 +922,7 @@ def draw_bbox(
 def draw_proxor_download(
     location: Vector,
     rotation: Vector,
-    legacy_data: dict,
+    proxor_data: dict,
     progress: Optional[float] = None,
     color: Tuple[float, float, float, float] = (0.0, 1.0, 0.0, 1.0),
 ) -> None:
@@ -950,7 +950,7 @@ def draw_proxor_download(
     )
 
     builder = ProxorLiteDrawBuilder()
-    draw_data = builder.build_draw_data(legacy_data, ctx)
+    draw_data = builder.build_draw_data(proxor_data, ctx)
     if not draw_data:
         return
 

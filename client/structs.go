@@ -359,12 +359,6 @@ type AssetUploadExportData struct {
 	BinaryPath         string `json:"binary_path"`
 	DebugValue         int    `json:"debug_value"`
 	HDRFilepath        string `json:"hdr_filepath,omitempty"`
-	// Proxor export settings (experimental)
-	ProxorGizmo         bool `json:"proxor_gizmo,omitempty"`
-	ProxorIncludeMesh   bool `json:"proxor_include_mesh,omitempty"`
-	ProxorIncludeLines  bool `json:"proxor_include_lines,omitempty"`
-	ProxorIncludePoints bool `json:"proxor_include_points,omitempty"`
-	ProxorIncludeColors bool `json:"proxor_include_colors,omitempty"`
 }
 
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
@@ -675,6 +669,7 @@ type SearchTaskData struct {
 	URLQuery        string `json:"urlquery"`
 	IsValidator     bool   `json:"is_validator"` // is true for validators, so we can do immediate hacks in the Client right after the search results come
 	HistoryID       string `json:"history_id"`
+	ProxorGizmo     bool   `json:"proxor_gizmo"` // download .prxc files only when proxor preview is enabled
 }
 
 type ReportData struct {

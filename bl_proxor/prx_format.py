@@ -220,7 +220,7 @@ def _build_output_data(
     objects: Sequence[dict],
     default_color: tuple[float, float, float] = DEFAULT_OBJECT_COLOR,
 ) -> dict:
-    """Build a legacy payload dict from parsed PRX objects."""
+    """Build a proxor payload dict from parsed PRX objects."""
     mesh_positions: list[list[float]] = []
     mesh_colors: list[list[float]] = []
     mesh_normals: list[list[float]] = []
@@ -302,11 +302,11 @@ def _build_output_data(
 
 
 def read_prx(file_path: str) -> dict:
-    """Read a PRX / PRXC file and return a payload dict with ``legacy`` key."""
+    """Read a PRX / PRXC file and return a payload dict with ``data`` key."""
     lines = _load_prx_lines(file_path)
     objects, version = _parse_prx_lines(lines)
     data = _build_output_data(objects)
-    return {"legacy": data, "objects": objects, "version": version}
+    return {"data": data, "objects": objects, "version": version}
 
 
 # -- Writing --
@@ -341,7 +341,7 @@ def write_prx(
 
     Args:
         file_path: Destination path (.prx or .prxc).
-        payload: Dict with ``legacy`` key containing mesh/line/points sections.
+        payload: Dict with ``data`` key containing mesh/line/points sections.
         name: Object name for the PRX file.
         precision: Float precision for coordinates.
         compress: If True write base64+gzip compressed .prxc format.
@@ -350,13 +350,13 @@ def write_prx(
         include_points: If True include point cloud data in the output.
         include_colors: If True include colour data in the output.
     """
-    legacy = payload.get("legacy", {})
+    proxor_data = payload.get("data", {})
     lines: list[str] = [PRX_VERSION_LINE]
     lines.append(f"@{name}")
 
     all_pts: list[list[float]] = []
     for section_key in ("mesh", "points", "line"):
-        sec = legacy.get(section_key, {})
+        sec = proxor_data.get(section_key, {})
         all_pts.extend(sec.get("pos", []))
 
     if not all_pts:
@@ -367,7 +367,7 @@ def write_prx(
     lines.append("BB " + " ".join(_fmt(v, precision) for v in bbox))
 
     # Mesh faces
-    mesh = legacy.get("mesh", {})
+    mesh = proxor_data.get("mesh", {})
     mesh_pos = mesh.get("pos", [])
     if include_mesh and mesh_pos:
         norm_pts = _normalize_points(mesh_pos, bbox, spans)
@@ -386,7 +386,7 @@ def write_prx(
             lines.extend(" ".join(_fmt(v, precision) for v in nrm) for nrm in norm_nrm)
 
     # Points
-    pts_sec = legacy.get("points", {})
+    pts_sec = proxor_data.get("points", {})
     pts_pos = pts_sec.get("pos", [])
     if include_points and pts_pos:
         norm_pts = _normalize_points(pts_pos, bbox, spans)
@@ -401,7 +401,7 @@ def write_prx(
 
     # Lines — write each segment pair as a separate L block so
     # the reader does not chain unrelated endpoints into a polyline.
-    line_sec = legacy.get("line", {})
+    line_sec = proxor_data.get("line", {})
     line_pos = line_sec.get("pos", [])
     if include_lines and line_pos:
         norm_lp = _normalize_points(line_pos, bbox, spans)

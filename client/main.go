@@ -786,8 +786,8 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		fullThumbsTasks = append(fullThumbsTasks, fullTask)
 
 		for _, file := range result.Files {
-			// Handle prxc proxy mesh files
-			if file.FileType == "prxc" && file.DownloadURL != "" {
+			// Handle prxc proxy mesh files (only when proxor preview is enabled)
+			if file.FileType == "prxc" && file.DownloadURL != "" && data.ProxorGizmo {
 				prxcPath := filepath.Join(data.TempDir, result.AssetBaseID+".prxc")
 				prxcTaskData := DownloadPrxcData{
 					AddonVersion:    data.AddonVersion,

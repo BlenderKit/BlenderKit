@@ -28,6 +28,12 @@ TRIANGLE_VERTEX_COUNT = 3
 VECTOR_LEN = 3
 RGBA_LEN = 4
 
+# -- Export defaults (hardcoded, no UI) --
+EXPORT_INCLUDE_MESH = True
+EXPORT_INCLUDE_LINES = False
+EXPORT_INCLUDE_POINTS = False
+EXPORT_INCLUDE_COLORS = False
+
 # -- Point sampling --
 MAX_POINT_COUNT = 10000
 MIN_POINT_COUNT = 500
@@ -583,11 +589,11 @@ def _apply_transform_to_payload(
 ) -> None:
     if not payload or matrix is None:
         return
-    legacy = payload.get("legacy") if isinstance(payload, dict) else None
-    if not isinstance(legacy, dict):
+    proxor_data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(proxor_data, dict):
         return
     for key in ("mesh", "line", "points", "text"):
-        section = legacy.get(key)
+        section = proxor_data.get(key)
         if not isinstance(section, dict):
             continue
         _apply_transform_to_vectors(section.get("pos"), matrix)
@@ -1697,7 +1703,7 @@ def generate_proxor(
 
     payload = {
         "objects": [],
-        "legacy": {
+        "data": {
             "mesh": mesh_section,
             "line": line_section,
             "points": points_section,
@@ -1825,7 +1831,7 @@ def generate_proxor_multi(
 
     payload = {
         "objects": [],
-        "legacy": {
+        "data": {
             "mesh": mesh_section,
             "line": line_section,
             "points": points_section,
@@ -2084,7 +2090,7 @@ def generate_proxor_direct(
 
     payload = {
         "objects": [],
-        "legacy": {
+        "data": {
             "mesh": mesh_section,
             "line": line_section,
             "points": points_section,

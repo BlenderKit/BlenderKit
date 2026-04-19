@@ -635,20 +635,6 @@ def draw_panel_model_upload(self, context):
     row = layout.row()
     row.prop(props, "work_hours")
 
-    # PROXOR EXPORT OPTIONS (only when proxor_gizmo experimental feature is enabled)
-    user_prefs = bpy.context.preferences.addons[__package__].preferences
-    if getattr(user_prefs, "experimental_features", False) and getattr(
-        user_prefs, "proxor_gizmo", False
-    ):
-        proxor_box = layout.box()
-        proxor_box.alignment = "EXPAND"
-        proxor_box.label(text="Proxor Export:", icon="MESH_ICOSPHERE")
-        col = proxor_box.column(align=True)
-        col.prop(props, "proxor_include_mesh")
-        col.prop(props, "proxor_include_lines")
-        col.prop(props, "proxor_include_points")
-        col.prop(props, "proxor_include_colors")
-
     # CONTENT FLAGS
     content_flag_box = layout.box()
     content_flag_box.alignment = "EXPAND"
