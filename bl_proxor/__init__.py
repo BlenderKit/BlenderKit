@@ -3,20 +3,6 @@
 Generates, saves, loads, and displays PRX/PRXC proxor data in the viewport
 via GPU drawing.  Used as a preview proxy during model drag-and-drop instead
 of the default green bounding box when a .prxc file is available for the asset.
+
+All submodules (draw, generate, prx_format) are imported lazily where needed.
 """
-
-from __future__ import annotations
-
-
-def register() -> None:
-    """Register the bl_proxor submodule."""
-    from . import draw
-
-    draw.ensure_shaders()
-
-
-def unregister() -> None:
-    """Unregister the bl_proxor submodule."""
-    from . import draw
-
-    draw.invalidate_shader_cache()

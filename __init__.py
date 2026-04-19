@@ -111,9 +111,6 @@ if "bpy" in locals():
     bl_proxor_draw = reload(bl_proxor_draw)
     bl_proxor_generate = reload(bl_proxor_generate)
     bl_proxor_prx_format = reload(bl_proxor_prx_format)
-    from . import bl_proxor
-
-    bl_proxor = reload(bl_proxor)
 
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
@@ -183,8 +180,6 @@ else:
     from .bl_ui_widgets import bl_ui_drag_panel
 
     # from .bl_ui_widgets import bl_ui_textbox
-
-    from . import bl_proxor
 
 from math import pi
 
@@ -2871,7 +2866,6 @@ def register():
     asset_bar_op.register()
     asset_drag_op.register()
     disclaimer_op.register()
-    bl_proxor.register()
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
@@ -2920,7 +2914,6 @@ def unregister():
     asset_bar_op.unregister()
     asset_drag_op.unregister()
     disclaimer_op.unregister()
-    bl_proxor.unregister()
 
     if bpy.app.background is False:
         try:
