@@ -362,17 +362,13 @@ func doAssetDownload(
 	}
 
 	// UNPACKING / METADATA WRITE
-	// Trigger unpack when either unpacking is enabled or metadata should be written.
-	// Skip when just placing an already-existing file: it was already unpacked on first
-	// download. Re-running unpack with a different Blender version would re-save the
-	// .blend, upgrading its format and making it unreadable by older Blender versions.
-	shouldUnpack := (unpackFiles || writeAssetMetadata) && action != "place"
+	// Trigger unpack only on fresh downloads. The unpack script opens the .blend in a
+	// background Blender and re-saves it (bpy.ops.wm.save_as_mainfile), which upgrades
+	// the file format to match that Blender version. Re-running unpack on an already
+	// existing file ("place" or "sync") with a different Blender version would make the
+	// .blend unreadable by older Blenders.
+	shouldUnpack := (unpackFiles || writeAssetMetadata) && action == "download"
 	if shouldUnpack {
-		// If there was no download, there's risk that the file to be unpacked
-		// is only in local, but not in global directory
-		if action != "download" {
-			fp = existingFiles[0]
-		}
 		//err := UnpackAsset(fp, data, taskID)
 		assetDataRaw, _ := origJSON["asset_data"]
 
@@ -452,6 +448,18 @@ func UnpackAsset(
 			AppID:   appID,
 			TaskID:  taskID,
 			Message: fmt.Sprintf("Skipping unpack: downloaded file is not a .blend (%s)", filepath.Ext(blendPath)),
+		}
+		return nil
+	}
+
+	// Microsoft Store Blender installs live under WindowsApps which blocks
+	// external processes from exec-ing the binary ("access is denied").
+	// Detect this early and skip unpack with a clear message.
+	if runtime.GOOS == "windows" && strings.Contains(strings.ToLower(binaryPath), "windowsapps") {
+		TaskMessageCh <- &TaskMessageUpdate{
+			AppID:   appID,
+			TaskID:  taskID,
+			Message: "Skipping unpack: Microsoft Store Blender cannot be launched as background process",
 		}
 		return nil
 	}
