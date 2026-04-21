@@ -6,6 +6,7 @@ import base64
 import gzip
 import logging
 import random
+import struct
 from collections.abc import Sequence
 from typing import Optional
 
@@ -21,6 +22,13 @@ MIN_VERSION_TOKENS = 2
 PROXOR_VERSION_TAG = "PROXOR_VERSION"
 PROXOR_VERSION_STRING = "1.0.0"
 PRX_VERSION_LINE = f"# {PROXOR_VERSION_TAG} {PROXOR_VERSION_STRING}"
+PRXC_QUANT_VERSION_STRING = "2.0.0"
+
+PRXC_QUANT_MAGIC = b"PRXQ2\0"
+PRXC_QUANT_HEADER_FMT = "<6sB6f7I"
+PRXC_QUANT_HEADER_SIZE = struct.calcsize(PRXC_QUANT_HEADER_FMT)
+U16_MAX = 65535
+U8_MAX = 255
 
 DEFAULT_FACE_NORMAL = (0.0, 1.0, 0.0)
 DEFAULT_OBJECT_COLOR = (0.3, 0.3, 0.3)
@@ -55,6 +63,195 @@ def _bbox_spans(bbox: Sequence[float]) -> list[float]:
         max(bbox[3] - bbox[2], EPSILON),
         max(bbox[5] - bbox[4], EPSILON),
     ]
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def _quantize_u16_unit(value: float) -> int:
+    return int(round(_clamp01(value) * U16_MAX))
+
+
+def _dequantize_u16_unit(value: int) -> float:
+    return float(value) / U16_MAX
+
+
+def _quantize_rgb_u8(values: Sequence[Sequence[float]], count: int = RGB_SIZE) -> bytes:
+    out = bytearray()
+    for item in values:
+        if len(item) < count:
+            continue
+        for idx in range(count):
+            out.append(int(round(_clamp01(float(item[idx])) * U8_MAX)))
+    return bytes(out)
+
+
+def _dequantize_rgb_u8(blob: bytes, count: int = RGB_SIZE) -> list[list[float]]:
+    if not blob or count <= 0:
+        return []
+    step = count
+    out: list[list[float]] = []
+    for i in range(0, len(blob), step):
+        chunk = blob[i : i + step]
+        if len(chunk) < step:
+            break
+        out.append([float(v) / U8_MAX for v in chunk])
+    return out
+
+
+def _pack_u16_triplets(values: Sequence[Sequence[float]]) -> bytes:
+    out = bytearray()
+    for item in values:
+        if len(item) < VECTOR_SIZE:
+            continue
+        for idx in range(VECTOR_SIZE):
+            out.extend(struct.pack("<H", _quantize_u16_unit(float(item[idx]))))
+    return bytes(out)
+
+
+def _unpack_u16_triplets(blob: bytes) -> list[list[float]]:
+    out: list[list[float]] = []
+    step = VECTOR_SIZE * 2
+    for i in range(0, len(blob), step):
+        chunk = blob[i : i + step]
+        if len(chunk) < step:
+            break
+        x, y, z = struct.unpack("<HHH", chunk)
+        out.append(
+            [
+                _dequantize_u16_unit(x),
+                _dequantize_u16_unit(y),
+                _dequantize_u16_unit(z),
+            ]
+        )
+    return out
+
+
+def _encode_prxc_quantized(proxor_data: dict) -> bytes:
+    mesh = proxor_data.get("mesh", {})
+    line = proxor_data.get("line", {})
+    points = proxor_data.get("points", {})
+
+    mesh_pos = mesh.get("pos", []) or []
+    line_pos = line.get("pos", []) or []
+    point_pos = points.get("pos", []) or []
+
+    all_pts: list[list[float]] = []
+    all_pts.extend([p for p in mesh_pos if len(p) >= VECTOR_SIZE])
+    all_pts.extend([p for p in line_pos if len(p) >= VECTOR_SIZE])
+    all_pts.extend([p for p in point_pos if len(p) >= VECTOR_SIZE])
+    if not all_pts:
+        return b""
+
+    bbox = _compute_bounding_box(all_pts)
+    spans = _bbox_spans(bbox)
+
+    mesh_norm = _normalize_points(mesh_pos, bbox, spans)
+    line_norm = _normalize_points(line_pos, bbox, spans)
+    point_norm = _normalize_points(point_pos, bbox, spans)
+    mesh_nrm_norm = _normalize_normals(mesh.get("nrm", []) or [])
+
+    mesh_col_blob = _quantize_rgb_u8(mesh.get("col", []) or [], RGB_SIZE)
+    line_col_blob = _quantize_rgb_u8(line.get("col", []) or [], RGB_SIZE)
+    point_col_blob = _quantize_rgb_u8(points.get("col", []) or [], RGBA_SIZE)
+
+    mesh_pos_blob = _pack_u16_triplets(mesh_norm)
+    mesh_nrm_blob = _pack_u16_triplets(mesh_nrm_norm)
+    line_pos_blob = _pack_u16_triplets(line_norm)
+    point_pos_blob = _pack_u16_triplets(point_norm)
+
+    header = struct.pack(
+        PRXC_QUANT_HEADER_FMT,
+        PRXC_QUANT_MAGIC,
+        1,
+        *bbox,
+        len(mesh_norm),
+        len(mesh_col_blob) // RGB_SIZE,
+        len(mesh_nrm_norm),
+        len(line_norm),
+        len(line_col_blob) // RGB_SIZE,
+        len(point_norm),
+        len(point_col_blob) // RGBA_SIZE,
+    )
+
+    return b"".join(
+        [
+            header,
+            mesh_pos_blob,
+            mesh_col_blob,
+            mesh_nrm_blob,
+            line_pos_blob,
+            line_col_blob,
+            point_pos_blob,
+            point_col_blob,
+        ]
+    )
+
+
+def _decode_prxc_quantized(payload: bytes) -> tuple[dict, str]:
+    if len(payload) < PRXC_QUANT_HEADER_SIZE:
+        raise ValueError("PRXC quantized payload too short")
+
+    (
+        magic,
+        _format_version,
+        bb0,
+        bb1,
+        bb2,
+        bb3,
+        bb4,
+        bb5,
+        mesh_pos_count,
+        mesh_col_count,
+        mesh_nrm_count,
+        line_pos_count,
+        line_col_count,
+        point_pos_count,
+        point_col_count,
+    ) = struct.unpack_from(PRXC_QUANT_HEADER_FMT, payload, 0)
+
+    if magic != PRXC_QUANT_MAGIC:
+        raise ValueError("Not a PRXC quantized payload")
+
+    bbox = [bb0, bb1, bb2, bb3, bb4, bb5]
+    spans = _bbox_spans(bbox)
+
+    offset = PRXC_QUANT_HEADER_SIZE
+
+    def _read(size: int) -> bytes:
+        nonlocal offset
+        out = payload[offset : offset + size]
+        if len(out) < size:
+            raise ValueError("PRXC quantized payload truncated")
+        offset += size
+        return out
+
+    mesh_pos_blob = _read(mesh_pos_count * VECTOR_SIZE * 2)
+    mesh_col_blob = _read(mesh_col_count * RGB_SIZE)
+    mesh_nrm_blob = _read(mesh_nrm_count * VECTOR_SIZE * 2)
+    line_pos_blob = _read(line_pos_count * VECTOR_SIZE * 2)
+    line_col_blob = _read(line_col_count * RGB_SIZE)
+    point_pos_blob = _read(point_pos_count * VECTOR_SIZE * 2)
+    point_col_blob = _read(point_col_count * RGBA_SIZE)
+
+    mesh_pos = _denormalize_points(_unpack_u16_triplets(mesh_pos_blob), bbox, spans)
+    mesh_nrm = _denormalize_normals(_unpack_u16_triplets(mesh_nrm_blob))
+    mesh_col = _dequantize_rgb_u8(mesh_col_blob, RGB_SIZE)
+
+    line_pos = _denormalize_points(_unpack_u16_triplets(line_pos_blob), bbox, spans)
+    line_col = _dequantize_rgb_u8(line_col_blob, RGB_SIZE)
+
+    point_pos = _denormalize_points(_unpack_u16_triplets(point_pos_blob), bbox, spans)
+    point_col = _dequantize_rgb_u8(point_col_blob, RGBA_SIZE)
+
+    data = {
+        "mesh": {"pos": mesh_pos, "col": mesh_col, "nrm": mesh_nrm},
+        "line": {"pos": line_pos, "col": line_col},
+        "points": {"pos": point_pos, "col": point_col},
+        "text": {"pos": [], "col": [], "str": []},
+    }
+    return data, PRXC_QUANT_VERSION_STRING
 
 
 def _denormalize_points(
@@ -137,13 +334,31 @@ def _flatten_sections(
 # -- Reading --
 
 
+def _decode_prxc_payload(payload: bytes) -> bytes:
+    """Decode .prxc payload supporting both gzip-only and legacy base64+gzip.
+
+    New format: raw gzip bytes.
+    Legacy format: ASCII base64 of gzip bytes.
+    """
+    # Preferred path: gzip-only payload.
+    try:
+        return gzip.decompress(payload)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Backward compatibility: base64 wrapper around gzip payload.
+    try:
+        decoded = base64.b64decode(payload)
+        return gzip.decompress(decoded)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("Unsupported .prxc payload encoding") from exc
+
+
 def _load_prx_lines(file_path: str) -> list[str]:
     if file_path.lower().endswith(".prxc"):
         with open(file_path, "rb") as handle:
             payload = handle.read()
-        decoded = base64.b64decode(payload)
-        decompressed = gzip.decompress(decoded)
-        text = decompressed.decode("utf-8")
+        text = _decode_prxc_payload(payload).decode("utf-8")
         return [line for line in text.splitlines() if line.strip()]
     with open(file_path, encoding="utf-8") as handle:
         return [line for line in handle if line.strip()]
@@ -303,7 +518,17 @@ def _build_output_data(
 
 def read_prx(file_path: str) -> dict:
     """Read a PRX / PRXC file and return a payload dict with ``data`` key."""
-    lines = _load_prx_lines(file_path)
+    if file_path.lower().endswith(".prxc"):
+        with open(file_path, "rb") as handle:
+            payload = handle.read()
+        decoded = _decode_prxc_payload(payload)
+        if decoded.startswith(PRXC_QUANT_MAGIC):
+            data, version = _decode_prxc_quantized(decoded)
+            return {"data": data, "objects": [], "version": version}
+        text = decoded.decode("utf-8")
+        lines = [line for line in text.splitlines() if line.strip()]
+    else:
+        lines = _load_prx_lines(file_path)
     objects, version = _parse_prx_lines(lines)
     data = _build_output_data(objects)
     return {"data": data, "objects": objects, "version": version}
@@ -344,7 +569,7 @@ def write_prx(
         payload: Dict with ``data`` key containing mesh/line/points sections.
         name: Object name for the PRX file.
         precision: Float precision for coordinates.
-        compress: If True write base64+gzip compressed .prxc format.
+        compress: If True write quantized gzip-compressed .prxc format.
         include_mesh: If True include face/mesh data in the output.
         include_lines: If True include line/wireframe data in the output.
         include_points: If True include point cloud data in the output.
@@ -416,12 +641,34 @@ def write_prx(
                 lines.append("LC")
                 lines.append(" ".join(_fmt(v, precision) for v in col[:RGB_SIZE]))
 
-    text = "\n".join(lines) + "\n"
     if compress or file_path.lower().endswith(".prxc"):
-        encoded = base64.b64encode(gzip.compress(text.encode("utf-8")))
+        filtered_data = {
+            "mesh": {
+                "pos": mesh.get("pos", []) if include_mesh else [],
+                "col": mesh.get("col", []) if include_mesh and include_colors else [],
+                "nrm": mesh.get("nrm", []) if include_mesh else [],
+            },
+            "line": {
+                "pos": line_sec.get("pos", []) if include_lines else [],
+                "col": (
+                    line_sec.get("col", []) if include_lines and include_colors else []
+                ),
+            },
+            "points": {
+                "pos": pts_sec.get("pos", []) if include_points else [],
+                "col": (
+                    pts_sec.get("col", []) if include_points and include_colors else []
+                ),
+            },
+        }
+        binary = _encode_prxc_quantized(filtered_data)
+        if not binary:
+            return
+        encoded = gzip.compress(binary)
         with open(file_path, "wb") as handle:
             handle.write(encoded)
     else:
+        text = "\n".join(lines) + "\n"
         with open(file_path, "w", encoding="utf-8") as handle:
             handle.write(text)
 
