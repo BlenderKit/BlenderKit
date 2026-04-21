@@ -317,6 +317,8 @@ func main() {
 	mux.HandleFunc("/"+vapi+"/blender/cancel_download", CancelDownloadHandler)
 	mux.HandleFunc("/blender/asset_download", assetDownloadHandler)
 	mux.HandleFunc("/"+vapi+"/blender/asset_download", assetDownloadHandler)
+	mux.HandleFunc("/blender/asset_prxc_download", assetPrxcDownloadHandler)
+	mux.HandleFunc("/"+vapi+"/blender/asset_prxc_download", assetPrxcDownloadHandler)
 	mux.HandleFunc("/blender/asset_search", assetSearchHandler)
 	mux.HandleFunc("/"+vapi+"/blender/asset_search", assetSearchHandler)
 	mux.HandleFunc("/blender/asset_upload", assetUploadHandler)
@@ -718,7 +720,6 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 
 func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	var smallThumbsTasks, fullThumbsTasks, fullPhotoThumbsTasks, fullWireThumbsTasks []*Task
-	var prxcTasks []*Task
 	blVer, _ := StringToBlenderVersion(data.BlenderVersion)
 
 	for i, result := range searchResults.Results { // TODO: Should be a function parseThumbnail() to avoid nesting
@@ -786,25 +787,6 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 		fullThumbsTasks = append(fullThumbsTasks, fullTask)
 
 		for _, file := range result.Files {
-			// Handle prxc proxy mesh files (only when proxor preview is enabled)
-			if file.FileType == "prxc" && file.DownloadURL != "" && data.ProxorGizmo {
-				prxcPath := filepath.Join(data.TempDir, result.AssetBaseID+".prxc")
-				prxcTaskData := DownloadPrxcData{
-					AddonVersion:    data.AddonVersion,
-					PlatformVersion: data.PlatformVersion,
-					FilePath:        prxcPath,
-					DownloadURL:     file.DownloadURL,
-					AssetBaseID:     result.AssetBaseID,
-					APIKey:          data.APIKey,
-					SceneUUID:       data.SceneUUID,
-					Index:           i,
-				}
-				prxcTaskUUID := uuid.New().String()
-				prxcTask := NewTask(prxcTaskData, data.AppID, prxcTaskUUID, "prxc_download")
-				prxcTasks = append(prxcTasks, prxcTask)
-				continue
-			}
-
 			var (
 				thumbTasks    *[]*Task
 				thumbnailType string
@@ -853,7 +835,6 @@ func parseThumbnails(searchResults SearchResults, data SearchTaskData) {
 	go downloadImageBatch(fullThumbsTasks, true)
 	go downloadImageBatch(fullPhotoThumbsTasks, true)
 	go downloadImageBatch(fullWireThumbsTasks, true)
-	go downloadPrxcBatch(prxcTasks)
 }
 
 func downloadImageBatch(tasks []*Task, block bool) {
@@ -957,6 +938,42 @@ func downloadPrxcBatch(tasks []*Task) {
 		go DownloadPrxc(task, wg)
 	}
 	wg.Wait()
+}
+
+// assetPrxcDownloadHandler schedules a single .prxc download on demand
+// (e.g. when the user starts dragging a model).
+func assetPrxcDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var reqData struct {
+		DownloadPrxcData
+		AppID int `json:"app_id"`
+	}
+	if err := json.Unmarshal(body, &reqData); err != nil {
+		http.Error(w, "Error parsing JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	taskUUID := uuid.New().String()
+	task := NewTask(reqData.DownloadPrxcData, reqData.AppID, taskUUID, "prxc_download")
+
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	go DownloadPrxc(task, wg)
+
+	resData := map[string]string{"task_id": taskUUID}
+	responseJSON, err := json.Marshal(resData)
+	if err != nil {
+		http.Error(w, "Error converting to JSON: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(responseJSON)
 }
 
 // DownloadPrxc downloads a .prxc file via signed URL.

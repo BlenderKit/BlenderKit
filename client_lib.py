@@ -211,6 +211,28 @@ def cancel_download(task_id: str):
         return resp
 
 
+def asset_prxc_download(
+    asset_base_id: str, download_url: str, file_path: str, scene_uuid: str
+):
+    """Schedule a single .prxc proxy mesh download on the BlenderKit-Client.
+
+    Fire-and-forget: the client creates a ``prxc_download`` task whose
+    completion is delivered via the normal task channel and handled by
+    ``search.handle_prxc_download_task``.
+    """
+    data = {
+        "assetBaseId": asset_base_id,
+        "download_url": download_url,
+        "file_path": file_path,
+        "scene_uuid": scene_uuid,
+    }
+    data = ensure_minimal_data(data)
+    with requests.Session() as session:
+        url = get_base_url() + "/blender/asset_prxc_download"
+        resp = session.post(url, json=data, timeout=TIMEOUT, proxies=NO_PROXIES)
+        return resp.json()
+
+
 # UPLOAD
 def asset_upload(upload_data, export_data, upload_set):
     """Upload specified asset."""

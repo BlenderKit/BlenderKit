@@ -1665,7 +1665,6 @@ def add_search_process(
         blender_version=blender_version,
         is_validator=utils.profile_is_validator(),
         history_id=history_id,
-        proxor_gizmo=utils.experimental_enabled(),
     )
     response = client_lib.asset_search(search_data)
     search_tasks[response["task_id"]] = search_data

@@ -31,6 +31,7 @@ from mathutils import Vector
 
 from . import (
     bg_blender,
+    client_lib,
     colors,
     download,
     global_vars,
@@ -58,6 +59,7 @@ handler_3d = None
 # Cached proxor data for download progress drawing (raw Python dicts, no GPU).
 # Keyed by assetBaseId → proxor dict or None if unavailable.
 _download_proxor_cache: dict[str, Optional[dict]] = {}
+_MISSING = object()  # sentinel for cache miss (distinct from cached None)
 
 
 DEFAULT_DRAG_THRESHOLD = 30  # pixels
@@ -410,12 +412,20 @@ def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
     """Load and cache proxor data for download progress drawing.
 
     Returns the raw ``data`` dict from the .prxc file, or ``None`` if
-    unavailable.  Results are cached in ``_download_proxor_cache``.
+    unavailable.  Results are cached in ``_download_proxor_cache``; a
+    cached ``None`` is invalidated if the ``.prxc`` file appears on
+    disk later (common with on-demand fetch scheduled at drag start).
     """
-    if asset_base_id in _download_proxor_cache:
-        return _download_proxor_cache[asset_base_id]
-
     prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
+    cached = _download_proxor_cache.get(asset_base_id, _MISSING)
+    if cached is not _MISSING:
+        if cached is not None:
+            return cached
+        # Previously unavailable — recheck in case the on-demand fetch
+        # finished after the first miss.
+        if not prxc_path or not os.path.exists(prxc_path):
+            return None
+
     if not prxc_path or not os.path.exists(prxc_path):
         _download_proxor_cache[asset_base_id] = None
         return None
@@ -846,12 +856,17 @@ class AssetDragOperator(bpy.types.Operator):
 
         # Proxor draw handler for proxy mesh preview during drag
         self._proxor_handler = None
+        # assetBaseId of a .prxc download kicked off at drag start but not
+        # yet available on disk. Polled in modal() and swapped in when
+        # the file lands in global_vars.DATA["prxc available"].
+        self._proxor_pending: Optional[str] = None
 
     def handlers_remove(self) -> None:
         """Remove all draw handlers."""
         if self._proxor_handler is not None:
             self._proxor_handler.remove()
             self._proxor_handler = None
+        self._proxor_pending = None
         # Remove specific handlers for VIEW_3D and Outliner
         bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, "WINDOW")
 
@@ -859,6 +874,85 @@ class AssetDragOperator(bpy.types.Operator):
         for space_type, handler in self._handlers_universal.items():
             if handler:
                 getattr(bpy.types, space_type).draw_handler_remove(handler, "WINDOW")
+
+    def _install_proxor_handler_from_path(
+        self, asset_base_id: str, prxc_path: str
+    ) -> None:
+        """Build and install a :class:`ProxorLiteDrawHandler` from *prxc_path*.
+
+        On any failure the handler is torn down and ``self._proxor_handler``
+        is reset to ``None`` so the drag falls back to the green bbox.
+        """
+        try:
+            from .bl_proxor import prx_format as proxor_prx_format
+            from .bl_proxor.draw import ProxorLiteDrawHandler, default_draw_context
+
+            payload = proxor_prx_format.read_prx(prxc_path)
+            proxor_data = payload.get("data")
+            if not proxor_data:
+                return
+
+            self._proxor_handler = ProxorLiteDrawHandler()
+            self._proxor_handler.draw_ctx = default_draw_context(
+                mesh_color_mode="CUSTOM",
+                custom_color=colors.PURE_GREEN,
+                mesh_shading_mode="FLAT",
+                use_gradient=True,
+                point_visibility=0.0,
+                line_thickness=0.0,
+            )
+            self._proxor_handler.set_payload(proxor_data)
+            self._proxor_handler.install()
+            bk_logger.debug(f"Proxor preview loaded for {asset_base_id}")
+        except Exception as e:
+            bk_logger.warning(f"Failed to load proxor preview: {e}")
+            # Ensure a partially-initialized handler is torn down
+            # (e.g. install() raised after set_payload() cached batches).
+            if self._proxor_handler is not None:
+                try:
+                    self._proxor_handler.remove()
+                except Exception:
+                    pass
+            self._proxor_handler = None
+
+    def _start_proxor_fetch(self, asset_base_id: str) -> None:
+        """Fire a single on-demand ``.prxc`` download for *asset_base_id*.
+
+        No-op if the asset has no ``.prxc`` URL. The download completes
+        asynchronously; :meth:`_poll_proxor_pending` swaps the handler in
+        once the file lands.
+        """
+        if not asset_base_id:
+            return
+        prxc_url = ""
+        for f in self.asset_data.get("files", []) or []:
+            if f.get("fileType") == "prxc" and f.get("downloadUrl"):
+                prxc_url = f["downloadUrl"]
+                break
+        if not prxc_url:
+            return
+        try:
+            asset_type = self.asset_data.get("assetType", "model")
+            tempdir = paths.get_temp_dir(f"{asset_type}_search")
+            file_path = os.path.join(tempdir, f"{asset_base_id}.prxc")
+            scene_uuid = utils.get_scene_id()
+            client_lib.asset_prxc_download(
+                asset_base_id, prxc_url, file_path, scene_uuid
+            )
+            self._proxor_pending = asset_base_id
+        except Exception as e:
+            bk_logger.debug(f"prxc on-demand fetch not scheduled: {e}")
+            self._proxor_pending = None
+
+    def _poll_proxor_pending(self) -> None:
+        """Swap to proxor mid-drag once the pending ``.prxc`` lands."""
+        if self._proxor_pending is None or self._proxor_handler is not None:
+            return
+        asset_base_id = self._proxor_pending
+        prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
+        if prxc_path and os.path.exists(prxc_path):
+            self._install_proxor_handler_from_path(asset_base_id, prxc_path)
+            self._proxor_pending = None
 
     def is_nodegroup_compatible_with_editor(
         self, nodegroup_type: str, editor_type: Optional[str] = None
@@ -1762,6 +1856,11 @@ class AssetDragOperator(bpy.types.Operator):
         cls = type(self)
         ui_props = bpy.context.window_manager.blenderkitUI
 
+        # Swap in the proxor handler if an on-demand fetch finished since
+        # the last modal tick (cheap dict + path check, no I/O in common case).
+        if self._proxor_pending is not None:
+            self._poll_proxor_pending()
+
         self.mouse_screen_x = int(
             context.window.x * self.resolution_factor + event.mouse_x
         )
@@ -1948,37 +2047,12 @@ class AssetDragOperator(bpy.types.Operator):
             asset_base_id = self.asset_data.get("assetBaseId", "")
             prxc_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id)
             if prxc_path and os.path.exists(prxc_path):
-                try:
-                    from .bl_proxor import prx_format as proxor_prx_format
-                    from .bl_proxor.draw import ProxorLiteDrawHandler
-
-                    payload = proxor_prx_format.read_prx(prxc_path)
-                    proxor_data = payload.get("data")
-                    if proxor_data:
-                        from .bl_proxor.draw import default_draw_context
-
-                        self._proxor_handler = ProxorLiteDrawHandler()
-                        self._proxor_handler.draw_ctx = default_draw_context(
-                            mesh_color_mode="CUSTOM",
-                            custom_color=colors.PURE_GREEN,
-                            mesh_shading_mode="FLAT",
-                            use_gradient=True,
-                            point_visibility=0.0,
-                            line_thickness=0.0,
-                        )
-                        self._proxor_handler.set_payload(proxor_data)
-                        self._proxor_handler.install()
-                        bk_logger.debug(f"Proxor preview loaded for {asset_base_id}")
-                except Exception as e:
-                    bk_logger.warning(f"Failed to load proxor preview: {e}")
-                    # Ensure a partially-initialized handler is torn down
-                    # (e.g. install() raised after set_payload() cached batches).
-                    if self._proxor_handler is not None:
-                        try:
-                            self._proxor_handler.remove()
-                        except Exception:
-                            pass
-                    self._proxor_handler = None
+                self._install_proxor_handler_from_path(asset_base_id, prxc_path)
+            else:
+                # No cached file: kick off a single on-demand .prxc fetch.
+                # Drag continues with the green bbox; handler is swapped in
+                # from modal() once the file lands on disk.
+                self._start_proxor_fetch(asset_base_id)
 
         # Initialize drag-start coordinates immediately in invoke.
         # resolution factor is essential on Mac OS. don't touch it if you don't know what you are doing.

@@ -669,7 +669,6 @@ type SearchTaskData struct {
 	URLQuery        string `json:"urlquery"`
 	IsValidator     bool   `json:"is_validator"` // is true for validators, so we can do immediate hacks in the Client right after the search results come
 	HistoryID       string `json:"history_id"`
-	ProxorGizmo     bool   `json:"proxor_gizmo"` // download .prxc files only when proxor preview is enabled
 }
 
 type ReportData struct {

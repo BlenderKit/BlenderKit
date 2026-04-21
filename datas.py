@@ -68,7 +68,6 @@ class SearchData:
         False  # Client makes some extra stuff for validators - like fetching all the ratings right away
     )
     history_id: str = ""
-    proxor_gizmo: bool = False
 
 
 @dataclasses.dataclass
