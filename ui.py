@@ -23,7 +23,15 @@ from typing import Any
 import bpy
 from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, StringProperty
 
-from . import colors, global_vars, keymap_utils, paths, search, ui_bgl, utils
+from . import (
+    colors,
+    global_vars,
+    keymap_utils,
+    paths,
+    search,
+    ui_bgl,
+    utils,
+)
 
 
 draw_time = 0
@@ -134,14 +142,19 @@ def get_full_thumbnail_variant(asset_data, variant: str):
     file_name = os.path.basename(file_url)
     tpath = os.path.join(directory, file_name)
 
-    # Load the image into Blender
-    if os.path.exists(tpath):
-        img = utils.get_hidden_image(tpath, file_name, colorspace="")
-        bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
-        return img
+    # Check if the download succeeded/failed via the images available dict
+    image_ready = global_vars.DATA["images available"].get(tpath)
+    if image_ready is False:
+        bk_logger.debug(f"{variant} thumbnail download failed: {tpath}")
+        return None
+    if image_ready is None:
+        bk_logger.log(1, f"{variant} thumbnail not yet downloaded: {tpath}")
+        return None
 
-    bk_logger.info("Thumbnail file not found at path: %s", tpath)
-    return None
+    # Load the image into Blender (get_hidden_image handles missing files with a placeholder)
+    img = utils.get_hidden_image(tpath, file_name, colorspace="")
+    bk_logger.debug(f"{variant} thumbnail loaded from path: {tpath}")
+    return img
 
 
 def get_full_photo_thumbnail(asset_data):

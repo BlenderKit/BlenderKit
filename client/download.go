@@ -362,14 +362,13 @@ func doAssetDownload(
 	}
 
 	// UNPACKING / METADATA WRITE
-	// Trigger unpack when either unpacking is enabled or metadata should be written.
-	shouldUnpack := unpackFiles || writeAssetMetadata
+	// Trigger unpack only on fresh downloads. The unpack script opens the .blend in a
+	// background Blender and re-saves it (bpy.ops.wm.save_as_mainfile), which upgrades
+	// the file format to match that Blender version. Re-running unpack on an already
+	// existing file ("place" or "sync") with a different Blender version would make the
+	// .blend unreadable by older Blenders.
+	shouldUnpack := (unpackFiles || writeAssetMetadata) && action == "download"
 	if shouldUnpack {
-		// If there was no download, there's risk that the file to be unpacked
-		// is only in local, but not in global directory
-		if action != "download" {
-			fp = existingFiles[0]
-		}
 		//err := UnpackAsset(fp, data, taskID)
 		assetDataRaw, _ := origJSON["asset_data"]
 
@@ -386,13 +385,12 @@ func doAssetDownload(
 			writeAssetMetadata,
 		)
 		if err != nil {
-			e := fmt.Errorf("error unpacking asset: %w", err)
-			TaskErrorCh <- &TaskError{
-				AppID:  appID,
-				TaskID: taskID,
-				Error:  e,
+			BKLog.Printf("%s error unpacking asset (non-fatal, asset will still be placed): %v", EmoWarning, err)
+			TaskMessageCh <- &TaskMessageUpdate{
+				AppID:   appID,
+				TaskID:  taskID,
+				Message: fmt.Sprintf("Unpacking failed (asset will still be placed): %v", err),
 			}
-			return
 		}
 	}
 
@@ -454,6 +452,18 @@ func UnpackAsset(
 		return nil
 	}
 
+	// Microsoft Store Blender installs live under WindowsApps which blocks
+	// external processes from exec-ing the binary ("access is denied").
+	// Detect this early and skip unpack with a clear message.
+	if runtime.GOOS == "windows" && strings.Contains(strings.ToLower(binaryPath), "windowsapps") {
+		TaskMessageCh <- &TaskMessageUpdate{
+			AppID:   appID,
+			TaskID:  taskID,
+			Message: "Skipping unpack: Microsoft Store Blender cannot be launched as background process",
+		}
+		return nil
+	}
+
 	TaskMessageCh <- &TaskMessageUpdate{
 		AppID:   appID,
 		TaskID:  taskID,
@@ -505,6 +515,12 @@ func UnpackAsset(
 		color.FgGray.Printf("   %s\n", line)
 	}
 	if err != nil {
+		// Include Blender's output in the error so callers can see why it failed
+		// (e.g. "not a blend file" when old Blender can't read a newer .blend format).
+		output := strings.TrimSpace(combinedOutput.String())
+		if output != "" {
+			return fmt.Errorf("%w, Blender output: %s", err, output)
+		}
 		return err
 	}
 
