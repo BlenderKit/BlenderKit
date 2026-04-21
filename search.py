@@ -947,14 +947,68 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
 
 
 def handle_prxc_download_task(task: client_tasks.Task) -> None:
-    """Handle completed .prxc proxy mesh download."""
+    """Handle completed .prxc proxy mesh download.
+
+    On success the file is kept in the temp directory *and* copied to the
+    asset's persistent download directory so it survives cache clears and is
+    available for the validator and future tooling without re-downloading.
+    ``global_vars.DATA["prxc available"][assetBaseId]`` is updated to point
+    at the persistent copy when it exists, falling back to the temp path.
+    """
+    import shutil
+
     asset_base_id = task.data.get("assetBaseId", "")
     file_path = task.data.get("file_path", "")
     if task.status == "finished" and file_path:
-        global_vars.DATA.setdefault("prxc available", {})[asset_base_id] = file_path
-        bk_logger.debug(f"prxc available for {asset_base_id}: {file_path}")
+        persistent_path = _copy_prxc_to_asset_dir(asset_base_id, file_path)
+        stored_path = persistent_path if persistent_path else file_path
+        global_vars.DATA.setdefault("prxc available", {})[asset_base_id] = stored_path
+        bk_logger.debug(f"prxc available for {asset_base_id}: {stored_path}")
     elif task.status == "error":
         bk_logger.debug(f"prxc download failed for {asset_base_id}: {task.message}")
+
+
+def _copy_prxc_to_asset_dir(asset_base_id: str, src_path: str) -> str:
+    """Copy *src_path* to the asset's persistent download directory.
+
+    Looks up the asset in the current search results by ``assetBaseId``.  If
+    found, the file is copied to the first candidate asset directory as
+    ``{assetBaseId}.prxc``.  The directory is created when it does not yet
+    exist (the model download may arrive later).
+
+    Returns the destination path on success, or an empty string on failure.
+    """
+    import shutil
+
+    if not src_path or not os.path.exists(src_path):
+        return ""
+
+    # Find the asset data in the active search results.
+    asset_data = None
+    for result in get_search_results():
+        if result.get("assetBaseId") == asset_base_id:
+            asset_data = result
+            break
+
+    if asset_data is None:
+        bk_logger.debug(
+            f"prxc: asset {asset_base_id} not in search results, keeping temp path"
+        )
+        return ""
+
+    try:
+        asset_dirs = paths.get_asset_directories(asset_data)
+        if not asset_dirs:
+            return ""
+        dest_dir = asset_dirs[0]
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, f"{asset_base_id}.prxc")
+        shutil.copy2(src_path, dest_path)
+        bk_logger.debug(f"prxc copied to asset dir: {dest_path}")
+        return dest_path
+    except Exception as e:
+        bk_logger.warning(f"prxc: failed to copy to asset dir: {e}")
+        return ""
 
 
 def load_preview(asset):

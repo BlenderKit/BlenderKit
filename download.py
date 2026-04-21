@@ -1061,6 +1061,14 @@ def update_asset_metadata(asset_main, asset_data):
     # TODO consider reducing stored fields for filesize.
     asset_main["asset_data"] = sanitized
 
+    # Store the proxor (.prxc) file path on the asset so the validator and
+    # future tooling can locate it without a search-results lookup.
+    prxc_path = global_vars.DATA.get("prxc available", {}).get(
+        asset_data["assetBaseId"], ""
+    )
+    if prxc_path:
+        asset_main.blenderkit.proxor_path = prxc_path
+
 
 def replace_resolution_linked(file_paths, asset_data):
     """Replace one asset resolution for another. This is the much simpler case.

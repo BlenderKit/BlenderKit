@@ -39,6 +39,11 @@ MAX_POINT_COUNT = 10000
 MIN_POINT_COUNT = 500
 POINT_DIVISOR = 100
 
+# -- High-poly fast-path threshold --
+#: Vertex count above which grid-cell sampling replaces the area-weighted
+#: triangle sampler.  Roughly 300 k+ polygons for typical quad meshes.
+HIGHPOLY_VERT_THRESHOLD = 150_000
+
 # -- Marching cubes --
 MARCHING_CUBES_MAX_GRID_CELLS = 8_000_000
 MARCHING_CUBES_PADDING = 2.0
@@ -420,6 +425,112 @@ def _interpolate_uv(
 
 
 # ===========================================================================
+# High-poly fast-path: grid-cell vertex sampling
+# ===========================================================================
+
+
+def _fast_grid_sample(
+    obj_eval,
+    mesh,
+    count: int,
+    *,
+    include_normals: bool = False,
+) -> tuple[list[list[float]], list[list[float]], list[list[float]]]:
+    """Grid-cell sampler for high-poly meshes (fast path).
+
+    Reads all vertex positions in a single bulk ``foreach_get`` call,
+    assigns each vertex to a 3-D spatial cell, then emits one representative
+    vertex per occupied cell.  Dense surface areas produce more occupied
+    cells, giving approximately surface-area-proportional coverage without
+    iterating over triangles in Python.
+
+    For flat/sheet-like meshes (thinnest dimension < 2 % of the largest) the
+    grid is scaled as ``sqrt(count)`` per dominant axis instead of
+    ``count ** (1/3)``, so 2-D surfaces are well covered.
+
+    Args:
+        obj_eval:        The already-evaluated Blender object.
+        mesh:            The already-evaluated :class:`bpy.types.Mesh`.
+        count:           Desired sample count.
+        include_normals: Return per-point vertex normals when ``True``.
+
+    Returns:
+        ``(positions, normals, colors)`` in the object's local space.
+        *colors* is always empty — the caller falls back to the object's
+        solid colour via ``_build_payload_point_colors``.
+    """
+    n_verts = len(mesh.vertices)
+    if n_verts == 0:
+        return [], [], []
+
+    # --- 1. Bulk-read local-space vertex positions ---
+    co_flat = np.empty(n_verts * 3, dtype=np.float32)
+    mesh.vertices.foreach_get("co", co_flat)
+    co_local = co_flat.reshape(n_verts, 3)  # (N, 3) local coords
+
+    # --- 2. World-space positions for a spatially uniform grid ---
+    mat = np.array(obj_eval.matrix_world, dtype=np.float32)  # (4, 4) row-major
+    co_world = co_local @ mat[:3, :3].T + mat[:3, 3]  # (N, 3) world coords
+
+    # --- 3. Bounding box and per-axis cell counts ---
+    bbox_min = co_world.min(axis=0)
+    bbox_max = co_world.max(axis=0)
+    extent = bbox_max - bbox_min
+    extent = np.where(extent < 1e-6, 1e-6, extent)  # guard zero extents
+
+    # Detect flat / sheet-like meshes: if the thinnest dimension is less than
+    # 2 % of the largest, treat as 2-D so the dominant plane is well sampled.
+    sorted_ext = np.sort(extent)[::-1]
+    is_flat = float(sorted_ext[2]) / float(sorted_ext[0]) < 0.02
+    exponent = 0.5 if is_flat else (1.0 / 3.0)
+    base_side = max(int(round(count**exponent)), 1)
+
+    # Scale each axis proportionally so cells stay roughly cubic in world space.
+    cells_per_axis = np.maximum(
+        np.round(extent / extent.max() * base_side).astype(np.int32), 1
+    )
+    cell_size = extent / cells_per_axis  # per-axis cell dimensions
+
+    # --- 4. Assign each vertex to a cell ---
+    cell_xyz = np.floor((co_world - bbox_min) / cell_size).astype(np.int32)
+    cell_xyz = np.clip(cell_xyz, 0, cells_per_axis - 1)
+
+    # Flatten 3-D index (ix, iy, iz) → scalar key
+    stride = np.array(
+        [int(cells_per_axis[1]) * int(cells_per_axis[2]), int(cells_per_axis[2]), 1],
+        dtype=np.int64,
+    )
+    cell_1d = (cell_xyz.astype(np.int64) * stride).sum(axis=1)
+
+    # --- 5. One representative per occupied cell ---
+    # Sort by cell key; np.unique returns first occurrence indices in sorted order.
+    sort_order = np.argsort(cell_1d, kind="stable")
+    _, first_in_cell = np.unique(cell_1d[sort_order], return_index=True)
+    rep_idx = sort_order[first_in_cell]  # vertex indices, one per occupied cell
+
+    n_cells = len(rep_idx)
+
+    # Too many cells → thin by evenly spaced sub-selection.
+    if n_cells > count:
+        chosen = np.round(np.linspace(0, n_cells - 1, count)).astype(np.int64)
+        rep_idx = rep_idx[chosen]
+
+    # --- 6. Build output lists in local space ---
+    pts: list[list[float]] = co_local[rep_idx].tolist()
+
+    nrm_out: list[list[float]] = []
+    if include_normals:
+        nrm_flat = np.empty(n_verts * 3, dtype=np.float32)
+        mesh.vertices.foreach_get("normal", nrm_flat)
+        nrm_data = nrm_flat.reshape(n_verts, 3)
+        nrm_out = nrm_data[rep_idx].tolist()
+
+    # Colors are not available without UV interpolation; the caller falls back
+    # to the object's solid colour via _build_payload_point_colors.
+    return pts, nrm_out, []
+
+
+# ===========================================================================
 # Surface sampling
 # ===========================================================================
 
@@ -446,6 +557,11 @@ def _sample_uniform_surface_points(
     if mesh is None:
         return [], [], []
     try:
+        # Fast path: skip the Python triangle loop for high-poly meshes.
+        if len(mesh.vertices) >= HIGHPOLY_VERT_THRESHOLD:
+            return _fast_grid_sample(
+                obj_eval, mesh, count, include_normals=include_normals
+            )
         mesh.calc_loop_triangles()
         loop_tris = getattr(mesh, "loop_triangles", [])
         if not loop_tris:

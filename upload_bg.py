@@ -193,6 +193,42 @@ if __name__ == "__main__":
             for o in allobs:
                 g.objects.link(o)  # type: ignore
             bpy.context.scene.collection.children.link(g)  # type: ignore
+
+            try:
+                from .bl_proxor import generate as proxor_generate
+                from .bl_proxor import prx_format as proxor_prx_format
+
+                proxor_objects = [o for o in allobs if getattr(o, "type", "") == "MESH"]
+                if proxor_objects:
+                    print(
+                        f"Generating proxor in background for {len(proxor_objects)} objects"
+                    )
+                    payload = proxor_generate.generate_proxor_multi(
+                        proxor_objects,
+                        include_normals=True,
+                    )
+                    if payload is not None:
+                        prxc_path = os.path.join(
+                            export_data["temp_dir"],
+                            upload_data["assetBaseId"] + ".prxc",
+                        )
+                        proxor_prx_format.write_prx(
+                            prxc_path,
+                            payload,
+                            name=proxor_objects[0].name,
+                            compress=True,
+                            include_mesh=proxor_generate.EXPORT_INCLUDE_MESH,
+                            include_lines=proxor_generate.EXPORT_INCLUDE_LINES,
+                            include_points=proxor_generate.EXPORT_INCLUDE_POINTS,
+                            include_colors=proxor_generate.EXPORT_INCLUDE_COLORS,
+                        )
+                        print(f"Proxor saved to {prxc_path}")
+                    else:
+                        print("Proxor generation returned no data")
+                else:
+                    print("Proxor: no mesh objects found in export list")
+            except Exception as e:
+                print(f"Proxor generation failed in background: {e}")
         elif upload_data["assetType"] == "scene":
             sname = export_data["scene"]
             main_source = append_link.append_scene(

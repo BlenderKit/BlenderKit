@@ -857,6 +857,12 @@ class BlenderKitCommonUploadProps(object):
         description="Unique name of the asset (hidden)",
         default="",
     )
+    proxor_path: StringProperty(
+        name="Proxor Path",
+        description="Path to the .prxc proxy mesh file for this asset (auto-populated on download)",
+        default="",
+        subtype="FILE_PATH",
+    )
     name: StringProperty(
         name="Name",
         description="Provide name of your asset, choose a few descriptive English words that clearly identify and distinguish your asset. Good naming helps your asset to be found on the search engine. Follow these tips:\n\n"
