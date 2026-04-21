@@ -444,10 +444,7 @@ def draw_proxor_download(
     progress: Optional[float] = None,
     color: Tuple[float, float, float, float] = colors.PURE_GREEN,
 ) -> None:
-    """Draw full proxor (mesh, lines, points) during download.
-
-    .. deprecated:: Use :func:`ui_bgl.draw_proxor_download` instead.
-    """
+    """Draw full proxor (mesh, lines, points) during download."""
     ui_bgl.draw_proxor_download(location, rotation, proxor_data, progress, color)
 
 
@@ -459,10 +456,7 @@ def draw_bbox(
     progress: Optional[float] = None,
     color: Tuple[float, float, float, float] = colors.PURE_GREEN,
 ) -> None:
-    """Draw a 3D wireframe bounding box.
-
-    .. deprecated:: Use :func:`ui_bgl.draw_bbox` instead.
-    """
+    """Draw a 3D wireframe bounding box."""
     ui_bgl.draw_bbox(location, rotation, bbox_min, bbox_max, progress, color)
 
 
@@ -1977,6 +1971,13 @@ class AssetDragOperator(bpy.types.Operator):
                         bk_logger.debug(f"Proxor preview loaded for {asset_base_id}")
                 except Exception as e:
                     bk_logger.warning(f"Failed to load proxor preview: {e}")
+                    # Ensure a partially-initialized handler is torn down
+                    # (e.g. install() raised after set_payload() cached batches).
+                    if self._proxor_handler is not None:
+                        try:
+                            self._proxor_handler.remove()
+                        except Exception:
+                            pass
                     self._proxor_handler = None
 
         # Initialize drag-start coordinates immediately in invoke.

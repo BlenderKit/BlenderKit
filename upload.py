@@ -98,11 +98,6 @@ def refresh_upload_status_ui():
         for area in screen.areas:
             area.tag_redraw()
 
-    try:
-        bpy.ops.wm.redraw_timer(type="DRAW_WIN_SWAP", iterations=1)
-    except Exception:
-        pass
-
 
 def set_upload_status(props, text):
     """Update upload status and force a redraw for long synchronous steps."""
@@ -1517,8 +1512,11 @@ class UploadOperator(Operator):
             if self.main_file:
                 upload_set.append("MAINFILE")
 
-        # Always include proxor .prxc file for model/printable assets
-        if self.asset_type in {"MODEL", "PRINTABLE"}:
+        # Generate proxor .prxc only when the main file is being uploaded
+        # (initial upload or re-upload with main_file checked). Skipping when
+        # only metadata/thumbnails change avoids running the proxor pipeline
+        # on every edit.
+        if self.asset_type in {"MODEL", "PRINTABLE"} and "MAINFILE" in upload_set:
             upload_set.append("PRXC")
 
         # this is accessed later in get_upload_data and needs to be written.

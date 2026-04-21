@@ -61,6 +61,16 @@ _DECIMATION_RATIO_DEFAULT = 0.25  # 1.0 = keep all, 0.5 = halve triangle count
 _REPROJECT_MAX_DIST_FACTOR = 1.2
 _SMOOTH_ITERATIONS_DEFAULT = 10
 
+# -- Exterior-only sampling (drop interior-cavity samples) --
+#: When True, samples whose outward-normal ray hits the mesh are discarded,
+#: so interior faces (e.g. roof of mouth, nostril walls, eye sockets) do
+#: not pollute the marching-cubes density field.
+_EXTERIOR_ONLY_DEFAULT = True
+#: Ray origin offset along the outward normal, as a fraction of the mesh
+#: bounding-box diagonal. Large enough to escape the source face but small
+#: enough not to skip adjacent interior surfaces.
+_EXTERIOR_RAY_EPSILON_FACTOR = 1e-4
+
 # -- Coordinate transforms --
 _PRX_TO_BLENDER = Matrix(
     (
@@ -1246,6 +1256,76 @@ def _build_source_bvh(sources, depsgraph):
     return BVHTree.FromPolygons(all_verts, all_tris)
 
 
+def _filter_exterior_points(
+    points: list[list[float]],
+    normals: list[list[float]],
+    colors: list[list[float]],
+    bvh_tree,
+) -> tuple[list[list[float]], list[list[float]], list[list[float]]]:
+    """Drop samples whose outward-normal ray intersects the mesh.
+
+    For each ``(p, n)`` pair a single ray is cast from ``p + n*eps`` along
+    ``+n`` through *bvh_tree*. A hit means the sample is on an interior /
+    back-facing surface (roof of mouth, nostril walls, eye sockets, ...)
+    and is dropped so marching-cubes reconstruction isn't contaminated
+    with cavity samples.
+
+    If *normals* are missing or degenerate the point is kept (conservative).
+    """
+    if bvh_tree is None or not points or not normals or len(points) != len(normals):
+        return points, normals, colors
+
+    pts_np = np.asarray(points, dtype=np.float64)
+    bbox_diag = float(np.linalg.norm(pts_np.max(axis=0) - pts_np.min(axis=0)))
+    if not np.isfinite(bbox_diag) or bbox_diag <= 0.0:
+        return points, normals, colors
+    epsilon = max(bbox_diag * _EXTERIOR_RAY_EPSILON_FACTOR, 1e-7)
+    ray_length = bbox_diag * 2.0
+
+    has_colors = bool(colors) and len(colors) == len(points)
+    kept_points: list[list[float]] = []
+    kept_normals: list[list[float]] = []
+    kept_colors: list[list[float]] = []
+
+    for idx, (p, n) in enumerate(zip(points, normals)):
+        nx = float(n[0]) if len(n) > 0 else 0.0
+        ny = float(n[1]) if len(n) > 1 else 0.0
+        nz = float(n[2]) if len(n) > 2 else 0.0
+        nlen = (nx * nx + ny * ny + nz * nz) ** 0.5
+        if nlen < 1e-8:
+            kept_points.append(p)
+            kept_normals.append(n)
+            if has_colors:
+                kept_colors.append(colors[idx])
+            continue
+        inv = 1.0 / nlen
+        nx *= inv
+        ny *= inv
+        nz *= inv
+        origin = Vector(
+            (
+                float(p[0]) + nx * epsilon,
+                float(p[1]) + ny * epsilon,
+                float(p[2]) + nz * epsilon,
+            )
+        )
+        direction = Vector((nx, ny, nz))
+        try:
+            hit = bvh_tree.ray_cast(origin, direction, ray_length)
+        except Exception:  # noqa: BLE001
+            hit = (None,)
+        # BVHTree.ray_cast returns (location, normal, index, distance) with
+        # *location* being ``None`` when the ray misses.
+        if hit is not None and hit[0] is not None:
+            continue  # interior-facing sample, drop
+        kept_points.append(p)
+        kept_normals.append(n)
+        if has_colors:
+            kept_colors.append(colors[idx])
+
+    return kept_points, kept_normals, kept_colors
+
+
 def _build_vertex_adjacency(
     num_verts: int,
     triangles: list[tuple[int, int, int]],
@@ -1287,6 +1367,16 @@ def _smooth_and_snap_to_surface(
     result = vertices_np.astype(np.float64).copy()
     locked = np.zeros(num_verts, dtype=bool)
 
+    # Per-vertex outward normal on the MC mesh. Used to reject snaps to
+    # back-facing source faces: if the nearest source-surface normal points
+    # the opposite way from the MC vertex's outward normal, the "nearest"
+    # surface is on the *other* shell of the source (e.g. inside wall of a
+    # cavity) and we must not pull the MC vertex through the skin to it.
+    mc_vertex_normals = np.asarray(
+        _compute_vertex_normals_from_triangles(result.astype(np.float32), triangles),
+        dtype=np.float64,
+    )
+
     smooth_factor = 0.5
 
     for _iteration in range(iterations):
@@ -1308,10 +1398,28 @@ def _smooth_and_snap_to_surface(
             if locked[idx]:
                 continue
             origin = Vector(result[idx].tolist())
-            nearest, _normal, _face_idx, _dist = bvh_tree.find_nearest(
+            nearest, hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
                 origin, snap_distance
             )
             if nearest is not None:
+                # Reject snaps to back-facing source faces. If the source
+                # surface normal points opposite to the MC vertex's own
+                # outward normal, this is the far side of a thin shell /
+                # interior cavity wall. Leaving the vertex unlocked lets
+                # smoothing relax it outward and (hopefully) find the
+                # correct outer face on the next iteration.
+                mc_n = mc_vertex_normals[idx]
+                if (
+                    hit_normal is not None
+                    and float(
+                        mc_n[0] * hit_normal.x
+                        + mc_n[1] * hit_normal.y
+                        + mc_n[2] * hit_normal.z
+                    )
+                    < 0.0
+                ):
+                    any_unlocked = True
+                    continue
                 result[idx] = [nearest.x, nearest.y, nearest.z]
                 locked[idx] = True
             else:
@@ -1839,6 +1947,11 @@ def generate_proxor(
         sources, point_count, depsgraph, cached_areas=per_source_areas
     )
 
+    # Build BVH tree up front so we can (a) drop interior-facing samples
+    # before they poison the MC density field and (b) reuse it later for
+    # surface reprojection.
+    bvh_tree = _build_source_bvh(sources, depsgraph)
+
     aggregated_points: list[list[float]] = []
     aggregated_normals: list[list[float]] = []
     aggregated_colors: list[list[float]] = []
@@ -1865,6 +1978,17 @@ def generate_proxor(
     if not aggregated_points:
         return None
 
+    # Drop interior / back-facing samples so MC doesn't carve holes through
+    # the outer skin where cavity shells are sparsely sampled.
+    if _EXTERIOR_ONLY_DEFAULT and bvh_tree is not None and aggregated_normals:
+        aggregated_points, aggregated_normals, aggregated_colors = (
+            _filter_exterior_points(
+                aggregated_points, aggregated_normals, aggregated_colors, bvh_tree
+            )
+        )
+        if not aggregated_points:
+            return None
+
     color = _resolve_object_color(obj)
     point_colors = aggregated_colors if aggregated_colors else None
     colors = _build_payload_point_colors(len(aggregated_points), point_colors, color)
@@ -1876,9 +2000,6 @@ def generate_proxor(
         points_section["nrm"] = point_normals
 
     # source_tri_count is already available from mesh_stats (cached collection pass)
-
-    # Build BVH tree from source meshes for reprojection
-    bvh_tree = _build_source_bvh(sources, depsgraph)
 
     # Marching cubes mesh reconstruction from the sampled point cloud
     mesh_section = _build_cpu_marching_cubes_mesh(
@@ -1991,6 +2112,8 @@ def generate_proxor_multi(
         sources, point_count, depsgraph, cached_areas=mesh_stats["per_source_areas"]
     )
 
+    bvh_tree = _build_source_bvh(sources, depsgraph)
+
     aggregated_points: list[list[float]] = []
     aggregated_normals: list[list[float]] = []
     aggregated_colors: list[list[float]] = []
@@ -2017,6 +2140,15 @@ def generate_proxor_multi(
     if not aggregated_points:
         return None
 
+    if _EXTERIOR_ONLY_DEFAULT and bvh_tree is not None and aggregated_normals:
+        aggregated_points, aggregated_normals, aggregated_colors = (
+            _filter_exterior_points(
+                aggregated_points, aggregated_normals, aggregated_colors, bvh_tree
+            )
+        )
+        if not aggregated_points:
+            return None
+
     color = _resolve_object_color(objects[0])
     point_colors = aggregated_colors if aggregated_colors else None
     colors = _build_payload_point_colors(len(aggregated_points), point_colors, color)
@@ -2026,9 +2158,6 @@ def generate_proxor_multi(
     points_section: dict = {"pos": aggregated_points, "col": colors}
     if point_normals:
         points_section["nrm"] = point_normals
-
-    # Build BVH tree from source meshes for reprojection
-    bvh_tree = _build_source_bvh(sources, depsgraph)
 
     # Marching cubes mesh reconstruction from the sampled point cloud
     mesh_section = _build_cpu_marching_cubes_mesh(

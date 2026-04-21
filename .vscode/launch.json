@@ -80,7 +80,7 @@
                 "runtimeExecutable": "blender",
             },
             "osx": {
-                "runtimeExecutable": "/Applications/Blender 5.1.app/Contents/MacOS/Blender",
+                "runtimeExecutable": "/Applications/Blender.app/Contents/MacOS/Blender",
             }
         },
 

@@ -965,6 +965,7 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 	data, ok := t.Data.(DownloadPrxcData)
 	if !ok {
 		t.Status = "error"
+		t.Message = "invalid data type for prxc download"
 		t.Error = fmt.Errorf("invalid data type for prxc download")
 		AddTaskCh <- t
 		return
@@ -983,6 +984,7 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 	_, signedURL, _, err := GetSignedURL(data.SceneUUID, file, data.APIKey, data.AddonVersion, data.PlatformVersion)
 	if err != nil {
 		t.Status = "error"
+		t.Message = "failed to get signed URL for prxc"
 		t.Error = fmt.Errorf("failed to get signed URL for prxc: %w", err)
 		AddTaskCh <- t
 		return
@@ -992,14 +994,19 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 	req, err := http.NewRequest("GET", signedURL, nil)
 	if err != nil {
 		t.Status = "error"
+		t.Message = "error creating prxc request"
 		t.Error = err
 		AddTaskCh <- t
 		return
 	}
 
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+	req.Header = headers
+
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
 		t.Status = "error"
+		t.Message = "error downloading prxc"
 		t.Error = fmt.Errorf("error downloading prxc: %w", err)
 		AddTaskCh <- t
 		return
@@ -1008,6 +1015,7 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Status = "error"
+		t.Message = fmt.Sprintf("prxc download returned status %d", resp.StatusCode)
 		t.Error = fmt.Errorf("prxc download returned status %d", resp.StatusCode)
 		AddTaskCh <- t
 		return
@@ -1016,6 +1024,7 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 	outFile, err := os.Create(data.FilePath)
 	if err != nil {
 		t.Status = "error"
+		t.Message = "error creating prxc file"
 		t.Error = fmt.Errorf("error creating prxc file: %w", err)
 		AddTaskCh <- t
 		return
@@ -1024,6 +1033,7 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 
 	if _, err := io.Copy(outFile, resp.Body); err != nil {
 		t.Status = "error"
+		t.Message = "error writing prxc file"
 		t.Error = fmt.Errorf("error writing prxc file: %w", err)
 		AddTaskCh <- t
 		return

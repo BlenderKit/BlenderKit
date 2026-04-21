@@ -22,6 +22,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import unicodedata
 import urllib.parse
 import uuid
@@ -997,8 +998,6 @@ def _copy_prxc_to_asset_dir(asset_base_id: str, src_path: str) -> str:
 
     Returns the destination path on success, or an empty string on failure.
     """
-    import shutil
-
     if not src_path or not os.path.exists(src_path):
         return ""
 
@@ -1019,6 +1018,9 @@ def _copy_prxc_to_asset_dir(asset_base_id: str, src_path: str) -> str:
         asset_dirs = paths.get_asset_directories(asset_data)
         if not asset_dirs:
             return ""
+        # A single .prxc file applies to every resolution of the asset, so
+        # the first directory (primary/highest resolution) is a sufficient
+        # canonical location; other resolutions will find it via lookup.
         dest_dir = asset_dirs[0]
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, f"{asset_base_id}.prxc")

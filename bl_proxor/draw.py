@@ -880,6 +880,7 @@ class ProxorLiteDrawHandler:
                 if batch is not None:
                     batch.draw(shader)
         gpu.state.depth_mask_set(False)
+        gpu.state.depth_test_set("NONE")
         gpu.state.blend_set("NONE")
 
     def _draw_lines(self):
@@ -894,6 +895,7 @@ class ProxorLiteDrawHandler:
         with self._push_matrix():
             line["batch"].draw(shader)
         gpu.state.depth_mask_set(False)
+        gpu.state.depth_test_set("NONE")
 
     def _draw_points(self):
         pts = self._draw_data.get("points") if self._draw_data else None
@@ -913,6 +915,7 @@ class ProxorLiteDrawHandler:
         with self._push_matrix():
             pts["batch"].draw(shader)
         gpu.state.depth_mask_set(False)
+        gpu.state.depth_test_set("NONE")
         gpu.state.blend_set("NONE")
 
     # -- lighting helpers --

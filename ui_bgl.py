@@ -980,6 +980,7 @@ def draw_proxor_download(
                 if batch is not None:
                     batch.draw(shader)
             gpu.state.depth_mask_set(False)
+            gpu.state.depth_test_set("NONE")
             gpu.state.blend_set("NONE")
 
         # Draw lines
@@ -991,6 +992,7 @@ def draw_proxor_download(
             shader.uniform_float("lineWidth", 1.0)
             line["batch"].draw(shader)
             gpu.state.depth_mask_set(False)
+            gpu.state.depth_test_set("NONE")
 
         # Draw points
         pts = draw_data.get("points")
@@ -1007,6 +1009,7 @@ def draw_proxor_download(
                 shader.uniform_float("color", pts["color"])
             pts["batch"].draw(shader)
             gpu.state.depth_mask_set(False)
+            gpu.state.depth_test_set("NONE")
             gpu.state.blend_set("NONE")
     finally:
         gpu.matrix.pop()

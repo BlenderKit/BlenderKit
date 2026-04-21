@@ -40,10 +40,8 @@ def random_color(in_string: str) -> list[float]:
     """Generate a stable random color seeded by *in_string*."""
     random.seed(in_string)
     col = [random.uniform(0.0, 1.0) for _ in range(RGB_SIZE)]  # noqa: S311
-    try:
-        random.seed(a=None, version=2)
-    except Exception:  # noqa: BLE001
-        random.seed(a=None)
+    # Restore non-deterministic global RNG state.
+    random.seed(a=None, version=2)
     return col
 
 
