@@ -60,18 +60,6 @@ handler_3d = None
 _download_proxor_cache: dict[str, Optional[dict]] = {}
 
 
-def _is_proxor_enabled() -> bool:
-    """Return True when proxor preview is enabled in experimental settings."""
-    try:
-        prefs = bpy.context.preferences.addons[__package__].preferences
-        return bool(
-            getattr(prefs, "experimental_features", False)
-            and getattr(prefs, "proxor_gizmo", False)
-        )
-    except Exception:
-        return False
-
-
 DEFAULT_DRAG_THRESHOLD = 30  # pixels
 """Pointer travel in pixels needed before we start rendering full drag hints."""
 
@@ -527,7 +515,7 @@ def draw_callback_3d_progress(
                     asset_base_id = asset_data.get("assetBaseId", "")
                     proxor_data = (
                         _load_proxor_for_download(asset_base_id)
-                        if _is_proxor_enabled()
+                        if utils.experimental_enabled()
                         else None
                     )
                     if proxor_data is not None:
@@ -1959,7 +1947,7 @@ class AssetDragOperator(bpy.types.Operator):
         self.asset_data = dict(sr[self.asset_search_index])
 
         # Try to load proxor preview for model/printable assets
-        if _is_proxor_enabled() and self.asset_data.get("assetType") in (
+        if utils.experimental_enabled() and self.asset_data.get("assetType") in (
             "model",
             "printable",
         ):

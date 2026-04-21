@@ -2637,13 +2637,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
-    proxor_gizmo: BoolProperty(
-        name="Proxor preview gizmo",
-        description="Use .prxc proxy meshes as drag-and-drop preview instead of the green bounding box. Requires a new search to take effect",
-        default=False,
-        update=utils.save_prefs,
-    )
-
     def draw(self, context):
         layout = self.layout
         login_box = layout.box()
@@ -2766,7 +2759,6 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_tab")
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
-            experimental_settings.prop(self, "proxor_gizmo")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 

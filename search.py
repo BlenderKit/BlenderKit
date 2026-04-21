@@ -65,18 +65,6 @@ MAX_PAGE_SIZE = 80
 search_tasks = {}
 
 
-def _is_proxor_gizmo_enabled() -> bool:
-    """Return True when proxor preview is enabled in experimental settings."""
-    try:
-        prefs = bpy.context.preferences.addons[__package__].preferences
-        return bool(
-            getattr(prefs, "experimental_features", False)
-            and getattr(prefs, "proxor_gizmo", False)
-        )
-    except Exception:
-        return False
-
-
 # ------------------------------------------------------------------
 # Active filter helpers (per tab)
 # ------------------------------------------------------------------
@@ -1654,7 +1642,7 @@ def add_search_process(
         blender_version=blender_version,
         is_validator=utils.profile_is_validator(),
         history_id=history_id,
-        proxor_gizmo=_is_proxor_gizmo_enabled(),
+        proxor_gizmo=utils.experimental_enabled(),
     )
     response = client_lib.asset_search(search_data)
     search_tasks[response["task_id"]] = search_data
