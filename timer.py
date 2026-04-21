@@ -41,6 +41,7 @@ from . import (
     reports,
     search,
     tasks_queue,
+    ui_bgl,
     upload,
     utils,
 )
@@ -399,6 +400,7 @@ def on_startup_timer():
     """Run once on the startup of add-on (Blender start with enabled add-on, add-on enabled)."""
     persistent_preferences.load_preferences_from_JSON()
     addon_updater_ops.check_for_update_background()
+    ui_bgl.create_image_shader()
     ok, message = utils.check_globaldir_permissions()
     if not ok:
         recovered = utils.try_recover_global_dir()

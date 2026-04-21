@@ -48,6 +48,7 @@ from . import (
     search_price,
     resolutions,
     tasks_queue,
+    ui_bgl,
     utils,
 )
 
@@ -918,6 +919,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
     if task.status == "finished":
         global_vars.DATA["images available"][task.data["image_path"]] = True
+        ui_bgl.path_to_gpu_texture(task.data["image_path"])
     elif task.status == "error":
         global_vars.DATA["images available"][task.data["image_path"]] = False
         if task.message != "":
