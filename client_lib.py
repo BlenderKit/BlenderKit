@@ -24,6 +24,7 @@ import os
 import platform
 import shutil
 import subprocess
+import threading
 from os import path
 from typing import Optional, Union
 from http.client import responses as http_responses
@@ -72,6 +73,22 @@ def get_base_url() -> str:
     return f"{address}/{vapi}"
 
 
+def _read_api_key_threadsafe() -> str:
+    """Return the user's API key without touching bpy from a non-main thread.
+    On the main thread we read the live preference. On a worker thread we read
+    the snapshot maintained by client_thread (updated each main timer tick).
+    """
+    if threading.current_thread() is threading.main_thread():
+        try:
+            return bpy.context.preferences.addons[__package__].preferences.api_key  # type: ignore
+        except (AttributeError, KeyError):
+            return ""
+    # Lazy import to avoid circular dependency at module load time.
+    from . import client_thread
+
+    return client_thread.get_cached_api_key()
+
+
 def ensure_minimal_data(data: Optional[dict] = None) -> dict:
     """Ensure that the data send to the BlenderKit-Client contains:
     - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
@@ -84,10 +101,8 @@ def ensure_minimal_data(data: Optional[dict] = None) -> dict:
     av = global_vars.VERSION
     addon_version = f"{av[0]}.{av[1]}.{av[2]}.{av[3]}"
     if "api_key" not in data:
-        # for BG instances, where preferences are not available
-        data.setdefault(
-            "api_key", bpy.context.preferences.addons[__package__].preferences.api_key  # type: ignore
-        )
+        # for BG instances and worker threads, fall back to a thread-safe accessor
+        data.setdefault("api_key", _read_api_key_threadsafe())
     data.setdefault("app_id", os.getpid())
     data.setdefault("platform_version", platform.platform())
     data.setdefault("addon_version", addon_version)
@@ -131,23 +146,38 @@ def reorder_ports(port: str = ""):
     )
 
 
-def get_reports(app_id: int):
-    """Get reports for all tasks of app_id Blender instance at once.
-    If few last calls failed, then try to get reports also from other than default ports.
+def build_report_data(app_id: int) -> dict:
+    """Construct the JSON body sent to the /report endpoint.
+    Touches bpy and so MUST be called from the main thread.
+    Worker threads should consume the dict produced here, not call this themselves.
     """
     data = ensure_minimal_data({"app_id": app_id})
     data["project_name"] = utils.get_project_name()
     data["blender_version"] = utils.get_blender_version()
+    return data
+
+
+def get_report_url(port: Optional[str] = None) -> str:
+    """Return the /report endpoint URL for the current (or a specific) port."""
+    vapi = get_api_version()
+    if port is None:
+        return f"{get_base_url()}/report"
+    return f"http://127.0.0.1:{port}/{vapi}/report"
+
+
+def get_reports(app_id: int):
+    """Get reports for all tasks of app_id Blender instance at once.
+    If few last calls failed, then try to get reports also from other than default ports.
+    """
+    data = build_report_data(app_id)
 
     # on 10, there is second BlenderKit-Client start
     if global_vars.CLIENT_FAILED_REPORTS < 10:
-        url = f"{get_base_url()}/report"
-        return request_report(url, data)
+        return request_report(get_report_url(), data)
 
     last_exception = None
     for port in global_vars.CLIENT_PORTS:
-        vapi = get_api_version()
-        url = f"http://127.0.0.1:{port}/{vapi}/report"
+        url = get_report_url(port)
         try:
             report = request_report(url, data)
             bk_logger.warning(
