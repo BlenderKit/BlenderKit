@@ -846,11 +846,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         if comments is None:
-            validator_comment_ids.append(asset_data["assetBaseId"])
-
-    # Defer validator comment fetching to avoid blocking UI during search
-    for aid in validator_comment_ids:
-        tasks_queue.add_task((client_lib.get_comments, (aid,)))
+            client_lib.get_comments(asset_data["assetBaseId"])
 
     # Separate author results from regular assets, put authors first
     author_results = [r for r in result_field if r.get("assetType") == "author"]
