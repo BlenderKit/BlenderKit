@@ -41,13 +41,20 @@ POINT_DIVISOR = 100
 
 # -- High-poly fast-path threshold --
 #: Vertex count above which grid-cell sampling replaces the area-weighted
-#: triangle sampler.  Roughly 300 k+ polygons for typical quad meshes.
-HIGHPOLY_VERT_THRESHOLD = 150_000
+#: triangle sampler.  Raised from 150k to 50k for efficiency on dense meshes.
+#: Fast grid-cell sampling is vectorized and handles 4M+ polys efficiently.
+HIGHPOLY_VERT_THRESHOLD = 50_000
 
 # -- Marching cubes --
 MARCHING_CUBES_MAX_GRID_CELLS = 8_000_000
 MARCHING_CUBES_PADDING = 2.0
 CPU_RECON_DEFAULT_VOXEL_SCALE = 0.7
+
+# -- Extreme poly detection for aggressive LOD --
+#: If source vertex count exceeds this, use aggressive point sampling LOD
+EXTREME_POLY_VERT_THRESHOLD = 5_000_000
+#: Divisor for extreme polys (reduce vs. default POINT_DIVISOR=100)
+EXTREME_POLY_DIVISOR = 300
 
 # -- Mesh post-processing defaults --
 _DECIMATION_RATIO_DEFAULT = 0.25  # 1.0 = keep all, 0.5 = halve triangle count
@@ -287,17 +294,80 @@ def _estimate_object_surface_area(obj, depsgraph) -> float:
             obj_eval.to_mesh_clear()
 
 
+def _collect_mesh_stats_cached(
+    sources: list[tuple],
+    depsgraph,
+) -> dict:
+    """Collect vertex count, triangle count, and surface area in a single pass.
+
+    Returns: ``{"total_verts": int, "total_tris": int, "per_source_areas": list[float]}``
+
+    This consolidates three separate mesh evaluations into one to avoid
+    redundant depsgraph evaluation for high-poly meshes.
+    """
+    total_verts = 0
+    total_tris = 0
+    per_source_areas: list[float] = []
+
+    for source_obj, _ in sources:
+        try:
+            obj_eval = source_obj.evaluated_get(depsgraph)
+            mesh = obj_eval.to_mesh(preserve_all_data_layers=False, depsgraph=depsgraph)
+            if mesh is None:
+                per_source_areas.append(0.0)
+                continue
+
+            # Count vertices and triangles in one go
+            total_verts += len(mesh.vertices)
+            mesh.calc_loop_triangles()
+            loop_tris = getattr(mesh, "loop_triangles", [])
+            total_tris += len(loop_tris)
+
+            # Calculate surface area
+            vertices = getattr(mesh, "vertices", [])
+            if loop_tris and vertices:
+                matrix_world = obj_eval.matrix_world.copy()
+                total_area = 0.0
+                for tri in loop_tris:
+                    area = _triangle_world_area(tri, vertices, matrix_world)
+                    if area > 0:
+                        total_area += area
+                per_source_areas.append(total_area)
+            else:
+                per_source_areas.append(0.0)
+        except Exception:  # noqa: BLE001, S110, PERF203
+            per_source_areas.append(0.0)
+        finally:
+            with contextlib.suppress(Exception):
+                obj_eval.to_mesh_clear()
+
+    return {
+        "total_verts": total_verts,
+        "total_tris": total_tris,
+        "per_source_areas": per_source_areas,
+    }
+
+
 def _allocate_samples_by_area(
     sources: list[tuple],
     sample_count: int,
     depsgraph,
+    cached_areas: Optional[list[float]] = None,
 ) -> list[int]:
-    """Distribute *sample_count* across *sources* proportional to surface area."""
+    """Distribute *sample_count* across *sources* proportional to surface area.
+
+    If *cached_areas* is provided, use pre-computed areas instead of evaluating.
+    """
     if not sources or sample_count <= 0:
         return [0 for _ in sources]
-    areas = [
-        max(_estimate_object_surface_area(src, depsgraph), 0.0) for src, _ in sources
-    ]
+
+    if cached_areas is not None:
+        areas = [max(a, 0.0) for a in cached_areas]
+    else:
+        areas = [
+            max(_estimate_object_surface_area(src, depsgraph), 0.0)
+            for src, _ in sources
+        ]
     total_area = sum(areas)
     if total_area <= 0.0:
         areas = [1.0 for _ in sources]
@@ -557,12 +627,21 @@ def _sample_uniform_surface_points(
     if mesh is None:
         return [], [], []
     try:
-        # Fast path: skip the Python triangle loop for high-poly meshes.
-        if len(mesh.vertices) >= HIGHPOLY_VERT_THRESHOLD:
+        n_verts = len(mesh.vertices)
+        mesh.calc_loop_triangles()
+        n_tris = len(mesh.loop_triangles)
+
+        # Fast path: use grid-cell sampling for high-poly meshes or meshes with
+        # many degenerate triangles.  This is vectorized and much faster than
+        # the Python triangle loop with bisect sampling.
+        # Use grid sampler if:
+        # - Vertex count exceeds threshold (default 50k), OR
+        # - Triangle count > 500k (dense mesh even if vertex count is lower)
+        if n_verts >= HIGHPOLY_VERT_THRESHOLD or n_tris > 500_000:
             return _fast_grid_sample(
                 obj_eval, mesh, count, include_normals=include_normals
             )
-        mesh.calc_loop_triangles()
+
         loop_tris = getattr(mesh, "loop_triangles", [])
         if not loop_tris:
             return [], [], []
@@ -1737,14 +1816,28 @@ def generate_proxor(
     if not sources:
         return None
 
-    # Derive point count from total source vertex count
-    total_verts = _count_source_vertices(sources, depsgraph)
-    point_count = min(
-        max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
-    )
+    # Collect all mesh stats in a single pass (avoid redundant evaluations)
+    mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
+    total_verts = mesh_stats["total_verts"]
+    source_tri_count = mesh_stats["total_tris"]
+    per_source_areas = mesh_stats["per_source_areas"]
 
-    # Allocate samples across sources by relative surface area
-    allocations = _allocate_samples_by_area(sources, point_count, depsgraph)
+    # Derive point count with extreme poly LOD
+    if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
+        # Aggressive LOD for meshes with 5M+ vertices
+        point_count = min(
+            max(total_verts // EXTREME_POLY_DIVISOR, MIN_POINT_COUNT),
+            MAX_POINT_COUNT,
+        )
+    else:
+        point_count = min(
+            max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
+        )
+
+    # Allocate samples across sources by relative surface area (use cached areas)
+    allocations = _allocate_samples_by_area(
+        sources, point_count, depsgraph, cached_areas=per_source_areas
+    )
 
     aggregated_points: list[list[float]] = []
     aggregated_normals: list[list[float]] = []
@@ -1782,8 +1875,7 @@ def generate_proxor(
     if point_normals:
         points_section["nrm"] = point_normals
 
-    # Count source triangles to compare against generated mesh later
-    source_tri_count = _count_source_triangles(sources, depsgraph)
+    # source_tri_count is already available from mesh_stats (cached collection pass)
 
     # Build BVH tree from source meshes for reprojection
     bvh_tree = _build_source_bvh(sources, depsgraph)
@@ -1879,14 +1971,25 @@ def generate_proxor_multi(
     if not sources:
         return None
 
-    # Derive point count from total source vertex count
-    total_verts = _count_source_vertices(sources, depsgraph)
-    point_count = min(
-        max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
-    )
+    # Collect all mesh stats in a single pass (avoid redundant evaluations)
+    mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
+    total_verts = mesh_stats["total_verts"]
 
-    # Allocate samples across sources by relative surface area
-    allocations = _allocate_samples_by_area(sources, point_count, depsgraph)
+    # Derive point count with extreme poly LOD
+    if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
+        point_count = min(
+            max(total_verts // EXTREME_POLY_DIVISOR, MIN_POINT_COUNT),
+            MAX_POINT_COUNT,
+        )
+    else:
+        point_count = min(
+            max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
+        )
+
+    # Allocate samples across sources by relative surface area (use cached areas)
+    allocations = _allocate_samples_by_area(
+        sources, point_count, depsgraph, cached_areas=mesh_stats["per_source_areas"]
+    )
 
     aggregated_points: list[list[float]] = []
     aggregated_normals: list[list[float]] = []
