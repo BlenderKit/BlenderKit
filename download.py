@@ -1414,6 +1414,9 @@ def download_post(task: client_tasks.Task) -> None:
         utils.copy_asset(file_paths[0], file_paths[1])
         # shutil.copyfile(file_paths[0], file_paths[1])
 
+    # Persist proxor next to the downloaded .blend only after asset download finishes.
+    search.persist_prxc_after_asset_download(task.data["asset_data"])
+
     bk_logger.debug("appending asset")
     # progress bars:
 

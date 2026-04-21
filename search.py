@@ -947,23 +947,44 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
 def handle_prxc_download_task(task: client_tasks.Task) -> None:
     """Handle completed .prxc proxy mesh download.
 
-    On success the file is kept in the temp directory *and* copied to the
-    asset's persistent download directory so it survives cache clears and is
-    available for the validator and future tooling without re-downloading.
-    ``global_vars.DATA["prxc available"][assetBaseId]`` is updated to point
-    at the persistent copy when it exists, falling back to the temp path.
+    On success we keep the file in temp and only mark it as available.
+    Persisting it next to the downloaded .blend is deferred until the asset
+    download itself finishes.
     """
-    import shutil
-
     asset_base_id = task.data.get("assetBaseId", "")
     file_path = task.data.get("file_path", "")
     if task.status == "finished" and file_path:
-        persistent_path = _copy_prxc_to_asset_dir(asset_base_id, file_path)
-        stored_path = persistent_path if persistent_path else file_path
-        global_vars.DATA.setdefault("prxc available", {})[asset_base_id] = stored_path
-        bk_logger.debug(f"prxc available for {asset_base_id}: {stored_path}")
+        global_vars.DATA.setdefault("prxc available", {})[asset_base_id] = file_path
+        bk_logger.debug(f"prxc available in temp for {asset_base_id}: {file_path}")
     elif task.status == "error":
         bk_logger.debug(f"prxc download failed for {asset_base_id}: {task.message}")
+
+
+def persist_prxc_after_asset_download(asset_data: dict) -> None:
+    """Persist cached .prxc next to the downloaded model/printable asset.
+
+    This must be called only after the main asset download has finished.
+    """
+    asset_type = asset_data.get("assetType")
+    if asset_type not in ("model", "printable"):
+        return
+
+    asset_base_id = asset_data.get("assetBaseId", "")
+    if not asset_base_id:
+        return
+
+    src_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id, "")
+    if not src_path or not os.path.exists(src_path):
+        return
+
+    persistent_path = _copy_prxc_to_asset_dir(asset_base_id, src_path)
+    if persistent_path:
+        global_vars.DATA.setdefault("prxc available", {})[
+            asset_base_id
+        ] = persistent_path
+        bk_logger.debug(
+            f"prxc persisted after asset download for {asset_base_id}: {persistent_path}"
+        )
 
 
 def _copy_prxc_to_asset_dir(asset_base_id: str, src_path: str) -> str:
