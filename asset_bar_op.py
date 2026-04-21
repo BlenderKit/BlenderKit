@@ -3965,7 +3965,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.background_border = True
                     asset_button.background_border_color = colors.ACTIVE_BLUE
                     asset_button.use_rounded_background = True
-                    asset_button.image_padding = asset_button.background_border_thickness
+                    asset_button.image_padding = (
+                        asset_button.background_border_thickness
+                    )
                 else:
                     asset_button.background_border = False
                     asset_button.background_border_color = None
