@@ -715,7 +715,12 @@ def append_objects(
             # only unique objects
             hidden_objects = list(set(hidden_objects))
             for ob in hidden_objects:
-                ob.hide_set(True)
+                try:
+                    ob.hide_set(True)
+                except RuntimeError:
+                    # Object may not be in the active View Layer (e.g. in an
+                    # excluded collection), so hide_set() is not applicable.
+                    pass
 
         utils.selection_set(sel)
         # let collection also store info that it was created by BlenderKit, for purging reasons
