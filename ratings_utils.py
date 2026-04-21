@@ -224,8 +224,17 @@ def update_ratings_work_hours_ui(self, context: Context):
     self.rating_work_hours = float(self.rating_work_hours_ui)
 
 
+_stars_enum_items = []
+_stars_enum_cache_key = None
+
+
 def stars_enum_callback(self, context):
     """regenerates the enum property used to display rating stars, so that there are filled/empty stars correctly."""
+    global _stars_enum_items, _stars_enum_cache_key
+    key = int(self.rating_quality)
+    if key == _stars_enum_cache_key and _stars_enum_items:
+        return _stars_enum_items
+    _stars_enum_cache_key = key
     items = []
     for a in range(0, 11):
         if a == 0:
@@ -238,11 +247,28 @@ def stars_enum_callback(self, context):
         # has to have something before the number in the value, otherwise fails on registration.
 
         items.append((f"{a}", "  ", "", icon, a))
-    return items
+    _stars_enum_items = items
+    return _stars_enum_items
+
+
+_wh_enum_items = []
+_wh_enum_cache_key = None
 
 
 def wh_enum_callback(self, context):
-    """Regenerates working hours enum."""
+    """Regenerates working hours enum.
+
+    NOTE: The items list is stored in ``_wh_enum_items`` so that it is not
+    garbage-collected before Blender reads the icon IDs.  Without this,
+    Blender 5.1+ may render corrupted icons because it only keeps an
+    internal pointer to the returned data.
+    """
+    global _wh_enum_items, _wh_enum_cache_key
+    key = (self.asset_type, self.rating_work_hours)
+    if key == _wh_enum_cache_key and _wh_enum_items:
+        return _wh_enum_items
+    _wh_enum_cache_key = key
+
     if self.asset_type in ("model", "scene", "printable", "nodegroup"):
         possible_wh_values = [
             0,
@@ -301,7 +327,8 @@ def wh_enum_callback(self, context):
             # index of the item(last value) is multiplied by 10 to get always integer values that aren't zero
             items.append((f"{w}", "  ", "", icon.icon_id, int(w * 10)))
 
-    return items
+    _wh_enum_items = items
+    return _wh_enum_items
 
 
 class RatingProperties(PropertyGroup):

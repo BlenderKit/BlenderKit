@@ -266,6 +266,12 @@ func GetSafeTempPath() (string, error) {
 	}
 
 	username := currentUser.Username
+	// On Windows, user.Current().Username returns "DOMAIN\username".
+	// Python's getpass.getuser() returns just "username".
+	// We must match Python's behavior so both use the same temp directory.
+	if idx := strings.LastIndex(username, "\\"); idx >= 0 {
+		username = username[idx+1:]
+	}
 	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
 	if err != nil {
 		return "", err
