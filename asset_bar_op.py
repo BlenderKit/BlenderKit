@@ -72,13 +72,8 @@ TOOLTIP_SIZE_PX = 512
 # Higher values start the fetch earlier, reducing visible pauses when scrolling fast.
 SEARCH_PREFETCH_LOOKAHEAD = 20
 
-# Scroll animation: how fast the animated offset decays toward zero.
-# Higher = snappier, lower = more floaty.  Value is the exponential decay rate (per second).
-SCROLL_ANIM_SPEED = 14.0
-
-# Edge deceleration: how much scrolling slows down near the start/end.
-# 0.0 = no resistance (hard stop), 1.0 = full resistance (no overscroll).
-SCROLL_EDGE_RESISTANCE = 0.85
+# Trackpad scroll sensitivity: pixels of finger travel per asset row.
+SCROLL_TRACKPAD_SENSITIVITY = 30.0
 
 
 def get_area_height(self):
@@ -227,28 +222,6 @@ def modal_inside(self, context, event):
         if change:
             context.region.tag_redraw()
 
-    # Tick the smooth scroll animation
-    if abs(self._scroll_anim_offset) > 0.5:
-        now = time.time()
-        dt = min(now - self._scroll_anim_time, 0.1)  # cap to avoid jumps after stalls
-        self._scroll_anim_time = now
-        # Adaptive speed: larger offsets decay faster so fast scrolling feels fluid
-        speed = (
-            SCROLL_ANIM_SPEED + abs(self._scroll_anim_offset) / self.button_size * 6.0
-        )
-        self._scroll_anim_offset *= math.exp(-speed * dt)
-        if abs(self._scroll_anim_offset) < 0.5:
-            self._scroll_anim_offset = 0.0
-            # Snap widgets to their final positions
-            self.panel.layout_widgets()
-            # Flush deferred manufacturer update now that animation settled
-            if self._manufacturer_update_pending:
-                self._manufacturer_update_pending = False
-                self.update_buttons()
-        else:
-            self._apply_scroll_anim_offset()
-        context.region.tag_redraw()
-
     # Check for tab shortcut keys directly in the modal function
     if (
         event.ctrl
@@ -348,67 +321,42 @@ def modal_inside(self, context, event):
 
     self.mouse_x, self.mouse_y = self._event_coords_in_active_region(event)
 
-    # TRACKPAD SCROLL
+    # SCROLL INPUT
+    # Axis of motion is determined by layout mode only:
+    #   - multi-row (hcount > 1)  -> up/down  (one row per step = wcount slots)
+    #   - single-row (hcount == 1) -> left/right (one slot per step)
+    # Event source (main wheel, side/tilt wheel, trackpad) does not change
+    # the axis. Direction rule applied to all sources:
+    #   top/left  = back    (negative step)
+    #   bottom/right = forward (positive step)
+    slot_per_row = self.wcount if self.hcount > 1 else 1
+
+    # TRACKPAD SCROLL (accumulates finger travel into whole-slot steps)
     if event.type == "TRACKPADPAN" and self.panel.is_in_rect(
         self.mouse_x, self.mouse_y
     ):
-        # accumulate trackpad inputs
-        self.trackpad_x_accum -= event.mouse_x - event.mouse_prev_x
-        self.trackpad_y_accum += event.mouse_y - event.mouse_prev_y
-
-        step = 0
-        multiplier = 30
-        if self.hcount < 2:
-            # Single row: horizontal scrolling by individual slots
-            step = int(self.trackpad_x_accum / multiplier)
-            self.trackpad_x_accum -= step * multiplier
-        else:
-            # Multi-row: vertical scrolling by whole rows only,
-            # ignore horizontal trackpad axis to prevent slot-level sliding
-            row_step = int(self.trackpad_y_accum / multiplier)
-            step = self.wcount * row_step
-            self.trackpad_y_accum -= row_step * multiplier
-            if step != 0:
-                self.trackpad_x_accum = 0
-        if step != 0:
-            # Apply edge resistance: reduce step near boundaries
-            step = self._apply_edge_resistance(step)
-            if step != 0:
-                self._start_scroll_anim(step)
-                self.scroll_offset += step
-                self.scroll_update()
+        dx = event.mouse_x - event.mouse_prev_x
+        dy = event.mouse_y - event.mouse_prev_y
+        # Right or down swipe -> forward; left or up swipe -> back.
+        axis_delta = dx - dy
+        self._trackpad_accum = getattr(self, "_trackpad_accum", 0.0) + axis_delta
+        steps = int(self._trackpad_accum // SCROLL_TRACKPAD_SENSITIVITY)
+        if steps != 0:
+            self._trackpad_accum -= steps * SCROLL_TRACKPAD_SENSITIVITY
+            self._scroll_by_slots(steps * slot_per_row)
+        context.region.tag_redraw()
         return {"RUNNING_MODAL"}
 
-    # MOUSEWHEEL SCROLL
-    if event.type == "WHEELUPMOUSE" and self.panel.is_in_rect(
-        self.mouse_x, self.mouse_y
-    ):
-        if self.hcount > 1:
-            step = -self.wcount
-        else:
-            step = -2
-        step = self._apply_edge_resistance(step)
-        if step == 0:
-            return {"RUNNING_MODAL"}
-        self._start_scroll_anim(step)
-        self.scroll_offset += step
-        self.scroll_update()
-        return {"RUNNING_MODAL"}
-
-    elif event.type == "WHEELDOWNMOUSE" and self.panel.is_in_rect(
-        self.mouse_x, self.mouse_y
-    ):
-        if self.hcount > 1:
-            step = self.wcount
-        else:
-            step = 2
-        step = self._apply_edge_resistance(step)
-        if step == 0:
-            return {"RUNNING_MODAL"}
-        self._start_scroll_anim(step)
-        self.scroll_offset += step
-
-        self.scroll_update()
+    # WHEEL SCROLL (vertical wheel, side/tilt wheel: all mapped to the same axis)
+    if event.type in {
+        "WHEELUPMOUSE",
+        "WHEELDOWNMOUSE",
+        "WHEELLEFTMOUSE",
+        "WHEELRIGHTMOUSE",
+    } and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
+        forward = event.type in {"WHEELDOWNMOUSE", "WHEELRIGHTMOUSE"}
+        self._scroll_by_slots(slot_per_row if forward else -slot_per_row)
+        context.region.tag_redraw()
         return {"RUNNING_MODAL"}
 
     if self.check_ui_resized(context):
@@ -467,7 +415,10 @@ def asset_bar_invoke(self, context, event):
 
     self.update_timer_limit = 0.5
     self.update_timer_start = time.time()
-    self._timer = context.window_manager.event_timer_add(0.5, window=context.window)
+    # Fast timer so the scroll animation can tick smoothly even when the
+    # user is not producing any other events (post-release momentum, wheel
+    # decay, etc.). Heavy per-tick work is still gated by `update_timer_limit`.
+    self._timer = context.window_manager.event_timer_add(1 / 60, window=context.window)
 
     context.window_manager.modal_handler_add(self)
     global active_area_pointer
@@ -1329,10 +1280,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def hide_tooltip(self):
         """Hide the tooltip panel and its widgets."""
+        # Idempotent redraw: doing the redraw on every row-crossing during
+        # scroll used to cause periodic stutter. We still always sync the
+        # widget visibility flags so the tooltip children can't linger
+        # visible (e.g. at startup before the panel was ever shown) while
+        # the panel itself is hidden.
+        was_visible = getattr(self.tooltip_panel, "visible", False)
         self.tooltip_panel.visible = False
         for w in self.tooltip_widgets:
             w.visible = False
-        self._redraw_tracked_regions()
+        if was_visible:
+            self._redraw_tracked_regions()
 
     def show_tooltip(self):
         """Show the tooltip panel and its widgets."""
@@ -2830,8 +2788,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (0, int((self.bar_height - self.button_size) / 2))
         )
 
-    # endregion updates
-
     # region setup
 
     def __init__(self, *args, **kwargs):
@@ -2841,10 +2797,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.scroll_offset = 0
         self._tooltip_available_height = None
 
-        # Smooth scroll animation state
-        self._scroll_anim_offset = 0.0  # current pixel offset (decays to 0)
-        self._scroll_anim_time = 0.0  # timestamp of last animation tick
-        self._manufacturer_update_pending = False  # deferred until animation ends
+        self._trackpad_accum = 0.0
 
         self.base_bar_height = 0
 
@@ -2877,9 +2830,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.last_scroll_offset = -10  # set to -10 so it updates on first run
         self.scroll_offset = ui_props.scroll_offset
-        self._scroll_anim_offset = 0.0
-        self._scroll_anim_time = time.time()
-        self._manufacturer_update_pending = False
+        self._trackpad_accum = 0.0
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
         self.info_color = (0.6, 0.6, 0.6, 1.0)
@@ -3685,23 +3636,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_up(self, widget):
         """Scroll up in the asset bar."""
         step = self.wcount * self.hcount
-        step = self._apply_edge_resistance(step)
-        if step == 0:
-            return
-        self._start_scroll_anim(step)
-        self.scroll_offset += step
-        self.scroll_update()
+        self._scroll_by_slots(step)
         self.enter_button(widget)
 
     def scroll_down(self, widget):
         """Scroll down in the asset bar."""
         step = -(self.wcount * self.hcount)
-        step = self._apply_edge_resistance(step)
-        if step == 0:
-            return
-        self._start_scroll_anim(step)
-        self.scroll_offset += step
-        self.scroll_update()
+        self._scroll_by_slots(step)
         self.enter_button(widget)
 
     # endregion events
@@ -4008,13 +3949,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.red_alert.visible = False
 
         # Refresh manufacturer chips to match currently visible assets.
-        # Skip during scroll animation to avoid layout jumps; flag for
-        # deferred update when the animation settles.
-        if abs(self._scroll_anim_offset) > 0.5:
-            self._manufacturer_update_pending = True
-        else:
-            self._update_manufacturer_data(visible_results)
-            self._manufacturer_update_pending = False
+        self._update_manufacturer_data(visible_results)
 
     def scroll_update(self, always=False):
         """Update scroll position and visibility of scroll buttons."""
@@ -4058,9 +3993,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.last_scroll_offset = self.scroll_offset
 
         self.update_buttons()
-        # Re-apply animation offset after buttons were repositioned to their target
-        if abs(self._scroll_anim_offset) > 0.5:
-            self._apply_scroll_anim_offset()
 
     def _apply_edge_resistance(self, step: int) -> int:
         """Reduce scroll step when near the start or end of results.
@@ -4096,74 +4028,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         return step
 
-    def _start_scroll_anim(self, step: int):
-        """Kick off a smooth scroll animation.
-
-        ``step`` is the number of *asset slots* the scroll just moved.
-        We convert that to a pixel delta so buttons appear to slide from
-        their old position.  The animation decays in ``modal_inside``.
-        """
-        if self.hcount > 1:
-            # Multi-row: scrolling moves whole rows \u2192 animate vertically.
-            rows = step / self.wcount
-            pixel_delta = rows * self.button_size
-        else:
-            # Single row: scrolling moves horizontally.
-            pixel_delta = step * self.button_size
-        # Positive so buttons start *ahead* of where they are going (off-screen)
-        # and slide into the visible area.
-        self._scroll_anim_offset += pixel_delta
-        # Clamp to one step so offset stays within the buffer rows/cols.
-        max_offset = abs(pixel_delta) if pixel_delta != 0 else self.button_size
-        self._scroll_anim_offset = max(
-            -max_offset, min(max_offset, self._scroll_anim_offset)
-        )
-        self._scroll_anim_time = time.time()
-
-    def _apply_scroll_anim_offset(self):
-        """Shift visible asset buttons by the current animation offset."""
-        offset = self._scroll_anim_offset
-        px = self.panel.x_screen
-        py = self.panel.y_screen
-        for btn in self.asset_buttons:
-            if not btn.visible:
-                continue
-            if self.hcount > 1:
-                btn.update(px + btn.x, py + btn.y + offset)
-                btn.validation_icon.update(
-                    px + btn.validation_icon.x, py + btn.validation_icon.y + offset
-                )
-                btn.bookmark_button.update(
-                    px + btn.bookmark_button.x, py + btn.bookmark_button.y + offset
-                )
-                btn.progress_bar.update(
-                    px + btn.progress_bar.x, py + btn.progress_bar.y + offset
-                )
-                btn.author_button.update(
-                    px + btn.author_button.x, py + btn.author_button.y + offset
-                )
-                if hasattr(btn, "red_alert"):
-                    btn.red_alert.update(
-                        px + btn.red_alert.x, py + btn.red_alert.y + offset
-                    )
-            else:
-                btn.update(px + btn.x + offset, py + btn.y)
-                btn.validation_icon.update(
-                    px + btn.validation_icon.x + offset, py + btn.validation_icon.y
-                )
-                btn.bookmark_button.update(
-                    px + btn.bookmark_button.x + offset, py + btn.bookmark_button.y
-                )
-                btn.progress_bar.update(
-                    px + btn.progress_bar.x + offset, py + btn.progress_bar.y
-                )
-                btn.author_button.update(
-                    px + btn.author_button.x + offset, py + btn.author_button.y
-                )
-                if hasattr(btn, "red_alert"):
-                    btn.red_alert.update(
-                        px + btn.red_alert.x + offset, py + btn.red_alert.y
-                    )
+    def _scroll_by_slots(self, slot_step: int):
+        """Discrete scroll commit. No animation."""
+        if slot_step == 0:
+            return
+        slot_step = self._apply_edge_resistance(slot_step)
+        if slot_step == 0:
+            return
+        self.scroll_offset += slot_step
+        self.scroll_update()
 
     def search_by_author(self, asset_index):
         """Search for assets by the author of the selected asset."""

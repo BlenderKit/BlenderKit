@@ -853,11 +853,14 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     for aid in pending_comment_ids:
         client_lib.get_comments(aid)
 
-    # Separate author results from regular assets, put authors first
-    author_results = [r for r in result_field if r.get("assetType") == "author"]
-    asset_results = [r for r in result_field if r.get("assetType") != "author"]
-
-    result_field = author_results + asset_results
+    # Separate author results from regular assets, put authors first.
+    # Only do this on the first page - on subsequent (get_next) pages, re-sorting
+    # would promote any new author results to the top and shift already-visible
+    # assets down, causing a visible "jump" when placeholders are replaced.
+    if not task.data.get("get_next"):
+        author_results = [r for r in result_field if r.get("assetType") == "author"]
+        asset_results = [r for r in result_field if r.get("assetType") != "author"]
+        result_field = author_results + asset_results
 
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
