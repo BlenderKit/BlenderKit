@@ -712,8 +712,6 @@ def draw_image_runtime(
     rounded_segments = max(1, int(corner_segments))
     cache_key = (
         image.filepath,
-        float(x),
-        float(y),
         float(width),
         float(height),
         tuple(float(component) for component in crop),
@@ -735,8 +733,8 @@ def draw_image_runtime(
         indices = None
         if corner_radius is not None:
             mesh_data = _rounded_rect_mesh(
-                x,
-                y,
+                0,
+                0,
                 width,
                 height,
                 corner_radius,
@@ -746,7 +744,7 @@ def draw_image_runtime(
             if mesh_data:
                 coords, uvs, indices = mesh_data
         if coords is None or uvs is None or indices is None:
-            coords = [(x, y), (x + width, y), (x, y + height), (x + width, y + height)]
+            coords = [(0, 0), (width, 0), (0, height), (width, height)]
             uvs = [
                 (crop[0], crop[1]),
                 (crop[2], crop[1]),
@@ -787,9 +785,13 @@ def draw_image_runtime(
 
         # set color space mode
         image_shader.uniform_int("color_space_mode", color_space_mode)
-        batch.draw(image_shader)
     except Exception:
         pass
+
+    gpu.matrix.push()
+    gpu.matrix.translate((x, y))
+    batch.draw(image_shader)
+    gpu.matrix.pop()
 
     return batch
 

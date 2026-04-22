@@ -32,6 +32,7 @@ from . import (
     categories,
     client_lib,
     client_tasks,
+    client_thread,
     comments_utils,
     disclaimer_op,
     download,
@@ -41,6 +42,7 @@ from . import (
     reports,
     search,
     tasks_queue,
+    ui_bgl,
     upload,
     utils,
 )
@@ -127,25 +129,80 @@ def handle_failed_reports(exception: Exception) -> float:
     return min(30.0, 0.1 * global_vars.CLIENT_FAILED_REPORTS)
 
 
+def _thread_communication_enabled(user_preferences) -> bool:
+    """True when the experimental threaded client communication should be used."""
+    return bool(
+        getattr(user_preferences, "experimental_features", False)
+        and getattr(user_preferences, "thread_communication", False)
+    )
+
+
 @bpy.app.handlers.persistent
 def client_communication_timer():
     """Receive all responses from Client and run according followup commands.
     This function is the only one responsible for keeping the Client up and running.
+
+    When the experimental ``thread_communication`` preference is enabled, HTTP
+    polling is delegated to ``client_thread`` and we only drain the results
+    here. Task dispatch (``handle_task``) always happens on the main thread.
     """
     global pending_tasks
     bk_logger.log(5, "Getting tasks from Client")
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     if user_preferences.use_clipboard_scan:
         search.check_clipboard()
-    results = list()
-    try:
-        results = client_lib.get_reports(os.getpid())
-        global_vars.CLIENT_FAILED_REPORTS = 0
-    except Exception as e:
-        download.prune_stalled_downloads(now=time.monotonic())
-        return handle_failed_reports(e)
 
-    if global_vars.CLIENT_ACCESSIBLE is False:
+    use_thread = _thread_communication_enabled(user_preferences)
+    results: list = []
+    got_successful_reports = False
+
+    if use_thread:
+        # Refresh the worker's view of our state, then start it if needed.
+        app_id = os.getpid()
+        report_data = client_lib.build_report_data(app_id)
+        fallback_urls = [
+            client_lib.get_report_url(port) for port in global_vars.CLIENT_PORTS
+        ]
+        api_key = getattr(user_preferences, "api_key", "") or ""
+        client_thread.update_state(
+            report_url=client_lib.get_report_url(),
+            report_data=report_data,
+            fallback_urls=fallback_urls,
+            poll_interval=user_preferences.client_polling,
+            api_key=api_key,
+        )
+        client_thread.start()
+
+        batches, err, recovered_port = client_thread.drain_reports()
+        if recovered_port:
+            client_lib.reorder_ports(recovered_port)
+        if err is not None:
+            download.prune_stalled_downloads(now=time.monotonic())
+            next_delay = handle_failed_reports(err)
+            # Batches collected alongside an error are stale; drop them so we
+            # process fresh ones once the Client recovers.
+            return next_delay
+
+        for batch in batches:
+            results.extend(batch)
+        if batches:
+            got_successful_reports = True
+            global_vars.CLIENT_FAILED_REPORTS = 0
+            client_thread.reset_failure_count()
+    else:
+        # Preference flipped off (or was never on) - make sure the worker is
+        # idle so two poll paths don't race.
+        if client_thread.is_running():
+            client_thread.stop()
+        try:
+            results = client_lib.get_reports(os.getpid())
+            got_successful_reports = True
+            global_vars.CLIENT_FAILED_REPORTS = 0
+        except Exception as e:
+            download.prune_stalled_downloads(now=time.monotonic())
+            return handle_failed_reports(e)
+
+    if global_vars.CLIENT_ACCESSIBLE is False and got_successful_reports:
         bk_logger.info(
             f"BlenderKit-Client is running on port {global_vars.CLIENT_PORTS[0]}!"
         )
@@ -220,10 +277,13 @@ def save_prefs_cancel_all_tasks_and_restart_client(user_preferences, context):
     except Exception:
         bk_logger.exception("Error shutting down client")
 
+    # Stop the worker so the next timer tick restarts it against the fresh port.
+    client_thread.stop()
     client_lib.reorder_ports(
         user_preferences.client_port
     )  # reorder after shutdown was requested
     global_vars.CLIENT_FAILED_REPORTS = 0  # reset failed reports so next attempt to get report or start client is immediate
+    client_thread.reset_failure_count()
     bpy.app.timers.unregister(client_communication_timer)
     bpy.app.timers.register(client_communication_timer, persistent=True)
 
@@ -403,6 +463,7 @@ def on_startup_timer():
     """Run once on the startup of add-on (Blender start with enabled add-on, add-on enabled)."""
     persistent_preferences.load_preferences_from_JSON()
     addon_updater_ops.check_for_update_background()
+    ui_bgl.create_image_shader()
     ok, message = utils.check_globaldir_permissions()
     if not ok:
         recovered = utils.try_recover_global_dir()
@@ -456,6 +517,13 @@ def unregister_timers():
     """
     if bpy.app.background:
         return
+
+    # Stop the optional client communication worker before touching timers so
+    # it doesn't race against unregistration.
+    try:
+        client_thread.stop()
+    except Exception:
+        bk_logger.exception("Error stopping client communication thread")
 
     if bpy.app.timers.is_registered(check_timers_timer):
         bpy.app.timers.unregister(check_timers_timer)

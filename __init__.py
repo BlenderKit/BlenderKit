@@ -143,6 +143,7 @@ else:
     from . import colors
     from . import client_lib
     from . import client_tasks
+    from . import client_thread
     from . import disclaimer_op
     from . import download
     from . import icons
@@ -2528,6 +2529,18 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    thread_communication: BoolProperty(
+        name="Threaded BlenderKit-Client communication",
+        description=(
+            "Move communication with the BlenderKit-Client (report polling and"
+            " selected fire-and-forget HTTP requests) onto a background thread."
+            " This keeps Blender responsive when the local Client is slow to"
+            " respond. Only takes effect while experimental features are enabled."
+        ),
+        default=False,
+        update=utils.save_prefs,
+    )
+
     categories_fix: BoolProperty(
         name="Enable category fixing mode",
         description="Enable category fixing mode",
@@ -2759,6 +2772,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_tab")
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
+            experimental_settings.prop(self, "thread_communication")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
@@ -2928,6 +2942,10 @@ def unregister():
     disclaimer_op.unregister()
 
     if bpy.app.background is False:
+        try:
+            client_thread.stop()
+        except Exception as e:
+            bk_logger.error(e)
         try:
             client_lib.unsubscribe_addon()
             bk_logger.info("Reported Blender quit to Client.")
