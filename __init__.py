@@ -2016,7 +2016,7 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         name="Offset Rotation",
         description="offset rotation, hidden prop",
         default=0,
-        min=0,
+        min=-360,
         max=360,
         subtype="ANGLE",
     )
