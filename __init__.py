@@ -2020,14 +2020,6 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         max=360,
         subtype="ANGLE",
     )
-    offset_rotation_step: FloatProperty(
-        name="Offset Rotation Step",
-        description="offset rotation, hidden prop",
-        default=pi / 2,
-        min=0,
-        max=180,
-        subtype="ANGLE",
-    )
 
     perpendicular_snap: BoolProperty(
         name="Perpendicular snap",
