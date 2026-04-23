@@ -104,6 +104,14 @@ if "bpy" in locals():
     reports = reload(reports)
     rereports = reload(reports)
 
+    from .bl_proxor import draw as bl_proxor_draw
+    from .bl_proxor import generate as bl_proxor_generate
+    from .bl_proxor import prx_format as bl_proxor_prx_format
+
+    bl_proxor_draw = reload(bl_proxor_draw)
+    bl_proxor_generate = reload(bl_proxor_generate)
+    bl_proxor_prx_format = reload(bl_proxor_prx_format)
+
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
     bl_ui_button = reload(bl_ui_button)
@@ -863,6 +871,12 @@ class BlenderKitCommonUploadProps(object):
         name="Asset Base Id",
         description="Unique name of the asset (hidden)",
         default="",
+    )
+    proxor_path: StringProperty(
+        name="Proxor Path",
+        description="Path to the .prxc proxy mesh file for this asset (auto-populated on download)",
+        default="",
+        subtype="FILE_PATH",
     )
     name: StringProperty(
         name="Name",
