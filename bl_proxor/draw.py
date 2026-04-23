@@ -22,11 +22,9 @@ from mathutils import Matrix
 
 TARGET_DIMENSIONS = 2
 LINE_POINT_COUNT = 2
-TRIANGLE_VERTEX_COUNT = 3
 VECTOR_SIZE = 3
 RGBA_CHANNELS = 4
 RGB_CHANNELS = 3
-TRIANGLE_BATCH_LIMIT = 21840
 SRGB_LINEAR_THRESHOLD = 0.0031308
 SRGB_GAMMA_THRESHOLD = 0.04045
 
@@ -62,6 +60,7 @@ def ensure_shaders() -> None:
     _get_cached_shader("smooth_color")
     _get_cached_shader("polyline_smooth_color")
     _get_cached_shader("uniform_color")
+    _get_cached_shader("outline")
     if bpy.app.version >= (4, 5, 0):
         _get_cached_shader("ppc")
         _get_cached_shader("blinn")
@@ -101,6 +100,13 @@ def _get_cached_shader(name: str) -> Optional[gpu.types.GPUShader]:
         info = _create_mesh_blinn_shader_info()
         if info is not None:
             shader = gpu.shader.create_from_info(info)
+    elif name == "outline":
+        if bpy.app.version < (4, 0, 0):
+            shader = _create_outline_shader_legacy()
+        else:
+            info = _create_outline_shader_info()
+            if info is not None:
+                shader = gpu.shader.create_from_info(info)
 
     if shader is not None:
         _shader_cache[name] = shader
@@ -153,23 +159,54 @@ def _apply_color_profile(rgb: np.ndarray, color_type: str) -> np.ndarray:
 
 GRADIENT_LOW = 0.35
 GRADIENT_HIGH = 1.0
+# Width of the alpha transition band as a fraction of mesh height.
+GRADIENT_BAND_WIDTH = 0.10
+# Permanent hologram alpha: alpha at top of mesh even when fully revealed (vis_pct=100).
+# Bottom of mesh always has alpha=1.0; top fades to this value.
+GRADIENT_ALPHA_TOP = 0.45
 
 
-def _apply_vertical_gradient(colors: np.ndarray, z_values: np.ndarray) -> np.ndarray:
-    """Modulate RGB by vertical position (Z in Blender space).
+def _apply_vertical_gradient(
+    colors: np.ndarray, z_values: np.ndarray, vis_pct: float = 100.0
+) -> np.ndarray:
+    """Modulate RGB brightness and alpha by vertical position (Z in Blender space).
 
-    Bottom vertices get ``GRADIENT_LOW`` brightness, top get ``GRADIENT_HIGH``.
+    Alpha is the product of two independent layers:
+    - **Hologram alpha**: bottom=1.0, top=GRADIENT_ALPHA_TOP, always active.
+      Gives the mesh a ghost/hologram look even when fully revealed.
+    - **Reveal alpha**: smoothstep band that sweeps upward with *vis_pct* (0-100).
+      Below the band -> 1 (visible), above the band -> 0 (hidden).
+
+    At vis_pct=100 the band is above the mesh so reveal_alpha=1 everywhere,
+    leaving only the hologram gradient visible (top is semi-transparent).
+    At vis_pct=0 the band is below the mesh so the whole mesh is hidden.
     """
     z_min = float(np.min(z_values))
     z_max = float(np.max(z_values))
     z_range = z_max - z_min
     if z_range < 1e-8:
         return colors
-    t = (z_values - z_min) / z_range
+    t = (z_values - z_min) / z_range  # 0=bottom, 1=top
+    # RGB brightness gradient (darker at bottom, brighter at top).
     v_mult = GRADIENT_LOW + (GRADIENT_HIGH - GRADIENT_LOW) * t
+    # Layer 1: permanent hologram alpha (1.0 at bottom, GRADIENT_ALPHA_TOP at top).
+    hologram_alpha = 1.0 + (GRADIENT_ALPHA_TOP - 1.0) * t
+    # Layer 2: reveal band sweeps from below mesh (vis_pct=0) to above (vis_pct=100).
+    half = GRADIENT_BAND_WIDTH * 0.5
+    band_center = -half + (vis_pct / 100.0) * (1.0 + GRADIENT_BAND_WIDTH)
+    band_low = band_center - half
+    band_high = band_center + half
+    band_span = max(band_high - band_low, 1e-8)
+    s = np.clip((t - band_low) / band_span, 0.0, 1.0)
+    reveal_alpha = 1.0 - (
+        s * s * (3.0 - 2.0 * s)
+    )  # smoothstep, opaque below → transparent above
+    # Final alpha: hologram * reveal.
+    alpha = hologram_alpha * reveal_alpha
     out = colors.copy()
     out[:, :RGB_CHANNELS] *= v_mult[:, np.newaxis]
     np.clip(out[:, :RGB_CHANNELS], 0.0, 1.0, out=out[:, :RGB_CHANNELS])
+    out[:, 3] = alpha
     return out
 
 
@@ -277,6 +314,83 @@ def _create_mesh_blinn_shader_info():
     return info
 
 
+def _create_outline_shader_info():
+    """Back-face silhouette outline shader (Blender >= 4.0).
+
+    Expands back-face vertices along their clip-space normals to create a
+    screen-space outline ring that mimics Blender's selection highlight.
+    Draw this pass BEFORE the mesh (front-face) pass with FRONT face culling
+    so only the expanded rim outside the mesh silhouette is visible.
+    """
+    if bpy.app.version < (4, 0, 0):
+        return None
+    info = gpu.types.GPUShaderCreateInfo()
+    info.vertex_in(0, "VEC3", "pos")
+    info.vertex_in(1, "VEC3", "normal")
+    info.push_constant("MAT4", "ModelViewProjectionMatrix")
+    info.push_constant("FLOAT", "outlineWidth")
+    info.push_constant("VEC4", "outlineColor")
+    info.fragment_out(0, "VEC4", "fragColor")
+    info.vertex_source(
+        """
+        void main() {
+            vec4 clip_pos = ModelViewProjectionMatrix * vec4(pos, 1.0);
+            // Project the normal into clip space XY to get expansion direction.
+            // Multiplying by clip_pos.w converts the NDC offset to clip space,
+            // giving a constant screen-space width regardless of depth.
+            vec4 clip_nrm = ModelViewProjectionMatrix * vec4(normal, 0.0);
+            vec2 n = normalize(clip_nrm.xy + vec2(1e-8, 0.0));
+            clip_pos.xy += n * outlineWidth * clip_pos.w;
+            gl_Position = clip_pos;
+        }
+    """
+    )
+    info.fragment_source(
+        """
+        void main() {
+            fragColor = outlineColor;
+        }
+    """
+    )
+    return info
+
+
+_OUTLINE_VERT_LEGACY = """
+uniform mat4 ModelViewProjectionMatrix;
+uniform float outlineWidth;
+in vec3 pos;
+in vec3 normal;
+void main() {
+    vec4 clip_pos = ModelViewProjectionMatrix * vec4(pos, 1.0);
+    vec4 clip_nrm = ModelViewProjectionMatrix * vec4(normal, 0.0);
+    vec2 n = normalize(clip_nrm.xy + vec2(1e-8, 0.0));
+    clip_pos.xy += n * outlineWidth * clip_pos.w;
+    gl_Position = clip_pos;
+}
+"""
+
+_OUTLINE_FRAG_LEGACY = """
+uniform vec4 outlineColor;
+out vec4 fragColor;
+void main() {
+    fragColor = outlineColor;
+}
+"""
+
+
+def _create_outline_shader_legacy() -> Optional[gpu.types.GPUShader]:
+    """Back-face silhouette outline shader for Blender < 4.0.
+
+    Uses the legacy ``GPUShader(vertex_source, fragment_source)`` constructor,
+    which is the only shader creation path available before the
+    ``gpu.shader.create_from_info`` API was introduced in Blender 4.0.
+    """
+    try:
+        return gpu.types.GPUShader(_OUTLINE_VERT_LEGACY, _OUTLINE_FRAG_LEGACY)
+    except Exception:
+        return None
+
+
 # -- Colour resolution helpers --
 
 
@@ -326,12 +440,14 @@ def _prepare_mesh_colors(raw: Optional[list], color_type: str) -> Optional[np.nd
 
 def _prepare_point_colors(
     raw: Optional[list], color_type: str
-) -> tuple[Optional[list], bool]:
+) -> tuple[Optional[np.ndarray], bool]:
     if not raw:
         return None, False
-    arr = np.array(raw, dtype="f")
+    arr = np.asarray(raw, dtype="f")
     if arr.ndim != TARGET_DIMENSIONS or arr.shape[0] == 0:
         return None, False
+    # Ensure we own the buffer before mutating (np.asarray may share memory).
+    arr = arr.copy()
     channels = min(arr.shape[1], RGB_CHANNELS)
     if channels:
         arr[:, :channels] *= 2
@@ -343,34 +459,57 @@ def _prepare_point_colors(
     elif arr.shape[1] > RGBA_CHANNELS:
         arr = arr[:, :RGBA_CHANNELS]
     arr[:, :RGB_CHANNELS] = _apply_color_profile(arr[:, :RGB_CHANNELS], color_type)
-    return arr.tolist(), True
+    return arr, True
 
 
-def _prepare_point_normals_for_shader(
-    normals_raw, expected: int
-) -> Optional[list[list[float]]]:
-    if not normals_raw or expected <= 0:
+# -- Geometry transform helpers --
+
+
+def _transform_positions(pos_raw, scale: float) -> Optional[np.ndarray]:
+    """Convert raw position list to an axis-swapped, scaled float32 array.
+
+    Returns ``None`` if the data is malformed or empty. The returned array is
+    always a new buffer safe to mutate downstream.
+    """
+    if not pos_raw:
         return None
-    nrm = np.array(normals_raw, dtype="f")
-    if nrm.ndim != TARGET_DIMENSIONS or nrm.shape[0] == 0:
+    arr = np.asarray(pos_raw, dtype="f")
+    if arr.ndim != TARGET_DIMENSIONS or arr.shape[0] == 0 or arr.shape[1] < VECTOR_SIZE:
         return None
-    if nrm.shape[1] > VECTOR_SIZE:
-        nrm = nrm[:, :VECTOR_SIZE]
-    if nrm.shape[1] < VECTOR_SIZE:
-        nrm = np.concatenate(
-            (nrm, np.zeros((nrm.shape[0], VECTOR_SIZE - nrm.shape[1]), dtype="f")),
-            axis=1,
-        )
-    nrm[:, [1, 2]] = nrm[:, [2, 1]]
-    if nrm.shape[0] < expected:
-        repeats = (expected + nrm.shape[0] - 1) // nrm.shape[0]
-        nrm = np.tile(nrm, (repeats, 1))[:expected]
-    elif nrm.shape[0] > expected:
-        nrm = nrm[:expected]
-    lengths = np.linalg.norm(nrm, axis=1, keepdims=True)
+    if arr.shape[1] > VECTOR_SIZE:
+        arr = arr[:, :VECTOR_SIZE]
+    else:
+        arr = arr.copy()  # ensure we own the buffer before mutating
+    arr[:, [1, 2]] = arr[:, [2, 1]]
+    arr *= 0.01 * float(scale)
+    return arr
+
+
+def _transform_normals(nrm_raw, expected_count: int) -> Optional[np.ndarray]:
+    """Axis-swap and normalize a raw normal list; pad/trim to *expected_count*."""
+    if not nrm_raw or expected_count <= 0:
+        return None
+    arr = np.asarray(nrm_raw, dtype="f")
+    if arr.ndim != TARGET_DIMENSIONS or arr.shape[0] != expected_count:
+        return None
+    if arr.shape[1] > VECTOR_SIZE:
+        arr = arr[:, :VECTOR_SIZE]
+    else:
+        arr = arr.copy()
+    arr[:, [1, 2]] = arr[:, [2, 1]]
+    lengths = np.linalg.norm(arr, axis=1, keepdims=True)
     with np.errstate(invalid="ignore"):
-        nrm = np.divide(nrm, lengths, out=np.zeros_like(nrm), where=lengths != 0)
-    return nrm.tolist()
+        np.divide(arr, lengths, out=arr, where=lengths != 0)
+    return arr
+
+
+def _get_mvp() -> Matrix:
+    """Return the current GPU model-view-projection matrix."""
+    get_mv = getattr(gpu.matrix, "get_model_view_matrix", None)
+    get_proj = getattr(gpu.matrix, "get_projection_matrix", None)
+    mv = get_mv() if get_mv else Matrix.Identity(4)
+    proj = get_proj() if get_proj else Matrix.Identity(4)
+    return proj @ mv
 
 
 # -- Batch builder --
@@ -383,192 +522,102 @@ class ProxorLiteDrawBuilder:
 
     @staticmethod
     def _mesh_colors_with_override(color_data, ctx, vertex_count: int):
-        base = _prepare_mesh_colors(color_data, ctx.mesh_color_type)
         mode = getattr(ctx, "mesh_color_mode", COLOR_MODE_ORIGINAL)
         override = _resolve_uniform_color(mode, ctx)
         if override is not None:
+            # Skip decoding the per-vertex colours — they would be discarded.
             return _uniform_color_array(override, vertex_count, ctx.mesh_color_type)
-        return base
+        return _prepare_mesh_colors(color_data, ctx.mesh_color_type)
 
-    def _build_mesh_shader(self, mesh_data, vertex_count, ctx):
-        normals = mesh_data.get("nrm")
+    @staticmethod
+    def _build_mesh_shader(normals: Optional[np.ndarray], ctx):
+        """Pick mesh shader based on shading mode + normals availability.
+
+        *normals* must already be axis-swapped and normalized (see
+        :func:`_transform_normals`). Returns ``(shader, use_blinn, lighting)``.
+        """
         shading_mode = getattr(ctx, "mesh_shading_mode", SHADING_MODE_PHONG)
-        use_blinn = (
-            shading_mode == SHADING_MODE_PHONG
-            and bool(normals)
-            and bpy.app.version >= (4, 5, 0)
-        )
-        lighting = None
-
-        if use_blinn:
-            nrm_np = np.array(normals, dtype="f")
-            if nrm_np.ndim == TARGET_DIMENSIONS and nrm_np.shape[0] == vertex_count:
-                if nrm_np.shape[1] > VECTOR_SIZE:
-                    nrm_np = nrm_np[:, :VECTOR_SIZE]
-                nrm_np[:, [1, 2]] = nrm_np[:, [2, 1]]
-                lengths = np.linalg.norm(nrm_np, axis=1, keepdims=True)
-                with np.errstate(invalid="ignore"):
-                    nrm_np = np.divide(
-                        nrm_np, lengths, out=np.zeros_like(nrm_np), where=lengths != 0
-                    )
-                shader = _get_cached_shader("blinn")
-                if shader is not None:
-                    lighting = {
-                        "light_dir": DEFAULT_LIGHT_DIR,
-                        "view_dir": DEFAULT_VIEW_DIR,
-                        "ambient": DEFAULT_AMBIENT,
-                        "diffuse": DEFAULT_DIFFUSE,
-                        "specular": DEFAULT_SPECULAR,
-                        "shininess": DEFAULT_SHININESS,
-                        "_ubo": None,
-                    }
-                    return shader, True, lighting, nrm_np
-            use_blinn = False
-
-        return _get_cached_shader("smooth_color"), False, None, None
-
-    def _prepare_mesh_draw(self, mesh_data, ctx):
-        if not mesh_data or not mesh_data.get("pos"):
-            return None
-        verts = np.array(mesh_data["pos"], dtype="f")
         if (
-            verts.ndim != TARGET_DIMENSIONS
-            or verts.shape[0] == 0
-            or verts.shape[1] < VECTOR_SIZE
+            shading_mode == SHADING_MODE_PHONG
+            and normals is not None
+            and bpy.app.version >= (4, 5, 0)
         ):
-            return None
-        if verts.shape[1] > VECTOR_SIZE:
-            verts = verts[:, :VECTOR_SIZE]
-        verts[:, [1, 2]] = verts[:, [2, 1]]
-        verts = verts * 0.01 * ctx.scale
+            shader = _get_cached_shader("blinn")
+            if shader is not None:
+                lighting = {
+                    "light_dir": DEFAULT_LIGHT_DIR,
+                    "view_dir": DEFAULT_VIEW_DIR,
+                    "ambient": DEFAULT_AMBIENT,
+                    "diffuse": DEFAULT_DIFFUSE,
+                    "specular": DEFAULT_SPECULAR,
+                    "shininess": DEFAULT_SHININESS,
+                    "_ubo": None,
+                }
+                return shader, True, lighting
+        return _get_cached_shader("smooth_color"), False, None
 
+    def _prepare_mesh_draw(self, mesh_data, verts: np.ndarray, normals, ctx):
+        """Build the mesh batch from pre-transformed *verts* and *normals*."""
         colors = self._mesh_colors_with_override(mesh_data.get("col"), ctx, len(verts))
         if colors is None or colors.shape[0] != verts.shape[0]:
             return None
 
-        # Apply vertical gradient
+        # Apply vertical gradient (returns a new array, safe to mutate).
         if getattr(ctx, "use_gradient", True):
-            colors = _apply_vertical_gradient(colors, verts[:, 2])
+            colors = _apply_vertical_gradient(
+                colors, verts[:, 2], getattr(ctx, "visibility_input", 100)
+            )
 
         visibility = getattr(ctx, "mesh_visibility", 1.0)
         if visibility < 1.0:
-            colors = colors.copy()
-            colors[:, 3] *= visibility
+            colors[:, 3] *= visibility  # gradient already returned a fresh buffer
 
-        # Z-clip: keep only triangles with at least one vertex below cutoff
-        vis_pct = getattr(ctx, "visibility_input", 100)
-        if vis_pct < 100 and len(verts) >= TRIANGLE_VERTEX_COUNT:
-            verts, colors, mesh_data = self._z_clip_mesh(
-                verts,
-                colors,
-                mesh_data,
-                vis_pct,
-                ctx,
-            )
-            if verts is None or len(verts) == 0:
-                return None
-
-        shader, use_blinn, lighting, normal_data = self._build_mesh_shader(
-            mesh_data, len(verts), ctx
-        )
-
+        shader, use_blinn, lighting = self._build_mesh_shader(normals, ctx)
         attrs: dict = {"pos": verts}
-        if use_blinn and normal_data is not None:
-            attrs["normal"] = normal_data
+        if use_blinn and normals is not None:
+            attrs["normal"] = normals
             attrs["vcol"] = colors
         else:
             attrs["color"] = colors
 
         indices = np.arange(len(verts), dtype=np.int32).reshape((-1, 3))
-        batches = [batch_for_shader(shader, "TRIS", attrs, indices=indices)]
+        batch = batch_for_shader(shader, "TRIS", attrs, indices=indices)
         return {
-            "batches": batches,
+            "batches": [batch],
             "shader": shader,
             "blinn": use_blinn,
             "lighting": lighting,
         }
 
-    @staticmethod
-    def _z_clip_mesh(verts, colors, mesh_data, vis_pct, _ctx):
-        """Remove triangles above the Z cutoff determined by *vis_pct*."""
-        z_vals = verts[:, 2]
-        z_min = float(np.min(z_vals))
-        z_max = float(np.max(z_vals))
-        z_range = z_max - z_min
-        if z_range < 1e-8:
-            if vis_pct <= 0:
-                return None, None, mesh_data
-            return verts, colors, mesh_data
-        cutoff = z_min + z_range * (vis_pct / 100.0)
-        # Triangles: groups of 3 vertices — keep if any vertex is below cutoff
-        tri_verts = verts.reshape(-1, TRIANGLE_VERTEX_COUNT, VECTOR_SIZE)
-        tri_cols = colors.reshape(-1, TRIANGLE_VERTEX_COUNT, colors.shape[1])
-        mask = np.any(tri_verts[:, :, 2] <= cutoff, axis=1)
-        if not np.any(mask):
-            return None, None, mesh_data
-        verts = tri_verts[mask].reshape(-1, VECTOR_SIZE)
-        colors = tri_cols[mask].reshape(-1, colors.shape[1])
-        # Also clip normals in mesh_data for shader rebuild
-        normals = mesh_data.get("nrm")
-        if normals and len(normals) == len(mask) * TRIANGLE_VERTEX_COUNT:
-            nrm_np = np.array(normals, dtype="f").reshape(
-                -1, TRIANGLE_VERTEX_COUNT, VECTOR_SIZE
-            )
-            mesh_data = dict(mesh_data)
-            mesh_data["nrm"] = nrm_np[mask].reshape(-1, VECTOR_SIZE).tolist()
-        return verts, colors, mesh_data
-
     # -- lines --
 
     def _prepare_line_draw(self, line_data, ctx):
-        if not line_data or not line_data.get("pos"):
+        if not line_data:
             return None
-        pts = np.array(line_data["pos"], dtype="f")
-        if pts.ndim != TARGET_DIMENSIONS or pts.shape[0] == 0:
+        pts = _transform_positions(line_data.get("pos"), ctx.scale)
+        if pts is None:
             return None
-        if pts.shape[1] > VECTOR_SIZE:
-            pts = pts[:, :VECTOR_SIZE]
-        pts[:, [1, 2]] = pts[:, [2, 1]]
-        pts = pts * 0.01 * ctx.scale
-
-        # Z-clip: keep line segments where at least one endpoint is below cutoff
-        vis_pct = getattr(ctx, "visibility_input", 100)
-        if vis_pct < 100 and len(pts) >= LINE_POINT_COUNT:
-            z_vals = pts[:, 2]
-            z_min = float(np.min(z_vals))
-            z_max = float(np.max(z_vals))
-            z_range = z_max - z_min
-            if z_range >= 1e-8:
-                cutoff = z_min + z_range * (vis_pct / 100.0)
-                seg_pts = pts.reshape(-1, LINE_POINT_COUNT, VECTOR_SIZE)
-                mask = np.any(seg_pts[:, :, 2] <= cutoff, axis=1)
-                if not np.any(mask):
-                    return None
-                pts = seg_pts[mask].reshape(-1, VECTOR_SIZE)
-            elif vis_pct <= 0:
-                return None
 
         indices = np.arange(len(pts), dtype=np.int32).reshape(-1, LINE_POINT_COUNT)
-
         color_type = ctx.line_color_type
-        mode = getattr(ctx, "line_color_mode", COLOR_MODE_ORIGINAL)
-        override = _resolve_uniform_color(mode, ctx)
+        override = _resolve_uniform_color(
+            getattr(ctx, "line_color_mode", COLOR_MODE_ORIGINAL), ctx
+        )
         if override is not None:
-            colors = _uniform_color_array(override, len(pts), color_type).tolist()
+            colors = _uniform_color_array(override, len(pts), color_type)
         else:
             raw = line_data.get("col")
-            if raw is None:
-                base = np.full((len(pts), RGB_CHANNELS), 0.5, dtype="f")
-            else:
-                base = np.array(raw, dtype="f") * 2
+            base = None
+            if raw is not None:
+                base = np.asarray(raw, dtype="f") * 2
                 if base.ndim != TARGET_DIMENSIONS or base.shape[0] == 0:
-                    base = np.full((len(pts), RGB_CHANNELS), 0.5, dtype="f")
-            if len(base) != len(pts):
+                    base = None
+            if base is None:
+                base = np.full((len(pts), RGB_CHANNELS), 0.5, dtype="f")
+            elif len(base) != len(pts):
                 base = np.repeat(base, LINE_POINT_COUNT, axis=0)
             base = _apply_color_profile(base[:, :RGB_CHANNELS], color_type)
-            colors = np.concatenate(
-                (base, np.ones((len(base), 1), dtype="f")), axis=1
-            ).tolist()
+            colors = np.concatenate((base, np.ones((len(base), 1), dtype="f")), axis=1)
 
         shader = _get_cached_shader("polyline_smooth_color")
         batch = batch_for_shader(
@@ -579,73 +628,38 @@ class ProxorLiteDrawBuilder:
     # -- points --
 
     def _prepare_point_draw(self, point_data, ctx):
-        if not point_data or not point_data.get("pos"):
+        if not point_data:
             return None
-        pts = np.array(point_data["pos"], dtype="f")
-        if (
-            pts.ndim != TARGET_DIMENSIONS
-            or pts.shape[0] == 0
-            or pts.shape[1] < VECTOR_SIZE
-        ):
+        pts = _transform_positions(point_data.get("pos"), ctx.scale)
+        if pts is None:
             return None
-        if pts.shape[1] > VECTOR_SIZE:
-            pts = pts[:, :VECTOR_SIZE]
-        pts[:, [1, 2]] = pts[:, [2, 1]]
-        pts = pts * 0.01 * ctx.scale
 
         point_colors, has_colors = _prepare_point_colors(
             point_data.get("col"), ctx.mesh_color_type
         )
-        mode = getattr(ctx, "point_color_mode", COLOR_MODE_ORIGINAL)
-        override = _resolve_uniform_color(mode, ctx)
+        override = _resolve_uniform_color(
+            getattr(ctx, "point_color_mode", COLOR_MODE_ORIGINAL), ctx
+        )
         if override is not None:
-            point_colors = _uniform_color_array(
-                override, len(pts), ctx.mesh_color_type
-            ).tolist()
+            point_colors = _uniform_color_array(override, len(pts), ctx.mesh_color_type)
             has_colors = True
+        elif has_colors and point_colors is not None:
+            point_colors = np.asarray(point_colors, dtype="f")
 
-        # Apply vertical gradient to point colours
-        if (
-            getattr(ctx, "use_gradient", True)
-            and has_colors
-            and point_colors is not None
-        ):
-            pc_np = np.array(point_colors, dtype="f")
-            pc_np = _apply_vertical_gradient(pc_np, pts[:, 2])
-            point_colors = pc_np.tolist()
-
-        visibility = getattr(ctx, "point_visibility", 1.0)
-        if visibility < 1.0 and has_colors and point_colors is not None:
-            point_colors = [
-                (
-                    [c[0], c[1], c[2], c[3] * visibility]
-                    if len(c) >= 4
-                    else [*c, visibility]
+        if has_colors and point_colors is not None:
+            if getattr(ctx, "use_gradient", True):
+                point_colors = _apply_vertical_gradient(
+                    point_colors, pts[:, 2], getattr(ctx, "visibility_input", 100)
                 )
-                for c in point_colors
-            ]
+            visibility = getattr(ctx, "point_visibility", 1.0)
+            if visibility < 1.0:
+                # _apply_vertical_gradient returns a fresh buffer; if gradient was
+                # skipped we need our own copy before mutating.
+                if not getattr(ctx, "use_gradient", True):
+                    point_colors = point_colors.copy()
+                point_colors[:, 3] *= visibility
 
-        # Z-clip: keep only points below cutoff
-        vis_pct = getattr(ctx, "visibility_input", 100)
-        if vis_pct < 100:
-            z_vals = pts[:, 2]
-            z_min = float(np.min(z_vals))
-            z_max = float(np.max(z_vals))
-            z_range = z_max - z_min
-            if z_range >= 1e-8:
-                cutoff = z_min + z_range * (vis_pct / 100.0)
-                mask = z_vals <= cutoff
-                if not np.any(mask):
-                    return None
-                pts = pts[mask]
-                if has_colors and point_colors is not None:
-                    point_colors = [c for c, m in zip(point_colors, mask) if m]
-            elif vis_pct <= 0:
-                return None
-
-        pts_list = pts.tolist()
-
-        attrs: dict = {"pos": pts_list}
+        attrs: dict = {"pos": pts}
         shader, color_key, default_color = self._configure_point_shader(has_colors, ctx)
         if has_colors and point_colors is not None and color_key:
             attrs[color_key] = point_colors
@@ -687,6 +701,24 @@ class ProxorLiteDrawBuilder:
             text_draw["col"][i] = [*c, 1]
         return text_draw
 
+    # -- outline --
+
+    @staticmethod
+    def _prepare_outline_draw(verts: np.ndarray, normals: np.ndarray):
+        """Build a back-face outline batch from already-transformed arrays.
+
+        Returns a batch dict (same schema as mesh), or ``None`` if the outline
+        shader is unavailable.
+        """
+        shader = _get_cached_shader("outline")
+        if shader is None:
+            return None
+        indices = np.arange(len(verts), dtype=np.int32).reshape((-1, 3))
+        batch = batch_for_shader(
+            shader, "TRIS", {"pos": verts, "normal": normals}, indices=indices
+        )
+        return {"batches": [batch], "shader": shader}
+
     # -- public API --
 
     def build_draw_data(self, raw_data: dict, ctx) -> Optional[dict]:
@@ -702,10 +734,23 @@ class ProxorLiteDrawBuilder:
         if not raw_data:
             return None
         draw: dict = {}
-        if getattr(ctx, "mesh_visibility", 1.0) > 0:
-            mesh = self._prepare_mesh_draw(raw_data.get("mesh"), ctx)
+
+        # Mesh and outline share the same transformed verts/normals.
+        mesh_data = raw_data.get("mesh")
+        mesh_verts: Optional[np.ndarray] = None
+        mesh_normals: Optional[np.ndarray] = None
+        want_mesh = getattr(ctx, "mesh_visibility", 1.0) > 0
+        want_outline = want_mesh and getattr(ctx, "use_outline", False)
+        if (want_mesh or want_outline) and mesh_data:
+            mesh_verts = _transform_positions(mesh_data.get("pos"), ctx.scale)
+            if mesh_verts is not None:
+                mesh_normals = _transform_normals(mesh_data.get("nrm"), len(mesh_verts))
+
+        if want_mesh and mesh_verts is not None:
+            mesh = self._prepare_mesh_draw(mesh_data, mesh_verts, mesh_normals, ctx)
             if mesh:
                 draw["mesh"] = mesh
+
         if (
             getattr(ctx, "point_visibility", 1.0) > 0
             and getattr(ctx, "point_size", 1.0) > 0
@@ -713,10 +758,17 @@ class ProxorLiteDrawBuilder:
             points = self._prepare_point_draw(raw_data.get("points"), ctx)
             if points:
                 draw["points"] = points
+
         if getattr(ctx, "line_thickness", 1.0) > 0:
             line = self._prepare_line_draw(raw_data.get("line"), ctx)
             if line:
                 draw["line"] = line
+
+        if want_outline and mesh_verts is not None and mesh_normals is not None:
+            outline = self._prepare_outline_draw(mesh_verts, mesh_normals)
+            if outline:
+                draw["outline"] = outline
+
         text = self._prepare_text_draw(raw_data.get("text"), ctx)
         if text:
             draw["text"] = text
@@ -747,6 +799,9 @@ def default_draw_context(**overrides) -> SimpleNamespace:
         custom_color=None,
         use_gradient=True,
         visibility_input=100,
+        use_outline=False,
+        outline_color=(1.0, 0.65, 0.0, 1.0),
+        outline_width=0.004,
     )
     for key, value in overrides.items():
         setattr(ctx, key, value)
@@ -771,6 +826,7 @@ class ProxorLiteDrawHandler:
         self._matrix: Matrix = Matrix.Identity(4)
         self._builder = ProxorLiteDrawBuilder()
         self.draw_ctx: SimpleNamespace = default_draw_context()
+        self._built_vis_pct: float = 100.0
 
     # -- public --
 
@@ -787,6 +843,7 @@ class ProxorLiteDrawHandler:
         """
         self._raw_data = proxor_data
         self._matrix = matrix or Matrix.Identity(4)
+        self._built_vis_pct = getattr(self.draw_ctx, "visibility_input", 100)
         self._draw_data = (
             self._builder.build_draw_data(proxor_data, self.draw_ctx)
             if proxor_data
@@ -795,6 +852,7 @@ class ProxorLiteDrawHandler:
 
     def rebuild(self) -> None:
         """Rebuild GPU batches from cached raw data using current draw_ctx."""
+        self._built_vis_pct = getattr(self.draw_ctx, "visibility_input", 100)
         if self._raw_data is not None:
             self._draw_data = self._builder.build_draw_data(
                 self._raw_data, self.draw_ctx
@@ -847,12 +905,14 @@ class ProxorLiteDrawHandler:
 
     def _draw_callback(self, _context):
         try:
+            ctx = self.draw_ctx
+            vis_pct = getattr(ctx, "visibility_input", 100)
+            if self._raw_data is not None and vis_pct != self._built_vis_pct:
+                self.rebuild()
             if self._draw_data is None:
                 return
-            ctx = self.draw_ctx
-            # Z-clip at 0% hides everything
-            if getattr(ctx, "visibility_input", 100) <= 0:
-                return
+            if ctx.mesh_visibility > 0 and getattr(ctx, "use_outline", False):
+                self._draw_outline()
             if ctx.mesh_visibility > 0:
                 self._draw_mesh()
             if ctx.line_thickness > 0:
@@ -868,8 +928,9 @@ class ProxorLiteDrawHandler:
         if not mesh:
             return
         gpu.state.depth_test_set("LESS_EQUAL")
-        gpu.state.depth_mask_set(True)
+        gpu.state.depth_mask_set(False)  # transparent frags must not write depth
         gpu.state.blend_set("ALPHA")
+        gpu.state.face_culling_set("BACK")  # cull back faces to avoid double-blending
         shader = mesh["shader"]
         use_blinn = mesh.get("blinn", False)
         lighting = mesh.get("lighting")
@@ -879,6 +940,7 @@ class ProxorLiteDrawHandler:
             for batch in mesh.get("batches") or []:
                 if batch is not None:
                     batch.draw(shader)
+        gpu.state.face_culling_set("NONE")
         gpu.state.depth_mask_set(False)
         gpu.state.depth_test_set("NONE")
         gpu.state.blend_set("NONE")
@@ -918,6 +980,33 @@ class ProxorLiteDrawHandler:
         gpu.state.depth_test_set("NONE")
         gpu.state.blend_set("NONE")
 
+    def _draw_outline(self):
+        outline = self._draw_data.get("outline") if self._draw_data else None
+        if not outline:
+            return
+        shader = outline["shader"]
+        if shader is None:
+            return
+        ctx = self.draw_ctx
+        outline_color = getattr(ctx, "outline_color", (1.0, 0.65, 0.0, 1.0))
+        outline_width = float(getattr(ctx, "outline_width", 0.004))
+        gpu.state.depth_test_set("LESS_EQUAL")
+        gpu.state.depth_mask_set(False)
+        gpu.state.blend_set("ALPHA")
+        gpu.state.face_culling_set("FRONT")  # show only back faces (rim)
+        with self._push_matrix():
+            shader.bind()
+            shader.uniform_float("ModelViewProjectionMatrix", _get_mvp())
+            shader.uniform_float("outlineWidth", outline_width)
+            shader.uniform_float("outlineColor", outline_color)
+            for batch in outline.get("batches") or []:
+                if batch is not None:
+                    batch.draw(shader)
+        gpu.state.face_culling_set("NONE")
+        gpu.state.depth_mask_set(False)
+        gpu.state.depth_test_set("NONE")
+        gpu.state.blend_set("NONE")
+
     # -- lighting helpers --
 
     @staticmethod
@@ -945,17 +1034,14 @@ class ProxorLiteDrawHandler:
     @classmethod
     def _configure_mesh_lighting(cls, shader, lighting):
         get_mv = getattr(gpu.matrix, "get_model_view_matrix", None)
-        get_proj = getattr(gpu.matrix, "get_projection_matrix", None)
         mv = get_mv() if get_mv else Matrix.Identity(4)
-        proj = get_proj() if get_proj else Matrix.Identity(4)
-        mvp = proj @ mv
         mv3 = mv.to_3x3()
         try:
             normal_matrix = mv3.inverted().transposed()
         except Exception:  # noqa: BLE001
             normal_matrix = mv3.copy()
         shader.bind()
-        shader.uniform_float("ModelViewProjectionMatrix", mvp)
+        shader.uniform_float("ModelViewProjectionMatrix", _get_mvp())
         shader.uniform_float("NormalMatrix", normal_matrix)
         if bpy.app.version >= (4, 5, 0):
             data = cls._lighting_block_payload(lighting)

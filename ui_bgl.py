@@ -934,11 +934,13 @@ def draw_proxor_download(
     GPU batches are created and discarded each frame (same pattern as
     ``draw_bbox`` / ``draw_lines``).
     """
-    import contextlib
+    from mathutils import Euler
 
-    import mathutils
-
-    from .bl_proxor.draw import ProxorLiteDrawBuilder, default_draw_context
+    from .bl_proxor.draw import (
+        ProxorLiteDrawBuilder,
+        _get_mvp,
+        default_draw_context,
+    )
 
     vis = progress if progress is not None else 100
     ctx = default_draw_context(
@@ -949,39 +951,61 @@ def draw_proxor_download(
         mesh_shading_mode="FLAT",
         use_gradient=True,
         visibility_input=vis,
+        use_outline=True,
+        outline_color=(*color[:3], 1.0),
     )
 
-    builder = ProxorLiteDrawBuilder()
+    # Reuse a single builder instance across frames (cheaper than rebuilding).
+    builder = draw_proxor_download.__dict__.setdefault(
+        "_builder", ProxorLiteDrawBuilder()
+    )
     draw_data = builder.build_draw_data(proxor_data, ctx)
     if not draw_data:
         return
 
-    # Build world-space transform matrix
-    rot_euler = mathutils.Euler(rotation)
-    mat = (
-        mathutils.Matrix.Translation(Vector(location)) @ rot_euler.to_matrix().to_4x4()
-    )
-
-    multiply_fn = getattr(gpu.matrix, "multiply_matrix", None) or getattr(
-        gpu.matrix, "multiply", None
-    )
+    # World-space transform for this proxor.
+    mat = Matrix.Translation(Vector(location)) @ Euler(rotation).to_matrix().to_4x4()
 
     gpu.matrix.push()
     try:
-        if multiply_fn is not None:
-            multiply_fn(mat)
+        gpu.matrix.multiply_matrix(mat)
 
-        # Draw mesh
+        # Draw mesh first so its depth blocks the outline interior.
+        # depth_mask_set(True) writes depth for front faces; the outline pass
+        # then uses LESS_EQUAL to clip back faces that are deeper than those
+        # front faces (interior), keeping only the rim visible.
         mesh = draw_data.get("mesh")
         if mesh:
             gpu.state.depth_test_set("LESS_EQUAL")
             gpu.state.depth_mask_set(True)
             gpu.state.blend_set("ALPHA")
+            gpu.state.face_culling_set("BACK")
             shader = mesh["shader"]
             for batch in mesh.get("batches") or []:
                 if batch is not None:
                     batch.draw(shader)
+            gpu.state.face_culling_set("NONE")
             gpu.state.depth_mask_set(False)
+            gpu.state.depth_test_set("NONE")
+            gpu.state.blend_set("NONE")
+
+        # Draw outline after mesh: interior back faces are at greater Z than the
+        # front faces already in the depth buffer, so LESS_EQUAL clips them.
+        outline = draw_data.get("outline")
+        if outline and outline["shader"] is not None:
+            shader = outline["shader"]
+            gpu.state.depth_test_set("LESS_EQUAL")
+            gpu.state.depth_mask_set(False)
+            gpu.state.blend_set("ALPHA")
+            gpu.state.face_culling_set("FRONT")
+            shader.bind()
+            shader.uniform_float("ModelViewProjectionMatrix", _get_mvp())
+            shader.uniform_float("outlineWidth", float(ctx.outline_width))
+            shader.uniform_float("outlineColor", ctx.outline_color)
+            for batch in outline.get("batches") or []:
+                if batch is not None:
+                    batch.draw(shader)
+            gpu.state.face_culling_set("NONE")
             gpu.state.depth_test_set("NONE")
             gpu.state.blend_set("NONE")
 
@@ -989,28 +1013,30 @@ def draw_proxor_download(
         line = draw_data.get("line")
         if line:
             gpu.state.depth_test_set("LESS_EQUAL")
-            gpu.state.depth_mask_set(True)
+            gpu.state.depth_mask_set(False)
+            gpu.state.blend_set("ALPHA")
             shader = line["shader"]
             shader.uniform_float("lineWidth", 1.0)
             line["batch"].draw(shader)
-            gpu.state.depth_mask_set(False)
             gpu.state.depth_test_set("NONE")
+            gpu.state.blend_set("NONE")
 
         # Draw points
         pts = draw_data.get("points")
         if pts:
             gpu.state.depth_test_set("LESS_EQUAL")
-            gpu.state.depth_mask_set(True)
+            gpu.state.depth_mask_set(False)
             gpu.state.blend_set("ALPHA")
             shader = pts["shader"]
             gpu.state.point_size_set(3.0)
             shader.bind()
-            with contextlib.suppress(Exception):
+            try:
                 shader.uniform_float("pointSize", 3.0)
+            except Exception:  # noqa: BLE001
+                pass
             if not pts["has_colors"] and pts["color"] is not None:
                 shader.uniform_float("color", pts["color"])
             pts["batch"].draw(shader)
-            gpu.state.depth_mask_set(False)
             gpu.state.depth_test_set("NONE")
             gpu.state.blend_set("NONE")
     finally:
