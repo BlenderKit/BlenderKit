@@ -2016,16 +2016,8 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
         name="Offset Rotation",
         description="offset rotation, hidden prop",
         default=0,
-        min=0,
+        min=-360,
         max=360,
-        subtype="ANGLE",
-    )
-    offset_rotation_step: FloatProperty(
-        name="Offset Rotation Step",
-        description="offset rotation, hidden prop",
-        default=pi / 2,
-        min=0,
-        max=180,
         subtype="ANGLE",
     )
 

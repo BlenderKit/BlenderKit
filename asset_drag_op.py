@@ -787,6 +787,27 @@ def get_node_tree(context: bpy.types.Context) -> bpy.types.NodeTree:
     return context.scene.compositing_node_group
 
 
+def _make_drag_status_fn(asset_type: str):
+    """Build a status-bar draw function shown in Blender's status bar during drag-drop."""
+    show_rotation = asset_type in ("model", "printable")
+
+    def _draw(header, context):
+        layout = header.layout
+        layout.label(text="BlenderKit Drag-Drop")
+
+        layout.label(text="Place", icon="MOUSE_LMB")
+        layout.label(text="Cancel", icon="MOUSE_RMB")
+
+        if show_rotation:
+            layout.label(text="Rotate 10°", icon="MOUSE_MMB")
+            layout.label(text="1°", icon="EVENT_SHIFT")
+            layout.label(text="Snap 90°", icon="EVENT_CTRL")
+
+        layout.separator_spacer()
+
+    return _draw
+
+
 class AssetDragOperator(bpy.types.Operator):
     """Drag & drop assets into scene. Operator being drawn when dragging asset."""
 
@@ -1843,6 +1864,10 @@ class AssetDragOperator(bpy.types.Operator):
         """Shared teardown: remove handlers, restore cursor, reset drag state."""
         self.handlers_remove()
         bpy.context.window.cursor_modal_restore()
+        try:
+            bpy.context.workspace.status_text_set(None)
+        except Exception:
+            pass
         ui_props.dragging = False
         if self.closed_assetbar:
             bpy.ops.view3d.run_assetbar_fix_context(keep_running=True, do_search=False)
@@ -1974,10 +1999,18 @@ class AssetDragOperator(bpy.types.Operator):
             return {"PASS_THROUGH"}
 
         sprops = bpy.context.window_manager.blenderkit_models
-        if event.type == "WHEELUPMOUSE":
-            sprops.offset_rotation_amount += sprops.offset_rotation_step
-        elif event.type == "WHEELDOWNMOUSE":
-            sprops.offset_rotation_amount -= sprops.offset_rotation_step
+        if event.type in ("WHEELUPMOUSE", "WHEELDOWNMOUSE"):
+            direction = 1 if event.type == "WHEELUPMOUSE" else -1
+            if event.ctrl:
+                # Snap to nearest perpendicular (90°) then step by 90°
+                snap = math.pi / 2
+                current = sprops.offset_rotation_amount
+                snapped = round(current / snap) * snap
+                sprops.offset_rotation_amount = snapped + direction * snap
+            elif event.shift:
+                sprops.offset_rotation_amount += direction * math.radians(1)
+            else:
+                sprops.offset_rotation_amount += direction * math.radians(10)
 
         if event.type in {
             "MOUSEMOVE",
@@ -2194,6 +2227,12 @@ class AssetDragOperator(bpy.types.Operator):
         ui_props = bpy.context.window_manager.blenderkitUI
         self.drag = False
         self.steps = 0
+        try:
+            bpy.context.workspace.status_text_set(
+                _make_drag_status_fn(self.asset_data.get("assetType", ""))
+            )
+        except Exception as e:
+            bk_logger.debug("Could not set drag-drop status text: %s", e)
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
