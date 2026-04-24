@@ -33,22 +33,17 @@ else:
     BLENDER_VERSIONS_PATH = os.path.expanduser("~/.config/blender")
 
 # Discover addon directories for each Blender version.
-# Blender 4.2+ uses extensions/user_default/, older uses scripts/addons/
+# Blender 4.2+ supports extensions -> link only into extensions/user_default/.
+# Older Blender versions -> link only into scripts/addons/.
 all_versions = []
-for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/scripts/addons"):
-    all_versions.append(p.replace("\\", "/"))
-for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/extensions/user_default"):
-    all_versions.append(p.replace("\\", "/"))
-
-# Also scan for version directories that don't have the target dir yet
 for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/"):
     p = p.replace("\\", "/").rstrip("/")
     version_dir = os.path.basename(p)
     if not re.match(r"\d+\.\d+", version_dir):
         continue
-    # Parse version to decide: 4.2+ uses extensions/user_default, older uses scripts/addons
     major, minor = map(int, version_dir.split("."))
-    if major > 4 or (major == 4 and minor >= 2):
+    supports_extensions = major > 4 or (major == 4 and minor >= 2)
+    if supports_extensions:
         addon_dir = os.path.join(p, "extensions", "user_default")
     else:
         addon_dir = os.path.join(p, "scripts", "addons")
