@@ -203,6 +203,20 @@ def draw_callback_dragging(
         elif asset_type == "addon":
             main_message = "Drop to install addon"
 
+        # If hovering over a particle-system instance source, materials,
+        # nodegroups and models won't land here — explain why.
+        if getattr(self, "over_particle_instance", False) and asset_type in (
+            "material",
+            "nodegroup",
+            "model",
+            "printable",
+        ):
+            main_message = "Can't drop on particle instance"
+            secondary_message = "Drop onto the source object in the Outliner instead"
+            main_color = (1.0, 0.5, 0.5, 1.0)  # Error red
+            secondary_color = (0.8, 0.6, 0.6, 1.0)  # Light red
+            invalid_drop = True
+
     elif self.in_node_editor:
         if asset_type not in ["material", "nodegroup"]:
             if asset_type == "addon":
@@ -748,13 +762,17 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
                 try_object,
                 try_matrix,
             )
+    if try_object is None:
+        return empty_set
     if not (obj.display_type == "BOUNDS" or object_in_particle_collection(try_object)):
         return has_hit, snapped_location, snapped_normal, face_index, obj, matrix
     return empty_set
 
 
-def object_in_particle_collection(o: bpy.types.Object) -> bool:
+def object_in_particle_collection(o: Optional[bpy.types.Object]) -> bool:
     """checks if an object is in a particle system as instance, to not snap to it and not to try to attach material."""
+    if o is None:
+        return False
     for p in bpy.data.particles:
         if p.render_type == "COLLECTION" and p.instance_collection:
             if o.name in p.instance_collection.objects:
@@ -874,6 +892,12 @@ class AssetDragOperator(bpy.types.Operator):
         self.drag = False
         self.steps = 0
         self.closed_assetbar = False
+
+        # Set when the cursor is over an object that is excluded from drag
+        # snapping because it is used as a particle-system instance. Used by
+        # draw_callback_dragging to explain to the user why a material/model
+        # can't be dropped on that object in the 3D view.
+        self.over_particle_instance = False
 
         # Proxor draw handler for proxy mesh preview during drag
         self._proxor_handler = None
@@ -1732,6 +1756,9 @@ class AssetDragOperator(bpy.types.Operator):
     ):
         """Get the active object under the mouse cursor during drag."""
 
+        # Reset per-frame hover state
+        self.over_particle_instance = False
+
         # precise placement in ortho views, and quad view
         region_data = viewport_utils.region_data_for_view(active_area, active_region)
         if region_data is None:
@@ -1841,6 +1868,28 @@ class AssetDragOperator(bpy.types.Operator):
                         self.object_name = obj.name
                     else:
                         self.object_name = None
+
+        # Detect if the cursor is over an object that was filtered out of
+        # drag snapping because it's used as a particle-system instance.
+        # We raw ray-cast once (no filtering) to see the "real" hit.
+        if region_data is not None:
+            try:
+                coord = (self.mouse_x, self.mouse_y)
+                raw_view_vector = view3d_utils.region_2d_to_vector_3d(
+                    active_region, region_data, coord
+                )
+                raw_ray_origin = view3d_utils.region_2d_to_origin_3d(
+                    active_region, region_data, coord, clamp=1.0
+                )
+                depsgraph = context.view_layer.depsgraph
+                raw_hit, _, _, _, raw_obj, _ = context.scene.ray_cast(
+                    depsgraph, raw_ray_origin, raw_view_vector * 1000000
+                )
+                if raw_hit and raw_obj and object_in_particle_collection(raw_obj):
+                    self.over_particle_instance = True
+            except Exception:
+                # Informational only — never break drag on detection failure.
+                pass
 
     def _handle_node_editor_type(
         self, current_area_type: Union[str, None], active_area: bpy.types.Area
