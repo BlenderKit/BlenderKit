@@ -748,13 +748,17 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
                 try_object,
                 try_matrix,
             )
+    if try_object is None:
+        return empty_set
     if not (obj.display_type == "BOUNDS" or object_in_particle_collection(try_object)):
         return has_hit, snapped_location, snapped_normal, face_index, obj, matrix
     return empty_set
 
 
-def object_in_particle_collection(o: bpy.types.Object) -> bool:
+def object_in_particle_collection(o: Optional[bpy.types.Object]) -> bool:
     """checks if an object is in a particle system as instance, to not snap to it and not to try to attach material."""
+    if o is None:
+        return False
     for p in bpy.data.particles:
         if p.render_type == "COLLECTION" and p.instance_collection:
             if o.name in p.instance_collection.objects:
