@@ -89,12 +89,12 @@ SCROLL_TRACKPAD_SENSITIVITY_DEFAULT = 120.0
 # we coast on the recorded velocity (friction decay) and finally snap the
 # phase to zero (which is automatically row-aligned because integer commits
 # always advance by a full row in multi-row mode).
-SCROLL_FRICTION = 7.0          # exponential decay rate for inertia (1/s)
-SCROLL_MIN_VELOCITY = 25.0     # px/s; below this we hand off from inertia to snap
-SCROLL_SNAP_RATE = 16.0        # exponential rate for snap-to-zero (1/s)
-SCROLL_SETTLE_PX = 0.5         # px; below this the animation stops entirely
-SCROLL_INPUT_GAP = 0.05        # s; idle gap before inertia takes over
-SCROLL_DT_CAP = 0.1            # s; max frame dt (avoid jumps after lag spikes)
+SCROLL_FRICTION = 7.0  # exponential decay rate for inertia (1/s)
+SCROLL_MIN_VELOCITY = 25.0  # px/s; below this we hand off from inertia to snap
+SCROLL_SNAP_RATE = 16.0  # exponential rate for snap-to-zero (1/s)
+SCROLL_SETTLE_PX = 0.5  # px; below this the animation stops entirely
+SCROLL_INPUT_GAP = 0.05  # s; idle gap before inertia takes over
+SCROLL_DT_CAP = 0.1  # s; max frame dt (avoid jumps after lag spikes)
 SCROLL_VELOCITY_SAMPLE = 0.06  # s; window over which trackpad velocity is averaged
 # Direction-bias for the magnetic snap: when traveling forward we still snap
 # forward to the next slot as long as we already crossed >= (1 - bias) of one
@@ -108,12 +108,12 @@ SCROLL_SNAP_DIRECTION_BIAS = 0.30
 # preload more pages around the visible area at the cost of extra widget
 # instances. Asset-button pool size is sized to fit these buffers (see
 # `setup_widgets`).
-SCROLL_BUFFER_ROWS = 3   # multi-row mode: extra rows above + below visible grid
-SCROLL_BUFFER_COLS = 6   # single-row mode: extra cols on each side
+SCROLL_BUFFER_ROWS = 3  # multi-row mode: extra rows above + below visible grid
+SCROLL_BUFFER_COLS = 6  # single-row mode: extra cols on each side
 
 # Scroll position indicator dimensions (in unscaled px; multiplied by UI scale).
-SCROLL_INDICATOR_THICKNESS_PX = 3   # track / thumb thickness
-SCROLL_INDICATOR_MIN_THUMB_PX = 8   # min thumb length so it stays visible
+SCROLL_INDICATOR_THICKNESS_PX = 3  # track / thumb thickness
+SCROLL_INDICATOR_MIN_THUMB_PX = 8  # min thumb length so it stays visible
 
 # Wheel event types we treat as scroll input. Direction is mapped per-event:
 #   WHEELUPMOUSE / WHEELLEFTMOUSE   -> back    (negative step)
@@ -1790,15 +1790,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # mode (horizontal in single-row, vertical in multi-row). Added to
         # `widgets_panel` AFTER asset buttons in `setup_widgets` so they
         # render on top of thumbnails (otherwise they'd be occluded).
-        scroll_track_height = max(2, int(round(SCROLL_INDICATOR_THICKNESS_PX * ui_bgl.get_ui_scale())))
+        scroll_track_height = max(
+            2, int(round(SCROLL_INDICATOR_THICKNESS_PX * ui_bgl.get_ui_scale()))
+        )
         self.scroll_indicator_track = BL_UI_Widget(
             0, 0, self.bar_width, scroll_track_height
         )
         self.scroll_indicator_track.bg_color = (0.0, 0.0, 0.0, 0.35)
         self.scroll_indicator_track.visible = False
-        self.scroll_indicator_thumb = BL_UI_Widget(
-            0, 0, 1, scroll_track_height
-        )
+        self.scroll_indicator_thumb = BL_UI_Widget(0, 0, 1, scroll_track_height)
         self.scroll_indicator_thumb.bg_color = (1.0, 1.0, 1.0, 0.7)
         self.scroll_indicator_thumb.visible = False
         # NOTE: deliberately NOT appended to `self.widgets_panel` here -
@@ -2838,7 +2838,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             thumb.visible = False
             return
 
-        thickness = max(2, int(round(SCROLL_INDICATOR_THICKNESS_PX * ui_bgl.get_ui_scale())))
+        thickness = max(
+            2, int(round(SCROLL_INDICATOR_THICKNESS_PX * ui_bgl.get_ui_scale()))
+        )
         margin = self.assetbar_margin
         bar_inner_width = max(1, self.bar_width - 2 * margin)
         bar_inner_height = max(1, self.base_bar_height - 2 * margin)
@@ -2869,10 +2871,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             SCROLL_INDICATOR_MIN_THUMB_PX,
             int(round(track_length * visible_units / total_units)),
         )
-        thumb_offset = int(round(
-            (track_length - thumb_length)
-            * (progress / float(total_units - visible_units))
-        ))
+        thumb_offset = int(
+            round(
+                (track_length - thumb_length)
+                * (progress / float(total_units - visible_units))
+            )
+        )
 
         if self.hcount > 1:
             # Vertical: pinned to right edge, inside the bar.
@@ -4366,8 +4370,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Light smoothing so a single jittery sample doesn't dominate.
         blend = 0.6
         self._scroll_velocity = (
-            (1.0 - blend) * self._scroll_velocity + blend * instant_v
-        )
+            1.0 - blend
+        ) * self._scroll_velocity + blend * instant_v
 
         self._scroll_last_input_time = now
         if self._scroll_last_tick_time == 0.0:
@@ -4474,8 +4478,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """
         try:
             prefs = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
-            value = float(getattr(prefs, "trackpad_scroll_sensitivity",
-                                  SCROLL_TRACKPAD_SENSITIVITY_DEFAULT))
+            value = float(
+                getattr(
+                    prefs,
+                    "trackpad_scroll_sensitivity",
+                    SCROLL_TRACKPAD_SENSITIVITY_DEFAULT,
+                )
+            )
             if value < 1.0:
                 value = 1.0
             return value

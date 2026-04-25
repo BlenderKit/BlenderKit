@@ -193,9 +193,7 @@ def build_layout_spec(inputs: LayoutInputs) -> LayoutSpec:
     effective_bar_width = max(bar_width, button_size)
     wcount = max(1, math.floor(effective_bar_width / button_size))
 
-    max_hcount = math.floor(
-        max(inputs.region_width, inputs.window_width) / button_size
-    )
+    max_hcount = math.floor(max(inputs.region_width, inputs.window_width) / button_size)
     max_wcount = inputs.maximized_assetbar_rows
 
     # Filter chips push the bar down.
@@ -207,10 +205,7 @@ def build_layout_spec(inputs: LayoutInputs) -> LayoutSpec:
         if inputs.assetbar_expanded:
             max_rows = inputs.maximized_assetbar_rows
             available_height = (
-                inputs.region_height
-                - bar_y
-                - 2 * assetbar_margin
-                - other_button_size
+                inputs.region_height - bar_y - 2 * assetbar_margin - other_button_size
             )
             max_rows_by_height = math.floor(available_height / button_size)
             max_rows = (
