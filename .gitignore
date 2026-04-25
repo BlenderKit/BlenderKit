@@ -20,3 +20,6 @@ _bck/
 
 # debug env variables
 .env
+
+# macos thumbnail database
+.DS_Store
