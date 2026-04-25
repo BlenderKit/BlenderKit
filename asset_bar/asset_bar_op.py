@@ -111,6 +111,10 @@ SCROLL_SNAP_DIRECTION_BIAS = 0.30
 SCROLL_BUFFER_ROWS = 3   # multi-row mode: extra rows above + below visible grid
 SCROLL_BUFFER_COLS = 6   # single-row mode: extra cols on each side
 
+# Scroll position indicator dimensions (in unscaled px; multiplied by UI scale).
+SCROLL_INDICATOR_THICKNESS_PX = 3   # track / thumb thickness
+SCROLL_INDICATOR_MIN_THUMB_PX = 8   # min thumb length so it stays visible
+
 # Wheel event types we treat as scroll input. Direction is mapped per-event:
 #   WHEELUPMOUSE / WHEELLEFTMOUSE   -> back    (negative step)
 #   WHEELDOWNMOUSE / WHEELRIGHTMOUSE -> forward (positive step)
@@ -258,8 +262,6 @@ def modal_inside(self, context, event):
         self.update_buttons()
 
         # progress bar
-        # change - let's try to optimize and redraw only when needed
-        change = False
         for asset_button in self.asset_buttons:
             if not asset_button.visible:
                 continue
@@ -268,8 +270,6 @@ def modal_inside(self, context, event):
                 if asset_data.get("placeholder"):
                     continue
                 self.update_progress_bar(asset_button, asset_data)
-        if change:
-            context.region.tag_redraw()
 
     # Check for tab shortcut keys directly in the modal function
     if (
@@ -1784,26 +1784,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Add widgets to panel - add tab background first so it's behind everything
         self.widgets_panel.append(self.tab_area_bg)
 
-        # Scroll position indicator. Two thin widgets pinned to the bottom
-        # edge of the asset thumbnail area: a darker track behind, a brighter
-        # thumb on top whose width / x reflect visible_slots / total_slots
-        # and current scroll position. Both update during smooth-scroll.
-        scroll_track_height = max(2, int(round(3 * ui_bgl.get_ui_scale())))
+        # Scroll position indicator. Two thin widgets: a darker track behind
+        # a brighter thumb whose length / position reflect visible_slots /
+        # total_slots and current scroll position. Orientation switches with
+        # mode (horizontal in single-row, vertical in multi-row). Added to
+        # `widgets_panel` AFTER asset buttons in `setup_widgets` so they
+        # render on top of thumbnails (otherwise they'd be occluded).
+        scroll_track_height = max(2, int(round(SCROLL_INDICATOR_THICKNESS_PX * ui_bgl.get_ui_scale())))
         self.scroll_indicator_track = BL_UI_Widget(
             0, 0, self.bar_width, scroll_track_height
         )
-        self.scroll_indicator_track.bg_color = (1.0, 1.0, 1.0, 0.08)
+        self.scroll_indicator_track.bg_color = (0.0, 0.0, 0.0, 0.35)
         self.scroll_indicator_track.visible = False
         self.scroll_indicator_thumb = BL_UI_Widget(
             0, 0, 1, scroll_track_height
         )
-        self.scroll_indicator_thumb.bg_color = (1.0, 1.0, 1.0, 0.55)
+        self.scroll_indicator_thumb.bg_color = (1.0, 1.0, 1.0, 0.7)
         self.scroll_indicator_thumb.visible = False
-        # Tag so smooth-scroll redraw re-bakes panel offset onto these too.
-        self.scroll_indicator_track._is_grid_widget = False
-        self.scroll_indicator_thumb._is_grid_widget = False
-        self.widgets_panel.append(self.scroll_indicator_track)
-        self.widgets_panel.append(self.scroll_indicator_thumb)
+        # NOTE: deliberately NOT appended to `self.widgets_panel` here -
+        # `setup_widgets` adds them last so they draw on top of thumbnails.
 
         # we init max possible buttons.
         # Add buffer rows/cols around the visible grid for scroll animation.
@@ -2379,7 +2378,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._scroll_velocity = 0.0
         self._scroll_animating = False
         self._scroll_travel_dir = 0
-        self._trackpad_accum = 0.0
 
         # Reports panel coordinates depend on bar geometry and current
         # operator mode. Kept out of the pure spec because they touch
@@ -2825,15 +2823,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         ``scroll_offset + scroll_phase / button_size`` so the thumb glides
         smoothly during animation.
         """
-        track = getattr(self, "scroll_indicator_track", None)
-        thumb = getattr(self, "scroll_indicator_thumb", None)
-        if track is None or thumb is None:
-            return
+        track = self.scroll_indicator_track
+        thumb = self.scroll_indicator_thumb
 
-        sro = None
         history_step = search.get_active_history_step()
-        if history_step is not None:
-            sro = history_step.get("search_results_orig")
+        sro = history_step.get("search_results_orig") if history_step else None
         sr = search.get_search_results() or []
         total = sro.get("count") if isinstance(sro, dict) else None
         if not isinstance(total, int) or total <= 0:
@@ -2844,7 +2838,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             thumb.visible = False
             return
 
-        thickness = max(2, int(round(3 * ui_bgl.get_ui_scale())))
+        thickness = max(2, int(round(SCROLL_INDICATOR_THICKNESS_PX * ui_bgl.get_ui_scale())))
         margin = self.assetbar_margin
         bar_inner_width = max(1, self.bar_width - 2 * margin)
         bar_inner_height = max(1, self.base_bar_height - 2 * margin)
@@ -2871,7 +2865,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         progress = max(0.0, min(float(total_units - visible_units), progress))
 
-        thumb_length = max(8, int(round(track_length * visible_units / total_units)))
+        thumb_length = max(
+            SCROLL_INDICATOR_MIN_THUMB_PX,
+            int(round(track_length * visible_units / total_units)),
+        )
         thumb_offset = int(round(
             (track_length - thumb_length)
             * (progress / float(total_units - visible_units))
@@ -2896,6 +2893,20 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             thumb.width = thumb_length
             thumb.height = thickness
             thumb.set_location(margin + thumb_offset, track_y)
+
+        # `set_location` writes the same coords to `x` (panel-local) and
+        # `x_screen` (absolute). Bake the panel offset into `x_screen` so
+        # the indicator draws at the correct absolute position whether or
+        # not `panel.layout_widgets()` runs between updates. Without this
+        # the indicator sits at panel-local coords in screen space at rest
+        # and only happens to land in the right spot during smooth-scroll
+        # animation (which re-bakes via `_smooth_scroll_redraw`).
+        panel = getattr(self, "panel", None)
+        if panel is not None:
+            px = panel.x_screen
+            py = panel.y_screen
+            track.update(px + track.x, py + track.y)
+            thumb.update(px + thumb.x, py + thumb.y)
 
         track.visible = True
         thumb.visible = True
@@ -2972,8 +2983,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             (0, int((self.bar_height - self.button_size) / 2))
         )
 
-        self._update_scroll_indicator()
-
     # region setup
 
     def __init__(self, *args, **kwargs):
@@ -2982,8 +2991,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._restart_pending = False
         self.scroll_offset = 0
         self._tooltip_available_height = None
-
-        self._trackpad_accum = 0.0
 
         # Smooth-scroll animation state. `scroll_phase` is a signed pixel
         # offset along the active scroll axis: `total_visual_position = (
@@ -3032,7 +3039,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.last_scroll_offset = -10  # set to -10 so it updates on first run
         self.scroll_offset = ui_props.scroll_offset
-        self._trackpad_accum = 0.0
 
         self.text_color = (0.9, 0.9, 0.9, 1.0)
         self.info_color = (0.6, 0.6, 0.6, 1.0)
@@ -3042,9 +3048,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.init_ui()
         self.init_tooltip()
         self.hide_tooltip()
-
-        self.trackpad_x_accum = 0
-        self.trackpad_y_accum = 0
 
     def setup_widgets(self, context, event):
         """Set up all widgets for the asset bar and tooltip."""
@@ -3059,6 +3062,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         widgets_panel.extend(self.validation_icons)
         widgets_panel.extend(self.author_buttons)
         widgets_panel.extend(self.progress_bars)
+        # Scroll indicator goes last so it draws on top of every thumbnail
+        # and overlay; otherwise it would be occluded by the asset buttons.
+        widgets_panel.append(self.scroll_indicator_track)
+        widgets_panel.append(self.scroll_indicator_thumb)
 
         widgets = [self.panel]
 
@@ -4167,7 +4174,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results")
         sro = history_step.get("search_results_orig")
-        # orig_offset = self.scroll_offset
         # empty results
         if sr is None:
             self.button_scroll_down.visible = False
@@ -4253,7 +4259,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._scroll_velocity = 0.0
         self._scroll_animating = False
         self._scroll_travel_dir = 0
-        self._trackpad_accum = 0.0
         self.scroll_offset += slot_step
         self.scroll_update()
 
@@ -4315,11 +4320,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def _smooth_scroll_redraw(self):
         """Reposition buttons with the current phase and request a redraw."""
         self.position_and_hide_buttons()
-        # Refresh the indicator each frame so its thumb glides with phase.
-        # `position_and_hide_buttons` already calls `_update_scroll_indicator`
-        # internally, but we keep this explicit call as a noop guard in case
-        # the order changes - it is cheap.
-        # (No extra call needed; left as breadcrumb.)
+        # Refresh the indicator each animation frame so its thumb glides
+        # smoothly with the sub-slot phase. (`scroll_update` handles the
+        # non-animated paths.)
+        self._update_scroll_indicator()
         panel = getattr(self, "panel", None)
         if panel is not None:
             px = panel.x_screen
@@ -4328,8 +4332,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 getattr(self, "button_expand", None),
                 getattr(self, "button_scroll_down", None),
                 getattr(self, "button_scroll_up", None),
-                getattr(self, "scroll_indicator_track", None),
-                getattr(self, "scroll_indicator_thumb", None),
             )
             for w in panel.widgets:
                 if getattr(w, "_is_grid_widget", False) or w in extras:
@@ -4513,7 +4515,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # since the last event (leftover travel must not bleed across axes).
         if self._trackpad_axis_vertical != vertical:
             self._trackpad_axis_vertical = vertical
-            self._trackpad_accum = 0.0
             self.scroll_phase = 0.0
             self._scroll_velocity = 0.0
             self._scroll_animating = False
