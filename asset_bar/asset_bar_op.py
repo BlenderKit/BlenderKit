@@ -81,6 +81,36 @@ SEARCH_PREFETCH_LOOKAHEAD = 20
 # Used as a fallback when addon preferences are unavailable.
 SCROLL_TRACKPAD_SENSITIVITY_DEFAULT = 120.0
 
+# --- Smooth-scroll animation tunables -----------------------------------------
+# The scroll position is `scroll_offset` (integer slot count) + `scroll_phase`
+# (signed pixel offset along the active scroll axis). Trackpad input feeds the
+# phase continuously; once |phase| >= one slot-step the integer offset advances
+# and the phase is reduced by that step. After the user stops feeding events
+# we coast on the recorded velocity (friction decay) and finally snap the
+# phase to zero (which is automatically row-aligned because integer commits
+# always advance by a full row in multi-row mode).
+SCROLL_FRICTION = 7.0          # exponential decay rate for inertia (1/s)
+SCROLL_MIN_VELOCITY = 25.0     # px/s; below this we hand off from inertia to snap
+SCROLL_SNAP_RATE = 16.0        # exponential rate for snap-to-zero (1/s)
+SCROLL_SETTLE_PX = 0.5         # px; below this the animation stops entirely
+SCROLL_INPUT_GAP = 0.05        # s; idle gap before inertia takes over
+SCROLL_DT_CAP = 0.1            # s; max frame dt (avoid jumps after lag spikes)
+SCROLL_VELOCITY_SAMPLE = 0.06  # s; window over which trackpad velocity is averaged
+# Direction-bias for the magnetic snap: when traveling forward we still snap
+# forward to the next slot as long as we already crossed >= (1 - bias) of one
+# slot, i.e. we bias the half-way decision boundary toward the travel
+# direction. 0.0 = pure nearest-slot, 0.5 = always continue forward unless
+# almost no progress, sane range ~0.2-0.35.
+SCROLL_SNAP_DIRECTION_BIAS = 0.30
+
+# Scroll buffer rows/cols rendered outside the visible bar so that fast
+# inertial swipes have pre-positioned thumbnails to slide in. Bigger values
+# preload more pages around the visible area at the cost of extra widget
+# instances. Asset-button pool size is sized to fit these buffers (see
+# `setup_widgets`).
+SCROLL_BUFFER_ROWS = 3   # multi-row mode: extra rows above + below visible grid
+SCROLL_BUFFER_COLS = 6   # single-row mode: extra cols on each side
+
 # Wheel event types we treat as scroll input. Direction is mapped per-event:
 #   WHEELUPMOUSE / WHEELLEFTMOUSE   -> back    (negative step)
 #   WHEELDOWNMOUSE / WHEELRIGHTMOUSE -> forward (positive step)
@@ -339,6 +369,11 @@ def modal_inside(self, context, event):
             # return {"FINISHED"} # we can jump out immediately
 
     self.mouse_x, self.mouse_y = self._event_coords_in_active_region(event)
+
+    # Smooth-scroll animation tick. Runs every TIMER while inertia or snap
+    # is in flight; cheap no-op once settled.
+    if self._scroll_animating and event.type == "TIMER":
+        self._smooth_scroll_tick(time.time())
 
     # SCROLL INPUT
     # All scroll-like input (vertical wheel, horizontal/tilt wheel, trackpad pan)
@@ -1750,12 +1785,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.widgets_panel.append(self.tab_area_bg)
 
         # we init max possible buttons.
-        # Add 2 extra rows for scroll animation buffer (1 above + 1 below
-        # the visible grid).  In single-row mode the buffer uses extra
-        # columns instead, but max_hcount already has room for those.
+        # Add buffer rows/cols around the visible grid for scroll animation.
+        # Multi-row mode uses extra rows; single-row mode uses extra columns.
+        # Pool size has to cover the worst case of either mode.
         button_idx = 0
-        for x in range(0, self.max_wcount + 2):
-            for y in range(0, self.max_hcount):
+        pool_cols = self.max_wcount + 2 * SCROLL_BUFFER_COLS
+        pool_rows = self.max_hcount + 2 * SCROLL_BUFFER_ROWS
+        for x in range(0, pool_cols):
+            for y in range(0, pool_rows):
                 # asset_x = self.assetbar_margin + a * (self.button_size)
                 # asset_y = self.assetbar_margin + b * (self.button_size)
                 # button_idx = x + y * self.max_wcount
@@ -2312,6 +2349,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._layout = final_spec
         self._layout_cache_key = prelim_inputs
 
+        # Layout actually rebuilt -> any in-flight smooth-scroll phase is
+        # stale (button_size / wcount may have changed, so the pixel value
+        # of "phase" no longer matches the intended slot fraction). Drop
+        # it so we visually snap to the integer scroll_offset and stay
+        # row-aligned. The integer offset is preserved.
+        self.scroll_phase = 0.0
+        self._scroll_velocity = 0.0
+        self._scroll_animating = False
+        self._scroll_travel_dir = 0
+        self._trackpad_accum = 0.0
+
         # Reports panel coordinates depend on bar geometry and current
         # operator mode. Kept out of the pure spec because they touch
         # ``ui_props`` (Blender state).
@@ -2644,13 +2692,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         counts = self.manufacturer_counts
 
-        base_y = (
-            self.active_filter_height
-            + self.bar_height
-            + self.other_button_size
-            + self.filter_button_height
-            + (self.free_button_margin * 2)
-        )
+        # Vertically center the chips in the dark manufacturer strip at the
+        # bottom of the bar. Strip occupies [base_bar_height, bar_height]
+        # within the panel; centering a chip of height filter_button_height
+        # in a strip of height (filter_button_height + 2*free_button_margin)
+        # leaves free_button_margin of padding above and below.
+        chip_y = self.bar_y + self.base_bar_height + self.free_button_margin
         displayed_counts = [counts.get(name, 0) for name in self.manufacturer_names]
 
         min_count = min(displayed_counts) if displayed_counts else 1
@@ -2683,7 +2730,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             button.set_location(
                 current_left_offset,
-                self.filter_button_height + base_y,
+                chip_y,
             )
             button.width = width
             button.height = self.filter_button_height
@@ -2762,20 +2809,24 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         sr_len = len(sr)
         i = 0
 
-        # Grid range including one buffer row/col on each side for scroll animation.
+        # Grid range including buffer rows/cols on each side for scroll animation.
         if self.hcount > 1:
-            y_start, y_end = -1, self.hcount + 1
+            y_start = -SCROLL_BUFFER_ROWS
+            y_end = self.hcount + SCROLL_BUFFER_ROWS
             x_start, x_end = 0, self.wcount
+            phase_x, phase_y = 0.0, self.scroll_phase
         else:
             y_start, y_end = 0, 1
-            x_start, x_end = -2, self.wcount + 2
+            x_start = -SCROLL_BUFFER_COLS
+            x_end = self.wcount + SCROLL_BUFFER_COLS
+            phase_x, phase_y = self.scroll_phase, 0.0
 
         for y in range(y_start, y_end):
             for x in range(x_start, x_end):
                 if i >= len(self.asset_buttons):
                     break
-                asset_x = self.assetbar_margin + x * self.button_size
-                asset_y = self.assetbar_margin + y * self.button_size
+                asset_x = self.assetbar_margin + x * self.button_size - phase_x
+                asset_y = self.assetbar_margin + y * self.button_size - phase_y
                 logical_idx = x + y * self.wcount
 
                 button = self.asset_buttons[i]
@@ -2825,6 +2876,22 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._tooltip_available_height = None
 
         self._trackpad_accum = 0.0
+
+        # Smooth-scroll animation state. `scroll_phase` is a signed pixel
+        # offset along the active scroll axis: `total_visual_position = (
+        # scroll_offset + scroll_phase / button_size) * slot_size_px`.
+        # While `_scroll_animating` is True the modal timer ticks the phase
+        # toward rest (friction decay -> magnetic snap to zero).
+        self.scroll_phase = 0.0
+        self._scroll_velocity = 0.0
+        self._scroll_last_input_time = 0.0
+        self._scroll_last_tick_time = 0.0
+        self._scroll_animating = False
+        # Sticky travel direction (-1, 0, +1). Captures the dominant sign of
+        # recent input/velocity so the snap stage can prefer continuing in
+        # the same direction instead of always pulling phase toward 0.
+        self._scroll_travel_dir = 0
+        self._trackpad_axis_vertical = None
 
         self.base_bar_height = 0
 
@@ -3983,6 +4050,12 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def scroll_update(self, always=False):
         """Update scroll position and visibility of scroll buttons."""
         self.hide_tooltip()
+        # Outside the smooth-scroll loop any stale phase would leave buttons
+        # visually offset from their integer position - reset it so external
+        # callers (clicks, search refresh, edge clamps) start clean.
+        if not self._scroll_animating and self.scroll_phase != 0.0:
+            self.scroll_phase = 0.0
+            self._scroll_velocity = 0.0
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results")
         sro = history_step.get("search_results_orig")
@@ -4058,14 +4131,229 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         return step
 
     def _scroll_by_slots(self, slot_step: int):
-        """Discrete scroll commit. No animation."""
+        """Discrete scroll commit. Cancels any in-flight smooth animation."""
         if slot_step == 0:
             return
         slot_step = self._apply_edge_resistance(slot_step)
         if slot_step == 0:
             return
+        # A wheel commit overrides any active inertia or snap, so visuals do
+        # not lag behind the integer position.
+        self.scroll_phase = 0.0
+        self._scroll_velocity = 0.0
+        self._scroll_animating = False
+        self._scroll_travel_dir = 0
+        self._trackpad_accum = 0.0
         self.scroll_offset += slot_step
         self.scroll_update()
+
+    # --- Smooth-scroll helpers ------------------------------------------------
+
+    def _smooth_scroll_axis_step_px(self) -> float:
+        """Pixel size of one slot along the active scroll axis."""
+        return float(max(1, int(self.button_size)))
+
+    def _smooth_scroll_unit_slots(self) -> int:
+        """Slots advanced per integer scroll step (1 single-row, wcount multi-row)."""
+        return self.wcount if self.hcount > 1 else 1
+
+    def _smooth_scroll_max_offset(self) -> int:
+        sr = search.get_search_results()
+        if sr is None:
+            return 0
+        return max(0, len(sr) - (self.wcount * self.hcount))
+
+    def _smooth_scroll_commit_phase(self) -> bool:
+        """Advance integer `scroll_offset` whenever |phase| crosses one slot step.
+
+        Returns True if any integer commit happened (so callers can refresh
+        button image bindings via `scroll_update`).
+        """
+        step_px = self._smooth_scroll_axis_step_px()
+        unit = self._smooth_scroll_unit_slots()
+        committed = False
+        # Forward direction: positive phase eats slots forward.
+        while self.scroll_phase >= step_px:
+            self.scroll_phase -= step_px
+            self.scroll_offset += unit
+            committed = True
+        while self.scroll_phase <= -step_px:
+            self.scroll_phase += step_px
+            self.scroll_offset -= unit
+            committed = True
+        return committed
+
+    def _smooth_scroll_clamp(self):
+        """Clamp `scroll_offset` to results bounds and zero phase at edges."""
+        max_offset = self._smooth_scroll_max_offset()
+        if self.scroll_offset < 0:
+            self.scroll_offset = 0
+        elif self.scroll_offset > max_offset:
+            self.scroll_offset = max_offset
+        if self.scroll_offset <= 0 and self.scroll_phase < 0:
+            self.scroll_phase = 0.0
+            self._scroll_velocity = 0.0
+        if self.scroll_offset >= max_offset and self.scroll_phase > 0:
+            self.scroll_phase = 0.0
+            self._scroll_velocity = 0.0
+        # Phase must always be a sub-slot fraction; any whole-slot residue
+        # is a logic bug we'd rather visualize as a clean snap than a drift.
+        step_px = self._smooth_scroll_axis_step_px()
+        if abs(self.scroll_phase) >= step_px:
+            self.scroll_phase = 0.0
+
+    def _smooth_scroll_redraw(self):
+        """Reposition buttons with the current phase and request a redraw."""
+        self.position_and_hide_buttons()
+        # `_position_single_button` writes panel-local coords into widget
+        # `x` / `x_screen`; the panel's offset must be baked into `x_screen`
+        # for the absolute draw position. We re-bake every widget that
+        # `position_and_hide_buttons` touches: grid widgets (asset buttons
+        # and their sub-widgets, tagged `_is_grid_widget`), the expand
+        # button, and the two scroll buttons. Filter chips and manufacturer
+        # chips are left alone because their helpers already write absolute
+        # coords; double-baking would push them outside the bar.
+        panel = getattr(self, "panel", None)
+        if panel is not None:
+            px = panel.x_screen
+            py = panel.y_screen
+            extras = (
+                getattr(self, "button_expand", None),
+                getattr(self, "button_scroll_down", None),
+                getattr(self, "button_scroll_up", None),
+            )
+            for w in panel.widgets:
+                if getattr(w, "_is_grid_widget", False) or w in extras:
+                    if w is None:
+                        continue
+                    w.update(px + w.x, py + w.y)
+        try:
+            region = bpy.context.region
+        except Exception:
+            region = None
+        self._safe_tag_redraw(region)
+
+    def _smooth_scroll_apply_input(self, axis_delta_px: float, now: float):
+        """Feed a continuous (trackpad) pixel delta into the smooth scroller.
+
+        Updates phase, integrates velocity from inter-event timing, commits
+        any whole-slot crossings, clamps to edges, and redraws.
+        """
+        # If the layout's active scroll axis flipped since the last sample,
+        # discard stale velocity so cross-axis input doesn't carry over.
+        # (Axis flip itself is detected in `_handle_scroll_event`.)
+        self.scroll_phase += axis_delta_px
+
+        last_input = self._scroll_last_input_time
+        dt = now - last_input if last_input > 0.0 else 0.0
+        if dt <= 0.0 or dt > 0.25:
+            # Either first sample or long idle gap (start of a new swipe);
+            # don't extrapolate a velocity from this single frame.
+            instant_v = 0.0
+        else:
+            instant_v = axis_delta_px / max(dt, SCROLL_VELOCITY_SAMPLE)
+        # Light smoothing so a single jittery sample doesn't dominate.
+        blend = 0.6
+        self._scroll_velocity = (
+            (1.0 - blend) * self._scroll_velocity + blend * instant_v
+        )
+
+        self._scroll_last_input_time = now
+        if self._scroll_last_tick_time == 0.0:
+            self._scroll_last_tick_time = now
+        self._scroll_animating = True
+        # Record dominant travel direction from this input. Sub-pixel jitter
+        # near 0 is ignored so we don't keep flipping the bias.
+        if axis_delta_px > 0.5:
+            self._scroll_travel_dir = 1
+        elif axis_delta_px < -0.5:
+            self._scroll_travel_dir = -1
+
+        committed = self._smooth_scroll_commit_phase()
+        self._smooth_scroll_clamp()
+        if committed:
+            # Image rebinding etc. only when integer offset actually changed.
+            self.scroll_update()
+        self._smooth_scroll_redraw()
+
+    def _smooth_scroll_tick(self, now: float):
+        """Per-frame animation step. Called from modal TIMER while animating.
+
+        Two-stage: friction-decayed inertia until velocity falls below
+        `SCROLL_MIN_VELOCITY`, then magnetic snap of phase toward 0 (which
+        is automatically row-aligned since integer commits move whole rows).
+        """
+        if not self._scroll_animating:
+            return
+        last = self._scroll_last_tick_time or now
+        dt = now - last
+        self._scroll_last_tick_time = now
+        if dt <= 0.0:
+            return
+        if dt > SCROLL_DT_CAP:
+            dt = SCROLL_DT_CAP
+
+        time_since_input = now - self._scroll_last_input_time
+        if time_since_input < SCROLL_INPUT_GAP:
+            # User still feeding events; let `_smooth_scroll_apply_input`
+            # drive phase. We just keep the animation loop alive.
+            return
+
+        if abs(self._scroll_velocity) > SCROLL_MIN_VELOCITY:
+            # Inertia: exponential friction decay.
+            decay = math.exp(-SCROLL_FRICTION * dt)
+            avg_v = self._scroll_velocity * (1.0 + decay) * 0.5
+            self.scroll_phase += avg_v * dt
+            self._scroll_velocity *= decay
+        else:
+            # Magnetic snap. Target is the nearest slot boundary, but the
+            # half-way decision boundary is shifted toward the travel
+            # direction by `SCROLL_SNAP_DIRECTION_BIAS * step` so a partial
+            # crossing in the direction we were already heading commits
+            # forward instead of pulling back.
+            self._scroll_velocity = 0.0
+            step_px = self._smooth_scroll_axis_step_px()
+            half = step_px * 0.5
+            bias = SCROLL_SNAP_DIRECTION_BIAS * step_px
+            direction = self._scroll_travel_dir
+            if direction > 0:
+                # Boundary lowered to (0.5 - bias_frac) of one slot.
+                threshold = half - bias
+                target = step_px if self.scroll_phase >= threshold else 0.0
+            elif direction < 0:
+                threshold = -(half - bias)
+                target = -step_px if self.scroll_phase <= threshold else 0.0
+            else:
+                # No recorded direction: pure nearest-slot.
+                if self.scroll_phase >= half:
+                    target = step_px
+                elif self.scroll_phase <= -half:
+                    target = -step_px
+                else:
+                    target = 0.0
+
+            distance = self.scroll_phase - target
+            if abs(distance) <= SCROLL_SETTLE_PX:
+                # Land cleanly. If target was a slot boundary the commit
+                # below will reduce phase back to 0.
+                self.scroll_phase = target
+                committed_now = self._smooth_scroll_commit_phase()
+                self._smooth_scroll_clamp()
+                if committed_now:
+                    self.scroll_update()
+                self._smooth_scroll_redraw()
+                self._scroll_animating = False
+                self._scroll_last_tick_time = 0.0
+                self._scroll_travel_dir = 0
+                return
+            ease = 1.0 - math.exp(-SCROLL_SNAP_RATE * dt)
+            self.scroll_phase -= distance * ease
+
+        committed = self._smooth_scroll_commit_phase()
+        self._smooth_scroll_clamp()
+        if committed:
+            self.scroll_update()
+        self._smooth_scroll_redraw()
 
     def _get_trackpad_sensitivity(self) -> float:
         """Pixels of finger travel required to advance one asset slot.
@@ -4090,6 +4378,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         asset bar panel, mapping them to discrete slot steps based on the
         current layout (single-row -> horizontal, multi-row -> vertical).
 
+        Trackpad input feeds the smooth-scroll phase continuously and lets
+        the timer-driven inertia + magnetic snap take over after release.
+        Wheel input still commits one full step per tick (cancelling any
+        in-flight animation).
+
         Returns True if the event was a scroll input that we should consume
         (RUNNING_MODAL); False to let the caller fall through to other
         handlers / pass the event through.
@@ -4107,14 +4400,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         vertical = self.hcount > 1
         slot_per_step = self.wcount if vertical else 1
 
-        # Reset the trackpad pixel accumulator if the layout's scrolling axis
-        # changed since the last event - leftover horizontal travel must not
-        # bleed into vertical scrolling and vice versa.
-        if getattr(self, "_trackpad_axis_vertical", None) != vertical:
+        # Reset accumulated state if the layout's scrolling axis changed
+        # since the last event (leftover travel must not bleed across axes).
+        if self._trackpad_axis_vertical != vertical:
             self._trackpad_axis_vertical = vertical
             self._trackpad_accum = 0.0
-
-        steps = 0
+            self.scroll_phase = 0.0
+            self._scroll_velocity = 0.0
+            self._scroll_animating = False
+            self._scroll_travel_dir = 0
 
         if event.type == "TRACKPADPAN":
             dx = event.mouse_x - event.mouse_prev_x
@@ -4130,28 +4424,25 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             # Both axes map to the same logical "forward" regardless of
             # whether the layout is single-row or multi-row.
             if abs(dy) >= abs(dx):
-                axis_delta = dy
+                axis_delta = float(dy)
             else:
-                axis_delta = -dx
+                axis_delta = float(-dx)
 
+            # Map raw pixels into "scroll-axis pixels" via the user's
+            # sensitivity preference: travelling `sensitivity` finger-pixels
+            # equals one slot of bar movement (`button_size` pixels of phase).
             sensitivity = self._get_trackpad_sensitivity()
-            self._trackpad_accum = (
-                getattr(self, "_trackpad_accum", 0.0) + axis_delta
-            )
-            # Use math.floor so negative accumulations also yield negative
-            # whole steps with the correct sign.
-            steps = int(math.floor(self._trackpad_accum / sensitivity))
-            if steps != 0:
-                self._trackpad_accum -= steps * sensitivity
+            step_px = self._smooth_scroll_axis_step_px()
+            phase_delta = (axis_delta / sensitivity) * step_px
+
+            self._smooth_scroll_apply_input(phase_delta, time.time())
         else:
-            # Wheel event. Each wheel tick is one full step.
+            # Wheel event. Each tick is one full step; commits instantly
+            # and overrides any in-flight smooth animation.
             steps = 1 if event.type in _WHEEL_FORWARD else -1
-
-        if steps != 0:
             self._scroll_by_slots(steps * slot_per_step)
-
-        if context.region is not None:
-            context.region.tag_redraw()
+            if context.region is not None:
+                context.region.tag_redraw()
         return True
 
     def search_by_author(self, asset_index):
