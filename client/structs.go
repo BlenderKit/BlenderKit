@@ -641,6 +641,18 @@ type DownloadThumbnailData struct {
 	Index           int    `json:"index"`
 }
 
+// DownloadPrxcData holds info needed to download a .prxc proxy mesh file.
+type DownloadPrxcData struct {
+	AddonVersion    string `json:"addon_version"`
+	PlatformVersion string `json:"platform_version"`
+	FilePath        string `json:"file_path"`
+	DownloadURL     string `json:"download_url"` // API URL to get signed CDN URL
+	AssetBaseID     string `json:"assetBaseId"`
+	APIKey          string `json:"api_key"`
+	SceneUUID       string `json:"scene_uuid"`
+	Index           int    `json:"index"`
+}
+
 type SearchTaskData struct {
 	PREFS           `json:"PREFS"`
 	AddonVersion    string `json:"addon_version"`

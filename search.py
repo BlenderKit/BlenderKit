@@ -22,6 +22,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import unicodedata
 import urllib.parse
 import uuid
@@ -945,6 +946,93 @@ def handle_thumbnail_download_task(task: client_tasks.Task) -> None:
         return
 
 
+def handle_prxc_download_task(task: client_tasks.Task) -> None:
+    """Handle completed .prxc proxy mesh download.
+
+    On success we keep the file in temp and only mark it as available.
+    Persisting it next to the downloaded .blend is deferred until the asset
+    download itself finishes.
+    """
+    asset_base_id = task.data.get("assetBaseId", "")
+    file_path = task.data.get("file_path", "")
+    if task.status == "finished" and file_path:
+        global_vars.DATA.setdefault("prxc available", {})[asset_base_id] = file_path
+        bk_logger.debug(f"prxc available in temp for {asset_base_id}: {file_path}")
+    elif task.status == "error":
+        bk_logger.debug(f"prxc download failed for {asset_base_id}: {task.message}")
+
+
+def persist_prxc_after_asset_download(asset_data: dict) -> None:
+    """Persist cached .prxc next to the downloaded model/printable asset.
+
+    This must be called only after the main asset download has finished.
+    """
+    asset_type = asset_data.get("assetType")
+    if asset_type not in ("model", "printable"):
+        return
+
+    asset_base_id = asset_data.get("assetBaseId", "")
+    if not asset_base_id:
+        return
+
+    src_path = global_vars.DATA.get("prxc available", {}).get(asset_base_id, "")
+    if not src_path or not os.path.exists(src_path):
+        return
+
+    persistent_path = _copy_prxc_to_asset_dir(asset_base_id, src_path)
+    if persistent_path:
+        global_vars.DATA.setdefault("prxc available", {})[
+            asset_base_id
+        ] = persistent_path
+        bk_logger.debug(
+            f"prxc persisted after asset download for {asset_base_id}: {persistent_path}"
+        )
+
+
+def _copy_prxc_to_asset_dir(asset_base_id: str, src_path: str) -> str:
+    """Copy *src_path* to the asset's persistent download directory.
+
+    Looks up the asset in the current search results by ``assetBaseId``.  If
+    found, the file is copied to the first candidate asset directory as
+    ``{assetBaseId}.prxc``.  The directory is created when it does not yet
+    exist (the model download may arrive later).
+
+    Returns the destination path on success, or an empty string on failure.
+    """
+    if not src_path or not os.path.exists(src_path):
+        return ""
+
+    # Find the asset data in the active search results.
+    asset_data = None
+    for result in get_search_results():
+        if result.get("assetBaseId") == asset_base_id:
+            asset_data = result
+            break
+
+    if asset_data is None:
+        bk_logger.debug(
+            f"prxc: asset {asset_base_id} not in search results, keeping temp path"
+        )
+        return ""
+
+    try:
+        asset_dirs = paths.get_asset_directories(asset_data)
+        if not asset_dirs:
+            return ""
+        # A single .prxc file applies to every resolution of the asset, so
+        # the first directory (primary/highest resolution) is a sufficient
+        # canonical location; other resolutions will find it via lookup.
+        dest_dir = asset_dirs[0]
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, f"{asset_base_id}.prxc")
+        shutil.copy2(src_path, dest_path)
+        bk_logger.debug(f"prxc copied to asset dir: {dest_path}")
+        return dest_path
+    except Exception as e:
+        bk_logger.warning(f"prxc: failed to copy to asset dir: {e}")
+        return ""
+
+
 def load_preview(asset):
     # FIRST START SEARCH
     props = bpy.context.window_manager.blenderkitUI
@@ -1557,7 +1645,7 @@ def add_search_process(
     global search_tasks
     addon_version = utils.get_addon_version()
     blender_version = utils.get_blender_version()
-    scene_uuid = bpy.context.scene.get("uuid", "")  # type: ignore[attr-defined]
+    scene_uuid = utils.get_scene_id()
 
     tempdir = paths.get_temp_dir("%s_search" % query["asset_type"])
     if get_next and next_url:

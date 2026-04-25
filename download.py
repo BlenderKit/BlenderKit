@@ -1061,6 +1061,14 @@ def update_asset_metadata(asset_main, asset_data):
     # TODO consider reducing stored fields for filesize.
     asset_main["asset_data"] = sanitized
 
+    # Store the proxor (.prxc) file path on the asset so the validator and
+    # future tooling can locate it without a search-results lookup.
+    prxc_path = global_vars.DATA.get("prxc available", {}).get(
+        asset_data["assetBaseId"], ""
+    )
+    if prxc_path:
+        asset_main.blenderkit.proxor_path = prxc_path
+
 
 def replace_resolution_linked(file_paths, asset_data):
     """Replace one asset resolution for another. This is the much simpler case.
@@ -1405,6 +1413,9 @@ def download_post(task: client_tasks.Task) -> None:
         # TODO this should try to check if both files exist and are ok.
         utils.copy_asset(file_paths[0], file_paths[1])
         # shutil.copyfile(file_paths[0], file_paths[1])
+
+    # Persist proxor next to the downloaded .blend only after asset download finishes.
+    search.persist_prxc_after_asset_download(task.data["asset_data"])
 
     bk_logger.debug("appending asset")
     # progress bars:

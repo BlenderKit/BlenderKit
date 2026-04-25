@@ -85,6 +85,26 @@ def write_to_report(props, text):
     props.report = props.report + " - " + text + "\n\n"
 
 
+def refresh_upload_status_ui():
+    """Request a UI redraw so synchronous preparation messages become visible."""
+    window_manager = getattr(bpy.context, "window_manager", None)
+    if window_manager is None:
+        return
+
+    for window in window_manager.windows:
+        screen = getattr(window, "screen", None)
+        if screen is None:
+            continue
+        for area in screen.areas:
+            area.tag_redraw()
+
+
+def set_upload_status(props, text):
+    """Update upload status and force a redraw for long synchronous steps."""
+    props.upload_state = text
+    refresh_upload_status_ui()
+
+
 def prevalidate_model(props):
     """Check model for possible problems:
     - check if all objects does not have asymmetrical scaling. Asymmetrical scaling is a big problem.
@@ -1348,6 +1368,8 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
         caller=self, context=context, asset_type=asset_type
     )
 
+    set_upload_status(props, "Preparing upload...")
+
     # check if thumbnail exists, generate for HDR:
     if "THUMBNAIL" in upload_set:
         if asset_type == "HDR":
@@ -1490,6 +1512,13 @@ class UploadOperator(Operator):
             if self.main_file:
                 upload_set.append("MAINFILE")
 
+        # Generate proxor .prxc only when the main file is being uploaded
+        # (initial upload or re-upload with main_file checked). Skipping when
+        # only metadata/thumbnails change avoids running the proxor pipeline
+        # on every edit.
+        if self.asset_type in {"MODEL", "PRINTABLE"} and "MAINFILE" in upload_set:
+            upload_set.append("PRXC")
+
         # this is accessed later in get_upload_data and needs to be written.
         # should pass upload_set all the way to it probably
         if "MAINFILE" in upload_set:
@@ -1503,7 +1532,7 @@ class UploadOperator(Operator):
             props.upload_state = ""
             return {"CANCELLED"}
 
-        props.upload_state = "Upload initiating..."
+        set_upload_status(props, "Upload initiating...")
         props.uploading = True
 
         client_lib.asset_upload(upload_data, export_data, upload_set)
