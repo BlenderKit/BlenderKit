@@ -32,8 +32,8 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
+from .asset_bar import asset_bar_op
 from . import (
-    asset_bar_op,
     categories,
     client_lib,
     client_tasks,

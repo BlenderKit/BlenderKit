@@ -125,8 +125,8 @@ else:
     from . import addon_updater_ops
     from . import timer
     from . import append_link
-    from . import asset_bar_op
-    from . import asset_drag_op
+    from .asset_bar import asset_bar_op
+    from .asset_bar import asset_drag_op
     from . import asset_inspector
     from . import autothumb
     from . import bg_blender
@@ -2483,7 +2483,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             "Increase to make trackpad scrolling slower (recommended on macOS), "
             "decrease to make it faster"
         ),
-        default=60.0,
+        default=120.0,
         min=5.0,
         max=400.0,
         update=utils.save_prefs,

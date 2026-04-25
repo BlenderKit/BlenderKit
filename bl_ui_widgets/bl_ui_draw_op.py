@@ -43,7 +43,7 @@ def _compute_grid_clip(op):
 
 def restart_asset_bar():
     # ignore failures if already gone
-    from asset_bar_op import BlenderKitAssetBarOperator
+    from ..asset_bar.asset_bar_op import BlenderKitAssetBarOperator
 
     try:
         bpy.utils.unregister_class(BlenderKitAssetBarOperator)

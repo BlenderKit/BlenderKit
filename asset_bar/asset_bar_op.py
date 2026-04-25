@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional, Union
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from . import (
+from .. import (
     colors,
     comments_utils,
     global_vars,
@@ -42,14 +42,19 @@ from . import (
     utils,
     viewport_utils,
 )
-from .bl_ui_widgets.bl_ui_button import BL_UI_Button
-from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
-from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
-from .bl_ui_widgets.bl_ui_image import BL_UI_Image
-from .bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
-from .bl_ui_widgets.bl_ui_widget import BL_UI_Widget
+from ..bl_ui_widgets.bl_ui_button import BL_UI_Button
+from ..bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
+from ..bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
+from ..bl_ui_widgets.bl_ui_image import BL_UI_Image
+from ..bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
+from ..bl_ui_widgets.bl_ui_widget import BL_UI_Widget
 
 bk_logger = logging.getLogger(__name__)
+
+# Addon root package name. We live in <addon>.asset_bar, but addon
+# preferences are registered under the top-level addon package, so we
+# strip the last component to look them up correctly.
+_ADDON_PACKAGE = __package__.rsplit(".", 1)[0]
 
 # Maximum label length for manufacturer chips (e.g. "Ford motor company")
 MAX_MANUFACTURER_LABEL_LEN = 17
@@ -74,7 +79,7 @@ SEARCH_PREFETCH_LOOKAHEAD = 20
 
 # Default trackpad scroll sensitivity (pixels of finger travel per asset slot).
 # Used as a fallback when addon preferences are unavailable.
-SCROLL_TRACKPAD_SENSITIVITY_DEFAULT = 60.0
+SCROLL_TRACKPAD_SENSITIVITY_DEFAULT = 120.0
 
 # Wheel event types we treat as scroll input. Direction is mapped per-event:
 #   WHEELUPMOUSE / WHEELLEFTMOUSE   -> back    (negative step)
@@ -141,7 +146,7 @@ def modal_inside(self, context, event):
     if self._finished:
         return {"FINISHED"}
 
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
+    user_preferences = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
     if self.context:
         context = self.context
 
@@ -963,7 +968,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if event.type not in {"TIMER", "MOUSEMOVE"}:
             return
 
-        user_prefs = bpy.context.preferences.addons[__package__].preferences
+        user_prefs = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
         follow_cursor = getattr(user_prefs, "assetbar_follows_cursor", True)
 
         if not follow_cursor and not self._is_quad_view(context):
@@ -1233,7 +1238,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.author_about_me = author_about_me
         self.tooltip_widgets.append(author_about_me)
 
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
         offset = 0
         if (
             user_preferences.asset_popup_counter
@@ -2176,113 +2181,146 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     # region updates
 
     def update_assetbar_sizes(self, context):
-        """Calculate all important sizes for the asset bar"""
+        """Calculate all important sizes for the asset bar.
+
+        Pure geometry math is delegated to :mod:`.layout`; this method
+        only collects inputs (which require ``bpy`` reads), runs the
+        widget-side-effect steps that contribute height contributions
+        (filter chips, manufacturer chips), then applies the resulting
+        :class:`~.layout.LayoutSpec` onto ``self`` for backwards-compat
+        attribute access (``self.bar_x``, ``self.button_size``, ...).
+
+        Idempotency cache: the layout is recomputed only when the input
+        signature changes. Repeat calls with identical inputs are O(1).
+        """
+        from . import layout as _layout_mod
+
         region = context.region
         area = context.area
 
         ui_props = bpy.context.window_manager.blenderkitUI
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
         scale = ui_bgl.get_ui_scale()
-        self._ui_scale_factor = scale
-        # assetbar sizing (fixed, not scaled)
 
-        self.button_margin = int(round(0 * scale))
-        self.assetbar_margin = int(round(2 * scale))
-        # user preference thumb size is in logical pixels; scale to match Blender UI scaling
-        self.thumb_size = int(round(user_preferences.thumb_size * scale))
-        self.button_size = int(2 * self.button_margin + self.thumb_size)
-
-        self.other_button_size = int(round(30 * scale))
-        self.filter_button_height = int(round(25 * scale))
-        self.filter_button_text_size = int(round(20 * scale))
-
-        self.free_button_margin = int(self.button_size * 0.05)
-        self.free_button_text_size = int(self.other_button_size * 0.4)
-
-        self.icon_size = int(round(24 * scale))
-        self.validation_icon_margin = int(round(3 * scale))
-        reg_multiplier = 1
-        if not bpy.context.preferences.system.use_region_overlap:
-            reg_multiplier = 0
-
-        ui_width = 0
-        tools_width = 0
-        reg_multiplier = 1
-        if not bpy.context.preferences.system.use_region_overlap:
-            reg_multiplier = 0
-        for r in area.regions:
-            if r.type == "UI":
-                ui_width = r.width * reg_multiplier
-            if r.type == "TOOLS":
-                tools_width = r.width * reg_multiplier
-        self.bar_x = int(
-            tools_width + self.button_margin + ui_props.bar_x_offset * scale
+        ui_width, tools_width = _layout_mod.collect_side_panel_widths(
+            area, bpy.context.preferences.system.use_region_overlap
         )
-        base_bar_y = int(self.button_margin + ui_props.bar_y_offset * scale)
-        self.bar_y = base_bar_y
-
-        self.bar_end = int(ui_width + 180 + self.other_button_size)
-        self.bar_width = int(region.width - self.bar_x - self.bar_end)
-        # Quad view and very small regions can shrink the available width below a single
-        # thumbnail. Keep the bar wide enough to host at least one column and keep the
-        # math stable so the buttons do not disappear entirely.
-        self.bar_width = max(1, self.bar_width)
-
-        effective_bar_width = max(self.bar_width, self.button_size)
-        self.wcount = max(1, math.floor(effective_bar_width / self.button_size))
-
-        self.max_hcount = math.floor(
-            max(region.width, context.window.width) / self.button_size
-        )
-        self.max_wcount = user_preferences.maximized_assetbar_rows
 
         history_step = search.get_active_history_step()
         search_results = history_step.get("search_results")
+        sr_count = len(search_results) if search_results is not None else None
+        sr_id = id(search_results) if search_results is not None else 0
 
+        # Build a stage-1 ("prelim") inputs object: everything we know
+        # without having to call into widget-mutating helpers. This is
+        # also the cache key - manufacturer height is recomputed each
+        # time it would matter, and active filter height comes from a
+        # widget-side-effect helper we still have to run.
+        prelim_inputs = _layout_mod.LayoutInputs(
+            region_width=int(region.width),
+            region_height=int(region.height),
+            window_width=int(context.window.width),
+            ui_region_width=ui_width,
+            tools_region_width=tools_width,
+            ui_scale=scale,
+            bar_x_offset=float(ui_props.bar_x_offset),
+            bar_y_offset=float(ui_props.bar_y_offset),
+            thumb_size_pref=int(user_preferences.thumb_size),
+            assetbar_expanded=bool(user_preferences.assetbar_expanded),
+            maximized_assetbar_rows=int(user_preferences.maximized_assetbar_rows),
+            search_results_count=sr_count,
+            search_results_id=sr_id,
+            active_filter_height=0,  # filled in below
+            manufacturer_section_height=0,  # filled in below
+        )
+
+        # Position filter chips (widget side effect) so we can read
+        # ``self.active_filter_height``. This is cheap when the chip
+        # set hasn't changed, but it always runs because chips can be
+        # restyled (e.g. active filter set changed) without the prelim
+        # inputs changing.
         self.position_active_filter_buttons()
+        active_filter_height = int(self.active_filter_height or 0)
 
-        bubble_offset = 0
-        if self.active_filter_height:
-            bubble_offset = self.active_filter_height
+        # Now we know the active filter height; rebuild prelim_inputs
+        # with that field populated so the cache key reflects all
+        # geometry-affecting state we currently know.
+        prelim_inputs = _layout_mod.LayoutInputs(
+            region_width=prelim_inputs.region_width,
+            region_height=prelim_inputs.region_height,
+            window_width=prelim_inputs.window_width,
+            ui_region_width=prelim_inputs.ui_region_width,
+            tools_region_width=prelim_inputs.tools_region_width,
+            ui_scale=prelim_inputs.ui_scale,
+            bar_x_offset=prelim_inputs.bar_x_offset,
+            bar_y_offset=prelim_inputs.bar_y_offset,
+            thumb_size_pref=prelim_inputs.thumb_size_pref,
+            assetbar_expanded=prelim_inputs.assetbar_expanded,
+            maximized_assetbar_rows=prelim_inputs.maximized_assetbar_rows,
+            search_results_count=prelim_inputs.search_results_count,
+            search_results_id=prelim_inputs.search_results_id,
+            active_filter_height=active_filter_height,
+            manufacturer_section_height=0,
+        )
 
-        self.bar_y = base_bar_y + bubble_offset
+        # Idempotency fast path: identical inputs => skip the heavy work.
+        # The cache key stores the prelim form (manufacturer=0) so the
+        # comparison is well-defined regardless of whether the previous
+        # run had manufacturer chips.
+        cached_key = getattr(self, "_layout_cache_key", None)
+        if cached_key == prelim_inputs and getattr(self, "_layout", None) is not None:
+            # Re-apply spec onto self in case external code clobbered
+            # any mirrored attribute since the last call.
+            self._layout.apply_to(self)
+            return
 
-        # we need to init all possible thumb previews in advance/
-        # Calculate hcount based on expanded state
-        if search_results is not None and self.wcount > 0:
-            if user_preferences.assetbar_expanded:
-                max_rows = user_preferences.maximized_assetbar_rows
-                available_height = (
-                    region.height
-                    - self.bar_y
-                    - 2 * self.assetbar_margin
-                    - self.other_button_size
-                )
-                max_rows_by_height = math.floor(available_height / self.button_size)
-                max_rows = (
-                    min(max_rows, max_rows_by_height) if max_rows_by_height > 0 else 1
-                )
-            else:
-                max_rows = 1
-            self.hcount = min(
-                max_rows,
-                math.ceil(len(search_results) / self.wcount),
-            )
-            self.hcount = max(self.hcount, 1)
-        else:
-            self.hcount = 1
+        # Build preliminary spec so manufacturer recomputation has the
+        # geometry it needs (button_size, bar_width).
+        prelim_spec = _layout_mod.build_layout_spec(prelim_inputs)
+        prelim_spec.apply_to(self)
 
-        self.base_bar_height = self.button_size * self.hcount + 2 * self.assetbar_margin
+        # Update manufacturer data using the preliminary geometry. This
+        # populates ``self.manufacturer_section_height`` as a side effect.
         self._update_manufacturer_data(search_results)
-        self.bar_height = self.base_bar_height + self.manufacturer_section_height
+        manufacturer_section_height = int(self.manufacturer_section_height or 0)
 
+        # Final spec with the now-known manufacturer height.
+        if manufacturer_section_height != 0:
+            final_inputs = _layout_mod.LayoutInputs(
+                region_width=prelim_inputs.region_width,
+                region_height=prelim_inputs.region_height,
+                window_width=prelim_inputs.window_width,
+                ui_region_width=prelim_inputs.ui_region_width,
+                tools_region_width=prelim_inputs.tools_region_width,
+                ui_scale=prelim_inputs.ui_scale,
+                bar_x_offset=prelim_inputs.bar_x_offset,
+                bar_y_offset=prelim_inputs.bar_y_offset,
+                thumb_size_pref=prelim_inputs.thumb_size_pref,
+                assetbar_expanded=prelim_inputs.assetbar_expanded,
+                maximized_assetbar_rows=prelim_inputs.maximized_assetbar_rows,
+                search_results_count=prelim_inputs.search_results_count,
+                search_results_id=prelim_inputs.search_results_id,
+                active_filter_height=prelim_inputs.active_filter_height,
+                manufacturer_section_height=manufacturer_section_height,
+            )
+            final_spec = _layout_mod.build_layout_spec(final_inputs)
+        else:
+            final_spec = prelim_spec
+        final_spec.apply_to(self)
+
+        # Cache the spec and its key so repeat calls are free.
+        self._layout = final_spec
+        self._layout_cache_key = prelim_inputs
+
+        # Reports panel coordinates depend on bar geometry and current
+        # operator mode. Kept out of the pure spec because they touch
+        # ``ui_props`` (Blender state).
         if ui_props.down_up == "UPLOAD":
             self.reports_y = region.height - self.bar_y - 600
             ui_props.reports_y = region.height - self.bar_y - 600
             self.reports_x = self.bar_x
             ui_props.reports_x = self.bar_x
-
-        else:  # ui.bar_y - ui.bar_height - 100
+        else:
             self.reports_y = region.height - self.bar_y - self.bar_height - 50
             ui_props.reports_y = int(region.height - self.bar_y - self.bar_height - 50)
             self.reports_x = self.bar_x
@@ -2388,7 +2426,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def update_expand_button_icon(self):
         """Update expand button icon based on current expanded state."""
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
         if user_preferences.assetbar_expanded:
             # Show up arrow when expanded (to collapse)
             self.button_expand.text = "▲"
@@ -3402,8 +3440,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if ui_props.dragging:
             return
 
-        # Author assets: clicking/dragging triggers search-by-author instead
-        search_index = widget.search_index + self.scroll_offset
+        # Author assets: clicking/dragging triggers search-by-author instead.
+        # Use ``button_index`` (kept in sync by position_and_hide_buttons),
+        # NOT the stale ``search_index`` set once at button creation.
+        search_index = widget.button_index + self.scroll_offset
         sr = search.get_search_results()
         if sr and 0 <= search_index < len(sr):
             asset_data = sr[search_index]
@@ -3425,7 +3465,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def toggle_expand(self, widget):
         """Toggle the expanded state of the assetbar."""
-        user_preferences = bpy.context.preferences.addons[__package__].preferences
+        user_preferences = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
         user_preferences.assetbar_expanded = not user_preferences.assetbar_expanded
 
         # Update the button icon
@@ -4034,7 +4074,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         so users (notably on macOS) can tune trackpad speed.
         """
         try:
-            prefs = bpy.context.preferences.addons[__package__].preferences
+            prefs = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
             value = float(getattr(prefs, "trackpad_scroll_sensitivity",
                                   SCROLL_TRACKPAD_SENSITIVITY_DEFAULT))
             if value < 1.0:
@@ -4130,7 +4170,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # For author-type cards, check if asset type picker is enabled
         if asset_data.get("assetType") == "author":
-            preferences = bpy.context.preferences.addons[__package__].preferences
+            preferences = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
             if (
                 preferences.experimental_features
                 and preferences.author_asset_type_picker
@@ -4420,7 +4460,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     # endregion tab management
 
 
-def handle_bkclientjs_get_asset(task: search.client_tasks.Task):
+def handle_bkclientjs_get_asset(task: "search.client_tasks.Task"):
     """Handle incoming bkclientjs/get_asset task after the user asked for download in online gallery. How it goes:
     1. set search in the history
     2. set the results in the history step
