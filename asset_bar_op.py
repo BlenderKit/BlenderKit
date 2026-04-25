@@ -72,8 +72,22 @@ TOOLTIP_SIZE_PX = 512
 # Higher values start the fetch earlier, reducing visible pauses when scrolling fast.
 SEARCH_PREFETCH_LOOKAHEAD = 20
 
-# Trackpad scroll sensitivity: pixels of finger travel per asset row.
-SCROLL_TRACKPAD_SENSITIVITY = 30.0
+# Default trackpad scroll sensitivity (pixels of finger travel per asset slot).
+# Used as a fallback when addon preferences are unavailable.
+SCROLL_TRACKPAD_SENSITIVITY_DEFAULT = 60.0
+
+# Wheel event types we treat as scroll input. Direction is mapped per-event:
+#   WHEELUPMOUSE / WHEELLEFTMOUSE   -> back    (negative step)
+#   WHEELDOWNMOUSE / WHEELRIGHTMOUSE -> forward (positive step)
+# Both vertical and horizontal wheel events drive the same logical axis,
+# so the user can scroll the bar with whatever wheel their hardware emits.
+_WHEEL_EVENT_TYPES = {
+    "WHEELUPMOUSE",
+    "WHEELDOWNMOUSE",
+    "WHEELLEFTMOUSE",
+    "WHEELRIGHTMOUSE",
+}
+_WHEEL_FORWARD = {"WHEELDOWNMOUSE", "WHEELRIGHTMOUSE"}
 
 
 def get_area_height(self):
@@ -322,41 +336,16 @@ def modal_inside(self, context, event):
     self.mouse_x, self.mouse_y = self._event_coords_in_active_region(event)
 
     # SCROLL INPUT
-    # Axis of motion is determined by layout mode only:
-    #   - multi-row (hcount > 1)  -> up/down  (one row per step = wcount slots)
-    #   - single-row (hcount == 1) -> left/right (one slot per step)
-    # Event source (main wheel, side/tilt wheel, trackpad) does not change
-    # the axis. Direction rule applied to all sources:
-    #   top/left  = back    (negative step)
-    #   bottom/right = forward (positive step)
-    slot_per_row = self.wcount if self.hcount > 1 else 1
-
-    # TRACKPAD SCROLL (accumulates finger travel into whole-slot steps)
-    if event.type == "TRACKPADPAN" and self.panel.is_in_rect(
-        self.mouse_x, self.mouse_y
-    ):
-        dx = event.mouse_x - event.mouse_prev_x
-        dy = event.mouse_y - event.mouse_prev_y
-        # Right or down swipe -> forward; left or up swipe -> back.
-        axis_delta = dx - dy
-        self._trackpad_accum = getattr(self, "_trackpad_accum", 0.0) + axis_delta
-        steps = int(self._trackpad_accum // SCROLL_TRACKPAD_SENSITIVITY)
-        if steps != 0:
-            self._trackpad_accum -= steps * SCROLL_TRACKPAD_SENSITIVITY
-            self._scroll_by_slots(steps * slot_per_row)
-        context.region.tag_redraw()
-        return {"RUNNING_MODAL"}
-
-    # WHEEL SCROLL (vertical wheel, side/tilt wheel: all mapped to the same axis)
-    if event.type in {
-        "WHEELUPMOUSE",
-        "WHEELDOWNMOUSE",
-        "WHEELLEFTMOUSE",
-        "WHEELRIGHTMOUSE",
-    } and self.panel.is_in_rect(self.mouse_x, self.mouse_y):
-        forward = event.type in {"WHEELDOWNMOUSE", "WHEELRIGHTMOUSE"}
-        self._scroll_by_slots(slot_per_row if forward else -slot_per_row)
-        context.region.tag_redraw()
+    # All scroll-like input (vertical wheel, horizontal/tilt wheel, trackpad pan)
+    # is routed through a single handler. Axis of motion is determined purely
+    # by layout mode:
+    #   - multi-row  (hcount > 1)  -> vertical input drives scrolling
+    #   - single-row (hcount == 1) -> horizontal input drives scrolling
+    # We always grab these events when the cursor is over the asset bar,
+    # regardless of source, so the bar feels responsive to every input device.
+    # Wheel and trackpad events never arrive in the same event so there is no
+    # double-step risk.
+    if self._handle_scroll_event(context, event):
         return {"RUNNING_MODAL"}
 
     if self.check_ui_resized(context):
@@ -4037,6 +4026,93 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             return
         self.scroll_offset += slot_step
         self.scroll_update()
+
+    def _get_trackpad_sensitivity(self) -> float:
+        """Pixels of finger travel required to advance one asset slot.
+
+        Higher values produce slower scrolling. Read from addon preferences
+        so users (notably on macOS) can tune trackpad speed.
+        """
+        try:
+            prefs = bpy.context.preferences.addons[__package__].preferences
+            value = float(getattr(prefs, "trackpad_scroll_sensitivity",
+                                  SCROLL_TRACKPAD_SENSITIVITY_DEFAULT))
+            if value < 1.0:
+                value = 1.0
+            return value
+        except (KeyError, AttributeError):
+            return SCROLL_TRACKPAD_SENSITIVITY_DEFAULT
+
+    def _handle_scroll_event(self, context, event) -> bool:
+        """Centralized scroll input handler.
+
+        Consumes wheel and trackpad events whenever the cursor is over the
+        asset bar panel, mapping them to discrete slot steps based on the
+        current layout (single-row -> horizontal, multi-row -> vertical).
+
+        Returns True if the event was a scroll input that we should consume
+        (RUNNING_MODAL); False to let the caller fall through to other
+        handlers / pass the event through.
+        """
+        # Only react to scroll-class events.
+        if event.type != "TRACKPADPAN" and event.type not in _WHEEL_EVENT_TYPES:
+            return False
+
+        # Only when the pointer is on the asset bar.
+        if not self.panel.is_in_rect(self.mouse_x, self.mouse_y):
+            return False
+
+        # Layout-driven axis. We never mix the two axes so wheel and trackpad
+        # cannot both step the bar at the same time.
+        vertical = self.hcount > 1
+        slot_per_step = self.wcount if vertical else 1
+
+        # Reset the trackpad pixel accumulator if the layout's scrolling axis
+        # changed since the last event - leftover horizontal travel must not
+        # bleed into vertical scrolling and vice versa.
+        if getattr(self, "_trackpad_axis_vertical", None) != vertical:
+            self._trackpad_axis_vertical = vertical
+            self._trackpad_accum = 0.0
+
+        steps = 0
+
+        if event.type == "TRACKPADPAN":
+            dx = event.mouse_x - event.mouse_prev_x
+            dy = event.mouse_y - event.mouse_prev_y
+            # Accept input from either axis - the user can side-swipe to
+            # scroll a multi-row grid, or vertical-swipe a single-row bar.
+            # Pick the dominant axis of this event so diagonal motion is
+            # counted once, not summed.
+            #
+            # Natural-scroll convention (content follows the finger):
+            #   swipe up   (dy > 0) -> forward
+            #   swipe left (dx < 0) -> forward
+            # Both axes map to the same logical "forward" regardless of
+            # whether the layout is single-row or multi-row.
+            if abs(dy) >= abs(dx):
+                axis_delta = dy
+            else:
+                axis_delta = -dx
+
+            sensitivity = self._get_trackpad_sensitivity()
+            self._trackpad_accum = (
+                getattr(self, "_trackpad_accum", 0.0) + axis_delta
+            )
+            # Use math.floor so negative accumulations also yield negative
+            # whole steps with the correct sign.
+            steps = int(math.floor(self._trackpad_accum / sensitivity))
+            if steps != 0:
+                self._trackpad_accum -= steps * sensitivity
+        else:
+            # Wheel event. Each wheel tick is one full step.
+            steps = 1 if event.type in _WHEEL_FORWARD else -1
+
+        if steps != 0:
+            self._scroll_by_slots(steps * slot_per_step)
+
+        if context.region is not None:
+            context.region.tag_redraw()
+        return True
 
     def search_by_author(self, asset_index):
         """Search for assets by the author of the selected asset."""
