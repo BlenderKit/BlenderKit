@@ -1784,6 +1784,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Add widgets to panel - add tab background first so it's behind everything
         self.widgets_panel.append(self.tab_area_bg)
 
+        # Scroll position indicator. Two thin widgets pinned to the bottom
+        # edge of the asset thumbnail area: a darker track behind, a brighter
+        # thumb on top whose width / x reflect visible_slots / total_slots
+        # and current scroll position. Both update during smooth-scroll.
+        scroll_track_height = max(2, int(round(3 * ui_bgl.get_ui_scale())))
+        self.scroll_indicator_track = BL_UI_Widget(
+            0, 0, self.bar_width, scroll_track_height
+        )
+        self.scroll_indicator_track.bg_color = (1.0, 1.0, 1.0, 0.08)
+        self.scroll_indicator_track.visible = False
+        self.scroll_indicator_thumb = BL_UI_Widget(
+            0, 0, 1, scroll_track_height
+        )
+        self.scroll_indicator_thumb.bg_color = (1.0, 1.0, 1.0, 0.55)
+        self.scroll_indicator_thumb.visible = False
+        # Tag so smooth-scroll redraw re-bakes panel offset onto these too.
+        self.scroll_indicator_track._is_grid_widget = False
+        self.scroll_indicator_thumb._is_grid_widget = False
+        self.widgets_panel.append(self.scroll_indicator_track)
+        self.widgets_panel.append(self.scroll_indicator_thumb)
+
         # we init max possible buttons.
         # Add buffer rows/cols around the visible grid for scroll animation.
         # Multi-row mode uses extra rows; single-row mode uses extra columns.
@@ -2794,6 +2815,91 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_y - self.validation_icon_margin,
             )
 
+    def _update_scroll_indicator(self):
+        """Position and size the scroll position indicator.
+
+        In single-row mode the indicator runs horizontally along the bottom
+        edge of the asset bar. In multi-row mode it runs vertically along
+        the right edge, since scrolling there moves whole rows. Hidden
+        whenever the entire result set fits without scrolling. Reads
+        ``scroll_offset + scroll_phase / button_size`` so the thumb glides
+        smoothly during animation.
+        """
+        track = getattr(self, "scroll_indicator_track", None)
+        thumb = getattr(self, "scroll_indicator_thumb", None)
+        if track is None or thumb is None:
+            return
+
+        sro = None
+        history_step = search.get_active_history_step()
+        if history_step is not None:
+            sro = history_step.get("search_results_orig")
+        sr = search.get_search_results() or []
+        total = sro.get("count") if isinstance(sro, dict) else None
+        if not isinstance(total, int) or total <= 0:
+            total = len(sr)
+
+        if self.button_size <= 0 or total <= 0 or self.wcount <= 0:
+            track.visible = False
+            thumb.visible = False
+            return
+
+        thickness = max(2, int(round(3 * ui_bgl.get_ui_scale())))
+        margin = self.assetbar_margin
+        bar_inner_width = max(1, self.bar_width - 2 * margin)
+        bar_inner_height = max(1, self.base_bar_height - 2 * margin)
+
+        # Convert phase (pixels) into the same unit as `scroll_offset`.
+        phase_slots = (self.scroll_phase or 0.0) / float(self.button_size)
+        if self.hcount > 1:
+            # Vertical: scrolling moves whole rows. Work in row units.
+            total_units = int(math.ceil(total / float(self.wcount)))
+            visible_units = self.hcount
+            progress = self.scroll_offset / float(self.wcount) + phase_slots
+            track_length = bar_inner_height
+        else:
+            # Horizontal: scrolling moves item-by-item.
+            total_units = total
+            visible_units = self.wcount
+            progress = self.scroll_offset + phase_slots * self.wcount
+            track_length = bar_inner_width
+
+        if total_units <= visible_units:
+            track.visible = False
+            thumb.visible = False
+            return
+
+        progress = max(0.0, min(float(total_units - visible_units), progress))
+
+        thumb_length = max(8, int(round(track_length * visible_units / total_units)))
+        thumb_offset = int(round(
+            (track_length - thumb_length)
+            * (progress / float(total_units - visible_units))
+        ))
+
+        if self.hcount > 1:
+            # Vertical: pinned to right edge, inside the bar.
+            track_x = self.bar_width - thickness - 1
+            track_y = margin
+            track.width = thickness
+            track.height = bar_inner_height
+            track.set_location(track_x, track_y)
+            thumb.width = thickness
+            thumb.height = thumb_length
+            thumb.set_location(track_x, track_y + thumb_offset)
+        else:
+            # Horizontal: pinned to bottom edge of thumbnail strip.
+            track_y = self.base_bar_height - thickness - 1
+            track.width = bar_inner_width
+            track.height = thickness
+            track.set_location(margin, track_y)
+            thumb.width = thumb_length
+            thumb.height = thickness
+            thumb.set_location(margin + thumb_offset, track_y)
+
+        track.visible = True
+        thumb.visible = True
+
     def position_and_hide_buttons(self):
         """Position asset buttons in the asset bar and hide unused buttons.
 
@@ -2865,6 +2971,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self.button_scroll_up.set_image_position(
             (0, int((self.bar_height - self.button_size) / 2))
         )
+
+        self._update_scroll_indicator()
 
     # region setup
 
@@ -4089,6 +4197,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             self.button_scroll_up.visible = True
 
+        self._update_scroll_indicator()
+
         # here we save some time by only updating the images if the scroll offset actually changed
         if self.last_scroll_offset == self.scroll_offset and not always:
             return
@@ -4205,14 +4315,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def _smooth_scroll_redraw(self):
         """Reposition buttons with the current phase and request a redraw."""
         self.position_and_hide_buttons()
-        # `_position_single_button` writes panel-local coords into widget
-        # `x` / `x_screen`; the panel's offset must be baked into `x_screen`
-        # for the absolute draw position. We re-bake every widget that
-        # `position_and_hide_buttons` touches: grid widgets (asset buttons
-        # and their sub-widgets, tagged `_is_grid_widget`), the expand
-        # button, and the two scroll buttons. Filter chips and manufacturer
-        # chips are left alone because their helpers already write absolute
-        # coords; double-baking would push them outside the bar.
+        # Refresh the indicator each frame so its thumb glides with phase.
+        # `position_and_hide_buttons` already calls `_update_scroll_indicator`
+        # internally, but we keep this explicit call as a noop guard in case
+        # the order changes - it is cheap.
+        # (No extra call needed; left as breadcrumb.)
         panel = getattr(self, "panel", None)
         if panel is not None:
             px = panel.x_screen
@@ -4221,6 +4328,8 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 getattr(self, "button_expand", None),
                 getattr(self, "button_scroll_down", None),
                 getattr(self, "button_scroll_up", None),
+                getattr(self, "scroll_indicator_track", None),
+                getattr(self, "scroll_indicator_thumb", None),
             )
             for w in panel.widgets:
                 if getattr(w, "_is_grid_widget", False) or w in extras:
