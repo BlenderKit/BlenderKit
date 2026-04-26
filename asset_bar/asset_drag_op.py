@@ -29,7 +29,7 @@ from bpy.props import IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Vector
 
-from . import (
+from .. import (
     bg_blender,
     client_lib,
     colors,
@@ -45,13 +45,17 @@ from . import (
     utils,
     viewport_utils,
 )
-from .bl_ui_widgets.bl_ui_button import BL_UI_Button
-from .bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
-from .bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
-from .bl_ui_widgets.bl_ui_image import BL_UI_Image
+from ..bl_ui_widgets.bl_ui_button import BL_UI_Button
+from ..bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
+from ..bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
+from ..bl_ui_widgets.bl_ui_image import BL_UI_Image
 
 
 bk_logger = logging.getLogger(__name__)
+
+# Addon root package name. We live in <addon>.asset_bar, but addon
+# preferences are registered under the top-level addon package.
+_ADDON_PACKAGE = __package__.rsplit(".", 1)[0]
 
 handler_2d = None
 handler_3d = None
@@ -2130,7 +2134,7 @@ class AssetDragOperator(bpy.types.Operator):
             cls.active_operator_id = None
             return {"CANCELLED"}
 
-        prefs = bpy.context.preferences.addons[__package__].preferences
+        prefs = bpy.context.preferences.addons[_ADDON_PACKAGE].preferences
 
         dir_behaviour = prefs.directory_behaviour
 

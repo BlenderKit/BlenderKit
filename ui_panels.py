@@ -33,9 +33,9 @@ import bpy
 from bpy.props import EnumProperty, FloatVectorProperty, IntProperty, StringProperty
 from bpy.types import Context, Menu, Panel, UILayout
 
+from .asset_bar import asset_bar_op
 from . import (
     addon_updater_ops,
-    asset_bar_op,
     autothumb,
     categories,
     client_lib,

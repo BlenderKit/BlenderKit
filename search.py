@@ -33,8 +33,8 @@ from bpy.app.handlers import persistent
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
+from .asset_bar import asset_bar_op
 from . import (
-    asset_bar_op,
     categories,
     client_lib,
     client_tasks,
@@ -793,8 +793,9 @@ def handle_search_task(task: client_tasks.Task) -> bool:
 
     if len(search_tasks) == 0:
         # First find the history step that the task belongs to
-        history_step = get_history_step(task.history_id)
-        history_step["is_searching"] = False
+        history_step = get_history_step(task.data.get("history_id", ""))
+        if history_step is not None:
+            history_step["is_searching"] = False
         return True
 
     # don't do anything while dragging - this could switch asset during drag, and make results list length different,
@@ -854,11 +855,10 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     for aid in pending_comment_ids:
         client_lib.get_comments(aid)
 
-    # Separate author results from regular assets, put authors first
-    author_results = [r for r in result_field if r.get("assetType") == "author"]
-    asset_results = [r for r in result_field if r.get("assetType") != "author"]
-
-    result_field = author_results + asset_results
+    # Results are kept in arrival order. Previously authors were promoted to
+    # the front of the first page, but any reordering of search results breaks
+    # the asset-bar layout (visible items shift, scroll position drifts), so
+    # we now leave them where the backend put them.
 
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
@@ -1207,7 +1207,11 @@ def handle_fetch_gravatar_task(task: client_tasks.Task):
     if task.status == "finished":
         author_id = int(task.data["id"])
         gravatar_path = task.result["gravatar_path"]
-        global_vars.BKIT_AUTHORS[author_id].gravatarImg = gravatar_path
+        author = global_vars.BKIT_AUTHORS.get(author_id)
+        if author is None:
+            # Author profile was not registered (e.g. cleared between request and response)
+            return
+        author.gravatarImg = gravatar_path
         # Notify asset bar to refresh author thumbnails
         if asset_bar_op.asset_bar_operator is not None:
             asset_bar_op.asset_bar_operator.update_image(str(author_id))

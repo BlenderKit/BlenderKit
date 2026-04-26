@@ -25,7 +25,8 @@ from typing import Literal
 
 import bpy
 
-from . import asset_bar_op, colors, ui_bgl, utils
+from . import colors, ui_bgl, utils
+from .asset_bar import asset_bar_op
 
 
 bk_logger = getLogger(__name__)

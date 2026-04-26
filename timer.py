@@ -24,9 +24,9 @@ import requests
 
 import bpy
 
+from .asset_bar import asset_bar_op
 from . import (
     addon_updater_ops,
-    asset_bar_op,
     bg_blender,
     bkit_oauth,
     categories,

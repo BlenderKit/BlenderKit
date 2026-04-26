@@ -133,8 +133,8 @@ else:
     from . import addon_updater_ops
     from . import timer
     from . import append_link
-    from . import asset_bar_op
-    from . import asset_drag_op
+    from .asset_bar import asset_bar_op
+    from .asset_bar import asset_drag_op
     from . import asset_inspector
     from . import autothumb
     from . import bg_blender
@@ -2482,6 +2482,19 @@ In this case you should also set path to your system CA bundle containing proxy'
         default=False,
     )
 
+    trackpad_scroll_sensitivity: FloatProperty(
+        name="Trackpad Scroll Sensitivity",
+        description=(
+            "Pixels of trackpad finger travel required to scroll one asset slot. "
+            "Increase to make trackpad scrolling slower (recommended on macOS), "
+            "decrease to make it faster"
+        ),
+        default=120.0,
+        min=5.0,
+        max=400.0,
+        update=utils.save_prefs,
+    )
+
     thumb_size: IntProperty(
         name="Assetbar Thumbnail Size",
         default=128,
@@ -2692,6 +2705,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
         gui_settings.prop(self, "maximized_assetbar_rows")
+        gui_settings.prop(self, "trackpad_scroll_sensitivity")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
         gui_settings.prop(self, "sidebar_panels")

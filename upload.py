@@ -35,8 +35,8 @@ from bpy.props import (  # TODO only keep the ones actually used when cleaning
 )
 from bpy.types import Operator
 
+from .asset_bar import asset_bar_op
 from . import (
-    asset_bar_op,
     asset_inspector,
     autothumb,
     categories,
