@@ -106,6 +106,57 @@ def default_global_dict():
     return home + os.sep + "blenderkit_data"
 
 
+def detect_install_source() -> str:
+    """Detect how the running Blender was installed/packaged.
+
+    Returns one of:
+      - "ms_store"     Microsoft Store (MSIX) on Windows. Blender lives under WindowsApps and
+                        cannot be exec'd as a child process; addon updater can't write to it.
+      - "snap"         Linux Snap. Confined filesystem, /snap/ install path.
+      - "flatpak"      Linux Flatpak. Sandboxed, see /.flatpak-info / FLATPAK_ID.
+      - "appimage"     Linux AppImage (running from extracted squashfs, APPIMAGE env set).
+      - "mac_sandbox"  macOS sandboxed app (App Sandbox container id present).
+      - "standard"     Plain installer / portable / distro package — no known sandbox.
+
+    Detection is best-effort and read-only (no API calls, no admin rights). It uses
+    `bpy.app.binary_path` plus a handful of environment variables that the respective
+    packaging systems set for child processes.
+    """
+    try:
+        binary_path = (bpy.app.binary_path or "").lower()
+    except Exception:
+        binary_path = ""
+
+    if sys.platform == "win32":
+        # MSIX Blender always lives under %ProgramFiles%\WindowsApps\BlenderFoundation.Blender<HASH>\...
+        # Either of these substrings is a strong signal; AND-ing would miss edge cases.
+        if "windowsapps" in binary_path or "blenderfoundation.blender" in binary_path:
+            return "ms_store"
+        return "standard"
+
+    if sys.platform.startswith("linux"):
+        # Snap sets $SNAP to the mount of the snap and installs under /snap/<name>/...
+        if os.environ.get("SNAP") or binary_path.startswith("/snap/"):
+            return "snap"
+        # Flatpak sets $FLATPAK_ID and creates /.flatpak-info inside the sandbox.
+        if os.environ.get("FLATPAK_ID") or os.path.exists("/.flatpak-info"):
+            return "flatpak"
+        # AppImage sets $APPIMAGE to the original .AppImage file path.
+        if os.environ.get("APPIMAGE"):
+            return "appimage"
+        return "standard"
+
+    if sys.platform == "darwin":
+        # Sandboxed macOS apps get APP_SANDBOX_CONTAINER_ID injected by the OS.
+        # Blender from blender.org is not sandboxed; this catches custom App Store rebuilds
+        # or anyone running Blender via a sandboxed wrapper.
+        if os.environ.get("APP_SANDBOX_CONTAINER_ID"):
+            return "mac_sandbox"
+        return "standard"
+
+    return "standard"
+
+
 def get_categories_filepath():
     tempdir = get_temp_dir()
     return os.path.join(tempdir, "categories.json")

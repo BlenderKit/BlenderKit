@@ -163,6 +163,7 @@ type NonblockingRequestTaskData struct {
 	SystemID        string `json:"system_id"`
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	ApiKey          string `json:"api_key"`
 	// Data specific to non-blocking request.
 	URL      string                    `json:"url"`

@@ -56,6 +56,7 @@ type MinimalTaskData struct {
 	AddonVersion    string `json:"addon_version"`    // X.Y.Z version of add-on
 	BlenderVersion  string `json:"blender_version"`  // X.Y.X version of the Blender
 	PlatformVersion string `json:"platform_version"` // Result of platform.platform() in Python
+	InstallSource   string `json:"install_source"`   // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 }
 
 // Data required as part of the request for reports. There is extra field project_name expected, so
@@ -278,6 +279,7 @@ type DownloadAssetData struct {
 type DownloadData struct {
 	AddonVersion      string            `json:"addon_version"`
 	PlatformVersion   string            `json:"platform_version"`
+	InstallSource     string            `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID             int               `json:"app_id"`
 	DownloadDirs      []string          `json:"download_dirs"`
 	Resolution        string            `json:"resolution"` // used to populate DownloadAssetData.Resolution
@@ -425,6 +427,7 @@ type AssetUploadRequestData struct {
 type MarkNotificationReadTaskData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	Notification    int    `json:"notification_id"`
@@ -434,6 +437,7 @@ type MarkNotificationReadTaskData struct {
 type MarkCommentPrivateTaskData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	AssetID         string `json:"asset_id"`
@@ -450,6 +454,7 @@ type MarkCommentPrivateData struct {
 type FeedbackCommentTaskData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	AssetID         string `json:"asset_id"`
@@ -489,6 +494,7 @@ type CommentPostData struct {
 type CreateCommentData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	AssetID         string `json:"asset_id"`
@@ -499,6 +505,7 @@ type CreateCommentData struct {
 type GetCommentsData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	AssetID         string `json:"asset_id"`
@@ -507,6 +514,7 @@ type GetCommentsData struct {
 type FetchGravatarData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	ID              int    `json:"id"`
 	Avatar128       string `json:"avatar128"` //e.g.: "/avatar-redirect/ad7c20a8-98ca-4128-9189-f727b2d1e4f3/128/"
@@ -523,6 +531,7 @@ type CancelDownloadData struct {
 type GetRatingData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int    `json:"app_id"`
 	APIKey          string `json:"api_key"`
 	AssetID         string `json:"asset_id"`
@@ -550,6 +559,7 @@ type RatingAsset struct {
 type SendRatingData struct {
 	AddonVersion    string  `json:"addon_version"`
 	PlatformVersion string  `json:"platform_version"`
+	InstallSource   string  `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	AppID           int     `json:"app_id"`
 	APIKey          string  `json:"api_key"`
 	AssetID         string  `json:"asset_id"`
@@ -634,6 +644,7 @@ type DisclaimerData struct {
 type DownloadThumbnailData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	ThumbnailType   string `json:"thumbnail_type"`
 	ImagePath       string `json:"image_path"`
 	ImageURL        string `json:"image_url"`
@@ -645,6 +656,7 @@ type DownloadThumbnailData struct {
 type DownloadPrxcData struct {
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	FilePath        string `json:"file_path"`
 	DownloadURL     string `json:"download_url"` // API URL to get signed CDN URL
 	AssetBaseID     string `json:"assetBaseId"`
@@ -657,6 +669,7 @@ type SearchTaskData struct {
 	PREFS           `json:"PREFS"`
 	AddonVersion    string `json:"addon_version"`
 	PlatformVersion string `json:"platform_version"`
+	InstallSource   string `json:"install_source"` // Detected install source: standard, ms_store, snap, flatpak, appimage, mac_sandbox
 	APIKey          string `json:"api_key"`
 	AppID           int    `json:"app_id"`
 	AssetType       string `json:"asset_type"`

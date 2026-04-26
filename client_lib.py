@@ -105,6 +105,7 @@ def ensure_minimal_data(data: Optional[dict] = None) -> dict:
         data.setdefault("api_key", _read_api_key_threadsafe())
     data.setdefault("app_id", os.getpid())
     data.setdefault("platform_version", platform.platform())
+    data.setdefault("install_source", getattr(global_vars, "INSTALL_SOURCE", "") or "standard")
     data.setdefault("addon_version", addon_version)
 
     return data
@@ -126,6 +127,7 @@ def ensure_minimal_data_class(data_class: datas.SearchData) -> datas.SearchData:
         setattr(data_class, "api_key", api_key)
     setattr(data_class, "app_id", os.getpid())
     setattr(data_class, "platform_version", platform.platform())
+    setattr(data_class, "install_source", getattr(global_vars, "INSTALL_SOURCE", "") or "standard")
     setattr(data_class, "addon_version", f"{av[0]}.{av[1]}.{av[2]}.{av[3]}")
     return data_class
 

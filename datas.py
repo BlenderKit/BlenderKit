@@ -62,6 +62,7 @@ class SearchData:
     blender_version: str
     addon_version: str = ""
     platform_version: str = ""
+    install_source: str = ""
     api_key: str = ""
     app_id: int = 0
     is_validator: bool = (

@@ -2792,6 +2792,16 @@ classes = (
 def register():
     reload(global_vars)
     global_vars.VERSION = VERSION
+    try:
+        global_vars.INSTALL_SOURCE = paths.detect_install_source()
+        bk_logger.info(
+            "Blender install source detected: %s (binary=%s)",
+            global_vars.INSTALL_SOURCE,
+            getattr(bpy.app, "binary_path", ""),
+        )
+    except Exception as e:
+        bk_logger.warning("Could not detect Blender install source: %s", e)
+        global_vars.INSTALL_SOURCE = "standard"
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
     # Drop any downloads that might have been left running if the add-on was re-enabled mid-transfer.

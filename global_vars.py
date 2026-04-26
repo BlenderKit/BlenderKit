@@ -194,5 +194,12 @@ TIPS = [
 ]
 VERSION = [0, 0, 0, 0]  # filled in register()
 
+INSTALL_SOURCE: str = ""
+"""Detected source of the running Blender install. One of:
+"standard", "ms_store", "snap", "flatpak", "appimage", "mac_sandbox", "" (not yet detected).
+Filled in register() via paths.detect_install_source(). Used to tag telemetry so we can
+correlate user issues (e.g. Microsoft Store sandboxing) with install type without adding
+new fields to the wire protocol."""
+
 client_process: Optional[Popen] = None
 """Holds return value of subprocess.Popen() which starts the BlenderKit-Client."""
