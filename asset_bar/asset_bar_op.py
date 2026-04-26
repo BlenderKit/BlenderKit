@@ -96,6 +96,14 @@ SCROLL_SETTLE_PX = 0.5  # px; below this the animation stops entirely
 SCROLL_INPUT_GAP = 0.05  # s; idle gap before inertia takes over
 SCROLL_DT_CAP = 0.1  # s; max frame dt (avoid jumps after lag spikes)
 SCROLL_VELOCITY_SAMPLE = 0.06  # s; window over which trackpad velocity is averaged
+# Per wheel-notch velocity boost, expressed as a multiple of one slot per
+# second. With v0 = step_px * SCROLL_WHEEL_NOTCH_VELOCITY and exponential
+# friction decay at SCROLL_FRICTION, each notch glides ~one slot before
+# inertia hands off to magnetic snap. Multiple rapid notches accumulate
+# (clamped to SCROLL_WHEEL_MAX_NOTCH_STACK slots-worth of velocity) so a
+# fast spin coasts proportionally further.
+SCROLL_WHEEL_NOTCH_VELOCITY = 7.0  # = SCROLL_FRICTION; gives ~1 slot per notch
+SCROLL_WHEEL_MAX_NOTCH_STACK = 6  # cap on stacked notch velocity (in slots)
 # Direction-bias for the magnetic snap: when traveling forward we still snap
 # forward to the next slot as long as we already crossed >= (1 - bias) of one
 # slot, i.e. we bias the half-way decision boundary toward the travel
@@ -3006,6 +3014,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._scroll_last_input_time = 0.0
         self._scroll_last_tick_time = 0.0
         self._scroll_animating = False
+        # True while the active source is the discrete mouse wheel (velocity
+        # injected per-notch). The tick must integrate phase from velocity
+        # even during active input, since wheel notches don't carry a
+        # continuous pixel delta the way trackpad pans do.
+        self._scroll_wheel_mode = False
         # Sticky travel direction (-1, 0, +1). Captures the dominant sign of
         # recent input/velocity so the snap stage can prefer continuing in
         # the same direction instead of always pulling phase toward 0.
@@ -4358,6 +4371,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # discard stale velocity so cross-axis input doesn't carry over.
         # (Axis flip itself is detected in `_handle_scroll_event`.)
         self.scroll_phase += axis_delta_px
+        # Trackpad input drives phase directly; clear wheel mode so the tick
+        # reverts to its post-release coast behaviour.
+        self._scroll_wheel_mode = False
 
         last_input = self._scroll_last_input_time
         dt = now - last_input if last_input > 0.0 else 0.0
@@ -4409,9 +4425,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             dt = SCROLL_DT_CAP
 
         time_since_input = now - self._scroll_last_input_time
-        if time_since_input < SCROLL_INPUT_GAP:
-            # User still feeding events; let `_smooth_scroll_apply_input`
-            # drive phase. We just keep the animation loop alive.
+        if time_since_input < SCROLL_INPUT_GAP and not self._scroll_wheel_mode:
+            # User still feeding trackpad events; let
+            # `_smooth_scroll_apply_input` drive phase. We just keep the
+            # animation loop alive. Wheel mode is velocity-driven and must
+            # integrate every tick even during active input.
             return
 
         if abs(self._scroll_velocity) > SCROLL_MIN_VELOCITY:
@@ -4460,6 +4478,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 self._scroll_animating = False
                 self._scroll_last_tick_time = 0.0
                 self._scroll_travel_dir = 0
+                self._scroll_wheel_mode = False
                 return
             ease = 1.0 - math.exp(-SCROLL_SNAP_RATE * dt)
             self.scroll_phase -= distance * ease
@@ -4556,10 +4575,39 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
             self._smooth_scroll_apply_input(phase_delta, time.time())
         else:
-            # Wheel event. Each tick is one full step; commits instantly
-            # and overrides any in-flight smooth animation.
+            # Wheel event. Discrete notches don't carry a continuous pixel
+            # delta, so feeding `step_px` straight into the smooth pipeline
+            # would let `_smooth_scroll_commit_phase` consume the whole slot
+            # in the same event and visually teleport. Instead we inject a
+            # one-shot velocity: the timer integrates phase from 0 -> step_px
+            # over multiple frames (inertia), then magnetic snap finishes the
+            # row alignment. Multiple rapid notches stack velocity (capped),
+            # so a fast spin coasts proportionally further.
             steps = 1 if event.type in _WHEEL_FORWARD else -1
-            self._scroll_by_slots(steps * slot_per_step)
+            step_px = self._smooth_scroll_axis_step_px()
+            notch_v = step_px * SCROLL_WHEEL_NOTCH_VELOCITY
+            v_cap = step_px * SCROLL_WHEEL_NOTCH_VELOCITY * SCROLL_WHEEL_MAX_NOTCH_STACK
+            now = time.time()
+            # Reset stale velocity if it points the other way or we've been
+            # idle long enough that the previous spin has settled.
+            time_since_input = now - self._scroll_last_input_time
+            if (
+                steps * self._scroll_velocity < 0
+                or time_since_input > SCROLL_INPUT_GAP * 4
+            ):
+                self._scroll_velocity = 0.0
+            self._scroll_velocity += steps * notch_v
+            # Clamp magnitude so a held wheel doesn't accelerate forever.
+            if self._scroll_velocity > v_cap:
+                self._scroll_velocity = v_cap
+            elif self._scroll_velocity < -v_cap:
+                self._scroll_velocity = -v_cap
+            self._scroll_travel_dir = steps
+            self._scroll_animating = True
+            self._scroll_wheel_mode = True
+            self._scroll_last_input_time = now
+            if self._scroll_last_tick_time == 0.0:
+                self._scroll_last_tick_time = now
             if context.region is not None:
                 context.region.tag_redraw()
         return True
