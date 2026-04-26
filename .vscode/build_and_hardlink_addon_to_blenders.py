@@ -33,28 +33,25 @@ else:
     BLENDER_VERSIONS_PATH = os.path.expanduser("~/.config/blender")
 
 # Discover addon directories for each Blender version.
-# Blender 4.2+ uses extensions/user_default/, older uses scripts/addons/
+# Per version, link to EXACTLY ONE target:
+#   - Blender 4.2+ -> extensions/user_default/
+#   - Blender < 4.2 -> scripts/addons/
 all_versions = []
-for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/scripts/addons"):
-    all_versions.append(p.replace("\\", "/"))
-for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/extensions/user_default"):
-    all_versions.append(p.replace("\\", "/"))
-
-# Also scan for version directories that don't have the target dir yet
-for p in glob.glob(BLENDER_VERSIONS_PATH + "/*/"):
+seen_versions = set()
+for p in sorted(glob.glob(BLENDER_VERSIONS_PATH + "/*/")):
     p = p.replace("\\", "/").rstrip("/")
     version_dir = os.path.basename(p)
     if not re.match(r"\d+\.\d+", version_dir):
         continue
-    # Parse version to decide: 4.2+ uses extensions/user_default, older uses scripts/addons
+    if version_dir in seen_versions:
+        continue
+    seen_versions.add(version_dir)
     major, minor = map(int, version_dir.split("."))
     if major > 4 or (major == 4 and minor >= 2):
         addon_dir = os.path.join(p, "extensions", "user_default")
     else:
         addon_dir = os.path.join(p, "scripts", "addons")
-    addon_dir = addon_dir.replace("\\", "/")
-    if addon_dir not in all_versions:
-        all_versions.append(addon_dir)
+    all_versions.append(addon_dir.replace("\\", "/"))
 
 pattern = re.compile(
     r".*[/\\](\d+\.\d+)[/\\](?:scripts[/\\]addons|extensions[/\\]user_default)"
@@ -103,6 +100,26 @@ def _try_link(src: str, dst: str) -> bool:
             return False
 
 
+def _has_dependent_addon(addons_dir: str) -> str:
+    """Return the name of a sibling addon that likely depends on the legacy
+    `blenderkit_dev_hl` import path (e.g. blenderkit_validator_dev_hl), or "".
+
+    Such addons must stay together with the main addon in `scripts/addons/`
+    because in `extensions/user_default/` the import name becomes
+    `bl_ext.user_default.blenderkit_dev_hl` and `import blenderkit_dev_hl`
+    would fail.
+    """
+    if not os.path.isdir(addons_dir):
+        return ""
+    for name in os.listdir(addons_dir):
+        if name == RESULTING_ADDON_NAME:
+            continue
+        # Match dev-hardlinked siblings like blenderkit_validator_dev_hl
+        if name.startswith("blenderkit_") and name.endswith("_dev_hl"):
+            return name
+    return ""
+
+
 was_linked = False
 for version_path in all_versions:
     match = pattern.match(version_path)
@@ -113,6 +130,42 @@ for version_path in all_versions:
     target_addon_path = os.path.join(version_path, RESULTING_ADDON_NAME).replace(
         "\\", "/"
     )
+
+    # Remove any stale link in the *other* location (extensions vs addons)
+    # so we never end up with the addon registered in both places — UNLESS a
+    # sibling dev addon there depends on the legacy import path.
+    version_root = os.path.dirname(os.path.dirname(version_path))
+    legacy_addons_dir = os.path.join(version_root, "scripts", "addons").replace(
+        "\\", "/"
+    )
+    extensions_dir = os.path.join(version_root, "extensions", "user_default").replace(
+        "\\", "/"
+    )
+    other_candidates = [
+        os.path.join(legacy_addons_dir, RESULTING_ADDON_NAME).replace("\\", "/"),
+        os.path.join(extensions_dir, RESULTING_ADDON_NAME).replace("\\", "/"),
+    ]
+    # Always check for dependent addon — independent of whether a stale link exists.
+    dependent_addon = _has_dependent_addon(legacy_addons_dir)
+    legacy_target = os.path.join(legacy_addons_dir, RESULTING_ADDON_NAME).replace(
+        "\\", "/"
+    )
+    keep_legacy_link = bool(dependent_addon) and legacy_target != target_addon_path
+    if keep_legacy_link:
+        print(
+            f"  Dependent addon '{dependent_addon}' found in scripts/addons; "
+            f"will keep legacy link at {legacy_target}."
+        )
+
+    for other in other_candidates:
+        if other == target_addon_path or not os.path.lexists(other):
+            continue
+        # If a dependent dev addon lives in scripts/addons, keep that link.
+        if keep_legacy_link and other == legacy_target:
+            continue
+        print(f"  Removing stale link at {other}")
+        _remove_existing(other)
+
     # Create parent directories if they don't exist (e.g. scripts/addons)
     os.makedirs(version_path, exist_ok=True)
     print(f"Setting up link for Blender {version} -> {target_addon_path}")
@@ -122,11 +175,20 @@ for version_path in all_versions:
         if _try_link(THIS_REPO, target_addon_path):
             print(f"Linked blenderkit addon to Blender {version} addons folder.")
             was_linked = True
+        else:
+            print(f"Failed to set up addon for Blender {version}. See errors above.")
             continue
-
-        print(f"Failed to set up addon for Blender {version}. See errors above.")
     except Exception as e:
         print(f"Failed to link for Blender {version}: {e}")
+        continue
+
+    # Also (re)create the legacy link if a dependent addon needs it.
+    if keep_legacy_link and not os.path.lexists(legacy_target):
+        os.makedirs(legacy_addons_dir, exist_ok=True)
+        if _try_link(THIS_REPO, legacy_target):
+            print(f"  Also linked at {legacy_target} for legacy importers.")
+        else:
+            print(f"  WARNING: could not create legacy link at {legacy_target}.")
 
 # make sure we have the latest build and move it to client/
 if not was_linked:
