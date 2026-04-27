@@ -4246,8 +4246,11 @@ class SetCategoryOperatorOrigin(bpy.types.Operator):
     def execute(self, context):
         acat = global_vars.DATA["active_category_browse"][self.asset_type]
         if self.category_browse == "":
-            acat.remove(acat[-1])
-        elif self.category_browse == acat[-1]:
+            # Go up to the parent category. Keep at least the root entry
+            # to avoid IndexError on subsequent acat[-1] access.
+            if len(acat) > 1:
+                acat.pop()
+        elif acat and self.category_browse == acat[-1]:
             # don't change category if it is the same
             pass
         else:

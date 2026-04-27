@@ -34,8 +34,8 @@ else:
 
 # Discover addon directories for each Blender version.
 # Per version, link to EXACTLY ONE target:
-#   - Blender 4.2+ -> extensions/user_default/
-#   - Blender < 4.2 -> scripts/addons/
+#   - Blender 4.2+ supports extensions -> link only into extensions/user_default/
+#   - Blender < 4.2 -> link only into scripts/addons/
 all_versions = []
 seen_versions = set()
 for p in sorted(glob.glob(BLENDER_VERSIONS_PATH + "/*/")):
@@ -47,7 +47,8 @@ for p in sorted(glob.glob(BLENDER_VERSIONS_PATH + "/*/")):
         continue
     seen_versions.add(version_dir)
     major, minor = map(int, version_dir.split("."))
-    if major > 4 or (major == 4 and minor >= 2):
+    supports_extensions = major > 4 or (major == 4 and minor >= 2)
+    if supports_extensions:
         addon_dir = os.path.join(p, "extensions", "user_default")
     else:
         addon_dir = os.path.join(p, "scripts", "addons")
