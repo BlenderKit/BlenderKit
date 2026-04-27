@@ -875,6 +875,14 @@ def handle_search_task(task: client_tasks.Task) -> bool:
                 for asset in result_field
                 if asset.get("assetType") == "author" or asset.get("downloaded", 0) > 0
             ]
+        if addon_props.search_compatible_only:
+            # Filter out addons that don't support the running Blender version.
+            result_field = [
+                asset
+                for asset in result_field
+                if asset.get("assetType") != "addon"
+                or utils.is_addon_blender_compatible(asset)
+            ]
 
         # TODO: if ever needed, implement for other future types
         if result_field:
@@ -2556,6 +2564,7 @@ def get_ui_state():
         addon_props = bpy.context.window_manager.blenderkit_addon
         ui_state["addon_props"] = {
             "search_installed": addon_props.search_installed,
+            "search_compatible_only": addon_props.search_compatible_only,
         }
 
     return ui_state
