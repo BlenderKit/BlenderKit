@@ -246,6 +246,11 @@ def do_build(
         ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
     )
     shutil.copytree(
+        "asset_bar",
+        f"{addon_build_dir}/asset_bar",
+        ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
+    )
+    shutil.copytree(
         "bl_proxor",
         f"{addon_build_dir}/bl_proxor",
         ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
