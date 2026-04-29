@@ -4120,7 +4120,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.image_corner_radius = None
                     asset_button.background_padding = [0.0, 0.0]
                     asset_button.image_padding = 0.0
-                    if utils.profile_is_validator():
+                    if utils.profile_is_validator() and hasattr(
+                        asset_button, "red_alert"
+                    ):
                         asset_button.red_alert.visible = False
                     continue
 
@@ -4153,6 +4155,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
                 if (
                     utils.profile_is_validator()
+                    and hasattr(asset_button, "red_alert")
                     and asset_data["verificationStatus"] == "uploaded"
                 ):
                     over_limit = utils.is_upload_old(asset_data.get("lastBlendUpload"))
@@ -4162,7 +4165,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         asset_button.red_alert.visible = True
                     else:
                         asset_button.red_alert.visible = False
-                elif utils.profile_is_validator():
+                elif utils.profile_is_validator() and hasattr(
+                    asset_button, "red_alert"
+                ):
                     asset_button.red_alert.visible = False
 
                 visible_results.append(asset_data)
@@ -4173,7 +4178,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.bookmark_button.visible = False
                 asset_button.author_button.visible = False
                 asset_button.progress_bar.visible = False
-                if utils.profile_is_validator():
+                if utils.profile_is_validator() and hasattr(asset_button, "red_alert"):
                     asset_button.red_alert.visible = False
 
         # Refresh manufacturer chips to match currently visible assets.
