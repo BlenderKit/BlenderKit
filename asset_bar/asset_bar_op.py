@@ -4070,7 +4070,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not sr:
             return
         for asset_button in self.asset_buttons:
-            if asset_button.asset_index < len(sr):
+            if 0 <= asset_button.asset_index < len(sr):
                 asset_data = sr[asset_button.asset_index]
                 if asset_data.get("placeholder"):
                     continue
