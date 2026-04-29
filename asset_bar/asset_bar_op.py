@@ -4120,7 +4120,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.image_corner_radius = None
                     asset_button.background_padding = [0.0, 0.0]
                     asset_button.image_padding = 0.0
-                    if utils.profile_is_validator() and hasattr(asset_button, "red_alert"):
+                    if utils.profile_is_validator() and hasattr(
+                        asset_button, "red_alert"
+                    ):
                         asset_button.red_alert.visible = False
                     continue
 
@@ -4163,7 +4165,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         asset_button.red_alert.visible = True
                     else:
                         asset_button.red_alert.visible = False
-                elif utils.profile_is_validator() and hasattr(asset_button, "red_alert"):
+                elif utils.profile_is_validator() and hasattr(
+                    asset_button, "red_alert"
+                ):
                     asset_button.red_alert.visible = False
 
                 visible_results.append(asset_data)
