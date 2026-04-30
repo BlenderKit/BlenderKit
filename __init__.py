@@ -165,6 +165,7 @@ else:
     from . import keymap_utils
     from . import upload
     from . import upload_bg
+    from . import upload_dryrun
     from . import utils
     from . import persistent_preferences
     from . import reports
@@ -2886,6 +2887,7 @@ def register():
     asset_inspector.register_asset_inspector()
     download.register_download()
     upload.register_upload()
+    upload_dryrun.register()
     ratings.register_ratings()
     autothumb.register_thumbnailer()
     ui.register_ui()
@@ -2937,6 +2939,7 @@ def unregister():
     asset_inspector.unregister_asset_inspector()
     download.unregister_download()
     upload.unregister_upload()
+    upload_dryrun.unregister()
     ratings.unregister_ratings()
     autothumb.unregister_thumbnailer()
     bg_blender.unregister()
