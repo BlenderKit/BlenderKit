@@ -324,6 +324,12 @@ func main() {
 	mux.HandleFunc("/blender/asset_upload", assetUploadHandler)
 	mux.HandleFunc("/"+vapi+"/blender/asset_upload", assetUploadHandler)
 
+	// HOST-AGNOSTIC: run a Python recipe under headless Blender.
+	// Used by external embedders (e.g. the Rhino plug-in) and
+	// available for the add-on's own future bg-script migrations.
+	mux.HandleFunc("/run_blender_script", runBlenderScriptHandler)
+	mux.HandleFunc("/"+vapi+"/run_blender_script", runBlenderScriptHandler)
+
 	// API HANDLERS
 	mux.HandleFunc("/profiles/download_gravatar_image", DownloadGravatarImageHandler)
 	mux.HandleFunc("/"+vapi+"/profiles/download_gravatar_image", DownloadGravatarImageHandler)
