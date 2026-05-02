@@ -68,6 +68,7 @@ class SearchData:
         False  # Client makes some extra stuff for validators - like fetching all the ratings right away
     )
     history_id: str = ""
+    search_order_by: str = "default"  # mirrors ui_props.search_order_by; used for client-side post-sort
 
 
 @dataclasses.dataclass
