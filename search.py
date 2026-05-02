@@ -723,7 +723,14 @@ def parse_result(r) -> dict:
     params = r["dictParameters"]  # utils.params_to_dict(r['parameters'])
 
     if asset_type in ["model", "printable"]:
-        if params.get("boundBoxMinX") != None:
+        if (
+            params.get("boundBoxMinX") != None
+            and params.get("boundBoxMinY") != None
+            and params.get("boundBoxMinZ") != None
+            and params.get("boundBoxMaxX") != None
+            and params.get("boundBoxMaxY") != None
+            and params.get("boundBoxMaxZ") != None
+        ):
             bbox = {
                 "bbox_min": (
                     float(params["boundBoxMinX"]),
@@ -761,6 +768,17 @@ def parse_result(r) -> dict:
 
     # attempt to switch to use original data gradually, since the parsing as itself should become obsolete.
     asset_data.update(r)
+
+    # Compute a unified upload date used for client-side sorting.
+    # lastBlendUpload is null for zip-based assets (e.g. VDB volumes),
+    # lastZipFileUpload is null/empty for blend-based assets.
+    # Pick the newest of the two; fall back to "created" so every asset has a value.
+    last_blend = asset_data.get("lastBlendUpload") or ""
+    last_zip = asset_data.get("lastZipFileUpload") or ""
+    asset_data["last_upload"] = max(last_blend, last_zip) or asset_data.get(
+        "created", ""
+    )
+
     return asset_data
 
 
@@ -859,6 +877,13 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     # the front of the first page, but any reordering of search results breaks
     # the asset-bar layout (visible items shift, scroll position drifts), so
     # we now leave them where the backend put them.
+    #
+    # Exception: for default ordering we do a client-side coalesced sort so that
+    # zip-based assets (e.g. VDB volumes, which have lastZipFileUpload but no
+    # lastBlendUpload) are interleaved with blend-based assets correctly.
+    # parse_result() already computes the "last_upload" field for each asset.
+    if orig_task.search_order_by == "default" and ui_props.asset_type != "ADDON":
+        result_field.sort(key=lambda a: a.get("last_upload", ""), reverse=True)
 
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
@@ -1386,16 +1411,17 @@ def decide_ordering(query: dict) -> list:
     # DEFAULT TRADITIONAL SMART ORDERING
     if query.get("query") is None and query.get("category_subtree") == None:
         # assumes no keywords and no category, thus an empty search that is triggered on start.
-        # orders by last core file upload
         if query.get("verification_status") == "uploaded":
             # for validators, sort uploaded from oldest
-            order.append("last_blend_upload")
+            order.append("created")
         else:
-            if query.get("asset_type") == "addon":
-                # addons don't have athe blend so need to sort by created
-                order.append("-created")
-            else:
-                order.append("-last_blend_upload")
+            # Server-side: sort by created so every asset participates
+            # (older field "last_blend_upload" is null for zip-only assets
+            # like VDB volumes and would push them to the very end across
+            # all pages). handle_search_task() then runs a client-side
+            # coalesced re-sort by "last_upload" so reuploaded assets
+            # surface above older ones within each loaded chunk.
+            order.append("-created")
     elif (
         query.get("author_id") is not None
         or query.get("query", "").find("+author_id:") > -1
@@ -1671,6 +1697,7 @@ def add_search_process(
         blender_version=blender_version,
         is_validator=utils.profile_is_validator(),
         history_id=history_id,
+        search_order_by=query.get("search_order_by", "default"),
     )
     response = client_lib.asset_search(search_data)
     search_tasks[response["task_id"]] = search_data

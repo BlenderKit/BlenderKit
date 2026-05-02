@@ -67,7 +67,7 @@ class TestDecideOrdering(unittest.TestCase):
     def test_default_sorting(self):
         query = {"free_first": False, "search_order_by": "default"}
         order = search.decide_ordering(query)
-        expected = ["-last_blend_upload"]
+        expected = ["-created"]
         self.assertEqual(order, expected)
 
     def test_bookmarks_sorting(self):
@@ -79,7 +79,7 @@ class TestDecideOrdering(unittest.TestCase):
     def test_default_sorting_free_first(self):
         query = {"free_first": True, "search_order_by": "default"}
         order = search.decide_ordering(query)
-        expected = ["-is_free", "-last_blend_upload"]
+        expected = ["-is_free", "-created"]
         self.assertEqual(order, expected)
 
     def test_bookmarks_sorting_free_first(self):
@@ -111,7 +111,7 @@ class TestQueryToURL(unittest.TestCase):
             scene_uuid=self.scene_uuid,
             page_size=self.page_size,
         )
-        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-last_blend_upload&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-created&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
         self.assertEqual(url, expected)
 
     def test_sorted_model_query(self):
