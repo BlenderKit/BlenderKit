@@ -1411,17 +1411,31 @@ def decide_ordering(query: dict) -> list:
     # DEFAULT TRADITIONAL SMART ORDERING
     if query.get("query") is None and query.get("category_subtree") == None:
         # assumes no keywords and no category, thus an empty search that is triggered on start.
+        # orders by last core file upload
         if query.get("verification_status") == "uploaded":
             # for validators, sort uploaded from oldest
-            order.append("created")
+            # blend-based assets sort by last_blend_upload; zip-only ones
+            # (e.g. VDB volumes) have that field null and fall through to
+            # last_zip_file_upload as the secondary sort key.
+            order.append("last_blend_upload")
+            order.append("last_zip_file_upload")
         else:
-            # Server-side: sort by created so every asset participates
-            # (older field "last_blend_upload" is null for zip-only assets
-            # like VDB volumes and would push them to the very end across
-            # all pages). handle_search_task() then runs a client-side
-            # coalesced re-sort by "last_upload" so reuploaded assets
-            # surface above older ones within each loaded chunk.
-            order.append("-created")
+            if query.get("asset_type") == "addon":
+                # addons don't have a blend so need to sort by created
+                order.append("-created")
+            else:
+                # Server-side multi-key sort:
+                #   1) -last_blend_upload  -- blend-based assets (most users)
+                #   2) -last_zip_file_upload -- zip-only assets (VDB volumes,
+                #      etc.) which have lastBlendUpload=null and would
+                #      otherwise sort arbitrarily among themselves.
+                # handle_search_task() then does a client-side coalesced
+                # re-sort by "last_upload" (max of the two) so within an
+                # already-fetched chunk blend and zip assets are interleaved
+                # by actual recency. A single coalesced server field would
+                # be needed for fully correct cross-page interleaving.
+                order.append("-last_blend_upload")
+                order.append("-last_zip_file_upload")
     elif (
         query.get("author_id") is not None
         or query.get("query", "").find("+author_id:") > -1
