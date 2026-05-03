@@ -11,6 +11,7 @@ Recipe ABI (every script in tools/ follows this):
         draco       : bool  (default False)
         export_apply: bool  (default True)
 """
+
 import json
 import sys
 
@@ -20,7 +21,7 @@ argv = sys.argv
 if "--" not in argv:
     print("export_glb: missing -- separator", file=sys.stderr)
     sys.exit(2)
-argv = argv[argv.index("--") + 1:]
+argv = argv[argv.index("--") + 1 :]
 if not argv:
     print("export_glb: no params.json path given after --", file=sys.stderr)
     sys.exit(2)
