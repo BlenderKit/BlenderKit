@@ -80,6 +80,7 @@ if "bpy" in locals():
     client_lib = reload(client_lib)
     client_tasks = reload(client_tasks)
     disclaimer_op = reload(disclaimer_op)
+    warning_dialog = reload(warning_dialog)
     download = reload(download)
     icons = reload(icons)
     image_utils = reload(image_utils)
@@ -145,6 +146,7 @@ else:
     from . import client_tasks
     from . import client_thread
     from . import disclaimer_op
+    from . import warning_dialog
     from . import download
     from . import icons
     from . import image_utils
@@ -2520,6 +2522,18 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    accepted_ms_store_warning: BoolProperty(
+        name="Accepted Microsoft Store Blender warning",
+        description=(
+            "Set after the user has acknowledged the in-viewport warning shown"
+            " when running BlenderKit on a Microsoft Store install of Blender."
+            " Uncheck to see the warning again on the next asset bar launch"
+            " (useful for debugging)."
+        ),
+        default=False,
+        update=utils.save_prefs,
+    )
+
     author_tab: BoolProperty(
         name="Show Authors tab",
         description="Show Authors tab in the assetbar. This tab allows you to see all assets of a specific author and is also used for showing your profile and assets",
@@ -2779,6 +2793,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
             experimental_settings.prop(self, "thread_communication")
+            experimental_settings.prop(self, "accepted_ms_store_warning")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
@@ -2898,6 +2913,7 @@ def register():
     asset_bar_op.register()
     asset_drag_op.register()
     disclaimer_op.register()
+    warning_dialog.register()
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
@@ -2946,6 +2962,7 @@ def unregister():
     asset_bar_op.unregister()
     asset_drag_op.unregister()
     disclaimer_op.unregister()
+    warning_dialog.unregister()
 
     if bpy.app.background is False:
         try:
