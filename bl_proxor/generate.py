@@ -804,29 +804,19 @@ def _apply_transform_to_payload(
         _apply_transform_to_vectors(section.get("pos"), matrix)
 
 
-def _world_scale_matrix(obj) -> Optional[Matrix]:
-    """Return a scale-only 4x4 matrix derived from ``obj.matrix_world``.
+def _safe_world_matrix(obj) -> Optional[Matrix]:
+    """Return ``obj.matrix_world.copy()`` or ``None`` if the access fails.
 
-    Sampling/direct paths produce points in the object's local space, which
-    means the object's own scale is NOT applied to the result. If the source
-    object has a non-unit scale (e.g. 0.01 from a unit-conversion import),
-    the resulting proxor will be 1/scale times too large in world units.
-    Multiplying every output position by the source's world-scale brings the
-    proxor back to true world size.
-
-    Translation and rotation are intentionally dropped: the proxor must stay
-    centered at the origin and unrotated, because at drag/preview time the
-    handler applies its own placement matrix on top.
+    Used to bake the source's full world transform into the generated proxor
+    so that a payload drawn at identity transform reproduces the source
+    geometry exactly (1:1 match in position, rotation and scale).
     """
     if obj is None:
         return None
     try:
-        scl = obj.matrix_world.to_scale()
+        return obj.matrix_world.copy()
     except Exception:  # noqa: BLE001
         return None
-    if scl.x == 1.0 and scl.y == 1.0 and scl.z == 1.0:
-        return None
-    return Matrix.Diagonal((scl.x, scl.y, scl.z, 1.0))
 
 
 def _convert_normals_to_prx(normals: Optional[list[list[float]]]) -> None:
@@ -2064,9 +2054,10 @@ def generate_proxor(
             "text": {"pos": [], "col": [], "str": []},
         },
     }
-    # Bake the root object's world scale so a non-unit source scale
-    # (e.g. 0.01 from imports) does not blow up the proxor size.
-    _apply_transform_to_payload(payload, _world_scale_matrix(obj))
+    # Bake the root object's full world matrix so the proxor reproduces the
+    # source 1:1 when drawn at identity transform (matches position, rotation
+    # and scale of the source as it appears in its own scene).
+    _apply_transform_to_payload(payload, _safe_world_matrix(obj))
     _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
     return payload
 
@@ -2109,18 +2100,20 @@ def generate_proxor_multi(
     except Exception:  # noqa: BLE001
         depsgraph = bpy.context.evaluated_depsgraph_get()
 
-    # Collect all mesh sources from provided objects (no child recursion).
-    # Each source's per-sample transform bakes the source's own world scale
-    # so that an object with non-unit scale doesn't produce a proxor that is
-    # 1/scale times too large. Translation and rotation are intentionally
-    # not baked: the proxor must stay around the origin so the drag/preview
-    # handler can place it via its own matrix.
+    # Collect mesh sources from the provided list (no child recursion).
+    #
+    # Each source's transform is its full world matrix. Sampling then yields
+    # points directly in the source scene's world frame, so a proxor drawn
+    # at identity transform reproduces the source geometry 1:1 — every
+    # object keeps its true position, rotation and scale relative to the
+    # others (e.g. a row of books stays a row).
     sources: list[tuple] = []
     for obj in objects:
         if obj is None:
             continue
-        if getattr(obj, "type", "") == "MESH":
-            sources.append((obj, _world_scale_matrix(obj)))
+        if getattr(obj, "type", "") != "MESH":
+            continue
+        sources.append((obj, _safe_world_matrix(obj)))
 
     if not sources:
         return None
@@ -2478,8 +2471,8 @@ def generate_proxor_direct(
             "text": {"pos": [], "col": [], "str": []},
         },
     }
-    # Bake the root object's world scale (see _world_scale_matrix).
-    _apply_transform_to_payload(payload, _world_scale_matrix(obj))
+    # Bake the root object's full world matrix (see _safe_world_matrix).
+    _apply_transform_to_payload(payload, _safe_world_matrix(obj))
     _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
     return payload
 
