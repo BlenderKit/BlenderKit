@@ -1720,19 +1720,21 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         new_button.progress_bar = progress_bar
         self.progress_bars.append(progress_bar)
 
-        if utils.profile_is_validator():
-            red_alert = BL_UI_Widget(
-                asset_x - self.validation_icon_margin,
-                asset_y - self.validation_icon_margin,
-                self.button_size + 2 * self.validation_icon_margin,
-                self.button_size + 2 * self.validation_icon_margin,
-            )
-            red_alert.bg_color = (1.0, 0.0, 0.0, 0.0)
-            red_alert.visible = False
-            red_alert.active = False
-            red_alert._is_grid_widget = True
-            new_button.red_alert = red_alert
-            self.red_alerts.append(red_alert)
+        # Tinted overlay reused for two purposes:
+        # - validator: red "old upload" alert
+        # - everyone:  dark-red dim for Blender-incompatible addons
+        red_alert = BL_UI_Widget(
+            asset_x - self.validation_icon_margin,
+            asset_y - self.validation_icon_margin,
+            self.button_size + 2 * self.validation_icon_margin,
+            self.button_size + 2 * self.validation_icon_margin,
+        )
+        red_alert.bg_color = (1.0, 0.0, 0.0, 0.0)
+        red_alert.visible = False
+        red_alert.active = False
+        red_alert._is_grid_widget = True
+        new_button.red_alert = red_alert
+        self.red_alerts.append(red_alert)
 
         # Tag all grid sub-widgets so the draw callback can apply scissor clipping
         new_button._is_grid_widget = True
@@ -2815,11 +2817,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.bookmark_button.visible = False
             button.author_button.visible = False
             button.progress_bar.visible = False
-        if utils.profile_is_validator():
-            button.red_alert.set_location(
-                asset_x - self.validation_icon_margin,
-                asset_y - self.validation_icon_margin,
-            )
+        button.red_alert.set_location(
+            asset_x - self.validation_icon_margin,
+            asset_y - self.validation_icon_margin,
+        )
 
     def _update_scroll_indicator(self):
         """Position and size the scroll position indicator.
@@ -2977,6 +2978,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             button.bookmark_button.visible = False
             button.author_button.visible = False
             button.progress_bar.visible = False
+            button.red_alert.visible = False
 
         self.position_active_filter_buttons()
 
@@ -3485,6 +3487,24 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         self.version_warning.text_color = self.info_color
                 else:
                     self.version_warning.text = ""
+
+                # Addon-specific compatibility warning. This takes precedence
+                # over the generic sourceAppVersion notice because it's based
+                # on the addon's own declared supported range.
+                if is_addon:
+                    compat_ok, min_v, max_v = utils.get_addon_blender_compatibility(
+                        asset_data
+                    )
+                    if not compat_ok:
+                        if min_v and max_v:
+                            rng = f"{min_v}\u2013{max_v}"
+                        elif min_v:
+                            rng = f"{min_v}+"
+                        else:
+                            rng = f"\u2264{max_v}"
+                        cur = utils.get_blender_version()
+                        self.version_warning.text = f"Incompatible: addon requires Blender {rng} (you have {cur})"
+                        self.version_warning.text_color = self.warning_color
 
                 author_id = int(asset_data["author"]["id"])
                 author = global_vars.BKIT_AUTHORS.get(author_id)
@@ -4120,10 +4140,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     asset_button.image_corner_radius = None
                     asset_button.background_padding = [0.0, 0.0]
                     asset_button.image_padding = 0.0
-                    if utils.profile_is_validator() and hasattr(
-                        asset_button, "red_alert"
-                    ):
-                        asset_button.red_alert.visible = False
+                    asset_button.red_alert.visible = False
                     continue
 
                 # Distinguish author cards with a blue border and author icon.
@@ -4153,9 +4170,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 self.update_bookmark_icon(asset_button.bookmark_button)
                 self.update_progress_bar(asset_button, asset_data)
 
-                if (
+                # red_alert overlay is reused for two cases (incompatible
+                # addons take priority over the validator "old upload" alert):
+                if asset_data.get(
+                    "assetType"
+                ) == "addon" and not utils.is_addon_blender_compatible(asset_data):
+                    asset_button.red_alert.bg_color = (0.6, 0.05, 0.05, 0.55)
+                    asset_button.red_alert.visible = True
+                elif (
                     utils.profile_is_validator()
-                    and hasattr(asset_button, "red_alert")
                     and asset_data["verificationStatus"] == "uploaded"
                 ):
                     over_limit = utils.is_upload_old(asset_data.get("lastBlendUpload"))
@@ -4165,9 +4188,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                         asset_button.red_alert.visible = True
                     else:
                         asset_button.red_alert.visible = False
-                elif utils.profile_is_validator() and hasattr(
-                    asset_button, "red_alert"
-                ):
+                else:
                     asset_button.red_alert.visible = False
 
                 visible_results.append(asset_data)
@@ -4178,8 +4199,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.bookmark_button.visible = False
                 asset_button.author_button.visible = False
                 asset_button.progress_bar.visible = False
-                if utils.profile_is_validator() and hasattr(asset_button, "red_alert"):
-                    asset_button.red_alert.visible = False
+                asset_button.red_alert.visible = False
 
         # Refresh manufacturer chips to match currently visible assets.
         self._update_manufacturer_data(visible_results)

@@ -1987,6 +1987,14 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
         ],
     )
 
+    # User confirmation required when installing an addon whose declared
+    # Blender version range does not include the running Blender version.
+    confirm_incompatible: bpy.props.BoolProperty(
+        name="Install anyway (incompatible)",
+        description="I understand this addon may not work in this Blender version",
+        default=False,
+    )
+
     def draw(self, context):
 
         layout = self.layout
@@ -2003,12 +2011,35 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
         layout.label(text=f"Addon: {addon_name}")
         layout.separator()
 
+        # Compatibility warning (shown only when relevant).
+        is_compat, min_v, max_v = utils.get_addon_blender_compatibility(asset_data)
+        if not is_compat:
+            cur = utils.get_blender_version()
+            if min_v and max_v:
+                rng = f"{min_v} \u2013 {max_v}"
+            elif min_v:
+                rng = f"{min_v}+"
+            else:
+                rng = f"\u2264 {max_v}"
+            warn = layout.box()
+            warn.alert = True
+            warn.label(
+                text=f"Incompatible: requires Blender {rng}",
+                icon="ERROR",
+            )
+            warn.label(text=f"Your Blender version: {cur}")
+
         layout = layout.column()
         # Show current status and appropriate action enum
         if not status["installed"]:
             layout.label(text="Status: Not Installed", icon="QUESTION")
             layout.separator()
             layout.prop(self, "action_not_installed", expand=True)
+            if not is_compat:
+                layout.separator()
+                row = layout.row()
+                row.alert = True
+                row.prop(self, "confirm_incompatible")
         elif status["enabled"]:
             layout.label(text="Status: Installed and Enabled", icon="CHECKMARK")
             layout.separator()
@@ -2069,6 +2100,21 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                 "INSTALL_AND_TEMP_ENABLE",
                 "INSTALL_ONLY",
             ):
+                # Block installation when the addon's declared Blender version
+                # range does not include this Blender, unless the user has
+                # explicitly confirmed via the checkbox.
+                if (
+                    not utils.is_addon_blender_compatible(asset_data)
+                    and not self.confirm_incompatible
+                ):
+                    msg = (
+                        f"'{addon_name}' is not compatible with this Blender version. "
+                        "Tick 'Install anyway (incompatible)' to proceed."
+                    )
+                    reports.add_report(msg, type="WARNING")
+                    self.report({"WARNING"}, msg)
+                    return {"CANCELLED"}
+
                 # Trigger download which will automatically install and enable after completion
                 reports.add_report(f"Downloading addon '{addon_name}'...", type="INFO")
 
