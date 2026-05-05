@@ -1973,6 +1973,8 @@ class VIEW3D_PT_blenderkit_advanced_addon_search(Panel):
         # Add installed filter for addons
         row = layout.row()
         row.prop(addon_props, "search_installed", text="Installed Only")
+        row = layout.row()
+        row.prop(addon_props, "search_compatible_only", text="Compatible Only")
 
 
 class VIEW3D_PT_blenderkit_advanced_author_search(Panel):

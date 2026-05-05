@@ -1903,6 +1903,43 @@ def get_blender_version() -> str:
     return f"{ver[0]}.{ver[1]}.{ver[2]}"
 
 
+def _parse_version_string(v):
+    """Parse a 'X[.Y[.Z]]' string into a 3-tuple of ints, or None on failure."""
+    if not v:
+        return None
+    try:
+        parts = [int(x) for x in str(v).split(".") if x]
+    except Exception:
+        return None
+    if not parts:
+        return None
+    parts = (parts + [0, 0, 0])[:3]
+    return tuple(parts)
+
+
+def get_addon_blender_compatibility(asset_data):
+    """Return (is_compatible, min_str, max_str) for an addon asset.
+
+    Reads dictParameters.blenderVersionMin / blenderVersionMax. Missing/None
+    bound means unlimited on that side. Non-addon assets are always compatible.
+    """
+    if not isinstance(asset_data, dict) or asset_data.get("assetType") != "addon":
+        return True, None, None
+    dp = asset_data.get("dictParameters") or {}
+    min_v = dp.get("blenderVersionMin") or None
+    max_v = dp.get("blenderVersionMax") or None
+    cur = bpy.app.version
+    mn = _parse_version_string(min_v)
+    mx = _parse_version_string(max_v)
+    if (mn and cur < mn) or (mx and cur > mx):
+        return False, min_v, max_v
+    return True, min_v, max_v
+
+
+def is_addon_blender_compatible(asset_data) -> bool:
+    return get_addon_blender_compatibility(asset_data)[0]
+
+
 def get_addon_version() -> str:
     """Get BlenderKit addon version as string in format X.Y.Z."""
     ver = global_vars.VERSION

@@ -1283,6 +1283,16 @@ class BlenderKitAddonSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
             else None
         ),
     )
+    search_compatible_only: BoolProperty(
+        name="Compatible Only",
+        description="Hide addons whose declared Blender version range does not include the running Blender version",
+        default=False,
+        update=lambda self, context: (
+            search.search_update(self, context)
+            if context.window_manager.blenderkitUI.asset_type == "ADDON"
+            else None
+        ),
+    )
 
 
 class BlenderKitAuthorSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
