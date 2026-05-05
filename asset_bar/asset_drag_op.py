@@ -449,7 +449,7 @@ def _load_proxor_for_download(asset_base_id: str) -> Optional[dict]:
         return None
 
     try:
-        from .bl_proxor import prx_format as proxor_prx_format
+        from ..bl_proxor import prx_format as proxor_prx_format
 
         payload = proxor_prx_format.read_prx(prxc_path)
         proxor_data = payload.get("data")
@@ -933,8 +933,8 @@ class AssetDragOperator(bpy.types.Operator):
         is reset to ``None`` so the drag falls back to the green bbox.
         """
         try:
-            from .bl_proxor import prx_format as proxor_prx_format
-            from .bl_proxor.draw import ProxorLiteDrawHandler, default_draw_context
+            from ..bl_proxor import prx_format as proxor_prx_format
+            from ..bl_proxor.draw import ProxorLiteDrawHandler, default_draw_context
 
             payload = proxor_prx_format.read_prx(prxc_path)
             proxor_data = payload.get("data")
