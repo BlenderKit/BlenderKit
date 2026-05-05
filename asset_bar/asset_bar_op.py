@@ -1595,6 +1595,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not utils.profile_is_validator():
             return
 
+        # The comments label widget is only created during tooltip setup when
+        # the validator/popup-counter condition was true at that moment. If
+        # the profile only became a validator after the asset bar was already
+        # built, the widget won't exist — silently skip in that case.
+        if not hasattr(self, "comments"):
+            return
+
         if asset_data.get("assetType") == "author":
             self.comments.text = ""
             return
