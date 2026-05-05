@@ -4202,9 +4202,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.button_scroll_up.visible = False
             return
 
-        self.scroll_offset = min(
-            self.scroll_offset, len(sr) - (self.wcount * self.hcount)
-        )
+        self.scroll_offset = min(self.scroll_offset, self._aligned_max_offset(len(sr)))
         self.scroll_offset = max(self.scroll_offset, 0)
         # only update if scroll offset actually changed, otherwise this is unnecessary
 
@@ -4220,7 +4218,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         else:
             self.button_scroll_down.visible = True
 
-        if self.scroll_offset >= sro["count"] - (self.wcount * self.hcount):
+        if self.scroll_offset >= self._aligned_max_offset(sro["count"]):
             self.button_scroll_up.visible = False
         else:
             self.button_scroll_up.visible = True
@@ -4245,7 +4243,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if sr is None:
             return step
 
-        max_offset = max(0, len(sr) - (self.wcount * self.hcount))
+        max_offset = self._aligned_max_offset(len(sr))
 
         if step < 0 and self.scroll_offset <= 0:
             # Already at the start, absorb the step entirely
@@ -4294,11 +4292,26 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         """Slots advanced per integer scroll step (1 single-row, wcount multi-row)."""
         return self.wcount if self.hcount > 1 else 1
 
+    def _aligned_max_offset(self, total: int) -> int:
+        """Largest scroll_offset that still shows at least one asset, aligned
+        to the natural scroll step.
+
+        Aligning to the step (`wcount` for multi-row, `1` for single-row)
+        ensures we never "shift" the layout by a fractional row at the end
+        of the result set - trailing slots are simply left empty instead.
+        """
+        visible = self.wcount * self.hcount
+        if total <= visible:
+            return 0
+        unit = max(1, self._smooth_scroll_unit_slots())
+        # Round up so the last asset is guaranteed to be in view.
+        return int(math.ceil((total - visible) / float(unit))) * unit
+
     def _smooth_scroll_max_offset(self) -> int:
         sr = search.get_search_results()
         if sr is None:
             return 0
-        return max(0, len(sr) - (self.wcount * self.hcount))
+        return self._aligned_max_offset(len(sr))
 
     def _smooth_scroll_commit_phase(self) -> bool:
         """Advance integer `scroll_offset` whenever |phase| crosses one slot step.
