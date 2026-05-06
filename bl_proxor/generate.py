@@ -48,7 +48,7 @@ HIGHPOLY_VERT_THRESHOLD = 50_000
 # -- Marching cubes --
 MARCHING_CUBES_MAX_GRID_CELLS = 8_000_000
 MARCHING_CUBES_PADDING = 2.0
-CPU_RECON_DEFAULT_VOXEL_SCALE = 0.7
+CPU_RECON_DEFAULT_VOXEL_SCALE = 0.75
 
 # -- Extreme poly detection for aggressive LOD --
 #: If source vertex count exceeds this, use aggressive point sampling LOD
@@ -58,7 +58,7 @@ EXTREME_POLY_DIVISOR = 300
 
 # -- Mesh post-processing defaults --
 _DECIMATION_RATIO_DEFAULT = 0.25  # 1.0 = keep all, 0.5 = halve triangle count
-_REPROJECT_MAX_DIST_FACTOR = 1.2
+_REPROJECT_MAX_DIST_FACTOR = 1.3
 _SMOOTH_ITERATIONS_DEFAULT = 10
 
 # -- Exterior-only sampling (drop interior-cavity samples) --
@@ -221,25 +221,19 @@ def collect_sources(
     """Collect mesh sources from *obj* and optionally its children.
 
     Returns:
-        List of ``(blender_object, transform_matrix_or_None)`` tuples.
+        List of ``(blender_object, world_matrix)`` tuples. The transform
+        is each source's full ``matrix_world``, so sampled points land
+        directly in absolute world space.
     """
     sources: list[tuple] = []
     if obj is None:
         return sources
     if getattr(obj, "type", "") == "MESH":
-        sources.append((obj, None))
+        sources.append((obj, _safe_world_matrix(obj)))
     if not include_children:
         return sources
-    try:
-        parent_inv = obj.matrix_world.copy().inverted()
-    except Exception:  # noqa: BLE001
-        parent_inv = Matrix.Identity(4)
     for child in _iter_mesh_descendants(obj):
-        try:
-            matrix = parent_inv @ child.matrix_world
-        except Exception:  # noqa: BLE001
-            matrix = None
-        sources.append((child, matrix))
+        sources.append((child, _safe_world_matrix(child)))
     return sources
 
 
@@ -807,9 +801,9 @@ def _apply_transform_to_payload(
 def _safe_world_matrix(obj) -> Optional[Matrix]:
     """Return ``obj.matrix_world.copy()`` or ``None`` if the access fails.
 
-    Used to bake the source's full world transform into the generated proxor
-    so that a payload drawn at identity transform reproduces the source
-    geometry exactly (1:1 match in position, rotation and scale).
+    Used to bake the source's full world transform into the generated
+    proxor so the payload reproduces the source as it currently appears
+    in its scene (matching position, rotation and scale).
     """
     if obj is None:
         return None
@@ -1224,8 +1218,8 @@ def _build_marching_tetrahedra_mesh(
 def _build_source_bvh(sources, depsgraph):
     """Build a combined BVHTree from all source mesh objects.
 
-    Vertices are placed in the coordinate space of the first source
-    (root object local space) to match the marching-cubes output.
+    Vertices are placed in absolute world space (each source's transform
+    is its full ``matrix_world``), matching the sampled point cloud.
     """
     from mathutils.bvhtree import BVHTree
 
@@ -2054,10 +2048,9 @@ def generate_proxor(
             "text": {"pos": [], "col": [], "str": []},
         },
     }
-    # Bake the root object's full world matrix so the proxor reproduces the
-    # source 1:1 when drawn at identity transform (matches position, rotation
-    # and scale of the source as it appears in its own scene).
-    _apply_transform_to_payload(payload, _safe_world_matrix(obj))
+    # Geometry was sampled directly in absolute world space (each source
+    # used its full matrix_world). Only the Blender->PRX axis conversion
+    # remains to be applied.
     _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
     return payload
 
@@ -2101,12 +2094,8 @@ def generate_proxor_multi(
         depsgraph = bpy.context.evaluated_depsgraph_get()
 
     # Collect mesh sources from the provided list (no child recursion).
-    #
-    # Each source's transform is its full world matrix. Sampling then yields
-    # points directly in the source scene's world frame, so a proxor drawn
-    # at identity transform reproduces the source geometry 1:1 — every
-    # object keeps its true position, rotation and scale relative to the
-    # others (e.g. a row of books stays a row).
+    # Each source's transform is its full matrix_world, so samples land
+    # directly in absolute world space.
     sources: list[tuple] = []
     for obj in objects:
         if obj is None:
@@ -2471,8 +2460,9 @@ def generate_proxor_direct(
             "text": {"pos": [], "col": [], "str": []},
         },
     }
-    # Bake the root object's full world matrix (see _safe_world_matrix).
-    _apply_transform_to_payload(payload, _safe_world_matrix(obj))
+    # Geometry was read in absolute world space (each source used its
+    # full matrix_world via collect_sources). Only the Blender->PRX axis
+    # conversion remains.
     _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
     return payload
 
