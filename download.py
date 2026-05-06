@@ -1366,8 +1366,11 @@ def download_write_progress(task_id, task):
     # go through search results to write progress to display progress bars
     sr = search.get_search_results()
     if sr is not None:
+        asset_id = task.data["asset_data"]["id"]
         for r in sr:
-            if task.data["asset_data"]["id"] == r["id"]:
+            # Some entries (e.g. authors, very old assets) may not have an
+            # "id" field — skip them rather than crashing.
+            if r.get("id") == asset_id:
                 r["downloaded"] = task.progress
 
 

@@ -873,17 +873,20 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     for aid in pending_comment_ids:
         client_lib.get_comments(aid)
 
-    # Results are kept in arrival order. Previously authors were promoted to
-    # the front of the first page, but any reordering of search results breaks
-    # the asset-bar layout (visible items shift, scroll position drifts), so
-    # we now leave them where the backend put them.
+    # Results are kept strictly in arrival order. The asset bar relies on
+    # stable positions: once an asset is placed it must never move, otherwise
+    # the layout (and the user's scroll position) jumps every time a new page
+    # arrives. This applies to authors as well — they are appended in the
+    # order the backend returned them and are never promoted/resorted on the
+    # client.
     #
-    # Exception: for default ordering we do a client-side coalesced sort so that
-    # zip-based assets (e.g. VDB volumes, which have lastZipFileUpload but no
-    # lastBlendUpload) are interleaved with blend-based assets correctly.
-    # parse_result() already computes the "last_upload" field for each asset.
-    if orig_task.search_order_by == "default" and ui_props.asset_type != "ADDON":
-        result_field.sort(key=lambda a: a.get("last_upload", ""), reverse=True)
+    # A previous version did a client-side coalesced sort by
+    # max(lastBlendUpload, lastZipFileUpload) here so that zip-only assets
+    # (e.g. VDB volumes) interleaved with blend-based ones. That re-sort was
+    # applied to the union of all already-fetched pages on every get_next,
+    # which actively reshuffled previously-placed items. The proper fix
+    # belongs on the server (a single coalesced "-last_core_upload" sort
+    # key); until then, we trust the server order verbatim.
 
     # Apply addon-specific status checking and filtering if needed
     if ui_props.asset_type == "ADDON":
