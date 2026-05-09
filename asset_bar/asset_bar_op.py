@@ -3120,6 +3120,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def on_invoke(self, context, event):
         """Invoke the asset bar operator."""
+        # Microsoft Store builds of Blender are sandboxed and break a number of
+        # BlenderKit features (client launch, background Blender, writing into
+        # blenderkit_data). Show an in-viewport warning instead of the asset
+        # bar on first launch; the warning's "Proceed anyway" button persists
+        # the acceptance flag and re-invokes the asset bar.
+        from .. import warning_dialog
+
+        if warning_dialog.should_block_for_ms_store():
+            warning_dialog.show_ms_store_warning()
+            return False
+
         self.instances.append(self)
         if not context.area:
             return False
