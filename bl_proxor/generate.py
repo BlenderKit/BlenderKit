@@ -48,7 +48,7 @@ HIGHPOLY_VERT_THRESHOLD = 50_000
 # -- Marching cubes --
 MARCHING_CUBES_MAX_GRID_CELLS = 8_000_000
 MARCHING_CUBES_PADDING = 2.0
-CPU_RECON_DEFAULT_VOXEL_SCALE = 0.7
+CPU_RECON_DEFAULT_VOXEL_SCALE = 0.75
 
 # -- Extreme poly detection for aggressive LOD --
 #: If source vertex count exceeds this, use aggressive point sampling LOD
@@ -58,7 +58,7 @@ EXTREME_POLY_DIVISOR = 300
 
 # -- Mesh post-processing defaults --
 _DECIMATION_RATIO_DEFAULT = 0.25  # 1.0 = keep all, 0.5 = halve triangle count
-_REPROJECT_MAX_DIST_FACTOR = 1.2
+_REPROJECT_MAX_DIST_FACTOR = 1.3
 _SMOOTH_ITERATIONS_DEFAULT = 10
 
 # -- Exterior-only sampling (drop interior-cavity samples) --
@@ -221,25 +221,19 @@ def collect_sources(
     """Collect mesh sources from *obj* and optionally its children.
 
     Returns:
-        List of ``(blender_object, transform_matrix_or_None)`` tuples.
+        List of ``(blender_object, world_matrix)`` tuples. The transform
+        is each source's full ``matrix_world``, so sampled points land
+        directly in absolute world space.
     """
     sources: list[tuple] = []
     if obj is None:
         return sources
     if getattr(obj, "type", "") == "MESH":
-        sources.append((obj, None))
+        sources.append((obj, _safe_world_matrix(obj)))
     if not include_children:
         return sources
-    try:
-        parent_inv = obj.matrix_world.copy().inverted()
-    except Exception:  # noqa: BLE001
-        parent_inv = Matrix.Identity(4)
     for child in _iter_mesh_descendants(obj):
-        try:
-            matrix = parent_inv @ child.matrix_world
-        except Exception:  # noqa: BLE001
-            matrix = None
-        sources.append((child, matrix))
+        sources.append((child, _safe_world_matrix(child)))
     return sources
 
 
@@ -804,6 +798,144 @@ def _apply_transform_to_payload(
         _apply_transform_to_vectors(section.get("pos"), matrix)
 
 
+def _safe_world_matrix(obj) -> Optional[Matrix]:
+    """Return ``obj.matrix_world.copy()`` or ``None`` if the access fails.
+
+    Used to bake the source's full world transform into the generated
+    proxor so the payload reproduces the source as it currently appears
+    in its scene (matching position, rotation and scale).
+    """
+    if obj is None:
+        return None
+    try:
+        return obj.matrix_world.copy()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# -- Combine many sources into a single world-space mesh ----------------------
+#
+# Multi-mesh assets (e.g. a pile of pebbles, or a model split into hundreds of
+# parts) hit per-source Python overhead in stats collection, BVH build and
+# area-weighted sampling. Joining everything into a single Blender mesh once,
+# in world space, lets the rest of the pipeline run as if there is only one
+# (large) source — at which point the vectorized fast-grid sampler kicks in
+# and the BVH/stats passes touch each vertex exactly once.
+#
+# Materials, UVs and colour attributes are intentionally dropped; the proxor
+# preview shading does not use per-source colour data.
+
+#: Combine sources when there are at least this many meshes. Below this
+#: threshold the per-source path is already cheap enough that adding the
+#: bmesh round-trip would be net-negative.
+_COMBINE_SOURCE_THRESHOLD = 2
+
+
+def _build_combined_world_mesh(sources: list[tuple], depsgraph):
+    """Combine ``sources`` into a single world-space mesh.
+
+    Each source's evaluated mesh is read once, its vertex coordinates
+    are transformed to world space via numpy, and the result is fed
+    into a shared :class:`bmesh.types.BMesh`. The combined geometry is
+    written to a fresh ``bpy.data.meshes`` entry wrapped in an unlinked
+    ``bpy.data.objects`` entry with identity ``matrix_world``.
+
+    Returns:
+        ``(combined_obj, cleanup_fn)`` on success, or ``(None, noop)``
+        if no geometry was found. The caller MUST invoke ``cleanup_fn``
+        once it is done with ``combined_obj`` to remove the temporary
+        datablocks from the .blend.
+    """
+
+    def _noop() -> None:
+        return None
+
+    try:
+        import bmesh  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return None, _noop
+
+    bm = bmesh.new()
+    any_geometry = False
+    for src_obj, transform in sources:
+        if src_obj is None:
+            continue
+        obj_eval = None
+        src_mesh = None
+        try:
+            obj_eval = src_obj.evaluated_get(depsgraph)
+            src_mesh = obj_eval.to_mesh(
+                preserve_all_data_layers=False, depsgraph=depsgraph
+            )
+        except Exception:  # noqa: BLE001
+            src_mesh = None
+        if src_mesh is None:
+            if obj_eval is not None:
+                with contextlib.suppress(Exception):
+                    obj_eval.to_mesh_clear()
+            continue
+        try:
+            n_verts = len(src_mesh.vertices)
+            if n_verts > 0 and transform is not None:
+                # Vectorized world-space transform of the temp mesh's verts
+                # before merging into the shared bmesh.
+                co = np.empty(n_verts * 3, dtype=np.float32)
+                src_mesh.vertices.foreach_get("co", co)
+                co3 = co.reshape(n_verts, 3)
+                mat = np.array(transform, dtype=np.float32)
+                co_world = co3 @ mat[:3, :3].T + mat[:3, 3]
+                src_mesh.vertices.foreach_set(
+                    "co", co_world.reshape(-1).astype(np.float32)
+                )
+            if n_verts > 0:
+                bm.from_mesh(src_mesh)
+                any_geometry = True
+        finally:
+            if obj_eval is not None:
+                with contextlib.suppress(Exception):
+                    obj_eval.to_mesh_clear()
+
+    if not any_geometry:
+        bm.free()
+        return None, _noop
+
+    combined_mesh = bpy.data.meshes.new("_proxor_combined_mesh")
+    bm.to_mesh(combined_mesh)
+    bm.free()
+
+    combined_obj = bpy.data.objects.new("_proxor_combined_obj", combined_mesh)
+    combined_obj.matrix_world = Matrix.Identity(4)
+
+    def _cleanup() -> None:
+        with contextlib.suppress(Exception):
+            bpy.data.objects.remove(combined_obj, do_unlink=True)
+        with contextlib.suppress(Exception):
+            bpy.data.meshes.remove(combined_mesh, do_unlink=True)
+
+    return combined_obj, _cleanup
+
+
+def _combine_sources_if_beneficial(sources: list[tuple], depsgraph):
+    """Return ``(maybe_combined_sources, cleanup_fn)``.
+
+    If ``sources`` contains enough meshes for joining to be worthwhile,
+    they are merged into a single world-space mesh and the returned
+    list is ``[(combined_obj, None)]``; otherwise ``sources`` is
+    returned unchanged. ``cleanup_fn`` is a no-op when nothing was
+    combined.
+    """
+
+    def _noop() -> None:
+        return None
+
+    if len(sources) < _COMBINE_SOURCE_THRESHOLD:
+        return sources, _noop
+    combined_obj, cleanup = _build_combined_world_mesh(sources, depsgraph)
+    if combined_obj is None:
+        return sources, _noop
+    return [(combined_obj, None)], cleanup
+
+
 def _convert_normals_to_prx(normals: Optional[list[list[float]]]) -> None:
     """Swap Y/Z in normals to convert from Blender to PRX coordinate space."""
     if not normals:
@@ -1209,8 +1341,8 @@ def _build_marching_tetrahedra_mesh(
 def _build_source_bvh(sources, depsgraph):
     """Build a combined BVHTree from all source mesh objects.
 
-    Vertices are placed in the coordinate space of the first source
-    (root object local space) to match the marching-cubes output.
+    Vertices are placed in absolute world space (each source's transform
+    is its full ``matrix_world``), matching the sampled point cloud.
     """
     from mathutils.bvhtree import BVHTree
 
@@ -1924,123 +2056,140 @@ def generate_proxor(
     if not sources:
         return None
 
-    # Collect all mesh stats in a single pass (avoid redundant evaluations)
-    mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
-    total_verts = mesh_stats["total_verts"]
-    source_tri_count = mesh_stats["total_tris"]
-    per_source_areas = mesh_stats["per_source_areas"]
+    # Multi-mesh fast path: join all sources into one world-space mesh so
+    # stats / BVH / sampling each touch each vertex exactly once. Cleaned
+    # up unconditionally below.
+    sources, _combined_cleanup = _combine_sources_if_beneficial(sources, depsgraph)
+    try:
+        # Collect all mesh stats in a single pass (avoid redundant evaluations)
+        mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
+        total_verts = mesh_stats["total_verts"]
+        source_tri_count = mesh_stats["total_tris"]
+        per_source_areas = mesh_stats["per_source_areas"]
 
-    # Derive point count with extreme poly LOD
-    if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
-        # Aggressive LOD for meshes with 5M+ vertices
-        point_count = min(
-            max(total_verts // EXTREME_POLY_DIVISOR, MIN_POINT_COUNT),
-            MAX_POINT_COUNT,
-        )
-    else:
-        point_count = min(
-            max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
-        )
-
-    # Allocate samples across sources by relative surface area (use cached areas)
-    allocations = _allocate_samples_by_area(
-        sources, point_count, depsgraph, cached_areas=per_source_areas
-    )
-
-    # Build BVH tree up front so we can (a) drop interior-facing samples
-    # before they poison the MC density field and (b) reuse it later for
-    # surface reprojection.
-    bvh_tree = _build_source_bvh(sources, depsgraph)
-
-    aggregated_points: list[list[float]] = []
-    aggregated_normals: list[list[float]] = []
-    aggregated_colors: list[list[float]] = []
-
-    for (source_obj, transform), requested in zip(sources, allocations):
-        if requested <= 0:
-            continue
-        samples, normals, sampled_colors = _sample_uniform_surface_points(
-            source_obj,
-            requested,
-            depsgraph=depsgraph,
-            include_normals=include_normals,
-            include_colors=True,
-        )
-        if not samples:
-            continue
-        transformed_points, transformed_normals = _transform_point_list(
-            samples, normals, transform
-        )
-        aggregated_points.extend(transformed_points)
-        aggregated_normals.extend(transformed_normals)
-        aggregated_colors.extend(sampled_colors)
-
-    if not aggregated_points:
-        return None
-
-    # Drop interior / back-facing samples so MC doesn't carve holes through
-    # the outer skin where cavity shells are sparsely sampled.
-    if _EXTERIOR_ONLY_DEFAULT and bvh_tree is not None and aggregated_normals:
-        aggregated_points, aggregated_normals, aggregated_colors = (
-            _filter_exterior_points(
-                aggregated_points, aggregated_normals, aggregated_colors, bvh_tree
+        # Derive point count with extreme poly LOD
+        if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
+            # Aggressive LOD for meshes with 5M+ vertices
+            point_count = min(
+                max(total_verts // EXTREME_POLY_DIVISOR, MIN_POINT_COUNT),
+                MAX_POINT_COUNT,
             )
+        else:
+            point_count = min(
+                max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
+            )
+
+        # Allocate samples across sources by relative surface area (use cached areas)
+        allocations = _allocate_samples_by_area(
+            sources, point_count, depsgraph, cached_areas=per_source_areas
         )
+
+        # Build BVH tree up front so we can (a) drop interior-facing samples
+        # before they poison the MC density field and (b) reuse it later for
+        # surface reprojection.
+        bvh_tree = _build_source_bvh(sources, depsgraph)
+
+        aggregated_points: list[list[float]] = []
+        aggregated_normals: list[list[float]] = []
+        aggregated_colors: list[list[float]] = []
+
+        for (source_obj, transform), requested in zip(sources, allocations):
+            if requested <= 0:
+                continue
+            samples, normals, sampled_colors = _sample_uniform_surface_points(
+                source_obj,
+                requested,
+                depsgraph=depsgraph,
+                include_normals=include_normals,
+                include_colors=True,
+            )
+            if not samples:
+                continue
+            transformed_points, transformed_normals = _transform_point_list(
+                samples, normals, transform
+            )
+            aggregated_points.extend(transformed_points)
+            aggregated_normals.extend(transformed_normals)
+            aggregated_colors.extend(sampled_colors)
+
         if not aggregated_points:
             return None
 
-    color = _resolve_object_color(obj)
-    point_colors = aggregated_colors if aggregated_colors else None
-    colors = _build_payload_point_colors(len(aggregated_points), point_colors, color)
-    raw_normals = aggregated_normals if include_normals else None
-    point_normals = _build_payload_point_normals(len(aggregated_points), raw_normals)
+        # Drop interior / back-facing samples so MC doesn't carve holes through
+        # the outer skin where cavity shells are sparsely sampled.
+        if _EXTERIOR_ONLY_DEFAULT and bvh_tree is not None and aggregated_normals:
+            aggregated_points, aggregated_normals, aggregated_colors = (
+                _filter_exterior_points(
+                    aggregated_points,
+                    aggregated_normals,
+                    aggregated_colors,
+                    bvh_tree,
+                )
+            )
+            if not aggregated_points:
+                return None
 
-    points_section: dict = {"pos": aggregated_points, "col": colors}
-    if point_normals:
-        points_section["nrm"] = point_normals
-
-    # source_tri_count is already available from mesh_stats (cached collection pass)
-
-    # Marching cubes mesh reconstruction from the sampled point cloud
-    mesh_section = _build_cpu_marching_cubes_mesh(
-        aggregated_points,
-        color,
-        voxel_scale,
-        bvh_tree,
-        reproject_factor,
-        smooth_iterations,
-        decimation_ratio,
-        point_colors=aggregated_colors if aggregated_colors else None,
-    )
-
-    # If generated mesh has more triangles than the source, use source directly
-    generated_tri_count = len(mesh_section.get("pos", [])) // 3
-    if source_tri_count > 0 and generated_tri_count >= source_tri_count:
-        return generate_proxor_direct(
-            obj,
-            include_children=include_children,
-            include_normals=include_normals,
-            context=context,
+        color = _resolve_object_color(obj)
+        point_colors = aggregated_colors if aggregated_colors else None
+        colors = _build_payload_point_colors(
+            len(aggregated_points), point_colors, color
+        )
+        raw_normals = aggregated_normals if include_normals else None
+        point_normals = _build_payload_point_normals(
+            len(aggregated_points), raw_normals
         )
 
-    _convert_normals_to_prx(mesh_section.get("nrm"))
+        points_section: dict = {"pos": aggregated_points, "col": colors}
+        if point_normals:
+            points_section["nrm"] = point_normals
 
-    # Extract wireframe lines from mesh reconstruction
-    wire_pos = mesh_section.pop("wire_pos", [])
-    wire_col = mesh_section.pop("wire_col", [])
-    line_section = {"pos": wire_pos, "col": wire_col}
+        # source_tri_count is already available from mesh_stats (cached collection pass)
 
-    payload = {
-        "objects": [],
-        "data": {
-            "mesh": mesh_section,
-            "line": line_section,
-            "points": points_section,
-            "text": {"pos": [], "col": [], "str": []},
-        },
-    }
-    _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
-    return payload
+        # Marching cubes mesh reconstruction from the sampled point cloud
+        mesh_section = _build_cpu_marching_cubes_mesh(
+            aggregated_points,
+            color,
+            voxel_scale,
+            bvh_tree,
+            reproject_factor,
+            smooth_iterations,
+            decimation_ratio,
+            point_colors=aggregated_colors if aggregated_colors else None,
+        )
+
+        # If generated mesh has more triangles than the source, use source directly
+        generated_tri_count = len(mesh_section.get("pos", [])) // 3
+        if source_tri_count > 0 and generated_tri_count >= source_tri_count:
+            return generate_proxor_direct(
+                obj,
+                include_children=include_children,
+                include_normals=include_normals,
+                context=context,
+            )
+
+        _convert_normals_to_prx(mesh_section.get("nrm"))
+
+        # Extract wireframe lines from mesh reconstruction
+        wire_pos = mesh_section.pop("wire_pos", [])
+        wire_col = mesh_section.pop("wire_col", [])
+        line_section = {"pos": wire_pos, "col": wire_col}
+
+        payload = {
+            "objects": [],
+            "data": {
+                "mesh": mesh_section,
+                "line": line_section,
+                "points": points_section,
+                "text": {"pos": [], "col": [], "str": []},
+            },
+        }
+        # Geometry was sampled directly in absolute world space (each source
+        # used its full matrix_world). Only the Blender->PRX axis conversion
+        # remains to be applied.
+        _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
+        return payload
+    finally:
+        _combined_cleanup()
 
 
 def generate_proxor_multi(
@@ -2081,17 +2230,50 @@ def generate_proxor_multi(
     except Exception:  # noqa: BLE001
         depsgraph = bpy.context.evaluated_depsgraph_get()
 
-    # Collect all mesh sources from provided objects (no child recursion)
+    # Collect mesh sources from the provided list (no child recursion).
+    # Each source's transform is its full matrix_world, so samples land
+    # directly in absolute world space.
     sources: list[tuple] = []
     for obj in objects:
         if obj is None:
             continue
-        if getattr(obj, "type", "") == "MESH":
-            sources.append((obj, None))
+        if getattr(obj, "type", "") != "MESH":
+            continue
+        sources.append((obj, _safe_world_matrix(obj)))
 
     if not sources:
         return None
 
+    # Multi-mesh fast path: join into one world-space mesh (see
+    # _build_combined_world_mesh for rationale).
+    sources, _combined_cleanup = _combine_sources_if_beneficial(sources, depsgraph)
+    try:
+        return _generate_proxor_multi_from_sources(
+            objects,
+            sources,
+            depsgraph,
+            include_normals=include_normals,
+            voxel_scale=voxel_scale,
+            reproject_factor=reproject_factor,
+            smooth_iterations=smooth_iterations,
+            decimation_ratio=decimation_ratio,
+        )
+    finally:
+        _combined_cleanup()
+
+
+def _generate_proxor_multi_from_sources(
+    objects: list,
+    sources: list[tuple],
+    depsgraph,
+    *,
+    include_normals: bool,
+    voxel_scale: float,
+    reproject_factor: float,
+    smooth_iterations: int,
+    decimation_ratio: float,
+) -> Optional[dict]:
+    """Run the sampling/reconstruction pipeline for ``generate_proxor_multi``."""
     # Collect all mesh stats in a single pass (avoid redundant evaluations)
     mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
     total_verts = mesh_stats["total_verts"]
@@ -2445,6 +2627,9 @@ def generate_proxor_direct(
             "text": {"pos": [], "col": [], "str": []},
         },
     }
+    # Geometry was read in absolute world space (each source used its
+    # full matrix_world via collect_sources). Only the Blender->PRX axis
+    # conversion remains.
     _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
     return payload
 
