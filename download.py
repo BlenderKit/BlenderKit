@@ -770,13 +770,13 @@ def append_asset(asset_data, **kwargs):  # downloaders=[], location=None,
                         asset_main, new_obs = duplicate_asset(
                             source=source_parent, **kwargs
                         )
-                        asset_main.location = kwargs["model_location"]
-                        asset_main.rotation_euler = kwargs["model_rotation"]
                         # this is a case where asset is already in scene and should be duplicated instead.
                         # there is a big chance that the duplication wouldn't work perfectly(hidden or unselectable objects)
                         # so here we need to check and return if there was success
                         # also, if it was successful, no other operations are needed , basically all asset data is already ready from the original asset
-                        if new_obs:
+                        if asset_main is not None and new_obs:
+                            asset_main.location = kwargs["model_location"]
+                            asset_main.rotation_euler = kwargs["model_rotation"]
                             # update here assets rated/used because there might be new download urls?
                             update_asset_data_in_dicts(asset_data)
                             bpy.ops.ed.undo_push(
