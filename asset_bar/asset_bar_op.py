@@ -27,6 +27,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Optional, Union
 
 import bpy
+import gpu
 from bpy.props import BoolProperty, StringProperty
 
 from .. import (
@@ -96,6 +97,15 @@ SCROLL_SETTLE_PX = 0.5  # px; below this the animation stops entirely
 SCROLL_INPUT_GAP = 0.05  # s; idle gap before inertia takes over
 SCROLL_DT_CAP = 0.1  # s; max frame dt (avoid jumps after lag spikes)
 SCROLL_VELOCITY_SAMPLE = 0.06  # s; window over which trackpad velocity is averaged
+
+# Smooth scroll relies on per-frame partial-row offsets that need the
+# GPU scissor API (gpu.state.scissor_test_set / scissor_set) to clip
+# top/bottom rows during the animation so they don't spill outside the
+# asset bar. That API is reliably available from Blender 3.6+; on older
+# versions we fall back to immediate integer-row scrolling.
+SMOOTH_SCROLL_SUPPORTED = bpy.app.version >= (3, 6, 0) and hasattr(
+    gpu.state, "scissor_test_set"
+)
 # Per wheel-notch velocity boost, expressed as a multiple of one slot per
 # second. With v0 = step_px * SCROLL_WHEEL_NOTCH_VELOCITY and exponential
 # friction decay at SCROLL_FRICTION, each notch glides ~one slot before
@@ -4603,6 +4613,42 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self._scroll_velocity = 0.0
             self._scroll_animating = False
             self._scroll_travel_dir = 0
+
+        # On Blender versions without GPU scissor we can't clip partial rows,
+        # so smooth-scroll rows would visibly spill outside the bar. Fall
+        # back to immediate integer-row stepping for wheel events and just
+        # ignore trackpad pan (which has no natural discrete equivalent).
+        if not SMOOTH_SCROLL_SUPPORTED:
+            if event.type == "TRACKPADPAN":
+                # Accumulate trackpad delta into whole-slot steps without
+                # animating phase. We still respect the user's sensitivity.
+                dx = event.mouse_x - event.mouse_prev_x
+                dy = event.mouse_y - event.mouse_prev_y
+                axis_delta = float(dy) if abs(dy) >= abs(dx) else float(-dx)
+                sensitivity = self._get_trackpad_sensitivity()
+                self._legacy_trackpad_accum = (
+                    getattr(self, "_legacy_trackpad_accum", 0.0) + axis_delta
+                )
+                steps_committed = 0
+                while self._legacy_trackpad_accum >= sensitivity:
+                    self._legacy_trackpad_accum -= sensitivity
+                    steps_committed += 1
+                while self._legacy_trackpad_accum <= -sensitivity:
+                    self._legacy_trackpad_accum += sensitivity
+                    steps_committed -= 1
+                if steps_committed:
+                    self.scroll_offset += steps_committed * slot_per_step
+                    self.scroll_update()
+                    if context.region is not None:
+                        context.region.tag_redraw()
+                return True
+
+            steps = 1 if event.type in _WHEEL_FORWARD else -1
+            self.scroll_offset += steps * slot_per_step
+            self.scroll_update()
+            if context.region is not None:
+                context.region.tag_redraw()
+            return True
 
         if event.type == "TRACKPADPAN":
             dx = event.mouse_x - event.mouse_prev_x
