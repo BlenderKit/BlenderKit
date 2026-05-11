@@ -43,13 +43,14 @@ bk_logger = logging.getLogger(__name__)
 
 
 # Temporary filename produced by browsers when dragging a BlenderKit preview
-# image. Examples seen in the wild:
+# image. The browser always re-encodes the dropped preview to .webp, so we
+# only ever see ``thumbnail_<uuid>.<anything>.webp``. Examples seen in the
+# wild:
 #   thumbnail_<uuid>.jpg.2048x2048_q85.jpg.webp   (model previews)
 #   thumbnail_<uuid>.png.2048x2048_q85.png.webp   (with-alpha previews)
-#   thumbnail_<uuid>.jpg.2048x2048_q85.jpg        (older browsers, no webp re-encode)
 _THUMBNAIL_FILENAME_RE = re.compile(
     r"^thumbnail_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-    r"\.(?:jpe?g|png)\.\d+x\d+_q\d+\.(?:jpe?g|png)(?:\.webp)?$",
+    r".*\.webp$",
     re.IGNORECASE,
 )
 
@@ -99,7 +100,10 @@ class BLENDERKIT_FH_web_drop(bpy.types.FileHandler):
     bl_idname = "BLENDERKIT_FH_web_drop"
     bl_label = "BlenderKit Web Drop"
     bl_import_operator = BLENDERKIT_OT_web_drop.bl_idname
-    bl_file_extensions = ".webp;.jpg;.jpeg;.png"
+    # Browsers always deliver BlenderKit previews as .webp temp files. Keep
+    # the filter as narrow as possible so we never compete with regular
+    # .jpg/.png/.jpeg image drops from the user's file manager.
+    bl_file_extensions = ".webp"
 
     @classmethod
     def poll_drop(cls, context):
