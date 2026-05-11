@@ -26,6 +26,7 @@ class Prefs:
     project_subdir: str
     unpack_files: bool
     write_asset_metadata: bool
+    create_asset_library: bool
     show_on_start: bool
     thumb_size: int
     maximized_assetbar_rows: int

@@ -239,6 +239,10 @@ def ensure_asset_library_path(
     if bpy.app.background:
         return
 
+    prefs = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    if not getattr(prefs, "create_asset_library", True):
+        return
+
     filepaths = getattr(bpy.context.preferences, "filepaths", None)
     asset_libraries = getattr(filepaths, "asset_libraries", None) if filepaths else None
     if asset_libraries is None:

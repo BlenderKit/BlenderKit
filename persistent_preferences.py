@@ -103,6 +103,9 @@ def load_preferences_from_JSON():
     user_preferences.write_asset_metadata = prefs.get(
         "write_asset_metadata", user_preferences.write_asset_metadata
     )
+    user_preferences.create_asset_library = prefs.get(
+        "create_asset_library", user_preferences.create_asset_library
+    )
 
     # GUI
     user_preferences.show_on_start = prefs.get(
