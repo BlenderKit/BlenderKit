@@ -77,8 +77,10 @@ def ensure_gltf_addon():
                 candidates.append(modname)
                 seen.add(modname)
     except Exception as scan_exc:  # noqa: BLE001
-        print(f"export_glb: addon_utils scan failed ({scan_exc!r}); falling back to known names.",
-              file=sys.stderr)
+        print(
+            f"export_glb: addon_utils scan failed ({scan_exc!r}); falling back to known names.",
+            file=sys.stderr,
+        )
 
     # 2) Always also try well-known module names — covers the case
     #    where the extensions repo index hasn't been built yet on a
