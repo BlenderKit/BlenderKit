@@ -104,6 +104,7 @@ if "bpy" in locals():
     persistent_preferences = reload(persistent_preferences)
     reports = reload(reports)
     rereports = reload(reports)
+    web_drop = reload(web_drop)
 
     from .bl_proxor import draw as bl_proxor_draw
     from .bl_proxor import generate as bl_proxor_generate
@@ -170,6 +171,7 @@ else:
     from . import utils
     from . import persistent_preferences
     from . import reports
+    from . import web_drop
 
     from .bl_ui_widgets import bl_ui_widget
     from .bl_ui_widgets import bl_ui_label
@@ -2924,6 +2926,7 @@ def register():
     asset_drag_op.register()
     disclaimer_op.register()
     warning_dialog.register()
+    web_drop.register()
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
@@ -2973,6 +2976,7 @@ def unregister():
     asset_drag_op.unregister()
     disclaimer_op.unregister()
     warning_dialog.unregister()
+    web_drop.unregister()
 
     if bpy.app.background is False:
         try:

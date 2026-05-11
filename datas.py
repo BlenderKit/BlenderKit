@@ -110,6 +110,7 @@ class UserProfile:
     lastName: str
     socialNetworks: list[SocialNetwork] = dataclasses.field(default_factory=list)
     avatar256: str = ""
+    avatar512: str = ""
     gravatarImg: str = ""  # filled later from getGravatar task
     tooltip: str = ""  # generated later from Name and AboutMe etc.
 
