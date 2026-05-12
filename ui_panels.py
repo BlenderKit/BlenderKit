@@ -2110,7 +2110,7 @@ class VIEW3D_PT_blenderkit_import_settings(Panel):
             "BRUSH",
         ]:
             layout.prop(preferences, "unpack_files")
-            layout.prop(preferences, "write_asset_metadata")
+            layout.prop(preferences, "create_asset_library")
             layout.prop(preferences, "resolution")
         elif ui_props.asset_type in ["HDR"]:
             layout.prop(preferences, "resolution")

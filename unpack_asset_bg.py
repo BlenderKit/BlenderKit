@@ -524,7 +524,7 @@ def unpack_asset(data):
 
     # assume write_metadata is true
     write_metadata = True
-    if data.get("prefs", {}).get("write_asset_metadata") is False:
+    if data.get("prefs", {}).get("create_asset_library") is False:
         write_metadata = False
 
     if unpack:

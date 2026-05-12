@@ -77,7 +77,7 @@ func assetDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		downloadData.DownloadAssetData,
 		downloadData.DownloadDirs,
 		downloadData.Preferences.UnpackFiles,
-		downloadData.Preferences.WriteAssetMetadata,
+		downloadData.Preferences.CreateAssetLibrary,
 		downloadData.Preferences.BinaryPath,
 		downloadData.Preferences.AddonDir,
 		downloadData.Preferences.AddonModuleName,
@@ -208,7 +208,7 @@ func doAssetDownload(
 	downloadAssetData DownloadAssetData,
 	downloadDirs []string,
 	unpackFiles bool,
-	writeAssetMetadata bool,
+	createAssetLibrary bool,
 	binaryPath string,
 	addonDir string,
 	addonModuleName string,
@@ -367,7 +367,7 @@ func doAssetDownload(
 	// the file format to match that Blender version. Re-running unpack on an already
 	// existing file ("place" or "sync") with a different Blender version would make the
 	// .blend unreadable by older Blenders.
-	shouldUnpack := (unpackFiles || writeAssetMetadata) && action == "download"
+	shouldUnpack := (unpackFiles || createAssetLibrary) && action == "download"
 	if shouldUnpack {
 		//err := UnpackAsset(fp, data, taskID)
 		assetDataRaw, _ := origJSON["asset_data"]
@@ -382,7 +382,7 @@ func doAssetDownload(
 			addonModuleName,
 			assetDataRaw,
 			unpackFiles,
-			writeAssetMetadata,
+			createAssetLibrary,
 		)
 		if err != nil {
 			BKLog.Printf("%s error unpacking asset (non-fatal, asset will still be placed): %v", EmoWarning, err)
@@ -438,7 +438,7 @@ func UnpackAsset(
 	addonModuleName string,
 	assetDataRaw interface{},
 	unpackFiles bool,
-	writeAssetMetadata bool,
+	createAssetLibrary bool,
 	//prefs PREFS,
 ) error {
 	// Unpacking and metadata write require opening a .blend in background Blender.
@@ -479,7 +479,7 @@ func UnpackAsset(
 		"command":    "unpack",
 		"prefs": map[string]interface{}{
 			"unpack_files":         unpackFiles,
-			"write_asset_metadata": writeAssetMetadata,
+			"create_asset_library": createAssetLibrary,
 		},
 	}
 	jsonData, err := json.Marshal(process_data)

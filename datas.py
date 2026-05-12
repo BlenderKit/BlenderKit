@@ -25,7 +25,6 @@ class Prefs:
     global_dir: str
     project_subdir: str
     unpack_files: bool
-    write_asset_metadata: bool
     create_asset_library: bool
     show_on_start: bool
     thumb_size: int

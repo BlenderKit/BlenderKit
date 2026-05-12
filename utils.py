@@ -537,10 +537,6 @@ def get_preferences_as_dict():
         "global_dir": user_preferences.global_dir,
         "project_subdir": user_preferences.project_subdir,
         "unpack_files": user_preferences.unpack_files,
-        "write_asset_metadata": (
-            user_preferences.write_asset_metadata
-            and user_preferences.create_asset_library
-        ),
         "create_asset_library": user_preferences.create_asset_library,
         # GUI
         "show_on_start": user_preferences.show_on_start,
@@ -594,10 +590,6 @@ def get_preferences() -> datas.Prefs:
         global_dir=user_preferences.global_dir,  # type: ignore[union-attr]
         project_subdir=user_preferences.project_subdir,  # type: ignore[union-attr]
         unpack_files=user_preferences.unpack_files,  # type: ignore[union-attr]
-        write_asset_metadata=(
-            user_preferences.write_asset_metadata  # type: ignore[union-attr]
-            and user_preferences.create_asset_library  # type: ignore[union-attr]
-        ),
         create_asset_library=user_preferences.create_asset_library,  # type: ignore[union-attr]
         # GUI
         show_on_start=user_preferences.show_on_start,  # type: ignore[union-attr]

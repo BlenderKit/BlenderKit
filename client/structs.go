@@ -236,7 +236,7 @@ type PREFS struct {
 	SceneID            string `json:"scene_id"`
 	AppID              int    `json:"app_id"`
 	UnpackFiles        bool   `json:"unpack_files"`
-	WriteAssetMetadata bool   `json:"write_asset_metadata"`
+	CreateAssetLibrary bool   `json:"create_asset_library"`
 	Resolution         string `json:"resolution"` // "ORIGINAL", "resolution_0_5K", "resolution_1K", "resolution_2K", "resolution_4K", "resolution_8K"
 	// PATHS
 	ProjectSubdir   string `json:"project_subdir"`
