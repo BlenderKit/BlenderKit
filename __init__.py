@@ -2299,10 +2299,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=update_unpack,
     )
 
-    write_asset_metadata: BoolProperty(
-        name="Write Asset Metadata",
-        description="Write BlenderKit metadata into downloaded files so tags, description, and preview show in other scenes",
-        default=True,
+    create_asset_library: BoolProperty(
+        name="Register Local BlenderKit Asset Library",
+        description="Automatically add (and keep in sync) a 'BlenderKit' entry in Blender's Asset Libraries pointing to the global directory.\n\n"
+        "This allows you to easily access your downloaded assets in the Asset Browser, and also ensures that metadata like tags and descriptions are available for your assets across all your projects. "
+        "When disabled, BlenderKit will not modify your Asset Libraries list, and downloaded assets won't be unpacked in the background just to embed asset metadata "
+        "(unless 'Unpack Files' is enabled). Disable this if you don't want BlenderKit to manage your Asset Browser entries",
+        default=False,
         update=utils.save_prefs,
     )
 
@@ -2714,13 +2717,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         # FILE PATHS
         locations_settings = layout.box()
         locations_settings.alignment = "EXPAND"
-        locations_settings.label(text="File paths")
+        locations_settings.label(text="File Paths and Data Handling")
         locations_settings.prop(self, "directory_behaviour")
         locations_settings.prop(self, "global_dir")
         if self.directory_behaviour in ("BOTH", "LOCAL"):
             locations_settings.prop(self, "project_subdir")
         locations_settings.prop(self, "unpack_files")
-        locations_settings.prop(self, "write_asset_metadata")
+        locations_settings.prop(self, "create_asset_library")
 
         # GUI SETTINGS
         gui_settings = layout.box()

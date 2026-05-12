@@ -100,7 +100,10 @@
         "denoising",
         "depsgraph",
         "downloaders",
+        "embedder",
+        "embedders",
         "GLSL",
+        "Gltf",
         "idname",
         "instancers",
         "keepdims",
@@ -129,6 +132,7 @@
         "userpref",
         "vcol",
         "viewports",
+        "webp",
         "WHEELDOWNMOUSE",
         "WHEELUPMOUSE"
     ],
