@@ -349,6 +349,9 @@ func main() {
 	mux.HandleFunc("/ratings/send_rating", SendRatingHandler)
 	mux.HandleFunc("/"+vapi+"/ratings/send_rating", SendRatingHandler)
 
+	mux.HandleFunc("/asset_files/get", GetAssetFileHandler)
+	mux.HandleFunc("/"+vapi+"/asset_files/get", GetAssetFileHandler)
+
 	// WRAPPERS
 	mux.HandleFunc("/wrappers/get_download_url", GetDownloadURLWrapper)
 	mux.HandleFunc("/"+vapi+"/wrappers/get_download_url", GetDownloadURLWrapper)
@@ -1767,6 +1770,116 @@ func GetBookmarks(data MinimalTaskData) {
 		AppID:   data.AppID,
 		TaskID:  taskUUID,
 		Message: "Bookmarks data obtained",
+		Result:  respData,
+	}
+}
+
+// GetAssetFileHandler is the HTTP handler for resolving an asset-file UUID
+// (the id embedded in BlenderKit preview-image filenames) to the full
+// asset-file record on the API. Used by the add-on to recover the
+// assetBaseId of an asset that was dragged from the BlenderKit website.
+func GetAssetFileHandler(w http.ResponseWriter, r *http.Request) {
+	var data GetAssetFileData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		es := fmt.Sprintf("error parsing JSON: %v", err)
+		fmt.Println(es)
+		http.Error(w, es, http.StatusBadRequest)
+		return
+	}
+
+	go GetAssetFile(data)
+	w.WriteHeader(http.StatusOK)
+}
+
+// GetAssetFile fetches the metadata of a single asset-file by its UUID via
+// GET /api/v1/asset-files/<file_id>/. The endpoint is the same regardless of
+// production vs devel server — *Server is set accordingly at startup.
+func GetAssetFile(data GetAssetFileData) {
+	url := fmt.Sprintf("%s/api/v1/asset-files/%s/", *Server, data.FileID)
+	taskUUID := uuid.New().String()
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "asset_files/get")
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		err = fmt.Errorf("get asset-file - making request: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("get asset-file: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	err = RespIsJSON(resp)
+	if err != nil {
+		err = fmt.Errorf("get asset-file: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	var respData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		err = fmt.Errorf("get asset-file - decoding response: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+		return
+	}
+
+	// Echo the requested file id back so the add-on can route the result to
+	// the right pending callback without having to remember the task UUID.
+	respData["file_id"] = data.FileID
+
+	// Resolve the parent asset so the add-on can immediately start the drag
+	// flow without a second round-trip. We use the same search-by-base-id
+	// helper that powers the website "Get this model" button.
+	assetBaseID, _ := respData["assetBaseId"].(string)
+	if assetBaseID != "" {
+		if assetData, aerr := GetAssetInstance(assetBaseID); aerr == nil {
+			respData["asset_data"] = assetData
+
+			// Parse thumbnails so the add-on has local files when the drag
+			// modal queries the preview image. Mirrors bkclientjsGetAsset.
+			AvailableSoftwaresMux.Lock()
+			targetSoftware, ok := AvailableSoftwares[data.AppID]
+			AvailableSoftwaresMux.Unlock()
+			if ok {
+				tempDir, terr := GetSafeTempPath()
+				if terr == nil {
+					tempDir = filepath.Join(tempDir, fmt.Sprintf("%s_search", assetData.AssetType))
+					searchData := SearchTaskData{
+						AppID:          data.AppID,
+						AddonVersion:   targetSoftware.AddonVersion,
+						BlenderVersion: targetSoftware.Version,
+						TempDir:        tempDir,
+					}
+					searchResults := SearchResults{Results: []Asset{assetData}}
+					go parseThumbnails(searchResults, searchData)
+				} else {
+					BKLog.Printf("%s GetAssetFile: GetSafeTempPath error: %v", EmoWarning, terr)
+				}
+			} else {
+				BKLog.Printf("%s GetAssetFile: no software registered for appID=%d, skipping thumbnail parse", EmoWarning, data.AppID)
+			}
+		} else {
+			BKLog.Printf("%s GetAssetFile: GetAssetInstance(%s) failed: %v", EmoWarning, assetBaseID, aerr)
+		}
+	}
+
+	TaskFinishCh <- &TaskFinish{
+		AppID:   data.AppID,
+		TaskID:  taskUUID,
+		Message: "Asset-file data obtained",
 		Result:  respData,
 	}
 }

@@ -160,7 +160,7 @@ TIPS = [
         "https://github.com/BlenderKit/blenderkit/wiki/BlenderKit-add-on-documentation#assetbar",
     ),
     (
-        "Get latest experimental versions of add-on by enabling prerelases in preferences.",
+        "Get latest experimental versions of add-on by enabling prereleases in preferences.",
         "",
     ),
     (

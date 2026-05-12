@@ -2210,6 +2210,19 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs,
     )
 
+    skip_web_drop_confirmation: BoolProperty(
+        name="Auto-import drops from BlenderKit website",
+        description=(
+            "When enabled, dragging an asset preview from the BlenderKit website into "
+            "the 3D viewport is automatically recognised and the corresponding asset is "
+            "placed in the scene \u2014 no picker menu is shown.\n\n"
+            "When disabled, the drop is treated as a normal image drop (e.g. 'Add as "
+            "reference image'), so BlenderKit does not interfere with regular image imports"
+        ),
+        default=False,
+        update=utils.save_prefs,
+    )
+
     search_in_header: BoolProperty(
         name="Show BlenderKit search in 3D view header",
         description="Show BlenderKit search in 3D view header",
@@ -2740,6 +2753,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "announcements_on_start")
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
+        gui_settings.prop(self, "skip_web_drop_confirmation")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
