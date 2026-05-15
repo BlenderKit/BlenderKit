@@ -148,7 +148,9 @@ def get_deps_files_and_dirs():
         else:  # SEQUENCE
             d = os.path.dirname(fp)
             if d and os.path.isdir(d):
-                target = os.path.join("caches", os.path.basename(d), os.path.basename(fp))
+                target = os.path.join(
+                    "caches", os.path.basename(d), os.path.basename(fp)
+                )
                 new_path = "//" + target.replace(os.sep, "/")
                 img.filepath = new_path
                 try:
