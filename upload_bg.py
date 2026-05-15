@@ -76,6 +76,24 @@ def get_deps_files_and_dirs():
         if fp and os.path.isfile(fp):
             deps_files.add(fp)
 
+    # Movie/sequence image textures (e.g. mp4 plugged into an Image Texture node).
+    # pack_all() does not pack images with source in {'MOVIE', 'SEQUENCE'}, so we
+    # bundle the underlying file(s) into the zip alongside the .blend instead.
+    for img in bpy.data.images:
+        src = getattr(img, "source", "")
+        if src not in ("MOVIE", "SEQUENCE"):
+            continue
+        fp = bpy.path.abspath(img.filepath)
+        if not fp:
+            continue
+        if src == "MOVIE":
+            if os.path.isfile(fp):
+                deps_files.add(fp)
+        else:  # SEQUENCE: bundle the containing directory
+            d = os.path.dirname(fp)
+            if d and os.path.isdir(d):
+                deps_dirs.add(d)
+
     # Fluid domain caches (directories)
     for ob in bpy.data.objects:
         for mod in ob.modifiers:
@@ -110,6 +128,35 @@ def get_deps_files_and_dirs():
         fp = bpy.path.abspath(clip.filepath)
         if fp and os.path.isfile(fp):
             clip.filepath = "//" + _arc_for_path(fp, deps_dirs).replace(os.sep, "/")
+
+    # Rewrite movie/sequence image filepaths to point at the bundled copy.
+    for img in bpy.data.images:
+        src = getattr(img, "source", "")
+        if src not in ("MOVIE", "SEQUENCE"):
+            continue
+        fp = bpy.path.abspath(img.filepath)
+        if not fp:
+            continue
+        if src == "MOVIE":
+            if os.path.isfile(fp):
+                new_path = "//" + _arc_for_path(fp, deps_dirs).replace(os.sep, "/")
+                img.filepath = new_path
+                try:
+                    img.filepath_raw = new_path
+                except Exception:
+                    pass
+        else:  # SEQUENCE
+            d = os.path.dirname(fp)
+            if d and os.path.isdir(d):
+                target = os.path.join(
+                    "caches", os.path.basename(d), os.path.basename(fp)
+                )
+                new_path = "//" + target.replace(os.sep, "/")
+                img.filepath = new_path
+                try:
+                    img.filepath_raw = new_path
+                except Exception:
+                    pass
 
     for ob in bpy.data.objects:
         for mod in ob.modifiers:
