@@ -118,9 +118,32 @@ def draw_upload_common(layout, props, asset_type, context):
 
     row = layout.row(align=True)
     if props.upload_state != "":
-        utils.label_multiline(
-            layout, text=props.upload_state, width=context.region.width
+        state_lower = props.upload_state.lower()
+        is_error = any(
+            k in state_lower
+            for k in (
+                "error",
+                "fail",
+                "exceed",
+                "denied",
+                "invalid",
+                "remaining",
+                "quota",
+            )
         )
+        if is_error:
+            box = layout.box()
+            box.alert = True
+            utils.label_multiline(
+                box,
+                text=props.upload_state,
+                icon="ERROR",
+                width=context.region.width,
+            )
+        else:
+            utils.label_multiline(
+                layout, text=props.upload_state, width=context.region.width
+            )
     if props.uploading:
         op = layout.operator("object.kill_bg_process", text="", icon="CANCEL")
         op.process_source = asset_type

@@ -2273,10 +2273,10 @@ def _generate_proxor_multi_from_sources(
     smooth_iterations: int,
     decimation_ratio: float,
 ) -> Optional[dict]:
-    """Run the sampling/reconstruction pipeline for ``generate_proxor_multi``."""
     # Collect all mesh stats in a single pass (avoid redundant evaluations)
     mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
     total_verts = mesh_stats["total_verts"]
+    source_tri_count = mesh_stats["total_tris"]
 
     # Derive point count with extreme poly LOD
     if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
@@ -2352,6 +2352,17 @@ def _generate_proxor_multi_from_sources(
         decimation_ratio,
         point_colors=aggregated_colors if aggregated_colors else None,
     )
+
+    # If reconstructed mesh has more triangles than the source, the proxor
+    # is no longer a useful low-poly proxy. Fall back to direct mesh
+    # conversion so the uploaded .prxc is always <= source poly count.
+    generated_tri_count = len(mesh_section.get("pos", [])) // 3
+    if source_tri_count > 0 and generated_tri_count >= source_tri_count:
+        return generate_proxor_direct_multi(
+            objects,
+            include_normals=include_normals,
+        )
+
     _convert_normals_to_prx(mesh_section.get("nrm"))
 
     # Extract wireframe lines from mesh reconstruction
@@ -2508,43 +2519,20 @@ def _collect_direct_line_data(
     return segments
 
 
-def generate_proxor_direct(
-    obj,
+def _generate_proxor_direct_from_sources(
+    sources: list[tuple],
+    color_root_obj,
+    depsgraph,
     *,
-    include_children: bool = True,
     include_normals: bool = True,
     include_colors: bool = True,
-    context=None,
 ) -> Optional[dict]:
-    """Generate a PRX payload by reading mesh geometry directly.
+    """Build a direct-conversion PRX payload from a list of mesh sources.
 
-    Unlike :func:`generate_proxor` this does **not** sample random surface
-    points or run marching-cubes reconstruction.  Instead it reads the
-    actual vertices, faces, normals, and colours from the Blender mesh
-    and packages them into the standard payload dict.
-
-    Args:
-        obj: The Blender mesh object to convert.
-        include_children: Whether to include child meshes.
-        include_normals: Whether to include per-vertex normals.
-        include_colors: Whether to include per-vertex colours.
-        context: Optional Blender context override.
-
-    Returns:
-        A full PRX payload dict ready for ``prx_format.write_prx()``
-        or ``draw.ProxorLiteDrawHandler.set_payload()``, or ``None``
-        if the object has no mesh data.
+    Shared implementation used by :func:`generate_proxor_direct` (single
+    object + children) and :func:`generate_proxor_direct_multi` (an
+    explicit list of objects).
     """
-    if obj is None:
-        return None
-
-    ctx = context or bpy.context
-    try:
-        depsgraph = ctx.evaluated_depsgraph_get()
-    except Exception:  # noqa: BLE001
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-
-    sources = collect_sources(obj, include_children=include_children)
     if not sources:
         return None
 
@@ -2600,14 +2588,14 @@ def generate_proxor_direct(
     if include_colors and all_colors:
         mesh_section["col"] = all_colors
     else:
-        color = _resolve_object_color(obj)
+        color = _resolve_object_color(color_root_obj)
         mesh_section["col"] = [list(color[:VECTOR_LEN])] * len(all_positions)
     if include_normals and all_normals:
         _convert_normals_to_prx(all_normals)
         mesh_section["nrm"] = all_normals
 
     # Build line section (flat pairs of positions, uniform color)
-    color = _resolve_object_color(obj)
+    color = _resolve_object_color(color_root_obj)
     line_col = (
         [list(color[:VECTOR_LEN])] * (len(all_line_positions) // 2)
         if all_line_positions
@@ -2634,9 +2622,96 @@ def generate_proxor_direct(
     return payload
 
 
+def generate_proxor_direct(
+    obj,
+    *,
+    include_children: bool = True,
+    include_normals: bool = True,
+    include_colors: bool = True,
+    context=None,
+) -> Optional[dict]:
+    """Generate a PRX payload by reading mesh geometry directly.
+
+    Unlike :func:`generate_proxor` this does **not** sample random surface
+    points or run marching-cubes reconstruction.  Instead it reads the
+    actual vertices, faces, normals, and colours from the Blender mesh
+    and packages them into the standard payload dict.
+
+    Args:
+        obj: The Blender mesh object to convert.
+        include_children: Whether to include child meshes.
+        include_normals: Whether to include per-vertex normals.
+        include_colors: Whether to include per-vertex colours.
+        context: Optional Blender context override.
+
+    Returns:
+        A full PRX payload dict ready for ``prx_format.write_prx()``
+        or ``draw.ProxorLiteDrawHandler.set_payload()``, or ``None``
+        if the object has no mesh data.
+    """
+    if obj is None:
+        return None
+
+    ctx = context or bpy.context
+    try:
+        depsgraph = ctx.evaluated_depsgraph_get()
+    except Exception:  # noqa: BLE001
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    sources = collect_sources(obj, include_children=include_children)
+    return _generate_proxor_direct_from_sources(
+        sources,
+        obj,
+        depsgraph,
+        include_normals=include_normals,
+        include_colors=include_colors,
+    )
+
+
+def generate_proxor_direct_multi(
+    objects: list,
+    *,
+    include_normals: bool = True,
+    include_colors: bool = True,
+    context=None,
+) -> Optional[dict]:
+    """Direct-conversion variant of :func:`generate_proxor_multi`.
+
+    Reads triangle data from every mesh in *objects* (no child recursion,
+    since the caller already supplies the full object list) and merges
+    them into a single PRX payload.
+    """
+    if not objects:
+        return None
+
+    ctx = context or bpy.context
+    try:
+        depsgraph = ctx.evaluated_depsgraph_get()
+    except Exception:  # noqa: BLE001
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    sources: list[tuple] = []
+    color_root = None
+    for obj in objects:
+        if obj is None or getattr(obj, "type", "") != "MESH":
+            continue
+        sources.append((obj, _safe_world_matrix(obj)))
+        if color_root is None:
+            color_root = obj
+
+    return _generate_proxor_direct_from_sources(
+        sources,
+        color_root,
+        depsgraph,
+        include_normals=include_normals,
+        include_colors=include_colors,
+    )
+
+
 __all__ = [
     "collect_sources",
     "generate_proxor",
     "generate_proxor_direct",
+    "generate_proxor_direct_multi",
     "generate_proxor_multi",
 ]
