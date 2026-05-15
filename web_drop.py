@@ -94,6 +94,7 @@ class BLENDERKIT_OT_web_drop(bpy.types.Operator):
 
     def invoke(self, context, event):
         bk_logger.info("Web-drop: received file drop: %s", self.filepath)
+        return {"CANCELLED"}
         if not _is_blenderkit_thumbnail_filename(self.filepath):
             # Not ours — let other handlers / default behaviour take over.
             return {"CANCELLED"}
@@ -126,36 +127,43 @@ class BLENDERKIT_OT_web_drop(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class BLENDERKIT_FH_web_drop(bpy.types.FileHandler):
-    """File handler that catches image drops originating from blenderkit.com."""
+# bpy.types.FileHandler was introduced in Blender 4.1. On older Blender the
+# attribute does not exist, so referencing it at class-definition time would
+# raise AttributeError at import. Define the FileHandler class only when the
+# base type is actually available.
+if hasattr(bpy.types, "FileHandler"):
 
-    bl_idname = "BLENDERKIT_FH_web_drop"
-    bl_label = "BlenderKit Web Drop"
-    bl_import_operator = BLENDERKIT_OT_web_drop.bl_idname
-    # Browsers always deliver BlenderKit previews as .webp temp files. Keep
-    # the filter as narrow as possible so we never compete with regular
-    # .jpg/.png/.jpeg image drops from the user's file manager.
-    bl_file_extensions = ".webp"  # ".webp;.pdf"
+    class BLENDERKIT_FH_web_drop(bpy.types.FileHandler):
+        """File handler that catches image drops originating from blenderkit.com."""
 
-    @classmethod
-    def poll_drop(cls, context):
-        # Only opt into the drop when the user has explicitly enabled
-        # auto-import for recognized BlenderKit asset previews. Otherwise
-        # we step out entirely and let Blender's default image-drop
-        # behaviour (or any other handler) take over.
-        if context.area is None or context.area.type != "VIEW_3D":
-            return False
-        try:
-            prefs = context.preferences.addons[__package__].preferences
-            return bool(getattr(prefs, "skip_web_drop_confirmation", False))
-        except Exception:
-            return False
+        bl_idname = "BLENDERKIT_FH_web_drop"
+        bl_label = "BlenderKit Web Drop"
+        bl_import_operator = BLENDERKIT_OT_web_drop.bl_idname
+        # Browsers always deliver BlenderKit previews as .webp temp files. Keep
+        # the filter as narrow as possible so we never compete with regular
+        # .jpg/.png/.jpeg image drops from the user's file manager.
+        bl_file_extensions = ".webp;.png;.gif;.jpg;.jpeg"
 
+        @classmethod
+        def poll_drop(cls, context):
+            # Only opt into the drop when the user has explicitly enabled
+            # auto-import for recognized BlenderKit asset previews. Otherwise
+            # we step out entirely and let Blender's default image-drop
+            # behaviour (or any other handler) take over.
+            if context.area is None or context.area.type != "VIEW_3D":
+                return False
+            try:
+                prefs = context.preferences.addons[__package__].preferences
+                return bool(getattr(prefs, "skip_web_drop_confirmation", False))
+            except Exception:
+                return False
 
-_CLASSES = (
-    BLENDERKIT_OT_web_drop,
-    BLENDERKIT_FH_web_drop,
-)
+    _CLASSES = (
+        BLENDERKIT_OT_web_drop,
+        BLENDERKIT_FH_web_drop,
+    )
+else:
+    _CLASSES = ()
 
 
 def register():
