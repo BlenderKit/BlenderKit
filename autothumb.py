@@ -459,7 +459,7 @@ class GenerateThumbnailOperator(bpy.types.Operator):
 
         bpy.ops.wm.save_as_mainfile(filepath=filepath, compress=False, copy=True)
         # get all included objects
-        obs = utils.get_hierarchy(asset)
+        obs = utils.get_hierarchy_with_instances(asset)
         obnames = []
         for ob in obs:
             obnames.append(ob.name)
@@ -583,7 +583,7 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
 
         bpy.ops.wm.save_as_mainfile(filepath=filepath, compress=False, copy=True)
         # get all included objects
-        obs = utils.get_hierarchy(asset)
+        obs = utils.get_hierarchy_with_instances(asset)
         obnames = []
         for ob in obs:
             obnames.append(ob.name)
