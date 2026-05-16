@@ -61,6 +61,18 @@ _DECIMATION_RATIO_DEFAULT = 0.25  # 1.0 = keep all, 0.5 = halve triangle count
 _REPROJECT_MAX_DIST_FACTOR = 1.3
 _SMOOTH_ITERATIONS_DEFAULT = 10
 
+# -- Marching-cubes outward bias --
+#: Offset each surface sample outward along its normal (in voxel units)
+#: before splatting into the density field. Without this bias the density
+#: blob is symmetric around the surface and the 0.75-of-peak iso-contour
+#: ends up *inside* the source skin, so smoothing/snapping has nothing to
+#: latch onto outside. A small outward shift puts the iso-shell just
+#: outside the source; smoothing + sticky relaxation then pulls it back
+#: onto the surface from the outside. Keep this small (<= 0.5) because
+#: the rhombic splat itself already extends roughly one voxel outward,
+#: and a large bias causes the shell to balloon away from sparse sources.
+_MC_OUTWARD_BIAS_VOXELS = 0.25
+
 # -- Exterior-only sampling (drop interior-cavity samples) --
 #: When True, samples whose outward-normal ray hits the mesh are discarded,
 #: so interior faces (e.g. roof of mouth, nostril walls, eye sockets) do
@@ -70,6 +82,12 @@ _EXTERIOR_ONLY_DEFAULT = True
 #: bounding-box diagonal. Large enough to escape the source face but small
 #: enough not to skip adjacent interior surfaces.
 _EXTERIOR_RAY_EPSILON_FACTOR = 1e-4
+#: Number of rays cast from outside-the-bbox toward each sample in its
+#: outward hemisphere. The sample is kept if *any* ray reaches its face
+#: unobstructed (visible from outside); dropped if every ray is blocked
+#: by other geometry (occluded interior part). 4 is a good cost/accuracy
+#: tradeoff: 1 ray along the normal + 3 spread around it.
+_EXTERIOR_VISIBILITY_RAY_COUNT = 4
 
 # -- Coordinate transforms --
 _PRX_TO_BLENDER = Matrix(
@@ -131,6 +149,31 @@ _RHOMBIC_SPLAT_WEIGHTS = np.asarray(
     ],
     dtype=np.float32,
 )
+
+
+def _make_hemisphere_directions(count: int) -> np.ndarray:
+    """Spread *count* unit vectors over the +Z hemisphere.
+
+    First direction is the pole (0,0,1); remaining directions follow a
+    Fibonacci-spiral sampling that stays clear of the equator. Used as a
+    fixed local-frame fan for the exterior-visibility test.
+    """
+    if count <= 1:
+        return np.asarray([[0.0, 0.0, 1.0]], dtype=np.float64)
+    dirs: list[tuple[float, float, float]] = [(0.0, 0.0, 1.0)]
+    golden = np.pi * (3.0 - 5.0**0.5)
+    for k in range(1, count):
+        # z runs from ~0.95 down to ~0.25 -> all rays comfortably in the
+        # upper hemisphere, avoiding grazing equator rays.
+        z = 0.95 - (k - 1) / max(count - 1, 1) * 0.70
+        r = (max(1.0 - z * z, 0.0)) ** 0.5
+        phi = golden * k
+        dirs.append((r * float(np.cos(phi)), r * float(np.sin(phi)), z))
+    return np.asarray(dirs, dtype=np.float64)
+
+
+#: Pre-computed local-frame hemisphere directions (+Z = outward normal).
+_EXTERIOR_VISIBILITY_DIRS = _make_hemisphere_directions(_EXTERIOR_VISIBILITY_RAY_COUNT)
 
 # ===========================================================================
 # Low-level math helpers
@@ -1394,13 +1437,20 @@ def _filter_exterior_points(
     colors: list[list[float]],
     bvh_tree,
 ) -> tuple[list[list[float]], list[list[float]], list[list[float]]]:
-    """Drop samples whose outward-normal ray intersects the mesh.
+    """Drop samples that are not visible from outside the bounding box.
 
-    For each ``(p, n)`` pair a single ray is cast from ``p + n*eps`` along
-    ``+n`` through *bvh_tree*. A hit means the sample is on an interior /
-    back-facing surface (roof of mouth, nostril walls, eye sockets, ...)
-    and is dropped so marching-cubes reconstruction isn't contaminated
-    with cavity samples.
+    For each ``(p, n)`` pair the function fans a small set of rays in the
+    sample's outward hemisphere; every ray starts *outside* the bbox and
+    travels *inward* toward ``p``. A sample is kept if **any** ray reaches
+    its own face unobstructed (visible from at least one outside angle).
+    A sample is dropped only when **every** ray is blocked by some other
+    surface before reaching ``p`` (truly occluded: cavity wall, internal
+    gear, hidden beam, ...).
+
+    This is more robust than testing what an outward ray hits, because in
+    an assembly of disjoint parts an outward ray will hit unrelated
+    exterior surfaces across gaps (e.g. one bone hitting another bone in
+    a skeleton) and falsely classify exterior samples as interior.
 
     If *normals* are missing or degenerate the point is kept (conservative).
     """
@@ -1411,8 +1461,14 @@ def _filter_exterior_points(
     bbox_diag = float(np.linalg.norm(pts_np.max(axis=0) - pts_np.min(axis=0)))
     if not np.isfinite(bbox_diag) or bbox_diag <= 0.0:
         return points, normals, colors
-    epsilon = max(bbox_diag * _EXTERIOR_RAY_EPSILON_FACTOR, 1e-7)
-    ray_length = bbox_diag * 2.0
+    # Ray starts comfortably outside the bbox along its hemisphere direction.
+    ray_length = bbox_diag * 1.5
+    # Tolerance for "ray reached the sample's face" — must be larger than
+    # the per-sample epsilon offset but tiny relative to the bbox so we
+    # don't accept other surfaces close to ``p``.
+    hit_tolerance = max(bbox_diag * 1e-3, 1e-5)
+
+    hemi_dirs = _EXTERIOR_VISIBILITY_DIRS  # shape (K, 3) in local frame
 
     has_colors = bool(colors) and len(colors) == len(points)
     kept_points: list[list[float]] = []
@@ -1434,22 +1490,71 @@ def _filter_exterior_points(
         nx *= inv
         ny *= inv
         nz *= inv
-        origin = Vector(
-            (
-                float(p[0]) + nx * epsilon,
-                float(p[1]) + ny * epsilon,
-                float(p[2]) + nz * epsilon,
+
+        # Build an orthonormal basis (t, b, n) so we can map local-frame
+        # hemisphere directions (with z = outward normal) into world space.
+        if abs(nx) < 0.9:
+            tx, ty, tz = 1.0, 0.0, 0.0
+        else:
+            tx, ty, tz = 0.0, 1.0, 0.0
+        dot_tn = tx * nx + ty * ny + tz * nz
+        tx -= dot_tn * nx
+        ty -= dot_tn * ny
+        tz -= dot_tn * nz
+        t_len = (tx * tx + ty * ty + tz * tz) ** 0.5
+        if t_len < 1e-8:
+            kept_points.append(p)
+            kept_normals.append(n)
+            if has_colors:
+                kept_colors.append(colors[idx])
+            continue
+        tx /= t_len
+        ty /= t_len
+        tz /= t_len
+        bx = ny * tz - nz * ty
+        by = nz * tx - nx * tz
+        bz = nx * ty - ny * tx
+
+        px = float(p[0])
+        py = float(p[1])
+        pz = float(p[2])
+
+        visible = False
+        for xl, yl, zl in hemi_dirs:
+            # World-space outward direction for this fan ray.
+            dx = xl * tx + yl * bx + zl * nx
+            dy = xl * ty + yl * by + zl * ny
+            dz = xl * tz + yl * bz + zl * nz
+            # Start outside the bbox along +dir, shoot inward toward p.
+            origin = Vector(
+                (
+                    px + dx * ray_length,
+                    py + dy * ray_length,
+                    pz + dz * ray_length,
+                )
             )
-        )
-        direction = Vector((nx, ny, nz))
-        try:
-            hit = bvh_tree.ray_cast(origin, direction, ray_length)
-        except Exception:  # noqa: BLE001
-            hit = (None,)
-        # BVHTree.ray_cast returns (location, normal, index, distance) with
-        # *location* being ``None`` when the ray misses.
-        if hit is not None and hit[0] is not None:
-            continue  # interior-facing sample, drop
+            direction = Vector((-dx, -dy, -dz))
+            try:
+                hit = bvh_tree.ray_cast(origin, direction, ray_length + hit_tolerance)
+            except Exception:  # noqa: BLE001
+                hit = (None,)
+            if hit is None or hit[0] is None:
+                # No surface in the way; the ray would have reached the
+                # sample's face but BVH didn't register it (degenerate
+                # geometry?). Conservative: treat as visible.
+                visible = True
+                break
+            hit_dist = float(hit[3])
+            if hit_dist >= ray_length - hit_tolerance:
+                # Ray traveled the full distance -> first surface it hit
+                # is at the sample location -> visible from this angle.
+                visible = True
+                break
+            # Otherwise the ray was blocked by another surface before
+            # reaching ``p``; try the next direction.
+
+        if not visible:
+            continue  # all rays blocked -> occluded interior sample, drop
         kept_points.append(p)
         kept_normals.append(n)
         if has_colors:
@@ -1478,18 +1583,24 @@ def _smooth_and_snap_to_surface(
     snap_distance: float,
     iterations: int,
 ) -> np.ndarray:
-    """Iteratively Laplacian-smooth the mesh and lock vertices that reach the source surface.
+    """Iteratively Laplacian-smooth the mesh with strict sticky surface contact.
 
-    Algorithm:
-      1. Build vertex adjacency from triangles.
-      2. For up to *iterations* rounds:
-         a. For every **unlocked** vertex, move it toward the average of
-            its neighbours (Laplacian smoothing, factor 0.5).
-         b. For every **unlocked** vertex, query ``bvh_tree.find_nearest``.
-            If the closest surface point is within *snap_distance*, snap the
-            vertex there and mark it **locked**.
-         c. Stop early if all vertices are locked.
-      3. Return the modified vertex array.
+    Sticky semantics (no penetration):
+      * Before each smoothing step, if a vertex is already inside the source
+        (signed distance < 0 against the nearest-face normal), it is pulled
+        out to the nearest surface point and **locked**.
+      * The Laplacian step is a **swept segment**: the proposed motion is
+        ray-cast against the source BVH. If *any* face is hit within the
+        swept length, the vertex is parked at the hit point (with a tiny
+        back-off) and locked. No face-orientation gate — the first
+        surface intersected wins, so flipped/inconsistent source normals
+        cannot let vertices slip through.
+      * Locked vertices are never touched again by relaxation or by the
+        ``find_nearest`` cleanup pass.
+
+    The trailing ``find_nearest`` pass is kept as a cheap convergence aid:
+    any still-unlocked vertex within ``snap_distance`` of the source is
+    snapped and locked.
     """
     num_verts = len(vertices_np)
     if num_verts == 0 or iterations <= 0:
@@ -1499,63 +1610,100 @@ def _smooth_and_snap_to_surface(
     result = vertices_np.astype(np.float64).copy()
     locked = np.zeros(num_verts, dtype=bool)
 
-    # Per-vertex outward normal on the MC mesh. Used to reject snaps to
-    # back-facing source faces: if the nearest source-surface normal points
-    # the opposite way from the MC vertex's outward normal, the "nearest"
-    # surface is on the *other* shell of the source (e.g. inside wall of a
-    # cavity) and we must not pull the MC vertex through the skin to it.
-    mc_vertex_normals = np.asarray(
-        _compute_vertex_normals_from_triangles(result.astype(np.float32), triangles),
-        dtype=np.float64,
-    )
-
     smooth_factor = 0.5
+    # Back off from each hit by this fraction of the step length so the
+    # vertex sits just outside the surface and the next iteration's
+    # ray-cast doesn't immediately self-intersect at the origin.
+    _HIT_BACKOFF_FRACTION = 1e-3
+    _HIT_BACKOFF_MAX = 1e-6
+
+    # Distance used to probe "is this vertex already inside the source?"
+    # Generous so an interior vertex always finds the bounding shell.
+    _INSIDE_PROBE_DIST = max(snap_distance * 100.0, 1.0)
+
+    def _is_inside(p, nearest, hit_normal) -> bool:
+        """Return True if ``p`` lies on the inward side of the nearest face."""
+        if hit_normal is None:
+            return False
+        return (
+            (p[0] - nearest.x) * hit_normal.x
+            + (p[1] - nearest.y) * hit_normal.y
+            + (p[2] - nearest.z) * hit_normal.z
+        ) < 0.0
 
     for _iteration in range(iterations):
-        # -- Laplacian smooth unlocked vertices --
-        new_pos = result.copy()
+        any_unlocked = False
+
         for idx in range(num_verts):
             if locked[idx]:
                 continue
+
+            # -- (1) If already inside the source, snap out and lock. --
+            origin = Vector(result[idx].tolist())
+            nearest, hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
+                origin, _INSIDE_PROBE_DIST
+            )
+            if nearest is not None and _is_inside(result[idx], nearest, hit_normal):
+                result[idx] = [nearest.x, nearest.y, nearest.z]
+                locked[idx] = True
+                continue
+
+            # -- (2) Compute Laplacian delta. --
             neighbours = adj[idx]
             if not neighbours:
                 continue
             avg = np.mean(result[neighbours], axis=0)
-            new_pos[idx] = result[idx] + smooth_factor * (avg - result[idx])
-        result = new_pos
+            delta = smooth_factor * (avg - result[idx])
+            delta_len = float(np.linalg.norm(delta))
 
-        # -- Snap unlocked vertices that are close to the surface --
-        any_unlocked = False
+            if delta_len <= 1e-10:
+                any_unlocked = True
+                continue
+
+            # -- (3) Strict swept-penetration test along the proposed step. --
+            inv = 1.0 / delta_len
+            direction = Vector(
+                (
+                    float(delta[0]) * inv,
+                    float(delta[1]) * inv,
+                    float(delta[2]) * inv,
+                )
+            )
+            try:
+                hit_loc, _hit_normal, _face_idx, _hit_dist = bvh_tree.ray_cast(
+                    origin, direction, delta_len
+                )
+            except Exception:  # noqa: BLE001
+                hit_loc = None
+
+            if hit_loc is not None:
+                # Stop AT the surface, irrespective of face orientation.
+                # Back off a hair so we sit just outside.
+                backoff = min(delta_len * _HIT_BACKOFF_FRACTION, _HIT_BACKOFF_MAX)
+                result[idx, 0] = float(hit_loc.x) - direction.x * backoff
+                result[idx, 1] = float(hit_loc.y) - direction.y * backoff
+                result[idx, 2] = float(hit_loc.z) - direction.z * backoff
+                locked[idx] = True
+                continue
+
+            # -- (4) Clear path: apply the full step. --
+            result[idx, 0] += float(delta[0])
+            result[idx, 1] += float(delta[1])
+            result[idx, 2] += float(delta[2])
+            any_unlocked = True
+
+        # -- (5) Cleanup snap for unlocked verts that ended within snap_distance. --
         for idx in range(num_verts):
             if locked[idx]:
                 continue
             origin = Vector(result[idx].tolist())
-            nearest, hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
+            nearest, _hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
                 origin, snap_distance
             )
-            if nearest is not None:
-                # Reject snaps to back-facing source faces. If the source
-                # surface normal points opposite to the MC vertex's own
-                # outward normal, this is the far side of a thin shell /
-                # interior cavity wall. Leaving the vertex unlocked lets
-                # smoothing relax it outward and (hopefully) find the
-                # correct outer face on the next iteration.
-                mc_n = mc_vertex_normals[idx]
-                if (
-                    hit_normal is not None
-                    and float(
-                        mc_n[0] * hit_normal.x
-                        + mc_n[1] * hit_normal.y
-                        + mc_n[2] * hit_normal.z
-                    )
-                    < 0.0
-                ):
-                    any_unlocked = True
-                    continue
-                result[idx] = [nearest.x, nearest.y, nearest.z]
-                locked[idx] = True
-            else:
-                any_unlocked = True
+            if nearest is None:
+                continue
+            result[idx] = [nearest.x, nearest.y, nearest.z]
+            locked[idx] = True
 
         if not any_unlocked:
             break
@@ -1819,11 +1967,17 @@ def _build_cpu_marching_cubes_mesh(
     smooth_iterations: int = _SMOOTH_ITERATIONS_DEFAULT,
     decimation_ratio: float = _DECIMATION_RATIO_DEFAULT,
     point_colors: Optional[list[list[float]]] = None,
+    point_normals: Optional[list[list[float]]] = None,
 ) -> dict[str, list[list[float]]]:
     """Build a mesh from a point cloud via marching cubes reconstruction.
 
     Pipeline: density field -> iso-surface -> fix normals -> weld ->
     smooth+snap -> decimate -> flat output.
+
+    When ``point_normals`` are supplied, the splat positions are shifted
+    outward along the surface normal by ``_MC_OUTWARD_BIAS_VOXELS`` voxels
+    so the iso-contour wraps *outside* the source skin instead of cutting
+    through it.
 
     Returns ``{"pos": [...], "col": [...], "nrm": [...],
     "wire_pos": [...], "wire_col": [...]}`` in the flat (non-indexed)
@@ -1842,8 +1996,29 @@ def _build_cpu_marching_cubes_mesh(
     voxel_mult = coarse_mult * ((fine_mult / coarse_mult) ** detail)
     voxel_size = max(spacing * voxel_mult, 1e-6)
     pad = spacing * MARCHING_CUBES_PADDING
-    grid_min = pts.min(axis=0) - pad
-    grid_max = pts.max(axis=0) + pad
+
+    # -- Outward normal bias to keep iso-surface outside the source skin --
+    nrm_np: Optional[np.ndarray] = None
+    if point_normals is not None and len(point_normals) == len(points):
+        nrm_np = np.asarray(point_normals, dtype=np.float64)
+        n_len = np.linalg.norm(nrm_np, axis=1, keepdims=True)
+        n_len = np.where(n_len < 1e-12, 1.0, n_len)
+        nrm_np = nrm_np / n_len
+
+    # Establish grid bounds. With outward bias, the splat origins shift, so
+    # the grid must enclose both the raw samples and the shifted samples.
+    if nrm_np is not None:
+        bias_dist = voxel_size * _MC_OUTWARD_BIAS_VOXELS
+        pts_splat = pts + nrm_np * bias_dist
+        extra_pad = bias_dist
+        all_min = np.minimum(pts.min(axis=0), pts_splat.min(axis=0))
+        all_max = np.maximum(pts.max(axis=0), pts_splat.max(axis=0))
+        grid_min = all_min - pad - extra_pad
+        grid_max = all_max + pad + extra_pad
+    else:
+        pts_splat = pts
+        grid_min = pts.min(axis=0) - pad
+        grid_max = pts.max(axis=0) + pad
 
     def _compute_dims(cell_size: float) -> np.ndarray:
         return np.maximum(
@@ -1853,11 +2028,15 @@ def _build_cpu_marching_cubes_mesh(
     dims = _compute_dims(voxel_size)
     while int(np.prod(dims, dtype=np.int64)) > MARCHING_CUBES_MAX_GRID_CELLS:
         voxel_size *= 1.2
+        # voxel_size grew -> bias should track it for consistency
+        if nrm_np is not None:
+            bias_dist = voxel_size * _MC_OUTWARD_BIAS_VOXELS
+            pts_splat = pts + nrm_np * bias_dist
         dims = _compute_dims(voxel_size)
 
     # -- Build density field via rhombic splatting --
     density = np.zeros((int(dims[0]), int(dims[1]), int(dims[2])), dtype=np.float32)
-    grid_idx = np.floor((pts - grid_min) / voxel_size).astype(np.int32)
+    grid_idx = np.floor((pts_splat - grid_min) / voxel_size).astype(np.int32)
     grid_idx = np.clip(grid_idx, [0, 0, 0], dims - 1)
 
     for offset, weight in zip(_RHOMBIC_SPLAT_OFFSETS, _RHOMBIC_SPLAT_WEIGHTS):
@@ -2155,6 +2334,7 @@ def generate_proxor(
             smooth_iterations,
             decimation_ratio,
             point_colors=aggregated_colors if aggregated_colors else None,
+            point_normals=aggregated_normals if aggregated_normals else None,
         )
 
         # If generated mesh has more triangles than the source, use source directly
@@ -2351,6 +2531,7 @@ def _generate_proxor_multi_from_sources(
         smooth_iterations,
         decimation_ratio,
         point_colors=aggregated_colors if aggregated_colors else None,
+        point_normals=aggregated_normals if aggregated_normals else None,
     )
 
     # If reconstructed mesh has more triangles than the source, the proxor
