@@ -92,15 +92,69 @@ def append_nodegroup(
     Returns:
         tuple: (nodegroup, added_to_editor) - The nodegroup and whether it was added to an editor
     """
+    nodegroups_before = set(bpy.data.node_groups[:])
     with bpy.data.libraries.load(file_name, link=link, relative=True) as (
         data_from,
         data_to,
     ):
-        for g in data_from.node_groups:
-            if nodegroupname is None or g.strip() == nodegroupname.strip():
-                data_to.node_groups = [g]
-                nodegroupname = g
-    nodegroup = bpy.data.node_groups[nodegroupname]
+        available = list(data_from.node_groups)
+        matched = None
+        if nodegroupname is not None:
+            target = nodegroupname.strip()
+            # 1) exact (whitespace-tolerant) match
+            for g in available:
+                if g.strip() == target:
+                    matched = g
+                    break
+            # 2) case-insensitive match
+            if matched is None:
+                for g in available:
+                    if g.strip().lower() == target.lower():
+                        matched = g
+                        break
+            # 3) prefix match (Blender may truncate long IDs to 63 chars)
+            if matched is None:
+                for g in available:
+                    gs = g.strip()
+                    if target.startswith(gs) or gs.startswith(target):
+                        matched = g
+                        break
+        # 4) fall back to the first node group in the file. The asset's display
+        # name often does not match the actual node group name inside the
+        # .blend, so without this fallback nothing would be appended.
+        if matched is None and available:
+            matched = available[0]
+            bk_logger.warning(
+                f"append_nodegroup: no node group named '{nodegroupname}' in "
+                f"{file_name}; falling back to first available '{matched}'. "
+                f"Available: {available}"
+            )
+        if matched is not None:
+            data_to.node_groups = [matched]
+            nodegroupname = matched
+    # Resolve the actually appended nodegroup datablock. Blender may rename it
+    # (e.g., adding ".001" on name collision or truncating long names), so we
+    # cannot rely on a direct name lookup. Prefer the post-load data_to list
+    # (in newer Blender versions it contains the loaded ID datablocks), and
+    # fall back to diffing against the pre-load set.
+    nodegroup = None
+    try:
+        loaded = list(data_to.node_groups)
+        if loaded and not isinstance(loaded[0], str):
+            nodegroup = loaded[0]
+    except Exception:
+        nodegroup = None
+    if nodegroup is None:
+        new_nodegroups = [
+            ng for ng in bpy.data.node_groups if ng not in nodegroups_before
+        ]
+        if new_nodegroups:
+            nodegroup = new_nodegroups[-1]
+        elif nodegroupname is not None and nodegroupname in bpy.data.node_groups:
+            nodegroup = bpy.data.node_groups[nodegroupname]
+    if nodegroup is None:
+        raise KeyError(f"Failed to append nodegroup '{nodegroupname}' from {file_name}")
+    nodegroupname = nodegroup.name
     nodegroup.use_fake_user = fake_user
 
     # Create target object automatically for geometry nodegroups when no target is provided
