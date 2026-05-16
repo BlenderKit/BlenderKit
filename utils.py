@@ -1036,12 +1036,20 @@ def get_bounds_snappable(obs, use_modifiers=False):
     if obcount == 0:
         minx, miny, minz, maxx, maxy, maxz = 0, 0, 0, 0, 0, 0
 
-    minx *= parent.scale.x
-    maxx *= parent.scale.x
-    miny *= parent.scale.y
-    maxy *= parent.scale.y
-    minz *= parent.scale.z
-    maxz *= parent.scale.z
+    # Use the actual scale baked into matrix_world rather than the
+    # `parent.scale` property. They differ whenever the object has a
+    # Delta Transform, constraints, or any other source of scale that
+    # is not part of the regular `scale` property. Using `parent.scale`
+    # alone caused uploaded bbox/dimensions to be off by the ratio
+    # `matrix_scale / scale` (e.g. delta_scale=0.3 made the stored bbox
+    # ~3.35x larger than the asset's real world size).
+    pscale = parent.matrix_world.to_scale()
+    minx *= pscale.x
+    maxx *= pscale.x
+    miny *= pscale.y
+    maxy *= pscale.y
+    minz *= pscale.z
+    maxz *= pscale.z
 
     return minx, miny, minz, maxx, maxy, maxz
 
