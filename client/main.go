@@ -675,23 +675,136 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
+// searchRetryMaxAttempts is the total number of attempts (including the first)
+// performed by doAssetSearch when the server replies with HTTP 429
+// (Too Many Requests). The backend currently caps anonymous traffic at
+// 100 requests/minute and Cloudflare may additionally answer with error
+// code 1015 — both are recoverable with a short backoff.
+const searchRetryMaxAttempts = 4
+
+// searchRetryBaseDelay is the starting delay for the exponential backoff
+// used by doAssetSearch when retrying on HTTP 429. Subsequent delays double
+// up to searchRetryMaxDelay. If the response carries a Retry-After header it
+// is respected instead (capped to searchRetryMaxDelay).
+const searchRetryBaseDelay = 2 * time.Second
+const searchRetryMaxDelay = 30 * time.Second
+
+// searchThrottleMu protects searchThrottleUntil and is used to publish a
+// short global cooldown after a search hits HTTP 429, so subsequent search
+// requests preemptively wait instead of piling onto the rate limit again.
+var (
+	searchThrottleMu    sync.Mutex
+	searchThrottleUntil time.Time
+)
+
+// waitForSearchThrottle blocks until any active global search throttle has
+// expired. Cheap no-op when no throttle is active.
+func waitForSearchThrottle() {
+	searchThrottleMu.Lock()
+	until := searchThrottleUntil
+	searchThrottleMu.Unlock()
+	if d := time.Until(until); d > 0 {
+		time.Sleep(d)
+	}
+}
+
+// setSearchThrottle extends the global search throttle so it expires no
+// sooner than now+d. Shorter pending throttles are upgraded; longer ones
+// are kept untouched.
+func setSearchThrottle(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	deadline := time.Now().Add(d)
+	searchThrottleMu.Lock()
+	if deadline.After(searchThrottleUntil) {
+		searchThrottleUntil = deadline
+	}
+	searchThrottleMu.Unlock()
+}
+
+// parseRetryAfter returns the duration advertised by the Retry-After header,
+// supporting both the "delta-seconds" and the HTTP-date formats. Returns 0
+// if the header is missing or cannot be parsed.
+func parseRetryAfter(h string) time.Duration {
+	if h == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(strings.TrimSpace(h)); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(h); err == nil {
+		if d := time.Until(t); d > 0 {
+			return d
+		}
+	}
+	return 0
+}
+
 func doAssetSearch(data SearchTaskData, taskUUID string) {
 	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
 
-	req, err := http.NewRequest("GET", data.URLQuery, nil)
-	if err != nil {
-		err = fmt.Errorf("search - creating request: %w", err)
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-		return
-	}
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+	// Honor any active global cooldown from a previous 429 before firing.
+	waitForSearchThrottle()
 
-	resp, err := ClientAPI.Do(req)
-	if err != nil {
-		// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
-		shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
-		shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squeezes into user's screenshots
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
+	var (
+		resp           *http.Response
+		err            error
+		lastRespString string
+		lastStatus     string
+	)
+
+	for attempt := 0; attempt < searchRetryMaxAttempts; attempt++ {
+		req, reqErr := http.NewRequest("GET", data.URLQuery, nil)
+		if reqErr != nil {
+			err = fmt.Errorf("search - creating request: %w", reqErr)
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
+			return
+		}
+		req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+
+		resp, err = ClientAPI.Do(req)
+		if err != nil {
+			// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
+			shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
+			shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squeezes into user's screenshots
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
+			return
+		}
+
+		if resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+
+		// HTTP 429 - parse body for logging, then back off and retry.
+		_, lastRespString, _ = ParseFailedHTTPResponse(resp)
+		lastStatus = resp.Status
+		retryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
+		resp.Body.Close()
+		resp = nil
+
+		if attempt == searchRetryMaxAttempts-1 {
+			break // no more retries left
+		}
+
+		delay := retryAfter
+		if delay <= 0 {
+			delay = searchRetryBaseDelay * (1 << attempt) // 2s, 4s, 8s, ...
+		}
+		if delay > searchRetryMaxDelay {
+			delay = searchRetryMaxDelay
+		}
+		// Publish to the global throttle so concurrently arriving search
+		// requests preemptively back off instead of stacking more 429s.
+		setSearchThrottle(delay)
+		BKLog.Printf("%v search: HTTP 429 received, retrying in %v (attempt %d/%d), query: %v",
+			EmoWarning, delay, attempt+1, searchRetryMaxAttempts, data.URLQuery)
+		time.Sleep(delay)
+	}
+
+	if resp == nil {
+		err := fmt.Errorf("search: %s, status (%s), query: %v", lastRespString, lastStatus, data.URLQuery)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
 	defer resp.Body.Close()
