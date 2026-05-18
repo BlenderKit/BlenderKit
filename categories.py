@@ -73,7 +73,7 @@ def get_category_path(categories, category):
 
 
 def get_category_name_path(categories, category):
-    """finds the category in all possible subcategories and returns the path to it"""
+    """Finds the category in all possible subcategories and returns the path to it."""
     category_path = []
     check_categories = categories[:]
     parents = {}
@@ -98,7 +98,8 @@ def get_category_name_path(categories, category):
     return category_path
 
 
-def get_category(categories, cat_path=()):
+def get_category(categories, cat_path=()) -> dict:
+    """Finds the category in all possible subcategories and returns the category dict."""
     for category in cat_path:
         for c in categories:
             if c["slug"] == category:
@@ -106,6 +107,7 @@ def get_category(categories, cat_path=()):
                 if category == cat_path[-1]:
                     return c
                 break
+    return {}
 
 
 def handle_categories_task(task: client_tasks.Task):
