@@ -38,7 +38,6 @@ from . import (
     categories,
     client_lib,
     client_tasks,
-    comments_utils,
     datas,
     download,
     global_vars,
@@ -847,7 +846,6 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         result_field = [r for r in previous if not r.get("placeholder")]  # type: ignore
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
-    pending_comment_ids = []
     for result in task.result["results"]:
         asset_data = parse_result(result)
         if not asset_data:
@@ -855,23 +853,13 @@ def handle_search_task(task: client_tasks.Task) -> bool:
             continue
 
         result_field.append(asset_data)
-        if not utils.profile_is_validator():
-            continue
-        if asset_data.get("assetType") == "author":
-            continue
-        # VALIDATORS
-        # fetch all comments if user is validator to preview them faster
-        # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
-        comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
-        if comments is None:
-            pending_comment_ids.append(asset_data["assetBaseId"])
 
     # Flush batched gravatar downloads via Go client
     _flush_pending_gravatars()
 
-    # Fetch comments for validators via Go client (async via goroutines)
-    for aid in pending_comment_ids:
-        client_lib.get_comments(aid)
+    # Comments are fetched lazily on hover (asset bar tooltip) / on popup to
+    # avoid hammering the backend rate-limit (100 req/min). See
+    # comments_utils.request_comments_if_needed().
 
     # Results are kept strictly in arrival order. The asset bar relies on
     # stable positions: once an asset is placed it must never move, otherwise
