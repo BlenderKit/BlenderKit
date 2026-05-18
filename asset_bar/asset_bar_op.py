@@ -1628,10 +1628,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.comments.text = ""
             return
 
-        comments = global_vars.DATA.get("asset comments", {})
-        comments = comments.get(asset_data["assetBaseId"], [])
+        # Lazily request comments only on hover (deduped + cached) so we
+        # don't fire one HTTP request per search result, which would blow
+        # past the backend's 100 req/min rate limit on validator accounts.
+        asset_base_id = asset_data["assetBaseId"]
+        comments = comments_utils.request_comments_if_needed(asset_base_id)
         comment_text = "No comments yet."
-        if comments is not None:
+        if comments is None:
+            comment_text = "Loading comments..."
+        elif comments:
             comment_text = ""
             # iterate comments from last to first
             for comment in reversed(comments):
@@ -5103,6 +5108,29 @@ def handle_bkclientjs_get_asset(task: "search.client_tasks.Task"):
     if asset_bar_operator and asset_bar_operator.area:
         search.load_preview(parsed_asset_data)
         asset_bar_operator.update_image(parsed_asset_data["assetBaseId"])
+        asset_bar_operator.area.tag_redraw()
+
+
+def refresh_comments_for_asset(asset_id):
+    """Refresh the asset bar tooltip's comment text once comments arrive.
+
+    Called from comments_utils.handle_get_comments_task() after a lazy
+    fetch finishes. Only updates the UI when the currently hovered asset
+    matches the one whose comments just downloaded.
+    """
+    if asset_bar_operator is None:
+        return
+    active_index = getattr(asset_bar_operator, "active_index", -1)
+    if active_index < 0:
+        return
+    sr = search.get_search_results()
+    if not sr or active_index >= len(sr):
+        return
+    asset_data = sr[active_index]
+    if asset_data.get("assetBaseId") != asset_id:
+        return
+    asset_bar_operator.update_comments_for_validators(asset_data)
+    if asset_bar_operator.area:
         asset_bar_operator.area.tag_redraw()
 
 
