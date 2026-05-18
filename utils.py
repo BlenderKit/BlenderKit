@@ -1600,7 +1600,13 @@ def line_with_urls(row, text, urls, icon="NONE", use_urls=False):
 
 
 def label_multiline(
-    layout, text="", icon="NONE", width=-1, max_lines=10, split_last=0, use_urls=False
+    layout,
+    text: str = "",
+    icon: str = "NONE",
+    width: float = -1,
+    max_lines: int = 10,
+    split_last: float = 0,
+    use_urls: bool = False,
 ):
     """
      draw a ui label, but try to split it in multiple lines.

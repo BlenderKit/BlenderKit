@@ -709,7 +709,7 @@ class BlenderKitUIProps(PropertyGroup):
     # Add search_keywords property
     search_keywords: StringProperty(
         name="Search",
-        description="Search for these keywords",
+        description="Search BlenderKit for these keywords",
         default="",
         update=search.search_update,
     )
