@@ -493,8 +493,8 @@ def refresh_addon_search_results_status() -> None:
 
 
 @persistent
-def scene_load_pre(context) -> None:
-    """Clean up temporarily enabled addons before loading new file."""
+def scene_load_post(context) -> None:
+    """Clean up temporarily enabled addons after loading new file."""
     cleanup_temp_enabled_addons()
 
 
@@ -2578,33 +2578,24 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
                 )
                 return {"FINISHED"}
 
-        # if self.close_window:
-        #     time.sleep(0.1)
-        #     context.region.tag_redraw()
-        #     time.sleep(0.1)
-        #
-        #     context.window.cursor_warp(event.mouse_x, event.mouse_y);
-
         return self.execute(context)
 
 
 def register_download() -> None:
     bpy.utils.register_class(BlenderkitDownloadOperator)
     bpy.utils.register_class(BlenderkitKillDownloadOperator)
-    # bpy.utils.register_class(BlenderkitAddonManagerOperator)  # Replaced by BlenderkitAddonChoiceOperator
     bpy.utils.register_class(BlenderkitAddonChoiceOperator)
     bpy.app.handlers.load_post.append(scene_load)
     bpy.app.handlers.save_pre.append(scene_save)
-    bpy.app.handlers.load_pre.append(scene_load_pre)
+    bpy.app.handlers.load_post.append(scene_load_post)
 
 
 def unregister_download() -> None:
     bpy.utils.unregister_class(BlenderkitDownloadOperator)
     bpy.utils.unregister_class(BlenderkitKillDownloadOperator)
-    # bpy.utils.unregister_class(BlenderkitAddonManagerOperator)  # Replaced by BlenderkitAddonChoiceOperator
     bpy.utils.unregister_class(BlenderkitAddonChoiceOperator)
     bpy.app.handlers.load_post.remove(scene_load)
     bpy.app.handlers.save_pre.remove(scene_save)
-    bpy.app.handlers.load_pre.remove(scene_load_pre)
+    bpy.app.handlers.load_post.remove(scene_load_post)
     # Clean up any remaining temporarily enabled addons
     cleanup_temp_enabled_addons()
