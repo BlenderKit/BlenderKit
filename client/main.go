@@ -960,10 +960,20 @@ func downloadImageBatch(tasks []*Task, block bool) {
 	if len(tasks) == 0 {
 		return
 	}
+	// Cap concurrent thumbnail HTTP requests so a single search page (15
+	// assets x 4 thumbnail variants = up to ~60 GETs) does not fan out into
+	// the per-IP rate-limit window in one burst. Smooth scrolling still
+	// preloads the next page worth of thumbs — just paced.
+	const maxConcurrentThumbs = 6
+	sem := make(chan struct{}, maxConcurrentThumbs)
 	wg := new(sync.WaitGroup)
 	for _, task := range tasks {
 		wg.Add(1)
-		go DownloadThumbnail(task, wg)
+		sem <- struct{}{} // acquire slot (blocks once we hit maxConcurrentThumbs in flight)
+		go func(t *Task) {
+			defer func() { <-sem }()
+			DownloadThumbnail(t, wg)
+		}(task)
 	}
 	if block {
 		wg.Wait()
