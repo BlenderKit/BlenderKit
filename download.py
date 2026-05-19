@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-import addon_utils
+import addon_utils  # type: ignore
 import copy
 import json
 import logging
@@ -40,12 +40,12 @@ from . import (
     utils,
 )
 
-import bpy
+import bpy  # type: ignore
 
 if bpy.app.version >= (4, 2, 0):
     from . import override_extension_draw
-from bpy.app.handlers import persistent
-from bpy.props import (
+from bpy.app.handlers import persistent  # type: ignore
+from bpy.props import (  # type: ignore
     BoolProperty,
     EnumProperty,
     FloatVectorProperty,
@@ -59,6 +59,9 @@ bk_logger = logging.getLogger(__name__)
 STALE_DOWNLOAD_TIMEOUT = (
     20.0  # seconds without progress before we treat a download as stalled
 )
+
+INT32_MIN = -2_147_483_648
+INT32_MAX = 2_147_483_647
 
 download_tasks = {}
 
@@ -308,10 +311,6 @@ def _reset_progress_for_asset_ids(asset_ids):
             result["downloaded"] = 0
 
 
-INT32_MIN = -2_147_483_648
-INT32_MAX = 2_147_483_647
-
-
 def check_missing():
     """Checks for missing files, and possibly starts re-download of these into the scene"""
     # missing libs:
@@ -339,7 +338,7 @@ def check_missing():
 
 def check_unused():
     """Find assets that have been deleted from scene but their library is still present."""
-    # this is obviously broken. Blender should take care of the extra data automaticlaly
+    # this is obviously broken. Blender should take care of the extra data automatically
     # first clean up collections
     for c in bpy.data.collections:
         if len(c.all_objects) == 0 and c.get("is_blenderkit_asset"):
@@ -365,7 +364,7 @@ def check_unused():
                 used_libs.append(ps.settings.instance_collection)
 
     for l in bpy.data.libraries:
-        if l not in used_libs and l.getn("asset_data"):
+        if l not in used_libs and l.get("asset_data"):
             bk_logger.info("attempt to remove this library: %s", l.filepath)
             # have to unlink all groups, since the file is a 'user' even if the groups aren't used at all...
             for user_id in l.users_id:
@@ -497,44 +496,6 @@ def scene_load_pre(context):
 def scene_load(context):
     """Restart broken downloads on scene load."""
     check_missing()
-    # global download_threads
-    # download_threads = []
-
-    # commenting this out - old restore broken download on scene start. Might come back if downloads get recorded in scene
-    # reset_asset_ids = {}
-    # reset_obs = {}
-    # for ob in bpy.context.scene.collection.objects:
-    #     if ob.name[:12] == 'downloading ':
-    #         obn = ob.name
-    #
-    #         asset_data = ob['asset_data']
-    #
-    #         # obn.replace('#', '')
-    #         # if asset_data['id'] not in reset_asset_ids:
-    #
-    #         if reset_obs.get(asset_data['id']) is None:
-    #             reset_obs[asset_data['id']] = [obn]
-    #             reset_asset_ids[asset_data['id']] = asset_data
-    #         else:
-    #             reset_obs[asset_data['id']].append(obn)
-    # for asset_id in reset_asset_ids:
-    #     asset_data = reset_asset_ids[asset_id]
-    #     done = False
-    #     if check_existing(asset_data, resolution = should be here):
-    #         for obname in reset_obs[asset_id]:
-    #             downloader = s.collection.objects[obname]
-    #             done = try_finished_append(asset_data,
-    #                                        model_location=downloader.location,
-    #                                        model_rotation=downloader.rotation_euler)
-    #
-    #     if not done:
-    #         downloading = check_downloading(asset_data)
-    #         if not downloading:
-    #             download(asset_data, downloaders=reset_obs[asset_id], delete=True)
-
-    # check for group users that have been deleted, remove the groups /files from the file...
-    # TODO scenes fixing part... download the assets not present on drive,
-    # and erase from scene linked files that aren't used in the scene.
 
 
 # TODO: FIX OR REMOVE THIS BROKEN FUNCTION - remove empty dict all the time
@@ -662,7 +623,8 @@ def update_asset_data_in_dicts(asset_data):
         return
 
     for result in search_results:
-        if result["assetBaseId"] != asset_data["assetBaseId"]:
+        # Some entries (e.g. authors) may not have an "assetBaseId" field — skip them.
+        if result.get("assetBaseId") != asset_data["assetBaseId"]:
             continue
         for file in asset_data["files"]:
             if not file.get("url"):
@@ -1400,7 +1362,7 @@ def download_post(task: client_tasks.Task) -> None:
     wm = bpy.context.window_manager
     at = task.data["asset_data"]["assetType"]
 
-    # don't do this stuff in editmode and other modes, just wait...
+    # don't do this stuff in edit-mode and other modes, just wait...
     # we don't remove the task before it's actually possible to remove it.
     if bpy.context.mode != "OBJECT" and (at == "model" or at == "material"):
         # try to switch to object mode - if it's not possible, propagate exception higher up
@@ -1415,7 +1377,6 @@ def download_post(task: client_tasks.Task) -> None:
     if len(file_paths) == 2:
         # TODO this should try to check if both files exist and are ok.
         utils.copy_asset(file_paths[0], file_paths[1])
-        # shutil.copyfile(file_paths[0], file_paths[1])
 
     # Persist proxor next to the downloaded .blend only after asset download finishes.
     search.persist_prxc_after_asset_download(task.data["asset_data"])
@@ -1424,7 +1385,7 @@ def download_post(task: client_tasks.Task) -> None:
     # progress bars:
 
     # we need to check if mouse isn't down, which means an operator can be running.
-    # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crasehes
+    # Especially for sculpt mode, where appending a brush during a sculpt stroke causes crashes
     #
     # TODO use redownload in data, this is used for downloading/ copying missing libraries.
     if task.data.get("redownload"):
@@ -1474,10 +1435,6 @@ def download_post(task: client_tasks.Task) -> None:
     try_finished_append(
         file_paths=file_paths, **task.data
     )  # exception is handled in calling function
-    # TODO add back re-download capability for deamon - used for lost libraries
-    # tcom.passargs['retry_counter'] = tcom.passargs.get('retry_counter', 0) + 1
-    # download(asset_data, **tcom.passargs)
-    # utils.p('end download timer')
     return
 
 
@@ -1639,7 +1596,7 @@ def check_all_visible(obs):
     return True
 
 
-def check_selectible(obs):
+def check_selectable(obs):
     """checks if all objects can be selected and selects them if possible.
     this isn't only select_hide, but all possible combinations of collections e.t.c. so hard to check otherwise.
     """
@@ -1675,7 +1632,7 @@ def duplicate_asset(
     if not check_all_visible(obs):
         return None, []
     # check selectability and select in one run
-    if not check_selectible(obs):
+    if not check_selectable(obs):
         return None, []
 
     # duplicate the asset objects
@@ -1683,12 +1640,18 @@ def duplicate_asset(
 
     nobs = bpy.context.selected_objects[:]
     # get asset main object
+    asset_main = None
     for ob in nobs:
         if ob.parent not in nobs:
             asset_main = ob
             break
-
-    # in case of replacement,there might be a paarent relationship that can be restored
+    if not asset_main:
+        # pick something
+        bk_logger.error(
+            "Couldn't find main object of the asset, picking the first one. This may cause issues with parenting and similar."
+        )
+        asset_main = nobs[0]
+    # in case of replacement,there might be a parent relationship that can be restored
     if kwargs.get("parent"):
         parent = bpy.data.objects[kwargs["parent"]]
         asset_main.parent = (
@@ -1809,8 +1772,8 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
     bl_label = "Addon Manager"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    asset_data: bpy.props.StringProperty()  # JSON encoded asset data
-    action: bpy.props.EnumProperty(
+    asset_data: StringProperty()  # type: ignore # JSON encoded asset data
+    action: EnumProperty(
         items=[
             ("INSTALL", "Install", "Install the addon"),
             ("UNINSTALL", "Uninstall", "Uninstall the addon"),
@@ -1818,7 +1781,7 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
             ("DISABLE", "Disable", "Disable the addon"),
             ("TEMP_ENABLE", "Enable Temporarily", "Enable until end of session"),
         ]
-    )
+    )  # type: ignore
 
     def execute(self, context):
 
@@ -1932,10 +1895,10 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
     bl_label = "Addon Options"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    asset_data: bpy.props.StringProperty()  # JSON encoded asset data
+    asset_data: StringProperty()  # type: ignore # JSON encoded asset data
 
     # Actions for not installed addons
-    action_not_installed: bpy.props.EnumProperty(
+    action_not_installed: EnumProperty(
         name="Action",
         description="Choose what to do with this addon",
         items=[
@@ -1961,20 +1924,20 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                 2,
             ),
         ],
-    )
+    )  # type: ignore
 
     # Actions for installed and enabled addons
-    action_installed_enabled: bpy.props.EnumProperty(
+    action_installed_enabled: EnumProperty(
         name="Action",
         description="Choose what to do with this addon",
         items=[
             ("DISABLE", "Disable", "Disable the addon", "CHECKBOX_DEHLT", 0),
             ("UNINSTALL", "Uninstall", "Completely remove the addon", "CANCEL", 1),
         ],
-    )
+    )  # type: ignore
 
     # Actions for installed but disabled addons
-    action_installed_disabled: bpy.props.EnumProperty(
+    action_installed_disabled: EnumProperty(
         name="Action",
         description="Choose what to do with this addon",
         items=[
@@ -1988,15 +1951,15 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
             ),
             ("UNINSTALL", "Uninstall", "Completely remove the addon", "CANCEL", 2),
         ],
-    )
+    )  # type: ignore
 
     # User confirmation required when installing an addon whose declared
     # Blender version range does not include the running Blender version.
-    confirm_incompatible: bpy.props.BoolProperty(
+    confirm_incompatible: BoolProperty(
         name="Install anyway (incompatible)",
         description="I understand this addon may not work in this Blender version",
         default=False,
-    )
+    )  # type: ignore
 
     def draw(self, context):
 
@@ -2380,8 +2343,6 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
     # needs to be passed to the operator to not show all resolution possibilities
     max_resolution: IntProperty(name="Max resolution", description="", default=0)  # type: ignore[valid-type]
-    # has_res_0_5k: BoolProperty(name='512',
-    #                                 description='', default=False)
 
     cast_parent: StringProperty(  # type: ignore[valid-type]
         name="Particles Target Object", description="", default=""
@@ -2406,13 +2367,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
         options={"SKIP_SAVE"},
     )
 
-    # close_window: BoolProperty(name='Close window',
-    #                            description='Try to close the window below mouse before download',
-    #                            default=False)
-    # @classmethod
-    # def poll(cls, context):
-    #     return bpy.context.window_manager.BlenderKitModelThumbnails is not ''
-    tooltip: bpy.props.StringProperty(  # type: ignore[valid-type]
+    tooltip: StringProperty(  # type: ignore[valid-type]
         default="Download and link asset to scene. Only link if asset already available locally"
     )
 
