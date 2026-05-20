@@ -11,9 +11,10 @@
 // headless Blender" endpoint.
 //
 // Caller picks a recipe via:
-//   - script_id   : looks up <exe_dir>/tools/<id>.py (set
-//                   $BLENDERKIT_TOOLS_DIR to override). Use this for
-//                   stable recipes shipped with the binary.
+//   - script_id   : resolves to a bundled recipe — first an embedded
+//                   copy (see bundledTools below), then $BLENDERKIT_TOOLS_DIR,
+//                   then <exe_dir>/tools/. Use this for stable recipes
+//                   shipped with the binary.
 //   - script_path : absolute path to a caller-supplied script. Escape
 //                   hatch for embedder-specific work.
 //
@@ -30,6 +31,7 @@ package main
 
 import (
 	"bufio"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,6 +44,20 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// Recipes shipped *inside* the client binary itself. The Blender add-on's
+// deploy used to copy a separate tools/ directory next to the binary in
+// the user's blenderkit_data; that step was easy to forget (and silently
+// broke convert), so we embed the scripts directly. resolveBundledScript
+// extracts the requested recipe to a per-version temp dir on demand so
+// Blender can launch it with --python <path> like any other file.
+//
+// `//go:embed tools/*.py` is processed at build time; adding a new
+// recipe is a matter of dropping its .py into tools/ and re-running
+// `go build`. No deploy-script changes needed.
+//
+//go:embed tools/*.py
+var bundledTools embed.FS
 
 // RunBlenderScriptData is the JSON body of POST /run_blender_script.
 // Caller MUST set exactly one of ScriptID or ScriptPath, plus
@@ -98,17 +114,37 @@ func runBlenderScriptHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(respJSON)
 }
 
-// resolveBundledScript maps a script_id to an absolute file path.
-// Lookup order:
-//  1. $BLENDERKIT_TOOLS_DIR/<id>.py   - explicit override (dev)
-//  2. <exe_dir>/tools/<id>.py         - production layout
-//  3. <cwd>/tools/<id>.py             - `go run` dev fallback
+// resolveBundledScript maps a script_id to an absolute file path that
+// Blender can launch via --python.
+//
+// Lookup order, first match wins:
+//  1. $BLENDERKIT_TOOLS_DIR/<id>.py   - explicit override (dev). Wins
+//                                       over embed so edits show up
+//                                       without a rebuild.
+//  2. embed.FS bundledTools           - production: extract a
+//                                       per-version cache copy to
+//                                       os.TempDir() and return that.
+//                                       Self-contained binary — no
+//                                       sibling tools/ directory needs
+//                                       to be shipped or installed.
+//  3. <exe_dir>/tools/<id>.py         - back-compat with legacy
+//                                       installs that DO ship tools/
+//                                       next to the binary.
+//  4. <cwd>/tools/<id>.py             - `go run` dev fallback.
+//
+// The embedded extraction reuses one temp dir per client version
+// (os.TempDir()/blenderkit-client/v<ClientVersion>/tools/<id>.py).
+// Always-overwrite keeps it idempotent even when a previous run left
+// stale bytes there.
 func resolveBundledScript(id string) (string, error) {
 	if env := os.Getenv("BLENDERKIT_TOOLS_DIR"); env != "" {
 		p := filepath.Join(env, id+".py")
 		if _, err := os.Stat(p); err == nil {
 			return p, nil
 		}
+	}
+	if p, err := extractEmbeddedScript(id); err == nil {
+		return p, nil
 	}
 	if exe, err := os.Executable(); err == nil {
 		p := filepath.Join(filepath.Dir(exe), "tools", id+".py")
@@ -122,7 +158,37 @@ func resolveBundledScript(id string) (string, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("script_id %q not found (looked under $BLENDERKIT_TOOLS_DIR, <exe>/tools/, <cwd>/tools/)", id)
+	return "", fmt.Errorf("script_id %q not found (looked under $BLENDERKIT_TOOLS_DIR, embedded recipes, <exe>/tools/, <cwd>/tools/)", id)
+}
+
+// extractEmbeddedScript reads tools/<id>.py from the embed.FS and
+// writes it under os.TempDir()/blenderkit-client/v<ClientVersion>/tools/.
+// Returns the path of the materialised copy. Returns an error if the
+// script isn't bundled, or if the write fails (caller falls back to
+// the filesystem lookup in resolveBundledScript).
+func extractEmbeddedScript(id string) (string, error) {
+	embeddedName := "tools/" + id + ".py"
+	data, err := bundledTools.ReadFile(embeddedName)
+	if err != nil {
+		return "", err
+	}
+	// Per-version subdir means an upgraded client won't reuse stale
+	// extracted bytes from a previous install — and uninstalling the
+	// client leaves a tidy "blenderkit-client/" directory the user can
+	// safely delete.
+	cacheDir := filepath.Join(os.TempDir(), "blenderkit-client", "v"+ClientVersion, "tools")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		return "", fmt.Errorf("creating embed cache dir: %w", err)
+	}
+	cachePath := filepath.Join(cacheDir, id+".py")
+	// Overwrite unconditionally so this stays a no-brainer when the
+	// embedded source changes (e.g. user upgraded the client). The
+	// embed payload is tiny (<10 KB per recipe) — the write cost is
+	// noise next to the Blender spawn that follows.
+	if err := os.WriteFile(cachePath, data, 0o644); err != nil {
+		return "", fmt.Errorf("writing extracted script: %w", err)
+	}
+	return cachePath, nil
 }
 
 func doRunBlenderScript(data RunBlenderScriptData, taskID string) {
