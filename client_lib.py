@@ -728,7 +728,15 @@ def start_blenderkit_client():
         _use_inplace_client = True
         log_path = get_client_log_path()
         client_binary_path, client_version = get_client_binary_path()
-        log_file = open(log_path, "wb")
+        try:
+            log_file = open(log_path, "wb")
+        except (PermissionError, OSError) as e2:
+            bk_logger.error(
+                "Cannot open fallback Client log at %s: %s. Client cannot start.",
+                log_path,
+                e2,
+            )
+            raise
 
     try:
         with log_file as log:
@@ -814,7 +822,11 @@ def _get_fallback_client_log_dir() -> str:
     """
     try:
         username = getpass.getuser()
-    except ModuleNotFoundError:  # pragma: no cover - Windows-only fallback path
+    except (
+        ModuleNotFoundError,
+        KeyError,
+        OSError,
+    ):  # KeyError on Windows when USERNAME env var is missing (e.g. sandboxed/Store installs)
         username = "bkuser"
     safe_username = "".join(c for c in username if c.isalnum())
     log_dir = path.join(tempfile.gettempdir(), f"bktemp_{safe_username}", "client")
