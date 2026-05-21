@@ -118,19 +118,23 @@ func runBlenderScriptHandler(w http.ResponseWriter, r *http.Request) {
 // Blender can launch via --python.
 //
 // Lookup order, first match wins:
-//  1. $BLENDERKIT_TOOLS_DIR/<id>.py   - explicit override (dev). Wins
-//                                       over embed so edits show up
-//                                       without a rebuild.
-//  2. embed.FS bundledTools           - production: extract a
-//                                       per-version cache copy to
-//                                       os.TempDir() and return that.
-//                                       Self-contained binary — no
-//                                       sibling tools/ directory needs
-//                                       to be shipped or installed.
-//  3. <exe_dir>/tools/<id>.py         - back-compat with legacy
-//                                       installs that DO ship tools/
-//                                       next to the binary.
-//  4. <cwd>/tools/<id>.py             - `go run` dev fallback.
+//  1. $BLENDERKIT_TOOLS_DIR/<id>.py
+//     - explicit override (dev). Wins
+//     over embed so edits show up
+//     without a rebuild.
+//  2. embed.FS bundledTools
+//     - production: extract a
+//     per-version cache copy to
+//     os.TempDir() and return that.
+//     Self-contained binary — no
+//     sibling tools/ directory needs
+//     to be shipped or installed.
+//  3. <exe_dir>/tools/<id>.py
+//     - back-compat with legacy
+//     installs that DO ship tools/
+//     next to the binary.
+//  4. <cwd>/tools/<id>.py
+//     - `go run` dev fallback.
 //
 // The embedded extraction reuses one temp dir per client version
 // (os.TempDir()/blenderkit-client/v<ClientVersion>/tools/<id>.py).
