@@ -27,6 +27,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Optional, Union
 
 import bpy
+import gpu
 from bpy.props import BoolProperty, StringProperty
 
 from .. import (
@@ -96,6 +97,15 @@ SCROLL_SETTLE_PX = 0.5  # px; below this the animation stops entirely
 SCROLL_INPUT_GAP = 0.05  # s; idle gap before inertia takes over
 SCROLL_DT_CAP = 0.1  # s; max frame dt (avoid jumps after lag spikes)
 SCROLL_VELOCITY_SAMPLE = 0.06  # s; window over which trackpad velocity is averaged
+
+# Smooth scroll relies on per-frame partial-row offsets that need the
+# GPU scissor API (gpu.state.scissor_test_set / scissor_set) to clip
+# top/bottom rows during the animation so they don't spill outside the
+# asset bar. That API is reliably available from Blender 3.6+; on older
+# versions we fall back to immediate integer-row scrolling.
+SMOOTH_SCROLL_SUPPORTED = bpy.app.version >= (3, 6, 0) and hasattr(
+    gpu.state, "scissor_test_set"
+)
 # Per wheel-notch velocity boost, expressed as a multiple of one slot per
 # second. With v0 = step_px * SCROLL_WHEEL_NOTCH_VELOCITY and exponential
 # friction decay at SCROLL_FRICTION, each notch glides ~one slot before
@@ -646,10 +656,16 @@ def set_thumb_check(
     element: Union[BL_UI_Button, BL_UI_Image],
     asset: Dict[str, Any],
     thumb_type: str = "thumbnail_small",
-) -> None:
+) -> bool:
     """Set image in case it is loaded in search results. Checks global_vars.DATA["images available"].
     - if image download failed, it will be set to 'thumbnail_not_available.jpg'
     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
+
+    Returns:
+        True if the slot is showing its real/intended thumbnail (loaded, gravatar,
+        or definitively "not available"). False when the slot is still showing the
+        transient "loading" placeholder - callers should suppress overlay badges
+        in that case to avoid drawing stale badges over not-yet-loaded items.
     """
     # Placeholder entries from prefetch get the "not ready" thumbnail
     if asset.get("placeholder"):
@@ -657,7 +673,7 @@ def set_thumb_check(
         if element.get_image_path() != tpath:
             element.set_image(tpath)
             element.set_image_colorspace("")
-        return
+        return False
 
     # Author assets have no server thumbnails, use gravatar from BKIT_AUTHORS
     if asset.get("assetType") == "author":
@@ -667,29 +683,35 @@ def set_thumb_check(
             if element.get_image_path() != author.gravatarImg:
                 element.set_image(author.gravatarImg)
                 element.set_image_colorspace("")
-            return
+            return True
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
         if element.get_image_path() != tpath:
             element.set_image(tpath)
             element.set_image_colorspace("")
-        return
+        return False
 
     directory = paths.get_temp_dir("%s_search" % asset["assetType"])
     tpath = os.path.join(directory, asset[thumb_type])
 
     if element.get_image_path() == tpath:
-        return  # no need to update
+        return True  # already showing the real thumbnail
 
     image_ready = global_vars.DATA["images available"].get(tpath)
+    loaded = True
     if image_ready is None:
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+        loaded = False
     if image_ready is False or asset[thumb_type] == "":
+        # "not available" is a terminal state - treat as loaded so the
+        # badges (e.g. locked icon) can be shown over the fallback image.
         tpath = paths.get_addon_thumbnail_path("thumbnail_not_available.jpg")
+        loaded = True
 
     if element.get_image_path() == tpath:
-        return
+        return loaded
     element.set_image(tpath)
     element.set_image_colorspace("")
+    return loaded
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
@@ -1593,6 +1615,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def update_comments_for_validators(self, asset_data):
         """Update the comments section in the tooltip for validator profiles."""
         if not utils.profile_is_validator():
+            return
+
+        # The comments label widget is only created during tooltip setup when
+        # the validator/popup-counter condition was true at that moment. If
+        # the profile only became a validator after the asset bar was already
+        # built, the widget won't exist — silently skip in that case.
+        if not hasattr(self, "comments"):
             return
 
         if asset_data.get("assetType") == "author":
@@ -2807,10 +2836,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         if 0 <= asset_idx < sr_len:
+            # If this button was just assigned to a new asset index (scrolling),
+            # hide overlay badges immediately to avoid "ghost" badges from the
+            # previous asset. update_buttons() will restore them when ready.
+            if getattr(button, "asset_index", -1) != asset_idx:
+                button.asset_index = asset_idx
+                button.validation_icon.visible = False
+                button.bookmark_button.visible = False
+                button.author_button.visible = False
+                button.progress_bar.visible = False
+                button.red_alert.visible = False
             button.visible = True
-            button.validation_icon.visible = True
-            button.bookmark_button.visible = False
-            button.author_button.visible = False
         else:
             button.visible = False
             button.validation_icon.visible = False
@@ -3113,6 +3149,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
     def on_invoke(self, context, event):
         """Invoke the asset bar operator."""
+        # Microsoft Store builds of Blender are sandboxed and break a number of
+        # BlenderKit features (client launch, background Blender, writing into
+        # blenderkit_data). Show an in-viewport warning instead of the asset
+        # bar on first launch; the warning's "Proceed anyway" button persists
+        # the acceptance flag and re-invokes the asset bar.
+        from .. import warning_dialog
+
+        if warning_dialog.should_block_for_ms_store():
+            warning_dialog.show_ms_store_warning()
+            return False
+
         self.instances.append(self)
         if not context.area:
             return False
@@ -4089,15 +4136,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         sr = search.get_search_results()
         if not sr:
             return
+        promoted = False
         for asset_button in self.asset_buttons:
             if 0 <= asset_button.asset_index < len(sr):
                 asset_data = sr[asset_button.asset_index]
                 if asset_data.get("placeholder"):
                     continue
                 if asset_data.get("assetBaseId") == asset_id:
-                    set_thumb_check(
+                    was_loaded = getattr(asset_button, "_thumb_loaded", False)
+                    thumb_loaded = set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
+                    asset_button._thumb_loaded = thumb_loaded
+                    # Slot just transitioned from "loading placeholder" to a
+                    # real thumbnail - run the full button update so the
+                    # overlay badges (validation/bookmark/progress/red_alert)
+                    # that were suppressed in update_buttons() are now drawn
+                    # against the correct thumbnail.
+                    if thumb_loaded and not was_loaded:
+                        promoted = True
+        if promoted:
+            self.update_buttons()
 
     def update_buttons(self):
         """Update asset buttons in the asset bar based on current search results and scroll offset."""
@@ -4125,7 +4184,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.bookmark_button.asset_index = asset_button.asset_index
                 asset_button.author_button.asset_index = asset_button.asset_index
 
-                set_thumb_check(asset_button, asset_data, thumb_type="thumbnail_small")
+                thumb_loaded = set_thumb_check(
+                    asset_button, asset_data, thumb_type="thumbnail_small"
+                )
+                # Track loaded state on the button so update_image() (called
+                # when a thumbnail finishes downloading) can promote the slot
+                # from "loading - no badges" to fully populated without
+                # waiting for the next scroll/update_buttons pass.
+                asset_button._thumb_loaded = thumb_loaded
 
                 # Placeholder entries only need thumbnail rendering.
                 if asset_data.get("placeholder"):
@@ -4189,6 +4255,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     else:
                         asset_button.red_alert.visible = False
                 else:
+                    asset_button.red_alert.visible = False
+
+                # When the thumbnail for this slot hasn't been downloaded
+                # yet, the slot is showing the "Loading..." placeholder.
+                # Suppress all overlay badges (validation icon, bookmark,
+                # progress bar, red alert) so we don't draw stale or
+                # next-asset badges over a not-yet-loaded thumbnail while
+                # scrolling. The badges are restored by update_image() as
+                # soon as the real thumbnail arrives.
+                if not thumb_loaded:
+                    asset_button.validation_icon.visible = False
+                    asset_button.bookmark_button.visible = False
+                    asset_button.progress_bar.visible = False
                     asset_button.red_alert.visible = False
 
                 visible_results.append(asset_data)
@@ -4586,6 +4665,42 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self._scroll_animating = False
             self._scroll_travel_dir = 0
 
+        # On Blender versions without GPU scissor we can't clip partial rows,
+        # so smooth-scroll rows would visibly spill outside the bar. Fall
+        # back to immediate integer-row stepping for wheel events and just
+        # ignore trackpad pan (which has no natural discrete equivalent).
+        if not SMOOTH_SCROLL_SUPPORTED:
+            if event.type == "TRACKPADPAN":
+                # Accumulate trackpad delta into whole-slot steps without
+                # animating phase. We still respect the user's sensitivity.
+                dx = event.mouse_x - event.mouse_prev_x
+                dy = event.mouse_y - event.mouse_prev_y
+                axis_delta = float(dy) if abs(dy) >= abs(dx) else float(-dx)
+                sensitivity = self._get_trackpad_sensitivity()
+                self._legacy_trackpad_accum = (
+                    getattr(self, "_legacy_trackpad_accum", 0.0) + axis_delta
+                )
+                steps_committed = 0
+                while self._legacy_trackpad_accum >= sensitivity:
+                    self._legacy_trackpad_accum -= sensitivity
+                    steps_committed += 1
+                while self._legacy_trackpad_accum <= -sensitivity:
+                    self._legacy_trackpad_accum += sensitivity
+                    steps_committed -= 1
+                if steps_committed:
+                    self.scroll_offset += steps_committed * slot_per_step
+                    self.scroll_update()
+                    if context.region is not None:
+                        context.region.tag_redraw()
+                return True
+
+            steps = 1 if event.type in _WHEEL_FORWARD else -1
+            self.scroll_offset += steps * slot_per_step
+            self.scroll_update()
+            if context.region is not None:
+                context.region.tag_redraw()
+            return True
+
         if event.type == "TRACKPADPAN":
             dx = event.mouse_x - event.mouse_prev_x
             dy = event.mouse_y - event.mouse_prev_y
@@ -4869,21 +4984,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Update UI properties
         for prop_name, value in ui_state["ui_props"].items():
             if hasattr(ui_props, prop_name):
-                # strings need to be quoted
-                if isinstance(value, str):
-                    exec(f"ui_props.{prop_name} = '{value}'")
-                else:
-                    exec(f"ui_props.{prop_name} = {value}")
+                setattr(ui_props, prop_name, value)
 
         # Update search type specific properties
         search_props = utils.get_search_props()
         for prop_name, value in ui_state["search_props"].items():
             if hasattr(search_props, prop_name):
-                # strings need to be quoted
-                if isinstance(value, str):
-                    exec(f"search_props.{prop_name} = '{value}'")
-                else:
-                    exec(f"search_props.{prop_name} = {value}")
+                setattr(search_props, prop_name, value)
 
         # Restore active filter chips for this tab
         active_tab = global_vars.TABS["tabs"][tab_index]

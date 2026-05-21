@@ -20,7 +20,7 @@
 bl_info = {
     "name": "BlenderKit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik, Michal Hons",
-    "version": (3, 19, 2, 260411),  # X.Y.Z.yymmdd
+    "version": (3, 20, 0, 260517),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Boost your workflow with drag&drop assets from the community driven library.",
@@ -28,7 +28,7 @@ bl_info = {
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
     "category": "3D View",
 }
-VERSION = (3, 19, 2, 260411)
+VERSION = (3, 20, 0, 260517)
 
 import logging
 import random
@@ -80,6 +80,7 @@ if "bpy" in locals():
     client_lib = reload(client_lib)
     client_tasks = reload(client_tasks)
     disclaimer_op = reload(disclaimer_op)
+    warning_dialog = reload(warning_dialog)
     download = reload(download)
     icons = reload(icons)
     image_utils = reload(image_utils)
@@ -145,6 +146,7 @@ else:
     from . import client_tasks
     from . import client_thread
     from . import disclaimer_op
+    from . import warning_dialog
     from . import download
     from . import icons
     from . import image_utils
@@ -708,7 +710,7 @@ class BlenderKitUIProps(PropertyGroup):
     # Add search_keywords property
     search_keywords: StringProperty(
         name="Search",
-        description="Search for these keywords",
+        description="Search BlenderKit for these keywords",
         default="",
         update=search.search_update,
     )
@@ -2298,10 +2300,13 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=update_unpack,
     )
 
-    write_asset_metadata: BoolProperty(
-        name="Write Asset Metadata",
-        description="Write BlenderKit metadata into downloaded files so tags, description, and preview show in other scenes",
-        default=True,
+    create_asset_library: BoolProperty(
+        name="Register Local BlenderKit Asset Library",
+        description="Automatically add (and keep in sync) a 'BlenderKit' entry in Blender's Asset Libraries pointing to the global directory.\n\n"
+        "This allows you to easily access your downloaded assets in the Asset Browser, and also ensures that metadata like tags and descriptions are available for your assets across all your projects. "
+        "When disabled, BlenderKit will not modify your Asset Libraries list, and downloaded assets won't be unpacked in the background just to embed asset metadata "
+        "(unless 'Unpack Files' is enabled). Disable this if you don't want BlenderKit to manage your Asset Browser entries",
+        default=False,
         update=utils.save_prefs,
     )
 
@@ -2531,6 +2536,18 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    accepted_ms_store_warning: BoolProperty(
+        name="Accepted Microsoft Store Blender warning",
+        description=(
+            "Set after the user has acknowledged the in-viewport warning shown"
+            " when running BlenderKit on a Microsoft Store install of Blender."
+            " Uncheck to see the warning again on the next asset bar launch"
+            " (useful for debugging)."
+        ),
+        default=False,
+        update=utils.save_prefs,
+    )
+
     author_tab: BoolProperty(
         name="Show Authors tab",
         description="Show Authors tab in the assetbar. This tab allows you to see all assets of a specific author and is also used for showing your profile and assets",
@@ -2701,13 +2718,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         # FILE PATHS
         locations_settings = layout.box()
         locations_settings.alignment = "EXPAND"
-        locations_settings.label(text="File paths")
+        locations_settings.label(text="File Paths and Data Handling")
         locations_settings.prop(self, "directory_behaviour")
         locations_settings.prop(self, "global_dir")
         if self.directory_behaviour in ("BOTH", "LOCAL"):
             locations_settings.prop(self, "project_subdir")
         locations_settings.prop(self, "unpack_files")
-        locations_settings.prop(self, "write_asset_metadata")
+        locations_settings.prop(self, "create_asset_library")
 
         # GUI SETTINGS
         gui_settings = layout.box()
@@ -2790,6 +2807,7 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "author_asset_type_picker")
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
             experimental_settings.prop(self, "thread_communication")
+            experimental_settings.prop(self, "accepted_ms_store_warning")
             # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
@@ -2910,6 +2928,7 @@ def register():
     asset_bar_op.register()
     asset_drag_op.register()
     disclaimer_op.register()
+    warning_dialog.register()
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
@@ -2959,6 +2978,7 @@ def unregister():
     asset_bar_op.unregister()
     asset_drag_op.unregister()
     disclaimer_op.unregister()
+    warning_dialog.unregister()
 
     if bpy.app.background is False:
         try:

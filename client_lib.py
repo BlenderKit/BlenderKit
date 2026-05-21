@@ -19,11 +19,13 @@
 from __future__ import annotations
 
 import dataclasses
+import getpass
 import logging
 import os
 import platform
 import shutil
 import subprocess
+import tempfile
 import threading
 from os import path
 from typing import Optional, Union
@@ -41,6 +43,16 @@ NO_PROXIES = {"http": "", "https": ""}
 TIMEOUT = (0.1, 1)
 # Shorter timeout for the frequent report polling that runs on Blender's main thread.
 POLL_TIMEOUT = (0.05, 0.25)
+
+# When the user's global_dir (default ~/blenderkit_data) is not writable - which
+# happens for sandboxed Blender installs (Microsoft Store, some Linux packages,
+# locked-down corporate environments) - we cannot copy the BlenderKit-Client
+# binary into global_dir/client/bin/vX.Y.Z. In that case we fall back to
+# running the binary in-place directly from the add-on directory.
+# This module-level flag is set once per Blender session and is sticky so all
+# subsequent calls (binary path, log path) consistently use the fallback.
+_use_inplace_client: bool = False
+_inplace_notice_shown: bool = False
 
 
 def get_address() -> str:
@@ -689,10 +701,11 @@ def check_blenderkit_client_return_code() -> tuple[int, str]:
 def start_blenderkit_client():
     """Start BlenderKit-client in separate process.
     1. Check if binary is available at global_dir/client/vX.Y.Z/blenderkit-client-<os>-<arch>(.exe)
-    2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z/
+    2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z/, or fall back
+       to running the binary in-place from the add-on directory if the global_dir is not writable.
     3. Start the BlenderKit-Client process which serves as bridge between BlenderKit add-on and BlenderKit server.
-    Raises PermissionError if ensure_client_binary_installed fails due to write permissions.
     """
+    global _use_inplace_client
     ensure_client_binary_installed()
     log_path = get_client_log_path()
     client_binary_path, client_version = get_client_binary_path()
@@ -701,8 +714,24 @@ def start_blenderkit_client():
     if platform.system() == "Windows":
         creation_flags = subprocess.CREATE_NO_WINDOW
 
+    # Open the log file. If even that fails (global_dir/client exists but is
+    # not writable - e.g. UWP virtualized location), switch to in-place mode
+    # which redirects the log to the system temp dir.
     try:
-        with open(log_path, "wb") as log:
+        log_file = open(log_path, "wb")
+    except (PermissionError, OSError) as e:
+        bk_logger.warning(
+            "Cannot open Client log at %s: %s. Switching to in-place mode.",
+            log_path,
+            e,
+        )
+        _use_inplace_client = True
+        log_path = get_client_log_path()
+        client_binary_path, client_version = get_client_binary_path()
+        log_file = open(log_path, "wb")
+
+    try:
+        with log_file as log:
             global_vars.client_process = subprocess.Popen(
                 args=[
                     client_binary_path,
@@ -772,17 +801,46 @@ def get_client_directory() -> str:
     return directory
 
 
+def is_using_inplace_client() -> bool:
+    """True if BlenderKit-Client is being run in-place from the add-on directory
+    because we couldn't install it into global_dir/client/bin/vX.Y.Z.
+    """
+    return _use_inplace_client
+
+
+def _get_fallback_client_log_dir() -> str:
+    """Return a writable directory for the Client log when global_dir is not writable.
+    Mirrors the temp-dir scheme used by paths.get_temp_dir() so the location is predictable.
+    """
+    try:
+        username = getpass.getuser()
+    except ModuleNotFoundError:  # pragma: no cover - Windows-only fallback path
+        username = "bkuser"
+    safe_username = "".join(c for c in username if c.isalnum())
+    log_dir = path.join(tempfile.gettempdir(), f"bktemp_{safe_username}", "client")
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except OSError:
+        # Last resort: just use the temp root, which is virtually always writable.
+        log_dir = tempfile.gettempdir()
+    return log_dir
+
+
 def get_client_log_path() -> str:
-    """Get path to BlenderKit-Client log file in global_dir/client.
+    """Get path to BlenderKit-Client log file.
+    Normally located in global_dir/client. If we are running the client in-place
+    (because global_dir is not writable), the log file is placed under the system
+    temp directory instead.
     If the port is the default port 62485, the log file is named default.log,
     otherwise it is named client-<port>.log.
     """
     port = get_port()
-    if port == "62485":
-        log_path = os.path.join(get_client_directory(), f"default.log")
+    log_name = "default.log" if port == "62485" else f"client-{port}.log"
+    if _use_inplace_client:
+        log_dir = _get_fallback_client_log_dir()
     else:
-        log_path = os.path.join(get_client_directory(), f"client-{get_port()}.log")
-    return path.abspath(log_path)
+        log_dir = get_client_directory()
+    return path.abspath(path.join(log_dir, log_name))
 
 
 def get_preinstalled_client_path() -> str:
@@ -798,24 +856,38 @@ def get_preinstalled_client_path() -> str:
 
 
 def get_client_binary_path():
-    """Get the path to the BlenderKit-Client binary located in global_dir/client/bin/vX.Y.Z.
-    This is the binary that is used to start the client process.
-    We do not start from the add-on because it might block update or delete of the add-on.
+    """Get the path to the BlenderKit-Client binary that should be executed.
+    Normally this is the copy in global_dir/client/bin/vX.Y.Z. We do not start
+    from the add-on directory because that might block update or delete of the
+    add-on. However, when global_dir is not writable (e.g. Microsoft Store
+    Blender, sandboxed installs) we fall back to running the binary in-place
+    from the add-on directory.
     Returns: (str, str) - path to the Client binary, version of the Client binary
     """
+    ver_string = global_vars.CLIENT_VERSION
+    if _use_inplace_client:
+        return get_preinstalled_client_path(), ver_string
     client_dir = get_client_directory()
     binary_name = decide_client_binary_name()
-    ver_string = global_vars.CLIENT_VERSION
     binary_path = path.join(client_dir, "bin", ver_string, binary_name)
     return path.abspath(binary_path), ver_string
 
 
 def ensure_client_binary_installed():
-    """Ensure that the BlenderKit-Client binary is installed in global_dir/client/bin/vX.Y.Z.
-    If not, copy the binary from the add-on directory blenderkit/client.
-    As side effect, this function also creates the global_dir/client/bin/vX.Y.Z directory.
-    Raises PermissionError if the target directory is not writable.
+    """Ensure that the BlenderKit-Client binary is available for execution.
+    Preferred location is global_dir/client/bin/vX.Y.Z. If the binary is not
+    there yet, we copy it from the add-on directory blenderkit/client.
+    As a side effect, this function also creates the global_dir/client/bin/vX.Y.Z
+    directory.
+    If the target directory is not writable (e.g. Microsoft Store Blender or
+    other sandboxed installs), we switch the module into in-place mode and
+    return without raising. The Client will then be started directly from the
+    add-on directory.
     """
+    global _use_inplace_client, _inplace_notice_shown
+    if _use_inplace_client:
+        return  # already decided to run from the add-on directory
+
     client_binary_path, _ = get_client_binary_path()
     if path.exists(client_binary_path):
         return
@@ -827,14 +899,26 @@ def ensure_client_binary_installed():
         shutil.copy(preinstalled_client_path, client_binary_path)
         os.chmod(client_binary_path, 0o711)
     except (PermissionError, OSError) as e:
-        bk_logger.error(
-            "Cannot install BlenderKit-Client to %s: %s",
+        bk_logger.warning(
+            "Cannot install BlenderKit-Client to %s: %s. "
+            "Falling back to in-place execution from the add-on directory.",
             path.dirname(client_binary_path),
             e,
         )
-        raise PermissionError(
-            f"Cannot install BlenderKit-Client to {path.dirname(client_binary_path)}: {e}"
-        ) from e
+        _use_inplace_client = True
+        if not _inplace_notice_shown:
+            _inplace_notice_shown = True
+            try:
+                reports.add_report(
+                    "BlenderKit could not copy the Client binary to your global "
+                    "directory (read-only or sandboxed). Running the Client "
+                    "in-place from the add-on folder instead.",
+                    timeout=10,
+                    type="WARNING",
+                )
+            except Exception:  # pragma: no cover - defensive
+                pass
+        return
     bk_logger.info("BlenderKit-Client binary copied to %s", client_binary_path)
 
 

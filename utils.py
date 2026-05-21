@@ -537,7 +537,7 @@ def get_preferences_as_dict():
         "global_dir": user_preferences.global_dir,
         "project_subdir": user_preferences.project_subdir,
         "unpack_files": user_preferences.unpack_files,
-        "write_asset_metadata": user_preferences.write_asset_metadata,
+        "create_asset_library": user_preferences.create_asset_library,
         # GUI
         "show_on_start": user_preferences.show_on_start,
         "thumb_size": user_preferences.thumb_size,
@@ -590,7 +590,7 @@ def get_preferences() -> datas.Prefs:
         global_dir=user_preferences.global_dir,  # type: ignore[union-attr]
         project_subdir=user_preferences.project_subdir,  # type: ignore[union-attr]
         unpack_files=user_preferences.unpack_files,  # type: ignore[union-attr]
-        write_asset_metadata=user_preferences.write_asset_metadata,  # type: ignore[union-attr]
+        create_asset_library=user_preferences.create_asset_library,  # type: ignore[union-attr]
         # GUI
         show_on_start=user_preferences.show_on_start,  # type: ignore[union-attr]
         thumb_size=user_preferences.thumb_size,  # type: ignore[union-attr]
@@ -1072,12 +1072,20 @@ def get_bounds_snappable(obs, use_modifiers=False):
     if obcount == 0:
         minx, miny, minz, maxx, maxy, maxz = 0, 0, 0, 0, 0, 0
 
-    minx *= parent.scale.x
-    maxx *= parent.scale.x
-    miny *= parent.scale.y
-    maxy *= parent.scale.y
-    minz *= parent.scale.z
-    maxz *= parent.scale.z
+    # Use the actual scale baked into matrix_world rather than the
+    # `parent.scale` property. They differ whenever the object has a
+    # Delta Transform, constraints, or any other source of scale that
+    # is not part of the regular `scale` property. Using `parent.scale`
+    # alone caused uploaded bbox/dimensions to be off by the ratio
+    # `matrix_scale / scale` (e.g. delta_scale=0.3 made the stored bbox
+    # ~3.35x larger than the asset's real world size).
+    pscale = parent.matrix_world.to_scale()
+    minx *= pscale.x
+    maxx *= pscale.x
+    miny *= pscale.y
+    maxy *= pscale.y
+    minz *= pscale.z
+    maxz *= pscale.z
 
     return minx, miny, minz, maxx, maxy, maxz
 
@@ -1628,7 +1636,13 @@ def line_with_urls(row, text, urls, icon="NONE", use_urls=False):
 
 
 def label_multiline(
-    layout, text="", icon="NONE", width=-1, max_lines=10, split_last=0, use_urls=False
+    layout,
+    text: str = "",
+    icon: str = "NONE",
+    width: float = -1,
+    max_lines: int = 10,
+    split_last: float = 0,
+    use_urls: bool = False,
 ):
     """
      draw a ui label, but try to split it in multiple lines.

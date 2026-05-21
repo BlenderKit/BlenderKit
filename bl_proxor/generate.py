@@ -48,7 +48,7 @@ HIGHPOLY_VERT_THRESHOLD = 50_000
 # -- Marching cubes --
 MARCHING_CUBES_MAX_GRID_CELLS = 8_000_000
 MARCHING_CUBES_PADDING = 2.0
-CPU_RECON_DEFAULT_VOXEL_SCALE = 0.7
+CPU_RECON_DEFAULT_VOXEL_SCALE = 0.75
 
 # -- Extreme poly detection for aggressive LOD --
 #: If source vertex count exceeds this, use aggressive point sampling LOD
@@ -58,8 +58,20 @@ EXTREME_POLY_DIVISOR = 300
 
 # -- Mesh post-processing defaults --
 _DECIMATION_RATIO_DEFAULT = 0.25  # 1.0 = keep all, 0.5 = halve triangle count
-_REPROJECT_MAX_DIST_FACTOR = 1.2
+_REPROJECT_MAX_DIST_FACTOR = 1.3
 _SMOOTH_ITERATIONS_DEFAULT = 10
+
+# -- Marching-cubes outward bias --
+#: Offset each surface sample outward along its normal (in voxel units)
+#: before splatting into the density field. Without this bias the density
+#: blob is symmetric around the surface and the 0.75-of-peak iso-contour
+#: ends up *inside* the source skin, so smoothing/snapping has nothing to
+#: latch onto outside. A small outward shift puts the iso-shell just
+#: outside the source; smoothing + sticky relaxation then pulls it back
+#: onto the surface from the outside. Keep this small (<= 0.5) because
+#: the rhombic splat itself already extends roughly one voxel outward,
+#: and a large bias causes the shell to balloon away from sparse sources.
+_MC_OUTWARD_BIAS_VOXELS = 0.25
 
 # -- Exterior-only sampling (drop interior-cavity samples) --
 #: When True, samples whose outward-normal ray hits the mesh are discarded,
@@ -70,6 +82,12 @@ _EXTERIOR_ONLY_DEFAULT = True
 #: bounding-box diagonal. Large enough to escape the source face but small
 #: enough not to skip adjacent interior surfaces.
 _EXTERIOR_RAY_EPSILON_FACTOR = 1e-4
+#: Number of rays cast from outside-the-bbox toward each sample in its
+#: outward hemisphere. The sample is kept if *any* ray reaches its face
+#: unobstructed (visible from outside); dropped if every ray is blocked
+#: by other geometry (occluded interior part). 4 is a good cost/accuracy
+#: tradeoff: 1 ray along the normal + 3 spread around it.
+_EXTERIOR_VISIBILITY_RAY_COUNT = 4
 
 # -- Coordinate transforms --
 _PRX_TO_BLENDER = Matrix(
@@ -131,6 +149,31 @@ _RHOMBIC_SPLAT_WEIGHTS = np.asarray(
     ],
     dtype=np.float32,
 )
+
+
+def _make_hemisphere_directions(count: int) -> np.ndarray:
+    """Spread *count* unit vectors over the +Z hemisphere.
+
+    First direction is the pole (0,0,1); remaining directions follow a
+    Fibonacci-spiral sampling that stays clear of the equator. Used as a
+    fixed local-frame fan for the exterior-visibility test.
+    """
+    if count <= 1:
+        return np.asarray([[0.0, 0.0, 1.0]], dtype=np.float64)
+    dirs: list[tuple[float, float, float]] = [(0.0, 0.0, 1.0)]
+    golden = np.pi * (3.0 - 5.0**0.5)
+    for k in range(1, count):
+        # z runs from ~0.95 down to ~0.25 -> all rays comfortably in the
+        # upper hemisphere, avoiding grazing equator rays.
+        z = 0.95 - (k - 1) / max(count - 1, 1) * 0.70
+        r = (max(1.0 - z * z, 0.0)) ** 0.5
+        phi = golden * k
+        dirs.append((r * float(np.cos(phi)), r * float(np.sin(phi)), z))
+    return np.asarray(dirs, dtype=np.float64)
+
+
+#: Pre-computed local-frame hemisphere directions (+Z = outward normal).
+_EXTERIOR_VISIBILITY_DIRS = _make_hemisphere_directions(_EXTERIOR_VISIBILITY_RAY_COUNT)
 
 # ===========================================================================
 # Low-level math helpers
@@ -221,25 +264,19 @@ def collect_sources(
     """Collect mesh sources from *obj* and optionally its children.
 
     Returns:
-        List of ``(blender_object, transform_matrix_or_None)`` tuples.
+        List of ``(blender_object, world_matrix)`` tuples. The transform
+        is each source's full ``matrix_world``, so sampled points land
+        directly in absolute world space.
     """
     sources: list[tuple] = []
     if obj is None:
         return sources
     if getattr(obj, "type", "") == "MESH":
-        sources.append((obj, None))
+        sources.append((obj, _safe_world_matrix(obj)))
     if not include_children:
         return sources
-    try:
-        parent_inv = obj.matrix_world.copy().inverted()
-    except Exception:  # noqa: BLE001
-        parent_inv = Matrix.Identity(4)
     for child in _iter_mesh_descendants(obj):
-        try:
-            matrix = parent_inv @ child.matrix_world
-        except Exception:  # noqa: BLE001
-            matrix = None
-        sources.append((child, matrix))
+        sources.append((child, _safe_world_matrix(child)))
     return sources
 
 
@@ -804,6 +841,144 @@ def _apply_transform_to_payload(
         _apply_transform_to_vectors(section.get("pos"), matrix)
 
 
+def _safe_world_matrix(obj) -> Optional[Matrix]:
+    """Return ``obj.matrix_world.copy()`` or ``None`` if the access fails.
+
+    Used to bake the source's full world transform into the generated
+    proxor so the payload reproduces the source as it currently appears
+    in its scene (matching position, rotation and scale).
+    """
+    if obj is None:
+        return None
+    try:
+        return obj.matrix_world.copy()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# -- Combine many sources into a single world-space mesh ----------------------
+#
+# Multi-mesh assets (e.g. a pile of pebbles, or a model split into hundreds of
+# parts) hit per-source Python overhead in stats collection, BVH build and
+# area-weighted sampling. Joining everything into a single Blender mesh once,
+# in world space, lets the rest of the pipeline run as if there is only one
+# (large) source — at which point the vectorized fast-grid sampler kicks in
+# and the BVH/stats passes touch each vertex exactly once.
+#
+# Materials, UVs and colour attributes are intentionally dropped; the proxor
+# preview shading does not use per-source colour data.
+
+#: Combine sources when there are at least this many meshes. Below this
+#: threshold the per-source path is already cheap enough that adding the
+#: bmesh round-trip would be net-negative.
+_COMBINE_SOURCE_THRESHOLD = 2
+
+
+def _build_combined_world_mesh(sources: list[tuple], depsgraph):
+    """Combine ``sources`` into a single world-space mesh.
+
+    Each source's evaluated mesh is read once, its vertex coordinates
+    are transformed to world space via numpy, and the result is fed
+    into a shared :class:`bmesh.types.BMesh`. The combined geometry is
+    written to a fresh ``bpy.data.meshes`` entry wrapped in an unlinked
+    ``bpy.data.objects`` entry with identity ``matrix_world``.
+
+    Returns:
+        ``(combined_obj, cleanup_fn)`` on success, or ``(None, noop)``
+        if no geometry was found. The caller MUST invoke ``cleanup_fn``
+        once it is done with ``combined_obj`` to remove the temporary
+        datablocks from the .blend.
+    """
+
+    def _noop() -> None:
+        return None
+
+    try:
+        import bmesh  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return None, _noop
+
+    bm = bmesh.new()
+    any_geometry = False
+    for src_obj, transform in sources:
+        if src_obj is None:
+            continue
+        obj_eval = None
+        src_mesh = None
+        try:
+            obj_eval = src_obj.evaluated_get(depsgraph)
+            src_mesh = obj_eval.to_mesh(
+                preserve_all_data_layers=False, depsgraph=depsgraph
+            )
+        except Exception:  # noqa: BLE001
+            src_mesh = None
+        if src_mesh is None:
+            if obj_eval is not None:
+                with contextlib.suppress(Exception):
+                    obj_eval.to_mesh_clear()
+            continue
+        try:
+            n_verts = len(src_mesh.vertices)
+            if n_verts > 0 and transform is not None:
+                # Vectorized world-space transform of the temp mesh's verts
+                # before merging into the shared bmesh.
+                co = np.empty(n_verts * 3, dtype=np.float32)
+                src_mesh.vertices.foreach_get("co", co)
+                co3 = co.reshape(n_verts, 3)
+                mat = np.array(transform, dtype=np.float32)
+                co_world = co3 @ mat[:3, :3].T + mat[:3, 3]
+                src_mesh.vertices.foreach_set(
+                    "co", co_world.reshape(-1).astype(np.float32)
+                )
+            if n_verts > 0:
+                bm.from_mesh(src_mesh)
+                any_geometry = True
+        finally:
+            if obj_eval is not None:
+                with contextlib.suppress(Exception):
+                    obj_eval.to_mesh_clear()
+
+    if not any_geometry:
+        bm.free()
+        return None, _noop
+
+    combined_mesh = bpy.data.meshes.new("_proxor_combined_mesh")
+    bm.to_mesh(combined_mesh)
+    bm.free()
+
+    combined_obj = bpy.data.objects.new("_proxor_combined_obj", combined_mesh)
+    combined_obj.matrix_world = Matrix.Identity(4)
+
+    def _cleanup() -> None:
+        with contextlib.suppress(Exception):
+            bpy.data.objects.remove(combined_obj, do_unlink=True)
+        with contextlib.suppress(Exception):
+            bpy.data.meshes.remove(combined_mesh, do_unlink=True)
+
+    return combined_obj, _cleanup
+
+
+def _combine_sources_if_beneficial(sources: list[tuple], depsgraph):
+    """Return ``(maybe_combined_sources, cleanup_fn)``.
+
+    If ``sources`` contains enough meshes for joining to be worthwhile,
+    they are merged into a single world-space mesh and the returned
+    list is ``[(combined_obj, None)]``; otherwise ``sources`` is
+    returned unchanged. ``cleanup_fn`` is a no-op when nothing was
+    combined.
+    """
+
+    def _noop() -> None:
+        return None
+
+    if len(sources) < _COMBINE_SOURCE_THRESHOLD:
+        return sources, _noop
+    combined_obj, cleanup = _build_combined_world_mesh(sources, depsgraph)
+    if combined_obj is None:
+        return sources, _noop
+    return [(combined_obj, None)], cleanup
+
+
 def _convert_normals_to_prx(normals: Optional[list[list[float]]]) -> None:
     """Swap Y/Z in normals to convert from Blender to PRX coordinate space."""
     if not normals:
@@ -1209,8 +1384,8 @@ def _build_marching_tetrahedra_mesh(
 def _build_source_bvh(sources, depsgraph):
     """Build a combined BVHTree from all source mesh objects.
 
-    Vertices are placed in the coordinate space of the first source
-    (root object local space) to match the marching-cubes output.
+    Vertices are placed in absolute world space (each source's transform
+    is its full ``matrix_world``), matching the sampled point cloud.
     """
     from mathutils.bvhtree import BVHTree
 
@@ -1262,13 +1437,20 @@ def _filter_exterior_points(
     colors: list[list[float]],
     bvh_tree,
 ) -> tuple[list[list[float]], list[list[float]], list[list[float]]]:
-    """Drop samples whose outward-normal ray intersects the mesh.
+    """Drop samples that are not visible from outside the bounding box.
 
-    For each ``(p, n)`` pair a single ray is cast from ``p + n*eps`` along
-    ``+n`` through *bvh_tree*. A hit means the sample is on an interior /
-    back-facing surface (roof of mouth, nostril walls, eye sockets, ...)
-    and is dropped so marching-cubes reconstruction isn't contaminated
-    with cavity samples.
+    For each ``(p, n)`` pair the function fans a small set of rays in the
+    sample's outward hemisphere; every ray starts *outside* the bbox and
+    travels *inward* toward ``p``. A sample is kept if **any** ray reaches
+    its own face unobstructed (visible from at least one outside angle).
+    A sample is dropped only when **every** ray is blocked by some other
+    surface before reaching ``p`` (truly occluded: cavity wall, internal
+    gear, hidden beam, ...).
+
+    This is more robust than testing what an outward ray hits, because in
+    an assembly of disjoint parts an outward ray will hit unrelated
+    exterior surfaces across gaps (e.g. one bone hitting another bone in
+    a skeleton) and falsely classify exterior samples as interior.
 
     If *normals* are missing or degenerate the point is kept (conservative).
     """
@@ -1279,8 +1461,14 @@ def _filter_exterior_points(
     bbox_diag = float(np.linalg.norm(pts_np.max(axis=0) - pts_np.min(axis=0)))
     if not np.isfinite(bbox_diag) or bbox_diag <= 0.0:
         return points, normals, colors
-    epsilon = max(bbox_diag * _EXTERIOR_RAY_EPSILON_FACTOR, 1e-7)
-    ray_length = bbox_diag * 2.0
+    # Ray starts comfortably outside the bbox along its hemisphere direction.
+    ray_length = bbox_diag * 1.5
+    # Tolerance for "ray reached the sample's face" — must be larger than
+    # the per-sample epsilon offset but tiny relative to the bbox so we
+    # don't accept other surfaces close to ``p``.
+    hit_tolerance = max(bbox_diag * 1e-3, 1e-5)
+
+    hemi_dirs = _EXTERIOR_VISIBILITY_DIRS  # shape (K, 3) in local frame
 
     has_colors = bool(colors) and len(colors) == len(points)
     kept_points: list[list[float]] = []
@@ -1302,22 +1490,71 @@ def _filter_exterior_points(
         nx *= inv
         ny *= inv
         nz *= inv
-        origin = Vector(
-            (
-                float(p[0]) + nx * epsilon,
-                float(p[1]) + ny * epsilon,
-                float(p[2]) + nz * epsilon,
+
+        # Build an orthonormal basis (t, b, n) so we can map local-frame
+        # hemisphere directions (with z = outward normal) into world space.
+        if abs(nx) < 0.9:
+            tx, ty, tz = 1.0, 0.0, 0.0
+        else:
+            tx, ty, tz = 0.0, 1.0, 0.0
+        dot_tn = tx * nx + ty * ny + tz * nz
+        tx -= dot_tn * nx
+        ty -= dot_tn * ny
+        tz -= dot_tn * nz
+        t_len = (tx * tx + ty * ty + tz * tz) ** 0.5
+        if t_len < 1e-8:
+            kept_points.append(p)
+            kept_normals.append(n)
+            if has_colors:
+                kept_colors.append(colors[idx])
+            continue
+        tx /= t_len
+        ty /= t_len
+        tz /= t_len
+        bx = ny * tz - nz * ty
+        by = nz * tx - nx * tz
+        bz = nx * ty - ny * tx
+
+        px = float(p[0])
+        py = float(p[1])
+        pz = float(p[2])
+
+        visible = False
+        for xl, yl, zl in hemi_dirs:
+            # World-space outward direction for this fan ray.
+            dx = xl * tx + yl * bx + zl * nx
+            dy = xl * ty + yl * by + zl * ny
+            dz = xl * tz + yl * bz + zl * nz
+            # Start outside the bbox along +dir, shoot inward toward p.
+            origin = Vector(
+                (
+                    px + dx * ray_length,
+                    py + dy * ray_length,
+                    pz + dz * ray_length,
+                )
             )
-        )
-        direction = Vector((nx, ny, nz))
-        try:
-            hit = bvh_tree.ray_cast(origin, direction, ray_length)
-        except Exception:  # noqa: BLE001
-            hit = (None,)
-        # BVHTree.ray_cast returns (location, normal, index, distance) with
-        # *location* being ``None`` when the ray misses.
-        if hit is not None and hit[0] is not None:
-            continue  # interior-facing sample, drop
+            direction = Vector((-dx, -dy, -dz))
+            try:
+                hit = bvh_tree.ray_cast(origin, direction, ray_length + hit_tolerance)
+            except Exception:  # noqa: BLE001
+                hit = (None,)
+            if hit is None or hit[0] is None:
+                # No surface in the way; the ray would have reached the
+                # sample's face but BVH didn't register it (degenerate
+                # geometry?). Conservative: treat as visible.
+                visible = True
+                break
+            hit_dist = float(hit[3])
+            if hit_dist >= ray_length - hit_tolerance:
+                # Ray traveled the full distance -> first surface it hit
+                # is at the sample location -> visible from this angle.
+                visible = True
+                break
+            # Otherwise the ray was blocked by another surface before
+            # reaching ``p``; try the next direction.
+
+        if not visible:
+            continue  # all rays blocked -> occluded interior sample, drop
         kept_points.append(p)
         kept_normals.append(n)
         if has_colors:
@@ -1346,18 +1583,24 @@ def _smooth_and_snap_to_surface(
     snap_distance: float,
     iterations: int,
 ) -> np.ndarray:
-    """Iteratively Laplacian-smooth the mesh and lock vertices that reach the source surface.
+    """Iteratively Laplacian-smooth the mesh with strict sticky surface contact.
 
-    Algorithm:
-      1. Build vertex adjacency from triangles.
-      2. For up to *iterations* rounds:
-         a. For every **unlocked** vertex, move it toward the average of
-            its neighbours (Laplacian smoothing, factor 0.5).
-         b. For every **unlocked** vertex, query ``bvh_tree.find_nearest``.
-            If the closest surface point is within *snap_distance*, snap the
-            vertex there and mark it **locked**.
-         c. Stop early if all vertices are locked.
-      3. Return the modified vertex array.
+    Sticky semantics (no penetration):
+      * Before each smoothing step, if a vertex is already inside the source
+        (signed distance < 0 against the nearest-face normal), it is pulled
+        out to the nearest surface point and **locked**.
+      * The Laplacian step is a **swept segment**: the proposed motion is
+        ray-cast against the source BVH. If *any* face is hit within the
+        swept length, the vertex is parked at the hit point (with a tiny
+        back-off) and locked. No face-orientation gate — the first
+        surface intersected wins, so flipped/inconsistent source normals
+        cannot let vertices slip through.
+      * Locked vertices are never touched again by relaxation or by the
+        ``find_nearest`` cleanup pass.
+
+    The trailing ``find_nearest`` pass is kept as a cheap convergence aid:
+    any still-unlocked vertex within ``snap_distance`` of the source is
+    snapped and locked.
     """
     num_verts = len(vertices_np)
     if num_verts == 0 or iterations <= 0:
@@ -1367,63 +1610,100 @@ def _smooth_and_snap_to_surface(
     result = vertices_np.astype(np.float64).copy()
     locked = np.zeros(num_verts, dtype=bool)
 
-    # Per-vertex outward normal on the MC mesh. Used to reject snaps to
-    # back-facing source faces: if the nearest source-surface normal points
-    # the opposite way from the MC vertex's outward normal, the "nearest"
-    # surface is on the *other* shell of the source (e.g. inside wall of a
-    # cavity) and we must not pull the MC vertex through the skin to it.
-    mc_vertex_normals = np.asarray(
-        _compute_vertex_normals_from_triangles(result.astype(np.float32), triangles),
-        dtype=np.float64,
-    )
-
     smooth_factor = 0.5
+    # Back off from each hit by this fraction of the step length so the
+    # vertex sits just outside the surface and the next iteration's
+    # ray-cast doesn't immediately self-intersect at the origin.
+    _HIT_BACKOFF_FRACTION = 1e-3
+    _HIT_BACKOFF_MAX = 1e-6
+
+    # Distance used to probe "is this vertex already inside the source?"
+    # Generous so an interior vertex always finds the bounding shell.
+    _INSIDE_PROBE_DIST = max(snap_distance * 100.0, 1.0)
+
+    def _is_inside(p, nearest, hit_normal) -> bool:
+        """Return True if ``p`` lies on the inward side of the nearest face."""
+        if hit_normal is None:
+            return False
+        return (
+            (p[0] - nearest.x) * hit_normal.x
+            + (p[1] - nearest.y) * hit_normal.y
+            + (p[2] - nearest.z) * hit_normal.z
+        ) < 0.0
 
     for _iteration in range(iterations):
-        # -- Laplacian smooth unlocked vertices --
-        new_pos = result.copy()
+        any_unlocked = False
+
         for idx in range(num_verts):
             if locked[idx]:
                 continue
+
+            # -- (1) If already inside the source, snap out and lock. --
+            origin = Vector(result[idx].tolist())
+            nearest, hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
+                origin, _INSIDE_PROBE_DIST
+            )
+            if nearest is not None and _is_inside(result[idx], nearest, hit_normal):
+                result[idx] = [nearest.x, nearest.y, nearest.z]
+                locked[idx] = True
+                continue
+
+            # -- (2) Compute Laplacian delta. --
             neighbours = adj[idx]
             if not neighbours:
                 continue
             avg = np.mean(result[neighbours], axis=0)
-            new_pos[idx] = result[idx] + smooth_factor * (avg - result[idx])
-        result = new_pos
+            delta = smooth_factor * (avg - result[idx])
+            delta_len = float(np.linalg.norm(delta))
 
-        # -- Snap unlocked vertices that are close to the surface --
-        any_unlocked = False
+            if delta_len <= 1e-10:
+                any_unlocked = True
+                continue
+
+            # -- (3) Strict swept-penetration test along the proposed step. --
+            inv = 1.0 / delta_len
+            direction = Vector(
+                (
+                    float(delta[0]) * inv,
+                    float(delta[1]) * inv,
+                    float(delta[2]) * inv,
+                )
+            )
+            try:
+                hit_loc, _hit_normal, _face_idx, _hit_dist = bvh_tree.ray_cast(
+                    origin, direction, delta_len
+                )
+            except Exception:  # noqa: BLE001
+                hit_loc = None
+
+            if hit_loc is not None:
+                # Stop AT the surface, irrespective of face orientation.
+                # Back off a hair so we sit just outside.
+                backoff = min(delta_len * _HIT_BACKOFF_FRACTION, _HIT_BACKOFF_MAX)
+                result[idx, 0] = float(hit_loc.x) - direction.x * backoff
+                result[idx, 1] = float(hit_loc.y) - direction.y * backoff
+                result[idx, 2] = float(hit_loc.z) - direction.z * backoff
+                locked[idx] = True
+                continue
+
+            # -- (4) Clear path: apply the full step. --
+            result[idx, 0] += float(delta[0])
+            result[idx, 1] += float(delta[1])
+            result[idx, 2] += float(delta[2])
+            any_unlocked = True
+
+        # -- (5) Cleanup snap for unlocked verts that ended within snap_distance. --
         for idx in range(num_verts):
             if locked[idx]:
                 continue
             origin = Vector(result[idx].tolist())
-            nearest, hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
+            nearest, _hit_normal, _face_idx, _dist = bvh_tree.find_nearest(
                 origin, snap_distance
             )
-            if nearest is not None:
-                # Reject snaps to back-facing source faces. If the source
-                # surface normal points opposite to the MC vertex's own
-                # outward normal, this is the far side of a thin shell /
-                # interior cavity wall. Leaving the vertex unlocked lets
-                # smoothing relax it outward and (hopefully) find the
-                # correct outer face on the next iteration.
-                mc_n = mc_vertex_normals[idx]
-                if (
-                    hit_normal is not None
-                    and float(
-                        mc_n[0] * hit_normal.x
-                        + mc_n[1] * hit_normal.y
-                        + mc_n[2] * hit_normal.z
-                    )
-                    < 0.0
-                ):
-                    any_unlocked = True
-                    continue
-                result[idx] = [nearest.x, nearest.y, nearest.z]
-                locked[idx] = True
-            else:
-                any_unlocked = True
+            if nearest is None:
+                continue
+            result[idx] = [nearest.x, nearest.y, nearest.z]
+            locked[idx] = True
 
         if not any_unlocked:
             break
@@ -1687,11 +1967,17 @@ def _build_cpu_marching_cubes_mesh(
     smooth_iterations: int = _SMOOTH_ITERATIONS_DEFAULT,
     decimation_ratio: float = _DECIMATION_RATIO_DEFAULT,
     point_colors: Optional[list[list[float]]] = None,
+    point_normals: Optional[list[list[float]]] = None,
 ) -> dict[str, list[list[float]]]:
     """Build a mesh from a point cloud via marching cubes reconstruction.
 
     Pipeline: density field -> iso-surface -> fix normals -> weld ->
     smooth+snap -> decimate -> flat output.
+
+    When ``point_normals`` are supplied, the splat positions are shifted
+    outward along the surface normal by ``_MC_OUTWARD_BIAS_VOXELS`` voxels
+    so the iso-contour wraps *outside* the source skin instead of cutting
+    through it.
 
     Returns ``{"pos": [...], "col": [...], "nrm": [...],
     "wire_pos": [...], "wire_col": [...]}`` in the flat (non-indexed)
@@ -1710,8 +1996,29 @@ def _build_cpu_marching_cubes_mesh(
     voxel_mult = coarse_mult * ((fine_mult / coarse_mult) ** detail)
     voxel_size = max(spacing * voxel_mult, 1e-6)
     pad = spacing * MARCHING_CUBES_PADDING
-    grid_min = pts.min(axis=0) - pad
-    grid_max = pts.max(axis=0) + pad
+
+    # -- Outward normal bias to keep iso-surface outside the source skin --
+    nrm_np: Optional[np.ndarray] = None
+    if point_normals is not None and len(point_normals) == len(points):
+        nrm_np = np.asarray(point_normals, dtype=np.float64)
+        n_len = np.linalg.norm(nrm_np, axis=1, keepdims=True)
+        n_len = np.where(n_len < 1e-12, 1.0, n_len)
+        nrm_np = nrm_np / n_len
+
+    # Establish grid bounds. With outward bias, the splat origins shift, so
+    # the grid must enclose both the raw samples and the shifted samples.
+    if nrm_np is not None:
+        bias_dist = voxel_size * _MC_OUTWARD_BIAS_VOXELS
+        pts_splat = pts + nrm_np * bias_dist
+        extra_pad = bias_dist
+        all_min = np.minimum(pts.min(axis=0), pts_splat.min(axis=0))
+        all_max = np.maximum(pts.max(axis=0), pts_splat.max(axis=0))
+        grid_min = all_min - pad - extra_pad
+        grid_max = all_max + pad + extra_pad
+    else:
+        pts_splat = pts
+        grid_min = pts.min(axis=0) - pad
+        grid_max = pts.max(axis=0) + pad
 
     def _compute_dims(cell_size: float) -> np.ndarray:
         return np.maximum(
@@ -1721,11 +2028,15 @@ def _build_cpu_marching_cubes_mesh(
     dims = _compute_dims(voxel_size)
     while int(np.prod(dims, dtype=np.int64)) > MARCHING_CUBES_MAX_GRID_CELLS:
         voxel_size *= 1.2
+        # voxel_size grew -> bias should track it for consistency
+        if nrm_np is not None:
+            bias_dist = voxel_size * _MC_OUTWARD_BIAS_VOXELS
+            pts_splat = pts + nrm_np * bias_dist
         dims = _compute_dims(voxel_size)
 
     # -- Build density field via rhombic splatting --
     density = np.zeros((int(dims[0]), int(dims[1]), int(dims[2])), dtype=np.float32)
-    grid_idx = np.floor((pts - grid_min) / voxel_size).astype(np.int32)
+    grid_idx = np.floor((pts_splat - grid_min) / voxel_size).astype(np.int32)
     grid_idx = np.clip(grid_idx, [0, 0, 0], dims - 1)
 
     for offset, weight in zip(_RHOMBIC_SPLAT_OFFSETS, _RHOMBIC_SPLAT_WEIGHTS):
@@ -1924,123 +2235,141 @@ def generate_proxor(
     if not sources:
         return None
 
-    # Collect all mesh stats in a single pass (avoid redundant evaluations)
-    mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
-    total_verts = mesh_stats["total_verts"]
-    source_tri_count = mesh_stats["total_tris"]
-    per_source_areas = mesh_stats["per_source_areas"]
+    # Multi-mesh fast path: join all sources into one world-space mesh so
+    # stats / BVH / sampling each touch each vertex exactly once. Cleaned
+    # up unconditionally below.
+    sources, _combined_cleanup = _combine_sources_if_beneficial(sources, depsgraph)
+    try:
+        # Collect all mesh stats in a single pass (avoid redundant evaluations)
+        mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
+        total_verts = mesh_stats["total_verts"]
+        source_tri_count = mesh_stats["total_tris"]
+        per_source_areas = mesh_stats["per_source_areas"]
 
-    # Derive point count with extreme poly LOD
-    if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
-        # Aggressive LOD for meshes with 5M+ vertices
-        point_count = min(
-            max(total_verts // EXTREME_POLY_DIVISOR, MIN_POINT_COUNT),
-            MAX_POINT_COUNT,
-        )
-    else:
-        point_count = min(
-            max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
-        )
-
-    # Allocate samples across sources by relative surface area (use cached areas)
-    allocations = _allocate_samples_by_area(
-        sources, point_count, depsgraph, cached_areas=per_source_areas
-    )
-
-    # Build BVH tree up front so we can (a) drop interior-facing samples
-    # before they poison the MC density field and (b) reuse it later for
-    # surface reprojection.
-    bvh_tree = _build_source_bvh(sources, depsgraph)
-
-    aggregated_points: list[list[float]] = []
-    aggregated_normals: list[list[float]] = []
-    aggregated_colors: list[list[float]] = []
-
-    for (source_obj, transform), requested in zip(sources, allocations):
-        if requested <= 0:
-            continue
-        samples, normals, sampled_colors = _sample_uniform_surface_points(
-            source_obj,
-            requested,
-            depsgraph=depsgraph,
-            include_normals=include_normals,
-            include_colors=True,
-        )
-        if not samples:
-            continue
-        transformed_points, transformed_normals = _transform_point_list(
-            samples, normals, transform
-        )
-        aggregated_points.extend(transformed_points)
-        aggregated_normals.extend(transformed_normals)
-        aggregated_colors.extend(sampled_colors)
-
-    if not aggregated_points:
-        return None
-
-    # Drop interior / back-facing samples so MC doesn't carve holes through
-    # the outer skin where cavity shells are sparsely sampled.
-    if _EXTERIOR_ONLY_DEFAULT and bvh_tree is not None and aggregated_normals:
-        aggregated_points, aggregated_normals, aggregated_colors = (
-            _filter_exterior_points(
-                aggregated_points, aggregated_normals, aggregated_colors, bvh_tree
+        # Derive point count with extreme poly LOD
+        if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
+            # Aggressive LOD for meshes with 5M+ vertices
+            point_count = min(
+                max(total_verts // EXTREME_POLY_DIVISOR, MIN_POINT_COUNT),
+                MAX_POINT_COUNT,
             )
+        else:
+            point_count = min(
+                max(total_verts // POINT_DIVISOR, MIN_POINT_COUNT), MAX_POINT_COUNT
+            )
+
+        # Allocate samples across sources by relative surface area (use cached areas)
+        allocations = _allocate_samples_by_area(
+            sources, point_count, depsgraph, cached_areas=per_source_areas
         )
+
+        # Build BVH tree up front so we can (a) drop interior-facing samples
+        # before they poison the MC density field and (b) reuse it later for
+        # surface reprojection.
+        bvh_tree = _build_source_bvh(sources, depsgraph)
+
+        aggregated_points: list[list[float]] = []
+        aggregated_normals: list[list[float]] = []
+        aggregated_colors: list[list[float]] = []
+
+        for (source_obj, transform), requested in zip(sources, allocations):
+            if requested <= 0:
+                continue
+            samples, normals, sampled_colors = _sample_uniform_surface_points(
+                source_obj,
+                requested,
+                depsgraph=depsgraph,
+                include_normals=include_normals,
+                include_colors=True,
+            )
+            if not samples:
+                continue
+            transformed_points, transformed_normals = _transform_point_list(
+                samples, normals, transform
+            )
+            aggregated_points.extend(transformed_points)
+            aggregated_normals.extend(transformed_normals)
+            aggregated_colors.extend(sampled_colors)
+
         if not aggregated_points:
             return None
 
-    color = _resolve_object_color(obj)
-    point_colors = aggregated_colors if aggregated_colors else None
-    colors = _build_payload_point_colors(len(aggregated_points), point_colors, color)
-    raw_normals = aggregated_normals if include_normals else None
-    point_normals = _build_payload_point_normals(len(aggregated_points), raw_normals)
+        # Drop interior / back-facing samples so MC doesn't carve holes through
+        # the outer skin where cavity shells are sparsely sampled.
+        if _EXTERIOR_ONLY_DEFAULT and bvh_tree is not None and aggregated_normals:
+            aggregated_points, aggregated_normals, aggregated_colors = (
+                _filter_exterior_points(
+                    aggregated_points,
+                    aggregated_normals,
+                    aggregated_colors,
+                    bvh_tree,
+                )
+            )
+            if not aggregated_points:
+                return None
 
-    points_section: dict = {"pos": aggregated_points, "col": colors}
-    if point_normals:
-        points_section["nrm"] = point_normals
-
-    # source_tri_count is already available from mesh_stats (cached collection pass)
-
-    # Marching cubes mesh reconstruction from the sampled point cloud
-    mesh_section = _build_cpu_marching_cubes_mesh(
-        aggregated_points,
-        color,
-        voxel_scale,
-        bvh_tree,
-        reproject_factor,
-        smooth_iterations,
-        decimation_ratio,
-        point_colors=aggregated_colors if aggregated_colors else None,
-    )
-
-    # If generated mesh has more triangles than the source, use source directly
-    generated_tri_count = len(mesh_section.get("pos", [])) // 3
-    if source_tri_count > 0 and generated_tri_count >= source_tri_count:
-        return generate_proxor_direct(
-            obj,
-            include_children=include_children,
-            include_normals=include_normals,
-            context=context,
+        color = _resolve_object_color(obj)
+        point_colors = aggregated_colors if aggregated_colors else None
+        colors = _build_payload_point_colors(
+            len(aggregated_points), point_colors, color
+        )
+        raw_normals = aggregated_normals if include_normals else None
+        point_normals = _build_payload_point_normals(
+            len(aggregated_points), raw_normals
         )
 
-    _convert_normals_to_prx(mesh_section.get("nrm"))
+        points_section: dict = {"pos": aggregated_points, "col": colors}
+        if point_normals:
+            points_section["nrm"] = point_normals
 
-    # Extract wireframe lines from mesh reconstruction
-    wire_pos = mesh_section.pop("wire_pos", [])
-    wire_col = mesh_section.pop("wire_col", [])
-    line_section = {"pos": wire_pos, "col": wire_col}
+        # source_tri_count is already available from mesh_stats (cached collection pass)
 
-    payload = {
-        "objects": [],
-        "data": {
-            "mesh": mesh_section,
-            "line": line_section,
-            "points": points_section,
-            "text": {"pos": [], "col": [], "str": []},
-        },
-    }
-    _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
-    return payload
+        # Marching cubes mesh reconstruction from the sampled point cloud
+        mesh_section = _build_cpu_marching_cubes_mesh(
+            aggregated_points,
+            color,
+            voxel_scale,
+            bvh_tree,
+            reproject_factor,
+            smooth_iterations,
+            decimation_ratio,
+            point_colors=aggregated_colors if aggregated_colors else None,
+            point_normals=aggregated_normals if aggregated_normals else None,
+        )
+
+        # If generated mesh has more triangles than the source, use source directly
+        generated_tri_count = len(mesh_section.get("pos", [])) // 3
+        if source_tri_count > 0 and generated_tri_count >= source_tri_count:
+            return generate_proxor_direct(
+                obj,
+                include_children=include_children,
+                include_normals=include_normals,
+                context=context,
+            )
+
+        _convert_normals_to_prx(mesh_section.get("nrm"))
+
+        # Extract wireframe lines from mesh reconstruction
+        wire_pos = mesh_section.pop("wire_pos", [])
+        wire_col = mesh_section.pop("wire_col", [])
+        line_section = {"pos": wire_pos, "col": wire_col}
+
+        payload = {
+            "objects": [],
+            "data": {
+                "mesh": mesh_section,
+                "line": line_section,
+                "points": points_section,
+                "text": {"pos": [], "col": [], "str": []},
+            },
+        }
+        # Geometry was sampled directly in absolute world space (each source
+        # used its full matrix_world). Only the Blender->PRX axis conversion
+        # remains to be applied.
+        _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
+        return payload
+    finally:
+        _combined_cleanup()
 
 
 def generate_proxor_multi(
@@ -2081,20 +2410,53 @@ def generate_proxor_multi(
     except Exception:  # noqa: BLE001
         depsgraph = bpy.context.evaluated_depsgraph_get()
 
-    # Collect all mesh sources from provided objects (no child recursion)
+    # Collect mesh sources from the provided list (no child recursion).
+    # Each source's transform is its full matrix_world, so samples land
+    # directly in absolute world space.
     sources: list[tuple] = []
     for obj in objects:
         if obj is None:
             continue
-        if getattr(obj, "type", "") == "MESH":
-            sources.append((obj, None))
+        if getattr(obj, "type", "") != "MESH":
+            continue
+        sources.append((obj, _safe_world_matrix(obj)))
 
     if not sources:
         return None
 
+    # Multi-mesh fast path: join into one world-space mesh (see
+    # _build_combined_world_mesh for rationale).
+    sources, _combined_cleanup = _combine_sources_if_beneficial(sources, depsgraph)
+    try:
+        return _generate_proxor_multi_from_sources(
+            objects,
+            sources,
+            depsgraph,
+            include_normals=include_normals,
+            voxel_scale=voxel_scale,
+            reproject_factor=reproject_factor,
+            smooth_iterations=smooth_iterations,
+            decimation_ratio=decimation_ratio,
+        )
+    finally:
+        _combined_cleanup()
+
+
+def _generate_proxor_multi_from_sources(
+    objects: list,
+    sources: list[tuple],
+    depsgraph,
+    *,
+    include_normals: bool,
+    voxel_scale: float,
+    reproject_factor: float,
+    smooth_iterations: int,
+    decimation_ratio: float,
+) -> Optional[dict]:
     # Collect all mesh stats in a single pass (avoid redundant evaluations)
     mesh_stats = _collect_mesh_stats_cached(sources, depsgraph)
     total_verts = mesh_stats["total_verts"]
+    source_tri_count = mesh_stats["total_tris"]
 
     # Derive point count with extreme poly LOD
     if total_verts >= EXTREME_POLY_VERT_THRESHOLD:
@@ -2169,7 +2531,19 @@ def generate_proxor_multi(
         smooth_iterations,
         decimation_ratio,
         point_colors=aggregated_colors if aggregated_colors else None,
+        point_normals=aggregated_normals if aggregated_normals else None,
     )
+
+    # If reconstructed mesh has more triangles than the source, the proxor
+    # is no longer a useful low-poly proxy. Fall back to direct mesh
+    # conversion so the uploaded .prxc is always <= source poly count.
+    generated_tri_count = len(mesh_section.get("pos", [])) // 3
+    if source_tri_count > 0 and generated_tri_count >= source_tri_count:
+        return generate_proxor_direct_multi(
+            objects,
+            include_normals=include_normals,
+        )
+
     _convert_normals_to_prx(mesh_section.get("nrm"))
 
     # Extract wireframe lines from mesh reconstruction
@@ -2326,43 +2700,20 @@ def _collect_direct_line_data(
     return segments
 
 
-def generate_proxor_direct(
-    obj,
+def _generate_proxor_direct_from_sources(
+    sources: list[tuple],
+    color_root_obj,
+    depsgraph,
     *,
-    include_children: bool = True,
     include_normals: bool = True,
     include_colors: bool = True,
-    context=None,
 ) -> Optional[dict]:
-    """Generate a PRX payload by reading mesh geometry directly.
+    """Build a direct-conversion PRX payload from a list of mesh sources.
 
-    Unlike :func:`generate_proxor` this does **not** sample random surface
-    points or run marching-cubes reconstruction.  Instead it reads the
-    actual vertices, faces, normals, and colours from the Blender mesh
-    and packages them into the standard payload dict.
-
-    Args:
-        obj: The Blender mesh object to convert.
-        include_children: Whether to include child meshes.
-        include_normals: Whether to include per-vertex normals.
-        include_colors: Whether to include per-vertex colours.
-        context: Optional Blender context override.
-
-    Returns:
-        A full PRX payload dict ready for ``prx_format.write_prx()``
-        or ``draw.ProxorLiteDrawHandler.set_payload()``, or ``None``
-        if the object has no mesh data.
+    Shared implementation used by :func:`generate_proxor_direct` (single
+    object + children) and :func:`generate_proxor_direct_multi` (an
+    explicit list of objects).
     """
-    if obj is None:
-        return None
-
-    ctx = context or bpy.context
-    try:
-        depsgraph = ctx.evaluated_depsgraph_get()
-    except Exception:  # noqa: BLE001
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-
-    sources = collect_sources(obj, include_children=include_children)
     if not sources:
         return None
 
@@ -2418,14 +2769,14 @@ def generate_proxor_direct(
     if include_colors and all_colors:
         mesh_section["col"] = all_colors
     else:
-        color = _resolve_object_color(obj)
+        color = _resolve_object_color(color_root_obj)
         mesh_section["col"] = [list(color[:VECTOR_LEN])] * len(all_positions)
     if include_normals and all_normals:
         _convert_normals_to_prx(all_normals)
         mesh_section["nrm"] = all_normals
 
     # Build line section (flat pairs of positions, uniform color)
-    color = _resolve_object_color(obj)
+    color = _resolve_object_color(color_root_obj)
     line_col = (
         [list(color[:VECTOR_LEN])] * (len(all_line_positions) // 2)
         if all_line_positions
@@ -2445,13 +2796,103 @@ def generate_proxor_direct(
             "text": {"pos": [], "col": [], "str": []},
         },
     }
+    # Geometry was read in absolute world space (each source used its
+    # full matrix_world via collect_sources). Only the Blender->PRX axis
+    # conversion remains.
     _apply_transform_to_payload(payload, _BLENDER_TO_PRX)
     return payload
+
+
+def generate_proxor_direct(
+    obj,
+    *,
+    include_children: bool = True,
+    include_normals: bool = True,
+    include_colors: bool = True,
+    context=None,
+) -> Optional[dict]:
+    """Generate a PRX payload by reading mesh geometry directly.
+
+    Unlike :func:`generate_proxor` this does **not** sample random surface
+    points or run marching-cubes reconstruction.  Instead it reads the
+    actual vertices, faces, normals, and colours from the Blender mesh
+    and packages them into the standard payload dict.
+
+    Args:
+        obj: The Blender mesh object to convert.
+        include_children: Whether to include child meshes.
+        include_normals: Whether to include per-vertex normals.
+        include_colors: Whether to include per-vertex colours.
+        context: Optional Blender context override.
+
+    Returns:
+        A full PRX payload dict ready for ``prx_format.write_prx()``
+        or ``draw.ProxorLiteDrawHandler.set_payload()``, or ``None``
+        if the object has no mesh data.
+    """
+    if obj is None:
+        return None
+
+    ctx = context or bpy.context
+    try:
+        depsgraph = ctx.evaluated_depsgraph_get()
+    except Exception:  # noqa: BLE001
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    sources = collect_sources(obj, include_children=include_children)
+    return _generate_proxor_direct_from_sources(
+        sources,
+        obj,
+        depsgraph,
+        include_normals=include_normals,
+        include_colors=include_colors,
+    )
+
+
+def generate_proxor_direct_multi(
+    objects: list,
+    *,
+    include_normals: bool = True,
+    include_colors: bool = True,
+    context=None,
+) -> Optional[dict]:
+    """Direct-conversion variant of :func:`generate_proxor_multi`.
+
+    Reads triangle data from every mesh in *objects* (no child recursion,
+    since the caller already supplies the full object list) and merges
+    them into a single PRX payload.
+    """
+    if not objects:
+        return None
+
+    ctx = context or bpy.context
+    try:
+        depsgraph = ctx.evaluated_depsgraph_get()
+    except Exception:  # noqa: BLE001
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    sources: list[tuple] = []
+    color_root = None
+    for obj in objects:
+        if obj is None or getattr(obj, "type", "") != "MESH":
+            continue
+        sources.append((obj, _safe_world_matrix(obj)))
+        if color_root is None:
+            color_root = obj
+
+    return _generate_proxor_direct_from_sources(
+        sources,
+        color_root,
+        depsgraph,
+        include_normals=include_normals,
+        include_colors=include_colors,
+    )
 
 
 __all__ = [
     "collect_sources",
     "generate_proxor",
     "generate_proxor_direct",
+    "generate_proxor_direct_multi",
     "generate_proxor_multi",
 ]
