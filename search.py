@@ -61,7 +61,7 @@ else:
 
 bk_logger = logging.getLogger(__name__)
 
-MAX_PAGE_SIZE = 80
+MAX_PAGE_SIZE = 100
 """Maximum number of assets to fetch per search page."""
 
 search_tasks = {}
@@ -1958,9 +1958,7 @@ def search(get_next=False, query=None, author_id=""):
 
     active_history_step["is_searching"] = True
 
-    page_size = min(
-        MAX_PAGE_SIZE, ui_props.wcount * user_preferences.maximized_assetbar_rows + 5
-    )
+    page_size = MAX_PAGE_SIZE
     next_url = ""
     if get_next and active_history_step.get("search_results_orig"):
         next_url = active_history_step["search_results_orig"].get("next", "")

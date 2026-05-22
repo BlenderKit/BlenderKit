@@ -711,7 +711,7 @@ class BlenderKitUIProps(PropertyGroup):
         name="Search",
         description="Search for these keywords",
         default="",
-        update=search.search_update,
+        update=search.search_update_delayed,
     )
 
 

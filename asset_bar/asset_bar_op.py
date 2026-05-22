@@ -262,8 +262,11 @@ def modal_inside(self, context, event):
         else:
             current_max_rows = 1
 
+        sro = search.get_active_history_step().get("search_results_orig")
         if (
-            len(sr) - ui_props.scroll_offset
+            sro is not None
+            and sro.get("count", 0) > len(sr)
+            and len(sr) - ui_props.scroll_offset
             < (ui_props.wcount * current_max_rows) + SEARCH_PREFETCH_LOOKAHEAD
         ):
             self.search_more()
