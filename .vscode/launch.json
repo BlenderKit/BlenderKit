@@ -85,6 +85,24 @@
         },
 
         {
+            "name": "Run Blender 5.1.1 DEV",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "windows": {
+                "runtimeExecutable": "D:/blenders/5.1.1/blender.exe",
+            },
+            "linux": {
+                "runtimeExecutable": "blender",
+            },
+            "osx": {
+                "runtimeExecutable": "/Applications/Blender.app/Contents/MacOS/Blender",
+            }
+        },
+
+        {
             "name": "Run Blender 5.1.1 Tests",
             "type": "node",
             "request": "launch",
@@ -130,7 +148,6 @@
                 ]
             }
         },
-
 
         {
             "name": "Run dev.py test install",

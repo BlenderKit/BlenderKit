@@ -518,6 +518,15 @@ type CancelDownloadData struct {
 	AppID  int    `json:"app_id"`
 }
 
+// GetAssetFileData is used to request detail of a single asset-file by its UUID.
+// The file UUID is embedded in the thumbnail filename produced by browsers when
+// dragging a BlenderKit preview image; the response carries the asset metadata
+// (including assetBaseId) needed to start a download.
+type GetAssetFileData struct {
+	MinimalTaskData
+	FileID string `json:"file_id"`
+}
+
 // MARK: RATINGS
 
 type GetRatingData struct {
