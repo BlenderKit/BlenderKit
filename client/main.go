@@ -676,76 +676,12 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // searchRetryMaxAttempts is the total number of attempts (including the first)
-// performed by doAssetSearch when the server replies with HTTP 429
-// (Too Many Requests). The backend currently caps anonymous traffic at
-// 100 requests/minute and Cloudflare may additionally answer with error
-// code 1015 — both are recoverable with a short backoff.
-const searchRetryMaxAttempts = 4
-
-// searchRetryBaseDelay is the starting delay for the exponential backoff
-// used by doAssetSearch when retrying on HTTP 429. Subsequent delays double
-// up to searchRetryMaxDelay. If the response carries a Retry-After header it
-// is respected instead (capped to searchRetryMaxDelay).
-const searchRetryBaseDelay = 2 * time.Second
-const searchRetryMaxDelay = 30 * time.Second
-
-// searchThrottleMu protects searchThrottleUntil and is used to publish a
-// short global cooldown after a search hits HTTP 429, so subsequent search
-// requests preemptively wait instead of piling onto the rate limit again.
-var (
-	searchThrottleMu    sync.Mutex
-	searchThrottleUntil time.Time
-)
-
-// waitForSearchThrottle blocks until any active global search throttle has
-// expired. Cheap no-op when no throttle is active.
-func waitForSearchThrottle() {
-	searchThrottleMu.Lock()
-	until := searchThrottleUntil
-	searchThrottleMu.Unlock()
-	if d := time.Until(until); d > 0 {
-		time.Sleep(d)
-	}
-}
-
-// setSearchThrottle extends the global search throttle so it expires no
-// sooner than now+d. Shorter pending throttles are upgraded; longer ones
-// are kept untouched.
-func setSearchThrottle(d time.Duration) {
-	if d <= 0 {
-		return
-	}
-	deadline := time.Now().Add(d)
-	searchThrottleMu.Lock()
-	if deadline.After(searchThrottleUntil) {
-		searchThrottleUntil = deadline
-	}
-	searchThrottleMu.Unlock()
-}
-
-// parseRetryAfter returns the duration advertised by the Retry-After header,
-// supporting both the "delta-seconds" and the HTTP-date formats. Returns 0
-// if the header is missing or cannot be parsed.
-func parseRetryAfter(h string) time.Duration {
-	if h == "" {
-		return 0
-	}
-	if secs, err := strconv.Atoi(strings.TrimSpace(h)); err == nil && secs > 0 {
-		return time.Duration(secs) * time.Second
-	}
-	if t, err := http.ParseTime(h); err == nil {
-		if d := time.Until(t); d > 0 {
-			return d
-		}
-	}
-	return 0
-}
+// for search requests that receive HTTP 429 (Too Many Requests).
+const searchRetryMaxAttempts = 3
+const searchRetryDelay = 5 * time.Second
 
 func doAssetSearch(data SearchTaskData, taskUUID string) {
 	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
-
-	// Honor any active global cooldown from a previous 429 before firing.
-	waitForSearchThrottle()
 
 	var (
 		resp           *http.Response
@@ -776,10 +712,9 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 			break
 		}
 
-		// HTTP 429 - parse body for logging, then back off and retry.
+		// HTTP 429 - back off and retry.
 		_, lastRespString, _ = ParseFailedHTTPResponse(resp)
 		lastStatus = resp.Status
-		retryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
 		resp.Body.Close()
 		resp = nil
 
@@ -787,19 +722,9 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 			break // no more retries left
 		}
 
-		delay := retryAfter
-		if delay <= 0 {
-			delay = searchRetryBaseDelay * (1 << attempt) // 2s, 4s, 8s, ...
-		}
-		if delay > searchRetryMaxDelay {
-			delay = searchRetryMaxDelay
-		}
-		// Publish to the global throttle so concurrently arriving search
-		// requests preemptively back off instead of stacking more 429s.
-		setSearchThrottle(delay)
 		BKLog.Printf("%v search: HTTP 429 received, retrying in %v (attempt %d/%d), query: %v",
-			EmoWarning, delay, attempt+1, searchRetryMaxAttempts, data.URLQuery)
-		time.Sleep(delay)
+			EmoWarning, searchRetryDelay, attempt+1, searchRetryMaxAttempts, data.URLQuery)
+		time.Sleep(searchRetryDelay)
 	}
 
 	if resp == nil {
@@ -960,20 +885,10 @@ func downloadImageBatch(tasks []*Task, block bool) {
 	if len(tasks) == 0 {
 		return
 	}
-	// Cap concurrent thumbnail HTTP requests so a single search page (15
-	// assets x 4 thumbnail variants = up to ~60 GETs) does not fan out into
-	// the per-IP rate-limit window in one burst. Smooth scrolling still
-	// preloads the next page worth of thumbs — just paced.
-	const maxConcurrentThumbs = 6
-	sem := make(chan struct{}, maxConcurrentThumbs)
 	wg := new(sync.WaitGroup)
 	for _, task := range tasks {
 		wg.Add(1)
-		sem <- struct{}{} // acquire slot (blocks once we hit maxConcurrentThumbs in flight)
-		go func(t *Task) {
-			defer func() { <-sem }()
-			DownloadThumbnail(t, wg)
-		}(task)
+		go DownloadThumbnail(task, wg)
 	}
 	if block {
 		wg.Wait()

@@ -61,7 +61,7 @@ else:
 
 bk_logger = logging.getLogger(__name__)
 
-MAX_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 80
 """Maximum number of assets to fetch per search page."""
 
 search_tasks = {}
@@ -847,10 +847,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         result_field = [r for r in previous if not r.get("placeholder")]  # type: ignore
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]
-    # (idx_in_result_field, assetBaseId) — index lets us drop comment fetches
-    # for assets that are nowhere near the visible window (validator pages of
-    # 15 results dragged onto the rate limit during smooth scroll).
-    pending_comment_entries: list[tuple[int, str]] = []
+    pending_comment_ids = []
     for result in task.result["results"]:
         asset_data = parse_result(result)
         if not asset_data:
@@ -867,55 +864,14 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         # these comments are also shown as part of the tooltip oh mouse hover in asset bar.
         comments = comments_utils.get_comments_local(asset_data["assetBaseId"])
         if comments is None:
-            pending_comment_entries.append(
-                (len(result_field) - 1, asset_data["assetBaseId"])
-            )
+            pending_comment_ids.append(asset_data["assetBaseId"])
 
     # Flush batched gravatar downloads via Go client
     _flush_pending_gravatars()
 
-    # Fetch comments for validators via Go client (async via goroutines).
-    # Two guards against rate-limit bursts:
-    #   (A) Skip prefetch entirely while the asset bar is being dragged —
-    #       the user will land somewhere, the next idle tick will trigger
-    #       another search_more / on-hover load, and comments are also
-    #       fetched lazily by the asset popup.
-    #   (B) Only prefetch for assets within (or just past) the visible
-    #       slice of the asset bar. Off-screen assets defer to hover.
-    # Remaining requests are then deferred behind thumbnail downloads and
-    # staggered so a full page worth doesn't fan out in one tick.
-    if pending_comment_entries:
-        is_dragging = bool(getattr(ui_props, "dragging", False))
-        try:
-            user_prefs = bpy.context.preferences.addons[__package__].preferences  # type: ignore[index]
-            if getattr(user_prefs, "assetbar_expanded", False):
-                visible_rows = int(getattr(user_prefs, "maximized_assetbar_rows", 1))
-            else:
-                visible_rows = 1
-        except Exception:
-            visible_rows = 1
-        wcount = max(1, int(getattr(ui_props, "wcount", 10) or 10))
-        visible_start = max(0, int(getattr(ui_props, "scroll_offset", 0) or 0))
-        # Small lookahead so newly-revealed rows already have their comments.
-        visible_end = visible_start + wcount * visible_rows + wcount
-
-        if is_dragging:
-            filtered_ids: list[str] = []
-        else:
-            filtered_ids = [
-                aid
-                for idx, aid in pending_comment_entries
-                if visible_start <= idx < visible_end
-            ]
-
-        if filtered_ids:
-            _COMMENTS_INITIAL_DELAY = 2.0  # seconds after search result arrival
-            _COMMENTS_PER_REQUEST_STAGGER = 0.25  # seconds between consecutive requests
-            for i, aid in enumerate(filtered_ids):
-                tasks_queue.add_task(
-                    (client_lib.get_comments, (aid,)),
-                    wait=_COMMENTS_INITIAL_DELAY + i * _COMMENTS_PER_REQUEST_STAGGER,
-                )
+    # Fetch comments for validators via Go client (async via goroutines)
+    for aid in pending_comment_ids:
+        client_lib.get_comments(aid)
 
     # Results are kept strictly in arrival order. The asset bar relies on
     # stable positions: once an asset is placed it must never move, otherwise
@@ -1958,7 +1914,9 @@ def search(get_next=False, query=None, author_id=""):
 
     active_history_step["is_searching"] = True
 
-    page_size = MAX_PAGE_SIZE
+    page_size = min(
+        MAX_PAGE_SIZE, ui_props.wcount * user_preferences.maximized_assetbar_rows + 5
+    )
     next_url = ""
     if get_next and active_history_step.get("search_results_orig"):
         next_url = active_history_step["search_results_orig"].get("next", "")
