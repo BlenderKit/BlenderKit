@@ -823,6 +823,8 @@ def handle_search_task(task: client_tasks.Task) -> bool:
     # if original task was already removed (because user initiated another search), results are dropped- Returns True
     # because that's OK.
     orig_task = search_tasks.get(task.task_id)
+    if orig_task is None:
+        return True
 
     search_tasks.pop(task.task_id)
 
