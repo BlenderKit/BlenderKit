@@ -680,55 +680,59 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 const searchRetryMaxAttempts = 3
 const searchRetryDelay = 5 * time.Second
 
-func doAssetSearch(data SearchTaskData, taskUUID string) {
-	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
-
-	var (
-		resp           *http.Response
-		err            error
-		lastRespString string
-		lastStatus     string
-	)
-
-	for attempt := 0; attempt < searchRetryMaxAttempts; attempt++ {
-		req, reqErr := http.NewRequest("GET", data.URLQuery, nil)
-		if reqErr != nil {
-			err = fmt.Errorf("search - creating request: %w", reqErr)
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-			return
+// fetchSearchWithRetry performs the search HTTP GET, retrying up to
+// searchRetryMaxAttempts times when the server replies with HTTP 429.
+// On success the caller owns resp.Body and must close it. On failure resp
+// is nil and err describes the cause (transport error, request build error,
+// or "rate limited after N attempts").
+func fetchSearchWithRetry(data SearchTaskData) (*http.Response, error) {
+	var lastBody, lastStatus string
+	for attempt := 1; attempt <= searchRetryMaxAttempts; attempt++ {
+		req, err := http.NewRequest("GET", data.URLQuery, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
 		}
 		req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
 
-		resp, err = ClientAPI.Do(req)
+		resp, err := ClientAPI.Do(req)
 		if err != nil {
-			// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
-			shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
-			shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squeezes into user's screenshots
-			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
-			return
+			return nil, err
 		}
-
 		if resp.StatusCode != http.StatusTooManyRequests {
-			break
+			return resp, nil
 		}
 
-		// HTTP 429 - back off and retry.
-		_, lastRespString, _ = ParseFailedHTTPResponse(resp)
+		// HTTP 429 - remember body for the final error message, then back off.
+		_, lastBody, _ = ParseFailedHTTPResponse(resp)
 		lastStatus = resp.Status
 		resp.Body.Close()
-		resp = nil
 
-		if attempt == searchRetryMaxAttempts-1 {
-			break // no more retries left
+		if attempt == searchRetryMaxAttempts {
+			break
 		}
-
-		BKLog.Printf("%v search: HTTP 429 received, retrying in %v (attempt %d/%d), query: %v",
-			EmoWarning, searchRetryDelay, attempt+1, searchRetryMaxAttempts, data.URLQuery)
+		BKLog.Printf("%v search: HTTP 429, retrying in %v (attempt %d/%d), query: %v",
+			EmoWarning, searchRetryDelay, attempt, searchRetryMaxAttempts, data.URLQuery)
 		time.Sleep(searchRetryDelay)
 	}
+	return nil, fmt.Errorf("rate-limited after %d attempts: %s, status (%s)",
+		searchRetryMaxAttempts, lastBody, lastStatus)
+}
 
-	if resp == nil {
-		err := fmt.Errorf("search: %s, status (%s), query: %v", lastRespString, lastStatus, data.URLQuery)
+func doAssetSearch(data SearchTaskData, taskUUID string) {
+	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
+
+	resp, err := fetchSearchWithRetry(data)
+	if err != nil {
+		// Transport-level error from ClientAPI.Do (timeouts, DNS, TLS, ...)
+		// arrives as *url.Error; strip the verbose "Get <url>:" prefix so the
+		// message fits inside user screenshots, same as before.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			shortened := fmt.Errorf("search GET: %w", errors.Unwrap(err))
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened, MessageDetailed: err.Error()}
+			return
+		}
+		err = fmt.Errorf("search: %w, query: %v", err, data.URLQuery)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
 		return
 	}
