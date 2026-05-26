@@ -675,7 +675,7 @@ def append_objects(
 
         return_obs = []
         to_hidden_collection = []
-        hidden_objects = []
+        hidden_viewport_states = dict()
         appended_collection = None
         main_object = None
         # first get at least one parent for sure
@@ -683,10 +683,9 @@ def append_objects(
             if ob.select_get() and not ob.parent:
                 main_object = ob
                 ob.location = location
-            if (
-                ob.hide_viewport or ob.hide_render
-            ):  # saved assets only retain hide render state
-                hidden_objects.append(ob)
+            # Store original hide_viewport state only
+            if ob.hide_viewport:
+                hidden_viewport_states[ob] = True
         # do once again to ensure hidden objects are hidden
         for ob in bpy.context.scene.objects:  # type: ignore[union-attr]
             if ob.select_get():
@@ -765,15 +764,14 @@ def append_objects(
         if orig_active_collection:
             bpy.context.view_layer.active_layer_collection = orig_active_collection  # type: ignore[union-attr]
 
-        if hidden_objects:
-            # only unique objects
-            hidden_objects = list(set(hidden_objects))
-            for ob in hidden_objects:
+        # Restore only the original hide_viewport state for objects that were hidden in the viewport
+        if hidden_viewport_states:
+            for ob in hidden_viewport_states:
                 try:
-                    ob.hide_set(True)
+                    ob.hide_viewport = True
                 except RuntimeError:
                     # Object may not be in the active View Layer (e.g. in an
-                    # excluded collection), so hide_set() is not applicable.
+                    # excluded collection), so hide_viewport is not applicable.
                     pass
 
         utils.selection_set(sel)

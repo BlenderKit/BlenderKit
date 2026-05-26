@@ -139,7 +139,7 @@ def queue_worker():
                     task.command(*task.arguments)
             except Exception:
                 bk_logger.exception(
-                    "task queue failed task: %s %s %s",
+                    "task queue failed task: %s %s",
                     task.command,
                     task.arguments[10:],
                 )

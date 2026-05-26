@@ -656,10 +656,16 @@ def set_thumb_check(
     element: Union[BL_UI_Button, BL_UI_Image],
     asset: Dict[str, Any],
     thumb_type: str = "thumbnail_small",
-) -> None:
+) -> bool:
     """Set image in case it is loaded in search results. Checks global_vars.DATA["images available"].
     - if image download failed, it will be set to 'thumbnail_not_available.jpg'
     - if image doesn't exist, it will be set to 'thumbnail_notready.jpg'
+
+    Returns:
+        True if the slot is showing its real/intended thumbnail (loaded, gravatar,
+        or definitively "not available"). False when the slot is still showing the
+        transient "loading" placeholder - callers should suppress overlay badges
+        in that case to avoid drawing stale badges over not-yet-loaded items.
     """
     # Placeholder entries from prefetch get the "not ready" thumbnail
     if asset.get("placeholder"):
@@ -667,7 +673,7 @@ def set_thumb_check(
         if element.get_image_path() != tpath:
             element.set_image(tpath)
             element.set_image_colorspace("")
-        return
+        return False
 
     # Author assets have no server thumbnails, use gravatar from BKIT_AUTHORS
     if asset.get("assetType") == "author":
@@ -677,29 +683,35 @@ def set_thumb_check(
             if element.get_image_path() != author.gravatarImg:
                 element.set_image(author.gravatarImg)
                 element.set_image_colorspace("")
-            return
+            return True
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
         if element.get_image_path() != tpath:
             element.set_image(tpath)
             element.set_image_colorspace("")
-        return
+        return False
 
     directory = paths.get_temp_dir("%s_search" % asset["assetType"])
     tpath = os.path.join(directory, asset[thumb_type])
 
     if element.get_image_path() == tpath:
-        return  # no need to update
+        return True  # already showing the real thumbnail
 
     image_ready = global_vars.DATA["images available"].get(tpath)
+    loaded = True
     if image_ready is None:
         tpath = paths.get_addon_thumbnail_path("thumbnail_notready.jpg")
+        loaded = False
     if image_ready is False or asset[thumb_type] == "":
+        # "not available" is a terminal state - treat as loaded so the
+        # badges (e.g. locked icon) can be shown over the fallback image.
         tpath = paths.get_addon_thumbnail_path("thumbnail_not_available.jpg")
+        loaded = True
 
     if element.get_image_path() == tpath:
-        return
+        return loaded
     element.set_image(tpath)
     element.set_image_colorspace("")
+    return loaded
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
@@ -1616,10 +1628,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self.comments.text = ""
             return
 
-        comments = global_vars.DATA.get("asset comments", {})
-        comments = comments.get(asset_data["assetBaseId"], [])
+        # Lazily request comments only on hover (deduped + cached) so we
+        # don't fire one HTTP request per search result, which would blow
+        # past the backend's 100 req/min rate limit on validator accounts.
+        asset_base_id = asset_data["assetBaseId"]
+        comments = comments_utils.request_comments_if_needed(asset_base_id)
         comment_text = "No comments yet."
-        if comments is not None:
+        if comments is None:
+            comment_text = "Loading comments..."
+        elif comments:
             comment_text = ""
             # iterate comments from last to first
             for comment in reversed(comments):
@@ -2824,10 +2841,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         )
 
         if 0 <= asset_idx < sr_len:
+            # If this button was just assigned to a new asset index (scrolling),
+            # hide overlay badges immediately to avoid "ghost" badges from the
+            # previous asset. update_buttons() will restore them when ready.
+            if getattr(button, "asset_index", -1) != asset_idx:
+                button.asset_index = asset_idx
+                button.validation_icon.visible = False
+                button.bookmark_button.visible = False
+                button.author_button.visible = False
+                button.progress_bar.visible = False
+                button.red_alert.visible = False
             button.visible = True
-            button.validation_icon.visible = True
-            button.bookmark_button.visible = False
-            button.author_button.visible = False
         else:
             button.visible = False
             button.validation_icon.visible = False
@@ -4117,15 +4141,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         sr = search.get_search_results()
         if not sr:
             return
+        promoted = False
         for asset_button in self.asset_buttons:
             if 0 <= asset_button.asset_index < len(sr):
                 asset_data = sr[asset_button.asset_index]
                 if asset_data.get("placeholder"):
                     continue
                 if asset_data.get("assetBaseId") == asset_id:
-                    set_thumb_check(
+                    was_loaded = getattr(asset_button, "_thumb_loaded", False)
+                    thumb_loaded = set_thumb_check(
                         asset_button, asset_data, thumb_type="thumbnail_small"
                     )
+                    asset_button._thumb_loaded = thumb_loaded
+                    # Slot just transitioned from "loading placeholder" to a
+                    # real thumbnail - run the full button update so the
+                    # overlay badges (validation/bookmark/progress/red_alert)
+                    # that were suppressed in update_buttons() are now drawn
+                    # against the correct thumbnail.
+                    if thumb_loaded and not was_loaded:
+                        promoted = True
+        if promoted:
+            self.update_buttons()
 
     def update_buttons(self):
         """Update asset buttons in the asset bar based on current search results and scroll offset."""
@@ -4153,7 +4189,14 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 asset_button.bookmark_button.asset_index = asset_button.asset_index
                 asset_button.author_button.asset_index = asset_button.asset_index
 
-                set_thumb_check(asset_button, asset_data, thumb_type="thumbnail_small")
+                thumb_loaded = set_thumb_check(
+                    asset_button, asset_data, thumb_type="thumbnail_small"
+                )
+                # Track loaded state on the button so update_image() (called
+                # when a thumbnail finishes downloading) can promote the slot
+                # from "loading - no badges" to fully populated without
+                # waiting for the next scroll/update_buttons pass.
+                asset_button._thumb_loaded = thumb_loaded
 
                 # Placeholder entries only need thumbnail rendering.
                 if asset_data.get("placeholder"):
@@ -4217,6 +4260,19 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                     else:
                         asset_button.red_alert.visible = False
                 else:
+                    asset_button.red_alert.visible = False
+
+                # When the thumbnail for this slot hasn't been downloaded
+                # yet, the slot is showing the "Loading..." placeholder.
+                # Suppress all overlay badges (validation icon, bookmark,
+                # progress bar, red alert) so we don't draw stale or
+                # next-asset badges over a not-yet-loaded thumbnail while
+                # scrolling. The badges are restored by update_image() as
+                # soon as the real thumbnail arrives.
+                if not thumb_loaded:
+                    asset_button.validation_icon.visible = False
+                    asset_button.bookmark_button.visible = False
+                    asset_button.progress_bar.visible = False
                     asset_button.red_alert.visible = False
 
                 visible_results.append(asset_data)
@@ -4933,21 +4989,13 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # Update UI properties
         for prop_name, value in ui_state["ui_props"].items():
             if hasattr(ui_props, prop_name):
-                # strings need to be quoted
-                if isinstance(value, str):
-                    exec(f"ui_props.{prop_name} = '{value}'")
-                else:
-                    exec(f"ui_props.{prop_name} = {value}")
+                setattr(ui_props, prop_name, value)
 
         # Update search type specific properties
         search_props = utils.get_search_props()
         for prop_name, value in ui_state["search_props"].items():
             if hasattr(search_props, prop_name):
-                # strings need to be quoted
-                if isinstance(value, str):
-                    exec(f"search_props.{prop_name} = '{value}'")
-                else:
-                    exec(f"search_props.{prop_name} = {value}")
+                setattr(search_props, prop_name, value)
 
         # Restore active filter chips for this tab
         active_tab = global_vars.TABS["tabs"][tab_index]
@@ -5060,6 +5108,29 @@ def handle_bkclientjs_get_asset(task: "search.client_tasks.Task"):
     if asset_bar_operator and asset_bar_operator.area:
         search.load_preview(parsed_asset_data)
         asset_bar_operator.update_image(parsed_asset_data["assetBaseId"])
+        asset_bar_operator.area.tag_redraw()
+
+
+def refresh_comments_for_asset(asset_id):
+    """Refresh the asset bar tooltip's comment text once comments arrive.
+
+    Called from comments_utils.handle_get_comments_task() after a lazy
+    fetch finishes. Only updates the UI when the currently hovered asset
+    matches the one whose comments just downloaded.
+    """
+    if asset_bar_operator is None:
+        return
+    active_index = getattr(asset_bar_operator, "active_index", -1)
+    if active_index < 0:
+        return
+    sr = search.get_search_results()
+    if not sr or active_index >= len(sr):
+        return
+    asset_data = sr[active_index]
+    if asset_data.get("assetBaseId") != asset_id:
+        return
+    asset_bar_operator.update_comments_for_validators(asset_data)
+    if asset_bar_operator.area:
         asset_bar_operator.area.tag_redraw()
 
 
