@@ -2,6 +2,7 @@ __pycache__
 out
 # ignore built binaries
 client/v*.*.*
+client/client.exe
 
 pyproject.toml
 client_builds
