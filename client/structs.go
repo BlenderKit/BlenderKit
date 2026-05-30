@@ -363,8 +363,8 @@ type AssetUploadExportData struct {
 
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
 // API docs:
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+// https://www.blendKit.com/api/v1/docs/#tag/assets/operation/assets_create
+// https://www.blendkit.com/api/v1/docs/#tag/assets/operation/assets_update
 type AssetsCreateResponse struct {
 	AddonVersion       string      `json:"addonVersion"`
 	AssetBaseID        string      `json:"assetBaseId"`
@@ -388,8 +388,8 @@ type AssetsCreateResponse struct {
 
 // AssetUploadTaskData is expected from the add-on. Used to create/update metadata on asset.
 // API docs:
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+// https://www.blendKit.com/api/v1/docs/#tag/assets/operation/assets_create
+// https://www.blendKit.com/api/v1/docs/#tag/assets/operation/assets_update
 type AssetUploadData struct {
 	AddonVersion     string      `json:"addonVersion"`
 	PlatformVersion  string      `json:"platformVersion"`

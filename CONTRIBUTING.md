@@ -1,18 +1,18 @@
 # Contributing
 
-BlenderKit add-on is an open-source project and we welcome contributions from the community.
+Blendkit add-on is an open-source project and we welcome contributions from the community.
 
 ## Add-on Architecture
-BlenderKit add-on is made of two main parts:
+Blendkit add-on is made of two main parts:
 - Blender add-on written in Python, which is responsible for the user interface and interaction with Blender. It draws the search panel, does the snaping, asset imports, and communicates with the Client locally.
-- Client written in Go, which serves as background HTTP server - a bridge between BlenderKit add-on and BlenderKit server. It's purpose is to offload the work from Blender and to provide a performant way to communicate with BlenderKit server.
+- Client written in Go, which serves as background HTTP server - a bridge between Blendkit add-on and Blendkit server. It's purpose is to offload the work from Blender and to provide a performant way to communicate with Blendkit server.
 
 Client is compiled and it's binaries are bundled into the add-on .zip file, so the user does not need to install anything else than the add-on itself.
 
 ### How it is packaged
-BlenderKit add-on is packaged as a zip file (standard way for Blender add-ons), which contains all the necessary files for the add-on to work.
+Blendkit add-on is packaged as a zip file (standard way for Blender add-ons), which contains all the necessary files for the add-on to work.
 This includes not only the Python files, icons and other files, but also the Client binaries for 3 platforms on 2 architectures (windows x86_64, windows arm64, macos x86_64, macos arm64, linux x86_64, linux arm64).
-When add-on is registered, it chooses the correct Client binary for the platform and architecture and copies it to the user's BlenderKit data directory, from this location the Client is later started.
+When add-on is registered, it chooses the correct Client binary for the platform and architecture and copies it to the user's Blendkit data directory, from this location the Client is later started.
 
 ### How it works
 Communication between Add-on and Client happens in one way direction: add-on schedules Tasks via request and periodically gets updates about the progress and results of the tasks in reponses to the requests:
@@ -23,8 +23,8 @@ Communication between Add-on and Client happens in one way direction: add-on sch
 
 3. if needed add-on sends requests (identifying itself with app_id which is PID of running Blender instance) for search, download asset, get notifications, download thumbnails etc. to the Client
 4. Client receives the request for work, saves it into `var Tasks map[int]map[string]*Task` and ASAP responds by OK to not block the add-on,
-5. Client starts the work in goroutine, or makes request to BlenderKit server, or combination of both,
-6. When work is done, or response comes from BlenderKit server, Client updates the results into `var Tasks map[int]map[string]*Task`.
+5. Client starts the work in goroutine, or makes request to Blendkit server, or combination of both,
+6. When work is done, or response comes from Blendkit server, Client updates the results into `var Tasks map[int]map[string]*Task`.
 7. next time when add-on periodically asks for results of the Tasks, Client sends the results as response.
 
 Communication between Client and Server currently happens in one way also Client -> Server (Client makes requests to Server).
@@ -93,7 +93,7 @@ Slowly we will add the ruff as a required check in CI/CD.
 Use `dev.py` script to build the add-on.
 This script will copy relevant files to `out/blenderkit` directory (ignoring all files which are not needed in the add-on).
 From this source the script will then create a zip file at `out/blenderkit.zip`.
-This zip then can be used as a release of BlenderKit.
+This zip then can be used as a release of Blendkit.
 
 To build run:
 ```
@@ -104,7 +104,7 @@ python dev.py build
 
 Script `dev.py` provides handy option `--install-at` to copy the `out/blenderkit` directly to Blender so you can quickly test the build just by starting the Blender without any further steps.
 Just specify path to addons directory in `--install-at` flag.
-Script will then remove old `blenderkit` directory in addons location and replace it with current build.
+Script will then remove old `Blendkit` directory in addons location and replace it with current build.
 
 To build and copy to Blender 4.2.x addons directory and also clean blenderkit_data, run:
 
@@ -136,7 +136,7 @@ Before release update the add-on version in `__init__.py` (in bl_info and VERSIO
 
 ## Testing
 
-BlenderKit add-on uses tests implemented through `unittest` module.
+Blendkit add-on uses tests implemented through `unittest` module.
 As the add-on and its submodules require `bpy` module and interaction with Blender, the tests needs to be executed in the Python inside of the Blender.
 This makes the tests to be on the edge between unit tests and integration tests.
 
@@ -169,7 +169,7 @@ python dev.py test --install-at /path/to/blender/4.2/extensions/user_default
 ```
 
 NOTE: please make sure that version in the `--install-at` path must match the version of the Blender version you have on your PATH.
-Otherwise the add-on with test files will be copied to Blender version 4.x, but tests will run on different Blender version 4.a with outdated (or missing) BlenderKit build.
+Otherwise the add-on with test files will be copied to Blender version 4.x, but tests will run on different Blender version 4.a with outdated (or missing) Blendkit build.
 
 ### Pull Requests
 

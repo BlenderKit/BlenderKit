@@ -67,7 +67,7 @@ download_tasks: dict[str, dict[str, Any]] = {}
 
 
 def get_blenderkit_repository() -> tuple[Optional[Any], int]:
-    """Find the BlenderKit extensions repository index.
+    """Find the Blendkit extensions repository index.
 
     Returns:
         tuple[repo or None, repo_index]: Repository and its index in the
@@ -199,7 +199,7 @@ def get_addon_installation_status(asset_data: dict[str, Any]) -> dict[str, Any]:
     # Method 4: Check through Blender's extension repositories directly
     if not is_installed:
         try:
-            # Look for BlenderKit repository and check its packages
+            # Look for Blendkit repository and check its packages
             for repo in bpy.context.preferences.extensions.repos:
                 if not repo.enabled:
                     continue
@@ -209,7 +209,7 @@ def get_addon_installation_status(asset_data: dict[str, Any]) -> dict[str, Any]:
                 ):
                     continue
 
-                # This is a BlenderKit repository, try to find our package
+                # This is a Blendkit repository, try to find our package
                 # Note: The actual package checking would require deeper access to the repository data
                 # For now, we'll rely on the previous methods
                 break
@@ -223,9 +223,7 @@ def get_addon_installation_status(asset_data: dict[str, Any]) -> dict[str, Any]:
         if "blenderkit" in addon.lower() or addon.endswith(extension_id)
     ]
     if blenderkit_addons:
-        bk_logger.debug(
-            "Found BlenderKit-related enabled addons: %s", blenderkit_addons
-        )
+        bk_logger.debug("Found Blendkit-related enabled addons: %s", blenderkit_addons)
 
     bk_logger.debug(
         "Addon status check for '%s': installed=%s, enabled=%s",
@@ -274,14 +272,14 @@ def install_addon_from_local_file(
         reports.add_report(f"Addon '{addon_name}' is already installed", type="INFO")
         return
 
-    # Find the BlenderKit repository to install the addon to
+    # Find the Blendkit repository to install the addon to
     repo, repo_index = get_blenderkit_repository()
     if repo is None:
-        error_msg = "BlenderKit repository not found. Please ensure the BlenderKit extensions repository is enabled in preferences."
+        error_msg = "Blendkit repository not found. Please ensure the Blendkit extensions repository is enabled in preferences."
         reports.add_report(error_msg, type="ERROR")
         raise Exception(error_msg)
 
-    # Install from file to the BlenderKit repository
+    # Install from file to the Blendkit repository
     result = bpy.ops.extensions.package_install_files(
         repo=repo.module,
         filepath=file_path,
@@ -443,7 +441,7 @@ def cleanup_temp_enabled_addons() -> None:
 
 @persistent
 def scene_save(context) -> None:
-    """Do cleanup of blenderkit props and send a message to the server about assets used."""
+    """Do cleanup of Blendkit props and send a message to the server about assets used."""
     # TODO this can be optimized by merging these 2 functions, since both iterate over all objects.
     if bpy.app.background:
         return
@@ -1110,7 +1108,7 @@ def replace_resolution_appended(
 # TODO: keep this until we check resolution replacement and other features from this one are supported in daemon.
 # @bpy.app.handlers.persistent
 # def download_timer():
-#     # TODO might get moved to handle all blenderkit stuff, not to slow down.
+#     # TODO might get moved to handle all Blendkit stuff, not to slow down.
 #     '''
 #     check for running and finished downloads.
 #     Running downloads get checked for progress which is passed to UI.
@@ -1354,7 +1352,7 @@ def download_write_progress(task_id: str, task: client_tasks.Task) -> None:
                 r["downloaded"] = task.progress
 
 
-# TODO might get moved to handle all blenderkit stuff, not to slow down.
+# TODO might get moved to handle all Blendkit stuff, not to slow down.
 def download_post(task: client_tasks.Task) -> None:
     """Check for running and finished downloads.
     Running downloads get checked for progress which is passed to UI.
@@ -1457,7 +1455,7 @@ def download_post(task: client_tasks.Task) -> None:
 
 
 def download(asset_data: Any, **kwargs: Any) -> None:
-    """Init download data and request task from BlenderKit-Client."""
+    """Init download data and request task from Blendkit-Client."""
     if kwargs.get("retry_counter", 0) > 3:
         sprops = utils.get_search_props()
         report = f"Maximum retries exceeded for {asset_data['name']}"
@@ -1788,7 +1786,7 @@ asset_types = (
 
 
 class BlenderkitAddonManagerOperator(bpy.types.Operator):
-    """Manage BlenderKit addon installation, enabling, and disabling"""
+    """Manage Blendkit addon installation, enabling, and disabling"""
 
     bl_idname = "scene.blenderkit_addon_manager"
     bl_label = "Addon Manager"
@@ -1824,10 +1822,10 @@ class BlenderkitAddonManagerOperator(bpy.types.Operator):
                 reports.add_report("No extension ID found for this addon", type="ERROR")
                 return {"CANCELLED"}
 
-            # Find the BlenderKit repository
+            # Find the Blendkit repository
             repo, repo_index = get_blenderkit_repository()
             if repo is None:
-                reports.add_report("BlenderKit repository not found", type="ERROR")
+                reports.add_report("Blendkit repository not found", type="ERROR")
                 return {"CANCELLED"}
 
         try:
@@ -2076,10 +2074,10 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
                 reports.add_report("No extension ID found for this addon", type="ERROR")
                 return {"CANCELLED"}
 
-            # Find the BlenderKit repository
+            # Find the Blendkit repository
             repo, repo_index = get_blenderkit_repository()
             if repo is None:
-                reports.add_report("BlenderKit repository not found", type="ERROR")
+                reports.add_report("Blendkit repository not found", type="ERROR")
                 return {"CANCELLED"}
 
         try:
@@ -2218,7 +2216,7 @@ class BlenderkitKillDownloadOperator(bpy.types.Operator):
     """Kill a download"""
 
     bl_idname = "scene.blenderkit_download_kill"
-    bl_label = "BlenderKit Kill Asset Download"
+    bl_label = "Blendkit Kill Asset Download"
     bl_options = {"REGISTER", "INTERNAL"}
 
     task_id: StringProperty(  # type: ignore[valid-type]

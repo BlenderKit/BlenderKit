@@ -162,7 +162,7 @@ build_cmds = [sys.executable, build_script, "build"]
 subprocess.run(build_cmds, check=True)
 
 # copy source to client/
-# this folder is ingored and will not be synced to blenderkit addon repo
+# this folder is ingored and will not be synced to Blendkit addon repo
 # but will be used by the addon to run the client
 build_output_master_dir = os.path.join(
     THIS_REPO, "out", "blenderkit", "client"

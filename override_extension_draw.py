@@ -21,7 +21,7 @@ from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
 
 
-EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
+EXTENSIONS_API_URL = "https://www.blendkit.com/api/v1/extensions/"
 
 bk_logger = logging.getLogger(__name__)
 
@@ -235,7 +235,7 @@ def extension_draw_item_blenderkit(
     extensions_warnings,  # `dict[str, list[str]]`
     show_developer_ui,  # `bool`
 ):
-    ### BlenderKit cache code
+    ### Blendkit cache code
     # Ensure cache is up-to-date before drawing
     cache_reloaded = ensure_repo_cache()
     if cache_reloaded:
@@ -258,7 +258,7 @@ def extension_draw_item_blenderkit(
 
     bk_ext_cache = bpy.context.window_manager["blenderkit_extensions_repo_cache"]
     bk_cache_pkg = bk_ext_cache.get(pkg_id[:32], None)
-    ### end of BlenderKit cache code
+    ### end of Blendkit cache code
     item = item_local or item_remote
     is_installed = item_local is not None
     has_remote = repo_item.remote_url != ""
@@ -353,8 +353,8 @@ def extension_draw_item_blenderkit(
                 props.pkg_id = pkg_id
                 props.enable_on_install = is_enabled
         else:
-            ### BlenderKit specific code
-            # blenderkit logo icon
+            ### Blendkit specific code
+            # Blendkit logo icon
             pcoll = icons.icon_collections["main"]
             icon_value = pcoll["logo"].icon_id
 
@@ -364,7 +364,7 @@ def extension_draw_item_blenderkit(
                 is_for_sale_flag = bk_cache_pkg.get("is_for_sale") is True
                 is_free_flag = bk_cache_pkg.get("is_free") is True
 
-                # special case for blenderkit addon itself
+                # special case for Blendkit addon itself
                 if pkg_id == "blenderkit":
                     can_download_value = True
 
@@ -395,7 +395,7 @@ def extension_draw_item_blenderkit(
                         text="Requires Full Plan",
                         icon_value=icon_value,
                     )
-                    props.url = "https://www.blenderkit.com/plans/pricing/"
+                    props.url = "https://www.blendkit.com/plans/pricing/"
 
                 # Paid addons get a buy button and lead to their website link
                 else:
@@ -415,7 +415,7 @@ def extension_draw_item_blenderkit(
                     )
                     props.url = bk_cache_pkg.get("website", "")  # Pass URL
                     props.repo_index = repo_index  # Pass repo index
-            ### end of BlenderKit specific code
+            ### end of Blendkit specific code
     else:
         # Right space for alignment with the button.
         if has_remote and (item_remote is None):
@@ -541,7 +541,7 @@ def extension_draw_item_override(
     extensions_warnings,  # `dict[str, list[str]]`
     show_developer_ui=False,  # `bool`
 ):
-    # filter by verification state, only for blenderkit repository
+    # filter by verification state, only for Blendkit repository
     if repo_item.remote_url == EXTENSIONS_API_URL:
         extension_draw_item_blenderkit(
             layout,
@@ -605,7 +605,7 @@ def override_draw_function():
 
 
 def get_repository_by_url(url: str):
-    """Get the repository by its remote URL, from registered blenderkit Extension repositories."""
+    """Get the repository by its remote URL, from registered Blendkit Extension repositories."""
     for r in bpy.context.preferences.extensions.repos:
         if r.remote_url == url:
             return r
@@ -613,7 +613,7 @@ def get_repository_by_url(url: str):
 
 
 def get_blenderkit_repository_cached():
-    """Get BlenderKit repository with time-based caching to avoid iterating repos per item."""
+    """Get Blendkit repository with time-based caching to avoid iterating repos per item."""
     global _cached_repository, _cached_repository_time
     now = time.time()
     if (
@@ -827,14 +827,14 @@ def update_cache_with_asset_prices(assets):
 
 def ensure_repo_order():
     """Ensure order of repositories in Blender's preferences."""
-    # get the blenderkit repository
+    # get the Blendkit repository
     blenderkit_repository = get_repository_by_url(EXTENSIONS_API_URL)
     if blenderkit_repository is None:
         return
 
     # get all repositories
     all_repos = bpy.context.preferences.extensions.repos
-    # get all online repositories except blenderkit
+    # get all online repositories except Blendkit
     online_repos = []  # need to convert repos to dicts
     remove_online_repos = []
     for r in all_repos:
@@ -856,7 +856,7 @@ def ensure_repo_order():
             online_repos.append(repo_dict)
             remove_online_repos.append(r)
 
-    # remove all online repositories except blenderkit
+    # remove all online repositories except Blendkit
     for r in remove_online_repos:
         all_repos.remove(r)
 
@@ -880,7 +880,7 @@ def ensure_repo_order():
 
 
 def ensure_repository(api_key: str = ""):
-    """Ensure that the blenderkit extensions repository is correctly added in Blender's preferences.
+    """Ensure that the Blendkit extensions repository is correctly added in Blender's preferences.
     If the repository is not present, it is added. If the repository is present, but the API key is not set, it is set.
     """
 
@@ -899,7 +899,7 @@ def ensure_repository(api_key: str = ""):
         blenderkit_repository.use_access_token = True
         blenderkit_repository.access_token = api_key
     else:
-        # let's try to import blenderkit preferences and get the api key
+        # let's try to import Blendkit preferences and get the api key
         # try:
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         api_key = user_preferences.api_key

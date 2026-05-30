@@ -123,7 +123,7 @@ def clean_login_data():
 
 
 def logout() -> None:
-    """Logs out user from add-on. Also calls BlenderKit-client to revoke the tokens."""
+    """Logs out user from add-on. Also calls Blendkit-client to revoke the tokens."""
     bk_logger.info("Logging out.")
     client_lib.oauth2_logout()
     clean_login_data()
@@ -207,10 +207,10 @@ def ensure_token_refresh() -> bool:
 
 
 class LoginOnline(bpy.types.Operator):
-    """Login or register online on BlenderKit webpage"""
+    """Login or register online on Blendkit webpage"""
 
     bl_idname = "wm.blenderkit_login"
-    bl_label = "BlenderKit login/signup"
+    bl_label = "Blendkit login/signup"
     bl_options = {"REGISTER", "UNDO"}
 
     signup: BoolProperty(  # type: ignore
@@ -223,7 +223,7 @@ class LoginOnline(bpy.types.Operator):
     message: bpy.props.StringProperty(  # type: ignore
         name="Message",
         description="",
-        default="You were logged out from BlenderKit.\n Clicking OK takes you to web login. ",
+        default="You were logged out from Blendkit.\n Clicking OK takes you to web login. ",
     )
 
     @classmethod
@@ -249,10 +249,10 @@ class LoginOnline(bpy.types.Operator):
 
 
 class Logout(bpy.types.Operator):
-    """Logout from BlenderKit immediately"""
+    """Logout from Blendkit immediately"""
 
     bl_idname = "wm.blenderkit_logout"
-    bl_label = "BlenderKit logout"
+    bl_label = "Blendkit logout"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -268,7 +268,7 @@ class CancelLoginOnline(bpy.types.Operator):
     """Cancel login attempt"""
 
     bl_idname = "wm.blenderkit_login_cancel"
-    bl_label = "BlenderKit login cancel"
+    bl_label = "Blendkit login cancel"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod

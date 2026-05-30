@@ -208,7 +208,7 @@ def patch_imports(addon_module_name: str):
 
 if __name__ == "__main__":
     # args order must match the order in blenderkit/client/main.go:PackBlendFile()!
-    BLENDERKIT_EXPORT_DATA = sys.argv[-2]
+    BLENDKIT_EXPORT_DATA = sys.argv[-2]
     patch_imports(sys.argv[-1])
     addon_utils.enable(sys.argv[-1])
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
     try:
         # bg_blender.progress('preparing scene - append data')
-        with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
+        with open(BLENDKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
 
         export_data = data["export_data"]

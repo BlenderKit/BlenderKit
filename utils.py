@@ -129,7 +129,7 @@ def selection_set(sel):
 
 
 def get_asset_data_from_ob(ob) -> Optional[dict]:
-    """Return the BlenderKit asset_data dict for an object.
+    """Return the Blendkit asset_data dict for an object.
 
     Checks the object's own IDProperty first. When the object is a
     collection-instance EMPTY (imported from a local asset library) it falls
@@ -917,7 +917,7 @@ def copy_asset(fp1, fp2):
             bk_logger.debug("copied")
 
     # except Exception as e:
-    #     print('BlenderKit failed to copy asset')
+    #     print('Blendkit failed to copy asset')
     #     print(fp1, fp2)
     #     print(e)
 

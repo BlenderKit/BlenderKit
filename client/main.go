@@ -49,7 +49,7 @@ const (
 	OAUTH_CLIENT_ID = "IdFRwa3SGA8eMpzhRVFMg5Ts8sPK93xBjif93x0F"
 
 	// PATHS
-	server_default   = "https://www.blenderkit.com" // default address to production blenderkit server
+	server_default   = "https://www.blendkit.com" // default address to production blendkit server
 	gravatar_dirname = "bkit_g"                     // directory in safeTempDir() for gravatar images
 	cleanfile_path   = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
 
@@ -84,10 +84,10 @@ const (
 )
 
 var (
-	ClientVersion        = "0.0.0" // Version of this BlenderKit-client binary, set from file client/VERSION with -ldflags during build in dev.py
+	ClientVersion        = "0.0.0" // Version of this Blendkit-client binary, set from file client/VERSION with -ldflags during build in dev.py
 	SystemID             *string   // Unique ID of the current system (string of 15 integers)
 	Port                 *string   // Port on which Client should listen for HTTP requests
-	Server               *string   // Address of BlenderKit server to which Client should connect
+	Server               *string   // Address of Blendkit server to which Client should connect
 	StartingAddonVersion *string   // Version of the add-on which has started the Client
 	StartingSoftwareName *string   // Name of the software whose add-on has started the Client
 	StartingPID          *string   // Process ID of the software whose add-on has started the Client
@@ -128,7 +128,7 @@ func init() {
 	TaskCancelCh = make(chan *TaskCancel, 1000)
 	TaskErrorCh = make(chan *TaskError, 1000)
 
-	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)   // Hexagon like BlenderKit logo
+	BKLog = log.New(os.Stdout, "⬡  ", log.LstdFlags)   // Hexagon like Blendkit logo
 	ChanLog = log.New(os.Stdout, "<- ", log.LstdFlags) // Same symbols as channel in Go
 }
 
@@ -266,7 +266,7 @@ func main() {
 	flag.Parse()
 
 	fmt.Print("\n\n")
-	startMessage := fmt.Sprintf("BlenderKit-Client v%s ", ClientVersion)
+	startMessage := fmt.Sprintf("Blendkit-Client v%s ", ClientVersion)
 	if *StartingAddonVersion == "" { // manual start - we could also check StartingSoftwareName
 		startMessage += "started manually"
 	} else { // proper start from Blender or other add-on
@@ -544,7 +544,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("BlenderKit-Client-Version", ClientVersion)
+	w.Header().Set("Blendkit-Client-Version", ClientVersion)
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
 }
@@ -688,8 +688,8 @@ func doAssetSearch(data SearchTaskData, taskUUID string) {
 
 	resp, err := ClientAPI.Do(req)
 	if err != nil {
-		// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
-		shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
+		// err has the interesting stuff at the end... err = Get "https://www.blendkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
+		shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blendkit.com/api/v1/search/....."
 		shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squeezes into user's screenshots
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
@@ -1068,8 +1068,8 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 	AddTaskCh <- t
 }
 
-// Fetch categories from the server: https://www.blenderkit.com/api/v1/categories/
-// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/categories_list
+// Fetch categories from the server: https://www.blendkit.com/api/v1/categories/
+// API documentation: https://www.blendkit.com/api/v1/docs/#operation/categories_list
 func FetchCategories(data MinimalTaskData) {
 	url := *Server + "/api/v1/categories"
 	taskUUID := uuid.New().String()
@@ -1118,8 +1118,8 @@ func FetchCategories(data MinimalTaskData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Message: "Categories updated", Result: respData.Results}
 }
 
-// Fetch disclaimer from the server: https://www.blenderkit.com/api/v1/disclaimer/active/.
-// API documentation:  https://www.blenderkit.com/api/v1/docs/#operation/disclaimer_active_list
+// Fetch disclaimer from the server: https://www.blendkit.com/api/v1/disclaimer/active/.
+// API documentation:  https://www.blendkit.com/api/v1/docs/#operation/disclaimer_active_list
 func FetchDisclaimer(data MinimalTaskData) {
 	url := *Server + "/api/v1/disclaimer/active/"
 	taskUUID := uuid.New().String()
@@ -1165,8 +1165,8 @@ func FetchDisclaimer(data MinimalTaskData) {
 	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Message: "Disclaimer fetched", Result: respData}
 }
 
-// Fetch unread notifications from the server: https://www.blenderkit.com/api/v1/notifications/unread/.
-// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/notifications_unread_list
+// Fetch unread notifications from the server: https://www.blendkit.com/api/v1/notifications/unread/.
+// API documentation: https://www.blendkit.com/api/v1/docs/#operation/notifications_unread_list
 func FetchUnreadNotifications(data MinimalTaskData) {
 	url := *Server + "/api/v1/notifications/unread/"
 	taskUUID := uuid.New().String()
@@ -1618,7 +1618,7 @@ func SendRatingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // SendRating is a function for sending the user's rating of the asset.
-// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/assets_rating_update
+// API documentation: https://www.blendkit.com/api/v1/docs/#operation/assets_rating_update
 func SendRating(data SendRatingData) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/rating/%s/", *Server, data.AssetID, data.RatingType)
 	taskUUID := uuid.New().String()
@@ -1793,7 +1793,7 @@ func GetCommentsHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetComments fetches all comments on the given asset.
 //
-// API documentation: https://www.blenderkit.com/api/v1/docs/#operation/comments_read
+// API documentation: https://www.blendkit.com/api/v1/docs/#operation/comments_read
 func GetComments(data GetCommentsData) {
 	url := fmt.Sprintf("%s/api/v1/comments/assets-uuidasset/%s/", *Server, data.AssetID)
 	taskUUID := uuid.New().String()
@@ -1862,9 +1862,9 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 // It first GETs freshest comments data on the asset (from this we need Timestamp and SecurityHash for the POST request).
 // It then creates a new comment through POST request.
 //
-// API docs GET: https://www.blenderkit.com/api/v1/docs/#operation/comments_get
+// API docs GET: https://www.blendkit.com/api/v1/docs/#operation/comments_get
 //
-// API docs POST: https://www.blenderkit.com/api/v1/docs/#operation/comments_comment_create
+// API docs POST: https://www.blendkit.com/api/v1/docs/#operation/comments_comment_create
 func CreateComment(data CreateCommentData) {
 	get_url := fmt.Sprintf("%s/api/v1/comments/asset-comment/%s/", *Server, data.AssetID)
 	post_url := fmt.Sprintf("%s/api/v1/comments/comment/", *Server)
@@ -1998,7 +1998,7 @@ func FeedbackCommentHandler(w http.ResponseWriter, r *http.Request) {
 // FeedbackComment uploads flag on the comment to the server.
 // Flag is basically like/dislike but can be also a different flag.
 //
-// API docs: https://www.blenderkit.com/api/v1/docs/#operation/comments_feedback_create
+// API docs: https://www.blendkit.com/api/v1/docs/#operation/comments_feedback_create
 func FeedbackComment(data FeedbackCommentTaskData) {
 	url := fmt.Sprintf("%s/api/v1/comments/feedback/", *Server)
 	taskUUID := uuid.New().String()
@@ -2082,7 +2082,7 @@ func MarkCommentPrivateHandler(w http.ResponseWriter, r *http.Request) {
 
 // MarkCommentPrivate marks comment as private or public. Reported to user as "comment privacy".
 //
-// API docs: # https://www.blenderkit.com/api/v1/docs/#operation/comments_is_private_create
+// API docs: # https://www.blendkit.com/api/v1/docs/#operation/comments_is_private_create
 func MarkCommentPrivate(data MarkCommentPrivateTaskData) {
 	url := fmt.Sprintf("%s/api/v1/comments/is_private/%d/", *Server, data.CommentID)
 	taskUUID := uuid.New().String()
@@ -2162,7 +2162,7 @@ func MarkNotificationReadHandler(w http.ResponseWriter, r *http.Request) {
 
 // MarkNotificationRead marks notification as read.
 //
-// API docs: https://www.blenderkit.com/api/v1/docs/#operation/notifications_mark-as-read_read
+// API docs: https://www.blendkit.com/api/v1/docs/#operation/notifications_mark-as-read_read
 func MarkNotificationRead(data MarkNotificationReadTaskData) {
 	url := fmt.Sprintf("%s/api/v1/notifications/mark-as-read/%d/", *Server, data.Notification)
 	taskUUID := uuid.New().String()
@@ -2721,7 +2721,7 @@ func PackBlendFile(data AssetUploadRequestData, metadata AssetsCreateResponse, i
 }
 
 // CreateMetadata creates metadata on the server, so it can be saved inside the current file.
-// API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create
+// API docs: https://www.blendkit.com/api/v1/docs/#tag/assets/operation/assets_create
 func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.RawMessage, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/", *Server)
 	headers := getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
@@ -2767,7 +2767,7 @@ func CreateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.Ra
 }
 
 // UploadMetadata uploads metadata to the server, so it can be saved inside the current file.
-// API docs: https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+// API docs: https://www.blendkit.com/api/v1/docs/#tag/assets/operation/assets_update
 func UpdateMetadata(data AssetUploadRequestData) (*AssetsCreateResponse, json.RawMessage, error) {
 	url := fmt.Sprintf("%s/api/v1/assets/%s/", *Server, data.ExportData.ID)
 	headers := getHeaders(data.Preferences.APIKey, *SystemID, data.UploadData.AddonVersion, data.UploadData.PlatformVersion)
@@ -2982,7 +2982,7 @@ func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-// Check request origin and allow CORS only if the request comes from *.blenderkit.com or from localhost.
+// Check request origin and allow CORS only if the request comes from *.blendkit.com or from localhost.
 // If origin is allowed
 func allowOrigin(w http.ResponseWriter, r *http.Request) bool {
 	origin := r.Header.Get("Origin")
@@ -2995,8 +2995,8 @@ func allowOrigin(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	host := strings.ToLower(u.Hostname())
-	allowed := host == "blenderkit.com" ||
-		strings.HasSuffix(host, ".blenderkit.com") ||
+	allowed := host == "blendkit.com" ||
+		strings.HasSuffix(host, ".blendkit.com") ||
 		host == "localhost"
 
 	if allowed {
@@ -3240,7 +3240,7 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 }
 
 // Get data for single Asset instance by assetBaseID via Search on the API - as advised by Petr.
-// https://devel.blenderkit.com/api/v1/docs/#tag/search
+// https://devel.blendkit.com/api/v1/docs/#tag/search
 func GetAssetInstance(assetBaseID string) (Asset, error) {
 	url := fmt.Sprintf("%s/api/v1/search/?query=asset_base_id:%s", *Server, assetBaseID)
 	resp, err := http.Get(url)

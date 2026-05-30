@@ -184,7 +184,7 @@ def _download_thumbnail(url: str) -> str:
         return target_path
     try:
         req = urllib.request.Request(url)
-        req.add_header("User-Agent", "BlenderKit")
+        req.add_header("User-Agent", "Blendkit")
         req.add_header("Accept", "image/*")
         with urllib.request.urlopen(req, timeout=15) as response:
             with open(target_path, "wb") as handle:
@@ -619,7 +619,7 @@ def unpack_asset(data):
                 main_collection.asset_mark()
             # Store asset_data on the collection so that collection-instance
             # EMPTYs added via Blender's native asset browser can be identified
-            # as BlenderKit assets (rating, bookmarking, etc.).
+            # as Blendkit assets (rating, bookmarking, etc.).
             main_collection["asset_data"] = _sanitize_for_idprops(asset_data)
             data_block = main_collection
         else:

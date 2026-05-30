@@ -29,8 +29,8 @@ from typing import Any, Union
 import bpy
 
 
-def get_obnames(BLENDERKIT_EXPORT_DATA: str):
-    with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
+def get_obnames(BLENDKIT_EXPORT_DATA: str):
+    with open(BLENDKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
         data = json.load(s)
     obnames = eval(data["models"])
     return obnames
@@ -210,14 +210,14 @@ def _str_to_color(s: str) -> Union[tuple[float, float, float], None]:
 if __name__ == "__main__":
     try:
         # args order must match the order in blenderkit/autothumb.py:get_thumbnailer_args()!
-        BLENDERKIT_EXPORT_DATA = sys.argv[-3]
-        BLENDERKIT_EXPORT_API_KEY = sys.argv[-2]
+        BLENDKIT_EXPORT_DATA = sys.argv[-3]
+        BLENDKIT_EXPORT_API_KEY = sys.argv[-2]
         patch_imports(sys.argv[-1])
         bpy.ops.preferences.addon_enable(module=sys.argv[-1])
 
         from . import append_link, bg_blender, bg_utils, client_lib, utils
 
-        with open(BLENDERKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
+        with open(BLENDKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
         thumbnail_use_gpu = data.get("thumbnail_use_gpu")
         thumbnail_disable_subdivision = data.get("thumbnail_disable_subdivision", False)
@@ -234,7 +234,7 @@ if __name__ == "__main__":
             bg_blender.progress("Downloading asset")
             asset_data = data["asset_data"]
             has_url, download_url, file_name = client_lib.get_download_url(
-                asset_data, utils.get_scene_id(), BLENDERKIT_EXPORT_API_KEY
+                asset_data, utils.get_scene_id(), BLENDKIT_EXPORT_API_KEY
             )
             asset_data["files"][0]["url"] = download_url
             asset_data["files"][0]["file_name"] = file_name
@@ -244,7 +244,7 @@ if __name__ == "__main__":
                 )
             bg_blender.progress("downloading asset")
             fpath = bg_utils.download_asset_file(
-                asset_data, api_key=BLENDERKIT_EXPORT_API_KEY
+                asset_data, api_key=BLENDKIT_EXPORT_API_KEY
             )
             data["filepath"] = fpath
             main_object, allobs = append_link.link_collection(
@@ -258,7 +258,7 @@ if __name__ == "__main__":
             allobs = [main_object]
         else:
             bg_blender.progress("preparing thumbnail scene")
-            obnames = get_obnames(BLENDERKIT_EXPORT_DATA)
+            obnames = get_obnames(BLENDKIT_EXPORT_DATA)
             main_object, allobs = append_link.append_objects(
                 file_name=data["filepath"], obnames=obnames, link=True
             )
@@ -388,7 +388,7 @@ if __name__ == "__main__":
         bg_blender.progress("uploading thumbnail")
         fpath = data["thumbnail_path"] + ".jpg"
         ok = client_lib.complete_upload_file_blocking(
-            api_key=BLENDERKIT_EXPORT_API_KEY,
+            api_key=BLENDKIT_EXPORT_API_KEY,
             asset_id=data["asset_data"]["id"],
             filepath=fpath,
             filetype=filetype,

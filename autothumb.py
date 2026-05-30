@@ -16,7 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# import blenderkit
 import json
 import logging
 import os
@@ -39,7 +38,7 @@ from . import bg_blender, global_vars, paths, tasks_queue, utils, upload, search
 
 
 bk_logger = logging.getLogger(__name__)
-BLENDERKIT_EXPORT_DATA_FILE = "data.json"
+BLENDKIT_EXPORT_DATA_FILE = "data.json"
 
 thumbnail_resolutions = (
     ("256", "256", ""),
@@ -202,7 +201,7 @@ def get_thumbnailer_args(script_name, thumbnailer_filepath, datafile, api_key):
         "--",
         datafile,
         api_key,
-        __package__,  # Legacy has it as "blenderkit", extensions have it like bl_ext.user_default.blenderkit or anything else
+        __package__,  # Legacy has it as "blendkit", extensions have it like bl_ext.user_default.blendkit or anything else
     ]
     return args
 
@@ -233,7 +232,7 @@ def start_model_thumbnailer(
         _set_prop(computing_attr, True)
         _set_prop(state_attr, "Saving .blend file")
 
-    datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
+    datafile = os.path.join(json_args["tempdir"], BLENDKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
     if user_preferences.thumbnail_use_gpu is True:
@@ -322,7 +321,7 @@ def start_material_thumbnailer(
         props.is_generating_thumbnail = True
         props.thumbnail_generating_state = "Saving .blend file"
 
-    datafile = os.path.join(json_args["tempdir"], BLENDERKIT_EXPORT_DATA_FILE)
+    datafile = os.path.join(json_args["tempdir"], BLENDKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
     if user_preferences.thumbnail_use_gpu is True:
@@ -389,7 +388,7 @@ class GenerateThumbnailOperator(bpy.types.Operator):
     """Generate Cycles thumbnail for model assets"""
 
     bl_idname = "object.blenderkit_generate_thumbnail"
-    bl_label = "BlenderKit Thumbnail Generator"
+    bl_label = "Blendkit Thumbnail Generator"
     bl_options = {"REGISTER", "INTERNAL"}
 
     @classmethod
@@ -635,7 +634,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
     """
 
     bl_idname = "object.blenderkit_regenerate_thumbnail"
-    bl_label = "BlenderKit Thumbnail Re-generate"
+    bl_label = "Blendkit Thumbnail Re-generate"
     bl_options = {"REGISTER", "INTERNAL"}
 
     asset_index: IntProperty(  # type: ignore[valid-type]
@@ -814,7 +813,7 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
     """Generate default thumbnail with Cycles renderer"""
 
     bl_idname = "object.blenderkit_generate_material_thumbnail"
-    bl_label = "BlenderKit Material Thumbnail Generator"
+    bl_label = "Blendkit Material Thumbnail Generator"
     bl_options = {"REGISTER", "INTERNAL"}
 
     @classmethod
@@ -913,7 +912,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
     """
 
     bl_idname = "object.blenderkit_regenerate_material_thumbnail"
-    bl_label = "BlenderKit Material Thumbnail Re-Generator"
+    bl_label = "Blendkit Material Thumbnail Re-Generator"
     bl_options = {"REGISTER", "INTERNAL"}
 
     asset_index: IntProperty(  # type: ignore[valid-type]

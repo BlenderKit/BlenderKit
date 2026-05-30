@@ -48,9 +48,9 @@ class BlenderKitFormatter(logging.Formatter):
 
 
 def get_blenderkit_formatter():
-    """Get default sensitive formatter for BlenderKit loggers."""
+    """Get default sensitive formatter for Blendkit loggers."""
     return BlenderKitFormatter(
-        fmt="%(levelname)s blenderkit: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
+        fmt="%(levelname)s blendkit: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
         datefmt="%H:%M:%S",
     )
 
@@ -66,19 +66,19 @@ class SensitiveFormatter(logging.Formatter):
 
 
 def get_sensitive_formatter():
-    """Get default sensitive formatter for BlenderKit loggers."""
+    """Get default sensitive formatter for Blendkit loggers."""
     return SensitiveFormatter(
-        fmt="blenderkit %(levelname)s: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
+        fmt="blendkit %(levelname)s: %(message)s [%(asctime)s.%(msecs)03d, %(filename)s:%(lineno)d]",
         datefmt="%H:%M:%S",
     )
 
 
 def configure_bk_logger():
-    """Configure 'blenderkit' logger to which all other logs defined as `bk_logger = logging.getLogger(__name__)` writes.
-    Sets it logging level to `global_vars.LOGGING_LEVEL_BLENDERKIT`.
+    """Configure 'blendkit' logger to which all other logs defined as `bk_logger = logging.getLogger(__name__)` writes.
+    Sets it logging level to `global_vars.LOGGING_LEVEL_BLENDKIT`.
     """
     bk_logger = logging.getLogger(__name__.removesuffix(".log"))
-    bk_logger.setLevel(global_vars.LOGGING_LEVEL_BLENDERKIT)
+    bk_logger.setLevel(global_vars.LOGGING_LEVEL_BLENDKIT)
     bk_logger.propagate = False
     bk_logger.handlers = []
 
@@ -89,7 +89,7 @@ def configure_bk_logger():
 
 
 def configure_imported_loggers():
-    """Configure loggers for imported modules so they can have different logging level `global_vars.LOGGING_LEVEL_IMPORTED` than main blenderkit logger."""
+    """Configure loggers for imported modules so they can have different logging level `global_vars.LOGGING_LEVEL_IMPORTED` than main Blendkit logger."""
     urllib3_logger = logging.getLogger("urllib3")
     urllib3_logger.propagate = False
     urllib3_logger.handlers = []
@@ -102,6 +102,6 @@ def configure_imported_loggers():
 
 
 def configure_loggers():
-    """Configure all loggers for BlenderKit addon. See called functions for details."""
+    """Configure all loggers for Blendkit addon. See called functions for details."""
     configure_bk_logger()
     configure_imported_loggers()

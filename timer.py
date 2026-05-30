@@ -204,7 +204,7 @@ def client_communication_timer():
 
     if global_vars.CLIENT_ACCESSIBLE is False and got_successful_reports:
         bk_logger.info(
-            f"BlenderKit-Client is running on port {global_vars.CLIENT_PORTS[0]}!"
+            f"Blendkit-Client is running on port {global_vars.CLIENT_PORTS[0]}!"
         )
         global_vars.CLIENT_ACCESSIBLE = True
         wm = bpy.context.window_manager

@@ -775,7 +775,7 @@ def append_objects(
                     pass
 
         utils.selection_set(sel)
-        # let collection also store info that it was created by BlenderKit, for purging reasons
+        # let collection also store info that it was created by Blendkit, for purging reasons
 
         return main_object, return_obs
 

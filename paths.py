@@ -35,29 +35,29 @@ from . import client_lib, global_vars, reports, utils
 
 bk_logger = logging.getLogger(__name__)
 
-BLENDERKIT_API = f"{global_vars.SERVER}/api/v1"
-BLENDERKIT_OAUTH_LANDING_URL = f"{global_vars.SERVER}/oauth-landing"
-BLENDERKIT_PLANS_URL = f"{global_vars.SERVER}/plans/pricing"
-BLENDERKIT_REPORT_URL = f"{global_vars.SERVER}/usage_report"
-BLENDERKIT_USER_ASSETS_URL = f"{global_vars.SERVER}/my-assets"
-BLENDERKIT_ASSETS_EDIT_URL = f"{global_vars.SERVER}/asset-edit"
-BLENDERKIT_MANUAL_URL = "https://youtu.be/0P8ZjfbUjeA"
-BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/upload/"
-BLENDERKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL = (
+BLENDKIT_API = f"{global_vars.SERVER}/api/v1"
+BLENDKIT_OAUTH_LANDING_URL = f"{global_vars.SERVER}/oauth-landing"
+BLENDKIT_PLANS_URL = f"{global_vars.SERVER}/plans/pricing"
+BLENDKIT_REPORT_URL = f"{global_vars.SERVER}/usage_report"
+BLENDKIT_USER_ASSETS_URL = f"{global_vars.SERVER}/my-assets"
+BLENDKIT_ASSETS_EDIT_URL = f"{global_vars.SERVER}/asset-edit"
+BLENDKIT_MANUAL_URL = "https://youtu.be/0P8ZjfbUjeA"
+BLENDKIT_MODEL_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/upload/"
+BLENDKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL = (
     f"{global_vars.SERVER}/docs/upload-printables/"
 )
-BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
+BLENDKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL = (
     f"{global_vars.SERVER}/docs/uploading-material/"
 )
-BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-brush/"
-BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-hdr/"
-BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-scene/"
-BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/add-ons-upload-beta/"
-BLENDERKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
-BLENDERKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
+BLENDKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-brush/"
+BLENDKIT_HDR_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-hdr/"
+BLENDKIT_SCENE_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/docs/uploading-scene/"
+BLENDKIT_ADDON_UPLOAD_INSTRUCTIONS_URL = f"{global_vars.SERVER}/add-ons-upload-beta/"
+BLENDKIT_LOGIN_URL = f"{global_vars.SERVER}/accounts/login"
+BLENDKIT_SIGNUP_URL = f"{global_vars.SERVER}/accounts/register"
 
 WINDOWS_PATH_LIMIT = 250
-ASSET_LIBRARY_NAME = "BlenderKit"
+ASSET_LIBRARY_NAME = "Blendkit"
 
 
 def _normalize_path(path_value: str | None) -> str:
@@ -72,7 +72,7 @@ def _normalize_path(path_value: str | None) -> str:
 
 
 def cleanup_old_directories():
-    """function to clean up any historical directories for BlenderKit. By now removes the temp directory."""
+    """function to clean up any historical directories for Blendkit. By now removes the temp directory."""
     orig_temp = os.path.join(os.path.expanduser("~"), "blenderkit_data", "temp")
     if os.path.isdir(orig_temp):
         try:
@@ -230,7 +230,7 @@ def get_download_dirs(asset_type):
 def ensure_asset_library_path(
     global_dir: str | None = None, previous_global_dir: str | None = None
 ):
-    """Ensure Blender's asset library list contains the BlenderKit library path.
+    """Ensure Blender's asset library list contains the Blendkit library path.
 
     - Creates the library entry when missing.
     - Updates an existing entry if the global directory changes.
@@ -392,10 +392,10 @@ def get_res_file(asset_data, resolution, find_closest_with_url=False):
     asset_data
     resolution - ideal resolution
     find_closest_with_url:
-        returns only resolutions that already containt url in the asset data, used in scenes where asset is/was already present.
+        returns only resolutions that already contains url in the asset data, used in scenes where asset is/was already present.
     Returns:
         resolution file
-        resolution, so that other processess can pass correctly which resolution is downloaded.
+        resolution, so that other processes can pass correctly which resolution is downloaded.
     """
     orig = None
     zipf = None

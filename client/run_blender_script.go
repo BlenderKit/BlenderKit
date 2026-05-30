@@ -12,7 +12,7 @@
 //
 // Caller picks a recipe via:
 //   - script_id   : resolves to a bundled recipe — first an embedded
-//                   copy (see bundledTools below), then $BLENDERKIT_TOOLS_DIR,
+//                   copy (see bundledTools below), then $BLENDKIT_TOOLS_DIR,
 //                   then <exe_dir>/tools/. Use this for stable recipes
 //                   shipped with the binary.
 //   - script_path : absolute path to a caller-supplied script. Escape
@@ -118,7 +118,7 @@ func runBlenderScriptHandler(w http.ResponseWriter, r *http.Request) {
 // Blender can launch via --python.
 //
 // Lookup order, first match wins:
-//  1. $BLENDERKIT_TOOLS_DIR/<id>.py
+//  1. $BLENDKIT_TOOLS_DIR/<id>.py
 //     - explicit override (dev). Wins
 //     over embed so edits show up
 //     without a rebuild.
@@ -141,7 +141,7 @@ func runBlenderScriptHandler(w http.ResponseWriter, r *http.Request) {
 // Always-overwrite keeps it idempotent even when a previous run left
 // stale bytes there.
 func resolveBundledScript(id string) (string, error) {
-	if env := os.Getenv("BLENDERKIT_TOOLS_DIR"); env != "" {
+	if env := os.Getenv("BLENDKIT_TOOLS_DIR"); env != "" {
 		p := filepath.Join(env, id+".py")
 		if _, err := os.Stat(p); err == nil {
 			return p, nil
@@ -162,7 +162,7 @@ func resolveBundledScript(id string) (string, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("script_id %q not found (looked under $BLENDERKIT_TOOLS_DIR, embedded recipes, <exe>/tools/, <cwd>/tools/)", id)
+	return "", fmt.Errorf("script_id %q not found (looked under $BLENDKIT_TOOLS_DIR, embedded recipes, <exe>/tools/, <cwd>/tools/)", id)
 }
 
 // extractEmbeddedScript reads tools/<id>.py from the embed.FS and

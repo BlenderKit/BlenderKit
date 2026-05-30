@@ -48,10 +48,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>BlenderKit-Client</title>
+	<title>BlendKit-Client</title>
 </head>
 <body>
-	<h1>BlenderKit-Client</h1>
+	<h1>BlendKit-Client</h1>
 	<div>Client PID: %d</div>
 	<div>Client Version: v%s</div>
 	<div>Platform: %s</div>
@@ -94,7 +94,7 @@ func GetProxyFunc(proxyURL, proxyWhich string) func(*http.Request) (*url.URL, er
 	switch proxyWhich {
 	case "SYSTEM":
 		BKLog.Printf("%s Using proxy settings from system network settings", EmoOK)
-		p := proxy.NewProvider("").GetProxy("https", "https://blenderkit.com")
+		p := proxy.NewProvider("").GetProxy("https", "https://blendkit.com")
 		if p == nil {
 			return noProxy
 		}
@@ -189,11 +189,11 @@ var proxyOptions = []string{
 var TimeoutCoefficient = []int{1, 10}
 
 var testURLs = []string{
-	"https://www.blenderkit.com/api/v1/search/?query=kitten",
-	"https://api.blenderkit.com/api/v1/search/?query=kitten",
-	"https://public.blenderkit.com/robots.txt",
-	"https://status.blenderkit.com/",
-	"https://www.blenderkit.com/disclaimer/",
+	"https://www.blendkit.com/api/v1/search/?query=kitten",
+	"https://api.blendkit.com/api/v1/search/?query=kitten",
+	"https://public.blendkit.com/robots.txt",
+	"https://status.blendkit.com/",
+	"https://www.blendkit.com/disclaimer/",
 }
 
 func DebugNetworkHandler(w http.ResponseWriter, r *http.Request) {
@@ -296,12 +296,12 @@ var fakeHeaders = [][][]string{
 		{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"},
 	},
 	{
-		{"Host", "www.blenderkit.com"},
+		{"Host", "www.blendkit.com"},
 		{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0"},
 		{"Accept", "*/*"},
 		{"Accept-Language", "en-US,en;q=0.5"},
 		{"Accept-Encoding", "gzip, deflate, br, zstd"},
-		{"Referer", "https://www.blenderkit.com/asset-gallery?query=category_subtree:model%20order:-created"},
+		{"Referer", "https://www.blendkit.com/asset-gallery?query=category_subtree:model%20order:-created"},
 		{"Sec-Fetch-Dest", "empty"},
 		{"Sec-Fetch-Mode", "cors"},
 		{"Sec-Fetch-Site", "same-origin"},
@@ -311,7 +311,7 @@ var fakeHeaders = [][][]string{
 		{"Accept", "application/json"},
 		{"Accept-Encoding", "gzip, deflate"},
 		{"Accept-Language", "en-US,en;q=0.5"},
-		{"Host", "www.blenderkit.com"},
+		{"Host", "www.blendkit.com"},
 		{"Priority", "u=0"},
 		{"Referer", "http://httpbin.org/"},
 		{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0"},
