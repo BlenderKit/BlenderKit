@@ -41,7 +41,7 @@ class TestGetEnvironmentInfo(unittest.TestCase):
 
     def test_contains_all_template_fields(self):
         result = ui_panels.get_environment_info()
-        self.assertIn("BlendkitBlenderKBlendKit version:", result)
+        self.assertIn("Blendkit version:", result)
         self.assertIn("Blender version:", result)
         self.assertIn("Python version:", result)
         self.assertIn("Operating system & architecture:", result)
