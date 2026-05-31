@@ -328,23 +328,6 @@ def _write_metadata(data_block, asset_data: dict) -> None:
     if "simulation" in dict_parameters and dict_parameters["simulation"]:
         other_meta["simulation"] = "yes"
 
-    description = asset_data.get("description", "")
-    if description:
-        # we must split by whole words and with max length of 64 chars this includes the key
-        words = description.split()
-        current_tag = ""
-        dp_index = 0
-        for word in words:
-            if len(current_tag) + len(word) + 1 <= 59:
-                current_tag += (" " if current_tag else "") + word
-            else:
-                if current_tag:
-                    other_meta[f"d{dp_index:02}"] = current_tag
-                dp_index += 1
-                current_tag = word
-        if current_tag:
-            other_meta[f"d{dp_index:02}"] = current_tag
-
     # ad additional metadata to tags
     for key, value in other_meta.items():
         tags.new(f"{key}:{value}")
