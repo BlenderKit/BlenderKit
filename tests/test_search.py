@@ -110,7 +110,7 @@ class TestQueryToURL(unittest.TestCase):
             scene_uuid=self.scene_uuid,
             page_size=self.page_size,
         )
-        expected = "https://www.blendkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-last_blend_upload,-last_zip_file_upload&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-last_blend_upload,-last_zip_file_upload&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
         self.assertEqual(url, expected)
 
     def test_sorted_model_query(self):
@@ -123,7 +123,7 @@ class TestQueryToURL(unittest.TestCase):
             scene_uuid=self.scene_uuid,
             page_size=self.page_size,
         )
-        expected = "https://www.blendkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-working_hours&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:model+sexualizedContent:+order:-working_hours&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
         self.assertEqual(url, expected)
 
     def test_sorted_freefirst_material_query(self):
@@ -138,7 +138,7 @@ class TestQueryToURL(unittest.TestCase):
             scene_uuid=self.scene_uuid,
             page_size=self.page_size,
         )
-        expected = "https://www.blendkit.com/api/v1/search/?query=+asset_type:material+sexualizedContent:+order:-is_free,-quality&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
+        expected = "https://www.blenderkit.com/api/v1/search/?query=+asset_type:material+sexualizedContent:+order:-is_free,-quality&dict_parameters=1&page_size=15&addon_version=3.16.1&blender_version=5.0.0&scene_uuid=12345678-abcd-abcd-abcd-12345678abcd"
         self.assertEqual(url, expected)
 
 

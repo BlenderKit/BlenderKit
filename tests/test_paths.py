@@ -191,15 +191,15 @@ class TestExtractFilenameFromUrl(unittest.TestCase):
             "file%2Cwith%2Ccomma.txt",
         ),
         (
-            "https://public.blendkit.com/thumbnails/assets/57ec74ff91b54b2ca5a540cda907cf7a/files/thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp?webp_generated=1701166007",
+            "https://public.blenderkit.com/thumbnails/assets/57ec74ff91b54b2ca5a540cda907cf7a/files/thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp?webp_generated=1701166007",
             "thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp",
         ),
         (
-            "https://public.blendkit.com/thumbnails/assets/6144bbda83ca47ec8b9adb813c56f660/files/thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp?webp_generated=1709019959",
+            "https://public.blenderkit.com/thumbnails/assets/6144bbda83ca47ec8b9adb813c56f660/files/thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp?webp_generated=1709019959",
             "thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp",
         ),
         (
-            "https://public.blendkit.com/public-assets/assets/76d2e7eaa0af42a8b33e1498c1da22f8/files/blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend",
+            "https://public.blenderkit.com/public-assets/assets/76d2e7eaa0af42a8b33e1498c1da22f8/files/blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend",
             "blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend",
         ),
         (

@@ -133,7 +133,7 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
     def _asset_search(self, search_word, asset_type):
         addon_version = utils.get_addon_version()
         blender_version = utils.get_blender_version()
-        urlquery = f"https://www.blendkit.com/api/v1/search/?query={search_word}+asset_type:{asset_type}+order:_score&dict_parameters=1&page_size=15&addon_version={addon_version}&blender_version={blender_version}"
+        urlquery = f"https://www.blenderkit.com/api/v1/search/?query={search_word}+asset_type:{asset_type}+order:_score&dict_parameters=1&page_size=15&addon_version={addon_version}&blender_version={blender_version}"
         tempdir = paths.get_temp_dir(f"{asset_type}_search")
         data = datas.SearchData(
             PREFS=utils.get_preferences(),

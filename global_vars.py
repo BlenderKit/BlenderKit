@@ -71,7 +71,9 @@ if environ.get("BLENDKIT_DEBUG", "0") == "1":
 LOGGING_LEVEL_IMPORTED = WARN
 PREFS = {}
 
-SERVER = environ.get("BLENDKIT_SERVER", environ.get("BLENDERKIT_SERVER", "https://www.blendkit.com"))
+SERVER = environ.get(
+    "BLENDKIT_SERVER", environ.get("BLENDERKIT_SERVER", "https://www.blenderkit.com")
+)
 DISCORD_INVITE_URL = "https://discord.gg/tCKyjFMRar"
 
 TIPS = [

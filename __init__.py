@@ -2360,7 +2360,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
             (
                 "ENABLED",
                 "Enabled SSL Verification",
-                "Activates SSL verification for outbound connections, ensuring secure communication between the Blendkit-client and the blendkit.com server",
+                "Activates SSL verification for outbound connections, ensuring secure communication between the Blendkit-client and the blenderkit.com server",
             ),
             (
                 "DISABLED",
@@ -2368,7 +2368,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
                 "Deactivates SSL verification, bypassing the validation of SSL certificates by Blendkit-client. This mode is insecure and recommended only for testing environments",
             ),
         ),
-        description="Secure communication between Blendkit-client and blendkit.com server by SSL",
+        description="Secure communication between Blendkit-client and blenderkit.com server by SSL",
         default="ENABLED",
         update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )

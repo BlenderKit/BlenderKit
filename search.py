@@ -510,8 +510,8 @@ last_clipboard = ""
 
 def check_clipboard():
     """Check clipboard for an exact string containing asset ID.
-    The string is generated on www.blendkit.com as for example here:
-    https://www.blendkit.com/get-blendkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
+    The string is generated on www.blenderkit.com as for example here:
+    https://www.blenderkit.com/get-blenderkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
     """
     global last_clipboard
     try:  # could be problematic on Linux
@@ -1339,7 +1339,7 @@ def query_to_url(
     """Build a new search request by parsing query dictionary into appropriate URL.
     Also modifies query and adds some stuff in there which is very misleading anti-pattern.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
-    https://www.blendkit.com/api/v1/search/
+    https://www.blenderkit.com/api/v1/search/
     """
     if query is None:
         query = {}
@@ -2362,11 +2362,11 @@ class AuthorAssetTypeSearch(Operator):
     bl_label = "Search Author Assets"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"}) # type: ignore
-    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"}) # type: ignore
+    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})  # type: ignore
+    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})  # type: ignore
     asset_type: StringProperty(
         name="Asset Type", default="MODEL", options={"SKIP_SAVE"}
-    ) # type: ignore
+    )  # type: ignore
 
     def execute(self, context):
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -2385,8 +2385,8 @@ class AuthorAssetTypePopup(Operator):
     bl_label = "Find Author's Assets"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"}) # type: ignore
-    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"}) # type: ignore
+    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})  # type: ignore
+    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})  # type: ignore
 
     # Set by caller before invoke — per-type asset counts from the author result
     _asset_type_counts: dict = {}

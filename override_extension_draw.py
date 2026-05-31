@@ -21,7 +21,7 @@ from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
 
 
-EXTENSIONS_API_URL = "https://www.blendkit.com/api/v1/extensions/"
+EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
 
 bk_logger = logging.getLogger(__name__)
 
@@ -395,7 +395,7 @@ def extension_draw_item_blenderkit(
                         text="Requires Full Plan",
                         icon_value=icon_value,
                     )
-                    props.url = "https://www.blendkit.com/plans/pricing/"
+                    props.url = "https://www.blenderkit.com/plans/pricing/"
 
                 # Paid addons get a buy button and lead to their website link
                 else:

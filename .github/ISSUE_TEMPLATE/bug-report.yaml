@@ -38,7 +38,7 @@ body:
     attributes:
       label: Error Logs
       description: |
-        Ideally, please provide the error logs related to the problem. [Here's how to get error logs](https://www.blendkit.com/report-bug/).
+        Ideally, please provide the error logs related to the problem. [Here's how to get error logs](https://www.blenderkit.com/report-bug/).
         Providing error logs enables us to diagnose and address the issue more efficiently.
         We may be able to resolve the issue without the logs, but in most cases, we will request them.
     validations:

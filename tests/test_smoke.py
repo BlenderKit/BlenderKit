@@ -83,10 +83,10 @@ class TestUtilsHasUrl(unittest.TestCase):
         self.assertEqual(text, "plain text")
 
     def test_markdown_url(self):
-        urls, text = utils.has_url("Check [BlendKit](https://www.blendkit.com) now")
+        urls, text = utils.has_url("Check [BlendKit](https://www.blenderkit.com) now")
         self.assertEqual(len(urls), 1)
         self.assertEqual(urls[0][0], "BlendKit")
-        self.assertEqual(urls[0][1], "https://www.blendkit.com")
+        self.assertEqual(urls[0][1], "https://www.blenderkit.com")
 
 
 class TestUtilsRemoveUrlProtocol(unittest.TestCase):
