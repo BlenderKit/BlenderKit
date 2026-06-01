@@ -3030,7 +3030,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 # (this loop runs every smooth-scroll frame over ~300 buttons).
                 # getattr default covers the first pass, before _grid_positioned
                 # has ever been assigned on freshly-created buffer buttons.
-                if not getattr(button, "_grid_positioned", False) and not button.visible:
+                if (
+                    not getattr(button, "_grid_positioned", False)
+                    and not button.visible
+                ):
                     continue
                 button._grid_positioned = False
                 button.visible = False
