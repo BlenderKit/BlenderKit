@@ -227,7 +227,10 @@ def get_subcategory_enums(self, context):
                 self.category,
             ),
         )
-        if asset_categories is not None and asset_categories.get("children") is not None:
+        if (
+            asset_categories is not None
+            and asset_categories.get("children") is not None
+        ):
             for c in asset_categories["children"]:
                 items.append((c["slug"], c["name"], c["description"]))
     if len(items) == 0:
@@ -266,7 +269,10 @@ def get_subcategory1_enums(self, context):
                 self.subcategory,
             ),
         )
-        if asset_categories is not None and asset_categories.get("children") is not None:
+        if (
+            asset_categories is not None
+            and asset_categories.get("children") is not None
+        ):
             for c in asset_categories["children"]:
                 items.append((c["slug"], c["name"], c["description"]))
     if len(items) == 0:
