@@ -48,7 +48,11 @@ from ..bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from ..bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from ..bl_ui_widgets.bl_ui_image import BL_UI_Image
 from ..bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
-from ..bl_ui_widgets.bl_ui_widget import BL_UI_Widget
+from ..bl_ui_widgets.bl_ui_widget import (
+    BL_UI_Widget,
+    batched_region_redraw,
+    region_redraw,
+)
 
 bk_logger = logging.getLogger(__name__)
 
@@ -2992,34 +2996,53 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             x_end = self.wcount + SCROLL_BUFFER_COLS
             phase_x, phase_y = self.scroll_phase, 0.0
 
-        for y in range(y_start, y_end):
-            for x in range(x_start, x_end):
-                if i >= len(self.asset_buttons):
-                    break
-                asset_x = self.assetbar_margin + x * self.button_size - phase_x
-                asset_y = self.assetbar_margin + y * self.button_size - phase_y
-                logical_idx = x + y * self.wcount
+        # Reposition the grid (incl. buffer rows/cols) and hide the rest. Each
+        # set_location() inside would normally tag a redraw; coalesce them into
+        # a single redraw for the whole pass - this runs every smooth-scroll
+        # frame, so ~1000 redundant tag_redraw() calls per frame are avoided.
+        with batched_region_redraw():
+            for y in range(y_start, y_end):
+                for x in range(x_start, x_end):
+                    if i >= len(self.asset_buttons):
+                        break
+                    asset_x = self.assetbar_margin + x * self.button_size - phase_x
+                    asset_y = self.assetbar_margin + y * self.button_size - phase_y
+                    logical_idx = x + y * self.wcount
 
-                button = self.asset_buttons[i]
-                button.button_index = logical_idx
-                button._grid_positioned = True
-                self._position_single_button(
-                    button, asset_x, asset_y, logical_idx + self.scroll_offset, sr_len
-                )
-                i += 1
-            else:
-                continue
-            break
+                    button = self.asset_buttons[i]
+                    button.button_index = logical_idx
+                    button._grid_positioned = True
+                    self._position_single_button(
+                        button,
+                        asset_x,
+                        asset_y,
+                        logical_idx + self.scroll_offset,
+                        sr_len,
+                    )
+                    i += 1
+                else:
+                    continue
+                break
 
-        for a in range(i, len(self.asset_buttons)):
-            button = self.asset_buttons[a]
-            button._grid_positioned = False
-            button.visible = False
-            button.validation_icon.visible = False
-            button.bookmark_button.visible = False
-            button.author_button.visible = False
-            button.progress_bar.visible = False
-            button.red_alert.visible = False
+            for a in range(i, len(self.asset_buttons)):
+                button = self.asset_buttons[a]
+                # Already hidden by a previous pass - skip the redundant work
+                # (this loop runs every smooth-scroll frame over ~300 buttons).
+                # getattr default covers the first pass, before _grid_positioned
+                # has ever been assigned on freshly-created buffer buttons.
+                if (
+                    not getattr(button, "_grid_positioned", False)
+                    and not button.visible
+                ):
+                    continue
+                button._grid_positioned = False
+                button.visible = False
+                button.validation_icon.visible = False
+                button.bookmark_button.visible = False
+                button.author_button.visible = False
+                button.progress_bar.visible = False
+                button.red_alert.visible = False
+        region_redraw()
 
         self.position_active_filter_buttons()
 
