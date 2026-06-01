@@ -54,6 +54,15 @@ pending_tasks = (
     list()
 )  # pending tasks are tasks that were not parsed correctly and should be tried to be parsed later.
 
+# Max wall-clock time (seconds) spent building thumbnail GPU textures per timer
+# step. A search can complete many thumbnail downloads within one poll
+# interval; building every GPU texture in a single step blocks the main thread
+# (measured 480-650 ms bursts -> visible viewport stutter). We process finished
+# thumbnails only up to this budget and defer the rest to the next step, so the
+# work is spread across steps. Lower it for smoother frames; raise it to load
+# thumbnails faster at the cost of slightly bigger hitches.
+THUMBNAIL_BUILD_TIME_BUDGET = 0.1
+
 
 def handle_failed_reports(exception: Exception) -> float:
     """Function reacting to failing reports (Client is not accessible).
@@ -232,12 +241,40 @@ def client_communication_timer():
     results_converted_tasks.extend(pending_tasks)
     pending_tasks.clear()
 
+    # Throttle eager thumbnail GPU-texture builds so a burst of completed
+    # downloads doesn't freeze the viewport in a single step. Finished
+    # thumbnails are processed only up to THUMBNAIL_BUILD_TIME_BUDGET; the rest
+    # are re-queued for the next step. Cache hits cost ~0 ms so they don't eat
+    # the budget. Every other task type is handled immediately, never deferred.
+    #
+    # Small thumbnails are the asset-bar grid icons - cheap and the first thing
+    # the user sees - so they are always built immediately and never deferred.
+    # Only the larger full/photo/wire (tooltip-sized) thumbnails are throttled.
+    thumb_build_time = 0.0
+    deferred_thumbs = []
     for task in results_converted_tasks:
-        handle_task(task)
+        is_thumb = task.task_type == "thumbnail_download" and task.status == "finished"
+        deferrable = is_thumb and task.data.get("thumbnail_type") != "small"
+        if deferrable and thumb_build_time >= THUMBNAIL_BUILD_TIME_BUDGET:
+            deferred_thumbs.append(task)
+            continue
+        if is_thumb:
+            _t0 = time.perf_counter()
+            handle_task(task)
+            thumb_build_time += time.perf_counter() - _t0
+        else:
+            handle_task(task)
+
+    if deferred_thumbs:
+        # Re-queue for the next timer step (drained at the top of this function).
+        pending_tasks.extend(deferred_thumbs)
 
     download.prune_stalled_downloads(now=time.monotonic())
     bk_logger.log(5, "Task handling finished")
     delay = user_preferences.client_polling
+    if deferred_thumbs:
+        # Come back soon to keep draining the backlog without busy-polling.
+        return min(0.05, delay)
     if len(download.download_tasks) > 0:
         return min(0.2, delay)
     return delay
