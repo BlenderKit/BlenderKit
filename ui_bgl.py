@@ -40,6 +40,15 @@ cached_images = {}
 
 cached_gpu_textures = {}
 
+# Persistent scratch image reused for thumbnail->GPU texture conversion.
+# Loading and removing a fresh bpy.data.images for every thumbnail triggers a
+# full depsgraph relations rebuild (DEG_relations_tag_update) on each
+# add/remove, which scales with scene complexity and makes asset-bar mouse-over
+# very slow in huge scenes. Reusing one image (just reload its filepath) avoids
+# that cost entirely.
+_scratch_image = None
+_SCRATCH_IMAGE_NAME = ".blenderkit_thumb_scratch"
+
 _cached_image_shader: Optional[gpu.types.GPUShader] = None
 
 SEGMENTS_DEFAULT = 4
@@ -796,8 +805,76 @@ def draw_image_runtime(
     return batch
 
 
+def _get_scratch_image():
+    """Return a single persistent bpy.types.Image reused for all thumbnail
+    conversions, avoiding per-thumbnail image add/remove (which forces a
+    depsgraph relations rebuild)."""
+    global _scratch_image
+    if _scratch_image is not None:
+        try:
+            # access something to verify the datablock is still valid
+            _scratch_image.name
+            return _scratch_image
+        except (ReferenceError, AttributeError):
+            _scratch_image = None
+
+    img = bpy.data.images.get(_SCRATCH_IMAGE_NAME)
+    if img is None:
+        img = bpy.data.images.new(_SCRATCH_IMAGE_NAME, 1, 1)
+    img.use_fake_user = False
+    try:
+        img.colorspace_settings.name = "sRGB"
+    except Exception:
+        pass
+    _scratch_image = img
+    return img
+
+
+def _legacy_path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
+    """Original load+remove path, kept as a fallback if the scratch-image
+    approach fails for some reason."""
+    img = bpy.data.images.load(path, check_existing=False)
+    img.gl_load()
+    tex = gpu.texture.from_image(img)
+    bpy.data.images.remove(img)
+    return tex
+
+
+def _gl_texture_limit_px() -> Optional[int]:
+    """Return the System > GL Texture Limit as an integer pixel size, or None
+    when there is no limit ('CLAMP_OFF') or it can't be determined."""
+    try:
+        value = bpy.context.preferences.system.gl_texture_limit
+    except Exception:  # noqa: BLE001
+        return None
+    if not value or value == "CLAMP_OFF":
+        return None
+    try:
+        return int(value.split("_")[1])  # e.g. 'CLAMP_128' -> 128
+    except (IndexError, ValueError):
+        return None
+
+
+# Below this GL Texture Limit, gl_load()/from_image() would clamp thumbnails
+# enough to look blurry, so we bypass it via a full-resolution pixel upload.
+# At 512+ the clamped result is still sharp enough, so we keep the cheap path.
+_FULLRES_BYPASS_THRESHOLD = 512
+
+
 def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
-    """Convert a Blender image to a GPU texture.
+    """Convert an image file path to a GPU texture.
+
+    Reuses a single persistent scratch image (reloading its filepath) instead
+    of adding/removing a fresh bpy.data.images per call. gpu.texture.from_image
+    returns an independent snapshot, so the returned texture stays valid after
+    the scratch image is reloaded for the next thumbnail.
+
+    Normally the texture is built with gl_load()/from_image(), which is cheap
+    but honours the user's System > GL Texture Limit. When that limit is set
+    aggressively low (< 512) and the image is bigger than the limit, we instead
+    upload the image's full-resolution pixels into an RGBA16F texture, bypassing
+    the clamp so previews stay sharp. Colour matches: image.pixels are already
+    linear-decoded, exactly what the draw shader expects.
 
     Returns:
         The GPU texture if successful, or None if the image is invalid.
@@ -809,14 +886,49 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
     if not os.path.exists(path) or not os.path.isfile(path):
         # do not spam log with warnings, just return None
         return None
-    img = bpy.data.images.load(path, check_existing=False)
-    img.gl_load()
 
-    tex = gpu.texture.from_image(img)
+    try:
+        img = _get_scratch_image()
+        img.filepath = path
+        img.filepath_raw = path
+        # The scratch image is created via images.new() => source 'GENERATED'
+        # (a 1x1 black image). Without switching it to 'FILE', reload() never
+        # reads the file and every thumbnail/icon ends up a 1x1 black texture.
+        if img.source != "FILE":
+            img.source = "FILE"
+        img.reload()
+
+        width, height = img.size
+        channels = img.channels
+        limit = _gl_texture_limit_px()
+        needs_bypass = (
+            limit is not None
+            and limit < _FULLRES_BYPASS_THRESHOLD
+            and max(width, height) > limit
+            and channels == 4
+            and width > 0
+            and height > 0
+        )
+
+        if needs_bypass:
+            # Full-resolution upload that ignores the GL Texture Limit clamp.
+            buf = gpu.types.Buffer("FLOAT", width * height * channels)
+            img.pixels.foreach_get(buf)
+            tex = gpu.types.GPUTexture((width, height), format="RGBA16F", data=buf)
+        else:
+            img.gl_load()
+            tex = gpu.texture.from_image(img)
+    except Exception as e:
+        bk_logger.warning(
+            "scratch-image path_to_gpu_texture failed (%s), using legacy load",
+            e,
+        )
+        try:
+            tex = _legacy_path_to_gpu_texture(path)
+        except Exception:
+            return None
+
     cached_gpu_textures[path] = tex
-
-    # # Clean up Blender image
-    bpy.data.images.remove(img)
     return tex
 
 
