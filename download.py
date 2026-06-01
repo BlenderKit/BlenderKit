@@ -1592,7 +1592,7 @@ def try_finished_append(asset_data: dict[str, Any], **kwargs: Any) -> None:
     if sr is None:
         return
     for sres in sr:
-        if asset_data["id"] != sres["id"]:
+        if sres.get("id") != asset_data["id"]:
             continue
         sres["downloaded"] = 100
 

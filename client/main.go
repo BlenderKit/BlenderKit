@@ -675,23 +675,65 @@ func assetSearchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
+// searchRetryMaxAttempts is the total number of attempts (including the first)
+// for search requests that receive HTTP 429 (Too Many Requests).
+const searchRetryMaxAttempts = 3
+const searchRetryDelay = 5 * time.Second
+
+// fetchSearchWithRetry performs the search HTTP GET, retrying up to
+// searchRetryMaxAttempts times when the server replies with HTTP 429.
+// On success the caller owns resp.Body and must close it. On failure resp
+// is nil and err describes the cause (transport error, request build error,
+// or "rate limited after N attempts").
+func fetchSearchWithRetry(data SearchTaskData) (*http.Response, error) {
+	var lastBody, lastStatus string
+	for attempt := 1; attempt <= searchRetryMaxAttempts; attempt++ {
+		req, err := http.NewRequest("GET", data.URLQuery, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+		req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+
+		resp, err := ClientAPI.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return resp, nil
+		}
+
+		// HTTP 429 - remember body for the final error message, then back off.
+		_, lastBody, _ = ParseFailedHTTPResponse(resp)
+		lastStatus = resp.Status
+		resp.Body.Close()
+
+		if attempt == searchRetryMaxAttempts {
+			break
+		}
+		BKLog.Printf("%v search: HTTP 429, retrying in %v (attempt %d/%d), query: %v",
+			EmoWarning, searchRetryDelay, attempt, searchRetryMaxAttempts, data.URLQuery)
+		time.Sleep(searchRetryDelay)
+	}
+	return nil, fmt.Errorf("rate-limited after %d attempts: %s, status (%s)",
+		searchRetryMaxAttempts, lastBody, lastStatus)
+}
+
 func doAssetSearch(data SearchTaskData, taskUUID string) {
 	AddTaskCh <- NewTask(data, data.AppID, taskUUID, "search")
 
-	req, err := http.NewRequest("GET", data.URLQuery, nil)
+	resp, err := fetchSearchWithRetry(data)
 	if err != nil {
-		err = fmt.Errorf("search - creating request: %w", err)
+		// Transport-level error from ClientAPI.Do (timeouts, DNS, TLS, ...)
+		// arrives as *url.Error; strip the verbose "Get <url>:" prefix so the
+		// message fits inside user screenshots, same as before.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			shortened := fmt.Errorf("search GET: %w", errors.Unwrap(err))
+			TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened, MessageDetailed: err.Error()}
+			return
+		}
+		err = fmt.Errorf("search: %w, query: %v", err, data.URLQuery)
 		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err}
-		return
-	}
-	req.Header = getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
-
-	resp, err := ClientAPI.Do(req)
-	if err != nil {
-		// err has the interesting stuff at the end... err = Get "https://www.blenderkit.com/api/v1/search/?query=dog+asset_type:model+sexualizedContent:False+order:_score&dict_parameters=1&page_size=15&addon_version=3.15.0&blender_version=4.4.0": read tcp 192.168.4.36:61092->104.26.5.20:443: read: operation timed out
-		shortened_err := errors.Unwrap(err)                         // Get rid off the url.Error part - Get "https://blenderkit.com/api/v1/search/....."
-		shortened_err = fmt.Errorf("search GET: %w", shortened_err) //squeezes into user's screenshots
-		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: shortened_err, MessageDetailed: err.Error()}
 		return
 	}
 	defer resp.Body.Close()
