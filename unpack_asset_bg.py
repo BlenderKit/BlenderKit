@@ -329,6 +329,21 @@ def _write_metadata(data_block, asset_data: dict) -> None:
         other_meta["simulation"] = "yes"
 
     description = asset_data.get("description", "")
+    author_name = _resolve_author_name(asset_data)
+
+    data_block.asset_data.author = author_name
+    other_meta[f"author_name"] = author_name
+
+    data_block.asset_data.description = description
+    if hasattr(data_block.asset_data, "copyright"):
+        cop = asset_data.get("copyright", "")
+        data_block.asset_data.copyright = cop
+        other_meta[f"copyright"] = cop
+    if hasattr(data_block.asset_data, "license"):
+        lic = asset_data.get("license", "")
+        data_block.asset_data.license = lic
+        other_meta[f"license"] = lic
+
     if description:
         # we must split by whole words and with max length of 64 chars this includes the key
         words = description.split()
@@ -348,16 +363,6 @@ def _write_metadata(data_block, asset_data: dict) -> None:
     # ad additional metadata to tags
     for key, value in other_meta.items():
         tags.new(f"{key}:{value}")
-
-    description = asset_data.get("description", "")
-    author_name = _resolve_author_name(asset_data)
-
-    data_block.asset_data.author = author_name
-    data_block.asset_data.description = description
-    if hasattr(data_block.asset_data, "copyright"):
-        data_block.asset_data.copyright = asset_data.get("copyright", "")
-    if hasattr(data_block.asset_data, "license"):
-        data_block.asset_data.license = asset_data.get("license", "")
 
 
 def _sanitize_catalog_segment(segment: str) -> str:
