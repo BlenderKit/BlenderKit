@@ -1534,10 +1534,8 @@ def check_context(context, area_type="VIEW_3D"):
 
 
 def get_fake_context(context=None, area_type="VIEW_3D"):
-    C_dict = (
-        {}
-    )  # context.copy() #context.copy was a source of problems - incompatibility with addons that also define context
-    C_dict.update(region="WINDOW")
+    # context.copy() was a source of problems - incompatibility with addons that also define context
+    C_dict: dict = {}
 
     # if hasattr(context,'window') and hasattr(context,'screen') and hasattr(context,'area') and hasattr(context,'region'):
     #     w = context.window
