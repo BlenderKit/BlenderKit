@@ -174,6 +174,14 @@ def draw_upload_common(layout, props, asset_type, context):
         op.metadata = True
         op.thumbnail = True
 
+    if utils.profile_is_validator():
+        op = layout.operator(
+            "object.blenderkit_dry_run_export",
+            text="Dry Run Export (validator)",
+            icon="CHECKBOX_HLT",
+        )
+        op.asset_type = asset_type
+
     if props.asset_base_id != "":
         op = layout.operator(
             "wm.blenderkit_url", text="Edit Details", icon="GREASEPENCIL"
