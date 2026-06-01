@@ -40,6 +40,15 @@ cached_images = {}
 
 cached_gpu_textures = {}
 
+# Persistent scratch image reused for thumbnail->GPU texture conversion.
+# Loading and removing a fresh bpy.data.images for every thumbnail triggers a
+# full depsgraph relations rebuild (DEG_relations_tag_update) on each
+# add/remove, which scales with scene complexity and makes asset-bar mouse-over
+# very slow in huge scenes. Reusing one image (just reload its filepath) avoids
+# that cost entirely.
+_scratch_image = None
+_SCRATCH_IMAGE_NAME = ".blenderkit_thumb_scratch"
+
 _cached_image_shader: Optional[gpu.types.GPUShader] = None
 
 SEGMENTS_DEFAULT = 4
@@ -796,8 +805,48 @@ def draw_image_runtime(
     return batch
 
 
+def _get_scratch_image():
+    """Return a single persistent bpy.types.Image reused for all thumbnail
+    conversions, avoiding per-thumbnail image add/remove (which forces a
+    depsgraph relations rebuild)."""
+    global _scratch_image
+    if _scratch_image is not None:
+        try:
+            # access something to verify the datablock is still valid
+            _scratch_image.name
+            return _scratch_image
+        except (ReferenceError, AttributeError):
+            _scratch_image = None
+
+    img = bpy.data.images.get(_SCRATCH_IMAGE_NAME)
+    if img is None:
+        img = bpy.data.images.new(_SCRATCH_IMAGE_NAME, 1, 1)
+    img.use_fake_user = False
+    try:
+        img.colorspace_settings.name = "sRGB"
+    except Exception:
+        pass
+    _scratch_image = img
+    return img
+
+
+def _legacy_path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
+    """Original load+remove path, kept as a fallback if the scratch-image
+    approach fails for some reason."""
+    img = bpy.data.images.load(path, check_existing=False)
+    img.gl_load()
+    tex = gpu.texture.from_image(img)
+    bpy.data.images.remove(img)
+    return tex
+
+
 def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
-    """Convert a Blender image to a GPU texture.
+    """Convert an image file path to a GPU texture.
+
+    Reuses a single persistent scratch image (reloading its filepath) instead
+    of adding/removing a fresh bpy.data.images per call. gpu.texture.from_image
+    returns an independent snapshot, so the returned texture stays valid after
+    the scratch image is reloaded for the next thumbnail.
 
     Returns:
         The GPU texture if successful, or None if the image is invalid.
@@ -809,14 +858,30 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
     if not os.path.exists(path) or not os.path.isfile(path):
         # do not spam log with warnings, just return None
         return None
-    img = bpy.data.images.load(path, check_existing=False)
-    img.gl_load()
 
-    tex = gpu.texture.from_image(img)
+    try:
+        img = _get_scratch_image()
+        img.filepath = path
+        img.filepath_raw = path
+        # The scratch image is created via images.new() => source 'GENERATED'
+        # (a 1x1 black image). Without switching it to 'FILE', reload() never
+        # reads the file and every thumbnail/icon ends up a 1x1 black texture.
+        if img.source != "FILE":
+            img.source = "FILE"
+        img.reload()
+        img.gl_load()
+        tex = gpu.texture.from_image(img)
+    except Exception as e:
+        bk_logger.warning(
+            "scratch-image path_to_gpu_texture failed (%s), using legacy load",
+            e,
+        )
+        try:
+            tex = _legacy_path_to_gpu_texture(path)
+        except Exception:
+            return None
+
     cached_gpu_textures[path] = tex
-
-    # # Clean up Blender image
-    bpy.data.images.remove(img)
     return tex
 
 
