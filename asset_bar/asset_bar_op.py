@@ -2989,24 +2989,27 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             y_start = -SCROLL_BUFFER_ROWS
             y_end = self.hcount + SCROLL_BUFFER_ROWS
             x_start, x_end = 0, self.wcount
-            phase_x, phase_y = 0.0, self.scroll_phase
         else:
             y_start, y_end = 0, 1
             x_start = -SCROLL_BUFFER_COLS
             x_end = self.wcount + SCROLL_BUFFER_COLS
-            phase_x, phase_y = self.scroll_phase, 0.0
 
+        # Buttons are positioned at their integer grid slots. The sub-slot
+        # smooth-scroll offset (scroll_phase) is NOT baked into positions here;
+        # it is applied as a single draw-time translate in the asset-bar draw
+        # callback (see _update_grid_draw_offset). That way a smooth-scroll
+        # animation frame no longer repositions every grid widget.
+        #
         # Reposition the grid (incl. buffer rows/cols) and hide the rest. Each
         # set_location() inside would normally tag a redraw; coalesce them into
-        # a single redraw for the whole pass - this runs every smooth-scroll
-        # frame, so ~1000 redundant tag_redraw() calls per frame are avoided.
+        # a single redraw for the whole pass.
         with batched_region_redraw():
             for y in range(y_start, y_end):
                 for x in range(x_start, x_end):
                     if i >= len(self.asset_buttons):
                         break
-                    asset_x = self.assetbar_margin + x * self.button_size - phase_x
-                    asset_y = self.assetbar_margin + y * self.button_size - phase_y
+                    asset_x = self.assetbar_margin + x * self.button_size
+                    asset_y = self.assetbar_margin + y * self.button_size
                     logical_idx = x + y * self.wcount
 
                     button = self.asset_buttons[i]
@@ -3076,6 +3079,11 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # While `_scroll_animating` is True the modal timer ticks the phase
         # toward rest (friction decay -> magnetic snap to zero).
         self.scroll_phase = 0.0
+        # Sub-slot scroll offset applied as a single draw-time gpu.matrix
+        # translate to all grid widgets (GPU coords: +x right, +y up), instead
+        # of repositioning every widget per animation frame. Updated from
+        # scroll_phase by _update_grid_draw_offset(); read by the draw callback.
+        self._grid_draw_offset = (0.0, 0.0)
         self._scroll_velocity = 0.0
         self._scroll_last_input_time = 0.0
         self._scroll_last_tick_time = 0.0
@@ -4320,6 +4328,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not self._scroll_animating and self.scroll_phase != 0.0:
             self.scroll_phase = 0.0
             self._scroll_velocity = 0.0
+        # Keep the draw-time grid offset in sync with the (possibly reset)
+        # phase so the grid never draws shifted while at rest.
+        self._update_grid_draw_offset()
         history_step = search.get_active_history_step()
         sr = history_step.get("search_results")
         sro = history_step.get("search_results_orig")
@@ -4479,27 +4490,34 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if abs(self.scroll_phase) >= step_px:
             self.scroll_phase = 0.0
 
+    def _update_grid_draw_offset(self):
+        """Translate the grid by the sub-slot scroll phase at draw time.
+
+        Returns a GPU-space (dx, dy) offset (+x right, +y up). Buttons stay at
+        their integer slot positions; the draw callback applies this translate
+        to all grid widgets so they slide as one, with no per-widget work.
+        Mirrors the old per-frame ``asset_x = base - phase`` baking:
+        increasing ``scroll_phase`` moves multi-row grids up (+gpu_y) and
+        single-row grids left (-gpu_x).
+        """
+        if self.hcount > 1:
+            self._grid_draw_offset = (0.0, self.scroll_phase)
+        else:
+            self._grid_draw_offset = (-self.scroll_phase, 0.0)
+        return self._grid_draw_offset
+
     def _smooth_scroll_redraw(self):
-        """Reposition buttons with the current phase and request a redraw."""
-        self.position_and_hide_buttons()
+        """Apply the current scroll phase and request a redraw.
+
+        The sub-slot slide is now a single draw-time translate (see the draw
+        callback), so we no longer reposition every grid widget here - we just
+        refresh the draw offset and the scroll indicator, then tag a redraw.
+        """
+        self._update_grid_draw_offset()
         # Refresh the indicator each animation frame so its thumb glides
         # smoothly with the sub-slot phase. (`scroll_update` handles the
         # non-animated paths.)
         self._update_scroll_indicator()
-        panel = getattr(self, "panel", None)
-        if panel is not None:
-            px = panel.x_screen
-            py = panel.y_screen
-            extras = (
-                getattr(self, "button_expand", None),
-                getattr(self, "button_scroll_down", None),
-                getattr(self, "button_scroll_up", None),
-            )
-            for w in panel.widgets:
-                if getattr(w, "_is_grid_widget", False) or w in extras:
-                    if w is None:
-                        continue
-                    w.update(px + w.x, py + w.y)
         try:
             region = bpy.context.region
         except Exception:
