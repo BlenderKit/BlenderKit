@@ -53,7 +53,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     url: StringProperty(  # type: ignore[valid-type]
         name="url",
         description="URL",
-        default="www.blenderkit.com",
+        default="www.blendkit.com",
         options={"SKIP_SAVE"},
     )
 

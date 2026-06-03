@@ -188,7 +188,7 @@ func GetAssetDirectoryName(assetName, assetID string) string {
 }
 
 // PluralizeAssetType returns the plural form of the asset type string.
-// Mirrors the plurals_mapping in BlendKit/paths.py:get_download_dirs().
+// Mirrors the plurals_mapping in Blendkit/paths.py:get_download_dirs().
 func PluralizeAssetType(assetType string) string {
 	irregular := map[string]string{
 		"brush": "brushes",
@@ -292,8 +292,8 @@ func GetSafeTempPath() (string, error) {
 // FixAssetsUpdateResponse updates the response to contain the asset ID and AssetType.
 // It has to be done because API returns different data response when asset is created and when it is updated.
 // API assets_update returns different set of data, asset_type are missing.
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_create - provides ID and AssetType
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update - does not provide ID and AssetType
+// https://www.blendkit.com/api/v1/docs/#tag/assets/operation/assets_create - provides ID and AssetType
+// https://www.blendkit.com/api/v1/docs/#tag/assets/operation/assets_update - does not provide ID and AssetType
 func FixAssetsUpdateResponse(data *AssetsCreateResponse, assetID, assetType string) *AssetsCreateResponse {
 	if data.ID == "" {
 		fmt.Printf("FixAssetsUpdateResponse: assetID is empty, replacing with assetID: %v\n", assetID)

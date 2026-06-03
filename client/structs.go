@@ -142,7 +142,7 @@ type SocialNetwork struct {
 // Author represents an author of an Asset.
 type Author struct {
 	AboutMe        string          `json:"aboutMe"`
-	AboutMeURL     string          `json:"aboutMeUrl"` // URL to the author's portfolio on BlenderKit
+	AboutMeURL     string          `json:"aboutMeUrl"` // URL to the author's portfolio on Blendkit
 	Avatar128      string          `json:"avatar128"`
 	FirstName      string          `json:"firstName"`
 	FullName       string          `json:"fullName"`
@@ -153,7 +153,7 @@ type Author struct {
 }
 
 // Asset is a struct for storing an asset in this Client application.
-// Represents a single asset returned from the search API at: https://www.blenderkit.com/api/v1/search/.
+// Represents a single asset returned from the search API at: https://www.blendkit.com/api/v1/search/.
 type Asset struct {
 	Access                           string                 `json:"access"`
 	AccessLabel                      string                 `json:"accessLabel"`
@@ -220,7 +220,7 @@ type Asset struct {
 	WebpGeneratedTimestamp           float64                `json:"webpGeneratedTimestamp"`
 }
 
-// SearchResults is a struct for storing search results from https://www.blenderkit.com/api/v1/search/.
+// SearchResults is a struct for storing search results from https://www.blendkit.com/api/v1/search/.
 type SearchResults struct {
 	Count       int         `json:"count"`
 	Facets      interface{} `json:"facets"`
@@ -303,7 +303,7 @@ type Category struct {
 	AssetCountCumulative int        `json:"assetCountCumulative"`
 }
 
-// CategoriesData is a struct for storing the response from the server when fetching https://www.blenderkit.com/api/v1/categories/
+// CategoriesData is a struct for storing the response from the server when fetching https://www.blendkit.com/api/v1/categories/
 type CategoriesData struct {
 	Count   int        `json:"count"`
 	Next    string     `json:"next"`
@@ -364,7 +364,7 @@ type AssetUploadExportData struct {
 // Data response on assets_create or assets_update. Quite close to AssetUploadTaskData. TODO: merge together.
 // API docs:
 // https://www.blendKit.com/api/v1/docs/#tag/assets/operation/assets_create
-// https://www.blenderkit.com/api/v1/docs/#tag/assets/operation/assets_update
+// https://www.blendkit.com/api/v1/docs/#tag/assets/operation/assets_update
 type AssetsCreateResponse struct {
 	AddonVersion       string      `json:"addonVersion"`
 	AssetBaseID        string      `json:"assetBaseId"`

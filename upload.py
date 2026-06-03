@@ -1889,7 +1889,7 @@ class AssetVerificationStatusChange(Operator):
     def draw(self, context):
         layout = self.layout
         # if self.state == 'deleted':
-        message = "Really delete asset from BlenderKit online storage?"
+        message = "Really delete asset from Blendkit online storage?"
         if self.original_state == "on_hold":
             message += (
                 "\n\nThis asset is on hold. If you want to upload it again,"

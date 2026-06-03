@@ -77,7 +77,7 @@ def get_api_version() -> str:
 
 
 def get_base_url() -> str:
-    """The base URL on which we will interact with the BlenderKit Client. Consists from address with port + version API path.
+    """The base URL on which we will interact with the Blendkit Client. Consists from address with port + version API path.
     All requests to Client goes to URLs starting with base URL in format: 127.0.0.1:{port}/vX.Y
     """
     address = get_address()

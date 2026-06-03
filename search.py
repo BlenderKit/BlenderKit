@@ -510,8 +510,8 @@ last_clipboard = ""
 
 def check_clipboard():
     """Check clipboard for an exact string containing asset ID.
-    The string is generated on www.blenderkit.com as for example here:
-    https://www.blenderkit.com/get-blenderkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
+    The string is generated on www.blendkit.com as for example here:
+    https://www.blendkit.com/get-blendkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
     """
     global last_clipboard
     try:  # could be problematic on Linux
@@ -1341,7 +1341,7 @@ def query_to_url(
     """Build a new search request by parsing query dictionary into appropriate URL.
     Also modifies query and adds some stuff in there which is very misleading anti-pattern.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
-    https://www.blenderkit.com/api/v1/search/
+    https://www.blendkit.com/api/v1/search/
     """
     if query is None:
         query = {}

@@ -21,7 +21,7 @@ from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
 
 
-EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
+EXTENSIONS_API_URL = "https://www.blendkit.com/api/v1/extensions/"
 
 bk_logger = logging.getLogger(__name__)
 
@@ -395,7 +395,7 @@ def extension_draw_item_blenderkit(
                         text="Requires Full Plan",
                         icon_value=icon_value,
                     )
-                    props.url = "https://www.blenderkit.com/plans/pricing/"
+                    props.url = "https://www.blendkit.com/plans/pricing/"
 
                 # Paid addons get a buy button and lead to their website link
                 else:
@@ -657,7 +657,7 @@ def _sanitize_pkg_for_cache(pkg):
 def ensure_repo_cache():
     r"""
     Reads the .json file blender stores in \extensions\www_blenderkit_com\.blender_ext
-    and parses it to a dict from json, we can use it then for drawing purposes and have the extra data BlenderKit api provides.
+    and parses it to a dict from json, we can use it then for drawing purposes and have the extra data Blendkit api provides.
     Checks the modification time of the cache file and reloads it if necessary.
 
     Uses a time-based throttle so filesystem checks happen at most once per

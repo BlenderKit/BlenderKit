@@ -72,7 +72,7 @@ LOGGING_LEVEL_IMPORTED = WARN
 PREFS = {}
 
 SERVER = environ.get(
-    "BLENDKIT_SERVER", environ.get("BLENDERKIT_SERVER", "https://www.blenderkit.com")
+    "BLENDKIT_SERVER", environ.get("BLENDERKIT_SERVER", "https://www.blendkit.com")
 )
 DISCORD_INVITE_URL = "https://discord.gg/tCKyjFMRar"
 

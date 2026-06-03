@@ -504,7 +504,7 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
     """Generate Cycles wireframe thumbnail for model assets"""
 
     bl_idname = "object.blenderkit_generate_wireframe_thumbnail"
-    bl_label = "BlenderKit Wireframe Thumbnail Generator"
+    bl_label = "Blendkit Wireframe Thumbnail Generator"
     bl_options = {"REGISTER", "INTERNAL"}
 
     @classmethod

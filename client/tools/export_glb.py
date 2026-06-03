@@ -1,4 +1,4 @@
-"""tools/export_glb.py - bundled BlenderKit-client recipe.
+"""tools/export_glb.py - bundled Blendkit-client recipe.
 
 Re-exports the active scene to .glb. Invoked via
 POST /run_blender_script with `script_id="export_glb"`.

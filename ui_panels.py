@@ -1199,7 +1199,7 @@ class SetPrivateComment(bpy.types.Operator):
 
 
 class PostComment(bpy.types.Operator):
-    """Post a comment to BlenderKit server"""
+    """Post a comment to Blendkit server"""
 
     bl_idname = "wm.blenderkit_post_comment"
     bl_label = "Blendkit post a new comment"

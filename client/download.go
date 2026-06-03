@@ -683,13 +683,13 @@ func GetDownloadFilepaths(downloadAssetData DownloadAssetData, downloadDirs []st
 
 // GetSignedURL fetches a signed CDN URL for a pre-selected AssetFile.
 // canDownload - true if the file can be downloaded, false otherwise
-// downloadURL - https://assets.blenderkit.com/assets/.../file.blend?verify=...
+// downloadURL - https://assets.blendkit.com/assets/.../file.blend?verify=...
 // fileUploadSize - size of the file to download
 func GetSignedURL(sceneID string, file AssetFile, apiKey, addonVersion, platformVersion string) (bool, string, int, error) {
 	reqData := url.Values{}
 	reqData.Set("scene_uuid", sceneID)
 
-	req, err := http.NewRequest("GET", file.DownloadURL, nil) // file.DownloadURL is like https://blenderkit.com/api/v1/download/123456789
+	req, err := http.NewRequest("GET", file.DownloadURL, nil) // file.DownloadURL is like https://blendkit.com/api/v1/download/123456789
 	if err != nil {
 		return false, "", 0, err
 	}
