@@ -50,8 +50,8 @@ const (
 
 	// PATHS
 	server_default   = "https://www.blendkit.com" // default address to production blendkit server
-	gravatar_dirname = "bkit_g"                     // directory in safeTempDir() for gravatar images
-	cleanfile_path   = "blendfiles/cleaned.blend"   // relative path to clean blend file in add-on directory
+	gravatar_dirname = "bkit_g"                   // directory in safeTempDir() for gravatar images
+	cleanfile_path   = "blendfiles/cleaned.blend" // relative path to clean blend file in add-on directory
 
 	// EMOJIS
 	EmoOK            = "✅"
