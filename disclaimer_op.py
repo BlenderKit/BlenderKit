@@ -248,6 +248,9 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 def run_disclaimer_task(message: str, url: str, tip: bool):
     message = " ".join(message.split())
     fake_context = utils.get_fake_context(bpy.context)
+    if not fake_context.get("region"):
+        # No VIEW_3D area available (e.g. Blender started without 3D viewport); skip popup.
+        return
     if bpy.app.version < (4, 0, 0):
         bpy.ops.view3d.blenderkit_disclaimer_widget(  # type: ignore[attr-defined]
             fake_context,

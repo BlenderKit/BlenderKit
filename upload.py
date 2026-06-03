@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import requests
 import tempfile
@@ -769,6 +770,14 @@ def get_upload_data(caller=None, context=None, asset_type=None):
     upload_data["isPrivate"] = props.is_private == "PRIVATE"
     upload_data["token"] = user_preferences.api_key
 
+    # author name (server fills in the real author from the API key, but the
+    # background packing process needs it to write asset_data.author into the
+    # saved .blend so the validator sees the correct author in the asset browser)
+    profile = global_vars.BKIT_PROFILE
+    upload_data["author"] = getattr(profile, "fullName", "") or getattr(
+        profile, "username", ""
+    )
+
     upload_data["parameters"] = upload_params
 
     # if props.asset_base_id != '':
@@ -1174,7 +1183,14 @@ def _get_upload_datablock(asset_type: str):
 
 
 def ensure_asset_metadata_on_datablock(asset_type: str, props) -> None:
-    """Write tags/description/author into the datablock before we save for upload."""
+    """Write tags/description/author into the datablock before we save for upload.
+
+    For MODEL/PRINTABLE this is a no-op: the asset entity is a collection that
+    only exists after objects are appended in upload_bg.py, so metadata and
+    preview are written onto the collection there from upload_data.
+    """
+    if asset_type in ("MODEL", "PRINTABLE"):
+        return
 
     data_block = _get_upload_datablock(asset_type)
     if data_block is None:
@@ -1358,7 +1374,12 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
         return False, None, None
 
     ensure_asset_metadata_on_datablock(asset_type, props)
-    apply_asset_preview(_get_upload_datablock(asset_type), props)
+    if asset_type not in ("MODEL", "PRINTABLE"):
+        # For MODEL/PRINTABLE the preview is applied onto the collection in
+        # upload_bg.py (the collection is created there after objects are
+        # appended). Applying it onto the active object here would create a
+        # second, wrong asset entry.
+        apply_asset_preview(_get_upload_datablock(asset_type), props)
 
     if not reupload:
         props.asset_base_id = ""
@@ -1433,6 +1454,148 @@ asset_types = (
     ("PRINTABLE", "Printable", "3D printable model"),
     ("ADDON", "Addon", "Addon"),
 )
+
+
+class DryRunExportOperator(Operator):
+    """Validator-only: run the full export pipeline (pack, collection, asset mark)
+    without creating a database entry or uploading anything.
+    The resulting .blend is saved to a temp directory and its path is printed to the console.
+    """
+
+    bl_idname = "object.blenderkit_dry_run_export"
+    bl_description = (
+        "Validator tool: run the full export pipeline without uploading. "
+        "Packs textures, marks the asset collection, saves .blend to a temp dir."
+    )
+    bl_label = "Dry Run Export"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    asset_type: EnumProperty(  # type: ignore[valid-type]
+        name="Type",
+        items=asset_types,
+        description="Type of asset to dry-run export",
+        default="MODEL",
+    )
+
+    # Required by get_upload_data() which inspects caller.properties.main_file
+    main_file: BoolProperty(name="main file", default=True, options={"SKIP_SAVE"})  # type: ignore[valid-type]
+
+    @classmethod
+    def poll(cls, context):
+        return utils.uploadable_asset_poll() and utils.profile_is_validator()
+
+    def execute(self, context):
+        bpy.ops.object.blenderkit_auto_tags()
+        props = utils.get_upload_props()
+
+        upload_set = ["METADATA", "THUMBNAIL", "MAINFILE"]
+        if self.asset_type in {"MODEL", "PRINTABLE"}:
+            upload_set.append("PRXC")
+
+        ok, upload_data, export_data = prepare_asset_data(
+            self, context, self.asset_type, reupload=False, upload_set=upload_set
+        )
+        if not ok:
+            self.report({"ERROR_INVALID_INPUT"}, props.report)
+            props.upload_state = ""
+            return {"CANCELLED"}
+
+        # Fill the fields normally assigned server-side so upload_bg.py can run end-to-end.
+        fake_id = "dry_run_export"
+        export_data["assetBaseId"] = fake_id
+        export_data["id"] = fake_id
+        upload_data["assetBaseId"] = fake_id
+        upload_data["id"] = fake_id
+
+        # Mirror what client/main.go::PackBlendFile() writes to data.json
+        datafile = os.path.join(export_data["temp_dir"], "data.json")
+        try:
+            with open(datafile, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "export_data": export_data,
+                        "upload_data": upload_data,
+                        "upload_set": upload_set,
+                    },
+                    f,
+                    ensure_ascii=False,
+                )
+        except Exception as e:
+            self.report({"ERROR"}, f"Could not write dry-run data.json: {e}")
+            return {"CANCELLED"}
+
+        # Run Blender in the background with upload_bg.py, exactly like the real upload.
+        script_path = os.path.join(os.path.dirname(__file__), "upload_bg.py")
+        cleanfile = os.path.join(
+            os.path.dirname(__file__), "blendfiles", "cleaned.blend"
+        )
+        blender_user_scripts_dir = str(Path(__file__).resolve().parents[2])
+
+        env = os.environ.copy()
+        env["BLENDER_USER_SCRIPTS"] = blender_user_scripts_dir
+
+        args = [
+            bpy.app.binary_path,
+            "--background",
+            "--factory-startup",
+            "-noaudio",
+            cleanfile,
+            "--python",
+            script_path,
+            "--",
+            datafile,
+            __package__,
+        ]
+
+        bk_logger.info("Dry run launching: %s", " ".join(args))
+        props.upload_state = "Running dry-run export..."
+        try:
+            proc = subprocess.run(
+                args,
+                env=env,
+                creationflags=utils.get_process_flags(),
+                capture_output=True,
+                text=True,
+            )
+        except Exception as e:
+            self.report({"ERROR"}, f"Dry run subprocess failed to start: {e}")
+            return {"CANCELLED"}
+
+        # Surface the subprocess log to the system console so validators can inspect it.
+        if proc.stdout:
+            for line in proc.stdout.splitlines():
+                print(f"[dry-run] {line}")
+        if proc.stderr:
+            for line in proc.stderr.splitlines():
+                print(f"[dry-run:stderr] {line}")
+
+        if proc.returncode != 0:
+            msg = f"Dry run FAILED (exit {proc.returncode}). See system console for output."
+            bk_logger.error(msg)
+            self.report({"ERROR"}, msg)
+            props.upload_state = msg
+            return {"CANCELLED"}
+
+        produced = os.path.join(export_data["temp_dir"], fake_id + ".blend")
+        produced_zip = os.path.join(export_data["temp_dir"], fake_id + ".zip")
+        out_path = produced_zip if os.path.exists(produced_zip) else produced
+        msg = f"Dry run export OK -> {out_path}"
+        bk_logger.info(msg)
+        self.report({"INFO"}, msg)
+        props.upload_state = "Dry run export finished. No data was uploaded."
+
+        # Launch a fresh Blender instance to inspect the produced .blend
+        if os.path.exists(produced):
+            try:
+                subprocess.Popen(
+                    [bpy.app.binary_path, produced],
+                    creationflags=utils.get_process_flags(),
+                )
+                bk_logger.info("Opened dry-run .blend in new Blender: %s", produced)
+            except Exception as e:
+                bk_logger.warning("Could not auto-open dry-run .blend: %s", e)
+
+        return {"FINISHED"}
 
 
 class UploadOperator(Operator):
@@ -1950,6 +2113,7 @@ def mark_for_thumbnail(
 
 
 def register_upload():
+    bpy.utils.register_class(DryRunExportOperator)
     bpy.utils.register_class(UploadOperator)
     bpy.utils.register_class(FastMetadata)
     bpy.utils.register_class(AssetDebugPrint)
@@ -1957,6 +2121,7 @@ def register_upload():
 
 
 def unregister_upload():
+    bpy.utils.unregister_class(DryRunExportOperator)
     bpy.utils.unregister_class(UploadOperator)
     bpy.utils.unregister_class(FastMetadata)
     bpy.utils.unregister_class(AssetDebugPrint)

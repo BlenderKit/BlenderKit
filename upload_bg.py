@@ -174,6 +174,147 @@ def get_deps_files_and_dirs():
     return deps_files, deps_dirs
 
 
+def _write_collection_asset_metadata(coll, upload_data: dict) -> None:
+    """Populate the collection's asset_data from upload_data.
+
+    Mirrors the structured tagging done by unpack_asset_bg._write_metadata so
+    the asset browser shows the same information for an in-progress upload as
+    for a downloaded asset.
+    """
+    ad = coll.asset_data
+    if ad is None:
+        return
+
+    tags = ad.tags
+    for t in list(tags):
+        tags.remove(t)
+    for t in upload_data.get("tags", []):
+        tags.new(str(t))
+
+    author_name = upload_data.get("author", "")
+    description = upload_data.get("description", "")
+    license_ = upload_data.get("license", "")
+    copyright_ = upload_data.get("copyright", "")
+
+    ad.author = author_name
+    ad.description = description
+    if hasattr(ad, "license"):
+        ad.license = license_
+    if hasattr(ad, "copyright"):
+        ad.copyright = copyright_
+
+    # structured key:value tags so the metadata is searchable in the asset browser
+    other_meta: dict = {}
+    if upload_data.get("assetType"):
+        other_meta["asset_type"] = upload_data["assetType"]
+    params = upload_data.get("parameters", {}) or {}
+    if params.get("condition"):
+        other_meta["condition"] = params["condition"]
+    if params.get("pbrType"):
+        other_meta["pbr_type"] = params["pbrType"]
+    if params.get("engine"):
+        other_meta["engine"] = params["engine"]
+    if params.get("style"):
+        other_meta["style"] = params["style"]
+    if params.get("animated"):
+        other_meta["animated"] = "yes"
+    if params.get("simulation"):
+        other_meta["simulation"] = "yes"
+    if author_name:
+        other_meta["author_name"] = author_name
+    if license_:
+        other_meta["license"] = license_
+    if copyright_:
+        other_meta["copyright"] = copyright_
+
+    if description:
+        words = description.split()
+        current = ""
+        idx = 0
+        for word in words:
+            if len(current) + len(word) + 1 <= 59:
+                current += (" " if current else "") + word
+            else:
+                if current:
+                    other_meta[f"d{idx:02}"] = current
+                idx += 1
+                current = word
+        if current:
+            other_meta[f"d{idx:02}"] = current
+
+    for key, value in other_meta.items():
+        tags.new(f"{key}:{value}")
+
+
+def build_model_asset_collection(
+    allobs: list, upload_data: dict, thumbnail_path: str = ""
+):
+    """Create a named collection containing *allobs*, link it under the active
+    scene collection, mark it as the single asset for this model/printable
+    upload, and populate its asset metadata from *upload_data*.
+
+    Only the collection is the asset — any pre-existing asset_mark on the
+    appended objects is cleared so the asset browser shows exactly one entry
+    that drags in the full hierarchy. If *thumbnail_path* is given, it is
+    loaded as the collection's preview.
+    """
+    g = bpy.data.collections.new(upload_data["name"])
+    for o in allobs:
+        g.objects.link(o)
+    bpy.context.scene.collection.children.link(g)
+
+    if bpy.app.version < (3, 0, 0):
+        return g
+
+    # defensive: drop any pre-existing object asset marks brought in from the
+    # source .blend so the upload has a single asset entity (the collection)
+    for ob in allobs:
+        if getattr(ob, "asset_data", None) is not None:
+            try:
+                ob.asset_clear()
+            except Exception:
+                pass
+
+    if g.asset_data is None:
+        g.asset_mark()
+
+    _write_collection_asset_metadata(g, upload_data)
+
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        try:
+            if _op_poll(bpy.ops.ed.lib_id_load_custom_preview, g):
+                _op_call(
+                    bpy.ops.ed.lib_id_load_custom_preview,
+                    g,
+                    filepath=thumbnail_path,
+                )
+        except Exception as e:
+            print(f"Could not load custom preview onto collection asset: {e}")
+
+    return g
+
+
+def _op_poll(op_callable, data_block) -> bool:
+    try:
+        if hasattr(bpy.context, "temp_override"):
+            with bpy.context.temp_override(id=data_block):
+                return op_callable.poll()
+        override = bpy.context.copy()
+        override["id"] = data_block
+        return op_callable.poll(override)
+    except Exception:
+        return False
+
+
+def _op_call(op_callable, data_block, **kwargs):
+    if hasattr(bpy.context, "temp_override"):
+        with bpy.context.temp_override(id=data_block):
+            return op_callable(**kwargs)
+    override = bpy.context.copy()
+    override["id"] = data_block
+    return op_callable(override, **kwargs)
+
+
 def patch_imports(addon_module_name: str):
     """Patch the python configuration, so the relative imports work as expected. There are few problems to fix:
     1. Script is not recognized as module which would break at relative import. We need to set __package__ = "blenderkit" for legacy addon.
@@ -229,6 +370,9 @@ if __name__ == "__main__":
             if s.name != "upload":
                 bpy.data.scenes.remove(s)  # type: ignore
 
+        asset_block = (
+            None  # the data-block to mark as asset (collection for model/printable)
+        )
         if upload_data["assetType"] in ["model", "printable"]:
             obnames = export_data["models"]
             main_source, allobs = append_link.append_objects(
@@ -236,10 +380,12 @@ if __name__ == "__main__":
                 obnames=obnames,
                 rotation=(0, 0, 0),
             )
-            g = bpy.data.collections.new(upload_data["name"])  # type: ignore
-            for o in allobs:
-                g.objects.link(o)  # type: ignore
-            bpy.context.scene.collection.children.link(g)  # type: ignore
+            g = build_model_asset_collection(
+                allobs,
+                upload_data,
+                thumbnail_path=export_data.get("thumbnail_path", ""),
+            )
+            asset_block = g  # collection is the asset, not the root object
 
             try:
                 from .bl_proxor import generate as proxor_generate
@@ -283,24 +429,27 @@ if __name__ == "__main__":
             )
             bpy.data.scenes.remove(bpy.data.scenes["upload"])  # type: ignore
             main_source.name = sname
+            asset_block = main_source
         elif upload_data["assetType"] == "material":
             matname = export_data["material"]
             main_source = append_link.append_material(
                 file_name=export_data["source_filepath"], matname=matname
             )
-
+            asset_block = main_source
         elif upload_data["assetType"] == "brush":
             brushname = export_data["brush"]
             main_source = append_link.append_brush(
                 file_name=export_data["source_filepath"], brushname=brushname
             )
+            asset_block = main_source
         elif upload_data["assetType"] == "nodegroup":
             toolname = export_data["nodegroup"]
             main_source, _ = append_link.append_nodegroup(
                 file_name=export_data["source_filepath"], nodegroupname=toolname
             )
-        if main_source.asset_data is None:
-            main_source.asset_mark()
+            asset_block = main_source
+        if asset_block is not None and asset_block.asset_data is None:
+            asset_block.asset_mark()
 
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,

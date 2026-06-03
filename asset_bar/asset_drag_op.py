@@ -578,6 +578,7 @@ def mouse_raycast(
     Optional[int],
     Optional[bpy.types.Object],
     Optional[mathutils.Matrix],
+    Optional[bpy.types.Object],
 ]:
     coord = mx, my
 
@@ -603,6 +604,7 @@ def mouse_raycast(
         face_index,
         obj,
         matrix,
+        raw_first_obj,
     ) = deep_ray_cast(ray_origin, vec)
 
     # backface snapping inversion
@@ -649,6 +651,7 @@ def mouse_raycast(
         face_index,
         obj,
         matrix,
+        raw_first_obj,
     )
 
 
@@ -725,6 +728,7 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
     Optional[int],
     Optional[bpy.types.Object],
     Optional[mathutils.Matrix],
+    Optional[bpy.types.Object],
 ]:
     # this allows to ignore some objects, like objects with bounding box draw style or particle objects
     obj = None
@@ -738,7 +742,18 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
         obj,
         matrix,
     ) = bpy.context.scene.ray_cast(depsgraph, ray_origin, vec)
-    empty_set = False, Vector((0, 0, 0)), Vector((0, 0, 1)), None, None, None
+    # The raw (unfiltered) first hit is returned so the caller can detect
+    # hovering over a particle-system instance without a second scene ray_cast.
+    raw_first_obj = obj
+    empty_set = (
+        False,
+        Vector((0, 0, 0)),
+        Vector((0, 0, 1)),
+        None,
+        None,
+        None,
+        raw_first_obj,
+    )
     if not obj:
         return empty_set
     try_object = obj
@@ -769,7 +784,15 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
     if try_object is None:
         return empty_set
     if not (obj.display_type == "BOUNDS" or object_in_particle_collection(try_object)):
-        return has_hit, snapped_location, snapped_normal, face_index, obj, matrix
+        return (
+            has_hit,
+            snapped_location,
+            snapped_normal,
+            face_index,
+            obj,
+            matrix,
+            raw_first_obj,
+        )
     return empty_set
 
 
@@ -1772,6 +1795,9 @@ class AssetDragOperator(bpy.types.Operator):
                     if region_data is not None:
                         break
 
+        # Raw (unfiltered) first hit from mouse_raycast, reused below to detect
+        # hovering over a particle-system instance without a second ray_cast.
+        raw_first_obj = None
         # Need to temporarily override context for raycasting
         if bpy.app.version < (3, 2, 0):  # B3.0, B3.1 - custom context override
             override = {
@@ -1791,6 +1817,7 @@ class AssetDragOperator(bpy.types.Operator):
                 self.face_index,
                 obj,
                 self.matrix,
+                raw_first_obj,
             ) = mouse_raycast(active_region, region_data, self.mouse_x, self.mouse_y)
             if obj is not None:
                 self.object_name = obj.name
@@ -1806,6 +1833,7 @@ class AssetDragOperator(bpy.types.Operator):
                     self.face_index,
                     obj,
                     self.matrix,
+                    raw_first_obj,
                 ) = mouse_raycast(
                     active_region,
                     region_data,
@@ -1873,27 +1901,18 @@ class AssetDragOperator(bpy.types.Operator):
                     else:
                         self.object_name = None
 
-        # Detect if the cursor is over an object that was filtered out of
-        # drag snapping because it's used as a particle-system instance.
-        # We raw ray-cast once (no filtering) to see the "real" hit.
-        if region_data is not None:
-            try:
-                coord = (self.mouse_x, self.mouse_y)
-                raw_view_vector = view3d_utils.region_2d_to_vector_3d(
-                    active_region, region_data, coord
-                )
-                raw_ray_origin = view3d_utils.region_2d_to_origin_3d(
-                    active_region, region_data, coord, clamp=1.0
-                )
-                depsgraph = context.view_layer.depsgraph
-                raw_hit, _, _, _, raw_obj, _ = context.scene.ray_cast(
-                    depsgraph, raw_ray_origin, raw_view_vector * 1000000
-                )
-                if raw_hit and raw_obj and object_in_particle_collection(raw_obj):
-                    self.over_particle_instance = True
-            except Exception:
-                # Informational only — never break drag on detection failure.
-                pass
+        # Detect if the cursor is over an object that was filtered out of drag
+        # snapping because it's used as a particle-system instance. mouse_raycast
+        # already returns the raw (unfiltered) first hit, so we reuse it here
+        # instead of doing a second full scene ray_cast every drag frame.
+        try:
+            if raw_first_obj is not None and object_in_particle_collection(
+                raw_first_obj
+            ):
+                self.over_particle_instance = True
+        except Exception:
+            # Informational only — never break drag on detection failure.
+            pass
 
     def _handle_node_editor_type(
         self, current_area_type: Union[str, None], active_area: bpy.types.Area
