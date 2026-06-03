@@ -745,7 +745,15 @@ def deep_ray_cast(ray_origin: Vector, vec: Vector) -> Tuple[
     # The raw (unfiltered) first hit is returned so the caller can detect
     # hovering over a particle-system instance without a second scene ray_cast.
     raw_first_obj = obj
-    empty_set = False, Vector((0, 0, 0)), Vector((0, 0, 1)), None, None, None, raw_first_obj
+    empty_set = (
+        False,
+        Vector((0, 0, 0)),
+        Vector((0, 0, 1)),
+        None,
+        None,
+        None,
+        raw_first_obj,
+    )
     if not obj:
         return empty_set
     try_object = obj
