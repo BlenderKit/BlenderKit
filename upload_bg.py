@@ -208,6 +208,16 @@ def _write_collection_asset_metadata(coll, upload_data: dict) -> None:
     if upload_data.get("assetType"):
         other_meta["asset_type"] = upload_data["assetType"]
     params = upload_data.get("parameters", {}) or {}
+    # Downloaded assets store parameters as a list of {parameterType, value}
+    # dicts (server format), while a fresh upload uses a plain dict. Normalize
+    # the list form so re-uploading a downloaded/modified asset does not fail
+    # with "'list' object has no attribute 'get'".
+    if isinstance(params, (list, tuple)):
+        normalized: dict = {}
+        for p in params:
+            if isinstance(p, dict) and "parameterType" in p:
+                normalized[p["parameterType"]] = p.get("value")
+        params = normalized
     if params.get("condition"):
         other_meta["condition"] = params["condition"]
     if params.get("pbrType"):
