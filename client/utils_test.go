@@ -146,9 +146,9 @@ func TestExtractFilenameFromURL(t *testing.T) {
 		{"https://example.com/file.txt", "file.txt", nil},
 		{"https://example.com/path/to/file.jpg", "file.jpg", nil},
 		{"https://example.com/path/to/file%2Cwith%2Ccomma.txt", "file%2Cwith%2Ccomma.txt", nil},
-		{"https://public.blenderkit.com/thumbnails/assets/57ec74ff91b54b2ca5a540cda907cf7a/files/thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp?webp_generated=1701166007", "thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp", nil},
-		{"https://public.blenderkit.com/thumbnails/assets/6144bbda83ca47ec8b9adb813c56f660/files/thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp?webp_generated=1709019959", "thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp", nil},
-		{"https://public.blenderkit.com/public-assets/assets/76d2e7eaa0af42a8b33e1498c1da22f8/files/blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend", "blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend", nil},
+		{"https://public.blendkit.com/thumbnails/assets/57ec74ff91b54b2ca5a540cda907cf7a/files/thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp?webp_generated=1701166007", "thumbnail_99e43644-30de-4361-9a7e-605eaf7d6795.jpg.256x256_q85_crop-%2C.jpg.webp", nil},
+		{"https://public.blendkit.com/thumbnails/assets/6144bbda83ca47ec8b9adb813c56f660/files/thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp?webp_generated=1709019959", "thumbnail_59686100-7ad0-4b38-b6fd-5158a6192a31.png.256x256_q85_crop-%2C.png.webp", nil},
+		{"https://public.blendkit.com/public-assets/assets/76d2e7eaa0af42a8b33e1498c1da22f8/files/blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend", "blend_0551adba-93bf-4f0e-aaeb-73927db46f88.blend", nil},
 		{"https://d255qm5a95hvrp.cloudfront.net/assets/0a00681c598c42259f67b69e6642f5dc/files/resolution_2K_02dacc88-532e-4b68-b8cb-4f1b8df1814b.blend?Expires=1709125449&Signature=LO-Gp1BfBe3maWncgvOep4ZNM9DJj0AdtMtjd9IN~OZQ5HPG1Cfy5408Bd0GskRTcgHuXjthLbhS3cWzksJrNrYA2L3zglK1ThSpdTtG4KwgGzlcyj7FXqmaKFul8Kpqu3weQaN1uazSzZSw5dN3Qxq0mb~7mPm6b8s7bJ6YeyUiWyL8qK8T-ff7hkzwb0tCIAyA3~9ZRImiwL0-OePg4I9Jl9LA32v2BuVJVkXp-kQkDb3VFRbhz9WCjFp0al7SqsFcpiIuJoFWp7UjTurqM85VX4jra9LQocA2svRk8fbrhTHkQRvMKJ3onqaA1Ou2Q71~-mL1aXxEfapDNk3euA__&Key-Pair-Id=KHZSXFBGJQRJ3", "resolution_2K_02dacc88-532e-4b68-b8cb-4f1b8df1814b.blend", nil},
 		{"", "", fmt.Errorf("empty URL")},
 	}

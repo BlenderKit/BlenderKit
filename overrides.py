@@ -190,7 +190,7 @@ class BringToScene(Operator):
     """Bring linked object hierarchy to scene and make it editable"""
 
     bl_idname = "object.blenderkit_bring_to_scene"
-    bl_label = "BlenderKit bring objects to scene"
+    bl_label = "Blendkit bring objects to scene"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -279,7 +279,7 @@ class BringToScene(Operator):
 # class ModelProxy(Operator):
 #     """Attempt to create proxy armature from the asset"""
 #     bl_idname = "object.blenderkit_make_proxy"
-#     bl_label = "BlenderKit Make Proxy"
+#     bl_label = "Blendkit Make Proxy"
 #
 #     @classmethod
 #     def poll(cls, context):
@@ -293,7 +293,7 @@ class BringToScene(Operator):
 
 
 class ColorCorrector(Operator):
-    """Add color corector to the asset."""
+    """Add color corrector to the asset."""
 
     bl_idname = "object.blenderkit_color_corrector"
     bl_label = "Add color corrector"

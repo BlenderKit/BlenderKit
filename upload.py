@@ -59,7 +59,7 @@ TAGS_MINIMUM = 3
 TAGS_MAXIMUM = 10
 DESCRIPTION_MINIMUM = 20
 
-BLENDERKIT_EXPORT_DATA_FILE = "data.json"
+BLENDKIT_EXPORT_DATA_FILE = "data.json"
 bk_logger = logging.getLogger(__name__)
 licenses = (
     ("royalty_free", "Royalty Free", "royalty free commercial license"),
@@ -796,8 +796,8 @@ def update_free_full(self, context):
         if self.free_full == "FULL":
             self.free_full = "FREE"
             ui_panels.ui_message(
-                title="All BlenderKit materials are free",
-                message="Any material uploaded to BlenderKit is free."
+                title="All Blendkit materials are free",
+                message="Any material uploaded to Blendkit is free."
                 " However, it can still earn money for the author,"
                 " based on our fair share system. "
                 "Part of subscription is sent to authors based on usage by paying users.",
@@ -1053,7 +1053,7 @@ class FastMetadata(bpy.types.Operator):
 
         if extra_parameters:
             metadata["parameters"].extend(extra_parameters)
-        url = f"{paths.BLENDERKIT_API}/assets/{self.asset_id}/"
+        url = f"{paths.BLENDKIT_API}/assets/{self.asset_id}/"
         messages = {
             "success": "Metadata upload succeeded",
             "error": "Metadata upload failed",
@@ -1604,7 +1604,7 @@ class UploadOperator(Operator):
     bl_idname = "object.blenderkit_upload"
     bl_description = "Upload or re-upload asset + thumbnail + metadata"
 
-    bl_label = "BlenderKit Asset Upload"
+    bl_label = "Blendkit Asset Upload"
     bl_options = {"REGISTER", "INTERNAL"}
 
     # type of upload - model, material, textures, e.t.c.
@@ -1758,7 +1758,7 @@ class UploadOperator(Operator):
                         layout,
                         text="This image isn't HDR,\n"
                         "It has a low dynamic range.\n"
-                        "BlenderKit library accepts 360 degree images\n"
+                        "Blendkit library accepts 360 degree images\n"
                         "however the default filter setting for search\n"
                         "is to show only true HDR images\n",
                         icon="ERROR",
@@ -1791,7 +1791,7 @@ class UploadOperator(Operator):
             utils.label_multiline(
                 layout,
                 width=500,
-                text="Would you like to upload your asset to BlenderKit?",
+                text="Would you like to upload your asset to Blendkit?",
             )
 
     def invoke(self, context, event):
@@ -1830,8 +1830,8 @@ class AssetDebugPrint(Operator):
     """Change verification status"""
 
     bl_idname = "object.blenderkit_print_asset_debug"
-    bl_description = "BlenderKit print asset data for debug purposes"
-    bl_label = "BlenderKit print asset data"
+    bl_description = "Blendkit print asset data for debug purposes"
+    bl_label = "Blendkit print asset data"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     # type of upload - model, material, textures, e.t.c.
@@ -1889,7 +1889,7 @@ class AssetVerificationStatusChange(Operator):
     def draw(self, context):
         layout = self.layout
         # if self.state == 'deleted':
-        message = "Really delete asset from BlenderKit online storage?"
+        message = "Really delete asset from Blendkit online storage?"
         if self.original_state == "on_hold":
             message += (
                 "\n\nThis asset is on hold. If you want to upload it again,"
@@ -1910,7 +1910,7 @@ class AssetVerificationStatusChange(Operator):
             if result["id"] == self.asset_id:
                 result["verificationStatus"] = self.state
 
-        url = paths.BLENDERKIT_API + "/assets/" + str(self.asset_id) + "/"
+        url = paths.BLENDKIT_API + "/assets/" + str(self.asset_id) + "/"
         upload_data = {"verificationStatus": self.state}
         messages = {
             "success": "Verification status changed",
@@ -2007,12 +2007,12 @@ def patch_individual_parameter(asset_id="", param_name="", param_value="", api_k
         asset_id (str): ID of the asset to update
         param_name (str): Name of the parameter to update
         param_value (str): New value for the parameter
-        api_key (str): BlenderKit API key
+        api_key (str): Blendkit API key
 
     Returns:
         bool: True if successful, False otherwise
     """
-    url = f"{paths.BLENDERKIT_API}/assets/{asset_id}/parameter/{param_name}/"
+    url = f"{paths.BLENDKIT_API}/assets/{asset_id}/parameter/{param_name}/"
     headers = utils.get_headers(api_key)
     metadata_dict = {"value": param_value}
     messages = {
@@ -2055,7 +2055,7 @@ def mark_for_thumbnail(
 
     Args:
         asset_id (str): The ID of the asset to update
-        api_key (str): BlenderKit API key
+        api_key (str): Blendkit API key
         use_gpu (bool, optional): Use GPU for rendering
         samples (int, optional): Number of render samples
         resolution (int, optional): Resolution of render

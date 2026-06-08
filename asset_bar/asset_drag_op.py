@@ -838,7 +838,7 @@ def _make_drag_status_fn(asset_type: str):
 
     def _draw(header, context):
         layout = header.layout
-        layout.label(text="BlenderKit Drag-Drop")
+        layout.label(text="Blendkit Drag-Drop")
 
         layout.label(text="Place", icon="MOUSE_LMB")
         layout.label(text="Cancel", icon="MOUSE_RMB")
@@ -857,7 +857,7 @@ class AssetDragOperator(bpy.types.Operator):
     """Drag & drop assets into scene. Operator being drawn when dragging asset."""
 
     bl_idname = "view3d.asset_drag_drop"
-    bl_label = "BlenderKit asset drag drop"
+    bl_label = "Blendkit asset drag drop"
 
     asset_search_index: IntProperty(name="Active Index", default=0)  # type: ignore
 
@@ -1125,7 +1125,7 @@ class AssetDragOperator(bpy.types.Operator):
                     title="This object is linked from outer file",
                     message="Please select the model,"
                     "go to the 'Selected Model' panel "
-                    "in BlenderKit and hit 'Bring to Scene' first.",
+                    "in Blendkit and hit 'Bring to Scene' first.",
                 )
                 return
             if obj.type not in utils.supported_material_drag:
@@ -2329,9 +2329,9 @@ class AssetDragOperator(bpy.types.Operator):
 
 class DownloadGizmoOperator(BL_UI_OT_draw_operator):
     bl_idname = "view3d.blenderkit_download_gizmo_widget"
-    bl_label = "BlenderKit download gizmo"
+    bl_label = "Blendkit download gizmo"
     bl_description = (
-        "BlenderKit download gizmo - draws download and enables to cancel it."
+        "Blendkit download gizmo - draws download and enables to cancel it."
     )
     bl_options = {"REGISTER"}
     instances = []

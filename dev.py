@@ -24,7 +24,7 @@ import subprocess
 
 
 def blenderkit_client_build(abs_build_dir: str):
-    """Build blenderkit-client for all platforms in parallel."""
+    """Build Blendkit-client for all platforms in parallel."""
     with open("client/VERSION", "r") as f:
         client_version = f.read().strip()
     build_dir = os.path.join(abs_build_dir, "client")
@@ -78,7 +78,7 @@ def blenderkit_client_build(abs_build_dir: str):
         build["process"] = process
 
     print(
-        f"BlenderKit-Client v{client_version} build started for {len(builds)} platforms."
+        f"Blendkit-Client v{client_version} build started for {len(builds)} platforms."
     )
     builds_ok = True
     for build in builds:
@@ -89,7 +89,7 @@ def blenderkit_client_build(abs_build_dir: str):
 
     if not builds_ok:
         exit(1)
-    print(f"BlenderKit-Client v{client_version} builds completed.")
+    print(f"Blendkit-Client v{client_version} builds completed.")
 
 
 def verify_client_binaries(binaries_path: str):
@@ -202,7 +202,7 @@ def copy_client_binaries(binaries_path: str, addon_build_dir: str):
         shutil.copy2(source_file, target_file)
         print(f"Copied {source_file} to {target_file}")
 
-    print(f"BlenderKit-Client binaries copied from {binaries_path} to {target_dir}")
+    print(f"Blendkit-Client binaries copied from {binaries_path} to {target_dir}")
 
 
 def do_build(

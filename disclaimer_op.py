@@ -38,22 +38,22 @@ disclaimer_counter = 0
 
 class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     bl_idname = "view3d.blenderkit_disclaimer_widget"
-    bl_label = "BlenderKit disclaimer"
-    bl_description = "BlenderKit disclaimer"
+    bl_label = "Blendkit disclaimer"
+    bl_description = "Blendkit disclaimer"
     bl_options = {"REGISTER"}
     instances = []
 
     message: StringProperty(  # type: ignore[valid-type]
         name="message",
         description="message",
-        default="Welcome to BlenderKit!",
+        default="Welcome to Blendkit!",
         options={"SKIP_SAVE"},
     )
 
     url: StringProperty(  # type: ignore[valid-type]
         name="url",
-        description="ULR",
-        default="www.blenderkit.com",
+        description="URL",
+        default="www.blendkit.com",
         options={"SKIP_SAVE"},
     )
 
@@ -158,7 +158,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
         self.button_close.set_image_size((img_size, img_size))
         self.button_close.set_image_position((img_pos, img_pos))
 
-        img_fp = paths.get_addon_thumbnail_path("blenderkit_logo.png")
+        img_fp = paths.get_addon_thumbnail_path("blendkit_logo.png")
         self.logo.set_image(img_fp)
         self.logo.set_image_size((img_size, img_size))
         self.logo.set_image_position((img_pos, img_pos))
@@ -320,7 +320,7 @@ def unregister():
 @bpy.app.handlers.persistent
 def show_disclaimer_timer():
     """Timer responsible for showing the tip disclaimer after the startup once.
-    It waits for BlenderKit-Client to be online, then prompts Client to get the disclaimers and ends.
+    It waits for Blendkit-Client to be online, then prompts Client to get the disclaimers and ends.
     If Client does not go online in few seconds, it shows the tips instead and ends.
     """
     global disclaimer_counter

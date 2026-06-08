@@ -120,7 +120,7 @@ def _ortho_projection_matrix(width: float, height: float, *, near=-100.0, far=10
 
 
 def _set_overlay_projection(width: float, height: float):
-    """Set the 2D projection matrix used by BlenderKit overlays."""
+    """Set the 2D projection matrix used by Blendkit overlays."""
 
     try:
         projection = _ortho_projection_matrix(width, height)
