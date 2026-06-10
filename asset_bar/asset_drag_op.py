@@ -517,8 +517,8 @@ def draw_callback_2d_progress(
         draw_progress(x, y - index * 30, f"{n}{tcom.lasttext}", tcom.progress)
         index += 1
     for report in reports.reports:
-        report.draw(x, y - index * 30)
-        index += 1
+        lines = report.draw(x, y - index * 30)
+        index += lines if lines else 1
         report.fade()
 
 
