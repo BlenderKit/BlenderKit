@@ -479,6 +479,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
                     "nodeCount": props.node_count,
                     "textureCount": props.texture_count,
                     "megapixels": props.total_megapixels,
+                    "workHours": props.work_hours,
                 }
             )
 
@@ -558,6 +559,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "faceCountRender": max(0, props.face_count_render),
             "objectCount": max(0, props.object_count),
             # "scene": props.is_scene,
+            "workHours": props.work_hours,
         }
         if props.use_design_year:
             upload_params["designYear"] = props.design_year
@@ -615,6 +617,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             "nodeCount": props.node_count,
             "textureCount": props.texture_count,
             "megapixels": props.total_megapixels,
+            "workHours": props.work_hours,
         }
 
         if props.pbr:

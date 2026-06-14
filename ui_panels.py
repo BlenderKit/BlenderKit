@@ -1438,6 +1438,9 @@ def draw_panel_material_upload(self, context):
     layout.prop(props, "animated")
     layout.prop(props, "texture_size_meters")
 
+    row = layout.row()
+    row.prop(props, "work_hours")
+
     draw_validated_manufacturer(layout, mat)
 
 

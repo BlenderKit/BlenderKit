@@ -1238,6 +1238,14 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         update=autothumb.update_upload_material_preview,
     )
 
+    work_hours: FloatProperty(
+        name="Work Hours",
+        description="How long did it take you to finish the asset?",
+        default=0.0,
+        min=0.0,
+        max=8760,
+    )
+
 
 class BlenderKitTextureUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     style: EnumProperty(
