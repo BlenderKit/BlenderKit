@@ -1352,15 +1352,20 @@ func DownloadGravatarImage(data FetchGravatarData) {
 	}
 
 	gravatarPath := filepath.Join(tempDir, gravatar_dirname, filename)
-	exists, _, _ := FileExists(gravatarPath)
+	exists, info, err := FileExists(gravatarPath)
 	if exists {
-		TaskFinishCh <- &TaskFinish{
-			AppID:   data.AppID,
-			TaskID:  taskID,
-			Message: "Found on disk",
-			Result:  map[string]string{"gravatar_path": gravatarPath},
+		// check if size at least 1kb to avoid using corrupted files
+		if info.Size() < 1024 {
+			BKLog.Printf("%s Gravatar image for %d exists but is smaller than 1KB, re-downloading...", EmoWarning, data.ID)
+		} else {
+			TaskFinishCh <- &TaskFinish{
+				AppID:   data.AppID,
+				TaskID:  taskID,
+				Message: "Found on disk",
+				Result:  map[string]string{"gravatar_path": gravatarPath},
+			}
+			return
 		}
-		return
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -3169,9 +3174,18 @@ func bkclientjsGetAsset(appID int, apiKey, assetBaseID, assetID, resolution stri
 		}
 	}
 	if exists {
-		fmt.Printf("file %s exists", downloadPath)
-		TaskFinishCh <- &TaskFinish{AppID: appID, TaskID: taskID, Message: "file already on disk", Result: map[string]string{"file_path": downloadPath}}
-		return
+		// check if file is less than 1kb to avoid false positives of existing file which is actually an error message from the server
+		if info.Size() < 1024 {
+			fmt.Println("Existing file is invalid, deleting:", downloadPath)
+			err := os.Remove(downloadPath)
+			if err != nil {
+				fmt.Println("Error deleting file:", err)
+			}
+		} else {
+			fmt.Printf("file %s exists", downloadPath)
+			TaskFinishCh <- &TaskFinish{AppID: appID, TaskID: taskID, Message: "file already on disk", Result: map[string]string{"file_path": downloadPath}}
+			return
+		}
 	}
 
 	file, err := os.Create(downloadPath)
