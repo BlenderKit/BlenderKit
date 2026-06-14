@@ -860,6 +860,7 @@ def _gl_texture_limit_px() -> Optional[int]:
 # At 512+ the clamped result is still sharp enough, so we keep the cheap path.
 _FULLRES_BYPASS_THRESHOLD = 512
 
+
 def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
     """Convert an image file path to a GPU texture.
 
