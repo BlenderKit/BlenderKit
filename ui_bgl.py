@@ -888,6 +888,7 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
         return None
 
     try:
+        # img = _get_fresh_image(path)  # _get_scratch_image()
         img = _get_scratch_image()
         img.filepath = path
         img.filepath_raw = path
@@ -914,7 +915,7 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
             # Full-resolution upload that ignores the GL Texture Limit clamp.
             buf = gpu.types.Buffer("FLOAT", width * height * channels)
             img.pixels.foreach_get(buf)
-            tex = gpu.types.GPUTexture((width, height), format="RGBA16F", data=buf)
+            tex = gpu.types.GPUTexture((width, height), format="SRGB8_A8", data=buf)
         else:
             img.gl_load()
             tex = gpu.texture.from_image(img)

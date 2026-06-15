@@ -26,6 +26,52 @@ import addon_utils  # type: ignore[import-not-found]
 import bpy
 
 
+# Datablock collections (on bpy.data) that can hold an asset_mark and that a
+# BlenderKit asset file might contain. Used to enforce "exactly one asset per
+# uploaded/unpacked .blend".
+_MARKABLE_DATA_COLLECTIONS = (
+    "objects",
+    "collections",
+    "materials",
+    "node_groups",
+    "brushes",
+    "worlds",
+    "images",
+)
+
+
+def enforce_single_asset_mark(keep):
+    """Guarantee that *keep* is the only asset-marked datablock in the file.
+
+    Clears asset marks from every other markable datablock (objects,
+    collections, materials, node groups, brushes, worlds, images) and from any
+    scene other than *keep*. This makes the file expose exactly one asset, so
+    the asset browser never shows stray/duplicate entries from historical data.
+    """
+    if bpy.app.version < (3, 0, 0):
+        return
+    for coll_name in _MARKABLE_DATA_COLLECTIONS:
+        data_coll = getattr(bpy.data, coll_name, None)
+        if not data_coll:
+            continue
+        for db in data_coll:
+            if db is keep:
+                continue
+            if getattr(db, "asset_data", None) is not None:
+                try:
+                    db.asset_clear()
+                except Exception as e:
+                    print(f"Could not clear stray asset mark on {db!r}: {e}")
+    for scene in bpy.data.scenes:
+        if scene is keep:
+            continue
+        if getattr(scene, "asset_data", None) is not None:
+            try:
+                scene.asset_clear()
+            except Exception as e:
+                print(f"Could not clear stray asset mark on scene {scene!r}: {e}")
+
+
 # Map dependencies into a single subdirectory inside the zip and rewrite paths to relative
 def _zip_arc_for(p: str, deps_dirs: set[str]) -> str:
     base = os.path.basename(p)
@@ -460,6 +506,12 @@ if __name__ == "__main__":
             asset_block = main_source
         if asset_block is not None and asset_block.asset_data is None:
             asset_block.asset_mark()
+
+        # Enforce the single-asset invariant: only asset_block may be marked.
+        # This clears any stray marks brought in from the source .blend so the
+        # uploaded file exposes exactly one asset and nothing else.
+        if asset_block is not None:
+            enforce_single_asset_mark(asset_block)
 
         try:
             # this needs to be in try statement because blender throws an error if not all textures aren't packed,
