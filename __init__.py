@@ -426,6 +426,21 @@ class BlenderKitUIProps(PropertyGroup):
         default=False,
         update=search.search_update,
     )
+    # user assets verification status
+    own_verification_status: EnumProperty(
+        name="My Assets Status",
+        description="Search only for your assets with this verification status",
+        items=(
+            ("ALL", "All", "All"),
+            ("UPLOADING", "Uploading", "Uploading"),
+            ("UPLOADED", "Uploaded", "Uploaded"),
+            ("VALIDATED", "Validated", "Validated"),
+            ("ON_HOLD", "On Hold", "On Hold"),
+            ("REJECTED", "Rejected", "Rejected"),
+        ),
+        default="ALL",
+        update=search.search_update,
+    )
     # moved from per-asset search properties
     search_bookmarks: BoolProperty(
         name="My Bookmarks",

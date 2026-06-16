@@ -1898,6 +1898,10 @@ def search(get_next=False, query=None, author_id=""):
             if profile is not None:
                 query["author_id"] = str(profile.id)
 
+                # add user validation status filter here
+                if ui_props.own_verification_status.lower() != "all":
+                    query["verification_status"] = ui_props.own_verification_status.lower()
+
         # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
         query["free_first"] = ui_props.free_only
         query["search_order_by"] = ui_props.search_order_by
@@ -1921,6 +1925,7 @@ def clean_filters():
     ui_props = bpy.context.window_manager.blenderkitUI
     active_tab = get_active_tab()
     ui_props.property_unset("own_only")
+    ui_props.property_unset("own_verification_status")
     sprops.property_unset("search_texture_resolution")
     sprops.property_unset("search_file_size")
     sprops.property_unset("search_procedural")
@@ -2513,6 +2518,7 @@ def get_ui_state():
             "asset_type": ui_props.asset_type,
             "free_only": ui_props.free_only,
             "own_only": ui_props.own_only,
+            "own_verification_status": ui_props.own_verification_status,
             "search_bookmarks": ui_props.search_bookmarks,
             "quality_limit": ui_props.quality_limit,
             "search_license": ui_props.search_license,
