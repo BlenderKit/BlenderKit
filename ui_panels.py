@@ -556,7 +556,9 @@ def draw_panel_nodegroup_search(self, context):
 
     layout = self.layout
     draw_search_text_field(
-        layout, ui_props
+        layout,
+        ui_props,
+        context,
     )  # Ensure search field is drawn in nodegroup search panel
     utils.label_multiline(layout, text=props.report)
 
@@ -573,6 +575,8 @@ def draw_common_filters(layout, ui_props):
     row = layout.row()
     row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
     row.prop(ui_props, "own_only", icon="USER")
+    if ui_props.own_only:
+        layout.prop(ui_props, "own_verification_status", text="Status", icon="LOCKED")
     layout.prop(ui_props, "free_only")
     layout.prop(ui_props, "quality_limit", slider=True)
     layout.prop(ui_props, "search_license")
@@ -1608,7 +1612,12 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         row = layout.row()
         row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
-        row = layout.row()
+        if ui_props.own_only:
+            layout.prop(
+                ui_props, "own_verification_status", text="Status", icon="LOCKED"
+            )
+        # row = layout.row()
+
         layout.prop(ui_props, "free_only")
 
         if ui_props.asset_type == "MODEL":
@@ -1705,6 +1714,10 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         row = layout.row()
         row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
+        if ui_props.own_only:
+            layout.prop(
+                ui_props, "own_verification_status", text="Status", icon="LOCKED"
+            )
 
         layout.label(text="Texture:")
         col = layout.column()
