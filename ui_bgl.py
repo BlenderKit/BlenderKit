@@ -19,7 +19,7 @@
 import os
 import logging
 from collections.abc import Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import Optional, Tuple, Union
 import math
 
@@ -805,6 +805,24 @@ def draw_image_runtime(
     return batch
 
 
+def _unpack_scratch_image(img) -> None:
+    """Drop any packed data from the scratch image so the next reload re-reads
+    the file from disk.
+
+    When "Automatically Pack Resources" (``bpy.data.use_autopack``) is on,
+    Blender re-packs the reused scratch image after every ``reload()``. Once it
+    is packed, ``reload()`` reads the stale packed bytes instead of the new
+    ``filepath``, so every thumbnail would render as the first image loaded.
+    Removing the packed data forces a fresh read. Unpacking only edits image
+    data (no datablock add/remove), so it avoids the depsgraph relations rebuild
+    that loading a fresh image per thumbnail would trigger in big scenes.
+    """
+    if getattr(img, "packed_file", None) is None:
+        return
+    with suppress(Exception):
+        img.unpack(method="REMOVE")
+
+
 def _get_scratch_image():
     """Return a single persistent bpy.types.Image reused for all thumbnail
     conversions, avoiding per-thumbnail image add/remove (which forces a
@@ -869,6 +887,12 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
     returns an independent snapshot, so the returned texture stays valid after
     the scratch image is reloaded for the next thumbnail.
 
+    This single-image reuse also works when "Automatically Pack Resources" is
+    enabled: the scratch image is unpacked before each reload (see
+    _unpack_scratch_image), so we never have to fall back to loading a fresh
+    bpy.data.images per thumbnail (which would trigger a costly depsgraph
+    relations rebuild in big scenes).
+
     Normally the texture is built with gl_load()/from_image(), which is cheap
     but honours the user's System > GL Texture Limit. When that limit is set
     aggressively low (< 512) and the image is bigger than the limit, we instead
@@ -888,8 +912,9 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
         return None
 
     try:
-        # img = _get_fresh_image(path)  # _get_scratch_image()
         img = _get_scratch_image()
+        if img is None:
+            return None
         img.filepath = path
         img.filepath_raw = path
         # The scratch image is created via images.new() => source 'GENERATED'
@@ -897,6 +922,8 @@ def path_to_gpu_texture(path: str) -> Optional[gpu.types.GPUTexture]:
         # reads the file and every thumbnail/icon ends up a 1x1 black texture.
         if img.source != "FILE":
             img.source = "FILE"
+        # Drop any auto-packed data first so reload() re-reads `path` from disk.
+        _unpack_scratch_image(img)
         img.reload()
 
         width, height = img.size
