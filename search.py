@@ -1900,7 +1900,9 @@ def search(get_next=False, query=None, author_id=""):
 
                 # add user validation status filter here
                 if ui_props.own_verification_status.lower() != "all":
-                    query["verification_status"] = ui_props.own_verification_status.lower()
+                    query["verification_status"] = (
+                        ui_props.own_verification_status.lower()
+                    )
 
         # free first has to by in query to be evaluated as changed as another search, otherwise the filter is not updated.
         query["free_first"] = ui_props.free_only

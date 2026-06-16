@@ -1613,7 +1613,9 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         if ui_props.own_only:
-            layout.prop(ui_props, "own_verification_status", text="Status", icon="LOCKED")
+            layout.prop(
+                ui_props, "own_verification_status", text="Status", icon="LOCKED"
+            )
         # row = layout.row()
 
         layout.prop(ui_props, "free_only")
@@ -1713,7 +1715,9 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         row.prop(ui_props, "search_bookmarks", text="Bookmarks", icon="BOOKMARKS")
         row.prop(ui_props, "own_only", icon="USER")
         if ui_props.own_only:
-            layout.prop(ui_props, "own_verification_status", text="Status", icon="LOCKED")
+            layout.prop(
+                ui_props, "own_verification_status", text="Status", icon="LOCKED"
+            )
 
         layout.label(text="Texture:")
         col = layout.column()
