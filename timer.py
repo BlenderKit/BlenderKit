@@ -45,6 +45,7 @@ from . import (
     ui_bgl,
     upload,
     utils,
+    web_drop,
 )
 
 
@@ -455,6 +456,10 @@ def handle_task(task: client_tasks.Task):
     # HANDLE BOOKMARKS
     if task.task_type == "ratings/get_bookmarks":
         return ratings_utils.handle_get_bookmarks_task(task)
+
+    # HANDLE ASSET-FILE LOOKUP (thumbnail UUID -> asset metadata)
+    if task.task_type == "asset_files/get":
+        return web_drop.handle_get_asset_file_task(task)
 
     # HANDLE NONBLOCKING_REQUEST
     if task.task_type == "wrappers/nonblocking_request":

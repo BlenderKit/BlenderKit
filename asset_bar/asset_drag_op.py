@@ -2306,6 +2306,18 @@ class AssetDragOperator(bpy.types.Operator):
         except Exception as e:
             bk_logger.debug("Could not set drag-drop status text: %s", e)
         context.window_manager.modal_handler_add(self)
+
+        # Force an immediate repaint so the drag overlay shows up at the
+        # start of the drag, instead of waiting for the first mouse-move
+        # event to invalidate the regions. Without this, the overlay
+        # appears blank until the user moves the mouse.
+        try:
+            for window in context.window_manager.windows:
+                for area in window.screen.areas:
+                    area.tag_redraw()
+        except Exception as e:
+            bk_logger.debug("Could not tag areas for initial drag redraw: %s", e)
+
         return {"RUNNING_MODAL"}
 
     def get_node_editor_cursor_position(

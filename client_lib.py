@@ -321,6 +321,24 @@ def get_user_profile() -> requests.Response:
         )
 
 
+def get_asset_file(file_id: str) -> requests.Response:
+    """Resolve an asset-file UUID (e.g. the id embedded in a BlenderKit
+    thumbnail filename) to its full asset-file record via the BlenderKit-Client.
+
+    The Client calls GET /api/v1/asset-files/<file_id>/ on the configured server
+    and returns the JSON response (which includes the parent asset's
+    assetBaseId) through the task system. Handled in `timer.handle_task`.
+    """
+    data = ensure_minimal_data({"file_id": file_id})
+    with requests.Session() as session:
+        return session.get(
+            f"{get_base_url()}/asset_files/get",
+            json=data,
+            timeout=TIMEOUT,
+            proxies=NO_PROXIES,
+        )
+
+
 ### COMMENTS
 def get_comments(asset_id, api_key=""):
     """Get all comments on the asset."""

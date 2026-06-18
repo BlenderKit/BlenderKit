@@ -104,6 +104,7 @@ if "bpy" in locals():
     persistent_preferences = reload(persistent_preferences)
     reports = reload(reports)
     rereports = reload(reports)
+    web_drop = reload(web_drop)
 
     from .bl_proxor import draw as bl_proxor_draw
     from .bl_proxor import generate as bl_proxor_generate
@@ -170,6 +171,7 @@ else:
     from . import utils
     from . import persistent_preferences
     from . import reports
+    from . import web_drop
 
     from .bl_ui_widgets import bl_ui_widget
     from .bl_ui_widgets import bl_ui_label
@@ -2223,6 +2225,19 @@ class BlenderKitAddonPreferences(AddonPreferences):
         update=utils.save_prefs,
     )
 
+    skip_web_drop_confirmation: BoolProperty(
+        name="Auto-import drops from BlenderKit website",
+        description=(
+            "When enabled, dragging an asset preview from the BlenderKit website into "
+            "the 3D viewport is automatically recognised and the corresponding asset is "
+            "placed in the scene \u2014 no picker menu is shown.\n\n"
+            "When disabled, the drop is treated as a normal image drop (e.g. 'Add as "
+            "reference image'), so BlenderKit does not interfere with regular image imports"
+        ),
+        default=False,
+        update=utils.save_prefs,
+    )
+
     search_in_header: BoolProperty(
         name="Show BlenderKit search in 3D view header",
         description="Show BlenderKit search in 3D view header",
@@ -2756,6 +2771,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "announcements_on_start")
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
+        gui_settings.prop(self, "skip_web_drop_confirmation")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
@@ -2942,6 +2958,7 @@ def register():
     asset_drag_op.register()
     disclaimer_op.register()
     warning_dialog.register()
+    web_drop.register()
     timer.register_timers()
 
     bpy.app.handlers.load_post.append(scene_load)
@@ -2991,6 +3008,7 @@ def unregister():
     asset_drag_op.unregister()
     disclaimer_op.unregister()
     warning_dialog.unregister()
+    web_drop.unregister()
 
     if bpy.app.background is False:
         try:
