@@ -162,6 +162,7 @@ func handleChannels() {
 			TasksMux.Lock()
 			task := Tasks[u.AppID][u.TaskID]
 			if task == nil {
+				TasksMux.Unlock()
 				ChanLog.Printf("%s TaskProgressUpdateCh: task[%d][%s] is nil", EmoWarning, u.AppID, u.TaskID)
 				continue
 			}
@@ -179,6 +180,7 @@ func handleChannels() {
 			TasksMux.Lock()
 			task := Tasks[m.AppID][m.TaskID]
 			if task == nil {
+				TasksMux.Unlock()
 				ChanLog.Printf("%s TaskMessageCh: task[%d][%s] is nil", EmoWarning, m.AppID, m.TaskID)
 				continue
 			}
@@ -194,6 +196,7 @@ func handleChannels() {
 			TasksMux.Lock()
 			task := Tasks[f.AppID][f.TaskID]
 			if task == nil {
+				TasksMux.Unlock()
 				ChanLog.Printf("%s TaskFinishCh: task[%d][%s] is nil", EmoWarning, f.AppID, f.TaskID)
 				continue
 			}
@@ -212,6 +215,7 @@ func handleChannels() {
 			TasksMux.Lock()
 			task := Tasks[e.AppID][e.TaskID]
 			if task == nil {
+				TasksMux.Unlock()
 				ChanLog.Printf("%s TaskErrorCh: task[%d][%s] is nil", EmoWarning, e.AppID, e.TaskID)
 				continue
 			}
@@ -241,6 +245,7 @@ func handleChannels() {
 			TasksMux.Lock()
 			task := Tasks[c.AppID][c.TaskID]
 			if task == nil {
+				TasksMux.Unlock()
 				ChanLog.Printf("%s TaskCancelCh: task[%d][%s] is nil", EmoWarning, c.AppID, c.TaskID)
 				continue
 			}
