@@ -3034,7 +3034,7 @@ func bkclientjsGetAssetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-// Check request origin and allow CORS only if the request comes from *.blenderkit.com or from localhost.
+// Check request origin and allow CORS only if the request comes from *.blendkit.com, *.blenderkit.com or from localhost.
 // If origin is allowed
 func allowOrigin(w http.ResponseWriter, r *http.Request) bool {
 	origin := r.Header.Get("Origin")
@@ -3047,7 +3047,9 @@ func allowOrigin(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	host := strings.ToLower(u.Hostname())
-	allowed := host == "blenderkit.com" ||
+	allowed := host == "blendkit.com" ||
+		strings.HasSuffix(host, ".blendkit.com") ||
+		host == "blenderkit.com" ||
 		strings.HasSuffix(host, ".blenderkit.com") ||
 		host == "localhost"
 
