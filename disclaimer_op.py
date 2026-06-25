@@ -119,7 +119,10 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
         offset = (active_disclaimers - 1) * self.height
         a = bpy.context.area
         self.panel = BL_UI_Drag_Panel(
-            area_margin, a.height - self.height - area_margin - offset, self.width, self.height
+            area_margin,
+            a.height - self.height - area_margin - offset,
+            self.width,
+            self.height,
         )
         self.panel.bg_color = (0.2, 0.2, 0.2, 0.02)
 
