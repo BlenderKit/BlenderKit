@@ -3930,11 +3930,17 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         # get comments
         api_key = user_preferences.api_key
         if asset_data.get("assetType") != "author":
-            # Lazy / dedup'd fetch — avoid hammering the rate-limited backend
-            # when many tooltips/popups open in quick succession.
-            comments = comments_utils.request_comments_if_needed(
-                asset_data["assetBaseId"], api_key
+            # always get fresh comments for the asset, as they can change frequently
+            client_lib.get_comments(asset_data["assetBaseId"], api_key)
+            comments = global_vars.DATA.get("asset comments", {}).get(
+                asset_data["assetBaseId"], []
             )
+
+            # # Lazy / dedup'd fetch — avoid hammering the rate-limited backend
+            # # when many tooltips/popups open in quick succession.
+            # comments = comments_utils.request_comments_if_needed(
+            #     asset_data["assetBaseId"], api_key
+            # )
 
             # If the request just went out the cache will still be empty here;
             # the asset bar / next popup will pick it up once it arrives.
