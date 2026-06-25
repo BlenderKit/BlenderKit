@@ -3674,8 +3674,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             if widget.bookmark_button and not is_author:
                 widget.bookmark_button.visible = True
 
-            # bpy.ops.wm.blenderkit_asset_popup('INVOKE_DEFAULT')
-
     def exit_button(self, widget):
         """Handle mouse exit from an asset button."""
         # this condition checks if there wasn't another button already entered, which can happen with small button gaps
@@ -4048,7 +4046,6 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
                 ui_props = bpy.context.window_manager.blenderkitUI
                 ui_props.active_index = search_index
         bpy.ops.wm.blenderkit_asset_popup("INVOKE_DEFAULT")
-        # bpy.ops.wm.call_menu(name='OBJECT_MT_blenderkit_asset_menu')
 
     def search_more(self):
         """Search for more assets."""
