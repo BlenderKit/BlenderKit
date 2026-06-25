@@ -47,6 +47,19 @@ def write_preferences_to_JSON(preferences: dict):
         bk_logger.warning("Failed to save preferences: %s", e)
 
 
+def get_legacy_assetbar_expanded_preference(prefs: dict, user_preferences) -> bool:
+    """Resolve asset bar expanded state for older preference files."""
+    if "assetbar_expanded" in prefs:
+        return bool(prefs["assetbar_expanded"])
+    is_property_set = getattr(user_preferences, "is_property_set", None)
+    if callable(is_property_set) and is_property_set("assetbar_expanded"):
+        return bool(user_preferences.assetbar_expanded)
+    saved_rows = prefs.get(
+        "maximized_assetbar_rows", user_preferences.maximized_assetbar_rows
+    )
+    return int(saved_rows) > 1
+
+
 def load_preferences_from_JSON():
     """Load preferences from JSON file and update the user preferences accordingly."""
     preferences_path = get_preferences_path()
@@ -111,6 +124,9 @@ def load_preferences_from_JSON():
     user_preferences.thumb_size = prefs.get("thumb_size", user_preferences.thumb_size)
     user_preferences.maximized_assetbar_rows = prefs.get(
         "maximized_assetbar_rows", user_preferences.maximized_assetbar_rows
+    )
+    user_preferences.assetbar_expanded = get_legacy_assetbar_expanded_preference(
+        prefs, user_preferences
     )
     user_preferences.search_field_width = prefs.get(
         "search_field_width", user_preferences.search_field_width
