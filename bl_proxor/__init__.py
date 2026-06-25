@@ -1,4 +1,4 @@
-"""bl_proxor - lightweight PRX viewer and generator, integrated into BlenderKit.
+"""bl_proxor - lightweight PRX viewer and generator, integrated into Blendkit.
 
 Generates, saves, loads, and displays PRX/PRXC proxor data in the viewport
 via GPU drawing.  Used as a preview proxy during model drag-and-drop instead

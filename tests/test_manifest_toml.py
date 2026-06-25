@@ -4,7 +4,7 @@ import unittest
 import bpy
 
 
-# Dynamically set the package context for the BlenderKit add-on
+# Dynamically set the package context for the Blendkit add-on
 for addon in bpy.context.preferences.addons:
     if "blenderkit" in addon.module:
         __package__ = addon.module

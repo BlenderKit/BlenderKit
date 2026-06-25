@@ -719,11 +719,11 @@ def set_thumb_check(
 
 
 class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
-    """BlenderKit Asset Bar Operator."""
+    """Blendkit Asset Bar Operator."""
 
     bl_idname = "view3d.blenderkit_asset_bar_widget"
-    bl_label = "BlenderKit asset bar refresh"
-    bl_description = "BlenderKit asset bar refresh"
+    bl_label = "Blendkit asset bar refresh"
+    bl_description = "Blendkit asset bar refresh"
     bl_options = {"REGISTER"}
     instances = []
 
@@ -3186,7 +3186,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
     def on_invoke(self, context, event):
         """Invoke the asset bar operator."""
         # Microsoft Store builds of Blender are sandboxed and break a number of
-        # BlenderKit features (client launch, background Blender, writing into
+        # Blendkit features (client launch, background Blender, writing into
         # blenderkit_data). Show an in-viewport warning instead of the asset
         # bar on first launch; the warning's "Proceed anyway" button persists
         # the acceptance flag and re-invokes the asset bar.
@@ -3723,7 +3723,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # personal site >>
         # url = author.aboutMeUrl
 
-        # blenderkit site profile >>
+        # Blendkit site profile >>
         url = paths.get_author_gallery_url(author_id)
         if url is None:
             bk_logger.warning("url is none")

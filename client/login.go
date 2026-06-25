@@ -39,7 +39,7 @@ type OAuth2VerificationData struct {
 // Handles Code Verifier and State parameters exchange for OAuth2 verfication.
 // Add-on creates PKCE pair (Code Chalange + Code Verifier) and sends its code_verifier to Client so it can later verify the response from server.
 // Random state string is also generated and send to the Client.
-// Once add-on get response from here, it opens BlenderKit.com with code_challenge + state parameters with URL redirect to localhost:port/consumer/exchange.
+// Once add-on get response from here, it opens blendkit.com with code_challenge + state parameters with URL redirect to localhost:port/consumer/exchange.
 // Server verifies user's login and redirects the browser to URL redirect which lands on func consumerExchangeHandler().
 // This func later checks the response against code_verifier and state parameters.
 func OAuth2VerificationDataHandler(w http.ResponseWriter, r *http.Request) {

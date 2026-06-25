@@ -117,7 +117,7 @@ def register_keymaps(custom_keymaps: list[KeyMapDef] | None = None) -> None:
     if not kc_addon:
         bk_logger.warning("Unable to register keymaps: no add-on keyconfig available")
         return
-    bk_logger.debug("Registering keymaps for BlenderKit add-on")
+    bk_logger.debug("Registering keymaps for Blendkit add-on")
 
     keymaps = list(custom_keymaps) if custom_keymaps is not None else DEFAULT_KEYMAPS
 
@@ -249,7 +249,7 @@ def draw_keymap(self, context):
         return
 
     box = layout.box()
-    box.label(text="BlenderKit Keymaps")
+    box.label(text="Blendkit Keymaps")
 
     for item_def in DEFAULT_KEYMAP_ITEMS:
         # Prefer user override if available, otherwise show addon default.

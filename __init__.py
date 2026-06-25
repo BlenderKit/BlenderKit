@@ -18,11 +18,11 @@
 # type: ignore
 
 bl_info = {
-    "name": "BlenderKit Online Asset Library",
+    "name": "Blendkit Online Asset Library",
     "author": "Vilem Duha, Petr Dlouhy, A. Gajdosik, Michal Hons",
     "version": (3, 20, 1, 260622),  # X.Y.Z.yymmdd
     "blender": (3, 0, 0),
-    "location": "View3D > Properties > BlenderKit",
+    "location": "View3D > Properties > Blendkit",
     "description": "Boost your workflow with drag&drop assets from the community driven library.",
     "doc_url": "https://github.com/BlenderKit/blenderkit/wiki",
     "tracker_url": "https://github.com/BlenderKit/blenderkit/issues",
@@ -300,7 +300,7 @@ _asset_type_enum_cache_key = None
 def asset_type_callback(self, context):
     """
     Returns
-    items for Enum property, depending on the down_up property - BlenderKit is either in search or in upload mode.
+    items for Enum property, depending on the down_up property - Blendkit is either in search or in upload mode.
     """
     global _asset_type_enum_items, _asset_type_enum_cache_key
     addon = bpy.context.preferences.addons.get(__package__)
@@ -400,7 +400,7 @@ class BlenderKitUIProps(PropertyGroup):
             ("UPLOAD", "Upload", "Activate uploading", "COPYDOWN", 1),
             # ('RATING', 'Rating', 'Activate rating', 'SOLO_ON', 2)
         ),
-        description="BlenderKit",
+        description="Blendkit",
         default="SEARCH",
         update=update_down_up,
     )
@@ -724,7 +724,7 @@ class BlenderKitUIProps(PropertyGroup):
     # Add search_keywords property
     search_keywords: StringProperty(
         name="Search",
-        description="Search BlenderKit for these keywords",
+        description="Search Blendkit for these keywords",
         default="",
         update=search.search_update_delayed,
     )
@@ -867,8 +867,8 @@ def update_free(self, context):
     if self.is_free == "FULL":
         self.is_free = "FREE"
         ui_panels.ui_message(
-            title="All BlenderKit materials are free",
-            message="Any material uploaded to BlenderKit is free."
+            title="All Blendkit materials are free",
+            message="Any material uploaded to Blendkit is free."
             " However, it can still earn money for the author,"
             " based on our fair share system. "
             "Part of subscription is sent to authors based on usage by paying users.\n",
@@ -1147,7 +1147,7 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
             ),
         ),
         description="Assets can be in Free or in Full plan. Also free assets generate credits. \n"
-        "All BlenderKit materials are free",
+        "All Blendkit materials are free",
         default="FREE",
         update=update_free,
     )
@@ -1238,7 +1238,7 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
     thumbnail: StringProperty(
         name="Thumbnail",
         description="Thumbnail path - 512x512 .jpg image, rendered with cycles.\n"
-        "Only standard BlenderKit previews will be accepted.\n"
+        "Only standard Blendkit previews will be accepted.\n"
         "Only exception are special effects like fire or similar",
         subtype="FILE_PATH",
         default="",
@@ -2135,7 +2135,7 @@ def fix_subdir(self, context):
         ui_panels.ui_message(
             title="Fixed to relative path",
             message="This path should be always relative.\n"
-            " It's a directory BlenderKit creates where your .blend is \n "
+            " It's a directory Blendkit creates where your .blend is \n "
             "and uses it for storing assets.",
         )
 
@@ -2166,17 +2166,17 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     keep_preferences: BoolProperty(
         name="Keep preferences on disabling",
-        description="When selected, the BlenderKit add-on preferences will be saved into JSON file and persisted even when the add-on is disabled and then re-enabled.",
+        description="When selected, the Blendkit add-on preferences will be saved into JSON file and persisted even when the add-on is disabled and then re-enabled.",
         default=False,
         update=persistent_preferences.property_keep_preferences_updated,
     )
 
     api_key: StringProperty(
-        name="BlenderKit API Key",
+        name="Blendkit API Key",
         description=(
             "Your unique API key authenticates downloads and requests inside the add-on. "
             "No manual setup is required, the API Key is auto-filled at login and cleared at logout. "
-            "However, you can also paste the key from your profile settings on the BlenderKit website."
+            "However, you can also paste the key from your profile settings on the Blendkit website."
         ),
         default="",
         subtype="PASSWORD",
@@ -2184,7 +2184,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     api_key_refresh: StringProperty(
-        name="BlenderKit refresh API Key",
+        name="Blendkit refresh API Key",
         description="API key used to refresh the token regularly",
         default="",
         subtype="PASSWORD",
@@ -2198,7 +2198,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     login_attempt: BoolProperty(
         name="Login/Signup attempt",
-        description="When this is on, BlenderKit is trying to connect and login",
+        description="When this is on, Blendkit is trying to connect and login",
         default=False,
     )
 
@@ -2218,21 +2218,21 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     announcements_on_start: BoolProperty(
         name="Receive online announcements when starting Blender",
-        description="Show crucial online announcements from the BlenderKit service. These are official messages from the BlenderKit team regarding maintenance, events, and other relevant information.",
+        description="Show crucial online announcements from the Blendkit service. These are official messages from the Blendkit team regarding maintenance, events, and other relevant information.",
         default=True,
         update=utils.save_prefs,
     )
 
     search_in_header: BoolProperty(
-        name="Show BlenderKit search in 3D view header",
-        description="Show BlenderKit search in 3D view header",
+        name="Show Blendkit search in 3D view header",
+        description="Show Blendkit search in 3D view header",
         default=True,
         update=utils.save_prefs,
     )
 
     sidebar_panels: BoolProperty(
         name="Hide sidebar panels",
-        description="Hide BlenderKit sidebar panels (search, upload, and selected model functionality). This prevents upload and it's also the only place for import settings. Reenable this to access these features.",
+        description="Hide Blendkit sidebar panels (search, upload, and selected model functionality). This prevents upload and it's also the only place for import settings. Reenable this to access these features.",
         default=False,
         update=utils.save_prefs,
     )
@@ -2242,8 +2242,8 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     show_VIEW3D_MT_blenderkit_model_properties: bpy.props.BoolProperty(
-        name="Show BlenderKit in Object Context Menu",
-        description="Show BlenderKit submenu in object context menu",
+        name="Show Blendkit in Object Context Menu",
+        description="Show Blendkit submenu in object context menu",
         default=True,
     )
 
@@ -2270,7 +2270,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     client_port: EnumProperty(
         name="Client port",
-        description="Port to be used for startup and communication with BlenderKit-Client. Changing the port will cancel all running downloads and searches",
+        description="Port to be used for startup and communication with Blendkit-Client. Changing the port will cancel all running downloads and searches",
         items=(
             ("62485", "62485", ""),
             ("65425", "65425", ""),
@@ -2287,7 +2287,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
 
     client_polling: FloatProperty(
         name="Client Polling",
-        description="Time interval in which add-on polls the BlenderKit-Client for updates on running requests and tasks. The lower the more responsive the add-on is, but it requires more resources.",
+        description="Time interval in which add-on polls the Blendkit-Client for updates on running requests and tasks. The lower the more responsive the add-on is, but it requires more resources.",
         default=0.2,
         min=0.1,
         max=0.5,
@@ -2297,7 +2297,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
     # USE OF CLIPBOARD SCAN
     use_clipboard_scan: BoolProperty(
         name="Use Clipboard Scan",
-        description="Use the info from BlenderKit website clipboard for visual search",
+        description="Use the info from Blendkit website clipboard for visual search",
         default=True,
         update=utils.save_prefs,
     )
@@ -2315,11 +2315,11 @@ class BlenderKitAddonPreferences(AddonPreferences):
     )
 
     create_asset_library: BoolProperty(
-        name="Register Local BlenderKit Asset Library",
-        description="Automatically add (and keep in sync) a 'BlenderKit' entry in Blender's Asset Libraries pointing to the global directory.\n\n"
+        name="Register Local Blendkit Asset Library",
+        description="Automatically add (and keep in sync) a 'Blendkit' entry in Blender's Asset Libraries pointing to the global directory.\n\n"
         "This allows you to easily access your downloaded assets in the Asset Browser, and also ensures that metadata like tags and descriptions are available for your assets across all your projects. "
-        "When disabled, BlenderKit will not modify your Asset Libraries list, and downloaded assets won't be unpacked in the background just to embed asset metadata "
-        "(unless 'Unpack Files' is enabled). Disable this if you don't want BlenderKit to manage your Asset Browser entries",
+        "When disabled, Blendkit will not modify your Asset Libraries list, and downloaded assets won't be unpacked in the background just to embed asset metadata "
+        "(unless 'Unpack Files' is enabled). Disable this if you don't want Blendkit to manage your Asset Browser entries",
         default=False,
         update=utils.save_prefs,
     )
@@ -2375,15 +2375,15 @@ class BlenderKitAddonPreferences(AddonPreferences):
             (
                 "ENABLED",
                 "Enabled SSL Verification",
-                "Activates SSL verification for outbound connections, ensuring secure communication between the BlenderKit-client and the blenderkit.com server",
+                "Activates SSL verification for outbound connections, ensuring secure communication between the Blendkit-client and the blendkit.com server",
             ),
             (
                 "DISABLED",
                 "Disabled SSL Verification - Insecure!",
-                "Deactivates SSL verification, bypassing the validation of SSL certificates by BlenderKit-client. This mode is insecure and recommended only for testing environments",
+                "Deactivates SSL verification, bypassing the validation of SSL certificates by Blendkit-client. This mode is insecure and recommended only for testing environments",
             ),
         ),
-        description="Secure communication between BlenderKit-client and blenderkit.com server by SSL",
+        description="Secure communication between Blendkit-client and blendkit.com server by SSL",
         default="ENABLED",
         update=timer.save_prefs_cancel_all_tasks_and_restart_client,
     )
@@ -2440,8 +2440,8 @@ In this case you should also set path to your system CA bundle containing proxy'
         description=(
             "Specify a path to a custom bundle of trusted certificates in .PEM format.\n\n"
             "If you're on corporate/institutional networks, using a VPN, or behind intermediaries like proxies, firewalls, antiviruses that manipulate HTTPS traffic, "
-            "the add-on might struggle to verify encrypted communication as signed by the BlenderKit server leading to CERTIFICATE_VERIFY_FAILED error. "
-            "This is because the traffic could be decrypted, possibly altered or logged, and then re-encrypted by the intermediary's certificate and not by BlenderKit certificate. "
+            "the add-on might struggle to verify encrypted communication as signed by the Blendkit server leading to CERTIFICATE_VERIFY_FAILED error. "
+            "This is because the traffic could be decrypted, possibly altered or logged, and then re-encrypted by the intermediary's certificate and not by Blendkit certificate. "
             "If you recognize and trust this intermediary, provide the path to its public certificates or their certificate authority here. "
             "This ensures the add-on communicates with a known, trusted entity, and not a potential threat.\n\n"
             "For those in corporate or educational institutions, it's advisable to consult your IT department about the relevant certificates. "
@@ -2545,7 +2545,7 @@ In this case you should also set path to your system CA bundle containing proxy'
 
     experimental_features: BoolProperty(
         name="Enable experimental features",
-        description="Enable experimental features of BlenderKit, such as the Authors tab",
+        description="Enable experimental features of Blendkit, such as the Authors tab",
         default=False,
         update=utils.save_prefs,
     )
@@ -2554,7 +2554,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         name="Accepted Microsoft Store Blender warning",
         description=(
             "Set after the user has acknowledged the in-viewport warning shown"
-            " when running BlenderKit on a Microsoft Store install of Blender."
+            " when running Blendkit on a Microsoft Store install of Blender."
             " Uncheck to see the warning again on the next asset bar launch"
             " (useful for debugging)."
         ),
@@ -2577,9 +2577,9 @@ In this case you should also set path to your system CA bundle containing proxy'
     )
 
     thread_communication: BoolProperty(
-        name="Threaded BlenderKit-Client communication",
+        name="Threaded Blendkit-Client communication",
         description=(
-            "Move communication with the BlenderKit-Client (report polling and"
+            "Move communication with the Blendkit-Client (report polling and"
             " selected fire-and-forget HTTP requests) onto a background thread."
             " This keeps Blender responsive when the local Client is slow to"
             " respond. Only takes effect while experimental features are enabled."
@@ -2970,7 +2970,7 @@ def register():
 
 
 def unregister():
-    bk_logger.info("Unregistering BlenderKit add-on")
+    bk_logger.info("Unregistering Blendkit add-on")
     # Stop any in-flight downloads to avoid leaving stale UI state when disabling the add-on.
     download.cancel_running_downloads("addon unregister")
     timer.unregister_timers()

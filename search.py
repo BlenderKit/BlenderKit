@@ -452,7 +452,7 @@ def update_ad(ad):
                 "can_download"
             ]  # this should stay ONLY for compatibility with older scenes
         except Exception as e:
-            bk_logger.error("BlenderKit failed to update older asset data")
+            bk_logger.error("Blendkit failed to update older asset data")
     return ad
 
 
@@ -510,8 +510,8 @@ last_clipboard = ""
 
 def check_clipboard():
     """Check clipboard for an exact string containing asset ID.
-    The string is generated on www.blenderkit.com as for example here:
-    https://www.blenderkit.com/get-blenderkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
+    The string is generated on www.blendkit.com as for example here:
+    https://www.blendkit.com/get-blendkit/54ff5c85-2c73-49e9-ba80-aec18616a408/
     """
     global last_clipboard
     try:  # could be problematic on Linux
@@ -1341,12 +1341,12 @@ def query_to_url(
     """Build a new search request by parsing query dictionary into appropriate URL.
     Also modifies query and adds some stuff in there which is very misleading anti-pattern.
     TODO: just convert to URL here and move the sorting and adding of params to separate function.
-    https://www.blenderkit.com/api/v1/search/
+    https://www.blendkit.com/api/v1/search/
     """
     if query is None:
         query = {}
 
-    url = f"{paths.BLENDERKIT_API}/search/"
+    url = f"{paths.BLENDKIT_API}/search/"
 
     requeststring = "?query="
     if query.get("query") not in ("", None):
@@ -1397,7 +1397,7 @@ def decide_ordering(query: dict) -> list:
     If search_order_by is not default, its value is used for the sorting (quality, uploaded, etc.).
     Otherwise the 'legacy' mode is used which
     """
-    # result ordering: _score - relevance, score - BlenderKit score
+    # result ordering: _score - relevance, score - Blendkit score
     order = []
     if query.get("free_first", False):
         order = [
@@ -1725,18 +1725,18 @@ def get_search_simple(
 
     Parameters
     ----------
-    parameters - dict of blenderkit elastic parameters
+    parameters - dict of Blendkit elastic parameters
     filepath - a file to save the results. If None, results are returned
     page_size - page size for retrieved results
     max_results - max results of the search
-    api_key - BlenderKit api key
+    api_key - Blendkit api key
 
     Returns
     -------
     Returns search results as a list, and optionally saves to filepath
     """
     headers = utils.get_headers(api_key)
-    url = f"{paths.BLENDERKIT_API}/search/"
+    url = f"{paths.BLENDKIT_API}/search/"
     requeststring = url + "?query="
     for p in parameters.keys():
         requeststring += f"+{p}:{parameters[p]}"
@@ -1918,7 +1918,7 @@ def search(get_next=False, query=None, author_id=""):
         next_url = active_history_step["search_results_orig"].get("next", "")
 
     add_search_process(query, get_next, page_size, next_url, active_history_step["id"])
-    props.report = "BlenderKit searching...."
+    props.report = "Blendkit searching...."
 
 
 def clean_filters():
@@ -2219,7 +2219,7 @@ class SearchOperator(Operator):
     """Tooltip"""
 
     bl_idname = "view3d.blenderkit_search"
-    bl_label = "BlenderKit asset search"
+    bl_label = "Blendkit asset search"
     bl_description = "Search online for assets"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
@@ -2371,11 +2371,11 @@ class AuthorAssetTypeSearch(Operator):
     bl_label = "Search Author Assets"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})
-    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})
+    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})  # type: ignore
+    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})  # type: ignore
     asset_type: StringProperty(
         name="Asset Type", default="MODEL", options={"SKIP_SAVE"}
-    )
+    )  # type: ignore
 
     def execute(self, context):
         ui_props = bpy.context.window_manager.blenderkitUI
@@ -2394,8 +2394,8 @@ class AuthorAssetTypePopup(Operator):
     bl_label = "Find Author's Assets"
     bl_options = {"REGISTER", "INTERNAL"}
 
-    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})
-    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})
+    author_id: StringProperty(name="Author ID", default="", options={"SKIP_SAVE"})  # type: ignore
+    author_name: StringProperty(name="Author Name", default="", options={"SKIP_SAVE"})  # type: ignore
 
     # Set by caller before invoke — per-type asset counts from the author result
     _asset_type_counts: dict = {}

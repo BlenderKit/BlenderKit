@@ -230,7 +230,7 @@ class ParticlesDropDialog(bpy.types.Operator):
     """Tooltip"""
 
     bl_idname = "object.blenderkit_particles_drop"
-    bl_label = "BlenderKit particle plants object drop"
+    bl_label = "Blendkit particle plants object drop"
     bl_options = {"REGISTER", "INTERNAL"}
 
     asset_search_index: IntProperty(  # type: ignore[valid-type]
@@ -259,9 +259,9 @@ class ParticlesDropDialog(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         message = (
-            "This asset is a particle setup. BlenderKit can apply particles to the active/drag-drop object."
+            "This asset is a particle setup. Blendkit can apply particles to the active/drag-drop object."
             "The number of particles is calculated automatically, but if there are too many particles,"
-            " BlenderKit can do the following steps to make sure Blender continues to run:\n"
+            " Blendkit can do the following steps to make sure Blender continues to run:\n"
             "\n1.Switch to bounding box view of the particles."
             "\n2.Turn down number of particles that are shown in the view."
             "\n3.Hide the particle system completely from the 3D view."
@@ -298,7 +298,7 @@ class ParticlesDropDialog(bpy.types.Operator):
 # class MaterialDropDialog(bpy.types.Operator):
 #     """Tooltip"""
 #     bl_idname = "object.blenderkit_material_drop"
-#     bl_label = "BlenderKit material drop on linked objects"
+#     bl_label = "Blendkit material drop on linked objects"
 #     bl_options = {'REGISTER', 'INTERNAL'}
 #
 #     asset_search_index: IntProperty(name="Asset index",
@@ -362,8 +362,8 @@ class TransferBlenderkitData(bpy.types.Operator):
     """Regenerate cobweb"""
 
     bl_idname = "object.blenderkit_data_trasnfer"
-    bl_label = "Transfer BlenderKit data"
-    bl_description = "Transfer blenderKit metadata from one object to another when fixing uploads with wrong parenting"
+    bl_label = "Transfer Blendkit data"
+    bl_description = "Transfer Blendkit metadata from one object to another when fixing uploads with wrong parenting"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -415,7 +415,7 @@ class AssetBarModalStarter(bpy.types.Operator):
     """Needed for starting asset bar with correct context"""
 
     bl_idname = "view3d.run_assetbar_start_modal"
-    bl_label = "BlenderKit assetbar modal starter"
+    bl_label = "Blendkit assetbar modal starter"
     bl_description = "Assetbar modal starter"
     bl_options = {"INTERNAL"}
 
@@ -464,7 +464,7 @@ class RunAssetBarWithContext(bpy.types.Operator):
     """This operator can run from a timer and assign a context to modal starter"""
 
     bl_idname = "view3d.run_assetbar_fix_context"
-    bl_label = "BlenderKit assetbar with fixed context"
+    bl_label = "Blendkit assetbar with fixed context"
     bl_description = "Run assetbar with fixed context"
     bl_options = {"INTERNAL"}
 

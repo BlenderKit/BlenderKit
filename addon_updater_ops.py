@@ -509,7 +509,7 @@ class AddonUpdaterUpdatedSuccessful(bpy.types.Operator):
     )
 
     def invoke(self, context, event):
-        # we need to restart BlenderKit-Client after update
+        # we need to restart Blendkit-Client after update
         try:
             client_lib.shutdown_client()
         except:
@@ -1137,7 +1137,7 @@ def update_settings_ui(self, context, element=None):
 
     version_row = box.row()
     version_row.label(
-        text=f"BlenderKit v{utils.get_addon_version()} · Blender {bpy.app.version_string}",
+        text=f"Blendkit v{utils.get_addon_version()} · Blender {bpy.app.version_string}",
         icon="INFO",
     )
     version_row.operator(
@@ -1401,7 +1401,7 @@ def register(bl_info):
     # updater.addon = # define at top of module, MUST be done first
 
     # Website for manual addon download, optional but recommended to set.
-    updater.website = "https://www.blenderkit.com/get-blenderkit/"
+    updater.website = "https://www.blendkit.com/get-blendkit/"
 
     # Addon subfolder path.
     # "sample/path/to/addon"

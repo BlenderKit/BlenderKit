@@ -1,12 +1,12 @@
-# BlenderKit-Client
+# Blendkit-Client
 
-This is a Client for BlenderKit (previously daemon).
-It's a local server that listens for requests from BlenderKit add-ons and processes them.
+This is a Client for Blendkit (previously daemon).
+It's a local server that listens for requests from Blendkit add-ons and processes them.
 Written in Go.
 
 ## How is it run
 The Client is built for Windows, MacOS and Linux for both x86_64 and arm64.
-BlenderKit-Client binaries are shipped in the blenderkit.zip file, in /client directory where normally in the repo Client's source code is placed.
+Blendkit-Client binaries are shipped in the blenderkit.zip file, in /client directory where normally in the repo Client's source code is placed.
 On add-on start, the Client binary is copied into global_dir/client/bin/vX.Y.Z directory, and started.
 
 ### Client start

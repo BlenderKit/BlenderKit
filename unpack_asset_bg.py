@@ -184,7 +184,7 @@ def _download_thumbnail(url: str) -> str:
         return target_path
     try:
         req = urllib.request.Request(url)
-        req.add_header("User-Agent", "BlenderKit")
+        req.add_header("User-Agent", "Blendkit")
         req.add_header("Accept", "image/*")
         with urllib.request.urlopen(req, timeout=15) as response:
             with open(target_path, "wb") as handle:

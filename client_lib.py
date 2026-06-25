@@ -46,7 +46,7 @@ POLL_TIMEOUT = (0.05, 0.25)
 
 # When the user's global_dir (default ~/blenderkit_data) is not writable - which
 # happens for sandboxed Blender installs (Microsoft Store, some Linux packages,
-# locked-down corporate environments) - we cannot copy the BlenderKit-Client
+# locked-down corporate environments) - we cannot copy the Blendkit-Client
 # binary into global_dir/client/bin/vX.Y.Z. In that case we fall back to
 # running the binary in-place directly from the add-on directory.
 # This module-level flag is set once per Blender session and is sticky so all
@@ -56,12 +56,12 @@ _inplace_notice_shown: bool = False
 
 
 def get_address() -> str:
-    """Get address of the BlenderKit-Client."""
+    """Get address of the Blendkit-Client."""
     return f"http://127.0.0.1:{get_port()}"
 
 
 def get_port() -> str:
-    """Get the most probable port of currently running BlenderKit-Client.
+    """Get the most probable port of currently running Blendkit-Client.
     After add-on registration and if all goes well, the port is the same as
     """
     return global_vars.CLIENT_PORTS[0]
@@ -77,7 +77,7 @@ def get_api_version() -> str:
 
 
 def get_base_url() -> str:
-    """The base URL on which we will interact with the BlenderKit Client. Consists from address with port + version API path.
+    """The base URL on which we will interact with the Blendkit Client. Consists from address with port + version API path.
     All requests to Client goes to URLs starting with base URL in format: 127.0.0.1:{port}/vX.Y
     """
     address = get_address()
@@ -102,10 +102,10 @@ def _read_api_key_threadsafe() -> str:
 
 
 def ensure_minimal_data(data: Optional[dict] = None) -> dict:
-    """Ensure that the data send to the BlenderKit-Client contains:
-    - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
-    - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
-    - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
+    """Ensure that the data send to the Blendkit-Client contains:
+    - app_id is the process ID of the Blender instance, so Blendkit-client can return reports to the correct instance.
+    - api_key is the authentication token for the Blendkit server, so Blendkit-Client can authenticate the user.
+    - addon_version is the version of the Blendkit add-on, so Blendkit-client has understanding of the version of the add-on making the request.
     """
     if data is None:
         data = {}
@@ -123,10 +123,10 @@ def ensure_minimal_data(data: Optional[dict] = None) -> dict:
 
 
 def ensure_minimal_data_class(data_class: datas.SearchData) -> datas.SearchData:
-    """Ensure that the data send to the BlenderKit-Client contains:
-    - app_id is the process ID of the Blender instance, so BlenderKit-client can return reports to the correct instance.
-    - api_key is the authentication token for the BlenderKit server, so BlenderKit-Client can authenticate the user.
-    - addon_version is the version of the BlenderKit add-on, so BlenderKit-client has understanding of the version of the add-on making the request.
+    """Ensure that the data send to the Blendkit-Client contains:
+    - app_id is the process ID of the Blender instance, so Blendkit-client can return reports to the correct instance.
+    - api_key is the authentication token for the Blendkit server, so Blendkit-Client can authenticate the user.
+    - addon_version is the version of the Blendkit add-on, so Blendkit-client has understanding of the version of the add-on making the request.
     """
     if data_class == None:
         data_class = dataclasses.dataclass()
@@ -183,7 +183,7 @@ def get_reports(app_id: int):
     """
     data = build_report_data(app_id)
 
-    # on 10, there is second BlenderKit-Client start
+    # on 10, there is second Blendkit-Client start
     if global_vars.CLIENT_FAILED_REPORTS < 10:
         return request_report(get_report_url(), data)
 
@@ -193,12 +193,12 @@ def get_reports(app_id: int):
         try:
             report = request_report(url, data)
             bk_logger.warning(
-                f"Got reports from BlenderKit-Client on port {port}, setting it as default for this instance"
+                f"Got reports from Blendkit-Client on port {port}, setting it as default for this instance"
             )
             reorder_ports(port)
             return report
         except Exception as e:
-            bk_logger.info("Failed to get BlenderKit-Client reports: %s", e)
+            bk_logger.info("Failed to get Blendkit-Client reports: %s", e)
             last_exception = e
     if last_exception is not None:
         raise last_exception
@@ -245,7 +245,7 @@ def asset_download(data):
 
 
 def cancel_download(task_id: str):
-    """Cancel the specified task with ID on the BlenderKit-Client."""
+    """Cancel the specified task with ID on the Blendkit-Client."""
     data = ensure_minimal_data({"task_id": task_id})
     with requests.Session() as session:
         url = get_base_url() + "/blender/cancel_download"
@@ -256,7 +256,7 @@ def cancel_download(task_id: str):
 def asset_prxc_download(
     asset_base_id: str, download_url: str, file_path: str, scene_uuid: str
 ):
-    """Schedule a single .prxc proxy mesh download on the BlenderKit-Client.
+    """Schedule a single .prxc proxy mesh download on the Blendkit-Client.
 
     Fire-and-forget: the client creates a ``prxc_download`` task whose
     completion is delivered via the normal task channel and handled by
@@ -309,7 +309,7 @@ def download_gravatar_image(author_data: datas.UserProfile) -> requests.Response
 
 def get_user_profile() -> requests.Response:
     """Fetch profile of currently logged-in user.
-    This creates task on BlenderKit-Client to fetch data which are later handled once available.
+    This creates task on Blendkit-Client to fetch data which are later handled once available.
     """
     data = ensure_minimal_data()
     with requests.Session() as session:
@@ -400,7 +400,7 @@ def mark_notification_read(notification_id):
 
 ### REPORTS
 def report_usages(data: dict):
-    """Report usages of assets in current scene via BlenderKit-Client to the server."""
+    """Report usages of assets in current scene via Blendkit-Client to the server."""
     data = ensure_minimal_data(data)
     with requests.Session() as session:
         return session.post(
@@ -528,7 +528,7 @@ def blocking_request(
     json_data: Optional[dict] = None,
     timeout: tuple = TIMEOUT,
 ) -> requests.Response:
-    """Make blocking HTTP request through BlenderKit-Client.
+    """Make blocking HTTP request through Blendkit-Client.
     Will not return until results are available."""
     if headers is None:
         headers = {}
@@ -556,7 +556,7 @@ def nonblocking_request(
     json_data: Optional[dict] = None,
     messages: Optional[dict] = None,
 ) -> requests.Response:
-    """Make non-blocking HTTP request through BlenderKit-Client.
+    """Make non-blocking HTTP request through Blendkit-Client.
     This function will return ASAP, not returning any actual data.
     """
     if headers is None:
@@ -583,7 +583,7 @@ def nonblocking_request(
 
 ### AUTHORIZATION
 def send_oauth_verification_data(code_verifier, state: str):
-    """Send OAUTH2 Code Verifier and State parameters to BlenderKit-Client.
+    """Send OAUTH2 Code Verifier and State parameters to Blendkit-Client.
     So it can later use them to authenticate the redirected response from the browser.
     """
     data = ensure_minimal_data(
@@ -603,7 +603,7 @@ def send_oauth_verification_data(code_verifier, state: str):
 
 
 def refresh_token(refresh_token, old_api_key):
-    """Refresh authentication token. BlenderKit-Client will use refresh token to get new API key token to replace the old_api_key.
+    """Refresh authentication token. Blendkit-Client will use refresh token to get new API key token to replace the old_api_key.
     old_api_key is used later to replace token only in Blender instances with the same api_key. (User can be logged into multiple accounts.)
     """
     bk_logger.info("Calling API token refresh")
@@ -620,7 +620,7 @@ def refresh_token(refresh_token, old_api_key):
 
 
 def oauth2_logout():
-    """Logout from OAUTH2. BlenderKit-Client will revoke the token on the server."""
+    """Logout from OAUTH2. Blendkit-Client will revoke the token on the server."""
     data = ensure_minimal_data()
     data["refresh_token"] = global_vars.PREFS["api_key_refresh"]
     with requests.Session() as session:
@@ -630,7 +630,7 @@ def oauth2_logout():
 
 
 def unsubscribe_addon():
-    """Unsubscribe the add-on from the BlenderKit-Client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
+    """Unsubscribe the add-on from the Blendkit-Client. Called when the add-on is disabled, uninstalled or when Blender is closed."""
     data = ensure_minimal_data()
     with requests.Session() as session:
         url = get_base_url() + "/blender/unsubscribe_addon"
@@ -639,7 +639,7 @@ def unsubscribe_addon():
 
 
 def shutdown_client():
-    """Request to shutdown the BlenderKit-Client."""
+    """Request to shutdown the Blendkit-Client."""
     data = ensure_minimal_data()
     with requests.Session() as session:
         url = get_base_url() + "/shutdown"
@@ -655,7 +655,7 @@ def handle_client_status_task(task):
 
 
 def check_blenderkit_client_return_code() -> tuple[int, str]:
-    """Check the return code for the started BlenderKit-Client. If the return code returned from process.poll() is None - returned by this func as -1, it means Client still runs - we consider this a success!
+    """Check the return code for the started Blendkit-Client. If the return code returned from process.poll() is None - returned by this func as -1, it means Client still runs - we consider this a success!
     However if the return code from poll() is present, it failed to start and we check the return code value. If the return code is known,
     we print information to user about the reason. So they do not need to dig in the Client log.
     """
@@ -670,7 +670,7 @@ def check_blenderkit_client_return_code() -> tuple[int, str]:
 
     exit_code = global_vars.client_process.poll()
     if exit_code is None:
-        return -1, "BlenderKit-Client process is running."
+        return -1, "Blendkit-Client process is running."
 
     # need to initialize msg, was throwing an error
     msg = f"Unknown error."
@@ -699,11 +699,11 @@ def check_blenderkit_client_return_code() -> tuple[int, str]:
 
 
 def start_blenderkit_client():
-    """Start BlenderKit-client in separate process.
+    """Start Blendkit-client in separate process.
     1. Check if binary is available at global_dir/client/vX.Y.Z/blenderkit-client-<os>-<arch>(.exe)
     2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z/, or fall back
        to running the binary in-place from the add-on directory if the global_dir is not writable.
-    3. Start the BlenderKit-Client process which serves as bridge between BlenderKit add-on and BlenderKit server.
+    3. Start the Blendkit-Client process which serves as bridge between Blendkit add-on and Blendkit server.
     """
     global _use_inplace_client
     ensure_client_binary_installed()
@@ -767,15 +767,15 @@ def start_blenderkit_client():
                 creationflags=creation_flags,
             )
     except Exception as e:
-        msg = f"Error: BlenderKit-Client {client_version} failed to start on {get_address()}:{e}"
+        msg = f"Error: Blendkit-Client {client_version} failed to start on {get_address()}:{e}"
         reports.add_report(msg, type="ERROR")
         raise (e)
 
-    bk_logger.info("BlenderKit-Client %s starting on %s", client_version, get_address())
+    bk_logger.info("Blendkit-Client %s starting on %s", client_version, get_address())
 
 
 def decide_client_binary_name() -> str:
-    """Decide the name of the BlenderKit-Client binary based on the current operating system and architecture.
+    """Decide the name of the Blendkit-Client binary based on the current operating system and architecture.
     We unify the OS and CPU architecture naming to make it more accessible for general public.
     Darwin is renamed to MacOS. The CPU architecture is aligned to x86_64 or arm64.
     Possible return values:
@@ -803,14 +803,14 @@ def decide_client_binary_name() -> str:
 
 
 def get_client_directory() -> str:
-    """Get the path to the BlenderKit-Client directory located in global_dir."""
+    """Get the path to the Blendkit-Client directory located in global_dir."""
     global_dir = bpy.context.preferences.addons[__package__].preferences.global_dir  # type: ignore
     directory = path.join(global_dir, "client")
     return directory
 
 
 def is_using_inplace_client() -> bool:
-    """True if BlenderKit-Client is being run in-place from the add-on directory
+    """True if Blendkit-Client is being run in-place from the add-on directory
     because we couldn't install it into global_dir/client/bin/vX.Y.Z.
     """
     return _use_inplace_client
@@ -839,7 +839,7 @@ def _get_fallback_client_log_dir() -> str:
 
 
 def get_client_log_path() -> str:
-    """Get path to BlenderKit-Client log file.
+    """Get path to Blendkit-Client log file.
     Normally located in global_dir/client. If we are running the client in-place
     (because global_dir is not writable), the log file is placed under the system
     temp directory instead.
@@ -856,7 +856,7 @@ def get_client_log_path() -> str:
 
 
 def get_preinstalled_client_path() -> str:
-    """Get the path to the preinstalled BlenderKit-Client binary - located in add-on directory.
+    """Get the path to the preinstalled Blendkit-Client binary - located in add-on directory.
     This is the binary that is shipped with the add-on. It is copied to global_dir/client/vX.Y.Z on first run.
     """
     addon_dir = path.dirname(__file__)
@@ -868,7 +868,7 @@ def get_preinstalled_client_path() -> str:
 
 
 def get_client_binary_path():
-    """Get the path to the BlenderKit-Client binary that should be executed.
+    """Get the path to the Blendkit-Client binary that should be executed.
     Normally this is the copy in global_dir/client/bin/vX.Y.Z. We do not start
     from the add-on directory because that might block update or delete of the
     add-on. However, when global_dir is not writable (e.g. Microsoft Store
@@ -886,7 +886,7 @@ def get_client_binary_path():
 
 
 def ensure_client_binary_installed():
-    """Ensure that the BlenderKit-Client binary is available for execution.
+    """Ensure that the Blendkit-Client binary is available for execution.
     Preferred location is global_dir/client/bin/vX.Y.Z. If the binary is not
     there yet, we copy it from the add-on directory blenderkit/client.
     As a side effect, this function also creates the global_dir/client/bin/vX.Y.Z
@@ -905,14 +905,14 @@ def ensure_client_binary_installed():
         return
 
     preinstalled_client_path = get_preinstalled_client_path()
-    bk_logger.info("Copying BlenderKit-Client binary %s", preinstalled_client_path)
+    bk_logger.info("Copying Blendkit-Client binary %s", preinstalled_client_path)
     try:
         os.makedirs(path.dirname(client_binary_path), exist_ok=True)
         shutil.copy(preinstalled_client_path, client_binary_path)
         os.chmod(client_binary_path, 0o711)
     except (PermissionError, OSError) as e:
         bk_logger.warning(
-            "Cannot install BlenderKit-Client to %s: %s. "
+            "Cannot install Blendkit-Client to %s: %s. "
             "Falling back to in-place execution from the add-on directory.",
             path.dirname(client_binary_path),
             e,
@@ -922,7 +922,7 @@ def ensure_client_binary_installed():
             _inplace_notice_shown = True
             try:
                 reports.add_report(
-                    "BlenderKit could not copy the Client binary to your global "
+                    "Blendkit could not copy the Client binary to your global "
                     "directory (read-only or sandboxed). Running the Client "
                     "in-place from the add-on folder instead.",
                     timeout=10,
@@ -931,7 +931,7 @@ def ensure_client_binary_installed():
             except Exception:  # pragma: no cover - defensive
                 pass
         return
-    bk_logger.info("BlenderKit-Client binary copied to %s", client_binary_path)
+    bk_logger.info("Blendkit-Client binary copied to %s", client_binary_path)
 
 
 def get_addon_dir():

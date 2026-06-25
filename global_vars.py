@@ -33,7 +33,7 @@ CLIENT_ACCESSIBLE = False
 CLIENT_RUNNING = False
 """Just  for on_startup_client_online_timer()."""
 CLIENT_FAILED_REPORTS = 0
-"""Number of failed requests to get reports from the BlenderKit-Client. If too many, something is wrong."""
+"""Number of failed requests to get reports from the Blendkit-Client. If too many, something is wrong."""
 CLIENT_PORTS = ["62485", "65425", "55428", "49452", "35452", "25152", "5152", "1234"]
 """Ports are ordered during the start, and later after malfunction."""
 
@@ -62,16 +62,18 @@ BKIT_PROFILE: datas.MineProfile = datas.MineProfile()
 BKIT_AUTHORS: dict[int, datas.UserProfile] = {}
 """All loaded profiles of other users. Current user is also present in stripped down version. Key is the UserProfile.id."""
 
-LOGGING_LEVEL_BLENDERKIT = INFO
+LOGGING_LEVEL_BLENDKIT = INFO
 
 # read special DEBUG env var to set logging level to DEBUG
-if environ.get("BLENDERKIT_DEBUG", "0") == "1":
-    LOGGING_LEVEL_BLENDERKIT = DEBUG
+if environ.get("BLENDKIT_DEBUG", "0") == "1":
+    LOGGING_LEVEL_BLENDKIT = DEBUG
 
 LOGGING_LEVEL_IMPORTED = WARN
 PREFS = {}
 
-SERVER = environ.get("BLENDERKIT_SERVER", "https://www.blenderkit.com")
+SERVER = environ.get(
+    "BLENDKIT_SERVER", environ.get("BLENDERKIT_SERVER", "https://www.blendkit.com")
+)
 DISCORD_INVITE_URL = "https://discord.gg/tCKyjFMRar"
 
 TIPS = [
@@ -195,4 +197,4 @@ TIPS = [
 VERSION = [0, 0, 0, 0]  # filled in register()
 
 client_process: Optional[Popen] = None
-"""Holds return value of subprocess.Popen() which starts the BlenderKit-Client."""
+"""Holds return value of subprocess.Popen() which starts the Blendkit-Client."""

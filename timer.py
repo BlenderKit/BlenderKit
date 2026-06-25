@@ -213,7 +213,7 @@ def client_communication_timer():
 
     if global_vars.CLIENT_ACCESSIBLE is False and got_successful_reports:
         bk_logger.info(
-            f"BlenderKit-Client is running on port {global_vars.CLIENT_PORTS[0]}!"
+            f"Blendkit-Client is running on port {global_vars.CLIENT_PORTS[0]}!"
         )
         global_vars.CLIENT_ACCESSIBLE = True
         wm = bpy.context.window_manager
@@ -470,7 +470,7 @@ def handle_task(task: client_tasks.Task):
         or task.task_type == "message_from_client"
     ):
         level = task.result.get("level", "INFO").upper()
-        duration = task.result.get("duration", 5)
+        duration = task.result.get("duration", 20)
         destination = task.result.get("destination", "GUI")
         if destination == "GUI":
             return reports.add_report(task.message, duration, level)

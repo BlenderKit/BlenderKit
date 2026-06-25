@@ -129,7 +129,7 @@ def selection_set(sel):
 
 
 def get_asset_data_from_ob(ob) -> Optional[dict]:
-    """Return the BlenderKit asset_data dict for an object.
+    """Return the Blendkit asset_data dict for an object.
 
     Checks the object's own IDProperty first. When the object is a
     collection-instance EMPTY (imported from a local asset library) it falls
@@ -917,7 +917,7 @@ def copy_asset(fp1, fp2):
             bk_logger.debug("copied")
 
     # except Exception as e:
-    #     print('BlenderKit failed to copy asset')
+    #     print('Blendkit failed to copy asset')
     #     print(fp1, fp2)
     #     print(e)
 
@@ -1734,7 +1734,7 @@ def _check_dir_permissions(dir_path, dir_label="Directory"):
     if os.path.isfile(dir_path):
         return False, (
             f"{dir_label} path points to a file, not a folder.\n"
-            f"Please remove the file or change the path in BlenderKit preferences.\n"
+            f"Please remove the file or change the path in Blendkit preferences.\n"
             f"Path: {dir_path}"
         )
 
@@ -1751,7 +1751,7 @@ def _check_dir_permissions(dir_path, dir_label="Directory"):
         except OSError as e:
             return False, (
                 f"Cannot create {dir_label}: {e}\n"
-                f"Please check the path in BlenderKit preferences.\n"
+                f"Please check the path in Blendkit preferences.\n"
                 f"Path: {dir_path}"
             )
 
@@ -1766,14 +1766,14 @@ def _check_dir_permissions(dir_path, dir_label="Directory"):
     except PermissionError:
         return False, (
             f"No write permission to {dir_label}.\n"
-            f"BlenderKit needs to save downloaded assets into this folder.\n"
+            f"Blendkit needs to save downloaded assets into this folder.\n"
             f"Please choose a folder where you have write access, or fix the permissions.\n"
             f"Path: {dir_path}"
         )
     except OSError as e:
         return False, (
             f"Cannot write to {dir_label}: {e}\n"
-            f"Please check the path in BlenderKit preferences.\n"
+            f"Please check the path in Blendkit preferences.\n"
             f"Path: {dir_path}"
         )
 
@@ -1806,7 +1806,7 @@ def try_recover_global_dir():
     prefs = bpy.context.preferences.addons[__package__].preferences
     prefs.global_dir = default_dir
     reports.add_report(
-        f"BlenderKit download folder was not accessible. Reset to default: {default_dir}",
+        f"Blendkit download folder was not accessible. Reset to default: {default_dir}",
         type="INFO",
     )
     restart_client_after_path_fix()
@@ -1917,7 +1917,7 @@ def is_addon_blender_compatible(asset_data) -> bool:
 
 
 def get_addon_version() -> str:
-    """Get BlenderKit addon version as string in format X.Y.Z."""
+    """Get Blendkit addon version as string in format X.Y.Z."""
     ver = global_vars.VERSION
     return f"{ver[0]}.{ver[1]}.{ver[2]}"
 
@@ -1930,7 +1930,7 @@ def get_project_name() -> str:
 
 
 class BlenderkitException(Exception):
-    """Base class for all BlenderKit exceptions."""
+    """Base class for all Blendkit exceptions."""
 
     pass
 

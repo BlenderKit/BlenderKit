@@ -97,23 +97,23 @@ def draw_not_logged_in(source, message="Please Login/Signup to use this feature"
 
 def draw_upload_common(layout, props, asset_type, context):
     if asset_type == "MODEL":
-        url = paths.BLENDERKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDKIT_MODEL_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "MATERIAL":
-        url = paths.BLENDERKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDKIT_MATERIAL_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "BRUSH":
-        url = paths.BLENDERKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDKIT_BRUSH_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "SCENE":
-        url = paths.BLENDERKIT_SCENE_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDKIT_SCENE_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "HDR":
-        url = paths.BLENDERKIT_HDR_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDKIT_HDR_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "NODEGROUP":
-        url = ""  # paths.BLENDERKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
+        url = ""  # paths.BLENDKIT_NODEGROUP_UPLOAD_INSTRUCTIONS_URL
     if asset_type == "PRINTABLE":
         url = (
-            paths.BLENDERKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL
+            paths.BLENDKIT_PRINTABLE_UPLOAD_INSTRUCTIONS_URL
         )  # Reuse model instructions since prints are similar
     if asset_type == "ADDON":
-        url = paths.BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
+        url = paths.BLENDKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
     op = layout.operator(
         "wm.url_open", text=f"Read {asset_type} upload instructions", icon="QUESTION"
     )
@@ -186,7 +186,7 @@ def draw_upload_common(layout, props, asset_type, context):
         op = layout.operator(
             "wm.blenderkit_url", text="Edit Details", icon="GREASEPENCIL"
         )
-        op.url = f"{paths.BLENDERKIT_USER_ASSETS_URL}/{props.asset_base_id}/?edit#"
+        op.url = f"{paths.BLENDKIT_USER_ASSETS_URL}/{props.asset_base_id}/?edit#"
 
         op = layout.operator(
             "object.blenderkit_upload", text="Reupload asset", icon="EXPORT"
@@ -271,12 +271,12 @@ class BLENDERKIT_OT_show_validation_popup(bpy.types.Operator):
 
 
 class BLENDERKIT_OT_permissions_error_popup(bpy.types.Operator):
-    """Show a large centered dialog when BlenderKit cannot write to the asset directory.
+    """Show a large centered dialog when Blendkit cannot write to the asset directory.
     Dynamically updates to show success when the path is fixed.
     """
 
     bl_idname = "wm.blenderkit_permissions_error_popup"
-    bl_label = "BlenderKit - Directory Permission Error"
+    bl_label = "Blendkit - Directory Permission Error"
     bl_options = {"REGISTER", "INTERNAL"}
 
     error_message: StringProperty(name="Error", default="", options={"SKIP_SAVE"})  # type: ignore
@@ -458,7 +458,7 @@ def draw_search_text_field(
 
     kwargs = {"text": "", "icon": "VIEWZOOM"}
     if bpy.app.version >= (4, 2, 0):
-        kwargs["placeholder"] = "Search BlenderKit"
+        kwargs["placeholder"] = "Search Blendkit"
     row.prop(ui_props, "search_keywords", **kwargs)
 
     if (context.region.width) > 700:
@@ -747,7 +747,7 @@ def draw_panel_model_search(self, context):
     utils.label_multiline(layout, text=props.report, icon=icon)
     if props.report == "You need Full plan to get this item.":
         layout.operator("wm.url_open", text="Get Full plan", icon="URL").url = (
-            paths.BLENDERKIT_PLANS_URL
+            paths.BLENDKIT_PLANS_URL
         )
 
 
@@ -772,7 +772,7 @@ def draw_model_context_menu(self, context):
     if ad is None:
         utils.label_multiline(
             layout,
-            text="To upload this asset to BlenderKit, go to the Find and Upload Assets panel.",
+            text="To upload this asset to Blendkit, go to the Find and Upload Assets panel.",
         )
         layout.prop(o, "name")
     else:
@@ -785,7 +785,7 @@ def draw_model_context_menu(self, context):
 
 
 class VIEW3D_PT_blenderkit_model_properties(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_model_properties"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -812,7 +812,7 @@ class VIEW3D_MT_blenderkit_model_properties(Menu):
 
 
 class NODE_PT_blenderkit_nodegroup_properties(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "NODE_PT_blenderkit_nodegroup_properties"
     bl_space_type = "NODE_EDITOR"
     bl_region_type = "UI"
@@ -834,7 +834,7 @@ class NODE_PT_blenderkit_nodegroup_properties(Panel):
         if et.get("asset_data") is None:
             utils.label_multiline(
                 layout,
-                text="To upload this asset to BlenderKit, go to the Find and Upload Assets panel.",
+                text="To upload this asset to Blendkit, go to the Find and Upload Assets panel.",
             )
             layout.prop(et, "name")
 
@@ -847,7 +847,7 @@ class NODE_PT_blenderkit_nodegroup_properties(Panel):
 
 
 class NODE_PT_blenderkit_material_properties(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "NODE_PT_blenderkit_material_properties"
     bl_space_type = "NODE_EDITOR"
     bl_region_type = "UI"
@@ -872,7 +872,7 @@ class NODE_PT_blenderkit_material_properties(Panel):
         if m.get("asset_data") is None and m.blenderkit.id == "":
             utils.label_multiline(
                 layout,
-                text="To upload this asset to BlenderKit, go to the Find and Upload Assets panel.",
+                text="To upload this asset to Blendkit, go to the Find and Upload Assets panel.",
             )
             layout.prop(m, "name")
 
@@ -904,7 +904,7 @@ def draw_rating_asset(self, context, layout, index=0):
 
 
 class VIEW3D_PT_blenderkit_ratings(Panel, ratings_utils.RatingProperties):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_ratings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -924,7 +924,7 @@ class VIEW3D_PT_blenderkit_ratings(Panel, ratings_utils.RatingProperties):
         assets = ratings.get_assets_for_rating()
         if len(assets) > 0:
             utils.label_multiline(
-                layout, text="Please help BlenderKit community by rating these assets:"
+                layout, text="Please help Blendkit community by rating these assets:"
             )
             ad = assets[0].get("asset_data")
             reference = bpy.context.window_manager.blenderkit_ratings[0]
@@ -941,7 +941,7 @@ def draw_login_progress(layout):
 
 
 class VIEW3D_PT_blenderkit_profile(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_profile"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -958,9 +958,9 @@ class VIEW3D_PT_blenderkit_profile(Panel):
         layout.emboss = "NORMAL"
         user_preferences = bpy.context.preferences.addons[__package__].preferences
         if user_preferences.api_key != "":
-            layout.label(text="BlenderKit Profile", icon="USER")
+            layout.label(text="Blendkit Profile", icon="USER")
         else:
-            layout.label(text="BlenderKit Login", icon="USER")
+            layout.label(text="Blendkit Login", icon="USER")
 
     def draw(self, context):
         layout = self.layout
@@ -1015,7 +1015,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                     if me.currentPlanName == "Free":
                         layout.operator(
                             "wm.url_open", text="Change plan", icon="URL"
-                        ).url = paths.BLENDERKIT_PLANS_URL
+                        ).url = paths.BLENDKIT_PLANS_URL
 
                 # STORAGE STATISTICS
                 if (
@@ -1036,7 +1036,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
                     row.label(text=size_str)
 
             layout.operator("wm.url_open", text="See my uploads", icon="URL").url = (
-                paths.BLENDERKIT_USER_ASSETS_URL
+                paths.BLENDKIT_USER_ASSETS_URL
             )
 
         draw_login_buttons(layout)
@@ -1047,7 +1047,7 @@ class VIEW3D_PT_blenderkit_profile(Panel):
 
 
 class MarkNotificationRead(bpy.types.Operator):
-    """Mark notification as read here and also on BlenderKit server"""
+    """Mark notification as read here and also on Blendkit server"""
 
     bl_idname = "wm.blenderkit_mark_notification_read"
     bl_label = "Mark notification as read"
@@ -1072,7 +1072,7 @@ class MarkNotificationRead(bpy.types.Operator):
 
 
 class MarkAllNotificationsRead(bpy.types.Operator):
-    """Mark all notifications as read here and also on BlenderKit server"""
+    """Mark all notifications as read here and also on Blendkit server"""
 
     bl_idname = "wm.blenderkit_mark_notifications_read_all"
     bl_label = "Mark all notifications as read"
@@ -1125,7 +1125,7 @@ class UpvoteComment(bpy.types.Operator):
     """Up or downvote comment"""
 
     bl_idname = "wm.blenderkit_upvote_comment"
-    bl_label = "BlenderKit up-downvote comment"
+    bl_label = "Blendkit up-downvote comment"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     asset_id: StringProperty(  # type: ignore[valid-type]
@@ -1166,7 +1166,7 @@ class SetPrivateComment(bpy.types.Operator):
     """Set comment private or public"""
 
     bl_idname = "wm.blenderkit_is_private_comment"
-    bl_label = "BlenderKit set comment or thread private or public"
+    bl_label = "Blendkit set comment or thread private or public"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     asset_id: StringProperty(  # type: ignore[valid-type]
@@ -1203,10 +1203,10 @@ class SetPrivateComment(bpy.types.Operator):
 
 
 class PostComment(bpy.types.Operator):
-    """Post a comment to BlenderKit server"""
+    """Post a comment to Blendkit server"""
 
     bl_idname = "wm.blenderkit_post_comment"
-    bl_label = "BlenderKit post a new comment"
+    bl_label = "Blendkit post a new comment"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     asset_id: StringProperty(  # type: ignore[valid-type]
@@ -1326,10 +1326,10 @@ def draw_notifications(self, context, width=600):
 
 
 class LogoStatus(bpy.types.Operator):
-    """BlenderKit status"""
+    """Blendkit status"""
 
     bl_idname = "wm.logo_status"
-    bl_label = "BLENDERKIT STATUS"
+    bl_label = "BLENDKIT STATUS"
     bl_options = {"REGISTER", "UNDO"}
 
     logo: StringProperty(name="logo", default="logo_offline")  # type: ignore[valid-type]
@@ -1339,7 +1339,7 @@ class ShowNotifications(bpy.types.Operator):
     """Show notifications"""
 
     bl_idname = "wm.show_notifications"
-    bl_label = "Show BlenderKit notifications"
+    bl_label = "Show Blendkit notifications"
     bl_options = {"REGISTER", "UNDO"}
 
     notification_id: IntProperty(  # type: ignore[valid-type]
@@ -1359,11 +1359,11 @@ class ShowNotifications(bpy.types.Operator):
 
 
 class VIEW3D_PT_blenderkit_notifications(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_notifications"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_label = "BlenderKit Notifications"
+    bl_label = "Blendkit Notifications"
 
     @classmethod
     def poll(cls, context):
@@ -1377,11 +1377,11 @@ class VIEW3D_PT_blenderkit_notifications(Panel):
 
 
 class VIEW3D_PT_blenderkit_login(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_login"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_label = "BlenderKit Login"
+    bl_label = "Blendkit Login"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -1537,7 +1537,7 @@ def get_environment_info() -> str:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     return (
-        f"- BlenderKit version: v{addon_ver}\n"
+        f"- Blendkit version: v{addon_ver}\n"
         f"- Blender version: v{blender_ver} (from: )\n"
         f"- Python version: {python_ver}\n"
         f"- Operating system & architecture: {os_info}\n"
@@ -1547,7 +1547,7 @@ def get_environment_info() -> str:
 
 
 class CopyEnvironmentInfo(bpy.types.Operator):
-    """Copy BlenderKit and Blender version information to clipboard"""
+    """Copy Blendkit and Blender version information to clipboard"""
 
     bl_idname = "wm.blenderkit_copy_environment_info"
     bl_label = "Copy Environment Info"
@@ -1567,7 +1567,7 @@ def get_report_bug_url() -> str:
     return (
         "https://github.com/BlenderKit/blenderkit/issues/new"
         f"?template=bug-report.yaml"
-        f"&title={quote('BlenderKit bug: ')}"
+        f"&title={quote('Blendkit bug: ')}"
         f"&description={quote(description_body)}"
     )
 
@@ -1584,7 +1584,7 @@ class ReportBug(bpy.types.Operator):
 
 
 class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_model_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1689,7 +1689,7 @@ def draw_panel_printable_upload(self, context):
 
 
 class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_material_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1748,7 +1748,7 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_scene_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1771,7 +1771,7 @@ class VIEW3D_PT_blenderkit_advanced_scene_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_HDR_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1803,7 +1803,7 @@ class VIEW3D_PT_blenderkit_advanced_HDR_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_brush_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1825,7 +1825,7 @@ class VIEW3D_PT_blenderkit_advanced_brush_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_nodegroup_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_nodegroup_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1846,7 +1846,7 @@ class VIEW3D_PT_blenderkit_advanced_nodegroup_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_addon_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_addon_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1874,7 +1874,7 @@ class VIEW3D_PT_blenderkit_advanced_addon_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_author_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_author_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1895,7 +1895,7 @@ class VIEW3D_PT_blenderkit_advanced_author_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_advanced_printable_search(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_advanced_printable_search"
     bl_parent_id = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
@@ -1919,7 +1919,7 @@ class VIEW3D_PT_blenderkit_advanced_printable_search(Panel):
 
 
 class VIEW3D_PT_blenderkit_categories(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_categories"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -1952,7 +1952,7 @@ def draw_scene_import_settings(self, context):
 
 
 class VIEW3D_PT_blenderkit_import_settings(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_import_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -2042,7 +2042,7 @@ def deferred_set_name(props, expected_obj_name):
 
 
 class VIEW3D_PT_blenderkit_unified(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_unified"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -2195,11 +2195,11 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
         if ui_props.asset_type == "ADDON":
             layout.label(text="Add-on uploads are managed through")
-            layout.label(text="the BlenderKit website.")
+            layout.label(text="the Blendkit website.")
             op = layout.operator(
-                "wm.url_open", text="Go to BlenderKit Website", icon="URL"
+                "wm.url_open", text="Go to Blendkit Website", icon="URL"
             )
-            op.url = paths.BLENDERKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
+            op.url = paths.BLENDKIT_ADDON_UPLOAD_INSTRUCTIONS_URL
             return
 
         if ui_props.asset_type == "AUTHOR":
@@ -2208,10 +2208,10 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
 
 class BlenderKitWelcomeOperator(bpy.types.Operator):
-    """Login online on BlenderKit webpage"""
+    """Login online on Blendkit webpage"""
 
     bl_idname = "wm.blenderkit_welcome"
-    bl_label = "Welcome to BlenderKit!"
+    bl_label = "Welcome to Blendkit!"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     step: IntProperty(  # type: ignore[valid-type]
@@ -2230,7 +2230,7 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
             op = layout.operator(
                 "wm.url_open", text="Watch Video Tutorial", icon="QUESTION"
             )
-            op.url = paths.BLENDERKIT_MANUAL_URL
+            op.url = paths.BLENDKIT_MANUAL_URL
 
         else:
             message = "Operator Tutorial called with invalid step"
@@ -2303,14 +2303,14 @@ class OpenAssetDirectory(OpenSystemDirectory):
 
 
 class OpenAddonDirectory(OpenSystemDirectory):
-    """Open the directory in which the BlenderKit add-on is installed. Move one level up and delete it to hard-uninstall the add-on"""
+    """Open the directory in which the Blendkit add-on is installed. Move one level up and delete it to hard-uninstall the add-on"""
 
     bl_idname = "wm.blenderkit_open_addon_directory"
     bl_label = "Open global directory"
 
 
 class OpenGlobalDirectory(OpenSystemDirectory):
-    """Open the BlenderKit's Global directory. This is the directory where BlenderKit stores downloaded assets. It also contains Client binary and log files"""
+    """Open the Blendkit's Global directory. This is the directory where Blendkit stores downloaded assets. It also contains Client binary and log files"""
 
     bl_idname = "wm.blenderkit_open_global_directory"
     bl_label = "Open global directory"
@@ -2324,7 +2324,7 @@ class OpenClientLog(OpenSystemDirectory):
 
 
 class OpenTempDirectory(OpenSystemDirectory):
-    """Open BlenderKit's temporary directory. This is the directory where thumbnails and other temporary files are stored"""
+    """Open Blendkit's temporary directory. This is the directory where thumbnails and other temporary files are stored"""
 
     bl_idname = "wm.blenderkit_open_temp_directory"
     bl_label = "Open temp directory"
@@ -2547,7 +2547,7 @@ def draw_asset_context_menu(
         and asset_data["verificationStatus"] != "validated"
     ):
         op.url = (
-            f'{paths.BLENDERKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?preview#'
+            f'{paths.BLENDKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?preview#'
         )
     else:
         op.url = paths.get_asset_gallery_url(asset_data["id"])
@@ -2693,7 +2693,7 @@ def draw_asset_context_menu(
                 icon="GREASEPENCIL",
             )
             op.url = (
-                f'{paths.BLENDERKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?edit#'
+                f'{paths.BLENDKIT_USER_ASSETS_URL}/{asset_data["assetBaseId"]}/?edit#'
             )
 
         row.operator_context = "INVOKE_DEFAULT"
@@ -2729,7 +2729,7 @@ def draw_asset_context_menu(
             text="Edit Asset Online",
             icon="GREASEPENCIL",
         )
-        op.url = f'{paths.BLENDERKIT_ASSETS_EDIT_URL}/{asset_data["assetBaseId"]}/'
+        op.url = f'{paths.BLENDKIT_ASSETS_EDIT_URL}/{asset_data["assetBaseId"]}/'
 
         # output asset debug info to console, for easier diagnostics
         op = layout.operator(
@@ -2849,7 +2849,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
     """
 
     bl_idname = "wm.blenderkit_asset_popup"
-    bl_label = "BlenderKit asset popup"
+    bl_label = "Blendkit asset popup"
 
     width = 800
 
@@ -3021,8 +3021,8 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             "License",
             text,
             url=f"{global_vars.SERVER}/docs/licenses/",
-            tooltip="All BlenderKit assets are available for commercial use. \n"
-            "Click to read more about BlenderKit licenses on the website",
+            tooltip="All Blendkit assets are available for commercial use. \n"
+            "Click to read more about Blendkit licenses on the website",
         )
 
         if upload.can_edit_asset(asset_data=self.asset_data):
@@ -3045,7 +3045,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 "to become awesome 3D artists",
                 "deleted": "You deleted this asset",
                 "validated": "Your asset passed our validation process, "
-                "and is now available to BlenderKit users",
+                "and is now available to Blendkit users",
                 "ready": "Your asset is validated and ready to be used by everyone",
             }
             self.draw_property(
@@ -3076,7 +3076,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 ress,
                 tooltip="Maximal resolution of textures in this asset.\n"
                 "Most texture asset have also lower resolutions generated.\n"
-                "Go to BlenderKit add-on import settings to set default resolution",
+                "Go to Blendkit add-on import settings to set default resolution",
             )
             # this would normally show only when theres's texture resolution parameter.
             # but this parameter wasn't always uploaded correctly, that's why we need to check also for others
@@ -3124,7 +3124,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         # Free/Full plan or private Access - with special handling for addons
         plans_tooltip = (
-            "BlenderKit has 2 plans:\n"
+            "Blendkit has 2 plans:\n"
             "  *  Free plan - more than 50% of all assets\n"
             "  *  Full plan - unlimited access to everything\n"
             "Click to go to subscriptions page"
@@ -3197,7 +3197,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     text,
                     icon_value=icon.icon_id,
                     tooltip=plans_tooltip,
-                    url=paths.BLENDERKIT_PLANS_URL,
+                    url=paths.BLENDKIT_PLANS_URL,
                 )
             else:
                 text = "Free"
@@ -3275,7 +3275,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     text,
                     icon_value=icon.icon_id,
                     tooltip=plans_tooltip,
-                    url=paths.BLENDERKIT_PLANS_URL,
+                    url=paths.BLENDKIT_PLANS_URL,
                 )
             else:
                 text = "Full plan"
@@ -3286,7 +3286,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                     text,
                     icon_value=icon.icon_id,
                     tooltip=plans_tooltip,
-                    url=paths.BLENDERKIT_PLANS_URL,
+                    url=paths.BLENDKIT_PLANS_URL,
                 )
 
         if utils.profile_is_validator():
@@ -3418,7 +3418,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
             op = col.operator("wm.blenderkit_url", text="Edit your profile")
             op.url = f"{global_vars.SERVER}/profile"  # type: ignore[attr-defined]
-            op.tooltip = "Edit your profile on BlenderKit webpage"  # type: ignore[attr-defined]
+            op.tooltip = "Edit your profile on Blendkit webpage"  # type: ignore[attr-defined]
 
         pcoll = icons.icon_collections["main"]
 
@@ -3436,9 +3436,9 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         button_row = button_row.row(align=True)
 
-        # AUTHOR's BLENDERKIT PROFILE
+        # AUTHOR's BLENDKIT PROFILE
         url = paths.get_author_gallery_url(author.id)
-        tooltip = "Go to author's profile on BlenderKit web.\nShortcut: Hover over asset in the asset bar and press 'P'."
+        tooltip = "Go to author's profile on Blendkit web.\nShortcut: Hover over asset in the asset bar and press 'P'."
         icon_value = pcoll["logo"].icon_id
         op = button_row.operator("wm.blenderkit_url", text="", icon_value=icon_value)
         op.url = url  # type: ignore[attr-defined]
@@ -3956,7 +3956,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
 
 class OBJECT_MT_blenderkit_login_menu(bpy.types.Menu):
-    bl_label = "BlenderKit login/signup:"
+    bl_label = "Blendkit login/signup:"
     bl_idname = "OBJECT_MT_blenderkit_login_menu"
 
     def draw(self, context):
@@ -3969,7 +3969,7 @@ class SetCommentReplyId(bpy.types.Operator):
     """Set comment reply ID, setting to which comment it is replied to and where the input box should be shown."""
 
     bl_idname = "view3d.blenderkit_set_comment_reply_id"
-    bl_label = "BlenderKit Set Comment reply ID"
+    bl_label = "Blendkit Set Comment reply ID"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     comment_id: IntProperty(  # type: ignore[valid-type]
@@ -3988,7 +3988,7 @@ class SetCommentReplyId(bpy.types.Operator):
 
 class SetCategoryOperatorOrigin(bpy.types.Operator):
     bl_idname = "view3d.blenderkit_set_category_origin"
-    bl_label = "BlenderKit Set Active Category"
+    bl_label = "Blendkit Set Active Category"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     category_browse: StringProperty(  # type: ignore[valid-type]
@@ -4093,7 +4093,7 @@ class PopupDialog(bpy.types.Operator):
     """Small popup dialog to inform user."""
 
     bl_idname = "wm.blenderkit_popup_dialog"
-    bl_label = "BlenderKit message:"
+    bl_label = "Blendkit message:"
     bl_options = {"REGISTER", "INTERNAL"}
 
     message: StringProperty(default="")  # type: ignore[valid-type]
@@ -4115,7 +4115,7 @@ class UrlPopupDialog(bpy.types.Operator):
     """Show a popup asking the user to subscribe or log in to access the locked asset"""
 
     bl_idname = "wm.blenderkit_url_dialog"
-    bl_label = "BlenderKit message:"
+    bl_label = "Blendkit message:"
     bl_options = {"REGISTER", "INTERNAL"}
 
     url: StringProperty(name="Url", description="url", default="")  # type: ignore[valid-type]
@@ -4162,7 +4162,7 @@ class LoginPopupDialog(bpy.types.Operator):
     """Popup a dialog which enables the user to log in after being logged out automatically."""
 
     bl_idname = "wm.blenderkit_login_dialog"
-    bl_label = "BlenderKit login"
+    bl_label = "Blendkit login"
     bl_options = {"REGISTER", "INTERNAL"}
 
     message: StringProperty(  # type: ignore[valid-type]
@@ -4172,7 +4172,7 @@ class LoginPopupDialog(bpy.types.Operator):
     )
 
     link_text: StringProperty(  # type: ignore[valid-type]
-        name="Url", description="url", default="Login to BlenderKit"
+        name="Url", description="url", default="Login to Blendkit"
     )
 
     def draw(self, context):
@@ -4262,7 +4262,7 @@ def draw_panel_categories(layout, context):
 
 
 class VIEW3D_PT_blenderkit_downloads(Panel):
-    bl_category = "BlenderKit"
+    bl_category = "Blendkit"
     bl_idname = "VIEW3D_PT_blenderkit_downloads"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"

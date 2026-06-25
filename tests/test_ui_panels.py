@@ -41,7 +41,7 @@ class TestGetEnvironmentInfo(unittest.TestCase):
 
     def test_contains_all_template_fields(self):
         result = ui_panels.get_environment_info()
-        self.assertIn("BlenderKit version:", result)
+        self.assertIn("Blendkit version:", result)
         self.assertIn("Blender version:", result)
         self.assertIn("Python version:", result)
         self.assertIn("Operating system & architecture:", result)
@@ -80,5 +80,5 @@ class TestCopyEnvironmentInfo(unittest.TestCase):
     def test_clipboard_contains_env_info(self):
         bpy.ops.wm.blenderkit_copy_environment_info()
         clipboard = bpy.context.window_manager.clipboard
-        self.assertIn("BlenderKit version:", clipboard)
+        self.assertIn("Blendkit version:", clipboard)
         self.assertIn("Blender version:", clipboard)

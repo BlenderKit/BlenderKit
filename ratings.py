@@ -203,7 +203,7 @@ class SetBookmark(bpy.types.Operator):
     """Add or remove bookmarking of the asset.\nShortcut: hover over asset in the asset bar and press 'B'."""
 
     bl_idname = "wm.blenderkit_bookmark_asset"
-    bl_label = "BlenderKit bookmark assets"
+    bl_label = "Blendkit bookmark assets"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     asset_id: StringProperty(  # type: ignore[valid-type]
