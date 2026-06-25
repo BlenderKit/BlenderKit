@@ -470,7 +470,7 @@ def handle_task(task: client_tasks.Task):
         or task.task_type == "message_from_client"
     ):
         level = task.result.get("level", "INFO").upper()
-        duration = task.result.get("duration", 5)
+        duration = task.result.get("duration", 20)
         destination = task.result.get("destination", "GUI")
         if destination == "GUI":
             return reports.add_report(task.message, duration, level)

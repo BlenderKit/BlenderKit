@@ -714,7 +714,7 @@ def append_objects(
         except Exception as e:
             reports.add_report(
                 f"append_objects.1: {str(e)}",
-                3,
+                timeout=3,
                 type="ERROR",
             )
             raise e
@@ -834,7 +834,7 @@ def append_objects(
         except Exception as e:
             reports.add_report(
                 f"append_objects.2: {str(e)}",
-                3,
+                timeout=3,
                 type="ERROR",
             )
             raise e
@@ -880,7 +880,7 @@ def append_objects(
     except Exception as e:
         reports.add_report(
             f"append_objects.3: {str(e)}",
-            3,
+            timeout=3,
             type="ERROR",
         )
         raise e
@@ -924,7 +924,7 @@ def append_objects(
     except Exception as e:
         reports.add_report(
             f"append_objects.4: {str(e)}",
-            3,
+            timeout=3,
             type="ERROR",
         )
         raise e

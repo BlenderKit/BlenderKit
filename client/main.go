@@ -558,6 +558,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 // This is called when new AppID appears - meaning new add-on or other app wants to communicate with Client.
 func SubscribeNewApp(data MinimalTaskData) {
 	Tasks[data.AppID] = make(map[string]*Task) // No TasksMux.Lock() as we expect the calling function to do it.
+	go CheckHealth(data)
 	go FetchDisclaimer(data)
 	go FetchCategories(data)
 	if data.APIKey != "" {
@@ -571,6 +572,33 @@ func (t *Task) Finish(message string) {
 	t.Status = "finished"
 	t.Message = message
 }
+
+// EnqueueConnectionErrorMessage sends a GUI-visible message task to the add-on.
+// This is used for startup connectivity failures where regular task errors can be
+// easy to miss in the UI flow.
+func EnqueueConnectionErrorMessage(appID int, summary, details string) {
+	if appID == 0 {
+		return
+	}
+	if details == "" {
+		details = summary
+	}
+	AddTaskCh <- &Task{
+		AppID:           appID,
+		TaskID:          uuid.New().String(),
+		TaskType:        "message_from_client",
+		Message:         summary,
+		MessageDetailed: details,
+		Status:          "finished",
+		Result: map[string]interface{}{
+			"level":       "ERROR",
+			"duration":    30,
+			"destination": "GUI",
+		},
+		Data: map[string]interface{}{},
+	}
+}
+
 func NewTask(data interface{}, appID int, taskID, taskType string) *Task {
 	if data == nil { // so it is not returned as None, but as empty dict{}
 		data = make(map[string]interface{})
@@ -1113,6 +1141,37 @@ func DownloadPrxc(t *Task, wg *sync.WaitGroup) {
 	t.Status = "finished"
 	t.Message = "prxc downloaded"
 	AddTaskCh <- t
+}
+
+// Check if server is available
+// we check for status, so all output is sent to add-on via report,
+// so it can show message to user
+func CheckHealth(data MinimalTaskData) {
+	url := *Server
+	taskUUID := uuid.New().String()
+	task := NewTask(nil, data.AppID, taskUUID, "health_check")
+	AddTaskCh <- task
+	headers := getHeaders(data.APIKey, *SystemID, data.AddonVersion, data.PlatformVersion)
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header = headers
+	resp, err := ClientAPI.Do(req)
+	if err != nil {
+		err = fmt.Errorf("health check request failed: %w", err)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err, MessageDetailed: err.Error()}
+		EnqueueConnectionErrorMessage(data.AppID, fmt.Sprintf("Cannot connect to %s. Check internet/proxy/SSL settings.", *Server), err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		_, respString, _ := ParseFailedHTTPResponse(resp)
+		err := fmt.Errorf("health: %s (%s)", respString, resp.Status)
+		TaskErrorCh <- &TaskError{AppID: data.AppID, TaskID: taskUUID, Error: err, MessageDetailed: err.Error()}
+		EnqueueConnectionErrorMessage(data.AppID, fmt.Sprintf("Cannot reach %s right now. (%d)", *Server, resp.StatusCode), err.Error())
+		return
+	}
+
+	TaskFinishCh <- &TaskFinish{AppID: data.AppID, TaskID: taskUUID, Message: "Server is healthy"}
 }
 
 // Fetch categories from the server: https://www.blendkit.com/api/v1/categories/

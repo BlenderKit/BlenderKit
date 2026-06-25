@@ -1642,7 +1642,7 @@ def duplicate_asset(
     except Exception as e:
         reports.add_report(
             f"duplicate_asset: {str(e)}",
-            3,
+            timeout=3,
             type="ERROR",
         )
         raise e

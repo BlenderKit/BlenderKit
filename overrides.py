@@ -260,7 +260,7 @@ class BringToScene(Operator):
             except Exception as e:
                 reports.add_report(
                     f"BringToScene.execute: {str(e)}",
-                    3,
+                    timeout=3,
                     type="ERROR",
                 )
                 raise e

@@ -33,6 +33,7 @@ from .ui_bgl import get_text_size
 
 bk_logger = logging.getLogger(__name__)
 
+active_disclaimers = 0
 disclaimer_counter = 0
 
 
@@ -53,7 +54,7 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
     url: StringProperty(  # type: ignore[valid-type]
         name="url",
         description="URL",
-        default="www.blendkit.com",
+        default=global_vars.SERVER,
         options={"SKIP_SAVE"},
     )
 
@@ -113,9 +114,12 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
             pix_size[0] + 2 * margin + 2 * self.button_size
         )  # adding logo and cancel button to width
 
+        global active_disclaimers
+        active_disclaimers += 1
+        offset = (active_disclaimers - 1) * self.height
         a = bpy.context.area
         self.panel = BL_UI_Drag_Panel(
-            area_margin, a.height - self.height - area_margin, self.width, self.height
+            area_margin, a.height - self.height - area_margin - offset, self.width, self.height
         )
         self.panel.bg_color = (0.2, 0.2, 0.2, 0.02)
 
@@ -221,6 +225,11 @@ class BlenderKitDisclaimerOperator(BL_UI_OT_draw_operator):
 
         if all_zero:
             self.finish()
+
+    def finish(self):
+        super().finish()
+        global active_disclaimers
+        active_disclaimers -= 1
 
     @classmethod
     def unregister(cls):
@@ -331,5 +340,5 @@ def show_disclaimer_timer():
         show_random_tip()
         return
 
-    disclaimer_counter = disclaimer_counter + 1
+    disclaimer_counter += 1
     return disclaimer_counter
