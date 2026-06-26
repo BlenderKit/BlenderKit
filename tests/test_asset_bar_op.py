@@ -788,6 +788,75 @@ class TestDragPanelResize(unittest.TestCase):
         panel.on_resize_click.assert_not_called()
         self.assertFalse(panel.is_resize)
 
+    def test_edge_hit_test_detects_top_resize_strip(self):
+        panel = self.create_panel()
+        panel.resize_edges = {"top"}
+
+        self.assertEqual(panel._edge_hit_test(40, 162), "top")
+
+    def test_edge_hit_test_detects_left_resize_strip(self):
+        panel = self.create_panel()
+        panel.resize_edges = {"left"}
+
+        self.assertEqual(panel._edge_hit_test(7, 130), "left")
+
+    def test_edge_hit_test_detects_right_resize_strip(self):
+        panel = self.create_panel()
+        panel.resize_edges = {"right"}
+
+        self.assertEqual(panel._edge_hit_test(113, 130), "right")
+
+    def test_mouse_move_continues_resize_after_it_started(self):
+        panel = self.create_panel()
+        asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 40, 108)
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 40, 100)  # crosses threshold
+
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 40, 95)  # keep resizing
+
+        self.assertEqual(panel.on_resize_update.call_count, 2)
+        panel.on_resize_update.assert_called_with(panel, "bottom", 40, 95)
+
+    def test_child_widget_focused_ignores_widget_not_under_cursor(self):
+        panel = self.create_panel()
+        elsewhere = SimpleNamespace(is_in_rect=lambda x, y: False)
+        panel.widgets = [elsewhere]
+
+        focused = asset_bar_op.BL_UI_Drag_Panel.child_widget_focused(panel, 40, 40)
+
+        self.assertFalse(focused)
+
+    def test_mouse_down_starts_panel_drag_when_enabled(self):
+        panel = self.create_panel()
+        panel.drag_enabled = True
+        panel.resize_enabled = False  # no resize edge in the way
+        panel.is_in_rect = Mock(return_value=True)
+
+        handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 50, 130)
+
+        self.assertTrue(handled)
+        self.assertTrue(panel.is_drag)
+
+    def test_mouse_down_ignored_outside_panel_when_drag_enabled(self):
+        panel = self.create_panel()
+        panel.drag_enabled = True
+        panel.resize_enabled = False
+        panel.is_in_rect = Mock(return_value=False)
+
+        handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 50, 130)
+
+        self.assertFalse(handled)
+        self.assertFalse(panel.is_drag)
+
+    def test_mouse_move_drags_panel_when_dragging(self):
+        panel = self.create_panel()
+        panel.drag_enabled = True
+        panel.is_drag = True
+
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 60, 70)
+
+        panel.update.assert_called_once()
+        panel.layout_widgets.assert_called_once()
+
 
 class TestAssetBarRowLimit(unittest.TestCase):
     def test_row_limit_is_based_on_visible_asset_cap(self):
