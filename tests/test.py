@@ -20,6 +20,7 @@ import os
 import sys
 import unittest
 
+
 COLLECT_COVERAGE = os.getenv("COVERAGE") == "1"
 if COLLECT_COVERAGE:
     try:
@@ -63,6 +64,7 @@ testLoader = unittest.TestLoader()
 
 def _discover(pattern):
     return testLoader.discover(_tests_dir, pattern, top_level_dir=_top_level)
+
 
 suite.addTests(_discover("test_init.py"))
 suite.addTests(_discover("test_upload.py"))
