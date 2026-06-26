@@ -47,24 +47,37 @@ if result is None:
     sys.exit(1)
 print(f"- addon enabled: {sys.argv[-1]}")
 
+# Run the tests from the INSTALLED add-on, imported as ``<pkg>.tests.*`` submodules
+# (top_level_dir = the add-on's parent) rather than the source checkout. This makes
+# the test files the same ones ``coverage`` measures (source=[<pkg>]), so they
+# report real coverage instead of 0% - and genuinely dead test code (an uncollected
+# test, an unused helper) shows up as uncovered.
+_addon_dir = os.path.dirname(sys.modules[sys.argv[-1]].__file__)
+_tests_dir = os.path.join(_addon_dir, "tests")
+_top_level = os.path.dirname(_addon_dir)
+
 runner = unittest.TextTestRunner(buffer=False)
 suite = unittest.TestSuite()
 testLoader = unittest.TestLoader()
 
-suite.addTests(testLoader.discover("tests", "test_init.py"))
-suite.addTests(testLoader.discover("tests", "test_upload.py"))
-suite.addTests(testLoader.discover("tests", "test_timer.py"))
-suite.addTests(testLoader.discover("tests", "test_paths.py"))
-suite.addTests(testLoader.discover("tests", "test_utils.py"))
-suite.addTests(testLoader.discover("tests", "test_version_compare.py"))
-suite.addTests(testLoader.discover("tests", "test_client_lib.py"))
-suite.addTests(testLoader.discover("tests", "test_search.py"))
-suite.addTests(testLoader.discover("tests", "test_global_vars.py"))
-suite.addTests(testLoader.discover("tests", "test_manifest_toml.py"))
-suite.addTests(testLoader.discover("tests", "test_ui_panels.py"))
-suite.addTests(testLoader.discover("tests", "test_registration.py"))
-suite.addTests(testLoader.discover("tests", "test_smoke.py"))
-suite.addTests(testLoader.discover("tests", "test_upload_bg.py"))
+
+def _discover(pattern):
+    return testLoader.discover(_tests_dir, pattern, top_level_dir=_top_level)
+
+suite.addTests(_discover("test_init.py"))
+suite.addTests(_discover("test_upload.py"))
+suite.addTests(_discover("test_timer.py"))
+suite.addTests(_discover("test_paths.py"))
+suite.addTests(_discover("test_utils.py"))
+suite.addTests(_discover("test_version_compare.py"))
+suite.addTests(_discover("test_client_lib.py"))
+suite.addTests(_discover("test_search.py"))
+suite.addTests(_discover("test_global_vars.py"))
+suite.addTests(_discover("test_manifest_toml.py"))
+suite.addTests(_discover("test_ui_panels.py"))
+suite.addTests(_discover("test_registration.py"))
+suite.addTests(_discover("test_smoke.py"))
+suite.addTests(_discover("test_upload_bg.py"))
 print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
