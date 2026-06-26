@@ -54,6 +54,7 @@ from ..bl_ui_widgets.bl_ui_widget import (
     region_redraw,
 )
 
+
 bk_logger = logging.getLogger(__name__)
 
 # Addon root package name. We live in <addon>.asset_bar, but addon
@@ -870,6 +871,23 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         if not user_preferences.assetbar_expanded:
             return 1
         return self.get_expanded_assetbar_rows()
+
+    def _resolve_layout_rows(self, user_preferences):
+        """Resolve ``(expanded, max_rows)`` for the asset bar layout.
+
+        Honors a live resize-drag preview: while the user drags the bottom
+        handle, ``_requested_rows_override`` holds the previewed (already
+        clamped) row count, so feed that into the layout instead of the saved
+        preference and the bar reflows live. ``apply_assetbar_rows`` writes the
+        preference and clears the override when the drag ends.
+        """
+        rows_override = getattr(self, "_requested_rows_override", None)
+        if rows_override is not None:
+            return rows_override > 1, max(2, int(rows_override))
+        return (
+            bool(user_preferences.assetbar_expanded),
+            int(user_preferences.maximized_assetbar_rows),
+        )
 
     def get_assetbar_rows_from_drag(
         self, start_rows: int, start_mouse_y: int, current_mouse_y: int
@@ -2507,18 +2525,7 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         sr_count = len(search_results) if search_results is not None else None
         sr_id = id(search_results) if search_results is not None else 0
 
-        # Honor a live resize-drag preview: while the user drags the bottom
-        # handle, ``_requested_rows_override`` holds the previewed (already
-        # clamped) row count. Feed it into the layout instead of the saved
-        # preference so the bar reflows live; ``apply_assetbar_rows`` writes
-        # the preference and clears the override when the drag ends.
-        rows_override = getattr(self, "_requested_rows_override", None)
-        if rows_override is not None:
-            layout_expanded = rows_override > 1
-            layout_max_rows = max(2, int(rows_override))
-        else:
-            layout_expanded = bool(user_preferences.assetbar_expanded)
-            layout_max_rows = int(user_preferences.maximized_assetbar_rows)
+        layout_expanded, layout_max_rows = self._resolve_layout_rows(user_preferences)
 
         # Build a stage-1 ("prelim") inputs object: everything we know
         # without having to call into widget-mutating helpers. This is
