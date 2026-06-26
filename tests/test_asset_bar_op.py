@@ -506,6 +506,37 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         dummy._refresh_layout.assert_called_once_with(context)
         dummy.update_expand_button_icon.assert_called_once_with()
 
+    def test_apply_assetbar_rows_raises_collapsed_floor_to_two(self):
+        # Collapsing while the saved expanded size is below two must bump the
+        # remembered size up to two, so a later re-expand restores a usable bar
+        # instead of a single row.
+        preferences = SimpleNamespace(
+            maximized_assetbar_rows=1,
+            assetbar_expanded=True,
+        )
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=preferences)}
+                )
+            )
+        )
+        context = object()
+        dummy = SimpleNamespace(
+            _requested_rows_override=None,
+            clamp_assetbar_rows=Mock(return_value=1),
+            _current_layout_context=Mock(return_value=context),
+            _refresh_layout=Mock(),
+            update_expand_button_icon=Mock(),
+            _redraw_tracked_regions=Mock(),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            asset_bar_op.BlenderKitAssetBarOperator.apply_assetbar_rows(dummy, 1)
+
+        self.assertEqual(preferences.maximized_assetbar_rows, 2)
+        self.assertFalse(preferences.assetbar_expanded)
+
     def test_get_requested_assetbar_rows_returns_one_when_collapsed(self):
         preferences = SimpleNamespace(
             maximized_assetbar_rows=6,
@@ -605,6 +636,206 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         self.assertTrue(dummy.draw_tooltip)
         self.assertEqual(dummy.active_index, 2)
         dummy.hide_tooltip.assert_not_called()
+
+    def test_clamp_assetbar_rows_bounds_to_height_limit(self):
+        dummy = SimpleNamespace(_get_height_limited_rows=Mock(return_value=6))
+        clamp = asset_bar_op.BlenderKitAssetBarOperator.clamp_assetbar_rows
+
+        self.assertEqual(clamp(dummy, 10), 6)  # capped to the height limit
+        self.assertEqual(clamp(dummy, 0), 1)  # never below one row
+        self.assertEqual(clamp(dummy, 4), 4)  # passed through
+
+    def test_get_expanded_assetbar_rows_clamps_saved_row_count(self):
+        prefs = SimpleNamespace(maximized_assetbar_rows=5)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=prefs)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(clamp_assetbar_rows=Mock(side_effect=lambda r: r))
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            rows = asset_bar_op.BlenderKitAssetBarOperator.get_expanded_assetbar_rows(
+                dummy
+            )
+
+        dummy.clamp_assetbar_rows.assert_called_once_with(5)
+        self.assertEqual(rows, 5)
+
+    def test_get_assetbar_rows_from_drag_converts_distance_to_rows(self):
+        dummy = SimpleNamespace(
+            button_size=50, clamp_assetbar_rows=Mock(side_effect=lambda r: r)
+        )
+        from_drag = asset_bar_op.BlenderKitAssetBarOperator.get_assetbar_rows_from_drag
+
+        # drag the bottom edge down 100px (200 -> 100) at 50px/row => +2 rows
+        self.assertEqual(from_drag(dummy, 3, 200, 100), 5)
+
+    def test_get_assetbar_rows_from_drag_falls_back_without_button_size(self):
+        dummy = SimpleNamespace(
+            button_size=0, clamp_assetbar_rows=Mock(side_effect=lambda r: r)
+        )
+        from_drag = asset_bar_op.BlenderKitAssetBarOperator.get_assetbar_rows_from_drag
+
+        self.assertEqual(from_drag(dummy, 3, 200, 100), 3)
+
+    def test_get_resize_rows_from_mouse_y_uses_drag_start_state(self):
+        dummy = SimpleNamespace(
+            _resize_drag_start_rows=3,
+            _resize_drag_start_y=200,
+            get_assetbar_rows_from_drag=Mock(return_value=5),
+        )
+
+        rows = asset_bar_op.BlenderKitAssetBarOperator._get_resize_rows_from_mouse_y(
+            dummy, 100
+        )
+
+        dummy.get_assetbar_rows_from_drag.assert_called_once_with(3, 200, 100)
+        self.assertEqual(rows, 5)
+
+    def test_get_requested_assetbar_rows_uses_live_override(self):
+        dummy = SimpleNamespace(
+            _requested_rows_override=4, clamp_assetbar_rows=Mock(return_value=4)
+        )
+
+        rows = asset_bar_op.BlenderKitAssetBarOperator.get_requested_assetbar_rows(
+            dummy
+        )
+
+        dummy.clamp_assetbar_rows.assert_called_once_with(4)
+        self.assertEqual(rows, 4)
+
+    def test_get_requested_assetbar_rows_expands_when_expanded(self):
+        prefs = SimpleNamespace(assetbar_expanded=True)
+        fake_bpy = SimpleNamespace(
+            context=SimpleNamespace(
+                preferences=SimpleNamespace(
+                    addons={__package__: SimpleNamespace(preferences=prefs)}
+                )
+            )
+        )
+        dummy = SimpleNamespace(
+            _requested_rows_override=None,
+            get_expanded_assetbar_rows=Mock(return_value=6),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            rows = asset_bar_op.BlenderKitAssetBarOperator.get_requested_assetbar_rows(
+                dummy
+            )
+
+        dummy.get_expanded_assetbar_rows.assert_called_once_with()
+        self.assertEqual(rows, 6)
+
+    def test_on_panel_resize_hover_sets_cursor_on_bottom(self):
+        dummy = SimpleNamespace(
+            _resize_dragging=False,
+            set_resize_hover_cursor=Mock(),
+            restore_resize_cursor=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_hover(
+            dummy, None, "bottom", True
+        )
+
+        dummy.set_resize_hover_cursor.assert_called_once_with()
+        dummy.restore_resize_cursor.assert_not_called()
+
+    def test_on_panel_resize_hover_restores_cursor_when_leaving(self):
+        dummy = SimpleNamespace(
+            _resize_dragging=False,
+            set_resize_hover_cursor=Mock(),
+            restore_resize_cursor=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_hover(
+            dummy, None, "bottom", False
+        )
+
+        dummy.restore_resize_cursor.assert_called_once_with()
+        dummy.set_resize_hover_cursor.assert_not_called()
+
+    def test_on_panel_resize_hover_ignores_non_bottom_edge(self):
+        dummy = SimpleNamespace(
+            _resize_dragging=False,
+            set_resize_hover_cursor=Mock(),
+            restore_resize_cursor=Mock(),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.on_panel_resize_hover(
+            dummy, None, "top", True
+        )
+
+        dummy.set_resize_hover_cursor.assert_not_called()
+        dummy.restore_resize_cursor.assert_not_called()
+
+    def test_on_panel_resize_callbacks_ignore_non_bottom_edge(self):
+        dummy = SimpleNamespace(
+            begin_resize_drag=Mock(),
+            set_resize_drag_cursor=Mock(),
+            preview_assetbar_rows=Mock(),
+            apply_assetbar_rows=Mock(),
+            end_resize_drag=Mock(),
+            toggle_assetbar_rows=Mock(),
+            restore_resize_cursor=Mock(),
+            _get_resize_rows_from_mouse_y=Mock(),
+            get_requested_assetbar_rows=Mock(),
+        )
+        op = asset_bar_op.BlenderKitAssetBarOperator
+
+        op.on_panel_resize_begin(dummy, None, "left", 0, 0)
+        op.on_panel_resize_update(dummy, None, "left", 0, 0)
+        op.on_panel_resize_end(dummy, None, "left", 0, 0, False)
+        op.on_panel_resize_click(dummy, None, "left", 0, 0)
+
+        dummy.begin_resize_drag.assert_not_called()
+        dummy.preview_assetbar_rows.assert_not_called()
+        dummy.apply_assetbar_rows.assert_not_called()
+        dummy.toggle_assetbar_rows.assert_not_called()
+
+    def test_restore_resize_cursor_sets_default_when_not_hovering(self):
+        window = Mock()
+        dummy = SimpleNamespace(
+            _resize_cursor_modal_active=False,
+            _resize_dragging=False,
+            _cursor_window=Mock(return_value=window),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator.restore_resize_cursor(dummy)
+
+        window.cursor_modal_restore.assert_not_called()
+        window.cursor_set.assert_called_once_with("DEFAULT")
+
+    def test_resize_cursor_helpers_noop_without_window(self):
+        dummy = SimpleNamespace(
+            _resize_dragging=False, _cursor_window=Mock(return_value=None)
+        )
+        op = asset_bar_op.BlenderKitAssetBarOperator
+
+        # None window must short-circuit each cursor helper without raising.
+        op.set_resize_hover_cursor(dummy)
+        op.set_resize_drag_cursor(dummy)
+        op.restore_resize_cursor(dummy)
+
+        self.assertEqual(dummy._cursor_window.call_count, 3)
+
+    def test_event_window_coords_returns_mouse_position(self):
+        event = SimpleNamespace(mouse_x=12, mouse_y=34)
+
+        coords = asset_bar_op.BlenderKitAssetBarOperator._event_window_coords(
+            None, event
+        )
+
+        self.assertEqual(coords, (12, 34))
+
+    def test_event_window_coords_none_without_mouse_attrs(self):
+        coords = asset_bar_op.BlenderKitAssetBarOperator._event_window_coords(
+            None, SimpleNamespace()
+        )
+
+        self.assertEqual(coords, (None, None))
 
 
 class TestPersistentPreferencesCompatibility(unittest.TestCase):
