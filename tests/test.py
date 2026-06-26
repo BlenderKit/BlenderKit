@@ -25,8 +25,13 @@ if COLLECT_COVERAGE:
     try:
         import coverage as _coverage
 
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        _cov = _coverage.Coverage(source=[project_root])
+        # Measure the add-on *package* as it is actually imported. Blender loads
+        # the add-on from its install dir (e.g. .../scripts/addons/blenderkit),
+        # NOT from this source checkout, so scoping coverage to the source tree
+        # records every add-on module as never-executed (0%). Scoping to the
+        # package name follows the imported files; codecov.yml `fixes` then maps
+        # the install path back to repo paths.
+        _cov = _coverage.Coverage(source=[sys.argv[-1]])
         _cov.start()
     except ImportError:
         COLLECT_COVERAGE = False
