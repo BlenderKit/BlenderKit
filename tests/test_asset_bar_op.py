@@ -31,6 +31,18 @@ from . import persistent_preferences
 from .asset_bar import asset_bar_op
 
 
+class _FakeWidget:
+    """Hashable widget stand-in. SimpleNamespace defines __eq__ and is therefore
+    unhashable, but _apply_widget_context does set-membership tests on widgets.
+    """
+
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+        self.context = None
+        self.update = Mock()
+
+
 class TestAssetBarScrollUpdate(unittest.TestCase):
     def test_scroll_update_ignores_missing_search_results(self):
         dummy = SimpleNamespace(
@@ -637,6 +649,36 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         self.assertEqual(dummy.active_index, 2)
         dummy.hide_tooltip.assert_not_called()
 
+    def test_resolve_layout_rows_uses_override_preview(self):
+        dummy = SimpleNamespace(_requested_rows_override=4)
+        prefs = SimpleNamespace(assetbar_expanded=False, maximized_assetbar_rows=9)
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._resolve_layout_rows(
+            dummy, prefs
+        )
+
+        self.assertEqual(result, (True, 4))
+
+    def test_resolve_layout_rows_override_collapsed_floors_to_two(self):
+        dummy = SimpleNamespace(_requested_rows_override=1)
+        prefs = SimpleNamespace(assetbar_expanded=True, maximized_assetbar_rows=9)
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._resolve_layout_rows(
+            dummy, prefs
+        )
+
+        self.assertEqual(result, (False, 2))
+
+    def test_resolve_layout_rows_falls_back_to_preferences(self):
+        dummy = SimpleNamespace(_requested_rows_override=None)
+        prefs = SimpleNamespace(assetbar_expanded=True, maximized_assetbar_rows=5)
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._resolve_layout_rows(
+            dummy, prefs
+        )
+
+        self.assertEqual(result, (True, 5))
+
     def test_clamp_assetbar_rows_bounds_to_height_limit(self):
         dummy = SimpleNamespace(_get_height_limited_rows=Mock(return_value=6))
         clamp = asset_bar_op.BlenderKitAssetBarOperator.clamp_assetbar_rows
@@ -836,6 +878,476 @@ class TestAssetBarResizeHelpers(unittest.TestCase):
         )
 
         self.assertEqual(coords, (None, None))
+
+    def test_get_height_limited_rows_caps_rows_by_region_height(self):
+        context = SimpleNamespace(region=SimpleNamespace(height=500))
+        dummy = SimpleNamespace(
+            button_size=50,
+            bar_y=20,
+            assetbar_margin=10,
+            other_button_size=30,
+            _get_row_limit=Mock(return_value=20),
+        )
+
+        rows = asset_bar_op.BlenderKitAssetBarOperator._get_height_limited_rows(
+            dummy, context
+        )
+
+        # available = 500 - 20 - 2*10 - 30 = 430; floor(430 / 50) = 8 rows fit,
+        # which caps below the 20-row visible limit.
+        self.assertEqual(rows, 8)
+
+    def test_get_height_limited_rows_falls_back_to_row_limit_without_region(self):
+        dummy = SimpleNamespace(
+            button_size=50,
+            _override_context=None,
+            _get_row_limit=Mock(return_value=6),
+            _current_layout_context=Mock(return_value=SimpleNamespace(region=None)),
+        )
+
+        rows = asset_bar_op.BlenderKitAssetBarOperator._get_height_limited_rows(dummy)
+
+        dummy._current_layout_context.assert_called_once_with()
+        self.assertEqual(rows, 6)
+
+    def test_cursor_window_prefers_active_context_window(self):
+        window = object()
+        fake_bpy = SimpleNamespace(context=SimpleNamespace(window=window))
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            result = asset_bar_op.BlenderKitAssetBarOperator._cursor_window(
+                SimpleNamespace()
+            )
+
+        self.assertIs(result, window)
+
+    def test_cursor_window_falls_back_to_operator_window(self):
+        window = object()
+        fake_bpy = SimpleNamespace(context=SimpleNamespace(window=None))
+        dummy = SimpleNamespace(window=window)
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            result = asset_bar_op.BlenderKitAssetBarOperator._cursor_window(dummy)
+
+        self.assertIs(result, window)
+
+    def test_cursor_window_returns_none_when_operator_window_freed(self):
+        fake_bpy = SimpleNamespace(context=SimpleNamespace(window=None))
+
+        class FreedOperator:
+            @property
+            def window(self):
+                raise ReferenceError("StructRNA of type Window has been removed")
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            result = asset_bar_op.BlenderKitAssetBarOperator._cursor_window(
+                FreedOperator()
+            )
+
+        self.assertIsNone(result)
+
+    def test_current_layout_context_snapshots_active_area_region(self):
+        area, region, snapshot = object(), object(), object()
+        fake_bpy = SimpleNamespace(context=object())
+        dummy = SimpleNamespace(
+            _current_area_region=Mock(return_value=(area, region)),
+            _build_context_snapshot=Mock(return_value=snapshot),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            result = asset_bar_op.BlenderKitAssetBarOperator._current_layout_context(
+                dummy
+            )
+
+        dummy._current_area_region.assert_called_once_with()
+        dummy._build_context_snapshot.assert_called_once_with(
+            fake_bpy.context, area, region
+        )
+        self.assertIs(result, snapshot)
+
+    def test_resolve_window_prefers_context_window(self):
+        window = object()
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._resolve_window(
+            SimpleNamespace(), SimpleNamespace(window=window)
+        )
+
+        self.assertIs(result, window)
+
+    def test_resolve_window_falls_back_to_active_bpy_window(self):
+        window = object()
+        fake_bpy = SimpleNamespace(context=SimpleNamespace(window=window))
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            result = asset_bar_op.BlenderKitAssetBarOperator._resolve_window(
+                SimpleNamespace(), SimpleNamespace(window=None)
+            )
+
+        self.assertIs(result, window)
+
+    def test_validated_area_filters_none_and_freed_references(self):
+        op = asset_bar_op.BlenderKitAssetBarOperator
+        live = SimpleNamespace(as_pointer=lambda: 1)
+        freed = SimpleNamespace(as_pointer=Mock(side_effect=ReferenceError))
+
+        self.assertIsNone(op._validated_area(SimpleNamespace(), None))
+        self.assertIs(op._validated_area(SimpleNamespace(), live), live)
+        self.assertIsNone(op._validated_area(SimpleNamespace(), freed))
+
+    def test_validated_region_filters_none_and_freed_references(self):
+        op = asset_bar_op.BlenderKitAssetBarOperator
+        live = SimpleNamespace(as_pointer=lambda: 1)
+        freed = SimpleNamespace(as_pointer=Mock(side_effect=ReferenceError))
+
+        self.assertIsNone(op._validated_region(SimpleNamespace(), None))
+        self.assertIs(op._validated_region(SimpleNamespace(), live), live)
+        self.assertIsNone(op._validated_region(SimpleNamespace(), freed))
+
+    def test_safe_space_data_returns_active_space_or_none(self):
+        op = asset_bar_op.BlenderKitAssetBarOperator
+        space = object()
+        area = SimpleNamespace(spaces=SimpleNamespace(active=space))
+
+        class FreedArea:
+            @property
+            def spaces(self):
+                raise ReferenceError
+
+        self.assertIsNone(op._safe_space_data(SimpleNamespace(), None))
+        self.assertIs(op._safe_space_data(SimpleNamespace(), area), space)
+        self.assertIsNone(op._safe_space_data(SimpleNamespace(), FreedArea()))
+
+    def test_build_context_snapshot_assembles_validated_pieces(self):
+        window, area, region, space = object(), object(), object(), object()
+        dummy = SimpleNamespace(
+            _validated_area=Mock(return_value=area),
+            _validated_region=Mock(return_value=region),
+            _resolve_window=Mock(return_value=window),
+            _safe_space_data=Mock(return_value=space),
+        )
+
+        snapshot = asset_bar_op.BlenderKitAssetBarOperator._build_context_snapshot(
+            dummy, SimpleNamespace(area=None, region=None), area, region
+        )
+
+        self.assertEqual(
+            (snapshot.window, snapshot.area, snapshot.region, snapshot.space_data),
+            (window, area, region, space),
+        )
+
+    def test_unwrap_area_region_handles_dict_and_object(self):
+        op = asset_bar_op.BlenderKitAssetBarOperator
+
+        self.assertEqual(
+            op._unwrap_area_region(SimpleNamespace(), {"area": 1, "region": 2}), (1, 2)
+        )
+        self.assertEqual(
+            op._unwrap_area_region(
+                SimpleNamespace(), SimpleNamespace(area=3, region=4)
+            ),
+            (3, 4),
+        )
+
+    def test_current_area_region_prefers_stored_refs(self):
+        area, region = object(), object()
+        dummy = SimpleNamespace(
+            _active_area_ref=area,
+            _active_region_ref=region,
+            context=None,
+            _validated_area=Mock(side_effect=lambda a: a),
+            _validated_region=Mock(side_effect=lambda r: r),
+            _unwrap_area_region=Mock(return_value=(None, None)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._current_area_region(dummy)
+
+        self.assertEqual(result, (area, region))
+
+    def test_current_area_region_falls_back_to_active_bpy(self):
+        area, region = object(), object()
+        fake_bpy = SimpleNamespace(context=SimpleNamespace(area=area, region=region))
+        dummy = SimpleNamespace(
+            _active_area_ref=None,
+            _active_region_ref=None,
+            context=None,
+            _validated_area=Mock(side_effect=lambda a: a),
+            _validated_region=Mock(side_effect=lambda r: r),
+            _unwrap_area_region=Mock(return_value=(None, None)),
+        )
+
+        with patch.object(asset_bar_op, "bpy", fake_bpy):
+            result = asset_bar_op.BlenderKitAssetBarOperator._current_area_region(dummy)
+
+        self.assertEqual(result, (area, region))
+
+    def test_apply_widget_context_updates_plain_widgets(self):
+        override = object()
+        w1 = _FakeWidget(1, 2)
+        w2 = _FakeWidget(3, 4)
+        dummy = SimpleNamespace(widgets=[w1, w2], panel=None, tooltip_panel=None)
+
+        asset_bar_op.BlenderKitAssetBarOperator._apply_widget_context(dummy, override)
+
+        self.assertIs(dummy._override_context, override)
+        self.assertIs(w1.context, override)
+        w1.update.assert_called_once_with(1, 2)
+        w2.update.assert_called_once_with(3, 4)
+
+    def test_apply_widget_context_returns_early_without_widgets(self):
+        override = object()
+        dummy = SimpleNamespace()
+
+        asset_bar_op.BlenderKitAssetBarOperator._apply_widget_context(dummy, override)
+
+        self.assertIs(dummy._override_context, override)
+
+    def test_apply_widget_context_skips_panel_children_and_relayouts_panel(self):
+        override = object()
+
+        class FakePanel:
+            def __init__(self):
+                self.x = 0
+                self.y = 0
+                self.context = None
+                self.update = Mock()
+                self.layout_widgets = Mock()
+                self.widgets = []
+
+        panel = FakePanel()
+        child = _FakeWidget(5, 6)
+        panel.widgets = [child]
+        plain = _FakeWidget(7, 8)
+        dummy = SimpleNamespace(
+            widgets=[panel, child, plain], panel=panel, tooltip_panel=None
+        )
+
+        with patch.object(asset_bar_op, "BL_UI_Drag_Panel", FakePanel):
+            asset_bar_op.BlenderKitAssetBarOperator._apply_widget_context(
+                dummy, override
+            )
+
+        child.update.assert_not_called()  # panel child must not be re-placed
+        plain.update.assert_called_once_with(7, 8)
+        panel.update.assert_called_once_with(0, 0)  # panel re-laid-out once
+        panel.layout_widgets.assert_called_once_with()
+
+    def test_find_area_region_returns_none_without_coords(self):
+        dummy = SimpleNamespace(_event_window_coords=Mock(return_value=(None, None)))
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._find_area_region_from_event(
+            dummy, object(), object()
+        )
+
+        self.assertEqual(result, (None, None))
+
+    def test_find_area_region_returns_none_without_screen(self):
+        dummy = SimpleNamespace(
+            _event_window_coords=Mock(return_value=(10, 10)),
+            _resolve_window=Mock(return_value=SimpleNamespace(screen=None)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._find_area_region_from_event(
+            dummy, object(), object()
+        )
+
+        self.assertEqual(result, (None, None))
+
+    def test_find_area_region_locates_region_under_cursor(self):
+        region = SimpleNamespace(x=0, y=0, width=100, height=100)
+        area = SimpleNamespace(type="VIEW_3D", x=0, y=0, width=200, height=200)
+        screen = SimpleNamespace(areas=[area])
+        dummy = SimpleNamespace(
+            _event_window_coords=Mock(return_value=(50, 50)),
+            _resolve_window=Mock(return_value=SimpleNamespace(screen=screen)),
+        )
+
+        with patch.object(
+            asset_bar_op.viewport_utils,
+            "iter_view3d_window_regions",
+            return_value=[region],
+        ):
+            result = (
+                asset_bar_op.BlenderKitAssetBarOperator._find_area_region_from_event(
+                    dummy, object(), object()
+                )
+            )
+
+        self.assertEqual(result, (area, region))
+
+    def test_cursor_inside_active_area_true_within_region(self):
+        area = SimpleNamespace(x=0, y=0, width=200, height=200)
+        region = SimpleNamespace(x=0, y=0, width=100, height=100)
+        dummy = SimpleNamespace(
+            _active_area_ref=area,
+            _active_region_ref=region,
+            _validated_area=Mock(side_effect=lambda a: a),
+            _validated_region=Mock(side_effect=lambda r: r),
+            _event_window_coords=Mock(return_value=(50, 50)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._cursor_inside_active_area(
+            dummy, object()
+        )
+
+        self.assertTrue(result)
+
+    def test_cursor_inside_active_area_false_without_area(self):
+        dummy = SimpleNamespace(
+            _active_area_ref=None, _validated_area=Mock(return_value=None)
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._cursor_inside_active_area(
+            dummy, object()
+        )
+
+        self.assertFalse(result)
+
+    def test_view_changed_detects_area_or_region_difference(self):
+        op = asset_bar_op.BlenderKitAssetBarOperator
+
+        self.assertFalse(op._view_changed(SimpleNamespace(), 1, 2, 1, 2))
+        self.assertTrue(op._view_changed(SimpleNamespace(), 9, 2, 1, 2))
+        self.assertTrue(op._view_changed(SimpleNamespace(), 1, 9, 1, 2))
+
+    def test_store_active_view_records_refs_and_pointers(self):
+        ctx, area, region = object(), object(), object()
+        dummy = SimpleNamespace()
+
+        asset_bar_op.BlenderKitAssetBarOperator._store_active_view(
+            dummy, ctx, area, region, 11, 22
+        )
+
+        self.assertEqual(dummy.active_area_pointer, 11)
+        self.assertEqual(dummy.active_region_pointer, 22)
+        self.assertIs(dummy._active_area_ref, area)
+        self.assertIs(dummy._active_region_ref, region)
+        self.assertIs(dummy.context, ctx)
+
+    def test_refresh_layout_runs_all_updates(self):
+        ctx = object()
+        dummy = SimpleNamespace(
+            update_assetbar_sizes=Mock(),
+            update_tooltip_size=Mock(),
+            update_assetbar_layout=Mock(),
+            update_tooltip_layout=Mock(),
+            tooltip_panel=SimpleNamespace(layout_widgets=Mock()),
+        )
+
+        asset_bar_op.BlenderKitAssetBarOperator._refresh_layout(dummy, ctx)
+
+        dummy.update_assetbar_sizes.assert_called_once_with(ctx)
+        dummy.update_assetbar_layout.assert_called_once_with(ctx)
+        dummy.tooltip_panel.layout_widgets.assert_called_once_with()
+
+    def test_refresh_layout_logs_layout_errors(self):
+        ctx = object()
+        dummy = SimpleNamespace(
+            update_assetbar_sizes=Mock(),
+            update_tooltip_size=Mock(),
+            update_assetbar_layout=Mock(side_effect=RuntimeError("boom")),
+            update_tooltip_layout=Mock(),
+            tooltip_panel=SimpleNamespace(layout_widgets=Mock()),
+        )
+
+        with patch.object(asset_bar_op, "bk_logger") as logger:
+            asset_bar_op.BlenderKitAssetBarOperator._refresh_layout(dummy, ctx)
+
+        logger.log.assert_called_once()
+
+    def test_apply_widget_context_relayouts_tooltip_panel(self):
+        override = object()
+
+        class FakePanel:
+            def __init__(self):
+                self.x = 0
+                self.y = 0
+                self.context = None
+                self.update = Mock()
+                self.layout_widgets = Mock()
+                self.widgets = []
+
+        tooltip = FakePanel()
+        dummy = SimpleNamespace(widgets=[], panel=None, tooltip_panel=tooltip)
+
+        with patch.object(asset_bar_op, "BL_UI_Drag_Panel", FakePanel):
+            asset_bar_op.BlenderKitAssetBarOperator._apply_widget_context(
+                dummy, override
+            )
+
+        tooltip.update.assert_called_once_with(0, 0)
+        tooltip.layout_widgets.assert_called_once_with()
+
+    def test_find_area_region_skips_non_view3d_area(self):
+        area = SimpleNamespace(type="CONSOLE", x=0, y=0, width=200, height=200)
+        screen = SimpleNamespace(areas=[area])
+        dummy = SimpleNamespace(
+            _event_window_coords=Mock(return_value=(50, 50)),
+            _resolve_window=Mock(return_value=SimpleNamespace(screen=screen)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._find_area_region_from_event(
+            dummy, object(), object()
+        )
+
+        self.assertEqual(result, (None, None))
+
+    def test_find_area_region_skips_area_not_under_cursor(self):
+        area = SimpleNamespace(type="VIEW_3D", x=0, y=0, width=200, height=200)
+        screen = SimpleNamespace(areas=[area])
+        dummy = SimpleNamespace(
+            _event_window_coords=Mock(return_value=(999, 999)),
+            _resolve_window=Mock(return_value=SimpleNamespace(screen=screen)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._find_area_region_from_event(
+            dummy, object(), object()
+        )
+
+        self.assertEqual(result, (None, None))
+
+    def test_cursor_inside_active_area_false_without_coords(self):
+        area = SimpleNamespace(x=0, y=0, width=200, height=200)
+        dummy = SimpleNamespace(
+            _active_area_ref=area,
+            _validated_area=Mock(side_effect=lambda a: a),
+            _event_window_coords=Mock(return_value=(None, None)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._cursor_inside_active_area(
+            dummy, object()
+        )
+
+        self.assertFalse(result)
+
+    def test_cursor_inside_active_area_false_outside_area_bounds(self):
+        area = SimpleNamespace(x=0, y=0, width=200, height=200)
+        dummy = SimpleNamespace(
+            _active_area_ref=area,
+            _validated_area=Mock(side_effect=lambda a: a),
+            _event_window_coords=Mock(return_value=(999, 999)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._cursor_inside_active_area(
+            dummy, object()
+        )
+
+        self.assertFalse(result)
+
+    def test_cursor_inside_active_area_true_without_region_ref(self):
+        area = SimpleNamespace(x=0, y=0, width=200, height=200)
+        dummy = SimpleNamespace(
+            _active_area_ref=area,
+            _active_region_ref=None,
+            _validated_area=Mock(side_effect=lambda a: a),
+            _validated_region=Mock(return_value=None),
+            _event_window_coords=Mock(return_value=(50, 50)),
+        )
+
+        result = asset_bar_op.BlenderKitAssetBarOperator._cursor_inside_active_area(
+            dummy, object()
+        )
+
+        self.assertTrue(result)
 
 
 class TestPersistentPreferencesCompatibility(unittest.TestCase):
