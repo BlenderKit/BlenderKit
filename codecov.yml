@@ -6,6 +6,9 @@ coverage:
     patch:
       default:
         target: auto
-comment: true
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
 fixes:
   - "/home/runner/.config/blender/*/scripts/addons/::"
