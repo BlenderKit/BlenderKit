@@ -127,6 +127,9 @@ def load_preferences_from_JSON():
     user_preferences.assetbar_follows_cursor = prefs.get(
         "assetbar_follows_cursor", user_preferences.assetbar_follows_cursor
     )
+    user_preferences.proxor_enabled = prefs.get(
+        "proxor_enabled", user_preferences.proxor_enabled
+    )
 
     # NETWORK
     user_preferences.client_port = prefs.get(

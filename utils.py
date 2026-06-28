@@ -83,6 +83,12 @@ def experimental_enabled() -> bool:
     return preferences.experimental_features or profile_is_validator()  # type: ignore
 
 
+def proxor_enabled() -> bool:
+    """Check if Proxor is enabled. Proxor is always be enabled for staff and validators."""
+    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    return preferences.proxor_enabled
+
+
 def get_process_flags():
     flags = BELOW_NORMAL_PRIORITY_CLASS
     if sys.platform != "win32":  # TODO test this on windows
@@ -547,6 +553,7 @@ def get_preferences_as_dict():
         "tips_on_start": user_preferences.tips_on_start,
         "announcements_on_start": user_preferences.announcements_on_start,
         "assetbar_follows_cursor": user_preferences.assetbar_follows_cursor,
+        "proxor_enabled": user_preferences.proxor_enabled,
         # NETWORK
         "client_port": user_preferences.client_port,
         "ip_version": user_preferences.ip_version,
@@ -600,6 +607,7 @@ def get_preferences() -> datas.Prefs:
         tips_on_start=user_preferences.tips_on_start,  # type: ignore[union-attr]
         announcements_on_start=user_preferences.announcements_on_start,  # type: ignore[union-attr]
         assetbar_follows_cursor=user_preferences.assetbar_follows_cursor,  # type: ignore[union-attr]
+        proxor_enabled=user_preferences.proxor_enabled,  # type: ignore[union-attr]
         # NETWORK
         client_port=user_preferences.client_port,  # type: ignore[union-attr]
         ip_version=user_preferences.ip_version,  # type: ignore[union-attr]

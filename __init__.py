@@ -2543,6 +2543,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         description="Width of the search field in the assetbar in 3D view. 0 means automatic width",
     )
 
+    proxor_enabled: BoolProperty(
+        name="Enable Proxor",
+        description="Enable Proxor, proxy visualization of assets in the 3D view while placing. Loads with mini delay after the default green placeholder.",
+        default=True,
+        update=utils.save_prefs,
+    )
+
     experimental_features: BoolProperty(
         name="Enable experimental features",
         description="Enable experimental features of Blendkit, such as the Authors tab",
@@ -2756,6 +2763,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "announcements_on_start")
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
+        gui_settings.prop(self, "proxor_enabled")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()

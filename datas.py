@@ -34,6 +34,7 @@ class Prefs:
     tips_on_start: bool
     announcements_on_start: bool
     assetbar_follows_cursor: bool
+    proxor_enabled: bool
     client_port: str
     ip_version: str
     ssl_context: str
