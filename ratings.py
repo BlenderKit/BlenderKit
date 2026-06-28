@@ -17,7 +17,6 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
-import time
 
 import bpy
 from bpy.props import StringProperty
@@ -150,6 +149,7 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         return True
 
     def draw(self, context):
+        ui_panels.set_overlay_panel_active()
         # when rating gets recieved while the window is already open, we need to prefill.
         self.prefill_ratings()
 
@@ -186,11 +186,6 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         if self.asset_type != "author":
             ratings_utils.ensure_rating(self.asset_id)
             self.prefill_ratings()
-
-        # Update last popup activity time to prevent shortcut interference
-        from . import ui_panels
-
-        ui_panels.last_time_dropdown_active = time.time()
 
         if self.asset_type in ("model", "scene"):
             # spawn a wider one for validators for the enum buttons

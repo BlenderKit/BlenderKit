@@ -973,6 +973,8 @@ class FastMetadata(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         # col = layout.column()
         layout.label(text=self.message)
@@ -1703,6 +1705,8 @@ class UploadOperator(Operator):
         return {"FINISHED"}
 
     def draw(self, context):
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         props = utils.get_upload_props()
         layout = self.layout
 
@@ -1887,6 +1891,8 @@ class AssetVerificationStatusChange(Operator):
         return True
 
     def draw(self, context):
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         # if self.state == 'deleted':
         message = "Really delete asset from Blendkit online storage?"

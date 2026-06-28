@@ -231,6 +231,11 @@ class LoginOnline(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        # local import to avoid circular import
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         utils.label_multiline(layout, text=self.message, width=300)
 

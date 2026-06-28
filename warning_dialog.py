@@ -118,6 +118,11 @@ class BlenderKitMSStoreWarningOperator(bpy.types.Operator):
     bl_options = {"REGISTER", "INTERNAL"}
 
     def draw(self, context):
+        # local import to avoid circular import
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         for line in _MS_STORE_LINES:
             # Empty rows render as a vertical spacer to mimic blank lines.

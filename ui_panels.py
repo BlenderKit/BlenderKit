@@ -84,10 +84,26 @@ INVALID_TOKENS = {
 last_time_overlay_panel_active = 0.0
 
 
+def set_overlay_panel_active():
+    """Record the time a BlenderKit popup/panel/popover was last drawn.
+
+    This is read in asset_bar_op.py to cancel asset drag-drop and to ignore
+    keyboard shortcuts for a short window afterwards. Without it, click-through
+    events that pass through a popup down to the asset bar underneath would be
+    wrongly interpreted as clicks/double-clicks on the asset bar.
+
+    Every operator popup, dialog and popover that can appear over the asset bar
+    should call this at the start of its draw() method.
+    """
+    global last_time_overlay_panel_active
+    last_time_overlay_panel_active = time.time()
+
+
 def draw_not_logged_in(source, message="Please Login/Signup to use this feature"):
     title = "You aren't logged in"
 
     def draw_message(source, context):
+        set_overlay_panel_active()
         layout = source.layout
         utils.label_multiline(layout, text=message)
         draw_login_buttons(layout)
@@ -259,6 +275,7 @@ class BLENDERKIT_OT_show_validation_popup(bpy.types.Operator):
         return {"FINISHED"}
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         clean_text = self.message.replace("\r\n", "\n").replace("\r", "\n")
         # Keep rendering even if the text is short or empty.
@@ -301,6 +318,7 @@ class BLENDERKIT_OT_permissions_error_popup(bpy.types.Operator):
         return {"FINISHED"}
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
 
         # Light check for live UI — draw() runs on each redraw, avoid file I/O here
@@ -570,6 +588,10 @@ def draw_common_filters(layout, ui_props):
         layout: The UI layout to draw in
         ui_props: The UI properties containing filter settings
     """
+    # All "Search filters" panels are shown as popovers over the asset bar,
+    # so record the redraw time to prevent click-through to the asset bar.
+    set_overlay_panel_active()
+
     layout.separator()
 
     row = layout.row()
@@ -1351,6 +1373,7 @@ class ShowNotifications(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        set_overlay_panel_active()
         draw_notifications(self, context, width=600)
 
     def execute(self, context):
@@ -1603,6 +1626,10 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         )
 
     def draw_layout(self, layout):
+        # Shown as a popover over the asset bar — record redraw time to
+        # prevent click-through to the asset bar.
+        set_overlay_panel_active()
+
         wm = bpy.context.window_manager
         props = wm.blenderkit_models
         ui_props = wm.blenderkitUI
@@ -1705,6 +1732,10 @@ class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
         return ui_props.down_up == "SEARCH" and ui_props.asset_type == "MATERIAL"
 
     def draw_layout(self, layout):
+        # Shown as a popover over the asset bar — record redraw time to
+        # prevent click-through to the asset bar.
+        set_overlay_panel_active()
+
         wm = bpy.context.window_manager
         props = wm.blenderkit_mat
         ui_props = wm.blenderkitUI
@@ -1937,8 +1968,7 @@ class VIEW3D_PT_blenderkit_categories(Panel):
     def draw(self, context):
         # measure time since last dropdown activation/ mouse hover e.t.c.
         # this is then used in asset_bar_op.py to cancel asset drag drop if the time is too small and thus means double clicking.
-        global last_time_overlay_panel_active
-        last_time_overlay_panel_active = time.time()
+        set_overlay_panel_active()
         draw_panel_categories(self.layout, context)
 
 
@@ -2223,6 +2253,7 @@ class BlenderKitWelcomeOperator(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         if self.step == 0:
             layout.template_icon(icon_value=self.img.preview.icon_id, scale=18)
@@ -2434,6 +2465,7 @@ class BLENDERKIT_OT_hdr_thumbnail_tune(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         layout.prop(self, "use_custom_tone")
         col = layout.column(align=True)
@@ -3835,8 +3867,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
             op.comment_id = comment["id"]  # type: ignore
 
     def draw(self, context):
-        global last_time_overlay_panel_active
-        last_time_overlay_panel_active = time.time()
+        set_overlay_panel_active()
 
         layout = self.layout
         # top draggable bar with name of the asset
@@ -4100,6 +4131,7 @@ class PopupDialog(bpy.types.Operator):
     width: IntProperty(default=300)  # type: ignore[valid-type]
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         row = layout.row()
         row.label(text=self.message)
@@ -4129,6 +4161,7 @@ class UrlPopupDialog(bpy.types.Operator):
     width: IntProperty(name="width", description="width", default=300)  # type: ignore[valid-type]
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         row = layout.row()
         utils.label_multiline(layout, text=self.message, width=300)
@@ -4176,6 +4209,7 @@ class LoginPopupDialog(bpy.types.Operator):
     )
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         utils.label_multiline(layout, text=self.message, width=300)
 
@@ -4493,6 +4527,7 @@ def header_search_draw(self, context):
 
 def ui_message(title, message):
     def draw_message(self, context):
+        set_overlay_panel_active()
         layout = self.layout
         utils.label_multiline(layout, text=message, width=400)
 
@@ -4545,6 +4580,7 @@ class NodegroupDropDialog(bpy.types.Operator):
         return [mod for mod in target_obj.modifiers if mod.type == "NODES"]
 
     def draw(self, context):
+        set_overlay_panel_active()
         layout = self.layout
 
         # Get asset data for display
