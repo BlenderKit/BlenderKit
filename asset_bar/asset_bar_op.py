@@ -2381,6 +2381,15 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         # Build preliminary spec so manufacturer recomputation has the
         # geometry it needs (button_size, bar_width).
+        # Remember geometry before the rebuild: only a button_size/wcount change
+        # invalidates the smooth-scroll phase (phase is pixels relative to slot
+        # size). A rebuild caused merely by search_results_count changing
+        # (placeholders padded, a page arriving) keeps the same grid, so the
+        # phase is still valid and must NOT be reset - otherwise scrolling jerks
+        # back every time thumbnails populate. Scrolling and population are
+        # independent.
+        _prev_button_size = getattr(self, "button_size", None)
+        _prev_wcount = getattr(self, "wcount", None)
         prelim_spec = _layout_mod.build_layout_spec(prelim_inputs)
         prelim_spec.apply_to(self)
 
@@ -2418,14 +2427,17 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         self._layout_cache_key = prelim_inputs
 
         # Layout actually rebuilt -> any in-flight smooth-scroll phase is
-        # stale (button_size / wcount may have changed, so the pixel value
-        # of "phase" no longer matches the intended slot fraction). Drop
-        # it so we visually snap to the integer scroll_offset and stay
-        # row-aligned. The integer offset is preserved.
-        self.scroll_phase = 0.0
-        self._scroll_velocity = 0.0
-        self._scroll_animating = False
-        self._scroll_travel_dir = 0
+        # stale ONLY if button_size / wcount changed (the pixel value of
+        # "phase" no longer matches the intended slot fraction). When the grid
+        # geometry is unchanged - e.g. the rebuild was triggered only by a
+        # search_results_count change as placeholders/pages stream in - the
+        # phase stays valid and we keep animating so population never snaps the
+        # scroll back. The integer offset is preserved either way.
+        if _prev_button_size != self.button_size or _prev_wcount != self.wcount:
+            self.scroll_phase = 0.0
+            self._scroll_velocity = 0.0
+            self._scroll_animating = False
+            self._scroll_travel_dir = 0
 
         # Reports panel coordinates depend on bar geometry and current
         # operator mode. Kept out of the pure spec because they touch
