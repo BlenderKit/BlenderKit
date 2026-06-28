@@ -1982,6 +1982,8 @@ class BlenderkitAddonChoiceOperator(bpy.types.Operator):
     )  # type: ignore
 
     def draw(self, context: bpy.types.Context) -> None:
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
 
         layout = self.layout
 
@@ -2525,7 +2527,7 @@ class BlenderkitDownloadOperator(bpy.types.Operator):
 
     def draw(self, context: bpy.types.Context) -> None:
         # this timer is there to not let double clicks through the popups down to the asset bar.
-        ui_panels.last_time_overlay_panel_active = time.time()
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         if self.invoke_resolution:
             layout.prop(self, "resolution", expand=True, icon_only=False)

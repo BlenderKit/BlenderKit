@@ -2408,6 +2408,11 @@ class AuthorAssetTypePopup(Operator):
         return wm.invoke_popup(self, width=200)
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports search)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         layout.label(text=self.author_name or "Author")
         layout.separator()

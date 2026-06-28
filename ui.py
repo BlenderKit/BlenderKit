@@ -257,6 +257,11 @@ class ParticlesDropDialog(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports ui)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         message = (
             "This asset is a particle setup. Blendkit can apply particles to the active/drag-drop object."

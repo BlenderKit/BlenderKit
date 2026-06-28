@@ -396,6 +396,11 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         return bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports autothumb)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         ui_props = bpy.context.window_manager.blenderkitUI
         asset_type = ui_props.asset_type
 
@@ -512,6 +517,11 @@ class GenerateWireframeThumbnailOperator(bpy.types.Operator):
         return bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports autothumb)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         ui_props = bpy.context.window_manager.blenderkitUI
         asset_type = ui_props.asset_type
 
@@ -705,6 +715,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         return True  # bpy.context.view_layer.objects.active is not None
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports autothumb)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         props = self
         layout = self.layout
         layout.prop(props, "render_locally")
@@ -824,6 +839,11 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports autothumb)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         props = bpy.context.active_object.active_material.blenderkit
         layout.prop(props, "thumbnail_generator_type")
@@ -995,6 +1015,11 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        # local import to avoid circular import (ui_panels imports autothumb)
+        from . import ui_panels
+
+        # this timer is there to not let double clicks through the popups down to the asset bar.
+        ui_panels.set_overlay_panel_active()
         layout = self.layout
         props = self
         layout.prop(props, "render_locally")
