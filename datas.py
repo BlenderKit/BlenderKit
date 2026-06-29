@@ -29,6 +29,7 @@ class Prefs:
     show_on_start: bool
     thumb_size: int
     maximized_assetbar_rows: int
+    assetbar_expanded: bool
     search_field_width: int
     search_in_header: bool
     tips_on_start: bool
