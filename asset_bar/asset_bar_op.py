@@ -48,6 +48,7 @@ from ..bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from ..bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from ..bl_ui_widgets.bl_ui_image import BL_UI_Image
 from ..bl_ui_widgets.bl_ui_label import BL_UI_Label, BL_UI_DuoLabel
+from ..bl_ui_widgets.bl_ui_resize_handle import BL_UI_Resize_Handle
 from ..bl_ui_widgets.bl_ui_widget import (
     BL_UI_Widget,
     batched_region_redraw,
@@ -947,36 +948,30 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
             self._resize_drag_start_rows, self._resize_drag_start_y, mouse_y
         )
 
-    def on_panel_resize_hover(self, panel, edge: str, hovering: bool):
-        if edge != "bottom" or self._resize_dragging:
+    def on_resize_handle_enter(self, handle):
+        if self._resize_dragging:
             return
-        if hovering:
-            self.set_resize_hover_cursor()
+        self.set_resize_hover_cursor()
+
+    def on_resize_handle_exit(self, handle):
+        if self._resize_dragging:
             return
         self.restore_resize_cursor()
 
-    def on_panel_resize_begin(self, panel, edge: str, start_x: int, start_y: int):
-        if edge != "bottom":
-            return
+    def on_resize_drag_begin(self, handle, start_y: int):
         self._resize_drag_start_rows = self.get_requested_assetbar_rows()
         self._resize_drag_start_y = start_y
         self.begin_resize_drag()
         self.set_resize_drag_cursor()
 
-    def on_panel_resize_update(self, panel, edge: str, x: int, y: int):
-        if edge != "bottom":
-            return
+    def on_resize_drag_update(self, handle, y: int):
         self.preview_assetbar_rows(self._get_resize_rows_from_mouse_y(y))
 
-    def on_panel_resize_end(self, panel, edge: str, x: int, y: int, hovering: bool):
-        if edge != "bottom":
-            return
+    def on_resize_drag_end(self, handle, y: int, *, hovering: bool):
         self.apply_assetbar_rows(self._get_resize_rows_from_mouse_y(y))
         self.end_resize_drag(hovering=hovering)
 
-    def on_panel_resize_click(self, panel, edge: str, x: int, y: int):
-        if edge != "bottom":
-            return
+    def on_resize_handle_click(self, handle):
         self.toggle_assetbar_rows()
         self.restore_resize_cursor(hovering=True)
 
@@ -2098,15 +2093,26 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
 
         self.widgets_panel.append(self.button_close)
 
+        # Drag-to-resize handle: a thin strip along the bottom edge. It spans
+        # the bar width minus the expand-button corner so the two never fight
+        # over a click. Positioned just below the bar content (panel-relative
+        # y = bar_height), matching the expand button's coordinate convention.
         self.resize_edge_height = max(6, self.other_button_size // 4)
-        self.panel.resize_edges = {"bottom"}
-        self.panel.resize_handle_size = self.resize_edge_height
-        self.panel.resize_threshold_px = ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
-        self.panel.on_resize_hover = self.on_panel_resize_hover
-        self.panel.on_resize_begin = self.on_panel_resize_begin
-        self.panel.on_resize_update = self.on_panel_resize_update
-        self.panel.on_resize_end = self.on_panel_resize_end
-        self.panel.on_resize_click = self.on_panel_resize_click
+        self.resize_handle = BL_UI_Resize_Handle(
+            0,
+            self.bar_height,
+            self.bar_width - self.other_button_size,
+            self.resize_edge_height,
+        )
+        self.resize_handle.threshold_px = ASSETBAR_RESIZE_CLICK_THRESHOLD_PX
+        self.resize_handle.bg_color = (1.0, 1.0, 1.0, 0.5)
+        self.resize_handle.on_drag_begin = self.on_resize_drag_begin
+        self.resize_handle.on_drag_update = self.on_resize_drag_update
+        self.resize_handle.on_drag_end = self.on_resize_drag_end
+        self.resize_handle.on_click = self.on_resize_handle_click
+        self.resize_handle.set_mouse_enter(self.on_resize_handle_enter)
+        self.resize_handle.set_mouse_exit(self.on_resize_handle_exit)
+        self.resize_handle.visible = False
 
         self.button_expand = BL_UI_Button(
             self.bar_width - self.other_button_size,
@@ -2677,8 +2683,10 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         search_results = history_step.get("search_results") or []
         edge_visible = len(search_results) > self.wcount
         self.button_expand.visible = edge_visible
-        self.panel.resize_enabled = edge_visible
-        self.panel.resize_handle_size = self.resize_edge_height
+        self.resize_handle.width = self.bar_width - self.other_button_size
+        self.resize_handle.height = self.resize_edge_height
+        self.resize_handle.visible = edge_visible
+        self.resize_handle.set_location(0, self.bar_height)
         self.button_scroll_up.set_location(self.bar_width, 0)
         self.panel.width = self.bar_width
         self.panel.height = self.bar_height
@@ -3366,6 +3374,9 @@ class BlenderKitAssetBarOperator(BL_UI_OT_draw_operator):
         # and overlay; otherwise it would be occluded by the asset buttons.
         widgets_panel.append(self.scroll_indicator_track)
         widgets_panel.append(self.scroll_indicator_thumb)
+        # Resize handle is registered last so reverse-order dispatch gives it
+        # priority over the asset buttons along the bottom edge.
+        widgets_panel.append(self.resize_handle)
 
         widgets = [self.panel]
 
