@@ -148,13 +148,16 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
         try:
             response = client_lib.asset_search(data)
             search_task_id = response["task_id"]
+            deadline = time.monotonic() + 20
+            last_status = None
 
             to_download = None
-            for i in range(10):
+            while time.monotonic() < deadline:
                 reports = client_lib.get_reports(os.getpid())
                 for task in reports:
                     if search_task_id != task["task_id"]:
                         continue
+                    last_status = task["status"]
                     if task["status"] == "error":
                         error_msg = task.get("message", "Unknown error")
                         self.fail(f"Search task failed: {error_msg}, query: {urlquery}")
@@ -176,9 +179,10 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
                                     to_download = result
                         return to_download
 
-                time.sleep(i * 0.1)
+                time.sleep(0.5)
             self.fail(
-                f"Error waiting for search task to be reported as finished, query: {urlquery}"
+                "Error waiting for search task to be reported as finished, "
+                f"last status: {last_status}, query: {urlquery}"
             )
         except Exception as e:
             self.fail(f"Search request failed: {str(e)}, query: {urlquery}")

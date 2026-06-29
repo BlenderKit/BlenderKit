@@ -2498,18 +2498,19 @@ In this case you should also set path to your system CA bundle containing proxy'
     )
 
     maximized_assetbar_rows: IntProperty(
-        name="Maximized Assetbar Rows",
-        description="Maximum rows of assetbar in the 3D view when expanded",
+        name="Assetbar Rows",
+        description="Saved row count of the assetbar in the 3D view",
         default=4,
         min=2,
-        max=20,
+        max=asset_bar_op.ASSETBAR_MAX_VISIBLE_ASSETS,
         update=utils.save_prefs,
     )
 
     assetbar_expanded: BoolProperty(
         name="Assetbar Expanded",
-        description="Whether the assetbar is currently expanded to show maximum rows",
+        description="Remember whether the assetbar is expanded in the 3D view",
         default=False,
+        update=utils.save_prefs,
     )
 
     trackpad_scroll_sensitivity: FloatProperty(
@@ -2753,7 +2754,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.label(text="GUI settings")
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
-        gui_settings.prop(self, "maximized_assetbar_rows")
         gui_settings.prop(self, "trackpad_scroll_sensitivity")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")
