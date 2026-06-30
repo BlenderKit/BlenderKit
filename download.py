@@ -33,6 +33,7 @@ from . import (
     client_tasks,
     global_vars,
     paths,
+    rating_nudge,
     reports,
     resolutions,
     search,
@@ -694,6 +695,7 @@ def append_asset(
     wm = bpy.context.window_manager
     user_preferences = bpy.context.preferences.addons[__package__].preferences
     user_preferences.download_counter += 1
+    rating_nudge.record_download(asset_data)
 
     asset_main = None
 
