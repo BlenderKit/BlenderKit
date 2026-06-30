@@ -205,6 +205,36 @@ class RatingNudgeTest(unittest.TestCase):
         rating_nudge.rating_nudge_timer()
         self.assertEqual(len(self.enqueued), 1)
 
+    # --- popup dispatch ---------------------------------------------------
+    def test_enqueue_popup_queues_single_arg_task(self):
+        # Use the real _enqueue_popup (setUp stubs it) with a captured task queue.
+        rating_nudge._enqueue_popup = self._orig_enqueue
+        captured = []
+        orig_add_task = rating_nudge.tasks_queue.add_task
+        rating_nudge.tasks_queue.add_task = lambda task, **kw: captured.append(
+            (task, kw)
+        )
+        try:
+            asset = _asset("q1")
+            rating_nudge._enqueue_popup(asset)
+        finally:
+            rating_nudge.tasks_queue.add_task = orig_add_task
+        self.assertEqual(len(captured), 1)
+        (func, arguments), kwargs = captured[0]
+        self.assertIs(func, rating_nudge._show_rating_popup)
+        # single-argument tuple - must NOT use only_last (it indexes arguments[1])
+        self.assertEqual(arguments, (asset,))
+        self.assertNotIn("only_last", kwargs)
+
+    def test_show_rating_popup_no_region_is_noop(self):
+        orig_fake = rating_nudge.utils.get_fake_context
+        rating_nudge.utils.get_fake_context = lambda ctx: {}
+        try:
+            # Should return without raising and without invoking any operator.
+            self.assertIsNone(rating_nudge._show_rating_popup(_asset("q2")))
+        finally:
+            rating_nudge.utils.get_fake_context = orig_fake
+
 
 if __name__ == "__main__":
     unittest.main()
