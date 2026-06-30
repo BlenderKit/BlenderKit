@@ -80,6 +80,7 @@ suite.addTests(_discover("test_ui_panels.py"))
 suite.addTests(_discover("test_registration.py"))
 suite.addTests(_discover("test_smoke.py"))
 suite.addTests(_discover("test_upload_bg.py"))
+suite.addTests(_discover("test_rating_nudge.py"))
 print(f"- {len(suite._tests)} tests discovered and loaded\n")
 
 print(f"----- Running tests --------------------------------------------------")
