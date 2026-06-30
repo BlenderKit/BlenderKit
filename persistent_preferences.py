@@ -146,6 +146,9 @@ def load_preferences_from_JSON():
     user_preferences.proxor_enabled = prefs.get(
         "proxor_enabled", user_preferences.proxor_enabled
     )
+    user_preferences.rating_nudge_enabled = prefs.get(
+        "rating_nudge_enabled", user_preferences.rating_nudge_enabled
+    )
 
     # NETWORK
     user_preferences.client_port = prefs.get(

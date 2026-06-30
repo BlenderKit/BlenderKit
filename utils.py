@@ -555,6 +555,7 @@ def get_preferences_as_dict():
         "announcements_on_start": user_preferences.announcements_on_start,
         "assetbar_follows_cursor": user_preferences.assetbar_follows_cursor,
         "proxor_enabled": user_preferences.proxor_enabled,
+        "rating_nudge_enabled": user_preferences.rating_nudge_enabled,
         # NETWORK
         "client_port": user_preferences.client_port,
         "ip_version": user_preferences.ip_version,
