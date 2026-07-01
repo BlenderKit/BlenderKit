@@ -2050,6 +2050,7 @@ def mark_for_thumbnail(
     snap_to: str = None,  # GROUND, WALL, CEILING, FLOAT
     # Material-specific parameters
     thumbnail_type: str = None,  # BALL, BALL_COMPLEX, FLUID, CLOTH, HAIR
+    thumbnail_render_engine: str = None,  # CYCLES, EEVEE
     scale: float = None,
     background: bool = None,
     adaptive_subdivision: bool = None,
@@ -2070,6 +2071,7 @@ def mark_for_thumbnail(
         angle (str, optional): Camera angle for models (DEFAULT, FRONT, SIDE, TOP)
         snap_to (str, optional): Object placement for models (GROUND, WALL, CEILING, FLOAT)
         thumbnail_type (str, optional): Type of material preview (BALL, BALL_COMPLEX, FLUID, CLOTH, HAIR)
+        thumbnail_render_engine (str, optional): Render engine for materials (CYCLES, EEVEE)
         scale (float, optional): Scale of preview object for materials
         background (bool, optional): Use background for transparent materials
         adaptive_subdivision (bool, optional): Use adaptive subdivision for materials
@@ -2101,6 +2103,8 @@ def mark_for_thumbnail(
     # Material-specific parameters
     if thumbnail_type is not None:
         params["thumbnail_type"] = thumbnail_type
+    if thumbnail_render_engine is not None:
+        params["thumbnail_render_engine"] = thumbnail_render_engine
     if scale is not None:
         params["thumbnail_scale"] = scale
     if background is not None:

@@ -101,6 +101,7 @@
         "denoising",
         "depsgraph",
         "downloaders",
+        "eevee",
         "embedder",
         "embedders",
         "GLSL",

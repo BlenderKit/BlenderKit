@@ -1446,7 +1446,7 @@ def draw_panel_material_upload(self, context):
     if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
         layout.operator(
             "object.blenderkit_generate_material_thumbnail",
-            text="Render thumbnail with Cycles",
+            text="Render thumbnail",
             icon="EXPORT",
         )
     if props.is_generating_thumbnail:

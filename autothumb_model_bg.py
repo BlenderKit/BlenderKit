@@ -99,6 +99,30 @@ def render_thumbnails() -> None:
     bpy.ops.render.render(write_still=True, animation=False)
 
 
+def set_render_engine(scene: Any, requested_engine: str) -> str:
+    """Set the scene render engine based on the requested value.
+
+    Args:
+        scene: The Blender scene to configure.
+        requested_engine: The engine identifier coming from the addon
+            ("CYCLES", "EEVEE" or "EEVEE_NEXT").
+
+    Returns:
+        The engine identifier that was actually set on the scene.
+    """
+
+    try:
+        scene.render.engine = requested_engine
+        return scene.render.engine
+    except Exception:
+        bk_logger.warning(
+            "Requested render engine '%s' is not available. Falling back to current engine '%s'.",
+            requested_engine,
+            scene.render.engine,
+        )
+    return scene.render.engine  # Return current engine if fallback fails
+
+
 def patch_imports(addon_module_name: str):
     """Patch the python configuration, so the relative imports work as expected. There are few problems to fix:
     1. Script is not recognized as module which would break at relative import. We need to set __package__ = "blenderkit" for legacy addon.
@@ -207,6 +231,120 @@ def _str_to_color(s: str) -> Union[tuple[float, float, float], None]:
     return None
 
 
+def get_scene_diagonal(scene: Any) -> float:
+    """Calculate the diagonal length of the scene's bounding box.
+
+    Args:
+        scene: The Blender scene to analyze.
+
+    Returns:
+        The diagonal length of the scene's bounding box.
+    """
+    minx, miny, minz, maxx, maxy, maxz = utils.get_bounds_worldspace(scene.objects)
+    dx = maxx - minx
+    dy = maxy - miny
+    dz = maxz - minz
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+
+
+def place_light_probe(scene: Any, objects: list[Any]) -> None:
+    """Place a light probe in the scene based on the bounding box of the given objects.
+
+    Args:
+        scene: The Blender scene to modify.
+        objects: List of Blender objects to consider for bounding box calculation.
+    """
+    # Calculate bounding box in world space
+    minx, miny, minz, maxx, maxy, maxz = utils.get_bounds_worldspace(objects)
+
+    # Calculate center and size of the bounding box
+    center_x = (maxx + minx) / 2
+    center_y = (maxy + miny) / 2
+    center_z = (maxz + minz) / 2
+    size_x = (maxx - minx) * 1.1
+    size_y = (maxy - miny) * 1.1
+    size_z = (maxz - minz) * 1.1
+
+    # Create a new light probe if it doesn't exist
+    if "LightProbe" not in bpy.data.objects:
+        bpy.ops.object.lightprobe_add(
+            type="VOLUME", location=(center_x, center_y, center_z)
+        )
+        light_probe = bpy.context.active_object
+        light_probe.name = "LightProbe"
+    else:
+        light_probe = bpy.data.objects["LightProbe"]
+        light_probe.location = (center_x, center_y, center_z)
+    # do not set "world" contribution, otherwise we can stick with cycles
+    # Adjust the size of the light probe based on the bounding box size
+    light_probe.scale = (size_x / 2, size_y / 2, size_z / 2)
+    # set resolution
+    light_probe.data.resolution_x = 10
+    light_probe.data.resolution_y = 10
+    light_probe.data.resolution_z = 10
+    # low samples
+    light_probe.data.bake_samples = 16
+
+    # bias
+    light_probe.data.intensity = 0
+
+    light_probe.data.normal_bias = 0.01
+    light_probe.data.view_bias = 0.01
+    light_probe.data.facing_bias = 0
+
+    light_probe.data.validity_threshold = 0.01
+
+    light_probe.data.dilation_threshold = 0
+    light_probe.data.dilation_radius = 2.5
+
+    # max distance
+    # get scene diagonal
+
+    light_probe.data.capture_distance = get_scene_diagonal(scene)
+
+    # bake lights
+    # make sure it is active and selected
+    bpy.context.view_layer.objects.active = light_probe
+    light_probe.select_set(True)
+
+    # do not set "world" contribution, otherwise we can stick with cycles
+    bpy.ops.object.lightprobe_cache_bake(subset="ALL")
+
+
+def set_hq_eevee_settings(scene: Any) -> None:
+    """Set high-quality Eevee render settings for the given scene.
+
+    Args:
+        scene: The Blender scene to configure.
+    """
+    try:
+        # enable also nice things like soft shadows and ambient occlusion for Eevee
+        scene.eevee.use_shadows = True
+        scene.eevee.shadow_ray_count = 4
+        scene.eevee.shadow_step_count = 10
+
+        scene.eevee.use_volumetric_shadows = True
+
+        # ray tracing for new blender ?
+        scene.eevee.use_raytracing = True
+        scene.eevee.ray_tracing_method = "PROBE"
+
+        scene.eevee.use_fast_gi = True
+        scene.eevee.ray_tracing_options.trace_max_roughness = 0.001
+        scene.eevee.fast_gi_ray_count = 4
+        scene.eevee.fast_gi_step_count = 8
+        scene.eevee.fast_gi_quality = 0.95
+
+        scene.eevee.direct_light_intensity = 1
+        scene.eevee.indirect_light_intensity = 1
+
+        scene.render.use_high_quality_normals = True
+
+    except Exception:
+        bk_logger.exception("Failed to set high-quality Eevee settings")
+        return
+
+
 if __name__ == "__main__":
     try:
         # args order must match the order in blenderkit/autothumb.py:get_thumbnailer_args()!
@@ -221,6 +359,13 @@ if __name__ == "__main__":
             data = json.load(s)
         thumbnail_use_gpu = data.get("thumbnail_use_gpu")
         thumbnail_disable_subdivision = data.get("thumbnail_disable_subdivision", False)
+
+        # before loading other stuff capture current mesh lights
+        mesh_lights = [
+            ob
+            for ob in bpy.context.scene.objects
+            if ob.type == "MESH" and ob.name.startswith("light")
+        ]
 
         if data.get("do_download"):
             # if this isn't here, blender crashes.
@@ -274,7 +419,11 @@ if __name__ == "__main__":
         bpy.context.scene.camera = bpy.data.objects[camdict[data["thumbnail_snap_to"]]]
         center_objs_for_thumbnail(allobs)
         bpy.context.scene.render.filepath = data["thumbnail_path"]
-        if thumbnail_use_gpu is True:
+        render_engine = set_render_engine(
+            bpy.context.scene, data.get("thumbnail_render_engine", "CYCLES")
+        )
+        bg_blender.progress(f"using render engine {render_engine}")
+        if render_engine == "CYCLES" and thumbnail_use_gpu is True:
             bpy.context.scene.cycles.device = "GPU"
             compute_device_type = data.get("cycles_compute_device_type")
             if compute_device_type is not None:
@@ -351,30 +500,69 @@ if __name__ == "__main__":
             "Value"
         ].default_value = data["thumbnail_background_lightness"]
 
-        scene.cycles.samples = data["thumbnail_samples"]
-        bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
+        if render_engine == "CYCLES":
+            scene.cycles.samples = data["thumbnail_samples"]
+            bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
+        else:
+            # Eevee uses TAA render samples instead of Cycles samples.
+            scene.eevee.taa_render_samples = data["thumbnail_samples"]
+            set_hq_eevee_settings(scene)
+
+            # material light do not work well for eevee, we should replace them with area lights, but for now we will just disable them
+            for ob in mesh_lights:
+                # replace with area light if we have a light mesh, but only for eevee, as cycles can handle it
+                # create area light
+                light_data = bpy.data.lights.new(name="AreaLight", type="AREA")
+                # calculate size from approximate dimensions of the mesh light
+                light_data.size = (
+                    max(ob.dimensions.x, ob.dimensions.y, ob.dimensions.z) * 0.5
+                )
+                light_data.energy = 1000
+                # set exposure to source mesh light scale
+                light_data.exposure = ob.scale.x
+
+                # jitter shadows
+                light_data.use_shadow_jitter = True
+
+                light_object = bpy.data.objects.new(
+                    name="AreaLight", object_data=light_data
+                )
+                bpy.context.collection.objects.link(light_object)
+
+                # position the area light at the same location as the mesh light
+                light_object.location = ob.location
+
+                # move to same place and rotation and scale as the mesh light
+                light_object.rotation_euler = ob.rotation_euler
+                light_object.parent = ob.parent
+                light_object.matrix_parent_inverse = ob.matrix_parent_inverse
+
+                # hide the mesh light
+                ob.hide_render = True
+                ob.hide_viewport = True
+                ob.hide_set(True)
+
+        place_light_probe(bpy.context.scene, allobs)
+
         bpy.context.view_layer.update()
-
-        # import blender's HDR here
-        # hdr_path = Path('datafiles/studiolights/world/interior.exr')
-        # bpath = Path(bpy.utils.resource_path('LOCAL'))
-        # ipath = bpath / hdr_path
-        # ipath = str(ipath)
-
-        # this  stuff is for mac and possibly linux. For blender // means relative path.
-        # for Mac, // means start of absolute path
-        # if ipath.startswith('//'):
-        #     ipath = ipath[1:]
-        #
-        # img = bpy.data.images['interior.exr']
-        # img.filepath = ipath
-        # img.reload()
 
         bpy.context.scene.render.resolution_x = int(data["thumbnail_resolution"])
         bpy.context.scene.render.resolution_y = int(data["thumbnail_resolution"])
 
+        # cleanup
+        if data.get("do_download"):
+            # remove temp
+            os.remove(temp_blend_path)
+
         bg_blender.progress("rendering thumbnail")
         render_thumbnails()
+
+        # # save scene for debugging
+        # bg_blender.progress(
+        #     f"Saving scene to {data['thumbnail_path']}.blend for debugging"
+        # )
+        # bpy.ops.wm.save_as_mainfile(filepath=data["thumbnail_path"] + ".blend")
+
         if not data.get("upload_after_render") or not data.get("asset_data"):
             bg_blender.progress(
                 "background autothumbnailer finished successfully (no upload)"
@@ -394,6 +582,7 @@ if __name__ == "__main__":
             filetype=filetype,
             fileindex=0,
         )
+
         if not ok:
             bg_blender.progress("thumbnail upload failed, exiting")
             sys.exit(1)
