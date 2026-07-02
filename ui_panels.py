@@ -657,26 +657,18 @@ def draw_panel_model_upload(self, context):
             icon="IMAGE",
         )
 
-    # DISABLED WIRE THUMBNAIL FOR NOW
-    # TODO: re-enable later, when the shaders are fixed for it.
+    # Wireframe thumbnail is an experimental feature. When enabled, the regular
+    # "Generate thumbnail" dialog exposes a Regular/Wireframe switch that renders
+    # into this slot. The wireframe thumbnail is optional and only uploaded when a
+    # valid image is provided here.
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-    wire_upload_enabled = getattr(
-        user_preferences, "enable_wire_thumbnail_upload", False
-    )
+    wire_upload_enabled = getattr(user_preferences, "experimental_features", False)
     if wire_upload_enabled:
-        layout.prop(props, "wire_thumbnail_will_upload_on_website")
-        if not props.wire_thumbnail_will_upload_on_website:
-            draw_wire_thumbnail_upload_panel(layout, props)
-            col = layout.column()
-            if getattr(props, "is_generating_wire_thumbnail", False):
-                col.enabled = False
-            prop_needed(col, props, "wire_thumbnail", props.wire_thumbnail)
-            if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
-                col.operator(
-                    "object.blenderkit_generate_wireframe_thumbnail",
-                    text="Generate wire thumbnail",
-                    icon="IMAGE",
-                )
+        draw_wire_thumbnail_upload_panel(layout, props)
+        col = layout.column()
+        if getattr(props, "is_generating_wire_thumbnail", False):
+            col.enabled = False
+        col.prop(props, "wire_thumbnail")
 
     if props.is_generating_thumbnail:
         row = layout.row(align=True)

@@ -73,7 +73,7 @@ def wire_thumbnail_upload_enabled() -> bool:
     if addon is None:
         return False
     preferences = addon.preferences
-    return getattr(preferences, "enable_wire_thumbnail_upload", False)
+    return getattr(preferences, "experimental_features", False)
 
 
 def add_version(data):
@@ -263,24 +263,6 @@ def check_missing_data(asset_type, props, upload_set):
                 write_to_report(
                     props,
                     "Photo thumbnail filepath does not exist on the disk.\n"
-                    "   Please check the filepath and try again.",
-                )
-
-    if wire_thumbnail_upload_enabled() and "WIRE_THUMBNAIL" in upload_set:
-        if props.wire_thumbnail_will_upload_on_website:
-            pass
-        else:
-            wire_thumb_path = bpy.path.abspath(props.wire_thumbnail)
-            if props.wire_thumbnail == "":
-                write_to_report(
-                    props,
-                    "A wireframe thumbnail image has not been provided.\n"
-                    "   Please add a wireframe thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-                )
-            elif not os.path.exists(Path(wire_thumb_path)):
-                write_to_report(
-                    props,
-                    "Wireframe thumbnail filepath does not exist on the disk.\n"
                     "   Please check the filepath and try again.",
                 )
 
@@ -1658,11 +1640,12 @@ class UploadOperator(Operator):
             if self.asset_type == "PRINTABLE" and props.photo_thumbnail:
                 upload_set.append("photo_thumbnail")
 
-            # add wire_thumbnail for models if it exists
+            # add wire_thumbnail for models only when a valid image is provided
             if (
                 wire_upload_enabled
                 and self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
                 and props.wire_thumbnail
+                and os.path.exists(bpy.path.abspath(props.wire_thumbnail))
             ):
                 upload_set.append("wire_thumbnail")
         else:

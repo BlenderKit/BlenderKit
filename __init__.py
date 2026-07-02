@@ -1680,11 +1680,6 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         update=autothumb.update_wire_thumbnail_preview,
         **EXTRA_PATH_OPTIONS,
     )
-    wire_thumbnail_will_upload_on_website: BoolProperty(
-        name="I will upload wireframe thumbnail on website",
-        description="True if the wireframe thumbnail will upload on the website\n please read upload tutorial for more information",
-        default=False,
-    )
 
     wire_thumbnail_generating_state: StringProperty(
         name="Wire Thumbnail Generating State",
@@ -2691,14 +2686,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
-    enable_wire_thumbnail_upload: BoolProperty(
-        name="Enable wire thumbnail upload",
-        description="If enabled, wireframe thumbnails will be uploaded.",
-        default=False,
-        # do not save prefs here, it's experimental
-        options={"SKIP_SAVE"},
-    )
-
     def draw(self, context):
         layout = self.layout
         login_box = layout.box()
@@ -2824,7 +2811,6 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
             experimental_settings.prop(self, "thread_communication")
             experimental_settings.prop(self, "accepted_ms_store_warning")
-            # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
 # registration
