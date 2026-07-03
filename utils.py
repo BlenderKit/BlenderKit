@@ -97,6 +97,8 @@ THUMBNAIL_SETTINGS_FIELDS = (
     "thumbnail_scale",
     "thumbnail_background",
     "adaptive_subdivision",
+    "thumbnail_use_gpu",
+    "thumbnail_disable_subdivision",
 )
 
 
@@ -182,8 +184,20 @@ supported_material_drag = (
 
 def experimental_enabled() -> bool:
     """Check if experimental features are enabled. Experimental features are always be enabled for staff and validators."""
-    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
-    return preferences.experimental_features or profile_is_validator()  # type: ignore
+    addon = bpy.context.preferences.addons.get(__package__)  # type: ignore
+    if addon is None:
+        return False
+    return bool(addon.preferences.experimental_features or profile_is_validator())  # type: ignore
+
+
+def elevated_experimental_enabled() -> bool:
+    """Check if experimental features are enabled and is validator."""
+    addon = bpy.context.preferences.addons.get(__package__)  # type: ignore
+    if addon is None:
+        return False
+    return bool(
+        addon.preferences.experimental_features and profile_is_validator()
+    )  # type: ignore
 
 
 def proxor_enabled() -> bool:

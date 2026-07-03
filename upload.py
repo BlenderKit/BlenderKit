@@ -67,15 +67,6 @@ licenses = (
 )
 
 
-def wire_thumbnail_upload_enabled() -> bool:
-    """Feature gate for experimental wireframe thumbnail uploads."""
-    addon = bpy.context.preferences.addons.get(__package__)
-    if addon is None:
-        return False
-    preferences = addon.preferences
-    return getattr(preferences, "experimental_features", False)
-
-
 def add_version(data):
     data["sourceAppName"] = "blender"
     data["sourceAppVersion"] = utils.get_blender_version()
@@ -395,7 +386,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             )
         # Add wire thumbnail path to export_data for models and printable assets
         if (
-            wire_thumbnail_upload_enabled()
+            utils.experimental_enabled()
             and asset_type in ("MODEL", "SCENE", "PRINTABLE")
             and props.wire_thumbnail
         ):
@@ -1398,7 +1389,7 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
                 return False, None, None
 
     # check if we have wire_thumbnail
-    if wire_thumbnail_upload_enabled() and "wire_thumbnail" in upload_set:
+    if utils.experimental_enabled() and "wire_thumbnail" in upload_set:
         if not os.path.exists(export_data.get("wire_thumbnail_path", "")):
             props.upload_state = "0% - wire thumbnail not found"
             props.uploading = False
@@ -1631,7 +1622,7 @@ class UploadOperator(Operator):
     def execute(self, context):
         bpy.ops.object.blenderkit_auto_tags()
         props = utils.get_upload_props()
-        wire_upload_enabled = wire_thumbnail_upload_enabled()
+        wire_upload_enabled = utils.experimental_enabled()
 
         upload_set = []
         if not self.reupload:
@@ -1708,7 +1699,7 @@ class UploadOperator(Operator):
                 layout.prop(self, "photo_thumbnail")
 
             # Show wire_thumbnail option for models, scenes, and printable assets
-            if wire_thumbnail_upload_enabled() and self.asset_type in {
+            if utils.experimental_enabled() and self.asset_type in {
                 "MODEL",
                 "SCENE",
                 "PRINTABLE",

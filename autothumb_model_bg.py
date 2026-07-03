@@ -518,11 +518,11 @@ if __name__ == "__main__":
                     max(ob.dimensions.x, ob.dimensions.y, ob.dimensions.z) * 0.5
                 )
                 light_data.energy = 1000
-                # set exposure to source mesh light scale
-                light_data.exposure = ob.scale.x
 
                 # jitter shadows
                 light_data.use_shadow_jitter = True
+                light_data.shadow_jitter_overblur = 20
+                light_data.shadow_filter_radius = 2
 
                 light_object = bpy.data.objects.new(
                     name="AreaLight", object_data=light_data

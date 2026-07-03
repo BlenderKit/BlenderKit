@@ -213,6 +213,24 @@ def adaptive_subdivision_prop(update=None):
     )
 
 
+def thumbnail_use_gpu_prop(update=None):
+    return BoolProperty(
+        name="Use GPU for Thumbnails Rendering",
+        description="By default this is off so you can continue your work without any lag",
+        default=False,
+        update=update,
+    )
+
+
+def thumbnail_disable_subdivision_prop(update=None):
+    return BoolProperty(
+        name="Disable Subdivision for Thumbnails Rendering",
+        description="By default this is off. Disable this for wireframe thumbnails to render faster",
+        default=False,
+        update=update,
+    )
+
+
 def save_thumbnail_settings(self, context):
     """Update callback for BlenderKitThumbnailSettings fields.
 
@@ -226,19 +244,6 @@ def save_thumbnail_settings(self, context):
 def get_thumbnail_settings():
     """Return the persisted, global BlenderKitThumbnailSettings group."""
     return bpy.context.preferences.addons[__package__].preferences.thumbnail_settings
-
-
-def thumbnail_features_experimental() -> bool:
-    """Whether experimental thumbnail options are exposed to the user.
-
-    Gates the render-engine choice and the regular/wireframe thumbnail switch.
-    When disabled these options are hidden and reset to their defaults
-    (Cycles, regular thumbnail).
-    """
-    addon = bpy.context.preferences.addons.get(__package__)
-    if addon is None:
-        return False
-    return bool(getattr(addon.preferences, "experimental_features", False))
 
 
 def reset_thumbnail_render_engine(target) -> None:
@@ -421,15 +426,14 @@ def start_model_thumbnailer(
 
     datafile = os.path.join(json_args["tempdir"], BLENDKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-    json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
-    if user_preferences.thumbnail_use_gpu is True:
+    settings = user_preferences.thumbnail_settings
+    json_args["thumbnail_use_gpu"] = settings.thumbnail_use_gpu
+    if settings.thumbnail_use_gpu is True:
         json_args["cycles_compute_device_type"] = bpy.context.preferences.addons[
             "cycles"
         ].preferences.compute_device_type
 
-    json_args["thumbnail_disable_subdivision"] = (
-        user_preferences.thumbnail_disable_subdivision
-    )
+    json_args["thumbnail_disable_subdivision"] = settings.thumbnail_disable_subdivision
 
     try:
         with open(datafile, "w", encoding="utf-8") as s:
@@ -510,8 +514,9 @@ def start_material_thumbnailer(
 
     datafile = os.path.join(json_args["tempdir"], BLENDKIT_EXPORT_DATA_FILE)
     user_preferences = bpy.context.preferences.addons[__package__].preferences
-    json_args["thumbnail_use_gpu"] = user_preferences.thumbnail_use_gpu
-    if user_preferences.thumbnail_use_gpu is True:
+    settings = user_preferences.thumbnail_settings
+    json_args["thumbnail_use_gpu"] = settings.thumbnail_use_gpu
+    if settings.thumbnail_use_gpu is True:
         json_args["cycles_compute_device_type"] = bpy.context.preferences.addons[
             "cycles"
         ].preferences.compute_device_type
@@ -592,6 +597,11 @@ class GenerateThumbnailOperator(bpy.types.Operator):
     def poll(cls, context):
         return bpy.context.view_layer.objects.active is not None
 
+    def check(self, context):
+        # Re-run the popup layout when an operator property changes (e.g. the
+        # regular/wireframe switch) so conditionally shown fields update live.
+        return True
+
     def draw(self, context):
         # local import to avoid circular import (ui_panels imports autothumb)
         from . import ui_panels
@@ -600,11 +610,12 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         ui_panels.set_overlay_panel_active()
         ui_props = bpy.context.window_manager.blenderkitUI
         asset_type = ui_props.asset_type
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        experimental = thumbnail_features_experimental()
+        experimental = utils.experimental_enabled()
 
         ob = utils.get_active_model()
-        props = ob.blenderkit
+        if ob is None:
+            return
+        settings = get_thumbnail_settings()
         layout = self.layout
         layout.label(text="thumbnailer settings")
         # The regular/wireframe switch and the render engine choice are
@@ -615,23 +626,26 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         is_wire = experimental and self.thumbnail_type == "WIREFRAME"
         # Wireframe thumbnails always render in Cycles with a fixed background,
         # so the render engine and background lightness are only shown for
-        # regular thumbnails.
-        if experimental and not is_wire:
-            layout.prop(props, "thumbnail_render_engine")
+        # regular thumbnails. The render engine choice is an elevated
+        # (validator-only) experimental option.
+        if utils.elevated_experimental_enabled() and not is_wire:
+            layout.prop(settings, "thumbnail_render_engine")
         if not is_wire:
-            layout.prop(props, "thumbnail_background_lightness")
+            layout.prop(settings, "thumbnail_background_lightness")
         # for printable models
         if asset_type == "PRINTABLE":
-            layout.prop(props, "thumbnail_material_color")
-        layout.prop(props, "thumbnail_angle")
-        layout.prop(props, "thumbnail_snap_to")
-        layout.prop(props, "thumbnail_samples")
-        layout.prop(props, "thumbnail_resolution")
-        layout.prop(props, "thumbnail_denoising")
-        layout.prop(preferences, "thumbnail_use_gpu")
+            layout.prop(settings, "thumbnail_material_color")
+        layout.prop(settings, "thumbnail_angle")
+        layout.prop(settings, "thumbnail_snap_to")
+        layout.prop(settings, "thumbnail_samples")
+        layout.prop(settings, "thumbnail_resolution")
+        layout.prop(settings, "thumbnail_denoising")
+        layout.prop(settings, "thumbnail_use_gpu")
+        layout.prop(settings, "thumbnail_disable_subdivision")
 
     def execute(self, context):
-        experimental = thumbnail_features_experimental()
+        experimental = utils.experimental_enabled()
+        settings = get_thumbnail_settings()
         asset = utils.get_active_model()
         bkit = asset.blenderkit
 
@@ -639,12 +653,10 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         # experimental options so a previously stored value can't leak through.
         if not experimental:
             self.thumbnail_type = "REGULAR"
-            reset_thumbnail_render_engine(bkit)
+        if not utils.elevated_experimental_enabled():
+            reset_thumbnail_render_engine(settings)
 
         is_wire = experimental and self.thumbnail_type == "WIREFRAME"
-        if is_wire and not upload.wire_thumbnail_upload_enabled():
-            self.report({"ERROR"}, "Wireframe thumbnail uploads are disabled.")
-            return {"CANCELLED"}
 
         tempdir = tempfile.mkdtemp()
         blend_name = (
@@ -712,16 +724,16 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         thumbnail_args = {
             "type": asset_type,
             "models": str(obnames),
-            "thumbnail_angle": bkit.thumbnail_angle,
-            "thumbnail_snap_to": bkit.thumbnail_snap_to,
+            "thumbnail_angle": settings.thumbnail_angle,
+            "thumbnail_snap_to": settings.thumbnail_snap_to,
             "thumbnail_material_color": (
-                bkit.thumbnail_material_color[0],
-                bkit.thumbnail_material_color[1],
-                bkit.thumbnail_material_color[2],
+                settings.thumbnail_material_color[0],
+                settings.thumbnail_material_color[1],
+                settings.thumbnail_material_color[2],
             ),
-            "thumbnail_resolution": bkit.thumbnail_resolution,
-            "thumbnail_samples": bkit.thumbnail_samples,
-            "thumbnail_denoising": bkit.thumbnail_denoising,
+            "thumbnail_resolution": settings.thumbnail_resolution,
+            "thumbnail_samples": settings.thumbnail_samples,
+            "thumbnail_denoising": settings.thumbnail_denoising,
         }
         if is_wire:
             # Wireframe renders in Cycles with a fixed dark background.
@@ -729,9 +741,9 @@ class GenerateThumbnailOperator(bpy.types.Operator):
             thumbnail_args["thumbnail_upload_type"] = "wire_thumbnail"
             thumbnail_args["thumbnail_background_lightness"] = 0.2
         else:
-            thumbnail_args["thumbnail_render_engine"] = bkit.thumbnail_render_engine
+            thumbnail_args["thumbnail_render_engine"] = settings.thumbnail_render_engine
             thumbnail_args["thumbnail_background_lightness"] = (
-                bkit.thumbnail_background_lightness
+                settings.thumbnail_background_lightness
             )
         args_dict.update(thumbnail_args)
 
@@ -777,6 +789,11 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
     def poll(cls, context):
         return True  # bpy.context.view_layer.objects.active is not None
 
+    def check(self, context):
+        # Re-run the popup layout when an operator property changes so
+        # conditionally shown fields update live.
+        return True
+
     def draw(self, context):
         # local import to avoid circular import (ui_panels imports autothumb)
         from . import ui_panels
@@ -788,7 +805,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(self, "render_locally")
         layout.label(text="Server-side rendering may take several hours", icon="INFO")
         layout.label(text="thumbnailer settings")
-        if thumbnail_features_experimental():
+        if utils.elevated_experimental_enabled():
             layout.prop(settings, "thumbnail_render_engine")
         layout.prop(settings, "thumbnail_background_lightness")
         # for printable models
@@ -804,8 +821,8 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_resolution")
         layout.prop(settings, "thumbnail_denoising")
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        layout.prop(preferences, "thumbnail_use_gpu")
+        layout.prop(settings, "thumbnail_use_gpu")
+        layout.prop(settings, "thumbnail_disable_subdivision")
 
     def execute(self, context):
         if not self.asset_index > -1:
@@ -814,7 +831,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         preferences = bpy.context.preferences.addons[__package__].preferences
         settings = preferences.thumbnail_settings
 
-        if not thumbnail_features_experimental():
+        if not utils.elevated_experimental_enabled():
             reset_thumbnail_render_engine(settings)
 
         # Ensure asset_type is set when execution is triggered directly.
@@ -827,7 +844,7 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
             success = upload.mark_for_thumbnail(
                 asset_id=self.asset_data["id"],
                 api_key=preferences.api_key,
-                use_gpu=preferences.thumbnail_use_gpu,
+                use_gpu=settings.thumbnail_use_gpu,
                 samples=settings.thumbnail_samples,
                 resolution=int(settings.thumbnail_resolution),
                 denoising=settings.thumbnail_denoising,
@@ -916,20 +933,19 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         # this timer is there to not let double clicks through the popups down to the asset bar.
         ui_panels.set_overlay_panel_active()
         layout = self.layout
-        props = bpy.context.active_object.active_material.blenderkit
-        if thumbnail_features_experimental():
-            layout.prop(props, "thumbnail_render_engine")
-        layout.prop(props, "thumbnail_generator_type")
-        layout.prop(props, "thumbnail_scale")
-        layout.prop(props, "thumbnail_background")
-        if props.thumbnail_background:
-            layout.prop(props, "thumbnail_background_lightness")
-        layout.prop(props, "thumbnail_resolution")
-        layout.prop(props, "thumbnail_samples")
-        layout.prop(props, "thumbnail_denoising")
-        layout.prop(props, "adaptive_subdivision")
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        layout.prop(preferences, "thumbnail_use_gpu")
+        settings = get_thumbnail_settings()
+        if utils.elevated_experimental_enabled():
+            layout.prop(settings, "thumbnail_render_engine")
+        layout.prop(settings, "thumbnail_generator_type")
+        layout.prop(settings, "thumbnail_scale")
+        layout.prop(settings, "thumbnail_background")
+        if settings.thumbnail_background:
+            layout.prop(settings, "thumbnail_background_lightness")
+        layout.prop(settings, "thumbnail_resolution")
+        layout.prop(settings, "thumbnail_samples")
+        layout.prop(settings, "thumbnail_denoising")
+        layout.prop(settings, "adaptive_subdivision")
+        layout.prop(settings, "thumbnail_use_gpu")
 
     def execute(self, context):
         asset = bpy.context.active_object.active_material
@@ -965,9 +981,10 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
 
         asset.blenderkit.thumbnail = rel_thumb_path + ".png"
         bkit = asset.blenderkit
+        settings = get_thumbnail_settings()
 
-        if not thumbnail_features_experimental():
-            reset_thumbnail_render_engine(bkit)
+        if not utils.elevated_experimental_enabled():
+            reset_thumbnail_render_engine(settings)
 
         args_dict = {
             "type": "material",
@@ -978,15 +995,15 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         }
 
         thumbnail_args = {
-            "thumbnail_render_engine": bkit.thumbnail_render_engine,
-            "thumbnail_type": bkit.thumbnail_generator_type,
-            "thumbnail_scale": bkit.thumbnail_scale,
-            "thumbnail_background": bkit.thumbnail_background,
-            "thumbnail_background_lightness": bkit.thumbnail_background_lightness,
-            "thumbnail_resolution": bkit.thumbnail_resolution,
-            "thumbnail_samples": bkit.thumbnail_samples,
-            "thumbnail_denoising": bkit.thumbnail_denoising,
-            "adaptive_subdivision": bkit.adaptive_subdivision,
+            "thumbnail_render_engine": settings.thumbnail_render_engine,
+            "thumbnail_type": settings.thumbnail_generator_type,
+            "thumbnail_scale": settings.thumbnail_scale,
+            "thumbnail_background": settings.thumbnail_background,
+            "thumbnail_background_lightness": settings.thumbnail_background_lightness,
+            "thumbnail_resolution": settings.thumbnail_resolution,
+            "thumbnail_samples": settings.thumbnail_samples,
+            "thumbnail_denoising": settings.thumbnail_denoising,
+            "adaptive_subdivision": settings.adaptive_subdivision,
             "texture_size_meters": bkit.texture_size_meters,
         }
         args_dict.update(thumbnail_args)
@@ -1039,7 +1056,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout = self.layout
         layout.prop(self, "render_locally")
         layout.label(text="Server-side rendering may take several hours", icon="INFO")
-        if thumbnail_features_experimental():
+        if utils.elevated_experimental_enabled():
             layout.prop(settings, "thumbnail_render_engine")
         layout.prop(settings, "thumbnail_generator_type")
         layout.prop(settings, "thumbnail_scale")
@@ -1050,8 +1067,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_denoising")
         layout.prop(settings, "adaptive_subdivision")
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        layout.prop(preferences, "thumbnail_use_gpu")
+        layout.prop(settings, "thumbnail_use_gpu")
 
     def execute(self, context):
         if not self.asset_index > -1:
@@ -1065,7 +1081,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         preferences = bpy.context.preferences.addons[__package__].preferences
         settings = preferences.thumbnail_settings
 
-        if not thumbnail_features_experimental():
+        if not utils.elevated_experimental_enabled():
             reset_thumbnail_render_engine(settings)
 
         if not self.render_locally:
@@ -1073,7 +1089,7 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
             success = upload.mark_for_thumbnail(
                 asset_id=asset_data["id"],
                 api_key=preferences.api_key,
-                use_gpu=preferences.thumbnail_use_gpu,
+                use_gpu=settings.thumbnail_use_gpu,
                 samples=settings.thumbnail_samples,
                 resolution=int(settings.thumbnail_resolution),
                 denoising=settings.thumbnail_denoising,

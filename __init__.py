@@ -445,6 +445,14 @@ class BlenderKitThumbnailSettings(PropertyGroup):
         update=autothumb.save_thumbnail_settings
     )
 
+    # render settings
+    thumbnail_use_gpu: autothumb.thumbnail_use_gpu_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_disable_subdivision: autothumb.thumbnail_disable_subdivision_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+
 
 class BlenderKitUIProps(PropertyGroup):
     down_up: EnumProperty(
@@ -2464,20 +2472,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         ),
         description="Determines the locations used for storing downloaded asset data.",
         default="BOTH",
-        update=utils.save_prefs,
-    )
-
-    thumbnail_use_gpu: BoolProperty(
-        name="Use GPU for Thumbnails Rendering (For assets upload)",
-        description="By default this is off so you can continue your work without any lag",
-        default=False,
-        update=utils.save_prefs,
-    )
-
-    thumbnail_disable_subdivision: BoolProperty(
-        name="Disable Subdivision for Thumbnails Rendering (For assets upload)",
-        description="By default this is off. Disable this for wireframe thumbnails to render faster",
-        default=False,
         update=utils.save_prefs,
     )
 

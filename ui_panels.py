@@ -661,8 +661,7 @@ def draw_panel_model_upload(self, context):
     # "Generate thumbnail" dialog exposes a Regular/Wireframe switch that renders
     # into this slot. The wireframe thumbnail is optional and only uploaded when a
     # valid image is provided here.
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    wire_upload_enabled = getattr(user_preferences, "experimental_features", False)
+    wire_upload_enabled = utils.experimental_enabled()
     if wire_upload_enabled:
         draw_wire_thumbnail_upload_panel(layout, props)
         col = layout.column()
