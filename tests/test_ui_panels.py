@@ -6,10 +6,12 @@ from urllib.parse import unquote
 import bpy
 
 
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
+# ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
+# ``__package__`` is the add-on's own module - needed by the relative import
+# and any ``bpy...addons[__package__]`` lookups below. Scanning ``addons`` for
+# "blenderkit" is unreliable when several blenderkit* add-ons are enabled.
+if __package__:
+    __package__ = __package__.rsplit(".tests", 1)[0]
 from . import global_vars, ui_panels
 
 
