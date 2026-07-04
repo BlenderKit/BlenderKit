@@ -42,6 +42,7 @@ class Test01Registration(unittest.TestCase):
     def test02_global_vars_PREFS_set(self):
         assert global_vars.PREFS != {}
         user_preferences = bpy.context.preferences.addons[__package__].preferences
+        ts = user_preferences.thumbnail_settings
         prefs = {
             # SYSTEM STUFF
             "debug_value": bpy.app.debug_value,
@@ -90,6 +91,23 @@ class Test01Registration(unittest.TestCase):
             "updater_interval_days": user_preferences.updater_interval_days,
             # IMPORT SETTINGS
             "resolution": user_preferences.resolution,
+            # THUMBNAIL SETTINGS
+            "thumbnail_settings": {
+                "thumbnail_render_engine": ts.thumbnail_render_engine,
+                "thumbnail_resolution": ts.thumbnail_resolution,
+                "thumbnail_samples": ts.thumbnail_samples,
+                "thumbnail_denoising": ts.thumbnail_denoising,
+                "thumbnail_background_lightness": ts.thumbnail_background_lightness,
+                "thumbnail_angle": ts.thumbnail_angle,
+                "thumbnail_snap_to": ts.thumbnail_snap_to,
+                "thumbnail_material_color": list(ts.thumbnail_material_color),
+                "thumbnail_generator_type": ts.thumbnail_generator_type,
+                "thumbnail_scale": ts.thumbnail_scale,
+                "thumbnail_background": ts.thumbnail_background,
+                "adaptive_subdivision": ts.adaptive_subdivision,
+                "thumbnail_use_gpu": ts.thumbnail_use_gpu,
+                "thumbnail_disable_subdivision": ts.thumbnail_disable_subdivision,
+            },
         }
         self.maxDiff = None
         self.assertDictEqual(global_vars.PREFS, prefs)
