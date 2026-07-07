@@ -15,8 +15,8 @@ from . import global_vars
 
 class TestVersions(unittest.TestCase):
     def test_client_version(self):
-        """Client version in ./client/VERSION and in global_vars.CLIENT_VERSION must be the same."""
-        with open("client/VERSION") as f:
+        """Client version in ./bk_client/client/VERSION and in global_vars.CLIENT_VERSION must be the same."""
+        with open("bk_client/client/VERSION") as f:
             client_version = f.read().strip()
         self.assertEqual(
             global_vars.CLIENT_VERSION,

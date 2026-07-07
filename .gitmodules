@@ -1,0 +1,3 @@
+[submodule "bk_client"]
+	path = bk_client
+	url = https://github.com/BlenderKit/bk_client
