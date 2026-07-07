@@ -41,13 +41,13 @@ jobs:
           cache-dependency-path: './bk_client/client/go.sum'
         id: go
       - name: Go test
-        working-directory: ./client
+        working-directory: ./bk_client/client
         run: go test -coverprofile=coverage-go.out
       - name: Upload Go coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: client/coverage-go.out
+          files: bk_client/client/coverage-go.out
           flags: go
           fail_ci_if_error: false
 
