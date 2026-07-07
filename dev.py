@@ -291,7 +291,8 @@ def run_python_tests(extension_format: bool, fast: bool):
 
 def run_go_tests():
     print("\n=== Running Client Go unit tests ===")
-    gotest = subprocess.Popen(["go", "test"], cwd="client")
+    workdir = os.path.join("bk_client", "client")
+    gotest = subprocess.Popen(["go", "test"], cwd=workdir)
     gotest.wait()
     if gotest.returncode != 0:
         exit(1)
