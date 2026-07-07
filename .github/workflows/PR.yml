@@ -9,7 +9,9 @@ jobs:
   Checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: "true"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -29,7 +31,9 @@ jobs:
   Client-Unit-Tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: "true"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -50,7 +54,9 @@ jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: "true"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -72,7 +78,9 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: "true"
       - id: set-matrix
         run: python .github/make-tests-matrix.py >> $GITHUB_OUTPUT
 
@@ -83,7 +91,9 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.make-tests-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: "true"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
