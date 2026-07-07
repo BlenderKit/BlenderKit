@@ -120,6 +120,30 @@ jobs = [
         "sha": "released",
         "download_url": "https://download.blender.org/release/Blender4.5/blender-4.5.2-linux-x64.tar.xz",
     },
+    {
+        "version": "5.0.0",
+        "version_x_y": "5.0",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender5.0/blender-5.0.0-linux-x64.tar.xz",
+    },
+    {
+        "version": "5.0.1",
+        "version_x_y": "5.0",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender5.0/blender-5.0.1-linux-x64.tar.xz",
+    },
+    {
+        "version": "5.1.0",
+        "version_x_y": "5.1",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender5.1/blender-5.1.0-linux-x64.tar.xz",
+    },
+    {
+        "version": "5.1.2",
+        "version_x_y": "5.1",
+        "sha": "released",
+        "download_url": "https://download.blender.org/release/Blender5.1/blender-5.1.2-linux-x64.tar.xz",
+    },
     # {'version': '', 'version_x_y': '', 'download_url': ''},
 ]
 
