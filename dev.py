@@ -28,9 +28,11 @@ def blenderkit_client_build(abs_build_dir: str):
     Binaries are cross-compiled for all platforms in parallel.
     """
     client_dir = os.path.join(abs_build_dir, "client")
-    cp = subprocess.run(["python", "dev.py", "build", "--out", client_dir], cwd="bk_client")
+    cp = subprocess.run(
+        ["python", "dev.py", "build", "--out", client_dir], cwd="bk_client"
+    )
     cp.check_returncode()
-    
+
 
 def verify_client_binaries(binaries_path: str):
     """Verify client binaries tha they were signed correctly.
