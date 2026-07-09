@@ -33,6 +33,20 @@ def blenderkit_client_build(abs_build_dir: str):
     )
     cp.check_returncode()
 
+    # unzip the client binaries but they are in versioned subdir
+    # get version
+    version_file = os.path.join("bk_client", "client", "VERSION")
+    expected_client_version = None
+    with open(version_file, "r") as f:
+        expected_client_version = f"v{f.read().strip()}"
+    if not expected_client_version:
+        raise Exception("Could not read client version from VERSION file.")
+    client_loc = os.path.join(client_dir, expected_client_version)
+    client_zip = os.path.join(client_loc, "bk_client.zip")
+    shutil.unpack_archive(client_zip, client_loc)
+    # remove the zip file after extraction
+    os.remove(client_zip)
+
 
 def verify_client_binaries(binaries_path: str):
     """Verify client binaries tha they were signed correctly.
@@ -42,7 +56,7 @@ def verify_client_binaries(binaries_path: str):
     print("===== VERIFYING CLIENT BINARIES =====")
     signatures_ok = True
     files = os.listdir(binaries_path)
-    client_files = [f for f in files if f.startswith("blenderkit-client")]
+    client_files = [f for f in files if f.startswith("bk_client")]
     for file_name in client_files:
         print(f"\n\n==={file_name}")
         file_path = os.path.join(binaries_path, file_name)
@@ -137,7 +151,7 @@ def copy_client_binaries(binaries_path: str, addon_build_dir: str):
     os.makedirs(target_dir)
 
     files = os.listdir(binaries_path)
-    client_files = [f for f in files if f.startswith("blenderkit-client")]
+    client_files = [f for f in files if f.startswith("bk_client")]
     for file_name in client_files:
         source_file = os.path.join(binaries_path, file_name)
         target_file = os.path.join(target_dir, file_name)
@@ -192,8 +206,8 @@ def do_build(
         ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
     )
     shutil.copytree(
-        "bl_proxor",
-        f"{addon_build_dir}/bl_proxor",
+        "bk_proxor/src/bk_proxor",
+        f"{addon_build_dir}/bk_proxor",
         ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
     )
     shutil.copytree(

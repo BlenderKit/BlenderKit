@@ -1076,7 +1076,7 @@ def draw_proxor_download(
     """
     from mathutils import Euler
 
-    from .bl_proxor.draw import (
+    from .bk_proxor._blender.draw import (
         ProxorLiteDrawBuilder,
         _get_mvp,
         default_draw_context,

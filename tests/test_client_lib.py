@@ -55,7 +55,7 @@ def client_is_responding() -> tuple[bool, str]:
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test01ClientNotRunning(unittest.TestCase):
     def test01_client_not_running(self):
-        """Tests run in background (bpy.app.background == True), so blednerkit-client is not started during registration.
+        """Tests run in background (bpy.app.background == True), so blenderkit-client is not started during registration.
         Also the client_communication_timer() and all other timers are not registered.
         So we expect blenderkit-client to be not running.
         """
