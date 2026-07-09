@@ -31,7 +31,7 @@ exclude = ["lib", "out", ".venv", "bk_client", "bk_proxor"]
 target-version = ['py310']
 include = '\.pyi?$'
 exclude = '''
-/(\.git|\.venv|lib|out|bk_client|bk_proxor)/
+/(\.git|\.venv|lib|out|client|bk_client|bk_proxor)/
 '''
 
 [tool.ruff]

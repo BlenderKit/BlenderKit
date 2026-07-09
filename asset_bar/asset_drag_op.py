@@ -50,7 +50,6 @@ from ..bl_ui_widgets.bl_ui_drag_panel import BL_UI_Drag_Panel
 from ..bl_ui_widgets.bl_ui_draw_op import BL_UI_OT_draw_operator
 from ..bl_ui_widgets.bl_ui_image import BL_UI_Image
 
-
 bk_logger = logging.getLogger(__name__)
 
 # Addon root package name. We live in <addon>.asset_bar, but addon
@@ -957,7 +956,10 @@ class AssetDragOperator(bpy.types.Operator):
         """
         try:
             from ..bk_proxor import prx_format as proxor_prx_format
-            from ..bk_proxor._blender.draw import ProxorLiteDrawHandler, default_draw_context
+            from ..bk_proxor._blender.draw import (
+                ProxorLiteDrawHandler,
+                default_draw_context,
+            )
 
             payload = proxor_prx_format.read_prx(prxc_path)
             proxor_data = payload.get("data")
