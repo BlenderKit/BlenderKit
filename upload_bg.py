@@ -444,8 +444,8 @@ if __name__ == "__main__":
             asset_block = g  # collection is the asset, not the root object
 
             try:
-                from .bl_proxor import generate as proxor_generate
-                from .bl_proxor import prx_format as proxor_prx_format
+                from .bk_proxor._blender import generate as proxor_generate
+                from .bk_proxor import prx_format as proxor_prx_format
 
                 proxor_objects = [o for o in allobs if getattr(o, "type", "") == "MESH"]
                 if proxor_objects:
