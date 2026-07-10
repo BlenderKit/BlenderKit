@@ -156,10 +156,11 @@ if not was_linked:
 
 # build the client if needed
 was_built = False
-build_script = os.path.join(THIS_REPO, "dev.py").replace("\\", "/")
+build_script = os.path.join(THIS_REPO, "bk_client", "dev.py").replace("\\", "/")
+sub_folder = os.path.join(THIS_REPO, "bk_client").replace("\\", "/")
 build_cmds = [sys.executable, build_script, "build"]
 # run and wait
-subprocess.run(build_cmds, check=True)
+subprocess.run(build_cmds, check=True, cwd=sub_folder)
 
 # copy source to client/
 # this folder is ingored and will not be synced to Blendkit addon repo

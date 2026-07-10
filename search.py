@@ -844,7 +844,7 @@ def handle_search_task(task: client_tasks.Task) -> bool:
         result_field = []  # type: ignore
     else:
         # Strip trailing placeholder entries before appending real results
-        previous = history_step.get("search_results", [])
+        previous = history_step.get("search_results", []) or []
         result_field = [r for r in previous if not r.get("placeholder")]  # type: ignore
 
     ui_props = bpy.context.window_manager.blenderkitUI  # type: ignore[attr-defined]

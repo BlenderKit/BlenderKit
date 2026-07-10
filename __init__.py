@@ -106,24 +106,22 @@ if "bpy" in locals():
     reports = reload(reports)
     rereports = reload(reports)
 
-    from .bl_proxor import draw as bl_proxor_draw
-    from .bl_proxor import generate as bl_proxor_generate
-    from .bl_proxor import prx_format as bl_proxor_prx_format
+    from .bk_proxor._blender import draw as bk_proxor_draw
+    from .bk_proxor._blender import generate as bk_proxor_generate
+    from .bk_proxor import prx_format as bk_proxor_prx_format
 
-    bl_proxor_draw = reload(bl_proxor_draw)
-    bl_proxor_generate = reload(bl_proxor_generate)
-    bl_proxor_prx_format = reload(bl_proxor_prx_format)
+    bk_proxor_draw = reload(bk_proxor_draw)
+    bk_proxor_generate = reload(bk_proxor_generate)
+    bk_proxor_prx_format = reload(bk_proxor_prx_format)
 
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
     bl_ui_button = reload(bl_ui_button)
     bl_ui_image = reload(bl_ui_image)
-    # bl_ui_checkbox = reload(bl_ui_checkbox)
-    # bl_ui_slider = reload(bl_ui_slider)
-    # bl_ui_up_down = reload(bl_ui_up_down)
+
     bl_ui_drag_panel = reload(bl_ui_drag_panel)
     bl_ui_draw_op = reload(bl_ui_draw_op)
-    # bl_ui_textbox = reload(bl_ui_textbox)
+
 
 else:
     import bpy
@@ -178,13 +176,9 @@ else:
     from .bl_ui_widgets import bl_ui_button
     from .bl_ui_widgets import bl_ui_image
 
-    # from .bl_ui_widgets import bl_ui_checkbox
-    # from .bl_ui_widgets import bl_ui_slider
-    # from .bl_ui_widgets import bl_ui_up_down
     from .bl_ui_widgets import bl_ui_draw_op
     from .bl_ui_widgets import bl_ui_drag_panel
 
-    # from .bl_ui_widgets import bl_ui_textbox
 
 from math import pi
 
@@ -2500,18 +2494,19 @@ In this case you should also set path to your system CA bundle containing proxy'
     )
 
     maximized_assetbar_rows: IntProperty(
-        name="Maximized Assetbar Rows",
-        description="Maximum rows of assetbar in the 3D view when expanded",
+        name="Assetbar Rows",
+        description="Saved row count of the assetbar in the 3D view",
         default=4,
         min=2,
-        max=20,
+        max=asset_bar_op.ASSETBAR_MAX_VISIBLE_ASSETS,
         update=utils.save_prefs,
     )
 
     assetbar_expanded: BoolProperty(
         name="Assetbar Expanded",
-        description="Whether the assetbar is currently expanded to show maximum rows",
+        description="Remember whether the assetbar is expanded in the 3D view",
         default=False,
+        update=utils.save_prefs,
     )
 
     trackpad_scroll_sensitivity: FloatProperty(
@@ -2762,7 +2757,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.label(text="GUI settings")
         gui_settings.prop(self, "show_on_start")
         gui_settings.prop(self, "thumb_size")
-        gui_settings.prop(self, "maximized_assetbar_rows")
         gui_settings.prop(self, "trackpad_scroll_sensitivity")
         gui_settings.prop(self, "search_field_width")
         gui_settings.prop(self, "search_in_header")

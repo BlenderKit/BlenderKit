@@ -24,72 +24,28 @@ import subprocess
 
 
 def blenderkit_client_build(abs_build_dir: str):
-    """Build Blendkit-client for all platforms in parallel."""
-    with open("client/VERSION", "r") as f:
-        client_version = f.read().strip()
-    build_dir = os.path.join(abs_build_dir, "client")
-    builds = [
-        {
-            "env": {"GOOS": "windows", "GOARCH": "amd64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", "blenderkit-client-windows-x86_64.exe"
-            ),
-        },
-        {
-            "env": {"GOOS": "windows", "GOARCH": "arm64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-windows-arm64.exe"
-            ),
-        },
-        {
-            "env": {"GOOS": "darwin", "GOARCH": "amd64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-macos-x86_64"
-            ),
-        },
-        {
-            "env": {"GOOS": "darwin", "GOARCH": "arm64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-macos-arm64"
-            ),
-        },
-        {
-            "env": {"GOOS": "linux", "GOARCH": "amd64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-linux-x86_64"
-            ),
-        },
-        {
-            "env": {"GOOS": "linux", "GOARCH": "arm64", "CGO_ENABLED": "0"},
-            "output": os.path.join(
-                f"v{client_version}", f"blenderkit-client-linux-arm64"
-            ),
-        },
-    ]
-    ldflags = f"-X main.ClientVersion={client_version}"
-    for build in builds:
-        build_path = os.path.join(build_dir, build["output"])
-        env = {**build["env"], **os.environ}
-        process = subprocess.Popen(
-            ["go", "build", "-o", build_path, "-ldflags", ldflags, "."],
-            env=env,
-            cwd="./client",
-        )
-        build["process"] = process
-
-    print(
-        f"Blendkit-Client v{client_version} build started for {len(builds)} platforms."
+    """Build Blendkit-Client using its dedicated build script.
+    Binaries are cross-compiled for all platforms in parallel.
+    """
+    client_dir = os.path.join(abs_build_dir, "client")
+    cp = subprocess.run(
+        ["python", "dev.py", "build", "--out", client_dir], cwd="bk_client"
     )
-    builds_ok = True
-    for build in builds:
-        build["process"].wait()
-        if build["process"].returncode != 0:
-            print(f"Client build ({build['env']}) failed")
-            builds_ok = False
+    cp.check_returncode()
 
-    if not builds_ok:
-        exit(1)
-    print(f"Blendkit-Client v{client_version} builds completed.")
+    # unzip the client binaries but they are in versioned subdir
+    # get version
+    version_file = os.path.join("bk_client", "client", "VERSION")
+    expected_client_version = None
+    with open(version_file, "r") as f:
+        expected_client_version = f"v{f.read().strip()}"
+    if not expected_client_version:
+        raise Exception("Could not read client version from VERSION file.")
+    client_loc = os.path.join(client_dir, expected_client_version)
+    client_zip = os.path.join(client_loc, "bk_client.zip")
+    shutil.unpack_archive(client_zip, client_loc)
+    # remove the zip file after extraction
+    os.remove(client_zip)
 
 
 def verify_client_binaries(binaries_path: str):
@@ -100,7 +56,7 @@ def verify_client_binaries(binaries_path: str):
     print("===== VERIFYING CLIENT BINARIES =====")
     signatures_ok = True
     files = os.listdir(binaries_path)
-    client_files = [f for f in files if f.startswith("blenderkit-client")]
+    client_files = [f for f in files if f.startswith("bk_client")]
     for file_name in client_files:
         print(f"\n\n==={file_name}")
         file_path = os.path.join(binaries_path, file_name)
@@ -195,7 +151,7 @@ def copy_client_binaries(binaries_path: str, addon_build_dir: str):
     os.makedirs(target_dir)
 
     files = os.listdir(binaries_path)
-    client_files = [f for f in files if f.startswith("blenderkit-client")]
+    client_files = [f for f in files if f.startswith("bk_client")]
     for file_name in client_files:
         source_file = os.path.join(binaries_path, file_name)
         target_file = os.path.join(target_dir, file_name)
@@ -250,8 +206,8 @@ def do_build(
         ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
     )
     shutil.copytree(
-        "bl_proxor",
-        f"{addon_build_dir}/bl_proxor",
+        "bk_proxor/src/bk_proxor",
+        f"{addon_build_dir}/bk_proxor",
         ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
     )
     shutil.copytree(
@@ -349,7 +305,8 @@ def run_python_tests(extension_format: bool, fast: bool):
 
 def run_go_tests():
     print("\n=== Running Client Go unit tests ===")
-    gotest = subprocess.Popen(["go", "test"], cwd="client")
+    workdir = os.path.join("bk_client", "client")
+    gotest = subprocess.Popen(["go", "test"], cwd=workdir)
     gotest.wait()
     if gotest.returncode != 0:
         exit(1)

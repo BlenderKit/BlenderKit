@@ -17,15 +17,18 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import os
+import sys
 import unittest
 
 import bpy
 
 
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
+# ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
+# ``__package__`` is the add-on's own module - needed by the relative import
+# and the ``bpy...addons[__package__]`` lookups below. Scanning ``addons`` for
+# "blenderkit" is unreliable when several blenderkit* add-ons are enabled.
+if __package__:
+    __package__ = __package__.rsplit(".tests", 1)[0]
 from . import client_lib, global_vars
 
 
@@ -33,18 +36,7 @@ class Test01Registration(unittest.TestCase):
     def test01_global_vars_VERSION_set(self):
         assert global_vars.VERSION is not None
         assert global_vars.VERSION != [0, 0, 0, 0]
-        if __package__ == "blenderkit":
-            import blenderkit  # relative import .. would go outside the package, so we need to import oldschool here
-
-            version = blenderkit.bl_info["version"]
-        elif __package__ == "blenderkit_dev_hl":
-            import blenderkit_dev_hl  # relative import .. would go outside the package, so we need to import oldschool here
-
-            version = blenderkit_dev_hl.bl_info["version"]
-        else:
-            from .. import blenderkit
-
-            version = blenderkit.VERSION
+        version = sys.modules[__package__].bl_info["version"]
         assert global_vars.VERSION == version
 
     def test02_global_vars_PREFS_set(self):
@@ -77,6 +69,7 @@ class Test01Registration(unittest.TestCase):
             "show_on_start": user_preferences.show_on_start,
             "thumb_size": user_preferences.thumb_size,
             "maximized_assetbar_rows": user_preferences.maximized_assetbar_rows,
+            "assetbar_expanded": user_preferences.assetbar_expanded,
             "search_field_width": user_preferences.search_field_width,
             "search_in_header": user_preferences.search_in_header,
             "tips_on_start": user_preferences.tips_on_start,

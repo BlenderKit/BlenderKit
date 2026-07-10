@@ -3,19 +3,20 @@ import unittest
 import bpy
 
 
-# Dynamically set the package context for the Blendkit add-on
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
+# ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
+# ``__package__`` is the add-on's own module - needed by the relative import
+# and any ``bpy...addons[__package__]`` lookups below. Scanning ``addons`` for
+# "blenderkit" is unreliable when several blenderkit* add-ons are enabled.
+if __package__:
+    __package__ = __package__.rsplit(".tests", 1)[0]
 
 from . import global_vars
 
 
 class TestVersions(unittest.TestCase):
     def test_client_version(self):
-        """Client version in ./client/VERSION and in global_vars.CLIENT_VERSION must be the same."""
-        with open("client/VERSION") as f:
+        """Client version in ./bk_client/client/VERSION and in global_vars.CLIENT_VERSION must be the same."""
+        with open("bk_client/client/VERSION") as f:
             client_version = f.read().strip()
         self.assertEqual(
             global_vars.CLIENT_VERSION,

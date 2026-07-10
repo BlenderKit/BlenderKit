@@ -25,10 +25,12 @@ import bpy
 import requests
 
 
-for addon in bpy.context.preferences.addons:
-    if "blenderkit" in addon.module:
-        __package__ = addon.module
-        break
+# ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
+# ``__package__`` is the add-on's own module - needed by the relative import
+# and any ``bpy...addons[__package__]`` lookups below. Scanning ``addons`` for
+# "blenderkit" is unreliable when several blenderkit* add-ons are enabled.
+if __package__:
+    __package__ = __package__.rsplit(".tests", 1)[0]
 from . import client_lib, datas, download, paths, utils
 
 
@@ -53,7 +55,7 @@ def client_is_responding() -> tuple[bool, str]:
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test01ClientNotRunning(unittest.TestCase):
     def test01_client_not_running(self):
-        """Tests run in background (bpy.app.background == True), so blednerkit-client is not started during registration.
+        """Tests run in background (bpy.app.background == True), so blenderkit-client is not started during registration.
         Also the client_communication_timer() and all other timers are not registered.
         So we expect blenderkit-client to be not running.
         """
@@ -110,20 +112,36 @@ class Test03ClientUtilFunctions(unittest.TestCase):
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test04GetReportsClientRunning(unittest.TestCase):
     def test_get_reports_running(self):
-        """Get reports for current Blender PID (app_id)."""
+        """Get reports for current Blender PID (app_id).
+        Blendkit-Client since v1.10 reports also settings.
+        """
         app_id = os.getpid()
         reports = client_lib.get_reports(app_id)
-        self.assertEqual(1, len(reports))
+        self.assertEqual(
+            2,  # task_type=client_report, task_type=settings
+            len(reports),
+            f"Reports were: {reports}",
+        )
         self.assertEqual(reports[0]["app_id"], app_id)
         self.assertEqual(reports[0]["task_type"], "client_status")
+        self.assertEqual(reports[1]["app_id"], app_id)
+        self.assertEqual(reports[1]["task_type"], "settings")
 
     def test_get_reports_another_app_id(self):
-        """Get reports for non-existing Blender PID (app_id)."""
+        """Get reports for non-existing Blender PID (app_id).
+        Blendkit-Client since v1.10 reports also settings.
+        """
         app_id = os.getpid() + 10
         reports = client_lib.get_reports(app_id)
-        self.assertEqual(1, len(reports))
+        self.assertEqual(
+            2,  # task_type=client_report, task_type=settings
+            len(reports),
+            f"Reports were: {reports}",
+        )
         self.assertEqual(reports[0]["app_id"], app_id)
         self.assertEqual(reports[0]["task_type"], "client_status")
+        self.assertEqual(reports[1]["app_id"], app_id)
+        self.assertEqual(reports[1]["task_type"], "settings")
 
 
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
@@ -148,13 +166,16 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
         try:
             response = client_lib.asset_search(data)
             search_task_id = response["task_id"]
+            deadline = time.monotonic() + 20
+            last_status = None
 
             to_download = None
-            for i in range(10):
+            while time.monotonic() < deadline:
                 reports = client_lib.get_reports(os.getpid())
                 for task in reports:
                     if search_task_id != task["task_id"]:
                         continue
+                    last_status = task["status"]
                     if task["status"] == "error":
                         error_msg = task.get("message", "Unknown error")
                         self.fail(f"Search task failed: {error_msg}, query: {urlquery}")
@@ -176,9 +197,10 @@ class Test05SearchAndDownloadAsset(unittest.TestCase):
                                     to_download = result
                         return to_download
 
-                time.sleep(i * 0.1)
+                time.sleep(0.5)
             self.fail(
-                f"Error waiting for search task to be reported as finished, query: {urlquery}"
+                "Error waiting for search task to be reported as finished, "
+                f"last status: {last_status}, query: {urlquery}"
             )
         except Exception as e:
             self.fail(f"Search request failed: {str(e)}, query: {urlquery}")
