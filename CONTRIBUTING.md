@@ -18,7 +18,7 @@ When add-on is registered, it chooses the correct Client binary for the platform
 Communication between Add-on and Client happens in one way direction: add-on schedules Tasks via request and periodically gets updates about the progress and results of the tasks in reponses to the requests:
 `Add-on -> Client -> Server`
 
-1. add-on checks whether the Client is running. If it is not, it starts the Client binary located at `<global-directory>/client/bin/vX.Y.Z/blenderkit-client-<platform>-<architecture>`,
+1. add-on checks whether the Client is running. If it is not, it starts the Client binary located at `<global-directory>/client/bin/vX.Y.Z/bk_client-<platform>-<architecture>`,
 2. add-on periodically asks for results with GET request and Client responds to the request,
 
 3. if needed add-on sends requests (identifying itself with app_id which is PID of running Blender instance) for search, download asset, get notifications, download thumbnails etc. to the Client

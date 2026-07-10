@@ -700,7 +700,7 @@ def check_blenderkit_client_return_code() -> tuple[int, str]:
 
 def start_blenderkit_client():
     """Start Blendkit-client in separate process.
-    1. Check if binary is available at global_dir/client/vX.Y.Z/blenderkit-client-<os>-<arch>(.exe)
+    1. Check if binary is available at global_dir/client/vX.Y.Z/bk_client-<os>-<arch>(.exe)
     2. Copy the binary from add-on directory to global_dir/client/vX.Y.Z/, or fall back
        to running the binary in-place from the add-on directory if the global_dir is not writable.
     3. Start the Blendkit-Client process which serves as bridge between Blendkit add-on and Blendkit server.
@@ -779,12 +779,12 @@ def decide_client_binary_name() -> str:
     We unify the OS and CPU architecture naming to make it more accessible for general public.
     Darwin is renamed to MacOS. The CPU architecture is aligned to x86_64 or arm64.
     Possible return values:
-    - blenderkit-client-windows-x86_64.exe
-    - blenderkit-client-windows-arm64.exe
-    - blenderkit-client-linux-x86_64
-    - blenderkit-client-linux-arm64
-    - blenderkit-client-macos-x86_64
-    - blenderkit-client-macos-arm64
+    - bk_client-windows-x86_64.exe
+    - bk_client-windows-arm64.exe
+    - bk_client-linux-x86_64
+    - bk_client-linux-arm64
+    - bk_client-macos-x86_64
+    - bk_client-macos-arm64
     """
     os_name = platform.system().lower()
     if os_name == "darwin":  # more user-friendly name for macOS
@@ -797,9 +797,9 @@ def decide_client_binary_name() -> str:
         architecture = "arm64"
 
     if os_name == "windows":
-        return f"blenderkit-client-{os_name}-{architecture}.exe".lower()
+        return f"bk_client-{os_name}-{architecture}.exe".lower()
 
-    return f"blenderkit-client-{os_name}-{architecture}".lower()
+    return f"bk_client-{os_name}-{architecture}".lower()
 
 
 def get_client_directory() -> str:

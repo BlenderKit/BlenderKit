@@ -55,7 +55,7 @@ def client_is_responding() -> tuple[bool, str]:
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test01ClientNotRunning(unittest.TestCase):
     def test01_client_not_running(self):
-        """Tests run in background (bpy.app.background == True), so blednerkit-client is not started during registration.
+        """Tests run in background (bpy.app.background == True), so blenderkit-client is not started during registration.
         Also the client_communication_timer() and all other timers are not registered.
         So we expect blenderkit-client to be not running.
         """
@@ -112,20 +112,36 @@ class Test03ClientUtilFunctions(unittest.TestCase):
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")
 class Test04GetReportsClientRunning(unittest.TestCase):
     def test_get_reports_running(self):
-        """Get reports for current Blender PID (app_id)."""
+        """Get reports for current Blender PID (app_id).
+        Blendkit-Client since v1.10 reports also settings.
+        """
         app_id = os.getpid()
         reports = client_lib.get_reports(app_id)
-        self.assertEqual(1, len(reports))
+        self.assertEqual(
+            2,  # task_type=client_report, task_type=settings
+            len(reports),
+            f"Reports were: {reports}",
+        )
         self.assertEqual(reports[0]["app_id"], app_id)
         self.assertEqual(reports[0]["task_type"], "client_status")
+        self.assertEqual(reports[1]["app_id"], app_id)
+        self.assertEqual(reports[1]["task_type"], "settings")
 
     def test_get_reports_another_app_id(self):
-        """Get reports for non-existing Blender PID (app_id)."""
+        """Get reports for non-existing Blender PID (app_id).
+        Blendkit-Client since v1.10 reports also settings.
+        """
         app_id = os.getpid() + 10
         reports = client_lib.get_reports(app_id)
-        self.assertEqual(1, len(reports))
+        self.assertEqual(
+            2,  # task_type=client_report, task_type=settings
+            len(reports),
+            f"Reports were: {reports}",
+        )
         self.assertEqual(reports[0]["app_id"], app_id)
         self.assertEqual(reports[0]["task_type"], "client_status")
+        self.assertEqual(reports[1]["app_id"], app_id)
+        self.assertEqual(reports[1]["task_type"], "settings")
 
 
 @unittest.skipIf(os.getenv("TESTS_TYPE") == "FAST", "slow")

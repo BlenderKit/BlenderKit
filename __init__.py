@@ -105,24 +105,22 @@ if "bpy" in locals():
     reports = reload(reports)
     rereports = reload(reports)
 
-    from .bl_proxor import draw as bl_proxor_draw
-    from .bl_proxor import generate as bl_proxor_generate
-    from .bl_proxor import prx_format as bl_proxor_prx_format
+    from .bk_proxor._blender import draw as bk_proxor_draw
+    from .bk_proxor._blender import generate as bk_proxor_generate
+    from .bk_proxor import prx_format as bk_proxor_prx_format
 
-    bl_proxor_draw = reload(bl_proxor_draw)
-    bl_proxor_generate = reload(bl_proxor_generate)
-    bl_proxor_prx_format = reload(bl_proxor_prx_format)
+    bk_proxor_draw = reload(bk_proxor_draw)
+    bk_proxor_generate = reload(bk_proxor_generate)
+    bk_proxor_prx_format = reload(bk_proxor_prx_format)
 
     bl_ui_widget = reload(bl_ui_widget)
     bl_ui_label = reload(bl_ui_label)
     bl_ui_button = reload(bl_ui_button)
     bl_ui_image = reload(bl_ui_image)
-    # bl_ui_checkbox = reload(bl_ui_checkbox)
-    # bl_ui_slider = reload(bl_ui_slider)
-    # bl_ui_up_down = reload(bl_ui_up_down)
+
     bl_ui_drag_panel = reload(bl_ui_drag_panel)
     bl_ui_draw_op = reload(bl_ui_draw_op)
-    # bl_ui_textbox = reload(bl_ui_textbox)
+
 
 else:
     import bpy
@@ -176,13 +174,9 @@ else:
     from .bl_ui_widgets import bl_ui_button
     from .bl_ui_widgets import bl_ui_image
 
-    # from .bl_ui_widgets import bl_ui_checkbox
-    # from .bl_ui_widgets import bl_ui_slider
-    # from .bl_ui_widgets import bl_ui_up_down
     from .bl_ui_widgets import bl_ui_draw_op
     from .bl_ui_widgets import bl_ui_drag_panel
 
-    # from .bl_ui_widgets import bl_ui_textbox
 
 from math import pi
 
