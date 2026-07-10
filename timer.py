@@ -63,6 +63,52 @@ pending_tasks = (
 # thumbnails faster at the cost of slightly bigger hitches.
 THUMBNAIL_BUILD_TIME_BUDGET = 0.1
 
+# Minimum seconds between Blendkit-Client (re)start attempts. Without this a
+# single transient poll timeout on a busy-but-alive Client would spawn a fresh
+# Client every poll; each duplicate then dies on WSAEADDRINUSE (the old process
+# still owns the port), producing a 10+/minute respawn loop that pins the CPU
+# and makes Blender appear to hang. This acts as a simple circuit breaker.
+CLIENT_RESTART_MIN_INTERVAL = 5.0
+_last_client_start_attempt = 0.0
+
+
+def _maybe_start_client() -> bool:
+    """Start the Blendkit-Client, but only when a (re)start is actually warranted.
+
+    Guards against the respawn loop by refusing to spawn when either:
+      * a Client subprocess we launched is still alive (merely slow to answer -
+        a duplicate would fail to bind the port and die), or
+      * we already attempted a start very recently (rate limit / circuit breaker).
+
+    Returns:
+        True if a Client is running or a start was attempted; False only when a
+        PermissionError blocked the start (caller should back off longer).
+    """
+    global _last_client_start_attempt
+
+    if client_lib.is_client_process_alive():
+        bk_logger.debug(
+            "Blendkit-Client process still alive; skipping respawn on failed poll"
+        )
+        return True
+
+    now = time.monotonic()
+    if now - _last_client_start_attempt < CLIENT_RESTART_MIN_INTERVAL:
+        bk_logger.debug(
+            "Skipping Blendkit-Client restart; last attempt %.1fs ago (< %.1fs)",
+            now - _last_client_start_attempt,
+            CLIENT_RESTART_MIN_INTERVAL,
+        )
+        return True
+
+    _last_client_start_attempt = now
+    try:
+        client_lib.start_blenderkit_client()
+        return True
+    except PermissionError as pe:
+        bk_logger.error("Cannot start client due to permission error: %s", pe)
+        return False
+
 
 def handle_failed_reports(exception: Exception) -> float:
     """Function reacting to failing reports (Client is not accessible).
@@ -91,10 +137,7 @@ def handle_failed_reports(exception: Exception) -> float:
             bk_logger.warning(
                 f"First request for BKClient reports failed unexpectedly: {str(exception).strip()} {type(exception)}"
             )
-        try:
-            client_lib.start_blenderkit_client()
-        except PermissionError as pe:
-            bk_logger.error("Cannot start client due to permission error: %s", pe)
+        if not _maybe_start_client():
             return 5.0  # retry after 5s, user needs to fix permissions first
     else:
         bk_logger.warning(
@@ -122,10 +165,7 @@ def handle_failed_reports(exception: Exception) -> float:
         # The catch is that the error message printed to user is outdated now.
         # But there is not a better solution.
         client_lib.reorder_ports()
-        try:
-            client_lib.start_blenderkit_client()
-        except PermissionError as pe:
-            bk_logger.error("Cannot start client due to permission error: %s", pe)
+        if not _maybe_start_client():
             return 5.0  # retry after 5s, user needs to fix permissions first
     else:  # On FAILED_REPORTS == 12..20,22..30,32..40 we just log into terminal
         bk_logger.warning(log_msg)
