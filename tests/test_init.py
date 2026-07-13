@@ -35,9 +35,6 @@ else:
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     __package__ = os.path.basename(os.path.dirname(__file__))
 
-# raw package > bl_ext.....
-_safe_package_ = __package__.split(".")[-1]
-
 from . import client_lib, global_vars
 
 
@@ -45,7 +42,7 @@ class Test01Registration(unittest.TestCase):
     def test01_global_vars_VERSION_set(self):
         assert global_vars.VERSION is not None
         assert global_vars.VERSION != [0, 0, 0, 0]
-        version = sys.modules[_safe_package_].bl_info["version"]
+        version = sys.modules[__package__].bl_info["version"]
         assert global_vars.VERSION == version
 
     def test02_global_vars_PREFS_set(self):
