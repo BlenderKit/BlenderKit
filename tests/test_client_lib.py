@@ -19,11 +19,10 @@
 import os
 import time
 import unittest
+from unittest import mock
 from urllib.parse import urlparse
 
-import bpy
 import requests
-
 
 # ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
 # ``__package__`` is the add-on's own module - needed by the relative import
@@ -31,7 +30,9 @@ import requests
 # "blenderkit" is unreliable when several blenderkit* add-ons are enabled.
 if __package__:
     __package__ = __package__.rsplit(".tests", 1)[0]
-from . import client_lib, datas, download, paths, utils
+
+
+from . import client_lib, datas, download, global_vars, paths, utils
 
 
 def client_is_responding() -> tuple[bool, str]:
@@ -292,3 +293,274 @@ class Test99ClientStopped(unittest.TestCase):
                 break
             time.sleep(1)
         self.assertFalse(alive)
+
+
+### FAST UNIT TESTS (no running Client required) ###
+
+
+class TestUrlHelpers(unittest.TestCase):
+    """Pure URL/version helpers derived from global_vars."""
+
+    def setUp(self):
+        self._saved_ports = global_vars.CLIENT_PORTS
+        self._saved_version = global_vars.CLIENT_VERSION
+
+    def tearDown(self):
+        global_vars.CLIENT_PORTS = self._saved_ports
+        global_vars.CLIENT_VERSION = self._saved_version
+
+    def test_get_address_uses_first_port(self):
+        global_vars.CLIENT_PORTS = ["12345", "62485"]
+        self.assertEqual(client_lib.get_address(), "http://127.0.0.1:12345")
+
+    def test_get_port_returns_first(self):
+        global_vars.CLIENT_PORTS = ["55555", "62485"]
+        self.assertEqual(client_lib.get_port(), "55555")
+
+    def test_get_api_version_drops_patch(self):
+        global_vars.CLIENT_VERSION = "v1.10.3"
+        self.assertEqual(client_lib.get_api_version(), "v1.10")
+
+    def test_get_base_url_combines_address_and_api_version(self):
+        global_vars.CLIENT_PORTS = ["62485"]
+        global_vars.CLIENT_VERSION = "v1.10.3"
+        self.assertEqual(client_lib.get_base_url(), "http://127.0.0.1:62485/v1.10")
+
+    def test_get_report_url_default_port(self):
+        global_vars.CLIENT_PORTS = ["62485"]
+        global_vars.CLIENT_VERSION = "v1.10.3"
+        self.assertEqual(
+            client_lib.get_report_url(), "http://127.0.0.1:62485/v1.10/report"
+        )
+
+    def test_get_report_url_explicit_port(self):
+        global_vars.CLIENT_VERSION = "v1.10.3"
+        self.assertEqual(
+            client_lib.get_report_url("49452"),
+            "http://127.0.0.1:49452/v1.10/report",
+        )
+
+
+class TestReorderPorts(unittest.TestCase):
+    def setUp(self):
+        self._saved_ports = global_vars.CLIENT_PORTS
+
+    def tearDown(self):
+        global_vars.CLIENT_PORTS = self._saved_ports
+
+    def test_reorder_to_specific_port(self):
+        global_vars.CLIENT_PORTS = ["1", "2", "3", "4"]
+        client_lib.reorder_ports("3")
+        self.assertEqual(global_vars.CLIENT_PORTS, ["3", "4", "1", "2"])
+
+    def test_reorder_default_rotates_by_one(self):
+        global_vars.CLIENT_PORTS = ["1", "2", "3", "4"]
+        client_lib.reorder_ports()
+        self.assertEqual(global_vars.CLIENT_PORTS, ["2", "3", "4", "1"])
+
+    def test_reorder_first_port_is_noop(self):
+        global_vars.CLIENT_PORTS = ["1", "2", "3"]
+        client_lib.reorder_ports("1")
+        self.assertEqual(global_vars.CLIENT_PORTS, ["1", "2", "3"])
+
+
+class TestEnsureMinimalData(unittest.TestCase):
+    def test_fills_defaults(self):
+        with mock.patch.object(
+            client_lib, "_read_api_key_threadsafe", return_value="KEY"
+        ):
+            data = client_lib.ensure_minimal_data()
+        self.assertEqual(data["api_key"], "KEY")
+        self.assertEqual(data["app_id"], os.getpid())
+        self.assertIn("platform_version", data)
+        # addon_version has 4 dot-separated components: X.Y.Z.W
+        self.assertEqual(data["addon_version"].count("."), 3)
+
+    def test_preserves_existing_values(self):
+        data = client_lib.ensure_minimal_data(
+            {"api_key": "existing", "app_id": 42, "extra": "keep"}
+        )
+        self.assertEqual(data["api_key"], "existing")
+        self.assertEqual(data["app_id"], 42)
+        self.assertEqual(data["extra"], "keep")
+
+    def test_none_input_returns_new_dict(self):
+        with mock.patch.object(client_lib, "_read_api_key_threadsafe", return_value=""):
+            data = client_lib.ensure_minimal_data(None)
+        self.assertIsInstance(data, dict)
+
+
+class TestRequestReport(unittest.TestCase):
+    def _make_session(self, resp):
+        session = mock.MagicMock()
+        session.__enter__.return_value = session
+        session.get.return_value = resp
+        return session
+
+    def test_returns_json_on_200(self):
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {"tasks": []}
+        session = self._make_session(resp)
+        with mock.patch.object(client_lib.requests, "Session", return_value=session):
+            result = client_lib.request_report("http://127.0.0.1:1/report", {})
+        self.assertEqual(result, {"tasks": []})
+
+    def test_raises_http_error_on_non_200(self):
+        resp = mock.Mock(status_code=500, text="boom")
+        session = self._make_session(resp)
+        with mock.patch.object(client_lib.requests, "Session", return_value=session):
+            with self.assertRaises(requests.HTTPError):
+                client_lib.request_report("http://127.0.0.1:1/report", {})
+
+
+class TestGetReports(unittest.TestCase):
+    def setUp(self):
+        self._saved_failed = global_vars.CLIENT_FAILED_REPORTS
+        self._saved_ports = global_vars.CLIENT_PORTS
+
+    def tearDown(self):
+        global_vars.CLIENT_FAILED_REPORTS = self._saved_failed
+        global_vars.CLIENT_PORTS = self._saved_ports
+
+    def test_single_request_when_few_failures(self):
+        global_vars.CLIENT_FAILED_REPORTS = 0
+        with (
+            mock.patch.object(client_lib, "build_report_data", return_value={}),
+            mock.patch.object(
+                client_lib, "request_report", return_value=["report"]
+            ) as req,
+        ):
+            result = client_lib.get_reports(123)
+        self.assertEqual(result, ["report"])
+        req.assert_called_once()
+
+    def test_iterates_ports_after_many_failures(self):
+        global_vars.CLIENT_FAILED_REPORTS = 10
+        global_vars.CLIENT_PORTS = ["1", "2", "3"]
+
+        def fake_request(url, data):
+            # Fail on the first port, succeed on the second.
+            if "127.0.0.1:1/" in url:
+                raise requests.ConnectionError("refused")
+            return ["ok"]
+
+        with (
+            mock.patch.object(client_lib, "build_report_data", return_value={}),
+            mock.patch.object(client_lib, "request_report", side_effect=fake_request),
+            mock.patch.object(client_lib, "reorder_ports") as reorder,
+        ):
+            result = client_lib.get_reports(123)
+        self.assertEqual(result, ["ok"])
+        reorder.assert_called_once_with("2")
+
+    def test_raises_last_exception_when_all_ports_fail(self):
+        global_vars.CLIENT_FAILED_REPORTS = 10
+        global_vars.CLIENT_PORTS = ["1", "2"]
+        with (
+            mock.patch.object(client_lib, "build_report_data", return_value={}),
+            mock.patch.object(
+                client_lib,
+                "request_report",
+                side_effect=requests.ConnectionError("refused"),
+            ),
+        ):
+            with self.assertRaises(requests.ConnectionError):
+                client_lib.get_reports(123)
+
+
+class TestClientProcessState(unittest.TestCase):
+    def setUp(self):
+        self._saved_proc = global_vars.client_process
+
+    def tearDown(self):
+        global_vars.client_process = self._saved_proc
+
+    def test_is_alive_false_when_no_process(self):
+        global_vars.client_process = None
+        self.assertFalse(client_lib.is_client_process_alive())
+
+    def test_is_alive_true_when_running(self):
+        global_vars.client_process = mock.Mock(poll=mock.Mock(return_value=None))
+        self.assertTrue(client_lib.is_client_process_alive())
+
+    def test_is_alive_false_when_exited(self):
+        global_vars.client_process = mock.Mock(poll=mock.Mock(return_value=0))
+        self.assertFalse(client_lib.is_client_process_alive())
+
+    def test_return_code_none_process(self):
+        global_vars.client_process = None
+        code, msg = client_lib.check_blenderkit_client_return_code()
+        self.assertEqual(code, -2)
+
+    def test_return_code_still_running(self):
+        global_vars.client_process = mock.Mock(poll=mock.Mock(return_value=None))
+        code, msg = client_lib.check_blenderkit_client_return_code()
+        self.assertEqual(code, -1)
+
+    def test_return_code_address_in_use(self):
+        global_vars.client_process = mock.Mock(poll=mock.Mock(return_value=43))
+        code, msg = client_lib.check_blenderkit_client_return_code()
+        self.assertEqual(code, 43)
+        self.assertIn("Address already in use", msg)
+
+    def test_return_code_access_denied(self):
+        global_vars.client_process = mock.Mock(poll=mock.Mock(return_value=44))
+        code, msg = client_lib.check_blenderkit_client_return_code()
+        self.assertEqual(code, 44)
+        self.assertIn("Access denied", msg)
+
+
+class TestDecideClientBinaryName(unittest.TestCase):
+    def test_windows_amd64(self):
+        with (
+            mock.patch.object(client_lib.platform, "system", return_value="Windows"),
+            mock.patch.object(client_lib.platform, "machine", return_value="AMD64"),
+        ):
+            self.assertEqual(
+                client_lib.decide_client_binary_name(),
+                "bk_client-windows-x86_64.exe",
+            )
+
+    def test_linux_aarch64(self):
+        with (
+            mock.patch.object(client_lib.platform, "system", return_value="Linux"),
+            mock.patch.object(client_lib.platform, "machine", return_value="aarch64"),
+        ):
+            self.assertEqual(
+                client_lib.decide_client_binary_name(),
+                "bk_client-linux-arm64",
+            )
+
+    def test_macos_renamed_from_darwin(self):
+        with (
+            mock.patch.object(client_lib.platform, "system", return_value="Darwin"),
+            mock.patch.object(client_lib.platform, "machine", return_value="arm64"),
+        ):
+            self.assertEqual(
+                client_lib.decide_client_binary_name(),
+                "bk_client-macos-arm64",
+            )
+
+
+class TestClientLogPath(unittest.TestCase):
+    def setUp(self):
+        self._saved_ports = global_vars.CLIENT_PORTS
+
+    def tearDown(self):
+        global_vars.CLIENT_PORTS = self._saved_ports
+
+    def test_default_port_names_default_log(self):
+        global_vars.CLIENT_PORTS = ["62485"]
+        with mock.patch.object(
+            client_lib, "get_client_directory", return_value=os.sep + "logs"
+        ):
+            log_path = client_lib.get_client_log_path()
+        self.assertTrue(log_path.endswith("default.log"))
+
+    def test_non_default_port_names_client_log(self):
+        global_vars.CLIENT_PORTS = ["49452"]
+        with mock.patch.object(
+            client_lib, "get_client_directory", return_value=os.sep + "logs"
+        ):
+            log_path = client_lib.get_client_log_path()
+        self.assertTrue(log_path.endswith("client-49452.log"))
