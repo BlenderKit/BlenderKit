@@ -2721,14 +2721,16 @@ In this case you should also set path to your system CA bundle containing proxy'
             validator_box.label(text="Validator Settings")
             validator_box.prop(self, "categories_fix")
 
-        # REPORT PATHS
+        # REPORT BUG BUTTON
         report_settings = layout.box()
         report_settings.label(text="Report a Bug")
-        report_settings.label(
-            text="Create an issue report with version information to help us resolve the issue faster.",
+        report_row = report_settings.row()
+        report_row.operator(
+            "wm.blenderkit_report_bug", text="Open Bug Report", icon="ERROR"
         )
-        report_settings.operator(
-            "wm.blenderkit_report_bug", text="Submit Full Bug Report", icon="ERROR"
+        # report_row.label(text=f"Blendkit v{utils.get_addon_version()} · Blender {bpy.app.version_string}", icon="INFO")
+        report_row.operator(
+            "wm.blenderkit_copy_environment_info", text="Copy Info", icon="COPYDOWN"
         )
 
         # FILE PATHS
