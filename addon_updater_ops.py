@@ -1135,15 +1135,6 @@ def update_settings_ui(self, context, element=None):
     else:
         row.label(text="Last update check: Never")
 
-    version_row = box.row()
-    version_row.label(
-        text=f"Blendkit v{utils.get_addon_version()} · Blender {bpy.app.version_string}",
-        icon="INFO",
-    )
-    version_row.operator(
-        "wm.blenderkit_copy_environment_info", text="Copy Info", icon="COPYDOWN"
-    )
-
 
 def update_settings_ui_condensed(self, context, element=None):
     """Preferences - Condensed drawing within preferences.

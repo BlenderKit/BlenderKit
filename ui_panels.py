@@ -1548,55 +1548,91 @@ class OpenBlenderKitDiscord(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def get_environment_info() -> str:
-    """Get formatted environment info for bug reports and clipboard."""
+def get_environment_info() -> dict:
+    info = {}
     ver = global_vars.VERSION
-    addon_ver = f"{ver[0]}.{ver[1]}.{ver[2]}.{ver[3]}"
-    blender_ver = bpy.app.version_string
-    os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
-    user_preferences = bpy.context.preferences.addons[__package__].preferences
-    proxy = user_preferences.proxy_which
-    python_ver = (
-        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    )
+    info["addon_version"] = f"{ver[0]}.{ver[1]}.{ver[2]}.{ver[3]}"
+    info["blender_version"] = bpy.app.version_string
+    info["python_version"] = sys.version
+    info["os"] = f"{platform.system()} {platform.release()} ({platform.machine()})"
+    info["proxy_which"] = bpy.context.preferences.addons[
+        __package__
+    ].preferences.proxy_which
+    info["proxy_address"] = bpy.context.preferences.addons[
+        __package__
+    ].preferences.proxy_address
+    info["trusted_ca_certs"] = bpy.context.preferences.addons[
+        __package__
+    ].preferences.trusted_ca_certs
+    info["ssl_context"] = bpy.context.preferences.addons[
+        __package__
+    ].preferences.ssl_context
+    info["ip_version"] = bpy.context.preferences.addons[
+        __package__
+    ].preferences.ip_version
+    return info
+
+
+def get_environment_info_string() -> str:
+    """Get formatted environment info for bug reports and clipboard."""
+    info = get_environment_info()
+    proxy = f"{info['proxy_which']}"
+    if info["proxy_which"] == "CUSTOM":
+        proxy += f" ({info['proxy_address']})"
     return (
-        f"- Blendkit version: v{addon_ver}\n"
-        f"- Blender version: v{blender_ver} (from: )\n"
-        f"- Python version: {python_ver}\n"
-        f"- Operating system & architecture: {os_info}\n"
+        f"- Blendkit version: v{info['addon_version']}\n"
+        f"- Blender version: v{info['blender_version']} (from: )\n"
+        f"- Python version: {info['python_version']}\n"
+        f"- Operating system & architecture: {info['os']}\n"
         f"- Proxy setting: {proxy}\n"
-        f"- Using VPN, proxy, or firewall? "
+        f"- Trusted CA certs path: {info['trusted_ca_certs']}\n"
+        f"- SSL verification: {info['ssl_context']}\n"
+        f"- IP version: {info['ip_version']}\n"
+        "- Using VPN, proxy, or firewall? "
     )
 
 
 class CopyEnvironmentInfo(bpy.types.Operator):
-    """Copy Blendkit and Blender version information to clipboard"""
+    """Copy the BlendKit and Blender versions, operating system, and other environment details to the clipboard.
+    Include this information in your bug report or support email to help us diagnose the issue"""  # fmt: skip
 
     bl_idname = "wm.blenderkit_copy_environment_info"
     bl_label = "Copy Environment Info"
 
     def execute(self, context):
-        context.window_manager.clipboard = get_environment_info()
-        self.report({"INFO"}, "Environment info copied to clipboard")
+        context.window_manager.clipboard = get_environment_info_string()
+        bk_logger.info("Environment info copied to clipboard")
         return {"FINISHED"}
 
 
 def get_report_bug_url() -> str:
-    """Build GitHub issue URL with pre-filled environment information."""
-    env_info = get_environment_info()
-    description_body = (
-        f"When I...\n\n### Environment Information - Bug happens on:\n{env_info}"
-    )
+    """Build GitHub issue URL with pre-filled environment information.
+    Do not set the title and description, we require the user to fill those fields manually.
+    File is located at: .github/ISSUE_TEMPLATE/bug-report-prefilled.yaml
+    """
+
+    info = get_environment_info()
+    proxy = f"{info['proxy_which']}"
+    if info["proxy_which"] == "CUSTOM":
+        proxy += f" ({info['proxy_address']})"
+
     return (
         "https://github.com/BlenderKit/blenderkit/issues/new"
-        f"?template=bug-report.yaml"
-        f"&title={quote('Blendkit bug: ')}"
-        f"&description={quote(description_body)}"
+        f"?template=bug-report-prefilled.yaml"
+        f"&blendkit_version={quote(info['addon_version'])}"
+        f"&blender_version={quote(info['blender_version'])}"
+        f"&operating_system={quote(info['os'])}"
+        f"&python_version={quote(info['python_version'])}"
+        f"&proxy={quote(proxy)}"
+        f"&ip_version={quote(info['ip_version'])}"
+        f"&ssl_context={quote(info['ssl_context'])}"
+        f"&trusted_ca_certs={quote(info['trusted_ca_certs'])}"
     )
 
 
 class ReportBug(bpy.types.Operator):
-    """Open GitHub issue page with pre-filled environment information"""
+    """Open a prefilled GitHub issue in your browser. The report includes BlendKit and Blender versions,
+    operating system info, and other environment details which help us diagnose your problem"""  # fmt: skip
 
     bl_idname = "wm.blenderkit_report_bug"
     bl_label = "Report a Bug"
