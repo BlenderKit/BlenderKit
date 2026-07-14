@@ -2,16 +2,61 @@
 
 Blendkit add-on is an open-source project and we welcome contributions from the community.
 
+1. Clone the repo: `git clone https://github.com/blenderkit/blenderkit --recursive` (recursive is needed as repository uses submodules [bk_client](https://github.com/BlenderKit/bk_client) and [bk_proxor](https://github.com/BlenderKit/bk_proxor)).
+2. Make sure Python is available: `python --version`, if not install Python.
+3. Make sure Go is available: `go version`, if not install Go.
+4. Build the add-on: `python dev.py build`, the .zip file is located in `./out` directory.
+
+## Building the add-on
+
+Use `dev.py` script to build the add-on.
+This script will copy relevant files to `out/blenderkit` directory (ignoring all files which are not needed in the add-on).
+From this source the script will then create a zip file at `out/blenderkit.zip`.
+This zip then can be used as a release of Blendkit.
+
+To build run:
+```
+python dev.py build
+```
+
+### Development build
+
+Script `dev.py` provides handy option `--install-at` to copy the `out/blenderkit` directly to Blender so you can quickly test the build just by starting the Blender without any further steps or symbolic links.
+Just specify path to addons directory in `--install-at` flag.
+Script will then remove old `Blendkit` directory in addons location and replace it with current build.
+
+To build and copy to Blender 4.2.x addons directory and also clean blenderkit_data, run:
+
+```
+python dev.py build --install-at /path/to/blender/4.2/scripts/addons --clean-dir /Users/username/blenderkit_data/client/bin
+```
+
+To build and copy to Blender 4.2.x as extension, run:
+
+```
+python dev.py build --install-at /path/to/blender/4.2/extensions/user_default --clean-dir /Users/username/blenderkit_data/client/bin
+```
+
+NOTE: --clean-dir is required if you change anything in the bk_client, otherwise add-on will not copy the new binaries over the old ones.
+We recommend using this command to clean all client binaries, while enabling you to continuously tail -f default.log file:
+
+```
+python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir /Users/username/blenderkit_data/client/bin
+```
+
 ## Add-on Architecture
 Blendkit add-on is made of two main parts:
 - Blender add-on written in Python, which is responsible for the user interface and interaction with Blender. It draws the search panel, does the snaping, asset imports, and communicates with the Client locally.
-- Client written in Go, which serves as background HTTP server - a bridge between Blendkit add-on and Blendkit server. It's purpose is to offload the work from Blender and to provide a performant way to communicate with Blendkit server.
+- [bk_client](https://github.com/BlenderKit/bk_client) written in Go, which serves as background HTTP server - a bridge between Blendkit add-on and Blendkit server. It's purpose is to offload the work from Blender and to provide a performant way to communicate with Blendkit server.
 
-Client is compiled and it's binaries are bundled into the add-on .zip file, so the user does not need to install anything else than the add-on itself.
+bk_client is compiled and it's binaries are bundled into the add-on .zip file, so the user does not need to install anything else than the add-on itself.
+bk_client is included as a git submodule, its codebase and building scripts are part of the separate repository https://github.com/BlenderKit/bk_client.
+
+Another submodule is [bk_proxor](https://github.com/BlenderKit/bk_proxor), which is responsible for the 3D visualisation of models during drag and drop.
 
 ### How it is packaged
 Blendkit add-on is packaged as a zip file (standard way for Blender add-ons), which contains all the necessary files for the add-on to work.
-This includes not only the Python files, icons and other files, but also the Client binaries for 3 platforms on 2 architectures (windows x86_64, windows arm64, macos x86_64, macos arm64, linux x86_64, linux arm64).
+This includes not only the Python files, icons and other files, but also the [bk_client](https://github.com/BlenderKit/bk_client) binaries for 3 platforms on 2 architectures (windows x86_64, windows arm64, macos x86_64, macos arm64, linux x86_64, linux arm64).
 When add-on is registered, it chooses the correct Client binary for the platform and architecture and copies it to the user's Blendkit data directory, from this location the Client is later started.
 
 ### How it works
@@ -20,14 +65,13 @@ Communication between Add-on and Client happens in one way direction: add-on sch
 
 1. add-on checks whether the Client is running. If it is not, it starts the Client binary located at `<global-directory>/client/bin/vX.Y.Z/bk_client-<platform>-<architecture>`,
 2. add-on periodically asks for results with GET request and Client responds to the request,
-
-3. if needed add-on sends requests (identifying itself with app_id which is PID of running Blender instance) for search, download asset, get notifications, download thumbnails etc. to the Client
+3. if needed add-on sends requests (identifying itself with app_id which is PID of running Blender instance) for search, download asset, get notifications, download thumbnails etc. to the Client,
 4. Client receives the request for work, saves it into `var Tasks map[int]map[string]*Task` and ASAP responds by OK to not block the add-on,
 5. Client starts the work in goroutine, or makes request to Blendkit server, or combination of both,
 6. When work is done, or response comes from Blendkit server, Client updates the results into `var Tasks map[int]map[string]*Task`.
 7. next time when add-on periodically asks for results of the Tasks, Client sends the results as response.
 
-Communication between Client and Server currently happens in one way also Client -> Server (Client makes requests to Server).
+Communication between Client and Server currently happens also in one way Client -> Server (Client makes requests to Server).
 
 ## Development
 
@@ -88,51 +132,6 @@ We are migrating towards `ruff` as well, but it is not required yet.
 Please run `ruff` on files you have edited and try to fix all the errors.
 Slowly we will add the ruff as a required check in CI/CD.
 
-### Building the add-on
-
-Use `dev.py` script to build the add-on.
-This script will copy relevant files to `out/blenderkit` directory (ignoring all files which are not needed in the add-on).
-From this source the script will then create a zip file at `out/blenderkit.zip`.
-This zip then can be used as a release of Blendkit.
-
-To build run:
-```
-python dev.py build
-```
-
-#### Development build: build for quick testing
-
-Script `dev.py` provides handy option `--install-at` to copy the `out/blenderkit` directly to Blender so you can quickly test the build just by starting the Blender without any further steps.
-Just specify path to addons directory in `--install-at` flag.
-Script will then remove old `Blendkit` directory in addons location and replace it with current build.
-
-To build and copy to Blender 4.2.x addons directory and also clean blenderkit_data, run:
-
-```
-python dev.py build --install-at /path/to/blender/4.2/scripts/addons --clean-dir /Users/username/blenderkit_data
-```
-
-To build and copy to Blender 4.2.x as extension, run:
-
-```
-python dev.py build --install-at /path/to/blender/4.2/extensions/user_default --clean-dir /Users/username/blenderkit_data
-```
-
-NOTE: --clean-dir is required if you change anything in the blenderkit-client, otherwise add-on will not copy the new binaries over the old ones.
-We recommend using this command to clean all client binaries, while enabling you to continuously tail -f default.log file:
-
-```
-python dev.py build --install-at /path/to/blender/4.0/scripts/addons --clean-dir /Users/username/blenderkit_data/client/bin
-```
-
-## Releasing
-
-Before release update the add-on version in `__init__.py` (in bl_info and VERSION variable) and `client/VERSION`, make sure it is merged in `main` branch.
-
-1. go to Github Actions, choose `Release` workflow
-2. insert the version in format `X.Y.Z.YYMMDD` (e.g. `3.12.2.240722`), this has to be same as in `__init__.py`.
-3. set Release Stage to `alpha`, `beta`, `rc` or `gold` for final release
-4. once finished, the release draft is available in Github Releases
 
 ## Testing
 
