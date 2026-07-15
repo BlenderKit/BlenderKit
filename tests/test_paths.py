@@ -16,11 +16,13 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import os
 import pathlib
+import tempfile
 import unittest
+from unittest import mock
 
 import bpy
-
 
 # ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
 # ``__package__`` is the add-on's own module - needed by the relative import
@@ -219,3 +221,226 @@ class TestExtractFilenameFromUrl(unittest.TestCase):
                 expected,
                 msg=f'extract_filename_from_url("{url}")="{result}"; expected:"{expected}"',
             )
+
+
+class _FakeAssetLibrary:
+    """Minimal stand-in for a Blender asset library entry."""
+
+    def __init__(self, name, path):
+        self.name = name
+        self.path = path
+
+    def __repr__(self):  # helps test failure messages
+        return f"_FakeAssetLibrary(name={self.name!r}, path={self.path!r})"
+
+
+class _FakeAssetLibraries:
+    """Minimal stand-in for ``preferences.filepaths.asset_libraries``."""
+
+    def __init__(self, libs=None):
+        self._libs = list(libs or [])
+
+    def __iter__(self):
+        return iter(self._libs)
+
+    def __len__(self):
+        return len(self._libs)
+
+    def get(self, name):
+        for lib in self._libs:
+            if lib.name == name:
+                return lib
+        return None
+
+    def new(self, name="", directory=""):
+        lib = _FakeAssetLibrary(name, directory)
+        self._libs.append(lib)
+        return lib
+
+    def remove(self, lib):
+        self._libs.remove(lib)
+
+
+class _FakePrefs:
+    def __init__(self, create_asset_library, global_dir):
+        self.create_asset_library = create_asset_library
+        self.global_dir = global_dir
+
+
+class _AssetLibraryTestBase(unittest.TestCase):
+    """Injects a fake ``bpy`` into ``paths`` so the asset-library functions can
+    be exercised even though the test suite runs in ``--background`` (where the
+    real functions early-return)."""
+
+    def _patch_bpy(self, *, background, asset_libraries, prefs):
+        fake_bpy = mock.MagicMock()
+        fake_bpy.app.background = background
+        # ``_normalize_path`` calls ``bpy.path.abspath``; identity keeps our
+        # already-absolute test paths intact.
+        fake_bpy.path.abspath = lambda p: p
+        fake_bpy.context.preferences.filepaths.asset_libraries = asset_libraries
+        addon_entry = mock.MagicMock()
+        addon_entry.preferences = prefs
+        fake_bpy.context.preferences.addons.__getitem__.return_value = addon_entry
+        patcher = mock.patch.object(paths, "bpy", fake_bpy)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return fake_bpy
+
+    def _names_paths(self, libraries):
+        return [(lib.name, lib.path) for lib in libraries]
+
+
+class TestEnsureAssetLibraryPath(_AssetLibraryTestBase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.global_dir = os.path.normpath(os.path.abspath(self._tmp.name))
+
+    def test_disabled_makes_no_changes(self):
+        """With the preference off, nothing is added, even if entries exist."""
+        libs = _FakeAssetLibraries([_FakeAssetLibrary("Essentials", "/essentials")])
+        prefs = _FakePrefs(create_asset_library=False, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        result = paths.ensure_asset_library_path(self.global_dir)
+
+        self.assertIsNone(result)
+        self.assertEqual(self._names_paths(libs), [("Essentials", "/essentials")])
+
+    def test_background_makes_no_changes(self):
+        """In background mode the function must early-return untouched."""
+        libs = _FakeAssetLibraries([_FakeAssetLibrary("Essentials", "/essentials")])
+        prefs = _FakePrefs(create_asset_library=True, global_dir=self.global_dir)
+        self._patch_bpy(background=True, asset_libraries=libs, prefs=prefs)
+
+        result = paths.ensure_asset_library_path(self.global_dir)
+
+        self.assertIsNone(result)
+        self.assertEqual(self._names_paths(libs), [("Essentials", "/essentials")])
+
+    def test_creates_entry_when_missing(self):
+        """Adds our named entry and leaves existing libraries untouched."""
+        essentials = _FakeAssetLibrary("Essentials", "/essentials")
+        user_lib = _FakeAssetLibrary("MyLib", "/my/lib")
+        libs = _FakeAssetLibraries([essentials, user_lib])
+        prefs = _FakePrefs(create_asset_library=True, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        result = paths.ensure_asset_library_path(self.global_dir)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.name, paths.ASSET_LIBRARY_NAME)
+        self.assertEqual(
+            paths._normalize_path(result.path),
+            paths._normalize_path(self.global_dir),
+        )
+        # Pre-existing libraries are unchanged.
+        self.assertEqual(essentials.name, "Essentials")
+        self.assertEqual(essentials.path, "/essentials")
+        self.assertEqual(user_lib.name, "MyLib")
+        self.assertEqual(user_lib.path, "/my/lib")
+
+    def test_does_not_hijack_foreign_library_at_same_path(self):
+        """A non-Blendkit library that already points at the target path must
+        NOT be renamed; a separate Blendkit entry is created instead."""
+        foreign = _FakeAssetLibrary("SomeUserLibrary", self.global_dir)
+        libs = _FakeAssetLibraries([foreign])
+        prefs = _FakePrefs(create_asset_library=True, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        result = paths.ensure_asset_library_path(self.global_dir)
+
+        # Foreign library keeps its original name.
+        self.assertEqual(foreign.name, "SomeUserLibrary")
+        # Our own entry was created separately.
+        self.assertIsNotNone(result)
+        self.assertEqual(result.name, paths.ASSET_LIBRARY_NAME)
+        self.assertIsNot(result, foreign)
+        blendkit_entries = [lib for lib in libs if lib.name == paths.ASSET_LIBRARY_NAME]
+        self.assertEqual(len(blendkit_entries), 1)
+
+    def test_repoints_only_blendkit_entry(self):
+        """An existing Blendkit entry is repointed; others are left alone."""
+        essentials = _FakeAssetLibrary("Essentials", "/essentials")
+        blendkit = _FakeAssetLibrary(paths.ASSET_LIBRARY_NAME, "/old/blendkit/dir")
+        libs = _FakeAssetLibraries([essentials, blendkit])
+        prefs = _FakePrefs(create_asset_library=True, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        result = paths.ensure_asset_library_path(self.global_dir)
+
+        self.assertIs(result, blendkit)
+        self.assertEqual(
+            paths._normalize_path(blendkit.path),
+            paths._normalize_path(self.global_dir),
+        )
+        self.assertEqual(essentials.path, "/essentials")
+        # No duplicate entry was created.
+        self.assertEqual(len(libs), 2)
+
+    def test_no_duplicate_when_already_correct(self):
+        """Existing Blendkit entry at the right path is returned unchanged."""
+        blendkit = _FakeAssetLibrary(paths.ASSET_LIBRARY_NAME, self.global_dir)
+        libs = _FakeAssetLibraries([blendkit])
+        prefs = _FakePrefs(create_asset_library=True, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        result = paths.ensure_asset_library_path(self.global_dir)
+
+        self.assertIs(result, blendkit)
+        self.assertEqual(len(libs), 1)
+
+
+class TestRemoveAssetLibraryPath(_AssetLibraryTestBase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.global_dir = os.path.normpath(os.path.abspath(self._tmp.name))
+
+    def test_removes_matching_entry(self):
+        """Removes our entry when it points at the Blendkit global dir."""
+        essentials = _FakeAssetLibrary("Essentials", "/essentials")
+        blendkit = _FakeAssetLibrary(paths.ASSET_LIBRARY_NAME, self.global_dir)
+        libs = _FakeAssetLibraries([essentials, blendkit])
+        prefs = _FakePrefs(create_asset_library=False, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        paths.remove_asset_library_path()
+
+        self.assertEqual(self._names_paths(libs), [("Essentials", "/essentials")])
+
+    def test_keeps_entry_with_foreign_path(self):
+        """A 'Blendkit'-named entry NOT pointing at our dir is assumed
+        user-owned and must be preserved."""
+        blendkit_like = _FakeAssetLibrary(paths.ASSET_LIBRARY_NAME, "/user/blendkit")
+        libs = _FakeAssetLibraries([blendkit_like])
+        prefs = _FakePrefs(create_asset_library=False, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        paths.remove_asset_library_path()
+
+        self.assertEqual(len(libs), 1)
+        self.assertIs(libs.get(paths.ASSET_LIBRARY_NAME), blendkit_like)
+
+    def test_noop_when_no_entry(self):
+        """No Blendkit entry present -> other libraries stay intact."""
+        essentials = _FakeAssetLibrary("Essentials", "/essentials")
+        libs = _FakeAssetLibraries([essentials])
+        prefs = _FakePrefs(create_asset_library=False, global_dir=self.global_dir)
+        self._patch_bpy(background=False, asset_libraries=libs, prefs=prefs)
+
+        paths.remove_asset_library_path()
+
+        self.assertEqual(self._names_paths(libs), [("Essentials", "/essentials")])
+
+    def test_background_makes_no_changes(self):
+        """In background mode the function must early-return untouched."""
+        blendkit = _FakeAssetLibrary(paths.ASSET_LIBRARY_NAME, self.global_dir)
+        libs = _FakeAssetLibraries([blendkit])
+        prefs = _FakePrefs(create_asset_library=False, global_dir=self.global_dir)
+        self._patch_bpy(background=True, asset_libraries=libs, prefs=prefs)
+
+        paths.remove_asset_library_path()
+
+        self.assertEqual(len(libs), 1)
