@@ -33,6 +33,11 @@ from typing import Optional
 import bpy
 from mathutils import Vector
 
+# Cached result of available_render_engines(). Blender's EnumProperty items
+# callback must keep a persistent Python reference to the returned strings,
+# otherwise it may misbehave or crash. None means "not computed yet".
+_RENDER_ENGINES_CACHE = None
+
 
 def available_render_engines(self, context):
     """Return a list of available render engines in the current Blender instance.
@@ -40,11 +45,22 @@ def available_render_engines(self, context):
     Defined before the relative imports below so it is available even while the
     package is still being imported (avoids a circular import when EnumProperty
     definitions reference it at class-body time).
+
+    The result is cached in a module-level variable. Blender requires that an
+    EnumProperty items callback keeps a persistent Python reference to the
+    returned strings, otherwise it "may misbehave or even crash". Caching also
+    avoids re-probing the render engines (which triggers an exception on every
+    redraw) each time the callback fires.
     """
+    global _RENDER_ENGINES_CACHE
+    if _RENDER_ENGINES_CACHE is not None:
+        return _RENDER_ENGINES_CACHE
+
     # ble < 5.1  --> only cycles
     minimal = [("CYCLES", "Cycles", "Blender Cycles")]
     if bpy.app.version < (5, 1, 0):
-        return minimal
+        _RENDER_ENGINES_CACHE = minimal
+        return _RENDER_ENGINES_CACHE
 
     # hacky way to get render engines, but blender does not provide a better way to get them, so we have to use this
     re_engines = []
@@ -61,7 +77,8 @@ def available_render_engines(self, context):
                 1::2
             ]  # every other item after splitting on '
     if not re_engines:
-        return minimal
+        _RENDER_ENGINES_CACHE = minimal
+        return _RENDER_ENGINES_CACHE
 
     out = []
 
@@ -77,10 +94,12 @@ def available_render_engines(self, context):
         except:
             pass
     if not out:
-        return minimal
+        _RENDER_ENGINES_CACHE = minimal
+        return _RENDER_ENGINES_CACHE
     # move cycles to the top of the list, as it's the most common engine
     out.sort(key=lambda x: (x[0] != "CYCLES", x[0]))
-    return out
+    _RENDER_ENGINES_CACHE = out
+    return _RENDER_ENGINES_CACHE
 
 
 # Fields of the BlenderKitThumbnailSettings property group that are persisted.

@@ -36,7 +36,6 @@ import sys
 from importlib import reload
 from os import path
 
-
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception as e:
@@ -2733,6 +2732,16 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
         gui_settings.prop(self, "proxor_enabled")
+
+        # THUMBNAIL SETTINGS
+        # These are machine-level preferences that should be set once, not
+        # toggled in every thumbnail render dialog.
+        thumbnail_settings = layout.box()
+        thumbnail_settings.alignment = "EXPAND"
+        thumbnail_settings.label(text="Thumbnail settings")
+        thumbnail_settings.prop(self.thumbnail_settings, "thumbnail_use_gpu")
+        if utils.elevated_experimental_enabled():
+            thumbnail_settings.prop(self.thumbnail_settings, "thumbnail_render_engine")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()

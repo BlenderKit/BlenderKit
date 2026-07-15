@@ -104,8 +104,9 @@ def set_render_engine(scene: Any, requested_engine: str) -> str:
 
     Args:
         scene: The Blender scene to configure.
-        requested_engine: The engine identifier coming from the addon
-            ("CYCLES", "EEVEE" or "EEVEE_NEXT").
+        requested_engine: The engine identifier coming from the addon. This is a
+            real Blender engine id as produced by ``utils.available_render_engines``
+            (e.g. "CYCLES", "BLENDER_EEVEE_NEXT"), not a shorthand like "EEVEE".
 
     Returns:
         The engine identifier that was actually set on the scene.
@@ -503,7 +504,7 @@ if __name__ == "__main__":
         if render_engine == "CYCLES":
             scene.cycles.samples = data["thumbnail_samples"]
             bpy.context.view_layer.cycles.use_denoising = data["thumbnail_denoising"]
-        else:
+        elif "EEVEE" in render_engine:
             # Eevee uses TAA render samples instead of Cycles samples.
             scene.eevee.taa_render_samples = data["thumbnail_samples"]
             set_hq_eevee_settings(scene)
@@ -542,7 +543,10 @@ if __name__ == "__main__":
                 ob.hide_viewport = True
                 ob.hide_set(True)
 
-        place_light_probe(bpy.context.scene, allobs)
+        # Light probe is an Eevee-only irradiance volume; baking it for Cycles
+        # wastes time and has no effect, so only place it for non-Cycles engines.
+        if render_engine != "CYCLES":
+            place_light_probe(bpy.context.scene, allobs)
 
         bpy.context.view_layer.update()
 

@@ -36,7 +36,6 @@ from bpy.props import (
 
 from . import bg_blender, paths, tasks_queue, utils, upload, search
 
-
 bk_logger = logging.getLogger(__name__)
 BLENDKIT_EXPORT_DATA_FILE = "data.json"
 
@@ -628,8 +627,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         # so the render engine and background lightness are only shown for
         # regular thumbnails. The render engine choice is an elevated
         # (validator-only) experimental option.
-        if utils.elevated_experimental_enabled() and not is_wire:
-            layout.prop(settings, "thumbnail_render_engine")
         if not is_wire:
             layout.prop(settings, "thumbnail_background_lightness")
         # for printable models
@@ -640,7 +637,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_resolution")
         layout.prop(settings, "thumbnail_denoising")
-        layout.prop(settings, "thumbnail_use_gpu")
         layout.prop(settings, "thumbnail_disable_subdivision")
 
     def execute(self, context):
@@ -805,8 +801,6 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(self, "render_locally")
         layout.label(text="Server-side rendering may take several hours", icon="INFO")
         layout.label(text="thumbnailer settings")
-        if utils.elevated_experimental_enabled():
-            layout.prop(settings, "thumbnail_render_engine")
         layout.prop(settings, "thumbnail_background_lightness")
         # for printable models
         asset_type = (
@@ -821,7 +815,6 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_resolution")
         layout.prop(settings, "thumbnail_denoising")
-        layout.prop(settings, "thumbnail_use_gpu")
         layout.prop(settings, "thumbnail_disable_subdivision")
 
     def execute(self, context):
@@ -934,8 +927,6 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         ui_panels.set_overlay_panel_active()
         layout = self.layout
         settings = get_thumbnail_settings()
-        if utils.elevated_experimental_enabled():
-            layout.prop(settings, "thumbnail_render_engine")
         layout.prop(settings, "thumbnail_generator_type")
         layout.prop(settings, "thumbnail_scale")
         layout.prop(settings, "thumbnail_background")
@@ -945,7 +936,6 @@ class GenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_denoising")
         layout.prop(settings, "adaptive_subdivision")
-        layout.prop(settings, "thumbnail_use_gpu")
 
     def execute(self, context):
         asset = bpy.context.active_object.active_material
@@ -1056,8 +1046,6 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout = self.layout
         layout.prop(self, "render_locally")
         layout.label(text="Server-side rendering may take several hours", icon="INFO")
-        if utils.elevated_experimental_enabled():
-            layout.prop(settings, "thumbnail_render_engine")
         layout.prop(settings, "thumbnail_generator_type")
         layout.prop(settings, "thumbnail_scale")
         layout.prop(settings, "thumbnail_background")
@@ -1067,7 +1055,6 @@ class ReGenerateMaterialThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_denoising")
         layout.prop(settings, "adaptive_subdivision")
-        layout.prop(settings, "thumbnail_use_gpu")
 
     def execute(self, context):
         if not self.asset_index > -1:
