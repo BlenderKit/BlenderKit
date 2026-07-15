@@ -32,7 +32,6 @@ import bpy
 
 from . import client_lib, global_vars, reports, utils
 
-
 bk_logger = logging.getLogger(__name__)
 
 BLENDKIT_API = f"{global_vars.SERVER}/api/v1"
@@ -313,6 +312,36 @@ def ensure_asset_library_path(
         if hasattr(asset_libraries, "get")
         else None
     )
+
+
+def remove_asset_library_path():
+    """Remove the Blendkit asset library entry from Blender's asset library list.
+
+    Removes the library named ``ASSET_LIBRARY_NAME`` if it is present. Does
+    nothing in background mode or when the entry does not exist.
+    """
+    if bpy.app.background:
+        return
+
+    filepaths = getattr(bpy.context.preferences, "filepaths", None)
+    asset_libraries = getattr(filepaths, "asset_libraries", None) if filepaths else None
+    if asset_libraries is None:
+        return
+
+    existing = (
+        asset_libraries.get(ASSET_LIBRARY_NAME)
+        if hasattr(asset_libraries, "get")
+        else None
+    )
+    if existing is None:
+        return
+
+    try:
+        asset_libraries.remove(existing)
+    except Exception as e:
+        bk_logger.warning(
+            "Failed to remove asset library %s: %s", ASSET_LIBRARY_NAME, e
+        )
 
 
 def slugify(input: str) -> str:
