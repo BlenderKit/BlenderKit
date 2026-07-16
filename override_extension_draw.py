@@ -91,12 +91,12 @@ class BK_OT_buy_extension_and_watch(Operator):
     url: StringProperty(
         name="URL",
         description="Website URL to open",
-    ) # type: ignore
+    )  # type: ignore
     repo_index: IntProperty(
         name="Repository Index",
         description="Index of the repository to refresh",
         default=-1,
-    ) # type: ignore
+    )  # type: ignore
 
     _timer = None
     _last_refresh_time = 0
