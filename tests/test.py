@@ -96,6 +96,7 @@ _test_modules = [
     "test_registration",
     "test_smoke",
     "test_upload_bg",
+    "test_rating_nudge",
 ]
 
 for _modname in _test_modules:

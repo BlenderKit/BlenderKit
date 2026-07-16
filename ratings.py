@@ -19,7 +19,7 @@
 import logging
 
 import bpy
-from bpy.props import StringProperty
+from bpy.props import BoolProperty, StringProperty
 from bpy.types import Gizmo, GizmoGroup, Operator
 from mathutils import Matrix
 
@@ -35,7 +35,12 @@ from . import (
     utils,
 )
 
+
 bk_logger = logging.getLogger(__name__)
+
+# Set by rating_nudge._show_rating_popup() right before invoking FastRateMenu with
+# from_nudge=True, so the operator rates this specific (not necessarily selected) asset.
+nudge_asset_data = None
 
 
 def get_assets_for_rating():
@@ -144,6 +149,13 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
     bl_label = "Ratings"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
+    from_nudge: BoolProperty(  # type: ignore[valid-type]
+        name="From rating nudge",
+        description="Opened automatically to ask the user to rate a downloaded asset",
+        default=False,
+        options={"SKIP_SAVE"},
+    )
+
     @classmethod
     def poll(cls, context):
         return True
@@ -154,6 +166,9 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
         self.prefill_ratings()
 
         layout = self.layout
+        if self.from_nudge and self.message:
+            box = layout.box()
+            box.label(text=self.message, icon="SOLO_ON")
         layout.label(text=f"Rating of the {self.asset_type}: {self.asset_data['name']}")
         draw_ratings_menu(self, context, layout)
         layout.template_icon(icon_value=self.img.preview.icon_id, scale=12)
@@ -161,7 +176,12 @@ class FastRateMenu(Operator, ratings_utils.RatingProperties):
     def execute(self, context):
         ui_props = bpy.context.window_manager.blenderkitUI
         # get asset id
-        if ui_props.active_index > -1:
+        if self.from_nudge and nudge_asset_data is not None:
+            # Rate the specific asset the nudge targets, regardless of selection.
+            self.asset_data = dict(nudge_asset_data)
+            self.asset_id = self.asset_data["id"]
+            self.asset_type = self.asset_data["assetType"]
+        elif ui_props.active_index > -1:
             sr = search.get_search_results()
             self.asset_data = dict(sr[ui_props.active_index])
             self.asset_id = self.asset_data["id"]
