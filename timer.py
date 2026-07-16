@@ -38,6 +38,7 @@ from . import (
     download,
     global_vars,
     persistent_preferences,
+    rating_nudge,
     ratings_utils,
     reports,
     search,
@@ -533,6 +534,10 @@ def check_timers_timer():
         bpy.app.timers.register(client_communication_timer, persistent=True)
     if not bpy.app.timers.is_registered(timer_image_cleanup):
         bpy.app.timers.register(timer_image_cleanup, persistent=True, first_interval=60)
+    if not bpy.app.timers.is_registered(rating_nudge.rating_nudge_timer):
+        bpy.app.timers.register(
+            rating_nudge.rating_nudge_timer, persistent=True, first_interval=60
+        )
     return 5.0
 
 
@@ -612,6 +617,8 @@ def unregister_timers():
         bpy.app.timers.unregister(client_communication_timer)
     if bpy.app.timers.is_registered(timer_image_cleanup):
         bpy.app.timers.unregister(timer_image_cleanup)
+    if bpy.app.timers.is_registered(rating_nudge.rating_nudge_timer):
+        bpy.app.timers.unregister(rating_nudge.rating_nudge_timer)
 
     if bpy.app.timers.is_registered(on_startup_timer):
         bpy.app.timers.unregister(on_startup_timer)
