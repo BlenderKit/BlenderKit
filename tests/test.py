@@ -94,11 +94,8 @@ _test_modules = [
     "test_registration",
     "test_smoke",
     "test_upload_bg",
-<<<<<<< HEAD
     "test_timer",
-=======
     "test_rating_nudge",
->>>>>>> origin/main
 ]
 
 for _modname in _test_modules:
