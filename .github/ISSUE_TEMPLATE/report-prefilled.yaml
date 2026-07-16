@@ -1,4 +1,4 @@
-name: Bug Report Prefilled
+name: Prefilled report from add-on
 description: Report a bug, crash, or other issue, prefilled with basic metadata from the add-on.
 body:
   - type: markdown
