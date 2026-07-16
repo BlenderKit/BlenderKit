@@ -37,7 +37,6 @@ import requests
 
 from . import datas, global_vars, reports, utils
 
-
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "", "https": ""}
 TIMEOUT = (0.1, 1)
@@ -782,7 +781,7 @@ def start_blenderkit_client():
                 creationflags=creation_flags,
             )
     except Exception as e:
-        msg = f"Error: bk_client {client_version} failed to start on {get_address()}:{e}"
+        msg = f"Error: Blendkit-Client {client_version} failed to start on {get_address()}:{e}"
         reports.add_report(msg, type="ERROR")
         raise (e)
 
