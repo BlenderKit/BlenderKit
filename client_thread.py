@@ -49,7 +49,11 @@ import requests
 bk_logger = logging.getLogger(__name__)
 
 NO_PROXIES = {"http": "", "https": ""}
-POLL_TIMEOUT = (0.05, 0.25)
+# This poll runs on the worker thread, not Blender's main thread, so a longer
+# read timeout here does NOT stutter the UI. A generous value lets a busy Client
+# finish answering instead of being treated as unreachable (which would trigger
+# a needless restart on the main thread).
+POLL_TIMEOUT = (0.05, 2.0)
 DEFAULT_TIMEOUT = (0.1, 1.0)
 # Cap the worker's self-throttling so we keep checking on the Client.
 _MAX_BACKOFF_SECONDS = 5.0

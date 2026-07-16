@@ -22,13 +22,19 @@ import unittest
 
 import bpy
 
-
 # ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
 # ``__package__`` is the add-on's own module - needed by the relative import
 # and the ``bpy...addons[__package__]`` lookups below. Scanning ``addons`` for
 # "blenderkit" is unreliable when several blenderkit* add-ons are enabled.
 if __package__:
     __package__ = __package__.rsplit(".tests", 1)[0]
+
+else:
+    # Running this file directly (e.g. in VSCode) sets ``__package__`` to None.
+    # This is a hack to make the relative import work in that case.
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    __package__ = os.path.basename(os.path.dirname(__file__))
+
 from . import client_lib, global_vars
 
 

@@ -20,7 +20,6 @@ import os
 import sys
 import unittest
 
-
 COLLECT_COVERAGE = os.getenv("COVERAGE") == "1"
 if COLLECT_COVERAGE:
     try:
@@ -39,7 +38,6 @@ if COLLECT_COVERAGE:
         print("WARNING: coverage module not available, skipping coverage collection")
 
 import addon_utils
-
 
 print(f"----- Tests preparation ----- (mode:{os.getenv('TESTS_TYPE', 'all')})")
 
@@ -96,6 +94,7 @@ _test_modules = [
     "test_registration",
     "test_smoke",
     "test_upload_bg",
+    "test_timer",
     "test_rating_nudge",
 ]
 
