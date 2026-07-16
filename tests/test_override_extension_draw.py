@@ -20,11 +20,20 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import bpy
+
 # ``test.py`` imports this as ``<addon>.tests.<name>``; strip ``.tests`` so
 # ``__package__`` is the add-on's own module - needed by the relative imports.
 if __package__:
     __package__ = __package__.rsplit(".tests", 1)[0]
-from . import override_extension_draw as oed
+
+# ``override_extension_draw`` imports ``bl_pkg``, which only exists in the
+# extensions system introduced in Blender 4.2. Skip the whole module on older
+# versions, and avoid importing it so the missing ``bl_pkg`` does not error.
+if bpy.app.version >= (4, 2, 0):
+    from . import override_extension_draw as oed
+else:
+    oed = None
 
 
 class _FakeRepo:
@@ -51,6 +60,9 @@ def _patched_bpy(repos):
     )
 
 
+@unittest.skipUnless(
+    bpy.app.version >= (4, 2, 0), "override_extension_draw requires Blender 4.2+"
+)
 class TestMigrateRepository(unittest.TestCase):
     def _run(self, repos):
         with patch.object(oed, "bpy", _patched_bpy(repos)):
