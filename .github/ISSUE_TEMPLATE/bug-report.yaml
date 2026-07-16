@@ -37,7 +37,7 @@ body:
         Which operating system are you on?
         Do you have any antivirus or firewall enabled?
         Is your computer behind corporate proxy?
-    value: |
+      value: |
         ### Environment Information - Bug happens on:
         - Blendkit version: v3.y.z
         - Blender version: vX.Y.Z
