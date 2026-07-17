@@ -37,7 +37,6 @@ import requests
 
 from . import datas, global_vars, reports, utils
 
-
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "", "https": ""}
 TIMEOUT = (0.1, 1)
