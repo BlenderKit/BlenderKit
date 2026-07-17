@@ -101,6 +101,40 @@ class TestAssetBarPositioning(unittest.TestCase):
         panel.update.assert_not_called()
         panel.layout_widgets.assert_not_called()
 
+    def test_drag_panel_mouse_down_starts_drag_when_enabled(self):
+        panel = self.create_drag_panel(drag_enabled=True)
+        panel.is_in_rect = Mock(return_value=True)
+
+        handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 50, 130)
+
+        self.assertTrue(handled)
+        self.assertTrue(panel.is_drag)
+
+    def test_drag_panel_mouse_down_ignored_outside_panel(self):
+        panel = self.create_drag_panel(drag_enabled=True)
+        panel.is_in_rect = Mock(return_value=False)
+
+        handled = asset_bar_op.BL_UI_Drag_Panel.mouse_down(panel, 50, 130)
+
+        self.assertFalse(handled)
+        self.assertFalse(panel.is_drag)
+
+    def test_drag_panel_mouse_move_drags_when_dragging(self):
+        panel = self.create_drag_panel(drag_enabled=True, is_drag=True)
+
+        asset_bar_op.BL_UI_Drag_Panel.mouse_move(panel, 60, 70)
+
+        panel.update.assert_called_once()
+        panel.layout_widgets.assert_called_once()
+
+    def test_child_widget_focused_ignores_widget_not_under_cursor(self):
+        panel = self.create_drag_panel()
+        panel.widgets = [SimpleNamespace(is_in_rect=lambda x, y: False)]
+
+        focused = asset_bar_op.BL_UI_Drag_Panel.child_widget_focused(panel, 40, 40)
+
+        self.assertFalse(focused)
+
 
 class TestAssetBarInvoke(unittest.TestCase):
     def test_initial_search_is_marked_before_layout_init(self):
