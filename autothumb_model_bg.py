@@ -181,6 +181,51 @@ def replace_materials(
     return material
 
 
+def setup_wireframe(obs: list[Any]) -> None:
+    """Set up objects for wireframe thumbnail rendering.
+
+    For each mesh object:
+    1. Replace all material slots with two wireframe materials:
+       - slot 0: "bkit wireframe base"
+       - slot 1: "bkit wireframe color"
+    2. Add a bevel modifier so the wireframe edges are rendered with width.
+
+    Args:
+        obs: List of Blender objects to modify.
+    """
+    base_name = "bkit wireframe base"
+    color_name = "bkit wireframe color"
+
+    base_material = bpy.data.materials.get(base_name)
+    if base_material is None:
+        bg_blender.progress(f"ERROR: Material {base_name} not found")
+        return
+
+    color_material = bpy.data.materials.get(color_name)
+    if color_material is None:
+        bg_blender.progress(f"ERROR: Material {color_name} not found")
+        return
+
+    for ob in obs:
+        if ob.type != "MESH":
+            continue
+
+        # Clear existing slots and assign the two wireframe materials by index
+        ob.data.materials.clear()
+        ob.data.materials.append(base_material)
+        ob.data.materials.append(color_material)
+
+        # Add a bevel modifier to give the wireframe edges width
+        bevel = ob.modifiers.new(name="bkit wireframe bevel", type="BEVEL")
+        bevel.width = 0.002
+        bevel.segments = 1
+        bevel.limit_method = "NONE"
+        bevel.use_clamp_overlap = False
+
+        # use the "bkit wireframe color" material (slot index 1) on beveled edges
+        bevel.material = 1
+
+
 def disable_modifier(obs: list[Any], modifier_type: str) -> None:
     """Disable a specific type of modifier on all given objects.
 
@@ -493,9 +538,9 @@ if __name__ == "__main__":
         if thumbnail_disable_subdivision:
             disable_modifier(allobs, "SUBSURF")
 
-        # replace material if we need to render wireframe thumbnail
+        # replace materials and add bevel if we need to render wireframe thumbnail
         if data.get("thumbnail_render_type") == "WIREFRAME":
-            replace_materials(allobs, "bkit wireframe")
+            setup_wireframe(allobs)
 
         bpy.data.materials["bkit background"].node_tree.nodes["Value"].outputs[
             "Value"
@@ -561,11 +606,12 @@ if __name__ == "__main__":
         bg_blender.progress("rendering thumbnail")
         render_thumbnails()
 
-        # # save scene for debugging
-        # bg_blender.progress(
-        #     f"Saving scene to {data['thumbnail_path']}.blend for debugging"
-        # )
-        # bpy.ops.wm.save_as_mainfile(filepath=data["thumbnail_path"] + ".blend")
+        # save scene in current state, so that we can re-render it later if needed
+        output_path = data["thumbnail_path"] + ".blend"
+        bg_blender.progress(f"scene saving {output_path}")
+        bpy.ops.wm.save_as_mainfile(
+            filepath=output_path, compress=True, check_existing=False
+        )
 
         if not data.get("upload_after_render") or not data.get("asset_data"):
             bg_blender.progress(

@@ -24,3 +24,6 @@ _bck/
 
 # macos thumbnail database
 .DS_Store
+
+# ignore temp blend files
+*.blend1
