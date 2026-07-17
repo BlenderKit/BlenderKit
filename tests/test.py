@@ -95,6 +95,9 @@ _test_modules = [
     "test_smoke",
     "test_upload_bg",
     "test_persistent_preferences",
+    "test_timer",
+    "test_rating_nudge",
+    "test_override_extension_draw",
 ]
 
 for _modname in _test_modules:

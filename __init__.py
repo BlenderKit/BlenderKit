@@ -89,6 +89,7 @@ if "bpy" in locals():
     paths = reload(paths)
     ratings_utils = reload(ratings_utils)
     ratings = reload(ratings)
+    rating_nudge = reload(rating_nudge)
     comments_utils = reload(comments_utils)
     resolutions = reload(resolutions)
     search = reload(search)
@@ -154,6 +155,7 @@ else:
     from . import paths
     from . import ratings
     from . import ratings_utils
+    from . import rating_nudge
     from . import comments_utils
     from . import resolutions
     from . import search
@@ -2527,6 +2529,13 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    rating_nudge_enabled: BoolProperty(
+        name="Ask me to rate downloaded assets",
+        description="Occasionally open a rating popup for assets you downloaded that don't have enough ratings yet",
+        default=True,
+        update=utils.save_prefs,
+    )
+
     experimental_features: BoolProperty(
         name="Enable experimental features",
         description="Enable experimental features of Blendkit, such as the Authors tab",
@@ -2695,14 +2704,16 @@ In this case you should also set path to your system CA bundle containing proxy'
             validator_box.label(text="Validator Settings")
             validator_box.prop(self, "categories_fix")
 
-        # REPORT PATHS
+        # REPORT BUG BUTTON
         report_settings = layout.box()
         report_settings.label(text="Report a Bug")
-        report_settings.label(
-            text="Create an issue report with version information to help us resolve the issue faster.",
+        report_row = report_settings.row()
+        report_row.operator(
+            "wm.blenderkit_report_bug", text="Open Bug Report", icon="ERROR"
         )
-        report_settings.operator(
-            "wm.blenderkit_report_bug", text="Submit Full Bug Report", icon="ERROR"
+        # report_row.label(text=f"Blendkit v{utils.get_addon_version()} · Blender {bpy.app.version_string}", icon="INFO")
+        report_row.operator(
+            "wm.blenderkit_copy_environment_info", text="Copy Info", icon="COPYDOWN"
         )
 
         # FILE PATHS
@@ -2732,6 +2743,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "assetbar_follows_cursor")
         gui_settings.prop(self, "use_clipboard_scan")
         gui_settings.prop(self, "proxor_enabled")
+        gui_settings.prop(self, "rating_nudge_enabled")
 
         # THUMBNAIL SETTINGS
         # These are machine-level preferences that should be set once, not

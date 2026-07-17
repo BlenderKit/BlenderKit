@@ -20,8 +20,11 @@ import bl_pkg.bl_extension_ui as exui
 from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
 
-
 EXTENSIONS_API_URL = "https://www.blendkit.com/api/v1/extensions/"
+# Legacy repository URL used before the rename from BlenderKit to Blendkit.
+LEGACY_EXTENSIONS_API_URL = "https://www.blenderkit.com/api/v1/extensions/"
+# Canonical module name of the Blendkit extensions repository.
+EXTENSIONS_REPO_MODULE = "www_blenderkit_com"
 
 bk_logger = logging.getLogger(__name__)
 
@@ -88,12 +91,12 @@ class BK_OT_buy_extension_and_watch(Operator):
     url: StringProperty(
         name="URL",
         description="Website URL to open",
-    )
+    )  # type: ignore
     repo_index: IntProperty(
         name="Repository Index",
         description="Index of the repository to refresh",
         default=-1,
-    )
+    )  # type: ignore
 
     _timer = None
     _last_refresh_time = 0
@@ -879,11 +882,89 @@ def ensure_repo_order():
         new_repo.enabled = r["enabled"]
 
 
+def migrate_repository():
+    """Migrate legacy BlenderKit extension repositories to the new Blendkit URL.
+
+    Installs created before the rename from BlenderKit to Blendkit registered
+    the extensions repository with the old server URL (www.blenderkit.com).
+    After the rename ``ensure_repository()`` adds a fresh repository pointing to
+    the new URL (www.blendkit.com), leaving the user with two colliding
+    repositories (e.g. "www.blenderkit.com" and "www.blenderkit.com.001").
+
+    This updates any repository still pointing at the legacy URL to the new URL
+    and removes the resulting duplicates, keeping a single repository.
+    """
+    repos = bpy.context.preferences.extensions.repos
+
+    # Point any repository still using the legacy URL at the new one.
+    for r in repos:
+        if r.remote_url == LEGACY_EXTENSIONS_API_URL:
+            bk_logger.info(
+                "Migrating extensions repository '%s' from %s to %s",
+                r.name,
+                LEGACY_EXTENSIONS_API_URL,
+                EXTENSIONS_API_URL,
+            )
+            r.remote_url = EXTENSIONS_API_URL
+
+    # Collect all repositories now pointing at the new URL.
+    matching = [r for r in repos if r.remote_url == EXTENSIONS_API_URL]
+    if not matching:
+        return
+
+    # Choose which repository to keep. Prefer the one with the canonical module
+    # name, then one whose name has no numeric ".001" suffix, then the first.
+    def _rank(r):
+        if r.module == EXTENSIONS_REPO_MODULE:
+            return 0
+        if not re.search(r"\.\d{3}$", r.name):
+            return 1
+        return 2
+
+    keep = min(matching, key=_rank)
+    keep_module = keep.module
+
+    # Remove any duplicate repositories pointing at the new URL.
+    to_remove = [
+        r
+        for r in repos
+        if r.remote_url == EXTENSIONS_API_URL and r.module != keep_module
+    ]
+    for r in to_remove:
+        bk_logger.info("Removing duplicate extensions repository '%s'", r.name)
+        repos.remove(r)
+
+    # Normalize the surviving repository's module back to the canonical value.
+    # Installed extensions are registered as ``bl_ext.<module>.<pkg>`` and their
+    # files live in the directory derived from the module, so a leftover
+    # "_001" module orphans every previously installed extension. Only one
+    # Blendkit repo remains at this point, so the canonical module is free.
+    if keep.module != EXTENSIONS_REPO_MODULE:
+        bk_logger.info(
+            "Restoring extensions repository module '%s' to '%s'",
+            keep.module,
+            EXTENSIONS_REPO_MODULE,
+        )
+        # A custom directory would keep files in the old "_001" location; clear
+        # it so Blender uses the canonical module-derived directory.
+        keep.use_custom_directory = False
+        keep.module = EXTENSIONS_REPO_MODULE
+
+    # Normalize the surviving repository's display name (e.g. strip a ".001"
+    # suffix left over from the duplicate collision).
+    if keep.name != "www.blenderkit.com":
+        bk_logger.info(
+            "Renaming extensions repository '%s' to 'www.blenderkit.com'", keep.name
+        )
+        keep.name = "www.blenderkit.com"
+
+
 def ensure_repository(api_key: str = ""):
     """Ensure that the Blendkit extensions repository is correctly added in Blender's preferences.
     If the repository is not present, it is added. If the repository is present, but the API key is not set, it is set.
     """
 
+    migrate_repository()
     blenderkit_repository = get_repository_by_url(EXTENSIONS_API_URL)
 
     if blenderkit_repository is None:

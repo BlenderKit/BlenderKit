@@ -25,7 +25,9 @@ jobs:
         working-directory: bk_client/client
       - name: Pin dependencies for Go 1.20
         # color@v1.6.0 requires sys@v0.38.0, which needs go1.24+
+        # go-get-proxied@v1.4.0 requires go1.25+; 1.3.2 predates go.mod and builds on go1.20
         run: |
+          go get github.com/rapid7/go-get-proxied@1.3.2
           go get github.com/gookit/color@v1.5.4
           go get golang.org/x/sys@v0.30.0
         working-directory: bk_client/client

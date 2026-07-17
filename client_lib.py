@@ -37,12 +37,14 @@ import requests
 
 from . import datas, global_vars, reports, utils
 
-
 bk_logger = logging.getLogger(__name__)
 NO_PROXIES = {"http": "", "https": ""}
 TIMEOUT = (0.1, 1)
 # Shorter timeout for the frequent report polling that runs on Blender's main thread.
-POLL_TIMEOUT = (0.05, 0.25)
+# Kept small so a slow Client never blocks the UI for long, but not so small that
+# a momentarily busy (but alive) Client is mistaken for dead and needlessly
+# respawned - see handle_failed_reports / is_client_process_alive.
+POLL_TIMEOUT = (0.05, 0.5)
 
 # When the user's global_dir (default ~/blenderkit_data) is not writable - which
 # happens for sandboxed Blender installs (Microsoft Store, some Linux packages,
@@ -652,6 +654,18 @@ def handle_client_status_task(task):
         wm = bpy.context.window_manager
         wm.blenderkitUI.logo_status = "logo"
     global_vars.CLIENT_RUNNING = True
+
+
+def is_client_process_alive() -> bool:
+    """Return True if we spawned a Blendkit-Client subprocess that is still running.
+
+    Used to avoid respawning the Client on a transient poll timeout: a live but
+    momentarily busy Client would otherwise get a duplicate spawned, which then
+    fails to bind the same port (WSAEADDRINUSE) and dies - the respawn loop that
+    pins the CPU. Only when no live process exists is a (re)start warranted.
+    """
+    proc = global_vars.client_process
+    return proc is not None and proc.poll() is None
 
 
 def check_blenderkit_client_return_code() -> tuple[int, str]:
