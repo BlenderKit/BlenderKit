@@ -447,7 +447,7 @@ def start_model_thumbnailer(
         user_preferences.api_key,
     )
     bk_logger.debug("%s", args)
-    
+
     blender_user_scripts_dir = (
         Path(__file__).resolve().parents[2]
     )  # scripts/addons/blenderkit/autothumb.py

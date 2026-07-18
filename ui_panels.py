@@ -649,7 +649,13 @@ def draw_panel_model_upload(self, context):
     draw_thumbnail_upload_panel(col, props)
 
     prop_needed(col, props, "thumbnail", props.thumbnail)
-    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+    # Thumbnail generation relies on the background thumbnailer which requires
+    # Blender 4.2+, so only expose the button on supported versions.
+    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES and bpy.app.version >= (
+        4,
+        2,
+        0,
+    ):
         col.operator_context = "INVOKE_DEFAULT"
         op = col.operator(
             "object.blenderkit_generate_thumbnail",
@@ -1434,7 +1440,13 @@ def draw_panel_material_upload(self, context):
 
     prop_needed(row, props, "thumbnail", props.has_thumbnail, False)
 
-    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES:
+    # Thumbnail generation relies on the background thumbnailer which requires
+    # Blender 4.2+, so only expose the button on supported versions.
+    if bpy.context.scene.render.engine in ACCEPTABLE_ENGINES and bpy.app.version >= (
+        4,
+        2,
+        0,
+    ):
         layout.operator(
             "object.blenderkit_generate_material_thumbnail",
             text="Render thumbnail",
@@ -2757,18 +2769,21 @@ def draw_asset_context_menu(
 
         row.operator_context = "INVOKE_DEFAULT"
 
-        if asset_data["assetType"] == "model":
-            op = layout.operator(
-                "object.blenderkit_regenerate_thumbnail",
-                text="Regenerate thumbnail",
-            )
-            op.asset_index = ui_props.active_index
-        elif asset_data["assetType"] == "material":
-            op = layout.operator(
-                "object.blenderkit_regenerate_material_thumbnail",
-                text="Regenerate thumbnail",
-            )
-            op.asset_index = ui_props.active_index
+        # Thumbnail regeneration relies on the background thumbnailer which
+        # requires Blender 4.2+, so only expose it on supported versions.
+        if bpy.app.version >= (4, 2, 0):
+            if asset_data["assetType"] == "model":
+                op = layout.operator(
+                    "object.blenderkit_regenerate_thumbnail",
+                    text="Regenerate thumbnail",
+                )
+                op.asset_index = ui_props.active_index
+            elif asset_data["assetType"] == "material":
+                op = layout.operator(
+                    "object.blenderkit_regenerate_material_thumbnail",
+                    text="Regenerate thumbnail",
+                )
+                op.asset_index = ui_props.active_index
 
     if author_id == profile.id:  # was not working because of wrong types
         row = layout.row()

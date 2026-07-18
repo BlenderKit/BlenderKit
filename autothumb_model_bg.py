@@ -181,20 +181,50 @@ def replace_materials(
     return material
 
 
-def setup_wireframe(obs: list[Any]) -> None:
+def _set_geo_node_default(node_group: Any, name: str, value: Any) -> None:
+    """Set the default value of a node group input socket by its display name.
+
+    Setting the interface default (instead of a per-modifier input) is robust
+    for appended/localized objects, where per-modifier id-properties may not be
+    writable. Newly added modifiers inherit these defaults.
+
+    Args:
+        node_group: The Geometry Nodes node group.
+        name: The display name of the input socket.
+        value: The value to assign.
+    """
+    for item in node_group.interface.items_tree:
+        if item.item_type == "SOCKET" and item.in_out == "INPUT" and item.name == name:
+            item.default_value = value
+            return
+    bg_blender.progress(f"WARNING: wireframe node input '{name}' not found")
+
+
+def setup_wireframe(
+    obs: list[Any], render_height: float, pixel_thickness: float = 2.0
+) -> None:
     """Set up objects for wireframe thumbnail rendering.
 
     For each mesh object:
     1. Replace all material slots with two wireframe materials:
        - slot 0: "bkit wireframe base"
        - slot 1: "bkit wireframe color"
-    2. Add a bevel modifier so the wireframe edges are rendered with width.
+    2. Add the "bkit wireframe node" Geometry Nodes modifier, which builds
+       quad-accurate wire geometry with a screen-constant (pixel) thickness.
+
+    The Geometry Nodes group needs a few scalar inputs describing the active
+    camera and render resolution, which cannot be read inside Geometry Nodes.
+    All objects share the same camera/resolution, so these are set once on the
+    node group's interface defaults and inherited by every modifier.
 
     Args:
         obs: List of Blender objects to modify.
+        render_height: Final render resolution height in pixels.
+        pixel_thickness: Wireframe thickness in pixels.
     """
     base_name = "bkit wireframe base"
     color_name = "bkit wireframe color"
+    node_group_name = "bkit wireframe node"
 
     base_material = bpy.data.materials.get(base_name)
     if base_material is None:
@@ -206,6 +236,22 @@ def setup_wireframe(obs: list[Any]) -> None:
         bg_blender.progress(f"ERROR: Material {color_name} not found")
         return
 
+    node_group = bpy.data.node_groups.get(node_group_name)
+    if node_group is None:
+        bg_blender.progress(f"ERROR: node group '{node_group_name}' not found")
+        return
+
+    # Gather camera/render parameters that Geometry Nodes cannot read itself and
+    # bake them into the node group interface defaults (shared by all objects).
+    scene = bpy.context.scene
+    camera = scene.camera
+    cam_data = camera.data
+    _set_geo_node_default(node_group, "Pixel Thickness", pixel_thickness)
+    _set_geo_node_default(node_group, "Tan Half FOV", math.tan(cam_data.angle_y / 2))
+    _set_geo_node_default(node_group, "Render Height", float(render_height))
+    _set_geo_node_default(node_group, "Is Ortho", cam_data.type == "ORTHO")
+    _set_geo_node_default(node_group, "Ortho Scale", cam_data.ortho_scale)
+
     for ob in obs:
         if ob.type != "MESH":
             continue
@@ -215,15 +261,9 @@ def setup_wireframe(obs: list[Any]) -> None:
         ob.data.materials.append(base_material)
         ob.data.materials.append(color_material)
 
-        # Add a bevel modifier to give the wireframe edges width
-        bevel = ob.modifiers.new(name="bkit wireframe bevel", type="BEVEL")
-        bevel.width = 0.002
-        bevel.segments = 1
-        bevel.limit_method = "NONE"
-        bevel.use_clamp_overlap = False
-
-        # use the "bkit wireframe color" material (slot index 1) on beveled edges
-        bevel.material = 1
+        # Add the wireframe Geometry Nodes modifier (inherits interface defaults)
+        mod = ob.modifiers.new(name="bkit wireframe", type="NODES")
+        mod.node_group = node_group
 
 
 def disable_modifier(obs: list[Any], modifier_type: str) -> None:
@@ -538,9 +578,10 @@ if __name__ == "__main__":
         if thumbnail_disable_subdivision:
             disable_modifier(allobs, "SUBSURF")
 
-        # replace materials and add bevel if we need to render wireframe thumbnail
+        # replace materials and add wireframe geometry nodes if we need to
+        # render a wireframe thumbnail
         if data.get("thumbnail_render_type") == "WIREFRAME":
-            setup_wireframe(allobs)
+            setup_wireframe(allobs, render_height=int(data["thumbnail_resolution"]))
 
         bpy.data.materials["bkit background"].node_tree.nodes["Value"].outputs[
             "Value"
