@@ -81,7 +81,9 @@ def center_objs_for_thumbnail(obs: list[Any]) -> None:
     try:
         bpy.context.view_layer.objects.active = parent
     except RuntimeError:
-        bg_blender.progress("WARNING: could not set active object for centering, proceeding anyway")
+        bg_blender.progress(
+            "WARNING: could not set active object for centering, proceeding anyway"
+        )
         pass
     parent.location = (-cx, -cy, 0)
 
