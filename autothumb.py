@@ -623,13 +623,7 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         # thumbnail, so these controls are hidden.
         if experimental:
             layout.prop(self, "thumbnail_type")
-        is_wire = experimental and self.thumbnail_type == "WIREFRAME"
-        # Wireframe thumbnails always render in Cycles with a fixed background,
-        # so the render engine and background lightness are only shown for
-        # regular thumbnails. The render engine choice is an elevated
-        # (validator-only) experimental option.
-        if not is_wire:
-            layout.prop(settings, "thumbnail_background_lightness")
+        layout.prop(settings, "thumbnail_background_lightness")
         # for printable models
         if asset_type == "PRINTABLE":
             layout.prop(settings, "thumbnail_material_color")
@@ -730,17 +724,16 @@ class GenerateThumbnailOperator(bpy.types.Operator):
             "thumbnail_resolution": settings.thumbnail_resolution,
             "thumbnail_samples": settings.thumbnail_samples,
             "thumbnail_denoising": settings.thumbnail_denoising,
+            "thumbnail_background_lightness": settings.thumbnail_background_lightness,
+
         }
         if is_wire:
             # Wireframe renders in Cycles with a fixed dark background.
             thumbnail_args["thumbnail_render_type"] = "WIREFRAME"
             thumbnail_args["thumbnail_upload_type"] = "wire_thumbnail"
-            thumbnail_args["thumbnail_background_lightness"] = 0.2
         else:
             thumbnail_args["thumbnail_render_engine"] = settings.thumbnail_render_engine
-            thumbnail_args["thumbnail_background_lightness"] = (
-                settings.thumbnail_background_lightness
-            )
+
         args_dict.update(thumbnail_args)
 
         start_model_thumbnailer(

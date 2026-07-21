@@ -1378,6 +1378,12 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
         elif not os.path.exists(export_data["thumbnail_path"]):
             props.upload_state = "0% - thumbnail not found"
             props.uploading = False
+            write_to_report(
+                props,
+                "Thumbnail file was not found on disk.\n"
+                f"   Expected at: {export_data['thumbnail_path']}\n"
+                "   Please check the thumbnail filepath and try again.",
+            )
             return False, None, None
 
     # Check if photo thumbnail exists for printable assets when it's included in upload_set
@@ -1386,6 +1392,12 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
             if not os.path.exists(export_data["photo_thumbnail_path"]):
                 props.upload_state = "0% - photo thumbnail not found"
                 props.uploading = False
+                write_to_report(
+                    props,
+                    "Photo thumbnail file was not found on disk.\n"
+                    f"   Expected at: {export_data['photo_thumbnail_path']}\n"
+                    "   Please check the photo thumbnail filepath and try again.",
+                )
                 return False, None, None
 
     # check if we have wire_thumbnail
@@ -1393,6 +1405,12 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
         if not os.path.exists(export_data.get("wire_thumbnail_path", "")):
             props.upload_state = "0% - wire thumbnail not found"
             props.uploading = False
+            write_to_report(
+                props,
+                "Wireframe thumbnail file was not found on disk.\n"
+                f"   Expected at: {export_data.get('wire_thumbnail_path', '')}\n"
+                "   Please regenerate the wireframe thumbnail and try again.",
+            )
             return False, None, None
 
     # save a copy of the file for processing. Only for blend files

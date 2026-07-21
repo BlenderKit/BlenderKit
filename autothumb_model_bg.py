@@ -689,6 +689,16 @@ if __name__ == "__main__":
         bpy.context.scene.render.resolution_x = int(data["thumbnail_resolution"])
         bpy.context.scene.render.resolution_y = int(data["thumbnail_resolution"])
 
+        # Force JPEG output so the produced file always matches the ".jpg" path
+        # the addon stores (props.thumbnail / props.wire_thumbnail) and the
+        # uploader expects. The thumbnail_path in data.json has no extension, so
+        # Blender appends one based on this format; without forcing it here the
+        # file could be written as .png (whatever the thumbnailer.blend has
+        # saved) while the addon looks for a .jpg, breaking preview and upload.
+        image_settings = bpy.context.scene.render.image_settings
+        image_settings.file_format = "JPEG"
+        image_settings.quality = 90
+
         # cleanup
         if data.get("do_download"):
             # remove temp

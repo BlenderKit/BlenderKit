@@ -641,12 +641,32 @@ def draw_panel_model_upload(self, context):
             col = layout.column()
             prop_needed(col, props, "photo_thumbnail", props.photo_thumbnail)
 
+    # Wireframe thumbnail is an experimental feature. When enabled, the regular
+    # "Generate thumbnail" dialog exposes a Regular/Wireframe switch that renders
+    # into this slot. The wireframe thumbnail is optional and only uploaded when a
+    # valid image is provided here.
+    wire_upload_enabled = utils.experimental_enabled()
+
+    # Thumbnail previews. When the experimental wireframe feature is enabled show
+    # the regular and wireframe previews side by side so both can be reviewed at
+    # the same time; otherwise just show the regular preview.
+    preview_row = layout.row()
+    reg_preview = preview_row.column()
+    reg_preview.enabled = not props.is_generating_thumbnail
+    if wire_upload_enabled:
+        reg_preview.label(text="Regular")
+    draw_thumbnail_upload_panel(reg_preview, props)
+
+    if wire_upload_enabled:
+        wire_preview = preview_row.column()
+        wire_preview.enabled = not getattr(props, "is_generating_wire_thumbnail", False)
+        wire_preview.label(text="Wireframe")
+        draw_wire_thumbnail_upload_panel(wire_preview, props)
+
     col = layout.column()
 
     if props.is_generating_thumbnail:
         col.enabled = False
-
-    draw_thumbnail_upload_panel(col, props)
 
     prop_needed(col, props, "thumbnail", props.thumbnail)
     # Thumbnail generation relies on the background thumbnailer which requires
@@ -663,13 +683,7 @@ def draw_panel_model_upload(self, context):
             icon="IMAGE",
         )
 
-    # Wireframe thumbnail is an experimental feature. When enabled, the regular
-    # "Generate thumbnail" dialog exposes a Regular/Wireframe switch that renders
-    # into this slot. The wireframe thumbnail is optional and only uploaded when a
-    # valid image is provided here.
-    wire_upload_enabled = utils.experimental_enabled()
     if wire_upload_enabled:
-        draw_wire_thumbnail_upload_panel(layout, props)
         col = layout.column()
         if getattr(props, "is_generating_wire_thumbnail", False):
             col.enabled = False
