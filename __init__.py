@@ -36,7 +36,6 @@ import sys
 from importlib import reload
 from os import path
 
-
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception as e:
@@ -250,7 +249,7 @@ search_material_styles = (
 engines = (
     ("CYCLES", "Cycles", "Blender Cycles"),
     ("EEVEE", "Eevee", "Blender eevee renderer"),
-    ("EEEVE_NEXT", "Eevee Next", "Blender eevee renderer (new)"),
+    ("EEVEE_NEXT", "Eevee Next", "Blender eevee renderer (new)"),
     ("OCTANE", "Octane", "Octane render engine"),
     ("ARNOLD", "Arnold", "Arnold render engine"),
     ("V-RAY", "V-Ray", "V-Ray renderer"),
@@ -261,6 +260,8 @@ engines = (
     ("OTHER", "Other", "any other engine"),
     ("NONE", "None", "no more engine block"),
 )
+
+
 pbr_types = (
     ("METALLIC", "Metallic-Roughness", "Metallic/Roughness PBR material type"),
     ("SPECULAR", "Specular  Glossy", ""),
@@ -386,6 +387,63 @@ def run_drag_drop_update(self, context):
         )
 
         self.drag_init_button = False
+
+
+class BlenderKitThumbnailSettings(PropertyGroup):
+    """Global, persisted thumbnail render settings.
+
+    Single source of truth for thumbnail settings that are shared between asset
+    types and remembered across sessions (saved through persistent_preferences).
+    Each field is built from the factories in autothumb.py, so the definitions
+    are not duplicated. Changing any field persists the preferences.
+    """
+
+    # common
+    thumbnail_render_engine: autothumb.thumbnail_render_engine_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_resolution: autothumb.thumbnail_resolution_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_samples: autothumb.thumbnail_samples_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_denoising: autothumb.thumbnail_denoising_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_background_lightness: autothumb.thumbnail_background_lightness_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+
+    # model / printable
+    thumbnail_angle: autothumb.thumbnail_angle_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_snap_to: autothumb.thumbnail_snap_to_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_material_color: autothumb.thumbnail_material_color_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+
+    # material
+    thumbnail_generator_type: autothumb.thumbnail_generator_type_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_scale: autothumb.thumbnail_scale_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    thumbnail_background: autothumb.thumbnail_background_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+    adaptive_subdivision: autothumb.adaptive_subdivision_prop(
+        update=autothumb.save_thumbnail_settings
+    )
+
+    # render settings
+    thumbnail_use_gpu: autothumb.thumbnail_use_gpu_prop(
+        update=autothumb.save_thumbnail_settings
+    )
 
 
 class BlenderKitUIProps(PropertyGroup):
@@ -1169,67 +1227,28 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         min=0,
     )
 
-    thumbnail_scale: FloatProperty(
-        name="Thumbnail Object Size",
-        description="Size of material preview object in meters."
-        "Change for materials that look better at sizes different than 1m",
-        default=1,
-        min=0.00001,
-        max=10,
-    )
-    thumbnail_background: BoolProperty(
-        name="Thumbnail Background (for Glass only)",
-        description="For refractive materials, you might need a background.\n"
-        "Don't use for other types of materials.\n"
-        "Transparent background is preferred",
-        default=False,
-    )
-    thumbnail_background_lightness: FloatProperty(
-        name="Thumbnail Background Lightness",
-        description="Set to make your material stand out with enough contrast",
+    thumbnail_render_engine: autothumb.thumbnail_render_engine_prop()
+
+    thumbnail_generator_type: autothumb.thumbnail_generator_type_prop()
+
+    thumbnail_scale: autothumb.thumbnail_scale_prop()
+
+    thumbnail_background: autothumb.thumbnail_background_prop()
+
+    thumbnail_background_lightness: autothumb.thumbnail_background_lightness_prop(
         default=0.7,
-        min=0.00001,
-        max=1,
-    )
-    thumbnail_samples: IntProperty(
-        name="Cycles Samples",
-        description="Cycles samples",
-        default=100,
-        min=5,
-        max=5000,
-    )
-    thumbnail_denoising: BoolProperty(
-        name="Use Denoising", description="Use denoising", default=True
-    )
-    adaptive_subdivision: BoolProperty(
-        name="Adaptive Subdivide",
-        description="Use adaptive displacement subdivision",
-        default=False,
+        lo=0.00001,
+        hi=1.0,
+        description="Set to make your material stand out with enough contrast",
     )
 
-    thumbnail_resolution: EnumProperty(
-        name="Resolution",
-        items=autothumb.thumbnail_resolutions,
-        description="Thumbnail resolution",
-        default="1024",
-    )
+    thumbnail_samples: autothumb.thumbnail_samples_prop()
 
-    thumbnail_generator_type: EnumProperty(
-        name="Thumbnail Style",
-        items=(
-            ("BALL", "Ball", ""),
-            (
-                "BALL_COMPLEX",
-                "Ball complex",
-                "Complex ball to highlight edgewear or material thickness",
-            ),
-            ("FLUID", "Fluid", "Fluid"),
-            ("CLOTH", "Cloth", "Cloth"),
-            ("HAIR", "Hair", "Hair  "),
-        ),
-        description="Style of asset",
-        default="BALL",
-    )
+    thumbnail_denoising: autothumb.thumbnail_denoising_prop()
+
+    adaptive_subdivision: autothumb.adaptive_subdivision_prop()
+
+    thumbnail_resolution: autothumb.thumbnail_resolution_prop()
 
     thumbnail: StringProperty(
         name="Thumbnail",
@@ -1463,53 +1482,27 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         **EXTRA_PATH_OPTIONS,
     )
 
-    thumbnail_background_lightness: FloatProperty(
-        name="Thumbnail Background Lightness",
-        description="Set to make your Model stand out",
+    thumbnail_render_engine: autothumb.thumbnail_render_engine_prop()
+
+    thumbnail_background_lightness: autothumb.thumbnail_background_lightness_prop(
         default=0.7,
-        min=0.01,
-        max=10,
+        lo=0.01,
+        hi=10.0,
+        description="Set to make your Model stand out",
     )
 
     # for printable models
-    thumbnail_material_color: FloatVectorProperty(
-        name="Thumbnail Material Color",
-        description="Color of the material for printable models",
-        default=(random.random(), random.random(), random.random()),
-        subtype="COLOR",
-    )
+    thumbnail_material_color: autothumb.thumbnail_material_color_prop()
 
-    thumbnail_angle: EnumProperty(
-        name="Thumbnail Angle",
-        items=autothumb.thumbnail_angles,
-        default="ANGLE_1",
-        description="Thumbnailer angle",
-    )
+    thumbnail_angle: autothumb.thumbnail_angle_prop()
 
-    thumbnail_snap_to: EnumProperty(
-        name="Model Snaps To",
-        items=autothumb.thumbnail_snap,
-        default="GROUND",
-        description="Typical placing of the interior. Leave on ground for most objects that respect gravity",
-    )
+    thumbnail_snap_to: autothumb.thumbnail_snap_to_prop()
 
-    thumbnail_resolution: EnumProperty(
-        name="Resolution",
-        items=autothumb.thumbnail_resolutions,
-        description="Thumbnail resolution",
-        default="1024",
-    )
+    thumbnail_resolution: autothumb.thumbnail_resolution_prop()
 
-    thumbnail_samples: IntProperty(
-        name="Cycles Samples",
-        description="cycles samples setting",
-        default=100,
-        min=5,
-        max=5000,
-    )
-    thumbnail_denoising: BoolProperty(
-        name="Use Denoising", description="Use denoising", default=True
-    )
+    thumbnail_samples: autothumb.thumbnail_samples_prop()
+
+    thumbnail_denoising: autothumb.thumbnail_denoising_prop()
 
     use_design_year: BoolProperty(
         name="Use Design Year",
@@ -1686,11 +1679,6 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         default="",
         update=autothumb.update_wire_thumbnail_preview,
         **EXTRA_PATH_OPTIONS,
-    )
-    wire_thumbnail_will_upload_on_website: BoolProperty(
-        name="I will upload wireframe thumbnail on website",
-        description="True if the wireframe thumbnail will upload on the website\n please read upload tutorial for more information",
-        default=False,
     )
 
     wire_thumbnail_generating_state: StringProperty(
@@ -2479,18 +2467,9 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
-    thumbnail_use_gpu: BoolProperty(
-        name="Use GPU for Thumbnails Rendering (For assets upload)",
-        description="By default this is off so you can continue your work without any lag",
-        default=False,
-        update=utils.save_prefs,
-    )
-
-    thumbnail_disable_subdivision: BoolProperty(
-        name="Disable Subdivision for Thumbnails Rendering (For assets upload)",
-        description="By default this is off. Disable this for wireframe thumbnails to render faster",
-        default=False,
-        update=utils.save_prefs,
+    thumbnail_settings: PointerProperty(
+        type=BlenderKitThumbnailSettings,
+        description="Global thumbnail render settings, remembered across sessions",
     )
 
     maximized_assetbar_rows: IntProperty(
@@ -2700,14 +2679,6 @@ In this case you should also set path to your system CA bundle containing proxy'
         options={"SKIP_SAVE"},
     )
 
-    enable_wire_thumbnail_upload: BoolProperty(
-        name="Enable wire thumbnail upload",
-        description="If enabled, wireframe thumbnails will be uploaded.",
-        default=False,
-        # do not save prefs here, it's experimental
-        options={"SKIP_SAVE"},
-    )
-
     def draw(self, context):
         layout = self.layout
         login_box = layout.box()
@@ -2770,6 +2741,16 @@ In this case you should also set path to your system CA bundle containing proxy'
         gui_settings.prop(self, "use_clipboard_scan")
         gui_settings.prop(self, "proxor_enabled")
         gui_settings.prop(self, "rating_nudge_enabled")
+
+        # THUMBNAIL SETTINGS
+        # These are machine-level preferences that should be set once, not
+        # toggled in every thumbnail render dialog.
+        thumbnail_settings = layout.box()
+        thumbnail_settings.alignment = "EXPAND"
+        thumbnail_settings.label(text="Thumbnail settings")
+        thumbnail_settings.prop(self.thumbnail_settings, "thumbnail_use_gpu")
+        if utils.elevated_experimental_enabled():
+            thumbnail_settings.prop(self.thumbnail_settings, "thumbnail_render_engine")
 
         # NETWORKING SETTINGS
         network_settings = layout.box()
@@ -2836,7 +2817,6 @@ In this case you should also set path to your system CA bundle containing proxy'
             experimental_settings.prop(self, "ignore_env_for_thumbnails")
             experimental_settings.prop(self, "thread_communication")
             experimental_settings.prop(self, "accepted_ms_store_warning")
-            # experimental_settings.prop(self, "enable_wire_thumbnail_upload")
 
 
 # registration
@@ -2863,6 +2843,8 @@ classes = (
 def register():
     reload(global_vars)
     global_vars.VERSION = VERSION
+    # Must be registered before the preferences class, which references it via PointerProperty.
+    bpy.utils.register_class(BlenderKitThumbnailSettings)
     bpy.utils.register_class(BlenderKitAddonPreferences)
 
     # Drop any downloads that might have been left running if the add-on was re-enabled mid-transfer.
@@ -3039,6 +3021,7 @@ def unregister():
     addon_updater_ops.unregister()
 
     bpy.utils.unregister_class(BlenderKitAddonPreferences)
+    bpy.utils.unregister_class(BlenderKitThumbnailSettings)
 
     bpy.app.handlers.load_post.remove(scene_load)
 

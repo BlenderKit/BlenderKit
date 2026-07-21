@@ -67,15 +67,6 @@ licenses = (
 )
 
 
-def wire_thumbnail_upload_enabled() -> bool:
-    """Feature gate for experimental wireframe thumbnail uploads."""
-    addon = bpy.context.preferences.addons.get(__package__)
-    if addon is None:
-        return False
-    preferences = addon.preferences
-    return getattr(preferences, "enable_wire_thumbnail_upload", False)
-
-
 def add_version(data):
     data["sourceAppName"] = "blender"
     data["sourceAppVersion"] = utils.get_blender_version()
@@ -266,24 +257,6 @@ def check_missing_data(asset_type, props, upload_set):
                     "   Please check the filepath and try again.",
                 )
 
-    if wire_thumbnail_upload_enabled() and "WIRE_THUMBNAIL" in upload_set:
-        if props.wire_thumbnail_will_upload_on_website:
-            pass
-        else:
-            wire_thumb_path = bpy.path.abspath(props.wire_thumbnail)
-            if props.wire_thumbnail == "":
-                write_to_report(
-                    props,
-                    "A wireframe thumbnail image has not been provided.\n"
-                    "   Please add a wireframe thumbnail in JPG or PNG format, ensuring at least 1024x1024 pixels.",
-                )
-            elif not os.path.exists(Path(wire_thumb_path)):
-                write_to_report(
-                    props,
-                    "Wireframe thumbnail filepath does not exist on the disk.\n"
-                    "   Please check the filepath and try again.",
-                )
-
     if props.is_private == "PUBLIC":
         check_public_requirements(props)
 
@@ -413,7 +386,7 @@ def get_upload_data(caller=None, context=None, asset_type=None):
             )
         # Add wire thumbnail path to export_data for models and printable assets
         if (
-            wire_thumbnail_upload_enabled()
+            utils.experimental_enabled()
             and asset_type in ("MODEL", "SCENE", "PRINTABLE")
             and props.wire_thumbnail
         ):
@@ -1405,6 +1378,12 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
         elif not os.path.exists(export_data["thumbnail_path"]):
             props.upload_state = "0% - thumbnail not found"
             props.uploading = False
+            write_to_report(
+                props,
+                "Thumbnail file was not found on disk.\n"
+                f"   Expected at: {export_data['thumbnail_path']}\n"
+                "   Please check the thumbnail filepath and try again.",
+            )
             return False, None, None
 
     # Check if photo thumbnail exists for printable assets when it's included in upload_set
@@ -1413,13 +1392,25 @@ def prepare_asset_data(self, context, asset_type, reupload, upload_set):
             if not os.path.exists(export_data["photo_thumbnail_path"]):
                 props.upload_state = "0% - photo thumbnail not found"
                 props.uploading = False
+                write_to_report(
+                    props,
+                    "Photo thumbnail file was not found on disk.\n"
+                    f"   Expected at: {export_data['photo_thumbnail_path']}\n"
+                    "   Please check the photo thumbnail filepath and try again.",
+                )
                 return False, None, None
 
     # check if we have wire_thumbnail
-    if wire_thumbnail_upload_enabled() and "wire_thumbnail" in upload_set:
+    if utils.experimental_enabled() and "wire_thumbnail" in upload_set:
         if not os.path.exists(export_data.get("wire_thumbnail_path", "")):
             props.upload_state = "0% - wire thumbnail not found"
             props.uploading = False
+            write_to_report(
+                props,
+                "Wireframe thumbnail file was not found on disk.\n"
+                f"   Expected at: {export_data.get('wire_thumbnail_path', '')}\n"
+                "   Please regenerate the wireframe thumbnail and try again.",
+            )
             return False, None, None
 
     # save a copy of the file for processing. Only for blend files
@@ -1649,7 +1640,7 @@ class UploadOperator(Operator):
     def execute(self, context):
         bpy.ops.object.blenderkit_auto_tags()
         props = utils.get_upload_props()
-        wire_upload_enabled = wire_thumbnail_upload_enabled()
+        wire_upload_enabled = utils.experimental_enabled()
 
         upload_set = []
         if not self.reupload:
@@ -1658,11 +1649,12 @@ class UploadOperator(Operator):
             if self.asset_type == "PRINTABLE" and props.photo_thumbnail:
                 upload_set.append("photo_thumbnail")
 
-            # add wire_thumbnail for models if it exists
+            # add wire_thumbnail for models only when a valid image is provided
             if (
                 wire_upload_enabled
                 and self.asset_type in {"MODEL", "SCENE", "PRINTABLE"}
                 and props.wire_thumbnail
+                and os.path.exists(bpy.path.abspath(props.wire_thumbnail))
             ):
                 upload_set.append("wire_thumbnail")
         else:
@@ -1725,7 +1717,7 @@ class UploadOperator(Operator):
                 layout.prop(self, "photo_thumbnail")
 
             # Show wire_thumbnail option for models, scenes, and printable assets
-            if wire_thumbnail_upload_enabled() and self.asset_type in {
+            if utils.experimental_enabled() and self.asset_type in {
                 "MODEL",
                 "SCENE",
                 "PRINTABLE",
@@ -2050,6 +2042,7 @@ def mark_for_thumbnail(
     snap_to: str = None,  # GROUND, WALL, CEILING, FLOAT
     # Material-specific parameters
     thumbnail_type: str = None,  # BALL, BALL_COMPLEX, FLUID, CLOTH, HAIR
+    thumbnail_render_engine: str = None,  # CYCLES, EEVEE
     scale: float = None,
     background: bool = None,
     adaptive_subdivision: bool = None,
@@ -2070,6 +2063,7 @@ def mark_for_thumbnail(
         angle (str, optional): Camera angle for models (DEFAULT, FRONT, SIDE, TOP)
         snap_to (str, optional): Object placement for models (GROUND, WALL, CEILING, FLOAT)
         thumbnail_type (str, optional): Type of material preview (BALL, BALL_COMPLEX, FLUID, CLOTH, HAIR)
+        thumbnail_render_engine (str, optional): Render engine for materials (CYCLES, EEVEE)
         scale (float, optional): Scale of preview object for materials
         background (bool, optional): Use background for transparent materials
         adaptive_subdivision (bool, optional): Use adaptive subdivision for materials
@@ -2101,6 +2095,8 @@ def mark_for_thumbnail(
     # Material-specific parameters
     if thumbnail_type is not None:
         params["thumbnail_type"] = thumbnail_type
+    if thumbnail_render_engine is not None:
+        params["thumbnail_render_engine"] = thumbnail_render_engine
     if scale is not None:
         params["thumbnail_scale"] = scale
     if background is not None:

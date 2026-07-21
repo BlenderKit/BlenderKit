@@ -187,6 +187,11 @@ def load_preferences_from_JSON():
 
     # IMPORT SETTINGS
     user_preferences.resolution = prefs.get("resolution", user_preferences.resolution)
+    # THUMBNAIL SETTINGS
+    utils.apply_thumbnail_settings_from_dict(
+        getattr(user_preferences, "thumbnail_settings", None),
+        prefs.get("thumbnail_settings", {}),
+    )
     bk_logger.info("Successfully loaded preferences from %s", preferences_path)
     user_preferences.preferences_lock = False
     return prefs

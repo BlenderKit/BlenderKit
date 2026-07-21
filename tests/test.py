@@ -94,6 +94,7 @@ _test_modules = [
     "test_registration",
     "test_smoke",
     "test_upload_bg",
+    "test_persistent_preferences",
     "test_timer",
     "test_rating_nudge",
     "test_override_extension_draw",

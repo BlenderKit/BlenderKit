@@ -33,6 +33,129 @@ from typing import Optional
 import bpy
 from mathutils import Vector
 
+# Cached result of available_render_engines(). Blender's EnumProperty items
+# callback must keep a persistent Python reference to the returned strings,
+# otherwise it may misbehave or crash. None means "not computed yet".
+_RENDER_ENGINES_CACHE = None
+
+
+def available_render_engines(self, context):
+    """Return a list of available render engines in the current Blender instance.
+
+    Defined before the relative imports below so it is available even while the
+    package is still being imported (avoids a circular import when EnumProperty
+    definitions reference it at class-body time).
+
+    The result is cached in a module-level variable. Blender requires that an
+    EnumProperty items callback keeps a persistent Python reference to the
+    returned strings, otherwise it "may misbehave or even crash". Caching also
+    avoids re-probing the render engines (which triggers an exception on every
+    redraw) each time the callback fires.
+    """
+    global _RENDER_ENGINES_CACHE
+    if _RENDER_ENGINES_CACHE is not None:
+        return _RENDER_ENGINES_CACHE
+
+    # ble < 5.1  --> only cycles
+    minimal = [("CYCLES", "Cycles", "Blender Cycles")]
+    if bpy.app.version < (5, 1, 0):
+        _RENDER_ENGINES_CACHE = minimal
+        return _RENDER_ENGINES_CACHE
+
+    # hacky way to get render engines, but blender does not provide a better way to get them, so we have to use this
+    re_engines = []
+    try:
+        # Trigger the error message that contains the full enum list
+        bpy.context.scene.render.engine = "INVALID_ENGINE_NAME"
+    except Exception as e:
+        # The error message looks like: enum "INVALID..." not found in ('BLENDER_EEVEE', 'BLENDER_WORKBENCH', 'CYCLES', ...)
+        error_str = str(e)
+        # Extract the values inside the parentheses
+        start = error_str.find("'")
+        if start != -1:
+            re_engines = error_str[start:].split("'")[
+                1::2
+            ]  # every other item after splitting on '
+    if not re_engines:
+        _RENDER_ENGINES_CACHE = minimal
+        return _RENDER_ENGINES_CACHE
+
+    out = []
+
+    for engine_id in re_engines:
+        # Get the human-readable name from the enum
+        try:
+            prop = bpy.context.scene.render.bl_rna.properties["engine"]
+            item = next(
+                (item for item in prop.enum_items if item.identifier == engine_id), None
+            )
+            display_name = item.name if item else engine_id
+            out.append((engine_id, display_name, f"{display_name} render engine"))
+        except:
+            pass
+    if not out:
+        _RENDER_ENGINES_CACHE = minimal
+        return _RENDER_ENGINES_CACHE
+    # move cycles to the top of the list, as it's the most common engine
+    out.sort(key=lambda x: (x[0] != "CYCLES", x[0]))
+    _RENDER_ENGINES_CACHE = out
+    return _RENDER_ENGINES_CACHE
+
+
+# Fields of the BlenderKitThumbnailSettings property group that are persisted.
+THUMBNAIL_SETTINGS_FIELDS = (
+    "thumbnail_render_engine",
+    "thumbnail_resolution",
+    "thumbnail_samples",
+    "thumbnail_denoising",
+    "thumbnail_background_lightness",
+    "thumbnail_angle",
+    "thumbnail_snap_to",
+    "thumbnail_material_color",
+    "thumbnail_generator_type",
+    "thumbnail_scale",
+    "thumbnail_background",
+    "adaptive_subdivision",
+    "thumbnail_use_gpu",
+)
+
+
+def thumbnail_settings_to_dict(settings) -> dict:
+    """Serialize the global thumbnail settings group into a JSON-friendly dict."""
+    out = {}
+    if settings is None:
+        return out
+    for name in THUMBNAIL_SETTINGS_FIELDS:
+        if not hasattr(settings, name):
+            continue
+        value = getattr(settings, name)
+        if name == "thumbnail_material_color":
+            value = list(value)
+        out[name] = value
+    return out
+
+
+def apply_thumbnail_settings_from_dict(settings, data: dict) -> None:
+    """Apply a previously saved dict of thumbnail settings onto the settings group.
+
+    Individual values are applied defensively: a value that is no longer valid
+    (e.g. a render engine not available in the current Blender) is skipped
+    instead of raising.
+    """
+    if settings is None or not isinstance(data, dict):
+        return
+    for name in THUMBNAIL_SETTINGS_FIELDS:
+        if name not in data or not hasattr(settings, name):
+            continue
+        try:
+            value = data[name]
+            if name == "thumbnail_material_color":
+                value = tuple(value)
+            setattr(settings, name, value)
+        except Exception as e:
+            bk_logger.warning("Failed to load thumbnail setting %s: %s", name, e)
+
+
 from . import (
     client_lib,
     client_tasks,
@@ -79,8 +202,20 @@ supported_material_drag = (
 
 def experimental_enabled() -> bool:
     """Check if experimental features are enabled. Experimental features are always be enabled for staff and validators."""
-    preferences = bpy.context.preferences.addons[__package__].preferences  # type: ignore
-    return preferences.experimental_features or profile_is_validator()  # type: ignore
+    addon = bpy.context.preferences.addons.get(__package__)  # type: ignore
+    if addon is None:
+        return False
+    return bool(addon.preferences.experimental_features or profile_is_validator())  # type: ignore
+
+
+def elevated_experimental_enabled() -> bool:
+    """Check if experimental features are enabled and is validator."""
+    addon = bpy.context.preferences.addons.get(__package__)  # type: ignore
+    if addon is None:
+        return False
+    return bool(
+        addon.preferences.experimental_features and profile_is_validator()
+    )  # type: ignore
 
 
 def proxor_enabled() -> bool:
@@ -570,6 +705,10 @@ def get_preferences_as_dict():
         "updater_interval_days": user_preferences.updater_interval_days,
         # IMPORT SETTINGS
         "resolution": user_preferences.resolution,
+        # THUMBNAIL SETTINGS
+        "thumbnail_settings": thumbnail_settings_to_dict(
+            getattr(user_preferences, "thumbnail_settings", None)
+        ),
     }
     return prefs
 
