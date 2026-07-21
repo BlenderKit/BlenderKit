@@ -725,7 +725,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
             "thumbnail_samples": settings.thumbnail_samples,
             "thumbnail_denoising": settings.thumbnail_denoising,
             "thumbnail_background_lightness": settings.thumbnail_background_lightness,
-
         }
         if is_wire:
             # Wireframe renders in Cycles with a fixed dark background.
