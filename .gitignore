@@ -28,3 +28,6 @@ _bck/
 
 # ignore temp blend files
 *.blend1
+
+# ignore thumbnailer testing output
+**/camera_sweep

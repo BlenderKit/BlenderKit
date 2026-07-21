@@ -113,7 +113,6 @@ class Test01Registration(unittest.TestCase):
                 "thumbnail_background": ts.thumbnail_background,
                 "adaptive_subdivision": ts.adaptive_subdivision,
                 "thumbnail_use_gpu": ts.thumbnail_use_gpu,
-                "thumbnail_disable_subdivision": ts.thumbnail_disable_subdivision,
             },
         }
         self.maxDiff = None

@@ -444,9 +444,6 @@ class BlenderKitThumbnailSettings(PropertyGroup):
     thumbnail_use_gpu: autothumb.thumbnail_use_gpu_prop(
         update=autothumb.save_thumbnail_settings
     )
-    thumbnail_disable_subdivision: autothumb.thumbnail_disable_subdivision_prop(
-        update=autothumb.save_thumbnail_settings
-    )
 
 
 class BlenderKitUIProps(PropertyGroup):

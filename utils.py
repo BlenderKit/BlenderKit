@@ -117,7 +117,6 @@ THUMBNAIL_SETTINGS_FIELDS = (
     "thumbnail_background",
     "adaptive_subdivision",
     "thumbnail_use_gpu",
-    "thumbnail_disable_subdivision",
 )
 
 

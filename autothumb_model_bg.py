@@ -72,7 +72,17 @@ def center_objs_for_thumbnail(obs: list[Any]) -> None:
     for ob in scene.collection.objects:
         ob.select_set(False)
 
-    bpy.context.view_layer.objects.active = parent
+    # Making the hierarchy root the active object is NOT required for centering
+    # (we set its transform directly below). In Blender 4.2 the root (e.g. an
+    # armature/empty) is often placed in an excluded/linked collection that is
+    # not part of the render view layer, and a name-based membership test is
+    # unreliable in that case, so assigning it as active can still raise
+    # RuntimeError. Guard it and carry on; child objects inherit the transform.
+    try:
+        bpy.context.view_layer.objects.active = parent
+    except RuntimeError:
+        bg_blender.progress("WARNING: could not set active object for centering, proceeding anyway")
+        pass
     parent.location = (-cx, -cy, 0)
 
     # Adjust camera position and scale based on object size
@@ -200,17 +210,50 @@ def _set_geo_node_default(node_group: Any, name: str, value: Any) -> None:
     bg_blender.progress(f"WARNING: wireframe node input '{name}' not found")
 
 
+def _set_modifier_input(mod: Any, node_group: Any, name: str, value: Any) -> bool:
+    """Set a value on a Geometry Nodes *modifier* input by socket display name.
+
+    Value-type inputs (int/float/bool/vector) are stored on the modifier under
+    the socket *identifier* (e.g. "Socket_11"), not the display name, plus a
+    companion "<identifier>_use_attribute" flag that must be 0 for the value to
+    be used. Returns True if the socket was found and written.
+
+    Args:
+        mod: The Geometry Nodes modifier instance.
+        node_group: The node group assigned to the modifier.
+        name: The display name of the input socket.
+        value: The value to assign.
+    """
+    for item in node_group.interface.items_tree:
+        if item.item_type == "SOCKET" and item.in_out == "INPUT" and item.name == name:
+            ident = item.identifier
+            try:
+                mod[ident] = value
+            except TypeError:
+                return False
+            use_attr = f"{ident}_use_attribute"
+            if use_attr in mod:
+                mod[use_attr] = 0
+            return True
+    return False
+
+
 def setup_wireframe(
-    obs: list[Any], render_height: float, pixel_thickness: float = 2.0
+    obs: list[Any],
+    render_height: float,
+    pixel_thickness: float = 2.0,
 ) -> None:
     """Set up objects for wireframe thumbnail rendering.
 
-    For each mesh object:
-    1. Replace all material slots with two wireframe materials:
-       - slot 0: "bkit wireframe base"
-       - slot 1: "bkit wireframe color"
-    2. Add the "bkit wireframe node" Geometry Nodes modifier, which builds
-       quad-accurate wire geometry with a screen-constant (pixel) thickness.
+    For each mesh object add the "bkit wireframe node" Geometry Nodes modifier,
+    which builds quad-accurate wire geometry with a screen-constant (pixel)
+    thickness. The base and wire materials are assigned inside the node group
+    through its "Base Material" / "Wire Material" inputs, so no material slots
+    need to be changed on the object.
+
+    The node group subdivides the base surface (for smooth shading) while the
+    wire geometry is generated from the original, un-subdivided edges only, so
+    the wireframe always shows the control-cage topology over the smooth surface.
 
     The Geometry Nodes group needs a few scalar inputs describing the active
     camera and render resolution, which cannot be read inside Geometry Nodes.
@@ -247,40 +290,50 @@ def setup_wireframe(
     camera = scene.camera
     cam_data = camera.data
     _set_geo_node_default(node_group, "Pixel Thickness", pixel_thickness)
+    # Taper/cull wires once their on-screen length drops below this many pixels.
+    _set_geo_node_default(node_group, "Min Wire Pixels", pixel_thickness * 0.1)
     _set_geo_node_default(node_group, "Tan Half FOV", math.tan(cam_data.angle_y / 2))
     _set_geo_node_default(node_group, "Render Height", float(render_height))
     _set_geo_node_default(node_group, "Is Ortho", cam_data.type == "ORTHO")
     _set_geo_node_default(node_group, "Ortho Scale", cam_data.ortho_scale)
 
+    # NOTE: base/wire materials are assigned directly inside the node group's
+    # "Set Material" nodes. Blender does not copy Material (datablock) interface
+    # defaults onto newly created modifiers, and writing them onto the modifier
+    # instance is unreliable, so we intentionally do not set them here. The
+    # existence checks above only guard that the referenced materials are present.
+
     for ob in obs:
         if ob.type != "MESH":
             continue
 
-        # Clear existing slots and assign the two wireframe materials by index
-        ob.data.materials.clear()
-        ob.data.materials.append(base_material)
-        ob.data.materials.append(color_material)
+        # Disable any existing Subdivision Surface modifier and read its level.
+        subd_level = min(int(get_subd_level(ob, disable=True)), 2)
 
         # Add the wireframe Geometry Nodes modifier (inherits interface defaults)
-        mod = ob.modifiers.new(name="bkit wireframe", type="NODES")
+        mod = ob.modifiers.new(name="bkit wireframe node", type="NODES")
         mod.node_group = node_group
 
+        # Apply the per-object subdivision level to the modifier input.
+        if subd_level:
+            _set_modifier_input(mod, node_group, "Subdivision Level", subd_level)
 
-def disable_modifier(obs: list[Any], modifier_type: str) -> None:
-    """Disable a specific type of modifier on all given objects.
+        ob.update_tag()
 
-    Args:
-        obs: List of Blender objects to modify.
-        modifier_type: Type of the modifier to disable (e.g., 'SUBSURF').
-    """
-    for ob in obs:
-        if ob.type == "MESH":
-            for mod in ob.modifiers:
-                if mod.type == modifier_type:
-                    mod.show_viewport = False
-                    mod.show_render = False
-                    # disable only first found
-                    break
+    bpy.context.view_layer.update()
+
+
+def get_subd_level(obj: Any, disable: bool = False) -> int:
+    for mod in obj.modifiers:
+        if mod.type == "SUBSURF":
+            # and is enabled
+            if not mod.show_render:
+                continue
+            if disable:
+                mod.show_viewport = False
+                mod.show_render = False
+            return mod.render_levels
+    return 0
 
 
 def _str_to_color(s: str) -> Union[tuple[float, float, float], None]:
@@ -444,7 +497,6 @@ if __name__ == "__main__":
         with open(BLENDKIT_EXPORT_DATA, "r", encoding="utf-8") as s:
             data = json.load(s)
         thumbnail_use_gpu = data.get("thumbnail_use_gpu")
-        thumbnail_disable_subdivision = data.get("thumbnail_disable_subdivision", False)
 
         # before loading other stuff capture current mesh lights
         mesh_lights = [
@@ -542,7 +594,6 @@ if __name__ == "__main__":
         collection.hide_viewport = False
         collection.hide_render = False
         collection.hide_select = False
-
         main_object.rotation_euler = (0, 0, 0)
 
         # Add material replacement for printable assets
@@ -574,9 +625,6 @@ if __name__ == "__main__":
                     1 - random_color[2],
                     1,
                 )
-        # disable subdivision for thumbnail rendering if needed
-        if thumbnail_disable_subdivision:
-            disable_modifier(allobs, "SUBSURF")
 
         # replace materials and add wireframe geometry nodes if we need to
         # render a wireframe thumbnail

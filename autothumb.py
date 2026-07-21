@@ -221,15 +221,6 @@ def thumbnail_use_gpu_prop(update=None):
     )
 
 
-def thumbnail_disable_subdivision_prop(update=None):
-    return BoolProperty(
-        name="Disable Subdivision for Thumbnails Rendering",
-        description="By default this is off. Disable this for wireframe thumbnails to render faster",
-        default=False,
-        update=update,
-    )
-
-
 def save_thumbnail_settings(self, context):
     """Update callback for BlenderKitThumbnailSettings fields.
 
@@ -432,8 +423,6 @@ def start_model_thumbnailer(
             "cycles"
         ].preferences.compute_device_type
 
-    json_args["thumbnail_disable_subdivision"] = settings.thumbnail_disable_subdivision
-
     try:
         with open(datafile, "w", encoding="utf-8") as s:
             json.dump(json_args, s, ensure_ascii=False, indent=4)
@@ -619,6 +608,16 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         settings = get_thumbnail_settings()
         layout = self.layout
         layout.label(text="thumbnailer settings")
+        # Preview image for the selected snap + angle combination. Files are
+        # named "<SNAP>_<ANGLE>.png" in thumbnails/thumbnail_angles/.
+        from . import icons
+
+        angles_pcoll = icons.icon_collections.get("thumbnail_angles")
+        if angles_pcoll is not None:
+            preview_key = f"{settings.thumbnail_snap_to}_{settings.thumbnail_angle}"
+            preview = angles_pcoll.get(preview_key)
+            if preview is not None:
+                layout.template_icon(icon_value=preview.icon_id, scale=6.0)
         # The regular/wireframe switch and the render engine choice are
         # experimental. Non-experimental users always get a regular Cycles
         # thumbnail, so these controls are hidden.
@@ -639,7 +638,6 @@ class GenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_resolution")
         layout.prop(settings, "thumbnail_denoising")
-        layout.prop(settings, "thumbnail_disable_subdivision")
 
     def execute(self, context):
         experimental = utils.experimental_enabled()
@@ -817,7 +815,6 @@ class ReGenerateThumbnailOperator(bpy.types.Operator):
         layout.prop(settings, "thumbnail_samples")
         layout.prop(settings, "thumbnail_resolution")
         layout.prop(settings, "thumbnail_denoising")
-        layout.prop(settings, "thumbnail_disable_subdivision")
 
     def execute(self, context):
         if not self.asset_index > -1:
