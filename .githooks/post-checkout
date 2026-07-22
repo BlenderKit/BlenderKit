@@ -1,0 +1,3 @@
+# Checkout submodule(s) to commit(s) stored in this repository (\.git\modules\*\HEAD)
+# To get the latest changes from remote instead, use: `git submodule update --remote`
+git submodule update --init --recursive
