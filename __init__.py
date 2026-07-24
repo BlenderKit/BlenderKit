@@ -2124,6 +2124,19 @@ def fix_subdir(self, context):
         )
 
 
+def update_create_asset_library(self, context):
+    """Save prefs and add or remove the Blendkit asset library entry accordingly.
+
+    When enabled, ensures Blender's Asset Libraries list contains the Blendkit
+    entry. When disabled, removes the Blendkit entry if it is present.
+    """
+    utils.save_prefs(self, context)
+    if self.create_asset_library:
+        paths.ensure_asset_library_path()
+    else:
+        paths.remove_asset_library_path()
+
+
 def update_unpack(self, context):
     """Open UI message about unpacking compatibility. If unpack was updated from code (preferences_lock is True), then don't show the message."""
     if self.preferences_lock == True:
@@ -2302,10 +2315,10 @@ class BlenderKitAddonPreferences(AddonPreferences):
         name="Register Local Blendkit Asset Library",
         description="Automatically add (and keep in sync) a 'Blendkit' entry in Blender's Asset Libraries pointing to the global directory.\n\n"
         "This allows you to easily access your downloaded assets in the Asset Browser, and also ensures that metadata like tags and descriptions are available for your assets across all your projects. "
-        "When disabled, Blendkit will not modify your Asset Libraries list, and downloaded assets won't be unpacked in the background just to embed asset metadata "
+        "When disabled, Blendkit will remove the 'Blendkit' entry from your Asset Libraries list (if present), and downloaded assets won't be unpacked in the background just to embed asset metadata "
         "(unless 'Unpack Files' is enabled). Disable this if you don't want Blendkit to manage your Asset Browser entries",
         default=False,
-        update=utils.save_prefs,
+        update=update_create_asset_library,
     )
 
     # resolution download/import settings

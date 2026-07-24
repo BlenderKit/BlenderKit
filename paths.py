@@ -32,7 +32,6 @@ import bpy
 
 from . import client_lib, global_vars, reports, utils
 
-
 bk_logger = logging.getLogger(__name__)
 
 BLENDKIT_API = f"{global_vars.SERVER}/api/v1"
@@ -230,11 +229,17 @@ def get_download_dirs(asset_type):
 def ensure_asset_library_path(
     global_dir: str | None = None, previous_global_dir: str | None = None
 ):
-    """Ensure Blender's asset library list contains the Blendkit library path.
+    """Ensure Blender's asset library list contains the Blendkit library entry.
 
-    - Creates the library entry when missing.
-    - Updates an existing entry if the global directory changes.
-    - Reuses a library that already points to the target path even if the name differs.
+    Safety contract: this function only ever creates, reads, or updates the
+    single asset library entry that Blendkit owns (the one named
+    ``ASSET_LIBRARY_NAME``). It never renames, repaths, or otherwise mutates any
+    other asset library. This guarantees it cannot interfere with Blender's
+    built-in "Essentials" library (default brushes, "Smooth by Angle", etc.) or
+    with libraries the user configured themselves.
+
+    - Creates the Blendkit entry when missing.
+    - Updates only the Blendkit entry's path if the global directory changes.
     """
     if bpy.app.background:
         return
@@ -255,6 +260,16 @@ def ensure_asset_library_path(
     if not target_path:
         return
 
+    # Diagnostic snapshot: log the whole asset-library list before we touch it.
+    # This makes it easy to confirm from a user's log that Blendkit only ever
+    # adds/updates its own entry and never removes Essentials or user libraries.
+    bk_logger.info(
+        "ensure_asset_library_path: create_asset_library=ON, target=%s, "
+        "libraries before=%s",
+        target_path,
+        [(lib.name, lib.path) for lib in asset_libraries],
+    )
+
     try:
         os.makedirs(target_path, exist_ok=True)
     except OSError as e:
@@ -263,12 +278,9 @@ def ensure_asset_library_path(
         )
         return
 
-    previous_path = _normalize_path(previous_global_dir) if previous_global_dir else ""
-    if previous_path:
-        for lib in asset_libraries:
-            if _normalize_path(lib.path) == previous_path:
-                lib.path = target_path
-
+    # Only ever manage the entry we own (matched strictly by our name). We never
+    # touch any other library, even one that happens to point at target_path, so
+    # we cannot affect Essentials or user-configured libraries.
     existing = (
         asset_libraries.get(ASSET_LIBRARY_NAME)
         if hasattr(asset_libraries, "get")
@@ -276,43 +288,110 @@ def ensure_asset_library_path(
     )
     if existing is not None:
         if _normalize_path(existing.path) != target_path:
+            bk_logger.info(
+                "ensure_asset_library_path: repointing existing '%s' entry %s -> %s",
+                ASSET_LIBRARY_NAME,
+                existing.path,
+                target_path,
+            )
             existing.path = target_path
         return existing
 
-    for lib in asset_libraries:
-        if _normalize_path(lib.path) == target_path:
-            try:
-                lib.name = ASSET_LIBRARY_NAME
-            except Exception:
-                pass
-            return lib
+    bk_logger.info(
+        "ensure_asset_library_path: adding new '%s' entry at %s",
+        ASSET_LIBRARY_NAME,
+        target_path,
+    )
 
+    # No Blendkit entry yet. Prefer the direct API which lets us set our name on
+    # creation without touching anything else.
     if hasattr(asset_libraries, "new"):
-        asset_libraries.new(name=ASSET_LIBRARY_NAME, directory=target_path)
-    else:
         try:
-            bpy.ops.preferences.asset_library_add(directory=target_path)
-            # Operator names the library after the directory basename, rename it.
-            for lib in asset_libraries:
-                if (
-                    _normalize_path(lib.path) == target_path
-                    and lib.name != ASSET_LIBRARY_NAME
-                ):
-                    lib.name = ASSET_LIBRARY_NAME
-                    break
+            return asset_libraries.new(name=ASSET_LIBRARY_NAME, directory=target_path)
         except Exception as e:
-            logging.getLogger(__name__).warning(
+            bk_logger.warning(
                 "Failed to add asset library: %s. "
                 "Please add it manually in Preferences > File Paths",
                 e,
             )
             return None
 
-    return (
+    # Fallback for Blender builds without asset_libraries.new(): use the
+    # operator, but rename ONLY the entry it just created (identified by being
+    # absent before the call), never a pre-existing library.
+    names_before = {lib.name for lib in asset_libraries}
+    try:
+        bpy.ops.preferences.asset_library_add(directory=target_path)
+    except Exception as e:
+        logging.getLogger(__name__).warning(
+            "Failed to add asset library: %s. "
+            "Please add it manually in Preferences > File Paths",
+            e,
+        )
+        return None
+
+    for lib in asset_libraries:
+        if lib.name not in names_before and _normalize_path(lib.path) == target_path:
+            try:
+                lib.name = ASSET_LIBRARY_NAME
+            except Exception:
+                pass
+            return lib
+
+    return None
+
+
+def remove_asset_library_path():
+    """Remove the Blendkit asset library entry from Blender's asset library list.
+
+    Safety contract: only removes the entry Blendkit owns, identified by BOTH
+    its name (``ASSET_LIBRARY_NAME``) AND its path matching the configured
+    Blendkit global directory. This avoids removing a user-created library that
+    merely happens to share the name. Never touches any other library, so it
+    cannot affect Blender's built-in "Essentials" library. Does nothing in
+    background mode or when no matching entry exists.
+    """
+    if bpy.app.background:
+        return
+
+    filepaths = getattr(bpy.context.preferences, "filepaths", None)
+    asset_libraries = getattr(filepaths, "asset_libraries", None) if filepaths else None
+    if asset_libraries is None:
+        return
+
+    existing = (
         asset_libraries.get(ASSET_LIBRARY_NAME)
         if hasattr(asset_libraries, "get")
         else None
     )
+    if existing is None:
+        return
+
+    # Only remove it if it points at our global directory, so we never delete a
+    # user library that coincidentally uses the same name.
+    prefs = bpy.context.preferences.addons[__package__].preferences  # type: ignore
+    target_path = _normalize_path(getattr(prefs, "global_dir", ""))
+    if target_path and _normalize_path(existing.path) != target_path:
+        bk_logger.info(
+            "remove_asset_library_path: keeping '%s' entry at %s (does not match "
+            "Blendkit global dir %s), assuming it is user-owned",
+            ASSET_LIBRARY_NAME,
+            existing.path,
+            target_path,
+        )
+        return
+
+    bk_logger.info(
+        "remove_asset_library_path: removing '%s' entry at %s",
+        ASSET_LIBRARY_NAME,
+        existing.path,
+    )
+    try:
+        asset_libraries.remove(existing)
+    except Exception as e:
+        bk_logger.warning(
+            "Failed to remove asset library %s: %s", ASSET_LIBRARY_NAME, e
+        )
 
 
 def slugify(input: str) -> str:
