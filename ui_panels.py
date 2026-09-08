@@ -1627,7 +1627,7 @@ def get_environment_info_string() -> str:
 
 
 class CopyEnvironmentInfo(bpy.types.Operator):
-    """Copy the BlendKit and Blender versions, operating system, and other environment details to the clipboard.
+    """Copy the Blendkit and Blender versions, operating system, and other environment details to the clipboard.
     Include this information in your bug report or support email to help us diagnose the issue"""  # fmt: skip
 
     bl_idname = "wm.blenderkit_copy_environment_info"
@@ -1665,7 +1665,7 @@ def get_report_bug_url() -> str:
 
 
 class ReportBug(bpy.types.Operator):
-    """Open a prefilled GitHub issue in your browser. The report includes BlendKit and Blender versions,
+    """Open a prefilled GitHub issue in your browser. The report includes Blendkit and Blender versions,
     operating system info, and other environment details which help us diagnose your problem"""  # fmt: skip
 
     bl_idname = "wm.blenderkit_report_bug"
@@ -2635,7 +2635,7 @@ def draw_asset_context_menu(
             else:
                 op.url = paths.get_author_gallery_url(author.id)
             op = layout.operator(
-                "view3d.blenderkit_search", text="Show Assets By Author"
+                "view3d.blenderkit_search", text="Show Assets by Author"
             )
             op.keywords = ""
             op.author_id = str(author_id)
@@ -2645,7 +2645,7 @@ def draw_asset_context_menu(
     op.tooltip = "Search for similar assets in the library.\nShortcut: hover over asset in asset bar and press 'S'."
     op.keywords = search.get_search_similar_keywords(asset_data)
 
-    op = layout.operator("wm.url_open", text="See online", icon="URL")
+    op = layout.operator("wm.url_open", text="See Online", icon="URL")
     if (
         utils.user_is_owner(asset_data)
         and asset_data["verificationStatus"] != "validated"
@@ -2810,13 +2810,13 @@ def draw_asset_context_menu(
             if asset_data["assetType"] == "model":
                 op = layout.operator(
                     "object.blenderkit_regenerate_thumbnail",
-                    text="Regenerate thumbnail",
+                    text="Regenerate Thumbnail",
                 )
                 op.asset_index = ui_props.active_index
             elif asset_data["assetType"] == "material":
                 op = layout.operator(
                     "object.blenderkit_regenerate_material_thumbnail",
-                    text="Regenerate thumbnail",
+                    text="Regenerate Thumbnail",
                 )
                 op.asset_index = ui_props.active_index
 
@@ -3145,7 +3145,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 row = box.row()
                 row.scale_y = 2
                 op = row.operator(
-                    "wm.blenderkit_url", text="See full description", icon="URL"
+                    "wm.blenderkit_url", text="See Full Description", icon="URL"
                 )
                 op.url = paths.get_asset_gallery_url(self.asset_data["assetBaseId"])
                 op.tooltip = "Read full description on website"
@@ -3586,7 +3586,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
 
         # AUTHOR's ASSETS SEARCH
         op = button_row.operator(
-            "view3d.blenderkit_search", text="Find Assets By Author", icon="VIEWZOOM"
+            "view3d.blenderkit_search", text="Find Assets by Author", icon="VIEWZOOM"
         )
         op.tooltip = "Search all assets by this author.\nShortcut: Hover over the asset in the asset bar and press 'A'."  # type: ignore[attr-defined]
         op.esc = True  # type: ignore[attr-defined]
@@ -3800,7 +3800,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
                 ui_props,
                 "drag_init_button",
                 icon="MOUSE_LMB_DRAG",
-                text="Click / Drag from here",
+                text="Click / Drag from Here",
                 emboss=True,
             )
         else:
@@ -3888,7 +3888,7 @@ class AssetPopupCard(bpy.types.Operator, ratings_utils.RatingProperties):
         split = split.split()
         op = split.operator(
             "wm.blenderkit_post_comment",
-            text="post comment",
+            text="Post Comment",
             icon_value=pcoll["post_comment"].icon_id,
         )
         op.asset_id = self.asset_data["assetBaseId"]
