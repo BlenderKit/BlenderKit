@@ -1820,10 +1820,10 @@ def search(get_next=False, query=None, author_id=""):
             )
 
         if ui_props.asset_type == "PRINTABLE":
-            if not hasattr(wm, "blenderkit_models"):
+            if not hasattr(wm, "blenderkit_printables"):
                 return
             query = build_query_model(
-                bpy.context.window_manager.blenderkit_models,
+                bpy.context.window_manager.blenderkit_printables,
                 ui_props=bpy.context.window_manager.blenderkitUI,
                 preferences=bpy.context.preferences.addons[__package__].preferences,
             )
