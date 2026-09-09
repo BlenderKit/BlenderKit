@@ -90,6 +90,13 @@ class TestPanelsRegistered(unittest.TestCase):
         "VIEW3D_PT_blenderkit_model_properties",
         "VIEW3D_PT_blenderkit_advanced_model_search",
         "VIEW3D_PT_blenderkit_advanced_material_search",
+        "VIEW3D_PT_blenderkit_advanced_scene_search",
+        "VIEW3D_PT_blenderkit_advanced_brush_search",
+        "VIEW3D_PT_blenderkit_advanced_HDR_search",
+        "VIEW3D_PT_blenderkit_advanced_nodegroup_search",
+        "VIEW3D_PT_blenderkit_advanced_printable_search",
+        "VIEW3D_PT_blenderkit_advanced_addon_search",
+        "VIEW3D_PT_blenderkit_advanced_author_search",
     ]
 
     def test_panels_exist(self):

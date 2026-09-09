@@ -725,7 +725,11 @@ def append_asset(
 
     if asset_data["assetType"] in ("model", "printable"):
         downloaders = kwargs.get("downloaders")
-        sprops = wm.blenderkit_models
+        if asset_data["assetType"] == "model":
+            sprops = wm.blenderkit_models
+        else:
+            sprops = wm.blenderkit_printables
+
         # TODO this is here because combinations of linking objects or appending groups are rather not-usefull
         if sprops.import_method == "LINK_COLLECTION":
             sprops.append_link = "LINK"

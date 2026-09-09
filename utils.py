@@ -509,10 +509,14 @@ def get_search_props():
         return
     uiprops = bpy.context.window_manager.blenderkitUI
     props = None
-    if uiprops.asset_type in ("MODEL", "PRINTABLE"):
+    if uiprops.asset_type == "MODEL":
         if not hasattr(wm, "blenderkit_models"):
             return
         props = wm.blenderkit_models
+    if uiprops.asset_type == "PRINTABLE":
+        if not hasattr(wm, "blenderkit_printables"):
+            return
+        props = wm.blenderkit_printables
     if uiprops.asset_type == "SCENE":
         if not hasattr(wm, "blenderkit_scene"):
             return
