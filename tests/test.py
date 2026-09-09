@@ -79,7 +79,11 @@ runner = unittest.TextTestRunner(buffer=False)
 suite = unittest.TestSuite()
 testLoader = unittest.TestLoader()
 
-_test_modules = [
+# Modules that must run first, in this order (the client tests expect the state
+# earlier modules leave behind). Every other ``tests/test_*.py`` in the installed
+# package is loaded after them automatically - a new test file never needs to be
+# registered here, and can never be skipped silently.
+_ordered_first = [
     "test_init",
     "test_upload",
     "test_paths",
@@ -105,11 +109,24 @@ _test_modules = [
     "test_override_extension_draw",
     "test_datas",
 ]
+_tests_dir = os.path.dirname(importlib.import_module(f"{name_match}.tests").__file__)
+_all_modules = sorted(
+    f[:-3]
+    for f in os.listdir(_tests_dir)
+    if f.startswith("test_") and f.endswith(".py")
+)
+_missing = [m for m in _ordered_first if m not in _all_modules]
+if _missing:
+    print(f"FATAL: ordered test modules not found in {_tests_dir}: {_missing}")
+    sys.exit(1)
+_test_modules = _ordered_first + [m for m in _all_modules if m not in _ordered_first]
 
 for _modname in _test_modules:
     _module = importlib.import_module(f"{name_match}.tests.{_modname}")
     suite.addTests(testLoader.loadTestsFromModule(_module))
-print(f"- {len(suite._tests)} tests discovered and loaded\n")
+print(
+    f"- {len(suite._tests)} test suites from {len(_test_modules)} modules loaded: {_test_modules}\n"
+)
 
 print(f"----- Running tests --------------------------------------------------")
 result = runner.run(suite)
