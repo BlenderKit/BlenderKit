@@ -27,6 +27,8 @@ import shutil
 import time
 from typing import Any, Optional
 
+import requests
+
 from . import (
     append_link,
     client_lib,
@@ -451,16 +453,23 @@ def cleanup_temp_enabled_addons() -> None:
 
 @persistent
 def scene_save(context) -> None:
-    """Do cleanup of Blendkit props and send a message to the server about assets used."""
-    # TODO this can be optimized by merging these 2 functions, since both iterate over all objects.
+    """Clean up Blendkit props and report which assets are still in the file.
+
+    One "save" usage report per scene, every save, listing every Blendkit
+    asset present with its instance count. The server keeps it as per-scene
+    presence state (what was kept, what was removed, and when) for search
+    evaluation and, only after simulation, a possible redistribution weight.
+    Saving must never fail because of this, so a Client that is not running
+    is logged and ignored.
+    """
     if bpy.app.background:
         return
     check_unused()
-    report_data = (
-        get_asset_usages()
-    )  # TODO: FIX OR REMOVE THIS (now returns empty dict all the time) https://github.com/BlenderKit/blenderkit/issues/1013
-    if report_data != {}:
-        client_lib.report_usages(report_data)
+    for report in build_save_reports():
+        try:
+            client_lib.report_usages(report)
+        except requests.RequestException as e:
+            bk_logger.warning("Could not send the save-time usage report: %s", e)
 
 
 def refresh_addon_search_results_status() -> None:
@@ -512,89 +521,103 @@ def scene_load(context) -> None:
     check_missing()
 
 
-# TODO: FIX OR REMOVE THIS BROKEN FUNCTION - remove empty dict all the time
-# https://github.com/BlenderKit/blenderkit/issues/1013
-def get_asset_usages() -> dict[str, Any]:
-    """Report the usage of assets to the server."""
-    sid = utils.get_scene_id()
-    assets = {}
-    asset_obs = []
-    scene = bpy.context.scene
-    asset_usages = {}
+def _asset_base_id(datablock) -> Optional[str]:
+    """assetBaseId of a Blendkit asset datablock, else None."""
+    asset_data = datablock.get("asset_data")
+    if not asset_data:
+        return None
+    return asset_data.get("assetBaseId")
 
-    for ob in scene.collection.objects:
-        if ob.get("asset_data") != None:
-            asset_obs.append(ob)
 
-    for ob in asset_obs:
-        asset_data = ob["asset_data"]
-        abid = asset_data["assetBaseId"]
+def collect_present_assets(scene, file_wide: bool = False) -> dict[str, int]:
+    """Blendkit assets present in ``scene`` at save time: {assetBaseId: instance count}.
 
-        if assets.get(abid) is None:
-            asset_usages[abid] = {"count": 1}
-            assets[abid] = asset_data
-        else:
-            asset_usages[abid]["count"] += 1
+    Counts what the file actually uses: objects linked to the scene (models and
+    collection instances), materials in their slots (one per slot), the scene's
+    world (HDRs), and the scene itself when it is a scene asset. Brushes and
+    node groups are not owned by a scene, so they are attributed once, to the
+    scene flagged ``file_wide`` (the active one). Orphan datablocks - a
+    material nobody uses, a node group with no users - do not count: Blender
+    drops them on save and the user evidently did not keep them.
+    """
+    counts: dict[str, int] = {}
 
-    # brushes
-    for b in bpy.data.brushes:
-        if b.get("asset_data") != None:
-            abid = b["asset_data"]["assetBaseId"]
-            asset_usages[abid] = {"count": 1}
-            assets[abid] = b["asset_data"]
-    # materials
-    for ob in scene.collection.objects:
-        for ms in ob.material_slots:
-            m = ms.material
+    def add(datablock, instances: int = 1) -> None:
+        abid = _asset_base_id(datablock)
+        if abid:
+            counts[abid] = counts.get(abid, 0) + instances
 
-            if m is not None and m.get("asset_data") is not None:
-                abid = m["asset_data"]["assetBaseId"]
-                if assets.get(abid) is None:
-                    asset_usages[abid] = {"count": 1}
-                    assets[abid] = m["asset_data"]
-                else:
-                    asset_usages[abid]["count"] += 1
+    for ob in scene.objects:
+        add(ob)
+        if ob.instance_collection is not None:
+            add(ob.instance_collection)
+        for slot in ob.material_slots:
+            if slot.material is not None:
+                add(slot.material)
+    if scene.world is not None:
+        add(scene.world)
+    add(scene)
+    if file_wide:
+        for brush in bpy.data.brushes:
+            add(brush)
+        for nodegroup in bpy.data.node_groups:
+            if nodegroup.users > 0:
+                add(nodegroup)
+    return counts
 
-    assets_list = []
-    assets_reported = scene.get("assets reported", {})
 
-    new_assets_count = 0
-    for k in asset_usages.keys():
-        if k not in assets_reported.keys():
-            data = asset_usages[k]
-            list_item = {
-                "asset": k,
-                "usageCount": data["count"],
-                "proximitySet": data.get("proximity", []),
+# Unchanged presence is re-reported at most this often. Every consumer of the
+# reports reads state (kept at 24 h, removed at T, present at an order's cut-off),
+# not save frequency, so identical consecutive saves carry nothing; the heartbeat
+# keeps "still here" fresh enough for all of them while dropping most rows.
+SAVE_REPORT_HEARTBEAT_SECONDS = 3600
+
+# scene uuid -> (monotonic time of the last report, the counts it carried).
+# In-process on purpose: the first save of every Blender session always reports,
+# which is itself a useful signal (the file was opened and worked on again).
+_last_save_reports: dict[str, tuple[float, dict[str, int]]] = {}
+
+
+def _report_due(scene_id: str, counts: dict[str, int], now: float) -> bool:
+    last = _last_save_reports.get(scene_id)
+    if last is None:
+        return True
+    last_at, last_counts = last
+    return counts != last_counts or now - last_at >= SAVE_REPORT_HEARTBEAT_SECONDS
+
+
+def build_save_reports(now: Optional[float] = None) -> list[dict[str, Any]]:
+    """One usage report per scene whose Blendkit presence changed (or is due a heartbeat).
+
+    Scenes that never touched Blendkit (no uuid, no assets) are skipped; a
+    scene with a uuid is reported even when empty, because "nothing left" is
+    exactly the removal the server needs to see. A scene whose assets are the
+    same as at its last report within ``SAVE_REPORT_HEARTBEAT_SECONDS`` is
+    skipped.
+    """
+    if now is None:
+        now = time.monotonic()
+    reports = []
+    active = bpy.context.scene
+    for scene in bpy.data.scenes:
+        counts = collect_present_assets(scene, file_wide=scene == active)
+        if scene.get("uuid") is None and not counts:
+            continue
+        scene_id = utils.get_scene_id(scene)
+        if not _report_due(scene_id, counts, now):
+            continue
+        _last_save_reports[scene_id] = (now, counts)
+        reports.append(
+            {
+                "scene": scene_id,
+                "reportType": "save",
+                "assetusageSet": [
+                    {"asset": abid, "usageCount": instances, "proximitySet": []}
+                    for abid, instances in sorted(counts.items())
+                ],
             }
-            assets_list.append(list_item)
-            new_assets_count += 1
-        if k not in assets_reported.keys():
-            assets_reported[k] = True
-
-    scene["assets reported"] = assets_reported
-
-    if new_assets_count == 0:
-        bk_logger.debug("no new assets were added")
-        return {}
-    usage_report = {"scene": sid, "reportType": "save", "assetusageSet": assets_list}
-
-    au = scene.get("assets used", {})
-    ad = scene.get("assets deleted", {})
-
-    ak = assets.keys()
-    for k in au.keys():
-        if k not in ak:
-            ad[k] = au[k]
-        else:
-            if k in ad:
-                ad.pop(k)
-
-    # scene['assets used'] = {}
-    for k in ak:  # rewrite assets used.
-        scene["assets used"][k] = assets[k]
-
-    return usage_report
+        )
+    return reports
 
 
 def _sanitize_for_idprops(value: Any) -> Any:

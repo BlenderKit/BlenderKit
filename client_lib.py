@@ -413,16 +413,26 @@ def mark_notification_read(notification_id):
 
 
 ### REPORTS
-def report_usages(data: dict):
-    """Report usages of assets in current scene via Blendkit-Client to the server."""
-    data = ensure_minimal_data(data)
-    with requests.Session() as session:
-        return session.post(
-            f"{get_base_url()}/report_usages",
-            json=data,
-            timeout=TIMEOUT,
-            proxies=NO_PROXIES,
-        )
+USAGE_REPORT_URL_SUFFIX = "/api/v1/usage_report/"
+USAGE_REPORT_ERROR = "Could not send the save-time usage report"
+
+
+def report_usages(data: dict) -> requests.Response:
+    """Send a usage report (the save-time asset presence) to the server via Blendkit-Client.
+
+    Goes through the Client's generic non-blocking forwarder, which adds the
+    auth headers and posts in the background: the Client has no dedicated
+    route for usage reports (the old ``/report_usages`` was never ported to the
+    Go Client, so reports posted there got a 404 and vanished silently). The
+    result task is kept out of the UI by ``utils.handle_nonblocking_request_task``.
+    """
+    return nonblocking_request(
+        f"{global_vars.SERVER}{USAGE_REPORT_URL_SUFFIX}",
+        "POST",
+        {},
+        data,
+        {"success": "", "error": USAGE_REPORT_ERROR},
+    )
 
 
 def report_event(event: str, data: Optional[dict] = None) -> None:

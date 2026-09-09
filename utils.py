@@ -724,10 +724,25 @@ def get_brush_icon_path(brush) -> str:
     return filepath
 
 
-def get_scene_id():
-    """gets scene id and possibly also generates a new one"""
-    bpy.context.scene["uuid"] = bpy.context.scene.get("uuid", str(uuid.uuid4()))
-    return bpy.context.scene["uuid"]
+def get_scene_id(scene=None):
+    """Return the scene's Blendkit uuid, generating and storing one when missing or shared.
+
+    Defaults to the active scene; pass a scene to address another one (the
+    save-time report covers every scene in the file). Blender copies custom
+    properties when a scene is created from another one ("New" included), so
+    a second scene starts out with the first one's uuid and the server would
+    merge the two into one history. The first scene in ``bpy.data.scenes``
+    keeps the shared uuid; every later scene holding it gets a fresh one.
+    """
+    if scene is None:
+        scene = bpy.context.scene
+    current = scene.get("uuid")
+    owner = next(
+        (other for other in bpy.data.scenes if other.get("uuid") == current), None
+    )
+    if current is None or (owner is not None and owner != scene):
+        scene["uuid"] = str(uuid.uuid4())
+    return scene["uuid"]
 
 
 def get_preferences_as_dict():
@@ -1920,10 +1935,25 @@ def is_upload_old(last_blend_upload: Optional[str]) -> int:
 
 
 def handle_nonblocking_request_task(task: client_tasks.Task):
+    if is_usage_report_task(task):
+        # background signal: never a popup, the console log is enough
+        if task.status == "error":
+            bk_logger.warning("Save-time usage report failed: %s", task.message)
+        elif task.status == "finished":
+            bk_logger.debug(
+                "Save-time usage report sent for scene %s",
+                task.data.get("json", {}).get("scene"),
+            )
+        return
     if task.status == "finished":
         reports.add_report(task.message)
     if task.status == "error":
         reports.add_report(task.message, type="ERROR")
+
+
+def is_usage_report_task(task: client_tasks.Task) -> bool:
+    """A non-blocking request task carrying the save-time usage report."""
+    return str(task.data.get("url", "")).endswith(client_lib.USAGE_REPORT_URL_SUFFIX)
 
 
 def string2list(text: str) -> list:
