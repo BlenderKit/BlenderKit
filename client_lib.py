@@ -414,13 +414,11 @@ def mark_notification_read(notification_id):
 
 ### REPORTS
 def report_usages(data: dict) -> requests.Response:
-    """Send the save-time usage report (the assets still in the file) via Blendkit-Client.
+    """Send a presence report (the assets in the file at a save or render) via Blendkit-Client.
 
-    The Client's dedicated ``/report_usages`` route forwards the report to the
-    server with the standard headers in the background and, like telemetry,
-    creates no Task: the report is a background signal sent on every save and
-    must never surface to the UI. A Client older than the route answers 404,
-    which the caller only logs.
+    The Client's ``/report_usages`` route forwards it as a ``report_usages``
+    task and drops it when the user opted out of usage data. A Client older
+    than the route answers 404, which the caller only logs.
     """
     payload = ensure_minimal_data({"report": data})
     with requests.Session() as session:
@@ -430,6 +428,43 @@ def report_usages(data: dict) -> requests.Response:
             timeout=TIMEOUT,
             proxies=NO_PROXIES,
         )
+
+
+def set_usage_data_opt_out(opt_out: bool) -> requests.Response:
+    """Store the shared usage-data opt-out in Blendkit-Client, where every host reads it."""
+    with requests.Session() as session:
+        return session.post(
+            f"{get_base_url()}/settings/set",
+            json={"usage_data_opt_out": opt_out},
+            timeout=TIMEOUT,
+            proxies=NO_PROXIES,
+        )
+
+
+# True while handle_settings_task writes a preference, so the preference's
+# update callback does not push the same value back to the Client.
+applying_client_settings = False
+
+
+def handle_settings_task(task) -> None:
+    """Mirror the Client's shared settings into the add-on preferences.
+
+    The Client broadcasts its settings on every report; the opt-out may have
+    been changed from another host, so the preference follows the Client.
+    """
+    global applying_client_settings
+    shared = (task.result or {}).get("shared") or {}
+    if "usage_data_opt_out" not in shared:
+        return
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    wanted = not shared["usage_data_opt_out"]
+    if preferences.send_usage_data == wanted:
+        return
+    applying_client_settings = True
+    try:
+        preferences.send_usage_data = wanted
+    finally:
+        applying_client_settings = False
 
 
 def report_event(event: str, data: Optional[dict] = None) -> None:

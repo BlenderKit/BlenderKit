@@ -18,6 +18,8 @@
 """The save-time presence report: which Blendkit assets are still in the file."""
 
 import unittest
+
+import bpy
 from types import SimpleNamespace
 from unittest import mock
 
@@ -264,6 +266,11 @@ class RenderReportTests(unittest.TestCase):
     def setUp(self):
         download._last_save_reports.clear()
         self.addCleanup(download._last_save_reports.clear)
+        enabled = mock.patch.object(
+            download, "usage_reports_enabled", return_value=True
+        )
+        enabled.start()
+        self.addCleanup(enabled.stop)
 
     def test_render_reports_the_rendered_scene_only(self):
         rendered = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")
@@ -323,6 +330,54 @@ class RenderReportTests(unittest.TestCase):
         sent.assert_not_called()
 
 
+class UsageDataSettingTests(unittest.TestCase):
+    """The opt-out lives in Blendkit-Client; the preference pushes to it and mirrors it."""
+
+    def _prefs(self):
+        return bpy.context.preferences.addons[utils.__package__].preferences
+
+    def setUp(self):
+        self.original = self._prefs().send_usage_data
+        push = mock.patch.object(client_lib, "set_usage_data_opt_out")
+        self.push = push.start()
+        self.addCleanup(push.stop)
+        save = mock.patch.object(utils, "save_prefs")
+        save.start()
+        self.addCleanup(save.stop)
+        self.addCleanup(
+            lambda: setattr(self._prefs(), "send_usage_data", self.original)
+        )
+
+    def test_settings_broadcast_mirrors_the_opt_out_into_the_preference(self):
+        task = client_tasks.Task(
+            data={}, app_id="app", task_type="settings", status="finished"
+        )
+        task.result = {"shared": {"server": "https://x", "usage_data_opt_out": True}}
+        client_lib.handle_settings_task(task)
+        self.assertFalse(self._prefs().send_usage_data)
+        task.result = {"shared": {"server": "https://x", "usage_data_opt_out": False}}
+        client_lib.handle_settings_task(task)
+        self.assertTrue(self._prefs().send_usage_data)
+        # mirroring must not echo the value back to the Client
+        self.push.assert_not_called()
+        # an older Client without the setting changes nothing
+        task.result = {"shared": {"server": "https://x"}}
+        self._prefs().send_usage_data = False
+        client_lib.handle_settings_task(task)
+        self.assertFalse(self._prefs().send_usage_data)
+
+    def test_changing_the_preference_pushes_the_opt_out_to_the_client(self):
+        self._prefs().send_usage_data = True
+        self.push.reset_mock()
+        self._prefs().send_usage_data = False
+        self.push.assert_called_once_with(True)
+
+    def test_a_missing_client_does_not_break_the_preference(self):
+        self.push.side_effect = requests.ConnectionError("down")
+        with self.assertLogs(utils.bk_logger, level="WARNING"):
+            self._prefs().send_usage_data = not self._prefs().send_usage_data
+
+
 class ReportUsagesTransportTests(unittest.TestCase):
     """The report goes to the Client's dedicated route, which creates no task."""
 
@@ -351,6 +406,38 @@ class SceneSaveHandlerTests(unittest.TestCase):
     def setUp(self):
         download._last_save_reports.clear()
         self.addCleanup(download._last_save_reports.clear)
+        enabled = mock.patch.object(
+            download, "usage_reports_enabled", return_value=True
+        )
+        enabled.start()
+        self.addCleanup(enabled.stop)
+
+    def test_opted_out_saves_report_nothing(self):
+        scene = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")
+        with (
+            mock.patch.object(download, "usage_reports_enabled", return_value=False),
+            mock.patch.object(download, "bpy", fake_bpy([scene], scene)),
+            mock.patch.object(download, "check_unused"),
+            mock.patch.object(download.client_lib, "report_usages") as report_usages,
+        ):
+            download.scene_save(None)
+            download.scene_render_complete(scene)
+        report_usages.assert_not_called()
+
+    def test_usage_report_task_results_are_logged_not_shown(self):
+        with mock.patch.object(utils.reports, "add_report") as add_report:
+            with self.assertLogs(download.bk_logger, level="WARNING") as logs:
+                download.handle_usage_report_task(
+                    client_tasks.Task(
+                        data={},
+                        app_id="app",
+                        task_type="report_usages",
+                        status="error",
+                        message="401 Unauthorized",
+                    )
+                )
+            self.assertIn("401 Unauthorized", logs.output[0])
+        add_report.assert_not_called()
 
     def test_sends_one_report_per_scene_and_survives_a_missing_client(self):
         scene = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")

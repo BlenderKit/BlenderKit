@@ -451,6 +451,18 @@ def cleanup_temp_enabled_addons() -> None:
         bk_logger.error("Error during temporary addon cleanup: %s", e)
 
 
+def handle_usage_report_task(task: client_tasks.Task) -> None:
+    """Result of a presence report: logged, never a popup."""
+    if task.status == "error":
+        bk_logger.warning("Usage report failed: %s", task.message)
+    elif task.status == "finished":
+        bk_logger.debug("Usage report sent")
+
+
+def usage_reports_enabled() -> bool:
+    return bool(bpy.context.preferences.addons[__package__].preferences.send_usage_data)
+
+
 @persistent
 def scene_save(context) -> None:
     """Clean up Blendkit props and report which assets are still in the file.
@@ -465,6 +477,8 @@ def scene_save(context) -> None:
     if bpy.app.background:
         return
     check_unused()
+    if not usage_reports_enabled():
+        return
     _send_presence_reports(build_save_reports())
 
 
@@ -476,7 +490,7 @@ def scene_render_complete(scene, *_args) -> None:
     save report it is a background signal: a Client that is not running is
     logged and ignored, and rendering can never fail because of it.
     """
-    if bpy.app.background:
+    if bpy.app.background or not usage_reports_enabled():
         return
     if not hasattr(scene, "objects"):
         scene = bpy.context.scene

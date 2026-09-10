@@ -65,6 +65,7 @@ class Test01Registration(unittest.TestCase):
             "api_key_refresh": user_preferences.api_key_refresh,
             "api_key_timeout": user_preferences.api_key_timeout,
             "experimental_features": user_preferences.experimental_features,
+            "send_usage_data": user_preferences.send_usage_data,
             "keep_preferences": user_preferences.keep_preferences,
             # FILE PATHS
             "directory_behaviour": user_preferences.directory_behaviour,
