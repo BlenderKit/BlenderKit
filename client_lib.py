@@ -424,7 +424,8 @@ def report_usages(data: dict) -> requests.Response:
     auth headers and posts in the background: the Client has no dedicated
     route for usage reports (the old ``/report_usages`` was never ported to the
     Go Client, so reports posted there got a 404 and vanished silently). The
-    result task is kept out of the UI by ``utils.handle_nonblocking_request_task``.
+    result task is routed by ``timer.handle_task`` to ``download.handle_usage_report_task``,
+    which logs it instead of showing a popup.
     """
     return nonblocking_request(
         f"{global_vars.SERVER}{USAGE_REPORT_URL_SUFFIX}",

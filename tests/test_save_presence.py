@@ -287,27 +287,39 @@ class ReportUsagesTransportTests(unittest.TestCase):
             message=message,
         )
 
+    def test_usage_report_task_is_told_apart_by_its_url(self):
+        self.assertTrue(
+            download.is_usage_report_task(
+                self._task(
+                    "finished", "https://devel.blendkit.com/api/v1/usage_report/"
+                )
+            )
+        )
+        self.assertFalse(
+            download.is_usage_report_task(
+                self._task("finished", "https://devel.blendkit.com/api/v1/assets/1/")
+            )
+        )
+        self.assertFalse(
+            download.is_usage_report_task(
+                client_tasks.Task(
+                    data={}, app_id="app", task_type="wrappers/nonblocking_request"
+                )
+            )
+        )
+
     def test_usage_report_task_results_are_logged_not_shown(self):
         url = "https://devel.blendkit.com/api/v1/usage_report/"
         with mock.patch.object(utils.reports, "add_report") as add_report:
-            with self.assertLogs(utils.bk_logger, level="DEBUG") as logs:
-                utils.handle_nonblocking_request_task(self._task("finished", url))
+            with self.assertLogs(download.bk_logger, level="DEBUG") as logs:
+                download.handle_usage_report_task(self._task("finished", url))
             self.assertIn("scene-a", logs.output[0])
-            with self.assertLogs(utils.bk_logger, level="WARNING") as logs:
-                utils.handle_nonblocking_request_task(
+            with self.assertLogs(download.bk_logger, level="WARNING") as logs:
+                download.handle_usage_report_task(
                     self._task("error", url, "401 Unauthorized")
                 )
             self.assertIn("401 Unauthorized", logs.output[0])
         add_report.assert_not_called()
-
-    def test_other_nonblocking_tasks_still_report_to_the_ui(self):
-        with mock.patch.object(utils.reports, "add_report") as add_report:
-            utils.handle_nonblocking_request_task(
-                self._task(
-                    "error", "https://devel.blendkit.com/api/v1/assets/1/", "boom"
-                )
-            )
-        add_report.assert_called_once_with("boom", type="ERROR")
 
 
 class SceneSaveHandlerTests(unittest.TestCase):

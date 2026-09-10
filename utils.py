@@ -1935,25 +1935,10 @@ def is_upload_old(last_blend_upload: Optional[str]) -> int:
 
 
 def handle_nonblocking_request_task(task: client_tasks.Task):
-    if is_usage_report_task(task):
-        # background signal: never a popup, the console log is enough
-        if task.status == "error":
-            bk_logger.warning("Save-time usage report failed: %s", task.message)
-        elif task.status == "finished":
-            bk_logger.debug(
-                "Save-time usage report sent for scene %s",
-                task.data.get("json", {}).get("scene"),
-            )
-        return
     if task.status == "finished":
         reports.add_report(task.message)
     if task.status == "error":
         reports.add_report(task.message, type="ERROR")
-
-
-def is_usage_report_task(task: client_tasks.Task) -> bool:
-    """A non-blocking request task carrying the save-time usage report."""
-    return str(task.data.get("url", "")).endswith(client_lib.USAGE_REPORT_URL_SUFFIX)
 
 
 def string2list(text: str) -> list:

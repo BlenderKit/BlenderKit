@@ -451,6 +451,27 @@ def cleanup_temp_enabled_addons() -> None:
         bk_logger.error("Error during temporary addon cleanup: %s", e)
 
 
+def is_usage_report_task(task: client_tasks.Task) -> bool:
+    """A Client non-blocking request result carrying the save-time usage report.
+
+    The Client's forwarder returns every request as ``wrappers/nonblocking_request``
+    (it has no route of its own for usage reports), so the report is told apart
+    by the URL it was sent to.
+    """
+    return str(task.data.get("url", "")).endswith(client_lib.USAGE_REPORT_URL_SUFFIX)
+
+
+def handle_usage_report_task(task: client_tasks.Task) -> None:
+    """Result of a save-time usage report: a background signal, logged, never a popup."""
+    if task.status == "error":
+        bk_logger.warning("Save-time usage report failed: %s", task.message)
+    elif task.status == "finished":
+        bk_logger.debug(
+            "Save-time usage report sent for scene %s",
+            task.data.get("json", {}).get("scene"),
+        )
+
+
 @persistent
 def scene_save(context) -> None:
     """Clean up Blendkit props and report which assets are still in the file.
