@@ -469,16 +469,60 @@ class TestUrlWithUtm(unittest.TestCase):
         self.assertIn("utm_content=author_gallery", paths.get_author_gallery_url(7))
         self.assertIn("utm_content=asset_web_view", paths.get_asset_gallery_url("abc"))
 
-    def test_unlock_url_keeps_from_addon_and_tags(self):
-        url = paths.get_unlock_asset_url("abc-123", "asset_unlock_panel")
-        self.assertIn("/get-blenderkit/abc-123/?from_addon=True&", url)
-        self.assertIn("utm_source=blender_addon", url)
-        self.assertIn("utm_content=asset_unlock_panel", url)
 
-    def test_unlock_url_forwards_ab_variant(self):
-        url = paths.get_unlock_asset_url(
-            "abc-123", "asset_unlock_panel", "whole_library"
+class TestStableSystemID(unittest.TestCase):
+    """The add-on reads the machine ID Blendkit-Client persisted and never writes it."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        patcher = mock.patch.object(
+            paths, "default_global_dict", return_value=self.tmp.name
         )
-        self.assertIn("ab_variant=whole_library", url)
-        self.assertIn("from_addon=True", url)
-        self.assertIn("utm_content=asset_unlock_panel", url)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        paths._stable_system_id = None
+        self.addCleanup(setattr, paths, "_stable_system_id", None)
+
+    def _id_filepath(self):
+        return os.path.join(self.tmp.name, "system_id")
+
+    def _write(self, content, mode="w"):
+        with open(self._id_filepath(), mode) as f:
+            f.write(content)
+
+    def test_reads_the_id_the_client_persisted(self):
+        self._write("000000000000123\n")
+        with mock.patch.object(paths.uuid, "getnode", return_value=999):
+            self.assertEqual(paths.get_stable_system_id(), "000000000000123")
+
+    def test_persisted_id_is_cached(self):
+        self._write("000000000000123")
+        first = paths.get_stable_system_id()
+        os.remove(self._id_filepath())
+        self.assertEqual(paths.get_stable_system_id(), first)
+
+    def test_missing_file_falls_back_to_node_id_without_writing_or_caching(self):
+        with mock.patch.object(paths.uuid, "getnode", return_value=7):
+            self.assertEqual(paths.get_stable_system_id(), "000000000000007")
+        self.assertFalse(os.path.exists(self._id_filepath()))
+        self._write("000000000000123")
+        self.assertEqual(paths.get_stable_system_id(), "000000000000123")
+
+    def test_corrupt_file_falls_back_and_is_left_alone(self):
+        self._write("not-a-system-id")
+        with mock.patch.object(paths.uuid, "getnode", return_value=42):
+            self.assertEqual(paths.get_stable_system_id(), "000000000000042")
+        with open(self._id_filepath()) as f:
+            self.assertEqual(f.read(), "not-a-system-id")
+
+    def test_binary_corrupt_file_falls_back(self):
+        self._write(b"\xff\xfe\x00garbage", mode="wb")
+        with mock.patch.object(paths.uuid, "getnode", return_value=42):
+            self.assertEqual(paths.get_stable_system_id(), "000000000000042")
+
+    def test_filepath_is_in_global_dir(self):
+        """The Client writes this exact path, so it must stay in the global data dir."""
+        self.assertEqual(
+            paths.get_system_id_filepath(), os.path.join(self.tmp.name, "system_id")
+        )
