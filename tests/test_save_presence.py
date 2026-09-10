@@ -179,7 +179,6 @@ class BuildSaveReportsTests(unittest.TestCase):
             reports[0],
             {
                 "scene": "scene-a",
-                "reportType": "save",
                 "assetusageSet": [
                     # brushes are attributed to the active scene only
                     {"asset": "brush-rock", "usageCount": 1, "proximitySet": []},
@@ -261,8 +260,10 @@ class SaveReportDedupeTests(unittest.TestCase):
 class ReportUsagesTransportTests(unittest.TestCase):
     """The report goes through the Client's generic forwarder, silently."""
 
-    def test_report_usages_uses_the_nonblocking_forwarder_to_the_usage_report_api(self):
-        report = {"scene": "scene-a", "reportType": "save", "assetusageSet": []}
+    def test_report_usages_uses_the_nonblocking_forwarder_to_the_scene_save_reports_api(
+        self,
+    ):
+        report = {"scene": "scene-a", "assetusageSet": []}
         with (
             mock.patch.object(
                 client_lib.global_vars, "SERVER", "https://devel.blendkit.com"
@@ -271,7 +272,7 @@ class ReportUsagesTransportTests(unittest.TestCase):
         ):
             client_lib.report_usages(report)
         forwarder.assert_called_once_with(
-            "https://devel.blendkit.com/api/v1/usage_report/",
+            "https://devel.blendkit.com/api/v1/scene_save_reports/",
             "POST",
             {},
             report,
@@ -291,7 +292,7 @@ class ReportUsagesTransportTests(unittest.TestCase):
         self.assertTrue(
             download.is_usage_report_task(
                 self._task(
-                    "finished", "https://devel.blendkit.com/api/v1/usage_report/"
+                    "finished", "https://devel.blendkit.com/api/v1/scene_save_reports/"
                 )
             )
         )
@@ -309,7 +310,7 @@ class ReportUsagesTransportTests(unittest.TestCase):
         )
 
     def test_usage_report_task_results_are_logged_not_shown(self):
-        url = "https://devel.blendkit.com/api/v1/usage_report/"
+        url = "https://devel.blendkit.com/api/v1/scene_save_reports/"
         with mock.patch.object(utils.reports, "add_report") as add_report:
             with self.assertLogs(download.bk_logger, level="DEBUG") as logs:
                 download.handle_usage_report_task(self._task("finished", url))

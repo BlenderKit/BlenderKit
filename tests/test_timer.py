@@ -320,7 +320,7 @@ class TestHandleTaskDispatch(unittest.TestCase):
     def test_nonblocking_usage_report_goes_to_its_own_handler(self):
         task = make_task(
             task_type="wrappers/nonblocking_request",
-            data={"url": "https://www.blendkit.com/api/v1/usage_report/"},
+            data={"url": "https://www.blendkit.com/api/v1/scene_save_reports/"},
         )
         with (
             mock.patch.object(timer.download, "handle_usage_report_task") as usage,

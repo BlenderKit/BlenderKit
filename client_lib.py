@@ -413,7 +413,7 @@ def mark_notification_read(notification_id):
 
 
 ### REPORTS
-USAGE_REPORT_URL_SUFFIX = "/api/v1/usage_report/"
+USAGE_REPORT_URL_SUFFIX = "/api/v1/scene_save_reports/"
 USAGE_REPORT_ERROR = "Could not send the save-time usage report"
 
 

@@ -631,7 +631,6 @@ def build_save_reports(now: Optional[float] = None) -> list[dict[str, Any]]:
         reports.append(
             {
                 "scene": scene_id,
-                "reportType": "save",
                 "assetusageSet": [
                     {"asset": abid, "usageCount": instances, "proximitySet": []}
                     for abid, instances in sorted(counts.items())
