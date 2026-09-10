@@ -465,15 +465,39 @@ def scene_save(context) -> None:
     if bpy.app.background:
         return
     check_unused()
-    for report in build_save_reports():
+    _send_presence_reports(build_save_reports())
+
+
+@persistent
+def scene_render_complete(scene, *_args) -> None:
+    """Report the assets present in the scene a render job just finished for.
+
+    Runs on ``render_complete`` (once per render job, not per frame). Like the
+    save report it is a background signal: a Client that is not running is
+    logged and ignored, and rendering can never fail because of it.
+    """
+    if bpy.app.background:
+        return
+    if not hasattr(scene, "objects"):
+        scene = bpy.context.scene
+    report = build_render_report(scene)
+    if report is not None:
+        _send_presence_reports([report])
+
+
+def _send_presence_reports(reports: list[dict[str, Any]]) -> None:
+    for report in reports:
         try:
             response = client_lib.report_usages(report)
         except requests.RequestException as e:
-            bk_logger.warning("Could not send the save-time usage report: %s", e)
+            bk_logger.warning(
+                "Could not send the %s-time usage report: %s", report["event"], e
+            )
             continue
         if not response.ok:
             bk_logger.warning(
-                "Blendkit-Client refused the save-time usage report: %s %s",
+                "Blendkit-Client refused the %s-time usage report: %s %s",
+                report["event"],
                 response.status_code,
                 response.text,
             )
@@ -579,51 +603,65 @@ def collect_present_assets(scene, file_wide: bool = False) -> dict[str, int]:
 # keeps "still here" fresh enough for all of them while dropping most rows.
 SAVE_REPORT_HEARTBEAT_SECONDS = 3600
 
-# scene uuid -> (monotonic time of the last report, the counts it carried).
+# (event, scene uuid) -> (monotonic time of the last report, the counts it carried).
 # In-process on purpose: the first save of every Blender session always reports,
 # which is itself a useful signal (the file was opened and worked on again).
-_last_save_reports: dict[str, tuple[float, dict[str, int]]] = {}
+# Saves and renders are tracked apart: a render right after a save must still
+# report, because the render is the evidence the server cannot get otherwise.
+_last_save_reports: dict[tuple[str, str], tuple[float, dict[str, int]]] = {}
 
 
-def _report_due(scene_id: str, counts: dict[str, int], now: float) -> bool:
-    last = _last_save_reports.get(scene_id)
+def _report_due(event: str, scene_id: str, counts: dict[str, int], now: float) -> bool:
+    last = _last_save_reports.get((event, scene_id))
     if last is None:
         return True
     last_at, last_counts = last
     return counts != last_counts or now - last_at >= SAVE_REPORT_HEARTBEAT_SECONDS
 
 
-def build_save_reports(now: Optional[float] = None) -> list[dict[str, Any]]:
-    """One usage report per scene whose Blendkit presence changed (or is due a heartbeat).
+def _presence_report(event: str, scene, now: float) -> Optional[dict[str, Any]]:
+    """The presence report for one scene at ``event``, or None when nothing is due.
 
     Scenes that never touched Blendkit (no uuid, no assets) are skipped; a
     scene with a uuid is reported even when empty, because "nothing left" is
     exactly the removal the server needs to see. A scene whose assets are the
-    same as at its last report within ``SAVE_REPORT_HEARTBEAT_SECONDS`` is
-    skipped.
+    same as at its last report of this event within
+    ``SAVE_REPORT_HEARTBEAT_SECONDS`` is skipped.
+    """
+    counts = collect_present_assets(scene, file_wide=scene == bpy.context.scene)
+    if scene.get("uuid") is None and not counts:
+        return None
+    scene_id = utils.get_scene_id(scene)
+    if not _report_due(event, scene_id, counts, now):
+        return None
+    _last_save_reports[(event, scene_id)] = (now, counts)
+    return {
+        "scene": scene_id,
+        "event": event,
+        "assetusageSet": [
+            {"asset": abid, "usageCount": instances, "proximitySet": []}
+            for abid, instances in sorted(counts.items())
+        ],
+    }
+
+
+def build_save_reports(now: Optional[float] = None) -> list[dict[str, Any]]:
+    """One "save" presence report per scene whose Blendkit presence changed (or is due a heartbeat)."""
+    if now is None:
+        now = time.monotonic()
+    reports = (_presence_report("save", scene, now) for scene in bpy.data.scenes)
+    return [report for report in reports if report is not None]
+
+
+def build_render_report(scene, now: Optional[float] = None) -> Optional[dict[str, Any]]:
+    """The "render" presence report for the scene a render job just finished for.
+
+    A render is the strongest evidence that the assets in the scene were
+    used, and the only one for files that are rendered but never saved.
     """
     if now is None:
         now = time.monotonic()
-    reports = []
-    active = bpy.context.scene
-    for scene in bpy.data.scenes:
-        counts = collect_present_assets(scene, file_wide=scene == active)
-        if scene.get("uuid") is None and not counts:
-            continue
-        scene_id = utils.get_scene_id(scene)
-        if not _report_due(scene_id, counts, now):
-            continue
-        _last_save_reports[scene_id] = (now, counts)
-        reports.append(
-            {
-                "scene": scene_id,
-                "assetusageSet": [
-                    {"asset": abid, "usageCount": instances, "proximitySet": []}
-                    for abid, instances in sorted(counts.items())
-                ],
-            }
-        )
-    return reports
+    return _presence_report("render", scene, now)
 
 
 def _sanitize_for_idprops(value: Any) -> Any:
@@ -2637,6 +2675,7 @@ def register_download() -> None:
     bpy.utils.register_class(BlenderkitAddonChoiceOperator)
     bpy.app.handlers.load_post.append(scene_load)
     bpy.app.handlers.save_pre.append(scene_save)
+    bpy.app.handlers.render_complete.append(scene_render_complete)
     bpy.app.handlers.load_post.append(scene_load_post)
 
 
@@ -2646,6 +2685,7 @@ def unregister_download() -> None:
     bpy.utils.unregister_class(BlenderkitAddonChoiceOperator)
     bpy.app.handlers.load_post.remove(scene_load)
     bpy.app.handlers.save_pre.remove(scene_save)
+    bpy.app.handlers.render_complete.remove(scene_render_complete)
     bpy.app.handlers.load_post.remove(scene_load_post)
     # Clean up any remaining temporarily enabled addons
     cleanup_temp_enabled_addons()

@@ -179,6 +179,7 @@ class BuildSaveReportsTests(unittest.TestCase):
             reports[0],
             {
                 "scene": "scene-a",
+                "event": "save",
                 "assetusageSet": [
                     # brushes are attributed to the active scene only
                     {"asset": "brush-rock", "usageCount": 1, "proximitySet": []},
@@ -255,6 +256,71 @@ class SaveReportDedupeTests(unittest.TestCase):
             second.objects.clear()
             reports = download.build_save_reports(now=1001.0)
             self.assertEqual([r["scene"] for r in reports], ["scene-b"])
+
+
+class RenderReportTests(unittest.TestCase):
+    """A finished render reports the rendered scene, tracked apart from saves."""
+
+    def setUp(self):
+        download._last_save_reports.clear()
+        self.addCleanup(download._last_save_reports.clear)
+
+    def test_render_reports_the_rendered_scene_only(self):
+        rendered = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")
+        other = make_scene(objects=[make_object("mod-chair")], uuid="scene-b")
+        scenes = fake_bpy([rendered, other], rendered)
+        with (
+            mock.patch.object(download, "bpy", scenes),
+            mock.patch.object(utils, "bpy", scenes),
+        ):
+            report = download.build_render_report(rendered, now=1000.0)
+        self.assertEqual(
+            report,
+            {
+                "scene": "scene-a",
+                "event": "render",
+                "assetusageSet": [
+                    {"asset": "mod-lamp", "usageCount": 1, "proximitySet": []}
+                ],
+            },
+        )
+
+    def test_render_after_an_identical_save_still_reports(self):
+        scene = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")
+        scenes = fake_bpy([scene], scene)
+        with (
+            mock.patch.object(download, "bpy", scenes),
+            mock.patch.object(utils, "bpy", scenes),
+        ):
+            self.assertEqual(len(download.build_save_reports(now=1000.0)), 1)
+            self.assertIsNotNone(download.build_render_report(scene, now=1001.0))
+            # the same render again within the hour is a repeat, not new evidence
+            self.assertIsNone(download.build_render_report(scene, now=1002.0))
+            # and it did not swallow the next changed save
+            scene.objects.clear()
+            self.assertEqual(len(download.build_save_reports(now=1003.0)), 1)
+
+    def test_render_handler_sends_one_report_and_skips_background(self):
+        scene = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")
+        ok = mock.Mock(ok=True)
+        with (
+            mock.patch.object(download, "bpy", fake_bpy([scene], scene)),
+            mock.patch.object(utils, "bpy", fake_bpy([scene], scene)),
+            mock.patch.object(
+                download.client_lib, "report_usages", return_value=ok
+            ) as sent,
+        ):
+            download.scene_render_complete(scene)
+        sent.assert_called_once()
+        self.assertEqual(sent.call_args.args[0]["event"], "render")
+        with (
+            mock.patch.object(
+                download, "bpy", fake_bpy([scene], scene, background=True)
+            ),
+            mock.patch.object(download.client_lib, "report_usages") as sent,
+        ):
+            download.scene_render_complete(scene)
+        sent.assert_not_called()
 
 
 class ReportUsagesTransportTests(unittest.TestCase):
