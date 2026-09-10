@@ -258,69 +258,27 @@ class SaveReportDedupeTests(unittest.TestCase):
 
 
 class ReportUsagesTransportTests(unittest.TestCase):
-    """The report goes through the Client's generic forwarder, silently."""
+    """The report goes to the Client's dedicated route, which creates no task."""
 
-    def test_report_usages_uses_the_nonblocking_forwarder_to_the_scene_save_reports_api(
-        self,
-    ):
+    def test_report_usages_posts_the_report_to_the_clients_report_usages_route(self):
         report = {"scene": "scene-a", "assetusageSet": []}
         with (
             mock.patch.object(
-                client_lib.global_vars, "SERVER", "https://devel.blendkit.com"
+                client_lib, "get_base_url", return_value="http://127.0.0.1:62485"
             ),
-            mock.patch.object(client_lib, "nonblocking_request") as forwarder,
+            mock.patch.object(
+                client_lib, "_read_api_key_threadsafe", return_value="token"
+            ),
+            mock.patch("requests.Session.post") as post,
         ):
             client_lib.report_usages(report)
-        forwarder.assert_called_once_with(
-            "https://devel.blendkit.com/api/v1/scene_save_reports/",
-            "POST",
-            {},
-            report,
-            {"success": "", "error": client_lib.USAGE_REPORT_ERROR},
-        )
-
-    def _task(self, status, url, message=""):
-        return client_tasks.Task(
-            data={"url": url, "json": {"scene": "scene-a"}},
-            app_id="app",
-            task_type="wrappers/nonblocking_request",
-            status=status,
-            message=message,
-        )
-
-    def test_usage_report_task_is_told_apart_by_its_url(self):
-        self.assertTrue(
-            download.is_usage_report_task(
-                self._task(
-                    "finished", "https://devel.blendkit.com/api/v1/scene_save_reports/"
-                )
-            )
-        )
-        self.assertFalse(
-            download.is_usage_report_task(
-                self._task("finished", "https://devel.blendkit.com/api/v1/assets/1/")
-            )
-        )
-        self.assertFalse(
-            download.is_usage_report_task(
-                client_tasks.Task(
-                    data={}, app_id="app", task_type="wrappers/nonblocking_request"
-                )
-            )
-        )
-
-    def test_usage_report_task_results_are_logged_not_shown(self):
-        url = "https://devel.blendkit.com/api/v1/scene_save_reports/"
-        with mock.patch.object(utils.reports, "add_report") as add_report:
-            with self.assertLogs(download.bk_logger, level="DEBUG") as logs:
-                download.handle_usage_report_task(self._task("finished", url))
-            self.assertIn("scene-a", logs.output[0])
-            with self.assertLogs(download.bk_logger, level="WARNING") as logs:
-                download.handle_usage_report_task(
-                    self._task("error", url, "401 Unauthorized")
-                )
-            self.assertIn("401 Unauthorized", logs.output[0])
-        add_report.assert_not_called()
+        post.assert_called_once()
+        args, kwargs = post.call_args
+        self.assertEqual(args[0], "http://127.0.0.1:62485/report_usages")
+        self.assertEqual(kwargs["json"]["report"], report)
+        self.assertEqual(kwargs["json"]["api_key"], "token")
+        self.assertIn("addon_version", kwargs["json"])
+        self.assertIn("app_id", kwargs["json"])
 
 
 class SceneSaveHandlerTests(unittest.TestCase):
@@ -348,6 +306,20 @@ class SceneSaveHandlerTests(unittest.TestCase):
 
         self.assertEqual([c["scene"] for c in calls], ["scene-a"])
         self.assertIn("Could not send the save-time usage report", logs.output[0])
+
+    def test_a_client_without_the_route_is_only_logged(self):
+        scene = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")
+        refused = mock.Mock(ok=False, status_code=404, text="404 page not found")
+        with (
+            mock.patch.object(download, "bpy", fake_bpy([scene], scene)),
+            mock.patch.object(download, "check_unused"),
+            mock.patch.object(
+                download.client_lib, "report_usages", return_value=refused
+            ),
+            self.assertLogs(download.bk_logger, level="WARNING") as logs,
+        ):
+            download.scene_save(None)
+        self.assertIn("404", logs.output[0])
 
     def test_background_mode_reports_nothing(self):
         scene = make_scene(objects=[make_object("mod-lamp")], uuid="scene-a")

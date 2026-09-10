@@ -413,27 +413,23 @@ def mark_notification_read(notification_id):
 
 
 ### REPORTS
-USAGE_REPORT_URL_SUFFIX = "/api/v1/scene_save_reports/"
-USAGE_REPORT_ERROR = "Could not send the save-time usage report"
-
-
 def report_usages(data: dict) -> requests.Response:
-    """Send a usage report (the save-time asset presence) to the server via Blendkit-Client.
+    """Send the save-time usage report (the assets still in the file) via Blendkit-Client.
 
-    Goes through the Client's generic non-blocking forwarder, which adds the
-    auth headers and posts in the background: the Client has no dedicated
-    route for usage reports (the old ``/report_usages`` was never ported to the
-    Go Client, so reports posted there got a 404 and vanished silently). The
-    result task is routed by ``timer.handle_task`` to ``download.handle_usage_report_task``,
-    which logs it instead of showing a popup.
+    The Client's dedicated ``/report_usages`` route forwards the report to the
+    server with the standard headers in the background and, like telemetry,
+    creates no Task: the report is a background signal sent on every save and
+    must never surface to the UI. A Client older than the route answers 404,
+    which the caller only logs.
     """
-    return nonblocking_request(
-        f"{global_vars.SERVER}{USAGE_REPORT_URL_SUFFIX}",
-        "POST",
-        {},
-        data,
-        {"success": "", "error": USAGE_REPORT_ERROR},
-    )
+    payload = ensure_minimal_data({"report": data})
+    with requests.Session() as session:
+        return session.post(
+            f"{get_base_url()}/report_usages",
+            json=payload,
+            timeout=TIMEOUT,
+            proxies=NO_PROXIES,
+        )
 
 
 def report_event(event: str, data: Optional[dict] = None) -> None:

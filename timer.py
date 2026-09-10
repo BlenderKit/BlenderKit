@@ -536,8 +536,6 @@ def handle_task(task: client_tasks.Task):
 
     # HANDLE NONBLOCKING_REQUEST
     if task.task_type == "wrappers/nonblocking_request":
-        if download.is_usage_report_task(task):
-            return download.handle_usage_report_task(task)
         return utils.handle_nonblocking_request_task(task)
 
     # BKCLIENTJS - Download from web

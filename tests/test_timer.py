@@ -317,21 +317,6 @@ class TestHandleTaskDispatch(unittest.TestCase):
             timer.handle_task(task)
         h.assert_called_once_with(task)
 
-    def test_nonblocking_usage_report_goes_to_its_own_handler(self):
-        task = make_task(
-            task_type="wrappers/nonblocking_request",
-            data={"url": "https://www.blendkit.com/api/v1/scene_save_reports/"},
-        )
-        with (
-            mock.patch.object(timer.download, "handle_usage_report_task") as usage,
-            mock.patch.object(
-                timer.utils, "handle_nonblocking_request_task"
-            ) as generic,
-        ):
-            timer.handle_task(task)
-        usage.assert_called_once_with(task)
-        generic.assert_not_called()
-
     def test_asset_upload(self):
         task = make_task(task_type="asset_upload")
         with mock.patch.object(timer.upload, "handle_asset_upload") as h:
