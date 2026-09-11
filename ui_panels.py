@@ -58,6 +58,7 @@ from . import (
     ratings_utils,
     search,
     ui,
+    unlock_options,
     upload,
     utils,
 )
