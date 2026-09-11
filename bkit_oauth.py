@@ -51,10 +51,23 @@ active_authenticator = None
 bk_logger = logging.getLogger(__name__)
 
 
+def _login_task_event(outcome: str) -> str:
+    """Name the telemetry event for a finished/failed "login" task.
+
+    Blendkit-Client delivers token *refresh* outcomes as "login" tasks too (one per
+    connected add-on). Only a login the add-on itself started - login_attempt is set
+    by LoginOnline and cleared by write_tokens, cancel and register - is a login.
+    """
+    preferences = bpy.context.preferences.addons[__package__].preferences
+    if preferences.login_attempt:
+        return f"login_{outcome}"
+    return f"token_refresh_{outcome}"
+
+
 def handle_login_task(task: client_tasks.Task):
     """Handles incoming task of type Login. Writes tokens if it finished successfully, logouts the user on error."""
     if task.status == "finished":
-        client_lib.report_event("login_completed")
+        client_lib.report_event(_login_task_event("completed"))
         tasks_queue.add_task(
             (
                 write_tokens,
@@ -66,7 +79,9 @@ def handle_login_task(task: client_tasks.Task):
             )
         )
     elif task.status == "error":
-        client_lib.report_event("login_failed", {"message": str(task.message)[:256]})
+        client_lib.report_event(
+            _login_task_event("failed"), {"message": str(task.message)[:256]}
+        )
         logout()
         reports.add_report(task.message, type="ERROR", details=task.message_detailed)
 
