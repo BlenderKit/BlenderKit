@@ -355,3 +355,13 @@ class TestDrawCommentResponseValidationCheckbox(unittest.TestCase):
         self.assertNotIn(
             ("prop", "new_comment_is_validation"), self.draw(0, is_validator=False)
         )
+
+
+class TestUnlockPanelDependencies(unittest.TestCase):
+    def test_unlock_options_is_importable_from_the_panel_module(self):
+        """#2245 used unlock_options in the locked-asset panel without importing it,
+        so drawing the Unlock button raised NameError in the released add-on."""
+        self.assertIs(
+            ui_panels.unlock_options, sys.modules[ui_panels.unlock_options.__name__]
+        )
+        self.assertTrue(callable(ui_panels.unlock_options.get_unlock_variant))
