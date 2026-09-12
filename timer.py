@@ -487,6 +487,10 @@ def handle_task(task: client_tasks.Task):
     # HANDLE CLIENT STATUS REPORT
     if task.task_type == "client_status":
         return client_lib.handle_client_status_task(task)
+    if task.task_type == "settings":
+        return client_lib.handle_settings_task(task)
+    if task.task_type == "report_usages":
+        return download.handle_usage_report_task(task)
 
     # HANDLE DISCLAIMER
     if task.task_type == "disclaimer":

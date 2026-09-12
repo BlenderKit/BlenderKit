@@ -308,6 +308,27 @@ class TestHandleTaskDispatch(unittest.TestCase):
             timer.handle_task(task)
         h.assert_called_once_with(task)
 
+    def test_nonblocking_request(self):
+        task = make_task(
+            task_type="wrappers/nonblocking_request",
+            data={"url": "https://www.blendkit.com/api/v1/assets/1/"},
+        )
+        with mock.patch.object(timer.utils, "handle_nonblocking_request_task") as h:
+            timer.handle_task(task)
+        h.assert_called_once_with(task)
+
+    def test_settings_broadcast(self):
+        task = make_task(task_type="settings")
+        with mock.patch.object(timer.client_lib, "handle_settings_task") as h:
+            timer.handle_task(task)
+        h.assert_called_once_with(task)
+
+    def test_report_usages(self):
+        task = make_task(task_type="report_usages")
+        with mock.patch.object(timer.download, "handle_usage_report_task") as h:
+            timer.handle_task(task)
+        h.assert_called_once_with(task)
+
     def test_asset_upload(self):
         task = make_task(task_type="asset_upload")
         with mock.patch.object(timer.upload, "handle_asset_upload") as h:

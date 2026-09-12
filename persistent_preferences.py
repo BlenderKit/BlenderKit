@@ -98,6 +98,9 @@ def load_preferences_from_JSON():
     user_preferences.experimental_features = prefs.get(
         "experimental_features", user_preferences.experimental_features
     )
+    user_preferences.send_usage_data = prefs.get(
+        "send_usage_data", user_preferences.send_usage_data
+    )
     user_preferences.keep_preferences = prefs.get(
         "keep_preferences", user_preferences.keep_preferences
     )

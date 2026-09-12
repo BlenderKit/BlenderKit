@@ -21,6 +21,7 @@ class Prefs:
     api_key_timeout: int
     experimental_features: bool
     keep_preferences: bool
+    send_usage_data: bool
     directory_behaviour: str
     global_dir: str
     project_subdir: str

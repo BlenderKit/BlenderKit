@@ -30,6 +30,8 @@ import tempfile
 import uuid
 from typing import Optional, Union
 
+import requests
+
 import bpy
 from mathutils import Vector
 
@@ -728,10 +730,25 @@ def get_brush_icon_path(brush) -> str:
     return filepath
 
 
-def get_scene_id():
-    """gets scene id and possibly also generates a new one"""
-    bpy.context.scene["uuid"] = bpy.context.scene.get("uuid", str(uuid.uuid4()))
-    return bpy.context.scene["uuid"]
+def get_scene_id(scene=None):
+    """Return the scene's Blendkit uuid, generating and storing one when missing or shared.
+
+    Defaults to the active scene; pass a scene to address another one (the
+    save-time report covers every scene in the file). Blender copies custom
+    properties when a scene is created from another one ("New" included), so
+    a second scene starts out with the first one's uuid and the server would
+    merge the two into one history. The first scene in ``bpy.data.scenes``
+    keeps the shared uuid; every later scene holding it gets a fresh one.
+    """
+    if scene is None:
+        scene = bpy.context.scene
+    current = scene.get("uuid")
+    owner = next(
+        (other for other in bpy.data.scenes if other.get("uuid") == current), None
+    )
+    if current is None or (owner is not None and owner != scene):
+        scene["uuid"] = str(uuid.uuid4())
+    return scene["uuid"]
 
 
 def get_preferences_as_dict():
@@ -752,6 +769,7 @@ def get_preferences_as_dict():
         "api_key_refresh": user_preferences.api_key_refresh,
         "api_key_timeout": user_preferences.api_key_timeout,
         "experimental_features": user_preferences.experimental_features,
+        "send_usage_data": user_preferences.send_usage_data,
         "keep_preferences": user_preferences.keep_preferences,
         # FILE PATHS
         "directory_behaviour": user_preferences.directory_behaviour,
@@ -814,6 +832,7 @@ def get_preferences() -> datas.Prefs:
         api_key_timeout=user_preferences.api_key_timeout,  # type: ignore[union-attr]
         experimental_features=user_preferences.experimental_features,  # type: ignore[union-attr]
         keep_preferences=user_preferences.keep_preferences,  # type: ignore[union-attr]
+        send_usage_data=user_preferences.send_usage_data,  # type: ignore[union-attr]
         # FILE PATHS
         directory_behaviour=user_preferences.directory_behaviour,  # type: ignore[union-attr]
         global_dir=user_preferences.global_dir,  # type: ignore[union-attr]
@@ -848,6 +867,22 @@ def get_preferences() -> datas.Prefs:
         material_import_automap=user_preferences.material_import_automap,  # type: ignore[union-attr]
     )
     return prefs
+
+
+def send_usage_data_updated(user_preferences, context):
+    """Push the usage-data choice to Blendkit-Client, then save the preferences.
+
+    Skipped while the preference is being set FROM the Client's settings
+    broadcast, which would otherwise echo the value straight back.
+    """
+    if not client_lib.applying_client_settings:
+        try:
+            client_lib.set_usage_data_opt_out(not user_preferences.send_usage_data)
+        except requests.RequestException as e:
+            bk_logger.warning(
+                "Could not store the usage-data choice in Blendkit-Client: %s", e
+            )
+    save_prefs(user_preferences, context)
 
 
 def save_prefs_without_save_userpref(user_preferences, context):

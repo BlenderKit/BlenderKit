@@ -2580,6 +2580,19 @@ In this case you should also set path to your system CA bundle containing proxy'
         update=utils.save_prefs,
     )
 
+    send_usage_data: BoolProperty(
+        name="Send usage data to improve Blendkit",
+        description=(
+            "Report which Blendkit assets are in your file when you save or render "
+            "(asset ids and counts only, no file names or scene content). Helps rank "
+            "search results by what people actually use and, in the future, reward "
+            "creators for assets that get used. The choice is stored in Blendkit-Client "
+            "and shared by every Blendkit add-on on this machine"
+        ),
+        default=True,
+        update=utils.send_usage_data_updated,
+    )
+
     accepted_ms_store_warning: BoolProperty(
         name="Accepted Microsoft Store Blender warning",
         description=(
@@ -2734,6 +2747,7 @@ In this case you should also set path to your system CA bundle containing proxy'
         login_box.prop(self, "keep_preferences")
         community_row = login_box.row()
         community_row.prop(self, "experimental_features")
+        login_box.prop(self, "send_usage_data")
         community_row.operator("wm.blenderkit_join_discord", icon="URL")
 
         if utils.profile_is_validator():
