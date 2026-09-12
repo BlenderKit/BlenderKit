@@ -1371,7 +1371,10 @@ def query_to_url(
         if q == "asset_type" and value != "author":
             has_keywords = query.get("query") not in ("", None)
             has_author_filter = query.get("author_id") not in ("", None)
-            if has_keywords and not has_author_filter:
+            # Author documents lack the asset sort fields (created, score,
+            # working_hours...), so mixing them in breaks explicit ordering.
+            has_explicit_order = query.get("search_order_by", "default") != "default"
+            if has_keywords and not has_author_filter and not has_explicit_order:
                 value += ",author"
         requeststring += f"+{q}:{urllib.parse.quote_plus(value)}"
 
@@ -1820,10 +1823,10 @@ def search(get_next=False, query=None, author_id=""):
             )
 
         if ui_props.asset_type == "PRINTABLE":
-            if not hasattr(wm, "blenderkit_models"):
+            if not hasattr(wm, "blenderkit_printables"):
                 return
             query = build_query_model(
-                bpy.context.window_manager.blenderkit_models,
+                bpy.context.window_manager.blenderkit_printables,
                 ui_props=bpy.context.window_manager.blenderkitUI,
                 preferences=bpy.context.preferences.addons[__package__].preferences,
             )

@@ -1200,19 +1200,15 @@ def ensure_asset_metadata_on_datablock(asset_type: str, props) -> None:
         if props.id:
             other_meta["id"] = props.asset_base_id
 
-        # further custom meta from dictParameters
-        if props.condition:
-            other_meta["condition"] = props.condition
-        if props.pbr_type:
-            other_meta["pbr_type"] = props.pbr_type
-        if props.style:
-            other_meta["style"] = props.style
-        if props.engine:
-            other_meta["engine"] = props.engine
-        if props.animated:
-            other_meta["animated"] = "yes"
-        if props.simulation:
-            other_meta["simulation"] = "yes"
+        # further custom meta from dictParameters - not every asset type
+        # defines all of these props, so read them defensively
+        for key in ("condition", "pbr_type", "style", "engine"):
+            value = getattr(props, key, "")
+            if value:
+                other_meta[key] = value
+        for key in ("animated", "simulation"):
+            if getattr(props, key, False):
+                other_meta[key] = "yes"
 
         # ad additional metadata to tags
         for key, value in other_meta.items():

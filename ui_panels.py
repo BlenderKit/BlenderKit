@@ -787,6 +787,25 @@ def draw_panel_model_search(self, context):
         )
 
 
+def draw_panel_printable_search(self, context):
+    wm = bpy.context.window_manager
+    props = wm.blenderkit_printables
+    ui_props = wm.blenderkitUI
+
+    layout = self.layout
+
+    draw_search_text_field(layout, ui_props, context)
+
+    icon = "NONE"
+    if props.report == "You need Full plan to get this item.":
+        icon = "ERROR"
+    utils.label_multiline(layout, text=props.report, icon=icon)
+    if props.report == "You need Full plan to get this item.":
+        layout.operator("wm.url_open", text="Get Full plan", icon="URL").url = (
+            paths.url_with_utm(paths.BLENDKIT_PLANS_URL, "premium_wall_panel")
+        )
+
+
 def draw_panel_scene_search(self, context):
     wm = bpy.context.window_manager
     props = wm.blenderkit_scene
@@ -1690,10 +1709,7 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
         ui_props = bpy.context.window_manager.blenderkitUI
         if not global_vars.CLIENT_RUNNING:
             return False
-        return ui_props.down_up == "SEARCH" and ui_props.asset_type in (
-            "MODEL",
-            "PRINTABLE",
-        )
+        return ui_props.down_up == "SEARCH" and ui_props.asset_type == "MODEL"
 
     def draw_layout(self, layout):
         # Shown as a popover over the asset bar — record redraw time to
@@ -1713,13 +1729,10 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
             layout.prop(
                 ui_props, "own_verification_status", text="Status", icon="LOCKED"
             )
-        # row = layout.row()
 
-        layout.prop(ui_props, "free_only")
-
-        if ui_props.asset_type == "MODEL":
-            layout.prop(props, "search_style")
-            layout.prop(props, "search_geometry_nodes", text="Geometry Nodes")
+        layout.prop(ui_props, "free_only")  # free first
+        layout.prop(props, "search_style")
+        layout.prop(props, "search_geometry_nodes", text="Geometry Nodes")
 
         # DESIGN YEAR
         layout.prop(props, "search_design_year", text="Designed in Year")
@@ -1728,45 +1741,41 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
             row.prop(props, "search_design_year_min", text="Min")
             row.prop(props, "search_design_year_max", text="Max")
 
-        if ui_props.asset_type == "MODEL":
-            # POLYCOUNT
-            layout.prop(props, "search_polycount", text="Poly Count ")
-            if props.search_polycount:
-                row = layout.row(align=True)
-                row.prop(props, "search_polycount_min", text="Min")
-                row.prop(props, "search_polycount_max", text="Max")
+        # POLYCOUNT
+        layout.prop(props, "search_polycount", text="Poly Count ")
+        if props.search_polycount:
+            row = layout.row(align=True)
+            row.prop(props, "search_polycount_min", text="Min")
+            row.prop(props, "search_polycount_max", text="Max")
 
-            # TEXTURE RESOLUTION
-            layout.prop(props, "search_texture_resolution", text="Texture Resolutions")
-            if props.search_texture_resolution:
-                row = layout.row(align=True)
-                row.prop(props, "search_texture_resolution_min", text="Min")
-                row.prop(props, "search_texture_resolution_max", text="Max")
+        # TEXTURE RESOLUTION
+        layout.prop(props, "search_texture_resolution", text="Texture Resolutions")
+        if props.search_texture_resolution:
+            row = layout.row(align=True)
+            row.prop(props, "search_texture_resolution_min", text="Min")
+            row.prop(props, "search_texture_resolution_max", text="Max")
 
-            # FILE SIZE
-            layout.prop(props, "search_file_size", text="File Size (MB)")
-            if props.search_file_size:
-                row = layout.row(align=True)
-                row.prop(props, "search_file_size_min", text="Min")
-                row.prop(props, "search_file_size_max", text="Max")
+        # FILE SIZE
+        layout.prop(props, "search_file_size", text="File Size (MB)")
+        if props.search_file_size:
+            row = layout.row(align=True)
+            row.prop(props, "search_file_size_min", text="Min")
+            row.prop(props, "search_file_size_max", text="Max")
 
-            # AGE
-            layout.prop(props, "search_condition", text="Condition")
-            layout.prop(props, "search_animated", text="Animated")
-            layout.prop(ui_props, "quality_limit", slider=True)
+        # AGE
+        layout.prop(props, "search_condition", text="Condition")
+        layout.prop(props, "search_animated", text="Animated")
+        layout.prop(ui_props, "quality_limit", slider=True)
 
         # LICENSE
         layout.prop(ui_props, "search_license")
 
-        if ui_props.asset_type == "MODEL":
-            # LIMIT BLENDER VERSION
-            layout.prop(
-                ui_props, "search_blender_version", text="Asset's Blender Version"
-            )
-            if ui_props.search_blender_version:
-                row = layout.row(align=True)
-                row.prop(ui_props, "search_blender_version_min", text="Min")
-                row.prop(ui_props, "search_blender_version_max", text="Max")
+        # LIMIT BLENDER VERSION
+        layout.prop(ui_props, "search_blender_version", text="Asset's Blender Version")
+        if ui_props.search_blender_version:
+            row = layout.row(align=True)
+            row.prop(ui_props, "search_blender_version_min", text="Min")
+            row.prop(ui_props, "search_blender_version_max", text="Max")
 
         # NSFW filter
         layout.prop(preferences, "nsfw_filter")
@@ -1776,13 +1785,6 @@ class VIEW3D_PT_blenderkit_advanced_model_search(Panel):
 
     def draw(self, context):
         self.draw_layout(self.layout)
-
-
-def draw_panel_printable_upload(self, context):
-    """Draw upload panel for printable assets"""
-    layout = self.layout
-    props = utils.get_upload_props()
-    draw_upload_common(layout, props, "PRINTABLE", context)
 
 
 class VIEW3D_PT_blenderkit_advanced_material_search(Panel):
@@ -2227,7 +2229,7 @@ class VIEW3D_PT_blenderkit_unified(Panel):
             layout.prop(search_props, "unrated_quality_only")
             layout.prop(search_props, "unrated_wh_only")
 
-        if ui_props.asset_type == "MODEL" or ui_props.asset_type == "PRINTABLE":
+        if ui_props.asset_type == "MODEL":
             return draw_panel_model_search(self, context)
 
         if ui_props.asset_type == "SCENE":
@@ -2244,6 +2246,9 @@ class VIEW3D_PT_blenderkit_unified(Panel):
 
         if ui_props.asset_type == "NODEGROUP":
             return draw_panel_nodegroup_search(self, context)
+
+        if ui_props.asset_type == "PRINTABLE":
+            return draw_panel_printable_search(self, context)
 
         if ui_props.asset_type == "ADDON":
             return draw_panel_addon_search(self, context)
@@ -4523,12 +4528,12 @@ def header_search_draw(self, context):
 
     props_dict = {
         "MODEL": wm.blenderkit_models,
-        "PRINTABLE": wm.blenderkit_models,  # PRINTABLE assets use same props as MODEL
         "MATERIAL": wm.blenderkit_mat,
         "BRUSH": wm.blenderkit_brush,
         "HDR": wm.blenderkit_HDR,
         "SCENE": wm.blenderkit_scene,
         "NODEGROUP": wm.blenderkit_nodegroup,
+        "PRINTABLE": wm.blenderkit_printables,
         "ADDON": wm.blenderkit_addon,
         "AUTHOR": wm.blenderkit_author,
     }

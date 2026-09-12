@@ -2953,6 +2953,11 @@ def register():
         type=BlenderKitBrushUploadProps
     )
 
+    # PRINTABLES
+    bpy.types.WindowManager.blenderkit_printables = PointerProperty(
+        type=BlenderKitModelSearchProps
+    )
+
     # NodeGroups
     bpy.types.WindowManager.blenderkit_nodegroup = PointerProperty(
         type=BlenderKitGeoToolSearchProps
