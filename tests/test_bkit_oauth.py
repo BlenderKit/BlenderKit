@@ -149,46 +149,46 @@ class TestLoginTelemetry(unittest.TestCase):
 
         report_event.assert_called_once_with("login_cancelled")
 
-    def test_finished_login_task_reports_completed(self):
+    def _prefs(self):
+        return bpy.context.preferences.addons[__package__].preferences
+
+    def _run_login_task(self, status, login_attempt):
         task = mock.Mock()
-        task.status = "finished"
+        task.status = status
         task.result = {"access_token": "at", "refresh_token": "rt"}
+        task.message = "Failed to refresh token: 400"
+        task.message_detailed = "details"
+        self._prefs().login_attempt = login_attempt
+        self.addCleanup(setattr, self._prefs(), "login_attempt", False)
         with (
             mock.patch.object(bkit_oauth.tasks_queue, "add_task") as add_task,
-            mock.patch.object(bkit_oauth.client_lib, "report_event") as report_event,
-        ):
-            bkit_oauth.handle_login_task(task)
-
-        report_event.assert_called_once_with("login_completed")
-        add_task.assert_called_once()
-
-    def test_error_login_task_reports_failed_with_message(self):
-        task = mock.Mock()
-        task.status = "error"
-        task.message = "Server is down"
-        task.message_detailed = "details"
-        with (
-            mock.patch.object(bkit_oauth, "logout") as logout,
+            mock.patch.object(bkit_oauth, "logout"),
             mock.patch.object(bkit_oauth.reports, "add_report"),
             mock.patch.object(bkit_oauth.client_lib, "report_event") as report_event,
         ):
             bkit_oauth.handle_login_task(task)
+        return report_event, add_task
 
+    def test_finished_task_during_login_attempt_is_login_completed(self):
+        report_event, add_task = self._run_login_task("finished", login_attempt=True)
+        report_event.assert_called_once_with("login_completed")
+        add_task.assert_called_once()
+
+    def test_finished_task_without_login_attempt_is_token_refreshed(self):
+        """The Client delivers refresh outcomes as "login" tasks; without an
+        add-on-started login they must not count as logins."""
+        report_event, add_task = self._run_login_task("finished", login_attempt=False)
+        report_event.assert_called_once_with("token_refreshed")
+        add_task.assert_called_once()
+
+    def test_error_task_during_login_attempt_is_login_failed(self):
+        report_event, _ = self._run_login_task("error", login_attempt=True)
         report_event.assert_called_once_with(
-            "login_failed", {"message": "Server is down"}
+            "login_failed", {"message": "Failed to refresh token: 400"}
         )
-        logout.assert_called_once()
 
-    def test_token_refresh_does_not_report_login_completed(self):
-        """write_tokens is shared with token refresh - the event must live in
-        handle_login_task only, or every refresh would count as a login."""
-        with (
-            mock.patch.object(bkit_oauth, "bpy") as bpy_mock,
-            mock.patch.object(bkit_oauth.search_price, "clear_price_cache"),
-            mock.patch.object(bkit_oauth.client_lib, "report_event") as report_event,
-        ):
-            # below the 4.2 extensions branch, which needs a real repo setup
-            bpy_mock.app.version = (3, 6, 0)
-            bkit_oauth.write_tokens("at", "rt", {"expires_in": 3600})
-
-        report_event.assert_not_called()
+    def test_error_task_without_login_attempt_is_token_refresh_failed(self):
+        report_event, _ = self._run_login_task("error", login_attempt=False)
+        report_event.assert_called_once_with(
+            "token_refresh_failed", {"message": "Failed to refresh token: 400"}
+        )
